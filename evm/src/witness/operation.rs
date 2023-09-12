@@ -698,10 +698,15 @@ pub(crate) fn generate_mload_32bytes<F: Field>(
     let len = len.as_usize();
 
     let base_address = MemoryAddress::new_u256s(context, segment, base_virt)?;
+    if usize::MAX - base_address.virt < len {
+        return Err(ProgramError::MemoryError(VirtTooLarge {
+            virt: base_address.virt.into(),
+        }));
+    }
     let bytes = (0..len)
         .map(|i| {
             let address = MemoryAddress {
-                virt: base_address.virt.saturating_add(i),
+                virt: base_address.virt + i,
                 ..base_address
             };
             let val = state.memory.get(address);

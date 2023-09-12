@@ -49,7 +49,7 @@ impl MemoryOp {
     /// depend on the next operation, such as `CONTEXT_FIRST_CHANGE`; those are generated later.
     /// It also does not generate columns such as `COUNTER`, which are generated later, after the
     /// trace has been transposed into column-major form.
-    pub(crate) fn into_row<F: Field>(self) -> [F; NUM_COLUMNS] {
+    fn into_row<F: Field>(self) -> [F; NUM_COLUMNS] {
         let mut row = [F::ZERO; NUM_COLUMNS];
         row[FILTER] = F::from_bool(self.filter);
         row[TIMESTAMP] = F::from_canonical_usize(self.timestamp);

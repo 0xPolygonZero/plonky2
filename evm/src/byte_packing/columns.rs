@@ -12,6 +12,7 @@ pub(crate) const SEQUENCE_END: usize = IS_READ + 1;
 
 pub(super) const BYTES_INDICES_START: usize = SEQUENCE_END + 1;
 pub(crate) const fn index_bytes(i: usize) -> usize {
+    debug_assert!(i < NUM_BYTES);
     BYTES_INDICES_START + i
 }
 
@@ -31,6 +32,7 @@ pub(crate) const SEQUENCE_LEN: usize = TIMESTAMP + 1;
 // 32 byte limbs hold a total of 256 bits.
 const BYTES_VALUES_START: usize = SEQUENCE_LEN + 1;
 pub(crate) const fn value_bytes(i: usize) -> usize {
+    debug_assert!(i < NUM_BYTES);
     BYTES_VALUES_START + i
 }
 

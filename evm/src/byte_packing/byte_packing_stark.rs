@@ -6,6 +6,7 @@ use plonky2::field::packed::PackedField;
 use plonky2::field::polynomial::PolynomialValues;
 use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
+use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::timed;
 use plonky2::util::timing::TimingTree;
 use plonky2::util::transpose;
@@ -22,12 +23,13 @@ use crate::stark::Stark;
 use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 use crate::witness::memory::MemoryAddress;
 
+/// Strict upper bound for the individual bytes range-check.
 const BYTE_RANGE_MAX: usize = 1usize << 8;
 
 pub(crate) fn ctl_looked_data<F: Field>() -> Vec<Column<F>> {
     let outputs: Vec<Column<F>> = (0..8)
         .map(|i| {
-            let range = (value_bytes(i * 4)..value_bytes((i + 1) * 4)).collect_vec();
+            let range = (value_bytes(i * 4)..value_bytes(i * 4) + 4).collect_vec();
             Column::linear_combination(
                 range
                     .iter()
@@ -87,7 +89,7 @@ pub(crate) struct BytePackingOp {
     pub(crate) timestamp: usize,
 
     /// The byte sequence that was read/written.
-    /// Its length is expected to be at most 32.
+    /// Its length is required to be at most 32.
     pub(crate) bytes: Vec<u8>,
 }
 
@@ -208,6 +210,37 @@ impl<F: RichField + Extendable<D>, const D: usize> BytePackingStark<F, D> {
             cols[rc_c + 1].copy_from_slice(&table_perm);
         }
     }
+
+    /// There is only one `i` for which `vars.local_values[index_bytes(i)]` is non-zero,
+    /// and `i+1` is the current position:
+    fn get_active_position<FE, P, const D2: usize>(&self, row: &[P; NUM_COLUMNS]) -> P
+    where
+        FE: FieldExtension<D2, BaseField = F>,
+        P: PackedField<Scalar = FE>,
+    {
+        (0..NUM_BYTES)
+            .map(|i| row[index_bytes(i)] * P::Scalar::from_canonical_usize(i + 1))
+            .sum()
+    }
+
+    /// Recursive version of `get_active_position`.
+    fn get_active_position_circuit(
+        &self,
+        builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
+        row: &[ExtensionTarget<D>; NUM_COLUMNS],
+    ) -> ExtensionTarget<D> {
+        let mut current_position = row[index_bytes(0)];
+
+        for i in 1..NUM_BYTES {
+            current_position = builder.mul_const_add_extension(
+                F::from_canonical_usize(i + 1),
+                row[index_bytes(i)],
+                current_position,
+            );
+        }
+
+        current_position
+    }
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingStark<F, D> {
@@ -286,15 +319,11 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
 
         // The remaining length of a byte sequence must decrease by one or be zero.
         let current_sequence_length = vars.local_values[SEQUENCE_LEN];
-        let current_remaining_length = current_sequence_length
-            - (0..NUM_BYTES)
-                .map(|i| vars.local_values[index_bytes(i)] * P::Scalar::from_canonical_usize(i + 1))
-                .sum::<P>();
+        let current_position = self.get_active_position(&vars.local_values);
+        let next_position = self.get_active_position(&vars.next_values);
+        let current_remaining_length = current_sequence_length - current_position;
         let next_sequence_length = vars.next_values[SEQUENCE_LEN];
-        let next_remaining_length = next_sequence_length
-            - (0..NUM_BYTES)
-                .map(|i| vars.next_values[index_bytes(i)] * P::Scalar::from_canonical_usize(i + 1))
-                .sum::<P>();
+        let next_remaining_length = next_sequence_length - next_position;
         yield_constr.constraint_transition(
             current_remaining_length * (current_remaining_length - next_remaining_length - one),
         );
@@ -425,25 +454,13 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
 
         // The remaining length of a byte sequence must decrease by one or be zero.
         let current_sequence_length = vars.local_values[SEQUENCE_LEN];
-        let mut current_remaining_length = vars.local_values[index_bytes(0)];
         let next_sequence_length = vars.next_values[SEQUENCE_LEN];
-        let mut next_remaining_length = vars.next_values[index_bytes(0)];
-        for i in 1..NUM_BYTES {
-            current_remaining_length = builder.mul_const_add_extension(
-                F::from_canonical_usize(i + 1),
-                vars.local_values[index_bytes(i)],
-                current_remaining_length,
-            );
-            next_remaining_length = builder.mul_const_add_extension(
-                F::from_canonical_usize(i + 1),
-                vars.next_values[index_bytes(i)],
-                next_remaining_length,
-            );
-        }
+        let current_position = self.get_active_position_circuit(builder, &vars.local_values);
+        let next_position = self.get_active_position_circuit(builder, &vars.next_values);
+
         let current_remaining_length =
-            builder.sub_extension(current_sequence_length, current_remaining_length);
-        let next_remaining_length =
-            builder.sub_extension(next_sequence_length, next_remaining_length);
+            builder.sub_extension(current_sequence_length, current_position);
+        let next_remaining_length = builder.sub_extension(next_sequence_length, next_position);
         let length_diff = builder.sub_extension(current_remaining_length, next_remaining_length);
         let constraint = builder.mul_sub_extension(
             current_remaining_length,
