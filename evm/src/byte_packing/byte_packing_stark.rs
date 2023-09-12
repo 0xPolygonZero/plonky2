@@ -319,8 +319,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
 
         // The remaining length of a byte sequence must decrease by one or be zero.
         let current_sequence_length = vars.local_values[SEQUENCE_LEN];
-        let current_position = self.get_active_position(&vars.local_values);
-        let next_position = self.get_active_position(&vars.next_values);
+        let current_position = self.get_active_position(vars.local_values);
+        let next_position = self.get_active_position(vars.next_values);
         let current_remaining_length = current_sequence_length - current_position;
         let next_sequence_length = vars.next_values[SEQUENCE_LEN];
         let next_remaining_length = next_sequence_length - next_position;
@@ -455,8 +455,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
         // The remaining length of a byte sequence must decrease by one or be zero.
         let current_sequence_length = vars.local_values[SEQUENCE_LEN];
         let next_sequence_length = vars.next_values[SEQUENCE_LEN];
-        let current_position = self.get_active_position_circuit(builder, &vars.local_values);
-        let next_position = self.get_active_position_circuit(builder, &vars.next_values);
+        let current_position = self.get_active_position_circuit(builder, vars.local_values);
+        let next_position = self.get_active_position_circuit(builder, vars.next_values);
 
         let current_remaining_length =
             builder.sub_extension(current_sequence_length, current_position);
