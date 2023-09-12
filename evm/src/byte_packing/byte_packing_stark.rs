@@ -14,7 +14,7 @@
 //! of the sequence being processed is retrieved from that column and the active byte flag
 //! as:
 //!
-//!     remaining_length = sequence_length - \sum_{i=0}^31 b[i] * i
+//!    remaining_length = sequence_length - \sum_{i=0}^31 b[i] * i
 //!
 //! where b[i] is the `i`-th byte flag.
 //!
