@@ -21,6 +21,7 @@ use plonky2_util::{log2_ceil, log2_strict};
 
 use crate::all_stark::{AllStark, Table, NUM_TABLES};
 use crate::arithmetic::arithmetic_stark::ArithmeticStark;
+use crate::byte_packing::byte_packing_stark::BytePackingStark;
 use crate::config::StarkConfig;
 use crate::constraint_consumer::ConstraintConsumer;
 use crate::cpu::cpu_stark::CpuStark;
@@ -53,6 +54,7 @@ where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
     [(); ArithmeticStark::<F, D>::COLUMNS]:,
+    [(); BytePackingStark::<F, D>::COLUMNS]:,
     [(); CpuStark::<F, D>::COLUMNS]:,
     [(); KeccakStark::<F, D>::COLUMNS]:,
     [(); KeccakSpongeStark::<F, D>::COLUMNS]:,
@@ -75,6 +77,7 @@ where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
     [(); ArithmeticStark::<F, D>::COLUMNS]:,
+    [(); BytePackingStark::<F, D>::COLUMNS]:,
     [(); CpuStark::<F, D>::COLUMNS]:,
     [(); KeccakStark::<F, D>::COLUMNS]:,
     [(); KeccakSpongeStark::<F, D>::COLUMNS]:,
@@ -103,6 +106,7 @@ where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
     [(); ArithmeticStark::<F, D>::COLUMNS]:,
+    [(); BytePackingStark::<F, D>::COLUMNS]:,
     [(); CpuStark::<F, D>::COLUMNS]:,
     [(); KeccakStark::<F, D>::COLUMNS]:,
     [(); KeccakSpongeStark::<F, D>::COLUMNS]:,
@@ -193,6 +197,7 @@ where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
     [(); ArithmeticStark::<F, D>::COLUMNS]:,
+    [(); BytePackingStark::<F, D>::COLUMNS]:,
     [(); CpuStark::<F, D>::COLUMNS]:,
     [(); KeccakStark::<F, D>::COLUMNS]:,
     [(); KeccakSpongeStark::<F, D>::COLUMNS]:,
@@ -208,6 +213,19 @@ where
             &trace_poly_values[Table::Arithmetic as usize],
             &trace_commitments[Table::Arithmetic as usize],
             &ctl_data_per_table[Table::Arithmetic as usize],
+            challenger,
+            timing,
+        )?
+    );
+    let byte_packing_proof = timed!(
+        timing,
+        "prove byte packing STARK",
+        prove_single_table(
+            &all_stark.byte_packing_stark,
+            config,
+            &trace_poly_values[Table::BytePacking as usize],
+            &trace_commitments[Table::BytePacking as usize],
+            &ctl_data_per_table[Table::BytePacking as usize],
             challenger,
             timing,
         )?
@@ -277,8 +295,10 @@ where
             timing,
         )?
     );
+
     Ok([
         arithmetic_proof,
+        byte_packing_proof,
         cpu_proof,
         keccak_proof,
         keccak_sponge_proof,
