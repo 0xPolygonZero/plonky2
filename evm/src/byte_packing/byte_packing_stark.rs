@@ -1,3 +1,36 @@
+//! This crate enforces the correctness of reading and writing sequences
+//! of bytes in Big-Endian ordering from and to the memory.
+//!
+//! The trace layout consists in N consecutive rows for an `N` byte sequence,
+//! with the byte values being cumulatively written to the trace as they are
+//! being processed.
+//!
+//! At row `i` of such a group (starting from 0), the `i`-th byte flag will be activated
+//! (to indicate which byte we are going to be processing), but all bytes with index
+//! 0 to `i` may have non-zero values, as they have already been processed.
+//!
+//! The length of a sequence is stored within each group of rows corresponding to that
+//! sequence in a dedicated `SEQUENCE_LEN` column. At any row `i`, the remaining length
+//! of the sequence being processed is retrieved from that column and the active byte flag
+//! as:
+//!
+//!     remaining_length = sequence_length - \sum_{i=0}^31 b[i] * i
+//!
+//! where b[i] is the `i`-th byte flag.
+//!
+//! Because of the discrepancy in endianness between the different tables, the byte sequences
+//! are actually written in the trace in reverse order from the order they are provided.
+//! As such, the memory virtual address for a group of rows corresponding to a sequence starts
+//! with the final virtual address, corresponding to the final byte being read/written, and
+//! is being decremented at each step.
+//!
+//! Note that, when writing a sequence of bytes to memory, both the `U256` value and the
+//! corresponding sequence length are being read from the stack. Because of the endianness
+//! discrepancy mentioned above, we first convert the value to a byte sequence in Little-Endian,
+//! then resize the sequence to prune unneeded zeros before reverting the sequence order.
+//! This means that the higher-order bytes will be thrown away during the process, if the value
+//! is greater than 256^length, and as a result a different value will be stored in memory.
+
 use std::marker::PhantomData;
 
 use itertools::Itertools;
@@ -27,6 +60,10 @@ use crate::witness::memory::MemoryAddress;
 const BYTE_RANGE_MAX: usize = 1usize << 8;
 
 pub(crate) fn ctl_looked_data<F: Field>() -> Vec<Column<F>> {
+    // Reconstruct the u32 limbs composing the final `U256` word
+    // being read/written from the underlying byte values. For each,
+    // we pack 4 consecutive bytes and shift them accordingly to
+    // obtain the corresponding limb.
     let outputs: Vec<Column<F>> = (0..8)
         .map(|i| {
             let range = (value_bytes(i * 4)..value_bytes(i * 4) + 4).collect_vec();
