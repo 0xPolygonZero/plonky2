@@ -50,7 +50,9 @@ where
     let AllProofChallenges {
         stark_challenges,
         ctl_challenges,
-    } = all_proof.get_challenges(all_stark, config);
+    } = all_proof
+        .get_challenges(all_stark, config)
+        .map_err(|_| anyhow::Error::msg("Invalid sampling of proof challenges."))?;
 
     let nums_permutation_zs = all_stark.nums_permutation_zs(config);
 

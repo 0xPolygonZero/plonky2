@@ -43,9 +43,10 @@ use crate::proof::{
     TrieRootsTarget,
 };
 use crate::stark::Stark;
-use crate::util::{h256_limbs, u256_limbs};
+use crate::util::{h256_limbs, u256_limbs, u256_lowest_limb, u256_lowest_word};
 use crate::vanishing_poly::eval_vanishing_poly_circuit;
 use crate::vars::StarkEvaluationTargets;
+use crate::witness::errors::ProgramError;
 
 /// Table-wise recursive proofs of an `AllProof`.
 pub struct RecursiveAllProof<
@@ -905,7 +906,8 @@ pub(crate) fn set_public_value_targets<F, W, const D: usize>(
     witness: &mut W,
     public_values_target: &PublicValuesTarget,
     public_values: &PublicValues,
-) where
+) -> Result<(), ProgramError>
+where
     F: RichField + Extendable<D>,
     W: Witness<F>,
 {
@@ -923,7 +925,7 @@ pub(crate) fn set_public_value_targets<F, W, const D: usize>(
         witness,
         &public_values_target.block_metadata,
         &public_values.block_metadata,
-    );
+    )?;
     set_block_hashes_target(
         witness,
         &public_values_target.block_hashes,
@@ -934,6 +936,8 @@ pub(crate) fn set_public_value_targets<F, W, const D: usize>(
         &public_values_target.extra_block_data,
         &public_values.extra_block_data,
     );
+
+    Ok(())
 }
 
 pub(crate) fn set_trie_roots_target<F, W, const D: usize>(
@@ -994,7 +998,8 @@ pub(crate) fn set_block_metadata_target<F, W, const D: usize>(
     witness: &mut W,
     block_metadata_target: &BlockMetadataTarget,
     block_metadata: &BlockMetadata,
-) where
+) -> Result<(), ProgramError>
+where
     F: RichField + Extendable<D>,
     W: Witness<F>,
 {
@@ -1005,42 +1010,39 @@ pub(crate) fn set_block_metadata_target<F, W, const D: usize>(
     witness.set_target_arr(&block_metadata_target.block_beneficiary, &beneficiary_limbs);
     witness.set_target(
         block_metadata_target.block_timestamp,
-        F::from_canonical_u32(block_metadata.block_timestamp.as_u32()),
+        u256_lowest_limb(block_metadata.block_timestamp)?,
     );
     witness.set_target(
         block_metadata_target.block_number,
-        F::from_canonical_u32(block_metadata.block_number.as_u32()),
+        u256_lowest_limb(block_metadata.block_number)?,
     );
     witness.set_target(
         block_metadata_target.block_difficulty,
-        F::from_canonical_u32(block_metadata.block_difficulty.as_u32()),
+        u256_lowest_limb(block_metadata.block_difficulty)?,
     );
     witness.set_target(
         block_metadata_target.block_gaslimit,
-        F::from_canonical_u32(block_metadata.block_gaslimit.as_u32()),
+        u256_lowest_limb(block_metadata.block_gaslimit)?,
     );
     witness.set_target(
         block_metadata_target.block_chain_id,
-        F::from_canonical_u32(block_metadata.block_chain_id.as_u32()),
+        u256_lowest_limb(block_metadata.block_chain_id)?,
     );
     // Basefee fits in 2 limbs
-    witness.set_target(
-        block_metadata_target.block_base_fee[0],
-        F::from_canonical_u32(block_metadata.block_base_fee.as_u64() as u32),
-    );
-    witness.set_target(
-        block_metadata_target.block_base_fee[1],
-        F::from_canonical_u32((block_metadata.block_base_fee.as_u64() >> 32) as u32),
-    );
+    let basefee = u256_lowest_word(block_metadata.block_base_fee)?;
+    witness.set_target(block_metadata_target.block_base_fee[0], basefee.0);
+    witness.set_target(block_metadata_target.block_base_fee[1], basefee.1);
     witness.set_target(
         block_metadata_target.block_gas_used,
-        F::from_canonical_u64(block_metadata.block_gas_used.as_u64()),
+        u256_lowest_limb(block_metadata.block_gas_used)?,
     );
     let mut block_bloom_limbs = [F::ZERO; 64];
     for (i, limbs) in block_bloom_limbs.chunks_exact_mut(8).enumerate() {
         limbs.copy_from_slice(&u256_limbs(block_metadata.block_bloom[i]));
     }
     witness.set_target_arr(&block_metadata_target.block_bloom, &block_bloom_limbs);
+
+    Ok(())
 }
 
 pub(crate) fn set_block_hashes_target<F, W, const D: usize>(

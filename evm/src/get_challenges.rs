@@ -13,7 +13,8 @@ use crate::permutation::{
     get_n_grand_product_challenge_sets_target,
 };
 use crate::proof::*;
-use crate::util::{h256_limbs, u256_limbs};
+use crate::util::{h256_limbs, u256_limbs, u256_lowest_limb, u256_lowest_word};
+use crate::witness::errors::ProgramError;
 
 fn observe_root<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
     challenger: &mut Challenger<F, C::Hasher>,
@@ -56,35 +57,24 @@ fn observe_block_metadata<
 >(
     challenger: &mut Challenger<F, C::Hasher>,
     block_metadata: &BlockMetadata,
-) {
+) -> Result<(), ProgramError> {
     challenger.observe_elements(
         &u256_limbs::<F>(U256::from_big_endian(&block_metadata.block_beneficiary.0))[..5],
     );
-    challenger.observe_element(F::from_canonical_u32(
-        block_metadata.block_timestamp.as_u32(),
-    ));
-    challenger.observe_element(F::from_canonical_u32(block_metadata.block_number.as_u32()));
-    challenger.observe_element(F::from_canonical_u32(
-        block_metadata.block_difficulty.as_u32(),
-    ));
-    challenger.observe_element(F::from_canonical_u32(
-        block_metadata.block_gaslimit.as_u32(),
-    ));
-    challenger.observe_element(F::from_canonical_u32(
-        block_metadata.block_chain_id.as_u32(),
-    ));
-    challenger.observe_element(F::from_canonical_u32(
-        block_metadata.block_base_fee.as_u64() as u32,
-    ));
-    challenger.observe_element(F::from_canonical_u32(
-        (block_metadata.block_base_fee.as_u64() >> 32) as u32,
-    ));
-    challenger.observe_element(F::from_canonical_u32(
-        block_metadata.block_gas_used.as_u32(),
-    ));
+    challenger.observe_element(u256_lowest_limb(block_metadata.block_timestamp)?);
+    challenger.observe_element(u256_lowest_limb(block_metadata.block_number)?);
+    challenger.observe_element(u256_lowest_limb(block_metadata.block_difficulty)?);
+    challenger.observe_element(u256_lowest_limb(block_metadata.block_gaslimit)?);
+    challenger.observe_element(u256_lowest_limb(block_metadata.block_chain_id)?);
+    let basefee = u256_lowest_word(block_metadata.block_base_fee)?;
+    challenger.observe_element(basefee.0);
+    challenger.observe_element(basefee.1);
+    challenger.observe_element(u256_lowest_limb(block_metadata.block_gas_used)?);
     for i in 0..8 {
         challenger.observe_elements(&u256_limbs(block_metadata.block_bloom[i]));
     }
+
+    Ok(())
 }
 
 fn observe_block_metadata_target<
@@ -115,17 +105,19 @@ fn observe_extra_block_data<
 >(
     challenger: &mut Challenger<F, C::Hasher>,
     extra_data: &ExtraBlockData,
-) {
-    challenger.observe_element(F::from_canonical_u32(extra_data.txn_number_before.as_u32()));
-    challenger.observe_element(F::from_canonical_u32(extra_data.txn_number_after.as_u32()));
-    challenger.observe_element(F::from_canonical_u32(extra_data.gas_used_before.as_u32()));
-    challenger.observe_element(F::from_canonical_u32(extra_data.gas_used_after.as_u32()));
+) -> Result<(), ProgramError> {
+    challenger.observe_element(u256_lowest_limb(extra_data.txn_number_before)?);
+    challenger.observe_element(u256_lowest_limb(extra_data.txn_number_after)?);
+    challenger.observe_element(u256_lowest_limb(extra_data.gas_used_before)?);
+    challenger.observe_element(u256_lowest_limb(extra_data.gas_used_after)?);
     for i in 0..8 {
         challenger.observe_elements(&u256_limbs(extra_data.block_bloom_before[i]));
     }
     for i in 0..8 {
         challenger.observe_elements(&u256_limbs(extra_data.block_bloom_after[i]));
     }
+
+    Ok(())
 }
 
 fn observe_extra_block_data_target<
@@ -181,12 +173,12 @@ pub(crate) fn observe_public_values<
 >(
     challenger: &mut Challenger<F, C::Hasher>,
     public_values: &PublicValues,
-) {
+) -> Result<(), ProgramError> {
     observe_trie_roots::<F, C, D>(challenger, &public_values.trie_roots_before);
     observe_trie_roots::<F, C, D>(challenger, &public_values.trie_roots_after);
-    observe_block_metadata::<F, C, D>(challenger, &public_values.block_metadata);
+    observe_block_metadata::<F, C, D>(challenger, &public_values.block_metadata)?;
     observe_block_hashes::<F, C, D>(challenger, &public_values.block_hashes);
-    observe_extra_block_data::<F, C, D>(challenger, &public_values.extra_block_data);
+    observe_extra_block_data::<F, C, D>(challenger, &public_values.extra_block_data)
 }
 
 pub(crate) fn observe_public_values_target<
@@ -212,14 +204,14 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> A
         &self,
         all_stark: &AllStark<F, D>,
         config: &StarkConfig,
-    ) -> AllProofChallenges<F, D> {
+    ) -> Result<AllProofChallenges<F, D>, ProgramError> {
         let mut challenger = Challenger::<F, C::Hasher>::new();
 
         for proof in &self.stark_proofs {
             challenger.observe_cap(&proof.proof.trace_cap);
         }
 
-        observe_public_values::<F, C, D>(&mut challenger, &self.public_values);
+        observe_public_values::<F, C, D>(&mut challenger, &self.public_values)?;
 
         let ctl_challenges =
             get_grand_product_challenge_set(&mut challenger, config.num_challenges);
@@ -227,7 +219,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> A
         let num_permutation_zs = all_stark.nums_permutation_zs(config);
         let num_permutation_batch_sizes = all_stark.permutation_batch_sizes();
 
-        AllProofChallenges {
+        Ok(AllProofChallenges {
             stark_challenges: core::array::from_fn(|i| {
                 challenger.compact();
                 self.stark_proofs[i].proof.get_challenges(
@@ -238,7 +230,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> A
                 )
             }),
             ctl_challenges,
-        }
+        })
     }
 
     #[allow(unused)] // TODO: should be used soon
