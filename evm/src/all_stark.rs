@@ -128,16 +128,19 @@ fn ctl_byte_packing<F: Field>() -> CrossTableLookup<F> {
     let cpu_packing_looking = TableWithColumns::new(
         Table::Cpu,
         cpu_stark::ctl_data_byte_packing(),
+        vec![],
         Some(cpu_stark::ctl_filter_byte_packing()),
     );
     let cpu_unpacking_looking = TableWithColumns::new(
         Table::Cpu,
         cpu_stark::ctl_data_byte_unpacking(),
+        vec![],
         Some(cpu_stark::ctl_filter_byte_unpacking()),
     );
     let byte_packing_looked = TableWithColumns::new(
         Table::BytePacking,
         byte_packing_stark::ctl_looked_data(),
+        vec![],
         Some(byte_packing_stark::ctl_looked_filter()),
     );
     CrossTableLookup::new(
@@ -231,6 +234,7 @@ fn ctl_memory<F: Field>() -> CrossTableLookup<F> {
         TableWithColumns::new(
             Table::BytePacking,
             byte_packing_stark::ctl_looking_memory(i),
+            vec![],
             Some(byte_packing_stark::ctl_looking_memory_filter(i)),
         )
     });
