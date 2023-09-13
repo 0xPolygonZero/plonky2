@@ -411,18 +411,15 @@ fn log_kernel_instruction<F: Field>(state: &GenerationState<F>, op: Operation) {
     } else {
         log::Level::Trace
     };
-    if state.traces.clock() > 15900 && state.traces.clock() < 15910 {
-        println!("{:?}\n", state.traces.cpu[state.traces.clock() - 1]);
-        log::log!(
-            level,
-            "Cycle {}, ctx={}, pc={}, instruction={:?}, stack={:?}",
-            state.traces.clock(),
-            state.registers.context,
-            KERNEL.offset_name(pc),
-            op,
-            state.stack(),
-        );
-    }
+    log::log!(
+        level,
+        "Cycle {}, ctx={}, pc={}, instruction={:?}, stack={:?}",
+        state.traces.clock(),
+        state.registers.context,
+        KERNEL.offset_name(pc),
+        op,
+        state.stack(),
+    );
 
     assert!(pc < KERNEL.code.len(), "Kernel PC is out of range: {}", pc);
 }
