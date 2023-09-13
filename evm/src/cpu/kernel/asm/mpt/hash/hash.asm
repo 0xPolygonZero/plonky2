@@ -127,7 +127,6 @@ global encode_node_empty:
     DUP2
     // stack: rlp_pos, 0x80, rlp_pos, retdest
     %mstore_rlp
-
     %stack (rlp_pos, retdest) -> (retdest, rlp_pos, 1)
     JUMP
 
