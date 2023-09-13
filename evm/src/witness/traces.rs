@@ -31,7 +31,7 @@ pub struct TraceCheckpoint {
 
 #[derive(Debug)]
 pub(crate) struct Traces<T: Copy> {
-    pub(crate) arithmetic_ops: Vec<(arithmetic::Operation, bool)>,
+    pub(crate) arithmetic_ops: Vec<arithmetic::Operation>,
     pub(crate) byte_packing_ops: Vec<BytePackingOp>,
     pub(crate) cpu: Vec<CpuColumnsView<T>>,
     pub(crate) logic_ops: Vec<logic::Operation>,
@@ -61,8 +61,8 @@ impl<T: Copy> Traces<T> {
                 .arithmetic_ops
                 .iter()
                 .map(|op| match op {
-                    (Operation::TernaryOperation { .. }, _) => 2,
-                    (Operation::BinaryOperation { operator, .. }, _) => match operator {
+                    Operation::TernaryOperation { .. } => 2,
+                    Operation::BinaryOperation { operator, .. } => match operator {
                         BinaryOperator::Div | BinaryOperator::Mod => 2,
                         _ => 1,
                     },
@@ -119,7 +119,7 @@ impl<T: Copy> Traces<T> {
         self.logic_ops.push(op);
     }
 
-    pub fn push_arithmetic(&mut self, op: (arithmetic::Operation, bool)) {
+    pub fn push_arithmetic(&mut self, op: arithmetic::Operation) {
         self.arithmetic_ops.push(op);
     }
 

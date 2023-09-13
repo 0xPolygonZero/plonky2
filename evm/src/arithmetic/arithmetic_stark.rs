@@ -128,10 +128,7 @@ impl<F: RichField, const D: usize> ArithmeticStark<F, D> {
         }
     }
 
-    pub(crate) fn generate_trace(
-        &self,
-        operations: Vec<(Operation, bool)>,
-    ) -> Vec<PolynomialValues<F>> {
+    pub(crate) fn generate_trace(&self, operations: Vec<Operation>) -> Vec<PolynomialValues<F>> {
         // The number of rows reserved is the smallest value that's
         // guaranteed to avoid a reallocation: The only ops that use
         // two rows are the modular operations and DIV, so the only
@@ -143,7 +140,7 @@ impl<F: RichField, const D: usize> ArithmeticStark<F, D> {
         let mut trace_rows = Vec::with_capacity(max_rows);
 
         for op in operations {
-            let (row1, maybe_row2) = op.0.to_rows(op.1);
+            let (row1, maybe_row2) = op.to_rows();
             trace_rows.push(row1);
 
             if let Some(row2) = maybe_row2 {
@@ -258,7 +255,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ArithmeticSta
 mod tests {
     use anyhow::Result;
     use ethereum_types::U256;
-    use itertools::Itertools;
     use plonky2::field::types::{Field, PrimeField64};
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use rand::{Rng, SeedableRng};
@@ -307,7 +303,7 @@ mod tests {
         };
 
         // 123 + 456 == 579
-        let add = Operation::binary(BinaryOperator::Add, U256::from(123), U256::from(456));
+        let add = Operation::binary(BinaryOperator::Add, U256::from(123), U256::from(456), false);
         // (123 * 456) % 1007 == 703
         let mulmod = Operation::ternary(
             TernaryOperator::MulMod,
@@ -323,28 +319,29 @@ mod tests {
             U256::from(1007),
         );
         // 123 * 456 == 56088
-        let mul = Operation::binary(BinaryOperator::Mul, U256::from(123), U256::from(456));
+        let mul = Operation::binary(BinaryOperator::Mul, U256::from(123), U256::from(456), false);
         // 128 / 13 == 9
-        let div = Operation::binary(BinaryOperator::Div, U256::from(128), U256::from(13));
+        let div = Operation::binary(BinaryOperator::Div, U256::from(128), U256::from(13), false);
 
         // 128 < 13 == 0
-        let lt1 = Operation::binary(BinaryOperator::Lt, U256::from(128), U256::from(13));
+        let lt1 = Operation::binary(BinaryOperator::Lt, U256::from(128), U256::from(13), false);
         // 13 < 128 == 1
-        let lt2 = Operation::binary(BinaryOperator::Lt, U256::from(13), U256::from(128));
+        let lt2 = Operation::binary(BinaryOperator::Lt, U256::from(13), U256::from(128), false);
         // 128 < 128 == 0
-        let lt3 = Operation::binary(BinaryOperator::Lt, U256::from(128), U256::from(128));
+        let lt3 = Operation::binary(BinaryOperator::Lt, U256::from(128), U256::from(128), false);
 
         // 128 % 13 == 11
-        let modop = Operation::binary(BinaryOperator::Mod, U256::from(128), U256::from(13));
+        let modop = Operation::binary(BinaryOperator::Mod, U256::from(128), U256::from(13), false);
 
         // byte(30, 0xABCD) = 0xAB
-        let byte = Operation::binary(BinaryOperator::Byte, U256::from(30), U256::from(0xABCD));
+        let byte = Operation::binary(
+            BinaryOperator::Byte,
+            U256::from(30),
+            U256::from(0xABCD),
+            false,
+        );
 
-        let ops: Vec<(Operation, bool)> =
-            [add, mulmod, addmod, mul, modop, lt1, lt2, lt3, div, byte]
-                .into_iter()
-                .map(|op| (op, false))
-                .collect_vec();
+        let ops: Vec<Operation> = vec![add, mulmod, addmod, mul, modop, lt1, lt2, lt3, div, byte];
 
         let pols = stark.generate_trace(ops);
 
@@ -401,12 +398,10 @@ mod tests {
 
         let ops = (0..super::RANGE_MAX)
             .map(|_| {
-                (
-                    Operation::binary(
-                        BinaryOperator::Mul,
-                        U256::from(rng.gen::<[u8; 32]>()),
-                        U256::from(rng.gen::<[u8; 32]>()),
-                    ),
+                Operation::binary(
+                    BinaryOperator::Mul,
+                    U256::from(rng.gen::<[u8; 32]>()),
+                    U256::from(rng.gen::<[u8; 32]>()),
                     false,
                 )
             })
@@ -424,14 +419,11 @@ mod tests {
 
         let ops = (0..super::RANGE_MAX)
             .map(|_| {
-                (
-                    Operation::ternary(
-                        TernaryOperator::MulMod,
-                        U256::from(rng.gen::<[u8; 32]>()),
-                        U256::from(rng.gen::<[u8; 32]>()),
-                        U256::from(rng.gen::<[u8; 32]>()),
-                    ),
-                    false,
+                Operation::ternary(
+                    TernaryOperator::MulMod,
+                    U256::from(rng.gen::<[u8; 32]>()),
+                    U256::from(rng.gen::<[u8; 32]>()),
+                    U256::from(rng.gen::<[u8; 32]>()),
                 )
             })
             .collect::<Vec<_>>();

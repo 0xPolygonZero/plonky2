@@ -119,6 +119,11 @@ impl TernaryOperator {
     }
 }
 
+/// An enum representing arithmetic operations that can be either binary or ternary.
+///
+/// Binary operations include a special `is_simulated` flag to differentiate SHL
+/// and SHR operations from MUL and DIV respectively, as the former are simulated
+/// with the latter by scaling their inputs.
 #[derive(Debug)]
 pub(crate) enum Operation {
     BinaryOperation {
@@ -126,6 +131,7 @@ pub(crate) enum Operation {
         input0: U256,
         input1: U256,
         result: U256,
+        is_simulated: bool,
     },
     TernaryOperation {
         operator: TernaryOperator,
@@ -137,13 +143,19 @@ pub(crate) enum Operation {
 }
 
 impl Operation {
-    pub(crate) fn binary(operator: BinaryOperator, input0: U256, input1: U256) -> Self {
+    pub(crate) fn binary(
+        operator: BinaryOperator,
+        input0: U256,
+        input1: U256,
+        is_simulated: bool,
+    ) -> Self {
         let result = operator.result(input0, input1);
         Self::BinaryOperation {
             operator,
             input0,
             input1,
             result,
+            is_simulated,
         }
     }
 
@@ -180,13 +192,14 @@ impl Operation {
     /// The `is_simulated` bool indicates whether we use a native arithmetic
     /// operation or simulate one with another. This is used to distinguish
     /// SHL and SHR operations that are simulated through MUL and DIV respectively.
-    fn to_rows<F: PrimeField64>(&self, is_simulated: bool) -> (Vec<F>, Option<Vec<F>>) {
+    fn to_rows<F: PrimeField64>(&self) -> (Vec<F>, Option<Vec<F>>) {
         match *self {
             Operation::BinaryOperation {
                 operator,
                 input0,
                 input1,
                 result,
+                is_simulated,
             } => binary_op_to_rows(operator, is_simulated, input0, input1, result),
             Operation::TernaryOperation {
                 operator,

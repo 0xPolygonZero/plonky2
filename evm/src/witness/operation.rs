@@ -79,7 +79,7 @@ pub(crate) fn generate_binary_arithmetic_op<F: Field>(
 ) -> Result<(), ProgramError> {
     let [(input0, log_in0), (input1, log_in1)] =
         stack_pop_with_log_and_fill::<2, _>(state, &mut row)?;
-    let operation = arithmetic::Operation::binary(operator, input0, input1);
+    let operation = arithmetic::Operation::binary(operator, input0, input1, false);
     let log_out = stack_push_log_and_fill(state, &mut row, operation.result())?;
 
     if operator == arithmetic::BinaryOperator::AddFp254
@@ -95,7 +95,7 @@ pub(crate) fn generate_binary_arithmetic_op<F: Field>(
         }
     }
 
-    state.traces.push_arithmetic((operation, false));
+    state.traces.push_arithmetic(operation);
     state.traces.push_memory(log_in0);
     state.traces.push_memory(log_in1);
     state.traces.push_memory(log_out);
@@ -113,7 +113,7 @@ pub(crate) fn generate_ternary_arithmetic_op<F: Field>(
     let operation = arithmetic::Operation::ternary(operator, input0, input1, input2);
     let log_out = stack_push_log_and_fill(state, &mut row, operation.result())?;
 
-    state.traces.push_arithmetic((operation, false));
+    state.traces.push_arithmetic(operation);
     state.traces.push_memory(log_in0);
     state.traces.push_memory(log_in1);
     state.traces.push_memory(log_in2);
@@ -506,9 +506,9 @@ fn append_shift<F: Field>(
     } else {
         BinaryOperator::Div
     };
-    let operation = arithmetic::Operation::binary(operator, input1, input0);
+    let operation = arithmetic::Operation::binary(operator, input1, input0, true);
 
-    state.traces.push_arithmetic((operation, true));
+    state.traces.push_arithmetic(operation);
     state.traces.push_memory(log_in0);
     state.traces.push_memory(log_in1);
     state.traces.push_memory(log_out);
