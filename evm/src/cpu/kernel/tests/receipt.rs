@@ -38,7 +38,7 @@ fn test_process_receipt() -> Result<()> {
 
     // Set memory.
     let num_nibbles = 2.into();
-    let initial_stack = vec![
+    let initial_stack: Vec<U256> = vec![
         retdest,
         num_nibbles,
         0.into(),
@@ -127,7 +127,7 @@ fn test_receipt_encoding() -> Result<()> {
     // Get the expected RLP encoding.
     let expected_rlp = rlp::encode(&rlp::encode(&receipt_1));
 
-    let initial_stack = vec![retdest, 0.into(), 0.into()];
+    let initial_stack: Vec<U256> = vec![retdest, 0.into(), 0.into()];
     let mut interpreter = Interpreter::new_with_kernel(encode_receipt, initial_stack);
 
     // Write data to memory.
@@ -246,7 +246,7 @@ fn test_receipt_bloom_filter() -> Result<()> {
     let topic03 = 0xbd9fe6.into();
 
     // Set logs memory and initialize TxnBloom and BlockBloom segments.
-    let initial_stack = vec![retdest];
+    let initial_stack: Vec<U256> = vec![retdest];
 
     let mut interpreter = Interpreter::new_with_kernel(logs_bloom, initial_stack);
     let mut logs = vec![
@@ -418,7 +418,7 @@ fn test_mpt_insert_receipt() -> Result<()> {
     receipt.extend(logs_0.clone());
 
     // First, we load all mpts.
-    let initial_stack = vec![retdest];
+    let initial_stack: Vec<U256> = vec![retdest];
 
     let mut interpreter = Interpreter::new_with_kernel(load_all_mpts, initial_stack);
     interpreter.generation_state.mpt_prover_inputs = all_mpt_prover_inputs_reversed(&trie_inputs);
@@ -432,7 +432,7 @@ fn test_mpt_insert_receipt() -> Result<()> {
 
     // stack: transaction_nb, value_ptr, retdest
     let num_nibbles = 2;
-    let initial_stack = vec![
+    let initial_stack: Vec<U256> = vec![
         retdest,
         cur_trie_data.len().into(),
         0x80.into(),
@@ -502,7 +502,7 @@ fn test_mpt_insert_receipt() -> Result<()> {
     // Get updated TrieData segment.
     cur_trie_data = interpreter.get_memory_segment(Segment::TrieData);
     let num_nibbles = 2;
-    let initial_stack2 = vec![
+    let initial_stack2: Vec<U256> = vec![
         retdest,
         cur_trie_data.len().into(),
         0x01.into(),
@@ -546,7 +546,7 @@ fn test_bloom_two_logs() -> Result<()> {
     let retdest = 0xDEADBEEFu32.into();
     let logs_bloom = KERNEL.global_labels["logs_bloom"];
 
-    let initial_stack = vec![retdest];
+    let initial_stack: Vec<U256> = vec![retdest];
 
     // Set memory.
     let logs = vec![
