@@ -155,6 +155,40 @@ pub fn ctl_arithmetic_shift_rows<F: Field>() -> TableWithColumns<F> {
     )
 }
 
+pub fn ctl_data_byte_packing<F: Field>() -> Vec<Column<F>> {
+    ctl_data_keccak_sponge()
+}
+
+pub fn ctl_filter_byte_packing<F: Field>() -> Column<F> {
+    Column::single(COL_MAP.op.mload_32bytes)
+}
+
+pub fn ctl_data_byte_unpacking<F: Field>() -> Vec<Column<F>> {
+    // When executing MSTORE_32BYTES, the GP memory channels are used as follows:
+    // GP channel 0: stack[-1] = context
+    // GP channel 1: stack[-2] = segment
+    // GP channel 2: stack[-3] = virt
+    // GP channel 3: stack[-4] = val
+    // GP channel 4: stack[-5] = len
+    let context = Column::single(COL_MAP.mem_channels[0].value[0]);
+    let segment = Column::single(COL_MAP.mem_channels[1].value[0]);
+    let virt = Column::single(COL_MAP.mem_channels[2].value[0]);
+    let val = Column::singles(COL_MAP.mem_channels[3].value);
+    let len = Column::single(COL_MAP.mem_channels[4].value[0]);
+
+    let num_channels = F::from_canonical_usize(NUM_CHANNELS);
+    let timestamp = Column::linear_combination([(COL_MAP.clock, num_channels)]);
+
+    let mut res = vec![context, segment, virt, len, timestamp];
+    res.extend(val);
+
+    res
+}
+
+pub fn ctl_filter_byte_unpacking<F: Field>() -> Column<F> {
+    Column::single(COL_MAP.op.mstore_32bytes)
+}
+
 pub const MEM_CODE_CHANNEL_IDX: usize = 0;
 pub const MEM_GP_CHANNELS_IDX_START: usize = MEM_CODE_CHANNEL_IDX + 1;
 
