@@ -1,0 +1,3 @@
+# TODO: Remove once we update `plonky2` far enough to use rolling release nightly...
+[toolchain]
+channel = "nightly-2023-07-01"

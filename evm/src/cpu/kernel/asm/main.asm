@@ -38,7 +38,12 @@ global txn_loop_after:
 global hash_final_tries:
     // stack: cum_gas, txn_nb
     %pop2
-    %mpt_hash_state_trie   %mload_global_metadata(@GLOBAL_METADATA_STATE_TRIE_DIGEST_AFTER)     %assert_eq
+global hash_final_tries_state:
+    %mpt_hash_state_trie   %mload_global_metadata(@GLOBAL_METADATA_STATE_TRIE_DIGEST_AFTER)
+global hash_final_tries_state_before_assert:
+    %assert_eq
+global hash_final_tries_txn:
     %mpt_hash_txn_trie     %mload_global_metadata(@GLOBAL_METADATA_TXN_TRIE_DIGEST_AFTER)       %assert_eq
+global hash_final_tries_receipt:
     %mpt_hash_receipt_trie %mload_global_metadata(@GLOBAL_METADATA_RECEIPT_TRIE_DIGEST_AFTER)   %assert_eq
     %jump(halt)
