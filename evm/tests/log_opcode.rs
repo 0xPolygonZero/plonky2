@@ -439,7 +439,7 @@ fn test_log_with_aggreg() -> anyhow::Result<()> {
     // Preprocess all circuits.
     let all_circuits = AllRecursiveCircuits::<F, C, D>::new(
         &all_stark,
-        &[16..17, 17..19, 14..15, 9..11, 12..13, 20..21],
+        &[16..17, 11..13, 17..19, 14..15, 9..11, 12..13, 19..21],
         &config,
     );
 

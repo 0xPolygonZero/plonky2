@@ -53,7 +53,10 @@ fn test_basic_smart_contract() -> anyhow::Result<()> {
     let code_gas = 3 + 3 + 3;
     let code_hash = keccak(code);
 
-    let beneficiary_account_before = AccountRlp::default();
+    let beneficiary_account_before = AccountRlp {
+        nonce: 1.into(),
+        ..AccountRlp::default()
+    };
     let sender_account_before = AccountRlp {
         nonce: 5.into(),
         balance: eth_to_wei(100_000.into()),
@@ -66,6 +69,11 @@ fn test_basic_smart_contract() -> anyhow::Result<()> {
 
     let state_trie_before = {
         let mut children = core::array::from_fn(|_| Node::Empty.into());
+        children[beneficiary_nibbles.get_nibble(0) as usize] = Node::Leaf {
+            nibbles: beneficiary_nibbles.truncate_n_nibbles_front(1),
+            value: rlp::encode(&beneficiary_account_before).to_vec(),
+        }
+        .into();
         children[sender_nibbles.get_nibble(0) as usize] = Node::Leaf {
             nibbles: sender_nibbles.truncate_n_nibbles_front(1),
             value: rlp::encode(&sender_account_before).to_vec(),
@@ -90,25 +98,33 @@ fn test_basic_smart_contract() -> anyhow::Result<()> {
         storage_tries: vec![],
     };
 
+    let txdata_gas = 2 * 16;
+    let gas_used = 21_000 + code_gas + txdata_gas;
+
     // Generated using a little py-evm script.
     let txn = hex!("f861050a8255f094a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0648242421ba02c89eb757d9deeb1f5b3859a9d4d679951ef610ac47ad4608dc142beb1b7e313a05af7e9fbab825455d36c36c7f4cfcafbeafa9a77bdff936b52afb36d4fe4bcdd");
     let value = U256::from(100u32);
 
     let block_metadata = BlockMetadata {
         block_beneficiary: Address::from(beneficiary),
-        ..BlockMetadata::default()
+        block_difficulty: 0x20000.into(),
+        block_number: 1.into(),
+        block_chain_id: 1.into(),
+        block_timestamp: 0x03e8.into(),
+        block_gaslimit: 0xff112233u32.into(),
+        block_gas_used: gas_used.into(),
+        block_bloom: [0.into(); 8],
+        block_base_fee: 0xa.into(),
     };
 
     let mut contract_code = HashMap::new();
     contract_code.insert(keccak(vec![]), vec![]);
     contract_code.insert(code_hash, code.to_vec());
 
-    let txdata_gas = 2 * 16;
-    let gas_used = 21_000 + code_gas + txdata_gas;
     let expected_state_trie_after: HashedPartialTrie = {
         let beneficiary_account_after = AccountRlp {
-            balance: beneficiary_account_before.balance + gas_used * 10,
-            ..beneficiary_account_before
+            nonce: 1.into(),
+            ..AccountRlp::default()
         };
         let sender_account_after = AccountRlp {
             balance: sender_account_before.balance - value - gas_used * 10,
