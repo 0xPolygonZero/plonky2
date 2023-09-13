@@ -50,7 +50,7 @@ fn test_log_2() -> Result<()> {
     let logs_entry = KERNEL.global_labels["log_n_entry"];
     let address: Address = thread_rng().gen();
     let num_topics = U256::from(2);
-    let topics = vec![4.into(), 5.into()];
+    let topics = [4.into(), 5.into()];
     let data_len = U256::from(3);
     let data_offset = U256::from(0);
 
@@ -109,7 +109,7 @@ fn test_log_4() -> Result<()> {
     let logs_entry = KERNEL.global_labels["log_n_entry"];
     let address: Address = thread_rng().gen();
     let num_topics = U256::from(4);
-    let topics = vec![45.into(), 46.into(), 47.into(), 48.into()];
+    let topics = [45.into(), 46.into(), 47.into(), 48.into()];
     let data_len = U256::from(1);
     let data_offset = U256::from(2);
 
@@ -170,7 +170,7 @@ fn test_log_5() -> Result<()> {
     let logs_entry = KERNEL.global_labels["log_n_entry"];
     let address: Address = thread_rng().gen();
     let num_topics = U256::from(5);
-    let topics = vec![1.into(), 2.into(), 3.into(), 4.into(), 5.into()];
+    let topics = [1.into(), 2.into(), 3.into(), 4.into(), 5.into()];
     let data_len = U256::from(0);
     let data_offset = U256::from(0);
 

@@ -64,7 +64,9 @@ pub(crate) fn u256_limbs<F: Field>(u256: U256) -> [F; 8] {
 #[allow(unused)]
 /// Returns the 32-bit little-endian limbs of a `H256`.
 pub(crate) fn h256_limbs<F: Field>(h256: H256) -> [F; 8] {
-    h256.0
+    let mut temp_h256 = h256.0;
+    temp_h256.reverse();
+    temp_h256
         .chunks(4)
         .map(|chunk| u32::from_le_bytes(chunk.try_into().unwrap()))
         .map(F::from_canonical_u32)

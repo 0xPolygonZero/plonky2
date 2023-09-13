@@ -5,7 +5,7 @@ use std::time::Duration;
 use env_logger::{try_init_from_env, Env, DEFAULT_FILTER_ENV};
 use eth_trie_utils::nibbles::Nibbles;
 use eth_trie_utils::partial_trie::{HashedPartialTrie, PartialTrie};
-use ethereum_types::Address;
+use ethereum_types::{Address, H256};
 use hex_literal::hex;
 use keccak_hash::keccak;
 use plonky2::field::goldilocks_field::GoldilocksField;
@@ -15,7 +15,7 @@ use plonky2_evm::all_stark::AllStark;
 use plonky2_evm::config::StarkConfig;
 use plonky2_evm::generation::mpt::{AccountRlp, LegacyReceiptRlp};
 use plonky2_evm::generation::{GenerationInputs, TrieInputs};
-use plonky2_evm::proof::{BlockMetadata, TrieRoots};
+use plonky2_evm::proof::{BlockHashes, BlockMetadata, TrieRoots};
 use plonky2_evm::prover::prove;
 use plonky2_evm::verifier::verify_proof;
 use plonky2_evm::Node;
@@ -86,6 +86,7 @@ fn add11_yml() -> anyhow::Result<()> {
         block_gaslimit: 0xff112233u32.into(),
         block_chain_id: 1.into(),
         block_base_fee: 0xa.into(),
+        block_gas_used: 0xa868u64.into(),
         block_bloom: [0.into(); 8],
     };
 
@@ -148,6 +149,15 @@ fn add11_yml() -> anyhow::Result<()> {
         trie_roots_after,
         contract_code,
         block_metadata,
+        txn_number_before: 0.into(),
+        gas_used_before: 0.into(),
+        gas_used_after: 0xa868u64.into(),
+        block_bloom_before: [0.into(); 8],
+        block_bloom_after: [0.into(); 8],
+        block_hashes: BlockHashes {
+            prev_hashes: vec![H256::default(); 256],
+            cur_hash: H256::default(),
+        },
         addresses: vec![],
     };
 

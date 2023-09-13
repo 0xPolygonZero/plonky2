@@ -44,6 +44,8 @@ pub(crate) fn gas_to_charge(op: Operation) -> u64 {
         Swap(_) => G_VERYLOW,
         GetContext => KERNEL_ONLY_INSTR,
         SetContext => KERNEL_ONLY_INSTR,
+        Mload32Bytes => KERNEL_ONLY_INSTR,
+        Mstore32Bytes => KERNEL_ONLY_INSTR,
         ExitKernel => KERNEL_ONLY_INSTR,
         MloadGeneral => KERNEL_ONLY_INSTR,
         MstoreGeneral => KERNEL_ONLY_INSTR,

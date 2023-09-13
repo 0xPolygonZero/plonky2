@@ -15,7 +15,7 @@ use crate::cross_table_lookup::Column;
 use crate::keccak::columns::{
     reg_a, reg_a_prime, reg_a_prime_prime, reg_a_prime_prime_0_0_bit, reg_a_prime_prime_prime,
     reg_b, reg_c, reg_c_prime, reg_input_limb, reg_output_limb, reg_preimage, reg_step,
-    NUM_COLUMNS, REG_FILTER,
+    NUM_COLUMNS,
 };
 use crate::keccak::constants::{rc_value, rc_value_bit};
 use crate::keccak::logic::{
@@ -39,7 +39,7 @@ pub fn ctl_data<F: Field>() -> Vec<Column<F>> {
 }
 
 pub fn ctl_filter<F: Field>() -> Column<F> {
-    Column::single(REG_FILTER)
+    Column::single(reg_step(NUM_ROUNDS - 1))
 }
 
 #[derive(Copy, Clone, Default)]
@@ -58,19 +58,16 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakStark<F, D> {
         let num_rows = (inputs.len() * NUM_ROUNDS)
             .max(min_rows)
             .next_power_of_two();
+
         let mut rows = Vec::with_capacity(num_rows);
         for input in inputs.iter() {
-            let mut rows_for_perm = self.generate_trace_rows_for_perm(*input);
-            // Since this is a real operation, not padding, we set the filter to 1 on the last row.
-            rows_for_perm[NUM_ROUNDS - 1][REG_FILTER] = F::ONE;
+            let rows_for_perm = self.generate_trace_rows_for_perm(*input);
             rows.extend(rows_for_perm);
         }
 
-        let pad_rows = self.generate_trace_rows_for_perm([0; NUM_INPUTS]);
         while rows.len() < num_rows {
-            rows.extend(&pad_rows);
+            rows.push([F::ZERO; NUM_COLUMNS]);
         }
-        rows.drain(num_rows..);
         rows
     }
 
@@ -255,7 +252,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakStark<F
         eval_round_flags(vars, yield_constr);
 
         // The filter must be 0 or 1.
-        let filter = vars.local_values[REG_FILTER];
+        let filter = vars.local_values[reg_step(NUM_ROUNDS - 1)];
         yield_constr.constraint(filter * (filter - P::ONES));
 
         // If this is not the final step, the filter must be off.
@@ -264,6 +261,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakStark<F
         yield_constr.constraint(not_final_step * filter);
 
         // If this is not the final step, the local and next preimages must match.
+        // Also, if this is the first step, the preimage must match A.
+        let is_first_step = vars.local_values[reg_step(0)];
         for x in 0..5 {
             for y in 0..5 {
                 let reg_preimage_lo = reg_preimage(x, y);
@@ -274,6 +273,13 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakStark<F
                     vars.local_values[reg_preimage_hi] - vars.next_values[reg_preimage_hi];
                 yield_constr.constraint_transition(not_final_step * diff_lo);
                 yield_constr.constraint_transition(not_final_step * diff_hi);
+
+                let reg_a_lo = reg_a(x, y);
+                let reg_a_hi = reg_a_lo + 1;
+                let diff_lo = vars.local_values[reg_preimage_lo] - vars.local_values[reg_a_lo];
+                let diff_hi = vars.local_values[reg_preimage_hi] - vars.local_values[reg_a_hi];
+                yield_constr.constraint(is_first_step * diff_lo);
+                yield_constr.constraint(is_first_step * diff_hi);
             }
         }
 
@@ -428,7 +434,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakStark<F
         eval_round_flags_recursively(builder, vars, yield_constr);
 
         // The filter must be 0 or 1.
-        let filter = vars.local_values[REG_FILTER];
+        let filter = vars.local_values[reg_step(NUM_ROUNDS - 1)];
         let constraint = builder.mul_sub_extension(filter, filter, filter);
         yield_constr.constraint(builder, constraint);
 
@@ -439,6 +445,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakStark<F
         yield_constr.constraint(builder, constraint);
 
         // If this is not the final step, the local and next preimages must match.
+        // Also, if this is the first step, the preimage must match A.
+        let is_first_step = vars.local_values[reg_step(0)];
         for x in 0..5 {
             for y in 0..5 {
                 let reg_preimage_lo = reg_preimage(x, y);
@@ -455,6 +463,21 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakStark<F
                 );
                 let constraint = builder.mul_extension(not_final_step, diff);
                 yield_constr.constraint_transition(builder, constraint);
+
+                let reg_a_lo = reg_a(x, y);
+                let reg_a_hi = reg_a_lo + 1;
+                let diff_lo = builder.sub_extension(
+                    vars.local_values[reg_preimage_lo],
+                    vars.local_values[reg_a_lo],
+                );
+                let constraint = builder.mul_extension(is_first_step, diff_lo);
+                yield_constr.constraint(builder, constraint);
+                let diff_hi = builder.sub_extension(
+                    vars.local_values[reg_preimage_hi],
+                    vars.local_values[reg_a_hi],
+                );
+                let constraint = builder.mul_extension(is_first_step, diff_hi);
+                yield_constr.constraint(builder, constraint);
             }
         }
 

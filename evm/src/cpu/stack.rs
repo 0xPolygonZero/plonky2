@@ -133,6 +133,18 @@ pub(crate) const STACK_BEHAVIORS: OpsColumnsView<Option<StackBehavior>> = OpsCol
         disable_other_channels: true,
     }),
     set_context: None, // SET_CONTEXT is special since it involves the old and the new stack.
+    mload_32bytes: Some(StackBehavior {
+        num_pops: 4,
+        pushes: true,
+        new_top_stack_channel: Some(4),
+        disable_other_channels: false,
+    }),
+    mstore_32bytes: Some(StackBehavior {
+        num_pops: 5,
+        pushes: false,
+        new_top_stack_channel: None,
+        disable_other_channels: false,
+    }),
     exit_kernel: Some(StackBehavior {
         num_pops: 1,
         pushes: false,
