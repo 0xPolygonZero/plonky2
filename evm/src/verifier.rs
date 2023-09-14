@@ -50,7 +50,7 @@ where
     let AllProofChallenges {
         stark_challenges,
         ctl_challenges,
-    } = all_proof.get_challenges(all_stark, config);
+    } = all_proof.get_challenges(config);
 
     let num_lookup_columns = all_stark.num_lookups_helper_columns(config);
 
@@ -331,10 +331,17 @@ where
         l_last,
     );
     let num_lookup_columns = stark.num_lookup_helper_columns(config);
+    let lookup_challenges = (num_lookup_columns > 0).then(|| {
+        ctl_vars
+            .iter()
+            .map(|ch| ch.challenges.beta)
+            .collect::<Vec<_>>()
+    });
+
     let lookup_vars = stark.uses_lookups().then(|| LookupCheckVars {
         local_values: auxiliary_polys[..num_lookup_columns].to_vec(),
         next_values: auxiliary_polys_next[..num_lookup_columns].to_vec(),
-        challenges: challenges.lookup_challenges.clone().unwrap(),
+        challenges: lookup_challenges.unwrap(),
     });
     let lookups = stark.lookups();
     eval_vanishing_poly::<F, F::Extension, F::Extension, S, D, D>(

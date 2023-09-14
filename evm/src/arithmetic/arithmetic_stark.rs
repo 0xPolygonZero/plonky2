@@ -126,6 +126,12 @@ impl<F: RichField, const D: usize> ArithmeticStark<F, D> {
         for col in SHARED_COLS {
             for i in 0..n_rows {
                 let x = cols[col][i].to_canonical_u64() as usize;
+                assert!(
+                    x < RANGE_MAX,
+                    "column value {} exceeds the max range value {}",
+                    x,
+                    RANGE_MAX
+                );
                 cols[RC_FREQUENCIES][x] += F::ONE;
             }
         }

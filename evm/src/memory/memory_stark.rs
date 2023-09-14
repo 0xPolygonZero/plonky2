@@ -137,7 +137,7 @@ impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
         trace_rows
     }
 
-    /// Generates the `COUNTER`, `RANGE_CHECK_PERMUTED` and `COUNTER_PERMUTED` columns, given a
+    /// Generates the `COUNTER`, `RANGE_CHECK` and `FREQUENCIES` columns, given a
     /// trace in column-major form.
     fn generate_trace_col_major(trace_col_vecs: &mut [Vec<F>]) {
         let height = trace_col_vecs[0].len();

@@ -674,9 +674,6 @@ impl<const D: usize> StarkProofTarget<D> {
 }
 
 pub(crate) struct StarkProofChallenges<F: RichField + Extendable<D>, const D: usize> {
-    /// Randomness used in lookup arguments.
-    pub lookup_challenges: Option<Vec<F>>,
-
     /// Random values used to combine STARK constraints.
     pub stark_alphas: Vec<F>,
 
@@ -687,7 +684,6 @@ pub(crate) struct StarkProofChallenges<F: RichField + Extendable<D>, const D: us
 }
 
 pub(crate) struct StarkProofChallengesTarget<const D: usize> {
-    pub lookup_challenges: Option<Vec<Target>>,
     pub stark_alphas: Vec<Target>,
     pub stark_zeta: ExtensionTarget<D>,
     pub fri_challenges: FriChallengesTarget<D>,

@@ -205,11 +205,7 @@ pub(crate) fn observe_public_values_target<
 
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> AllProof<F, C, D> {
     /// Computes all Fiat-Shamir challenges used in the STARK proof.
-    pub(crate) fn get_challenges(
-        &self,
-        all_stark: &AllStark<F, D>,
-        config: &StarkConfig,
-    ) -> AllProofChallenges<F, D> {
+    pub(crate) fn get_challenges(&self, config: &StarkConfig) -> AllProofChallenges<F, D> {
         let mut challenger = Challenger::<F, C::Hasher>::new();
 
         for proof in &self.stark_proofs {
@@ -221,14 +217,12 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> A
         let ctl_challenges =
             get_grand_product_challenge_set(&mut challenger, config.num_challenges);
 
-        let lookups = all_stark.num_lookups_helper_columns(config);
-
         AllProofChallenges {
             stark_challenges: core::array::from_fn(|i| {
                 challenger.compact();
                 self.stark_proofs[i]
                     .proof
-                    .get_challenges(&mut challenger, lookups[i] > 0, config)
+                    .get_challenges(&mut challenger, config)
             }),
             ctl_challenges,
         }
@@ -257,7 +251,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> A
         for i in 0..NUM_TABLES {
             self.stark_proofs[i]
                 .proof
-                .get_challenges(&mut challenger, lookups[i] > 0, config);
+                .get_challenges(&mut challenger, config);
             challenger_states.push(challenger.compact());
         }
 
@@ -277,7 +271,6 @@ where
     pub(crate) fn get_challenges(
         &self,
         challenger: &mut Challenger<F, C::Hasher>,
-        stark_use_lookup: bool,
         config: &StarkConfig,
     ) -> StarkProofChallenges<F, D> {
         let degree_bits = self.recover_degree_bits(config);
@@ -298,9 +291,6 @@ where
 
         let num_challenges = config.num_challenges;
 
-        let lookup_challenges =
-            stark_use_lookup.then(|| challenger.get_n_challenges(config.num_challenges));
-
         challenger.observe_cap(auxiliary_polys_cap);
 
         let stark_alphas = challenger.get_n_challenges(num_challenges);
@@ -311,7 +301,6 @@ where
         challenger.observe_openings(&openings.to_fri_openings());
 
         StarkProofChallenges {
-            lookup_challenges,
             stark_alphas,
             stark_zeta,
             fri_challenges: challenger.fri_challenges::<C, D>(
@@ -330,7 +319,6 @@ impl<const D: usize> StarkProofTarget<D> {
         &self,
         builder: &mut CircuitBuilder<F, D>,
         challenger: &mut RecursiveChallenger<F, C::Hasher, D>,
-        stark_use_lookup: bool,
         config: &StarkConfig,
     ) -> StarkProofChallengesTarget<D>
     where
@@ -352,9 +340,6 @@ impl<const D: usize> StarkProofTarget<D> {
 
         let num_challenges = config.num_challenges;
 
-        let lookup_challenges =
-            stark_use_lookup.then(|| challenger.get_n_challenges(builder, num_challenges));
-
         challenger.observe_cap(auxiliary_polys);
 
         let stark_alphas = challenger.get_n_challenges(builder, num_challenges);
@@ -365,7 +350,6 @@ impl<const D: usize> StarkProofTarget<D> {
         challenger.observe_openings(&openings.to_fri_openings(builder.zero()));
 
         StarkProofChallengesTarget {
-            lookup_challenges,
             stark_alphas,
             stark_zeta,
             fri_challenges: challenger.fri_challenges(

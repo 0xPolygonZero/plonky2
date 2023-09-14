@@ -339,12 +339,8 @@ where
         }));
     let mut challenger =
         RecursiveChallenger::<F, C::Hasher, D>::from_state(init_challenger_state_target);
-    let challenges = proof_target.get_challenges::<F, C>(
-        &mut builder,
-        &mut challenger,
-        num_lookup_columns > 0,
-        inner_config,
-    );
+    let challenges =
+        proof_target.get_challenges::<F, C>(&mut builder, &mut challenger, inner_config);
     let challenger_state = challenger.compact(&mut builder);
     builder.register_public_inputs(challenger_state.as_ref());
 
@@ -438,10 +434,17 @@ fn verify_stark_proof_with_challenges_circuit<
     );
 
     let num_lookup_columns = stark.num_lookup_helper_columns(inner_config);
+    let lookup_challenges = (num_lookup_columns > 0).then(|| {
+        ctl_vars
+            .iter()
+            .map(|ch| ch.challenges.beta)
+            .collect::<Vec<_>>()
+    });
+
     let lookup_vars = stark.uses_lookups().then(|| LookupCheckVarsTarget {
         local_values: auxiliary_polys[..num_lookup_columns].to_vec(),
         next_values: auxiliary_polys_next[..num_lookup_columns].to_vec(),
-        challenges: challenges.lookup_challenges.clone().unwrap(),
+        challenges: lookup_challenges.unwrap(),
     });
 
     with_context!(

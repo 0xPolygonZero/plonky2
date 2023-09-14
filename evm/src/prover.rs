@@ -28,6 +28,7 @@ use crate::cpu::cpu_stark::CpuStark;
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cross_table_lookup::{
     cross_table_lookup_data, get_grand_product_challenge_set, CtlCheckVars, CtlData,
+    GrandProductChallengeSet,
 };
 use crate::generation::outputs::GenerationOutputs;
 use crate::generation::{generate_traces, GenerationInputs};
@@ -172,6 +173,7 @@ where
             trace_commitments,
             ctl_data_per_table,
             &mut challenger,
+            ctl_challenges.clone(),
             timing
         )?
     );
@@ -190,6 +192,7 @@ fn prove_with_commitments<F, C, const D: usize>(
     trace_commitments: Vec<PolynomialBatch<F, C, D>>,
     ctl_data_per_table: [CtlData<F>; NUM_TABLES],
     challenger: &mut Challenger<F, C::Hasher>,
+    ctl_challenges: GrandProductChallengeSet<F>,
     timing: &mut TimingTree,
 ) -> Result<[StarkProofWithMetadata<F, C, D>; NUM_TABLES]>
 where
@@ -212,6 +215,7 @@ where
             &trace_poly_values[Table::Arithmetic as usize],
             &trace_commitments[Table::Arithmetic as usize],
             &ctl_data_per_table[Table::Arithmetic as usize],
+            ctl_challenges.clone(),
             challenger,
             timing,
         )?
@@ -238,6 +242,7 @@ where
             &trace_poly_values[Table::Cpu as usize],
             &trace_commitments[Table::Cpu as usize],
             &ctl_data_per_table[Table::Cpu as usize],
+            ctl_challenges.clone(),
             challenger,
             timing,
         )?
@@ -251,6 +256,7 @@ where
             &trace_poly_values[Table::Keccak as usize],
             &trace_commitments[Table::Keccak as usize],
             &ctl_data_per_table[Table::Keccak as usize],
+            ctl_challenges.clone(),
             challenger,
             timing,
         )?
@@ -264,6 +270,7 @@ where
             &trace_poly_values[Table::KeccakSponge as usize],
             &trace_commitments[Table::KeccakSponge as usize],
             &ctl_data_per_table[Table::KeccakSponge as usize],
+            ctl_challenges.clone(),
             challenger,
             timing,
         )?
@@ -277,6 +284,7 @@ where
             &trace_poly_values[Table::Logic as usize],
             &trace_commitments[Table::Logic as usize],
             &ctl_data_per_table[Table::Logic as usize],
+            ctl_challenges.clone(),
             challenger,
             timing,
         )?
@@ -290,6 +298,7 @@ where
             &trace_poly_values[Table::Memory as usize],
             &trace_commitments[Table::Memory as usize],
             &ctl_data_per_table[Table::Memory as usize],
+            ctl_challenges,
             challenger,
             timing,
         )?
@@ -313,6 +322,7 @@ pub(crate) fn prove_single_table<F, C, S, const D: usize>(
     trace_poly_values: &[PolynomialValues<F>],
     trace_commitment: &PolynomialBatch<F, C, D>,
     ctl_data: &CtlData<F>,
+    ctl_challenges: GrandProductChallengeSet<F>,
     challenger: &mut Challenger<F, C::Hasher>,
     timing: &mut TimingTree,
 ) -> Result<StarkProofWithMetadata<F, C, D>>
@@ -335,9 +345,13 @@ where
     let init_challenger_state = challenger.compact();
 
     let constraint_degree = stark.constraint_degree();
-    let lookup_challenges = stark
-        .uses_lookups()
-        .then(|| challenger.get_n_challenges(config.num_challenges));
+    let lookup_challenges = stark.uses_lookups().then(|| {
+        ctl_challenges
+            .challenges
+            .iter()
+            .map(|ch| ch.beta)
+            .collect::<Vec<_>>()
+    });
     let lookups = stark.lookups();
     let lookup_helper_columns = timed!(
         timing,
