@@ -1,4 +1,5 @@
 use itertools::Itertools;
+use num_bigint::BigUint;
 use plonky2::field::batch_util::batch_add_inplace;
 use plonky2::field::extension::{Extendable, FieldExtension};
 use plonky2::field::packed::PackedField;
@@ -49,6 +50,10 @@ pub(crate) fn lookup_helper_columns<F: Field>(
         constraint_degree, 3,
         "TODO: Allow other constraint degrees."
     );
+
+    let num_total_logup_entries = trace_poly_values[0].values.len() * lookup.columns.len();
+    assert!(BigUint::from(num_total_logup_entries) < F::characteristic());
+
     let num_helper_columns = lookup.num_helper_columns(constraint_degree);
     let mut helper_columns: Vec<PolynomialValues<F>> = Vec::with_capacity(num_helper_columns);
 
@@ -123,7 +128,7 @@ where
 }
 
 /// Constraints for the logUp lookup argument.
-pub(crate) fn eval_lookups_checks<F, FE, P, S, const D: usize, const D2: usize>(
+pub(crate) fn eval_packed_lookups_generic<F, FE, P, S, const D: usize, const D2: usize>(
     stark: &S,
     lookups: &[Lookup],
     vars: StarkEvaluationVars<FE, P, { S::COLUMNS }>,
@@ -180,7 +185,7 @@ pub struct LookupCheckVarsTarget<const D: usize> {
     pub(crate) challenges: Vec<Target>,
 }
 
-pub(crate) fn eval_lookups_checks_circuit<
+pub(crate) fn eval_ext_lookups_circuit<
     F: RichField + Extendable<D>,
     S: Stark<F, D>,
     const D: usize,

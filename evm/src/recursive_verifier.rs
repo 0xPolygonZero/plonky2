@@ -352,6 +352,7 @@ where
         &proof_target,
         &challenges,
         &ctl_vars,
+        &ctl_challenges_target,
         inner_config,
     );
 
@@ -395,6 +396,7 @@ fn verify_stark_proof_with_challenges_circuit<
     proof: &StarkProofTarget<D>,
     challenges: &StarkProofChallengesTarget<D>,
     ctl_vars: &[CtlCheckVarsTarget<F, D>],
+    ctl_challenges: &GrandProductChallengeSet<Target>,
     inner_config: &StarkConfig,
 ) where
     C::Hasher: AlgebraicHasher<F>,
@@ -435,9 +437,10 @@ fn verify_stark_proof_with_challenges_circuit<
 
     let num_lookup_columns = stark.num_lookup_helper_columns(inner_config);
     let lookup_challenges = (num_lookup_columns > 0).then(|| {
-        ctl_vars
+        ctl_challenges
+            .challenges
             .iter()
-            .map(|ch| ch.challenges.beta)
+            .map(|ch| ch.beta)
             .collect::<Vec<_>>()
     });
 

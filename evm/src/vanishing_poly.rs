@@ -9,7 +9,7 @@ use crate::cross_table_lookup::{
     CtlCheckVarsTarget,
 };
 use crate::lookup::{
-    eval_lookups_checks, eval_lookups_checks_circuit, Lookup, LookupCheckVars,
+    eval_ext_lookups_circuit, eval_packed_lookups_generic, Lookup, LookupCheckVars,
     LookupCheckVarsTarget,
 };
 use crate::stark::Stark;
@@ -30,7 +30,13 @@ pub(crate) fn eval_vanishing_poly<F, FE, P, S, const D: usize, const D2: usize>(
 {
     stark.eval_packed_generic(vars, consumer);
     if let Some(lookup_vars) = lookup_vars {
-        eval_lookups_checks::<F, FE, P, S, D, D2>(stark, lookups, vars, lookup_vars, consumer);
+        eval_packed_lookups_generic::<F, FE, P, S, D, D2>(
+            stark,
+            lookups,
+            vars,
+            lookup_vars,
+            consumer,
+        );
     }
     eval_cross_table_lookup_checks::<F, FE, P, S, D, D2>(vars, ctl_vars, consumer);
 }
@@ -49,7 +55,7 @@ pub(crate) fn eval_vanishing_poly_circuit<F, S, const D: usize>(
 {
     stark.eval_ext_circuit(builder, vars, consumer);
     if let Some(lookup_vars) = lookup_vars {
-        eval_lookups_checks_circuit::<F, S, D>(builder, stark, vars, lookup_vars, consumer);
+        eval_ext_lookups_circuit::<F, S, D>(builder, stark, vars, lookup_vars, consumer);
     }
     eval_cross_table_lookup_checks_circuit::<S, F, D>(builder, vars, ctl_vars, consumer);
 }
