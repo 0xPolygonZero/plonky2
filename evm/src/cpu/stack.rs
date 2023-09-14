@@ -206,13 +206,6 @@ pub fn eval_packed<P: PackedField>(
             eval_packed_one(lv, op, stack_behavior, yield_constr);
         }
     }
-
-    // Disable memory channels for padding rows
-    let is_null = lv.null;
-    for i in 0..NUM_GP_CHANNELS {
-        let channel = lv.mem_channels[i];
-        yield_constr.constraint(is_null * channel.used);
-    }
 }
 
 pub(crate) fn eval_ext_circuit_one<F: RichField + Extendable<D>, const D: usize>(
@@ -326,13 +319,5 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
         if let Some(stack_behavior) = stack_behavior {
             eval_ext_circuit_one(builder, lv, op, stack_behavior, yield_constr);
         }
-    }
-
-    // Disable memory channels for padding rows
-    let is_null = lv.null;
-    for i in 0..NUM_GP_CHANNELS {
-        let channel = lv.mem_channels[i];
-        let constr = builder.mul_extension(is_null, channel.used);
-        yield_constr.constraint(builder, constr);
     }
 }
