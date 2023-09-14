@@ -36,8 +36,10 @@ pub(crate) const IS_SUBMOD: usize = IS_SUBFP254 + 1;
 pub(crate) const IS_LT: usize = IS_SUBMOD + 1;
 pub(crate) const IS_GT: usize = IS_LT + 1;
 pub(crate) const IS_BYTE: usize = IS_GT + 1;
+pub(crate) const IS_SHL: usize = IS_BYTE + 1;
+pub(crate) const IS_SHR: usize = IS_SHL + 1;
 
-pub(crate) const START_SHARED_COLS: usize = IS_BYTE + 1;
+pub(crate) const START_SHARED_COLS: usize = IS_SHR + 1;
 
 /// Within the Arithmetic Unit, there are shared columns which can be
 /// used by any arithmetic circuit, depending on which one is active
