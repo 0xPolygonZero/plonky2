@@ -414,6 +414,7 @@ fn verify_stark_proof_with_challenges_circuit<
         next_values,
         permutation_ctl_zs,
         permutation_ctl_zs_next,
+        permutation_ctl_zs_prev,
         ctl_zs_last,
         quotient_polys,
     } = &proof.openings;
@@ -868,6 +869,8 @@ fn add_virtual_stark_opening_set<F: RichField + Extendable<D>, S: Stark<F, D>, c
         permutation_ctl_zs: builder
             .add_virtual_extension_targets(stark.num_permutation_batches(config) + num_ctl_zs),
         permutation_ctl_zs_next: builder
+            .add_virtual_extension_targets(stark.num_permutation_batches(config) + num_ctl_zs),
+        permutation_ctl_zs_prev: builder
             .add_virtual_extension_targets(stark.num_permutation_batches(config) + num_ctl_zs),
         ctl_zs_last: builder.add_virtual_targets(num_ctl_zs),
         quotient_polys: builder

@@ -25,6 +25,7 @@ use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 #[derive(Clone, Debug)]
 pub struct Column<F: Field> {
     linear_combination: Vec<(usize, F)>,
+    next_row_linear_combination: Vec<(usize, F)>,
     constant: F,
 }
 
@@ -32,6 +33,7 @@ impl<F: Field> Column<F> {
     pub fn single(c: usize) -> Self {
         Self {
             linear_combination: vec![(c, F::ONE)],
+            next_row_linear_combination: vec![],
             constant: F::ZERO,
         }
     }
@@ -42,9 +44,24 @@ impl<F: Field> Column<F> {
         cs.into_iter().map(|c| Self::single(*c.borrow()))
     }
 
+    pub fn single_next_row(c: usize) -> Self {
+        Self {
+            linear_combination: vec![],
+            next_row_linear_combination: vec![(c, F::ONE)],
+            constant: F::ZERO,
+        }
+    }
+
+    pub fn singles_next_row<I: IntoIterator<Item = impl Borrow<usize>>>(
+        cs: I,
+    ) -> impl Iterator<Item = Self> {
+        cs.into_iter().map(|c| Self::single_next_row(*c.borrow()))
+    }
+
     pub fn constant(constant: F) -> Self {
         Self {
             linear_combination: vec![],
+            next_row_linear_combination: vec![],
             constant,
         }
     }
@@ -70,6 +87,34 @@ impl<F: Field> Column<F> {
         );
         Self {
             linear_combination: v,
+            next_row_linear_combination: vec![],
+            constant,
+        }
+    }
+
+    pub fn linear_combination_and_next_row_with_constant<I: IntoIterator<Item = (usize, F)>>(
+        iter: I,
+        next_row_iter: I,
+        constant: F,
+    ) -> Self {
+        let v = iter.into_iter().collect::<Vec<_>>();
+        let next_row_v = next_row_iter.into_iter().collect::<Vec<_>>();
+        
+        assert!(!v.is_empty() || !next_row_v.is_empty());
+        debug_assert_eq!(
+            v.iter().map(|(c, _)| c).unique().count(),
+            v.len(),
+            "Duplicate columns."
+        );
+        debug_assert_eq!(
+            next_row_v.iter().map(|(c, _)| c).unique().count(),
+            next_row_v.len(),
+            "Duplicate columns."
+        );
+
+        Self {
+            linear_combination: v,
+            next_row_linear_combination: next_row_v,
             constant,
         }
     }
@@ -106,6 +151,23 @@ impl<F: Field> Column<F> {
             + FE::from_basefield(self.constant)
     }
 
+    pub fn eval_with_next<FE, P, const D: usize>(&self, v: &[P], next_v: &[P]) -> P
+    where
+        FE: FieldExtension<D, BaseField = F>,
+        P: PackedField<Scalar = FE>,
+    {
+        self.linear_combination
+            .iter()
+            .map(|&(c, f)| v[c] * FE::from_basefield(f))
+            .sum::<P>()
+            + self
+                .next_row_linear_combination
+                .iter()
+                .map(|&(c, f)| next_v[c] * FE::from_basefield(f))
+                .sum::<P>()
+            + FE::from_basefield(self.constant)
+    }
+
     /// Evaluate on an row of a table given in column-major form.
     pub fn eval_table(&self, table: &[PolynomialValues<F>], row: usize) -> F {
         self.linear_combination
@@ -135,6 +197,37 @@ impl<F: Field> Column<F> {
             .collect::<Vec<_>>();
         let constant = builder.constant_extension(F::Extension::from_basefield(self.constant));
         builder.inner_product_extension(F::ONE, constant, pairs)
+    }
+
+    pub fn eval_with_next_circuit<const D: usize>(
+        &self,
+        builder: &mut CircuitBuilder<F, D>,
+        v: &[ExtensionTarget<D>],
+        next_v: &[ExtensionTarget<D>],
+    ) -> ExtensionTarget<D>
+    where
+        F: RichField + Extendable<D>,
+    {
+        let pairs = self
+            .linear_combination
+            .iter()
+            .map(|&(c, f)| {
+                (
+                    v[c],
+                    builder.constant_extension(F::Extension::from_basefield(f)),
+                )
+            });
+        let next_row_pairs = self.next_row_linear_combination
+            .iter()
+            .map(|&(c, f)| {
+                (
+                    next_v[c],
+                    builder.constant_extension(F::Extension::from_basefield(f)),
+                )
+            });
+        let all_pairs = pairs.chain(next_row_pairs).collect::<Vec<_>>();
+        let constant = builder.constant_extension(F::Extension::from_basefield(self.constant));
+        builder.inner_product_extension(F::ONE, constant, all_pairs)
     }
 }
 
@@ -273,24 +366,30 @@ fn partial_products<F: Field>(
     filter_column: &Option<Column<F>>,
     challenge: GrandProductChallenge<F>,
 ) -> PolynomialValues<F> {
+
     let mut partial_prod = F::ONE;
     let degree = trace[0].len();
     let mut res = Vec::with_capacity(degree);
-    for i in 0..degree {
+
+    // For each row in the trace
+    for row in 0..degree {
+        // Filter: if there's a filter column, is it 1 here? (If not, we're not filtering so take everything).
         let filter = if let Some(column) = filter_column {
-            column.eval_table(trace, i)
+            column.eval_table(trace, row)
         } else {
             F::ONE
         };
+        // If filter is one, evaluate the column  
         if filter.is_one() {
             let evals = columns
                 .iter()
-                .map(|c| c.eval_table(trace, i))
+                .map(|c| c.eval_table(trace, row))
                 .collect::<Vec<_>>();
             partial_prod *= challenge.combine(evals.iter());
         } else {
             assert_eq!(filter, F::ZERO, "Non-binary filter?")
         };
+        
         res.push(partial_prod);
     }
     res.into()
@@ -304,7 +403,7 @@ where
     P: PackedField<Scalar = FE>,
 {
     pub(crate) local_z: P,
-    pub(crate) next_z: P,
+    pub(crate) prev_z: P,
     pub(crate) challenges: GrandProductChallenge<F>,
     pub(crate) columns: &'a [Column<F>],
     pub(crate) filter_column: &'a Option<Column<F>>,
@@ -325,8 +424,8 @@ impl<'a, F: RichField + Extendable<D>, const D: usize>
             .map(|(p, &num_perms)| {
                 let openings = &p.proof.openings;
                 let ctl_zs = openings.permutation_ctl_zs.iter().skip(num_perms);
-                let ctl_zs_next = openings.permutation_ctl_zs_next.iter().skip(num_perms);
-                ctl_zs.zip(ctl_zs_next)
+                let ctl_zs_prev = openings.permutation_ctl_zs_prev.iter().skip(num_perms);
+                ctl_zs.zip(ctl_zs_prev)
             })
             .collect::<Vec<_>>();
 
@@ -338,20 +437,20 @@ impl<'a, F: RichField + Extendable<D>, const D: usize>
         {
             for &challenges in &ctl_challenges.challenges {
                 for table in looking_tables {
-                    let (looking_z, looking_z_next) = ctl_zs[table.table as usize].next().unwrap();
+                    let (looking_z, looking_z_prev) = ctl_zs[table.table as usize].next().unwrap();
                     ctl_vars_per_table[table.table as usize].push(Self {
                         local_z: *looking_z,
-                        next_z: *looking_z_next,
+                        prev_z: *looking_z_prev,
                         challenges,
                         columns: &table.columns,
                         filter_column: &table.filter_column,
                     });
                 }
 
-                let (looked_z, looked_z_next) = ctl_zs[looked_table.table as usize].next().unwrap();
+                let (looked_z, looked_z_prev) = ctl_zs[looked_table.table as usize].next().unwrap();
                 ctl_vars_per_table[looked_table.table as usize].push(Self {
                     local_z: *looked_z,
-                    next_z: *looked_z_next,
+                    prev_z: *looked_z_prev,
                     challenges,
                     columns: &looked_table.columns,
                     filter_column: &looked_table.filter_column,
@@ -375,31 +474,27 @@ pub(crate) fn eval_cross_table_lookup_checks<F, FE, P, S, const D: usize, const 
     for lookup_vars in ctl_vars {
         let CtlCheckVars {
             local_z,
-            next_z,
+            prev_z,
             challenges,
             columns,
             filter_column,
         } = lookup_vars;
-        let combine = |v: &[P]| -> P {
-            let evals = columns.iter().map(|c| c.eval(v)).collect::<Vec<_>>();
+        let combine = |v: &[P], next_v: &[P]| -> P {
+            let evals = columns.iter().map(|c| c.eval_with_next(v, next_v)).collect::<Vec<_>>();
             challenges.combine(evals.iter())
         };
-        let filter = |v: &[P]| -> P {
-            if let Some(column) = filter_column {
-                column.eval(v)
-            } else {
-                P::ONES
-            }
+        let filter = if let Some(column) = filter_column {
+            column.eval(vars.local_values)
+        } else {
+            P::ONES
         };
-        let local_filter = filter(vars.local_values);
-        let next_filter = filter(vars.next_values);
-        let select = |filter, x| filter * x + P::ONES - filter;
+        let select = |x| filter * x + P::ONES - filter;
 
         // Check value of `Z(1)`
-        consumer.constraint_first_row(*local_z - select(local_filter, combine(vars.local_values)));
-        // Check `Z(gw) = combination * Z(w)`
+        consumer.constraint_first_row(*local_z - select(combine(vars.local_values, vars.next_values)));
+        // Check `Z(w) = combination * Z(g^-1 w)`
         consumer.constraint_transition(
-            *local_z * select(next_filter, combine(vars.next_values)) - *next_z,
+            *prev_z * select(combine(vars.local_values, vars.next_values)) - *local_z,
         );
     }
 }
@@ -407,7 +502,7 @@ pub(crate) fn eval_cross_table_lookup_checks<F, FE, P, S, const D: usize, const 
 #[derive(Clone)]
 pub struct CtlCheckVarsTarget<'a, F: Field, const D: usize> {
     pub(crate) local_z: ExtensionTarget<D>,
-    pub(crate) next_z: ExtensionTarget<D>,
+    pub(crate) prev_z: ExtensionTarget<D>,
     pub(crate) challenges: GrandProductChallenge<Target>,
     pub(crate) columns: &'a [Column<F>],
     pub(crate) filter_column: &'a Option<Column<F>>,
@@ -424,11 +519,11 @@ impl<'a, F: Field, const D: usize> CtlCheckVarsTarget<'a, F, D> {
         let mut ctl_zs = {
             let openings = &proof.openings;
             let ctl_zs = openings.permutation_ctl_zs.iter().skip(num_permutation_zs);
-            let ctl_zs_next = openings
-                .permutation_ctl_zs_next
+            let ctl_zs_prev = openings
+                .permutation_ctl_zs_prev
                 .iter()
                 .skip(num_permutation_zs);
-            ctl_zs.zip(ctl_zs_next)
+            ctl_zs.zip(ctl_zs_prev)
         };
 
         let mut ctl_vars = vec![];
@@ -440,10 +535,10 @@ impl<'a, F: Field, const D: usize> CtlCheckVarsTarget<'a, F, D> {
             for &challenges in &ctl_challenges.challenges {
                 for looking_table in looking_tables {
                     if looking_table.table == table {
-                        let (looking_z, looking_z_next) = ctl_zs.next().unwrap();
+                        let (looking_z, looking_z_prev) = ctl_zs.next().unwrap();
                         ctl_vars.push(Self {
                             local_z: *looking_z,
-                            next_z: *looking_z_next,
+                            prev_z: *looking_z_prev,
                             challenges,
                             columns: &looking_table.columns,
                             filter_column: &looking_table.filter_column,
@@ -452,10 +547,10 @@ impl<'a, F: Field, const D: usize> CtlCheckVarsTarget<'a, F, D> {
                 }
 
                 if looked_table.table == table {
-                    let (looked_z, looked_z_next) = ctl_zs.next().unwrap();
+                    let (looked_z, looked_z_prev) = ctl_zs.next().unwrap();
                     ctl_vars.push(Self {
                         local_z: *looked_z,
-                        next_z: *looked_z_next,
+                        prev_z: *looked_z_prev,
                         challenges,
                         columns: &looked_table.columns,
                         filter_column: &looked_table.filter_column,
@@ -481,20 +576,15 @@ pub(crate) fn eval_cross_table_lookup_checks_circuit<
     for lookup_vars in ctl_vars {
         let CtlCheckVarsTarget {
             local_z,
-            next_z,
+            prev_z,
             challenges,
             columns,
             filter_column,
         } = lookup_vars;
 
         let one = builder.one_extension();
-        let local_filter = if let Some(column) = filter_column {
+        let filter = if let Some(column) = filter_column {
             column.eval_circuit(builder, vars.local_values)
-        } else {
-            one
-        };
-        let next_filter = if let Some(column) = filter_column {
-            column.eval_circuit(builder, vars.next_values)
         } else {
             one
         };
@@ -508,23 +598,19 @@ pub(crate) fn eval_cross_table_lookup_checks_circuit<
             builder.mul_add_extension(filter, x, tmp) // filter * x + 1 - filter
         }
 
+        let columns_eval = columns
+            .iter()
+            .map(|c| c.eval_with_next_circuit(builder, vars.local_values, vars.next_values))
+            .collect::<Vec<_>>();
+        let combined = challenges.combine_circuit(builder, &columns_eval);
+        let selected = select(builder, filter, combined);
+
         // Check value of `Z(1)`
-        let local_columns_eval = columns
-            .iter()
-            .map(|c| c.eval_circuit(builder, vars.local_values))
-            .collect::<Vec<_>>();
-        let combined_local = challenges.combine_circuit(builder, &local_columns_eval);
-        let selected_local = select(builder, local_filter, combined_local);
-        let first_row = builder.sub_extension(*local_z, selected_local);
+        let first_row = builder.sub_extension(*local_z, selected);
         consumer.constraint_first_row(builder, first_row);
-        // Check `Z(gw) = combination * Z(w)`
-        let next_columns_eval = columns
-            .iter()
-            .map(|c| c.eval_circuit(builder, vars.next_values))
-            .collect::<Vec<_>>();
-        let combined_next = challenges.combine_circuit(builder, &next_columns_eval);
-        let selected_next = select(builder, next_filter, combined_next);
-        let transition = builder.mul_sub_extension(*local_z, selected_next, *next_z);
+
+        // Check `Z(w) = combination * Z(g^-1 w)`
+        let transition = builder.mul_sub_extension(*prev_z, selected, *local_z);
         consumer.constraint_transition(builder, transition);
     }
 }

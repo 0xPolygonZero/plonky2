@@ -308,6 +308,7 @@ where
         next_values,
         permutation_ctl_zs,
         permutation_ctl_zs_next,
+        permutation_ctl_zs_prev,
         ctl_zs_last,
         quotient_polys,
     } = &proof.openings;
@@ -415,6 +416,7 @@ where
         next_values,
         permutation_ctl_zs,
         permutation_ctl_zs_next,
+        permutation_ctl_zs_prev,
         ctl_zs_last,
         quotient_polys,
     } = openings;

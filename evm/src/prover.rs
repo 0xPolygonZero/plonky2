@@ -553,6 +553,7 @@ where
         .step_by(P::WIDTH)
         .flat_map_iter(|i_start| {
             let i_next_start = (i_start + next_step) % size;
+            let i_prev_start = (i_start + size - next_step) % size;
             let i_range = i_start..i_start + P::WIDTH;
 
             let x = *P::from_slice(&coset[i_range.clone()]);
@@ -587,7 +588,7 @@ where
                 .map(|(i, zs_columns)| CtlCheckVars::<F, F, P, 1> {
                     local_z: permutation_ctl_zs_commitment.get_lde_values_packed(i_start, step)
                         [num_permutation_zs + i],
-                    next_z: permutation_ctl_zs_commitment.get_lde_values_packed(i_next_start, step)
+                    prev_z: permutation_ctl_zs_commitment.get_lde_values_packed(i_prev_start, step)
                         [num_permutation_zs + i],
                     challenges: zs_columns.challenge,
                     columns: &zs_columns.columns,
@@ -676,6 +677,7 @@ fn check_constraints<'a, F, C, S, const D: usize>(
     let constraint_values = (0..size)
         .map(|i| {
             let i_next = (i + step) % size;
+            let i_prev = (i + size - step) % size;
 
             let x = subgroup[i];
             let z_last = x - last;
@@ -706,7 +708,7 @@ fn check_constraints<'a, F, C, S, const D: usize>(
                 .enumerate()
                 .map(|(iii, zs_columns)| CtlCheckVars::<F, F, F, 1> {
                     local_z: permutation_ctl_zs_subgroup_evals[i][num_permutation_zs + iii],
-                    next_z: permutation_ctl_zs_subgroup_evals[i_next][num_permutation_zs + iii],
+                    prev_z: permutation_ctl_zs_subgroup_evals[i_prev][num_permutation_zs + iii],
                     challenges: zs_columns.challenge,
                     columns: &zs_columns.columns,
                     filter_column: &zs_columns.filter_column,

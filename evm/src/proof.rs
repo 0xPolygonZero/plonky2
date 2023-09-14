@@ -704,6 +704,8 @@ pub struct StarkOpeningSet<F: RichField + Extendable<D>, const D: usize> {
     pub permutation_ctl_zs: Vec<F::Extension>,
     /// Openings of permutations and cross-table lookups `Z` polynomials at `g * zeta`.
     pub permutation_ctl_zs_next: Vec<F::Extension>,
+    /// Openings of permutations and cross-table lookups `Z` polynomials at `g^-1 * zeta`.
+    pub permutation_ctl_zs_prev: Vec<F::Extension>,
     /// Openings of cross-table lookups `Z` polynomials at `g^-1`.
     pub ctl_zs_last: Vec<F>,
     /// Openings of quotient polynomials at `zeta`.
@@ -733,11 +735,13 @@ impl<F: RichField + Extendable<D>, const D: usize> StarkOpeningSet<F, D> {
                 .collect::<Vec<_>>()
         };
         let zeta_next = zeta.scalar_mul(g);
+        let zeta_prev = zeta_next.scalar_mul(g.inverse());
         Self {
             local_values: eval_commitment(zeta, trace_commitment),
             next_values: eval_commitment(zeta_next, trace_commitment),
             permutation_ctl_zs: eval_commitment(zeta, permutation_ctl_zs_commitment),
             permutation_ctl_zs_next: eval_commitment(zeta_next, permutation_ctl_zs_commitment),
+            permutation_ctl_zs_prev: eval_commitment(zeta_prev, permutation_ctl_zs_commitment),
             ctl_zs_last: eval_commitment_base(
                 F::primitive_root_of_unity(degree_bits).inverse(),
                 permutation_ctl_zs_commitment,
@@ -787,6 +791,7 @@ pub struct StarkOpeningSetTarget<const D: usize> {
     pub next_values: Vec<ExtensionTarget<D>>,
     pub permutation_ctl_zs: Vec<ExtensionTarget<D>>,
     pub permutation_ctl_zs_next: Vec<ExtensionTarget<D>>,
+    pub permutation_ctl_zs_prev: Vec<ExtensionTarget<D>>,
     pub ctl_zs_last: Vec<Target>,
     pub quotient_polys: Vec<ExtensionTarget<D>>,
 }
@@ -797,6 +802,7 @@ impl<const D: usize> StarkOpeningSetTarget<D> {
         buffer.write_target_ext_vec(&self.next_values)?;
         buffer.write_target_ext_vec(&self.permutation_ctl_zs)?;
         buffer.write_target_ext_vec(&self.permutation_ctl_zs_next)?;
+        buffer.write_target_ext_vec(&self.permutation_ctl_zs_prev)?;
         buffer.write_target_vec(&self.ctl_zs_last)?;
         buffer.write_target_ext_vec(&self.quotient_polys)?;
         Ok(())
@@ -807,6 +813,7 @@ impl<const D: usize> StarkOpeningSetTarget<D> {
         let next_values = buffer.read_target_ext_vec::<D>()?;
         let permutation_ctl_zs = buffer.read_target_ext_vec::<D>()?;
         let permutation_ctl_zs_next = buffer.read_target_ext_vec::<D>()?;
+        let permutation_ctl_zs_prev = buffer.read_target_ext_vec::<D>()?;
         let ctl_zs_last = buffer.read_target_vec()?;
         let quotient_polys = buffer.read_target_ext_vec::<D>()?;
 
@@ -815,6 +822,7 @@ impl<const D: usize> StarkOpeningSetTarget<D> {
             next_values,
             permutation_ctl_zs,
             permutation_ctl_zs_next,
+            permutation_ctl_zs_prev,
             ctl_zs_last,
             quotient_polys,
         })
