@@ -29,8 +29,6 @@ use crate::{arithmetic, logic};
 pub(crate) enum Operation {
     Iszero,
     Not,
-    Shl,
-    Shr,
     Syscall(u8, usize, bool), // (syscall number, minimum stack length, increases stack length)
     Eq,
     BinaryLogic(logic::Op),
@@ -79,7 +77,7 @@ pub(crate) fn generate_binary_arithmetic_op<F: Field>(
 ) -> Result<(), ProgramError> {
     let [(input0, log_in0), (input1, log_in1)] =
         stack_pop_with_log_and_fill::<2, _>(state, &mut row)?;
-    let operation = arithmetic::Operation::binary(operator, input0, input1, false);
+    let operation = arithmetic::Operation::binary(operator, input0, input1);
     let log_out = stack_push_log_and_fill(state, &mut row, operation.result())?;
 
     if operator == arithmetic::BinaryOperator::AddFp254
@@ -502,11 +500,11 @@ fn append_shift<F: Field>(
         U256::one() << input0
     };
     let operator = if is_shl {
-        BinaryOperator::Mul
+        BinaryOperator::Shl
     } else {
-        BinaryOperator::Div
+        BinaryOperator::Shr
     };
-    let operation = arithmetic::Operation::binary(operator, input1, input0, true);
+    let operation = arithmetic::Operation::binary(operator, input1, input0);
 
     state.traces.push_arithmetic(operation);
     state.traces.push_memory(log_in0);

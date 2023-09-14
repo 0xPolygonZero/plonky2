@@ -27,15 +27,17 @@ pub(crate) enum BinaryOperator {
     MulFp254,
     SubFp254,
     Byte,
+    Shl, // simulated with MUL
+    Shr, // simulated with DIV
 }
 
 impl BinaryOperator {
     pub(crate) fn result(&self, input0: U256, input1: U256) -> U256 {
         match self {
             BinaryOperator::Add => input0.overflowing_add(input1).0,
-            BinaryOperator::Mul => input0.overflowing_mul(input1).0,
+            BinaryOperator::Mul | BinaryOperator::Shl => input0.overflowing_mul(input1).0,
             BinaryOperator::Sub => input0.overflowing_sub(input1).0,
-            BinaryOperator::Div => {
+            BinaryOperator::Div | BinaryOperator::Shr => {
                 if input1.is_zero() {
                     U256::zero()
                 } else {
@@ -60,28 +62,25 @@ impl BinaryOperator {
                 } else {
                     input1.byte(31 - input0.as_usize()).into()
                 }
-            }
+            } /*
+              BinaryOperator::Shl => {
+                  if input0 < 256.into() {
+                      input1 << input0
+                  } else {
+                      U256::zero()
+                  }
+              }
+              BinaryOperator::Shr => input1 >> input0,
+              */
         }
     }
 
-    pub(crate) fn row_filter(&self, is_simulated: bool) -> usize {
+    pub(crate) fn row_filter(&self) -> usize {
         match self {
             BinaryOperator::Add => columns::IS_ADD,
-            BinaryOperator::Mul => {
-                if is_simulated {
-                    columns::IS_SHL
-                } else {
-                    columns::IS_MUL
-                }
-            }
+            BinaryOperator::Mul => columns::IS_MUL,
             BinaryOperator::Sub => columns::IS_SUB,
-            BinaryOperator::Div => {
-                if is_simulated {
-                    columns::IS_SHR
-                } else {
-                    columns::IS_DIV
-                }
-            }
+            BinaryOperator::Div => columns::IS_DIV,
             BinaryOperator::Mod => columns::IS_MOD,
             BinaryOperator::Lt => columns::IS_LT,
             BinaryOperator::Gt => columns::IS_GT,
@@ -89,6 +88,8 @@ impl BinaryOperator {
             BinaryOperator::MulFp254 => columns::IS_MULFP254,
             BinaryOperator::SubFp254 => columns::IS_SUBFP254,
             BinaryOperator::Byte => columns::IS_BYTE,
+            BinaryOperator::Shl => columns::IS_SHL,
+            BinaryOperator::Shr => columns::IS_SHR,
         }
     }
 }
@@ -131,7 +132,6 @@ pub(crate) enum Operation {
         input0: U256,
         input1: U256,
         result: U256,
-        is_simulated: bool,
     },
     TernaryOperation {
         operator: TernaryOperator,
@@ -143,19 +143,27 @@ pub(crate) enum Operation {
 }
 
 impl Operation {
-    pub(crate) fn binary(
-        operator: BinaryOperator,
-        input0: U256,
-        input1: U256,
-        is_simulated: bool,
-    ) -> Self {
+    /// Create a binary operator with given inputs.
+    ///
+    /// NB: This works as you would expect, EXCEPT for SHL and SHR,
+    /// whose inputs need a small amount of preprocessing. Specifically,
+    /// to create `SHL(shift, value)`, call
+    ///
+    ///    `Operation::binary(BinaryOperator::Shl, value, 1 << shift)`
+    ///
+    /// Similarly, to create `SHR(shift, value)`, call
+    ///
+    ///    `Operation::binary(BinaryOperator::Shr, value, 1 << shift)`
+    ///
+    /// See witness/operation.rs::append_shift() for an example (indeed
+    /// the only call site for such inputs).
+    pub(crate) fn binary(operator: BinaryOperator, input0: U256, input1: U256) -> Self {
         let result = operator.result(input0, input1);
         Self::BinaryOperation {
             operator,
             input0,
             input1,
             result,
-            is_simulated,
         }
     }
 
@@ -199,8 +207,7 @@ impl Operation {
                 input0,
                 input1,
                 result,
-                is_simulated,
-            } => binary_op_to_rows(operator, is_simulated, input0, input1, result),
+            } => binary_op_to_rows(operator, input0, input1, result),
             Operation::TernaryOperation {
                 operator,
                 input0,
@@ -231,37 +238,29 @@ fn ternary_op_to_rows<F: PrimeField64>(
 
 fn binary_op_to_rows<F: PrimeField64>(
     op: BinaryOperator,
-    is_simulated: bool,
     input0: U256,
     input1: U256,
     result: U256,
 ) -> (Vec<F>, Option<Vec<F>>) {
     let mut row = vec![F::ZERO; columns::NUM_ARITH_COLUMNS];
-    row[op.row_filter(is_simulated)] = F::ONE;
+    row[op.row_filter()] = F::ONE;
 
     match op {
         BinaryOperator::Add | BinaryOperator::Sub | BinaryOperator::Lt | BinaryOperator::Gt => {
-            addcy::generate(&mut row, op.row_filter(false), input0, input1);
+            addcy::generate(&mut row, op.row_filter(), input0, input1);
             (row, None)
         }
-        BinaryOperator::Mul => {
+        BinaryOperator::Mul | BinaryOperator::Shl => {
             mul::generate(&mut row, input0, input1);
             (row, None)
         }
-        BinaryOperator::Div | BinaryOperator::Mod => {
+        BinaryOperator::Div | BinaryOperator::Mod | BinaryOperator::Shr => {
             let mut nv = vec![F::ZERO; columns::NUM_ARITH_COLUMNS];
-            divmod::generate(
-                &mut row,
-                &mut nv,
-                op.row_filter(is_simulated),
-                input0,
-                input1,
-                result,
-            );
+            divmod::generate(&mut row, &mut nv, op.row_filter(), input0, input1, result);
             (row, Some(nv))
         }
         BinaryOperator::AddFp254 | BinaryOperator::MulFp254 | BinaryOperator::SubFp254 => {
-            ternary_op_to_rows::<F>(op.row_filter(false), input0, input1, BN_BASE, result)
+            ternary_op_to_rows::<F>(op.row_filter(), input0, input1, BN_BASE, result)
         }
         BinaryOperator::Byte => {
             byte::generate(&mut row, input0, input1);
