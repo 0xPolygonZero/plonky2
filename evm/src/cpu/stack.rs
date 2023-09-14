@@ -137,6 +137,7 @@ pub(crate) const IS_ZERO_STACK_BEHAVIOR: Option<StackBehavior> = BASIC_UNARY_OP;
 
 pub(crate) fn eval_packed_one<P: PackedField>(
     lv: &CpuColumnsView<P>,
+    nv: &CpuColumnsView<P>,
     filter: P,
     stack_behavior: StackBehavior,
     yield_constr: &mut ConstraintConsumer<P>,
@@ -182,15 +183,21 @@ pub(crate) fn eval_packed_one<P: PackedField>(
             yield_constr.constraint(filter * channel.used);
         }
     }
+
+    // Constrain new stack length.
+    let num_pops = P::Scalar::from_canonical_usize(stack_behavior.num_pops);
+    let push = P::Scalar::from_canonical_usize(stack_behavior.pushes as usize);
+    yield_constr.constraint_transition(filter * (nv.stack_len - (lv.stack_len - num_pops + push)));
 }
 
 pub fn eval_packed<P: PackedField>(
     lv: &CpuColumnsView<P>,
+    nv: &CpuColumnsView<P>,
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
     for (op, stack_behavior) in izip!(lv.op.into_iter(), STACK_BEHAVIORS.into_iter()) {
         if let Some(stack_behavior) = stack_behavior {
-            eval_packed_one(lv, op, stack_behavior, yield_constr);
+            eval_packed_one(lv, nv, op, stack_behavior, yield_constr);
         }
     }
 }
@@ -198,6 +205,7 @@ pub fn eval_packed<P: PackedField>(
 pub(crate) fn eval_ext_circuit_one<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
     lv: &CpuColumnsView<ExtensionTarget<D>>,
+    nv: &CpuColumnsView<ExtensionTarget<D>>,
     filter: ExtensionTarget<D>,
     stack_behavior: StackBehavior,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
@@ -295,16 +303,27 @@ pub(crate) fn eval_ext_circuit_one<F: RichField + Extendable<D>, const D: usize>
             yield_constr.constraint(builder, constr);
         }
     }
+
+    // Constrain new stack length.
+    let diff = builder.constant_extension(
+        F::Extension::from_canonical_usize(stack_behavior.num_pops)
+            - F::Extension::from_canonical_usize(stack_behavior.pushes as usize),
+    );
+    let diff = builder.sub_extension(lv.stack_len, diff);
+    let diff = builder.sub_extension(nv.stack_len, diff);
+    let constr = builder.mul_extension(filter, diff);
+    yield_constr.constraint_transition(builder, constr);
 }
 
 pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
     lv: &CpuColumnsView<ExtensionTarget<D>>,
+    nv: &CpuColumnsView<ExtensionTarget<D>>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
     for (op, stack_behavior) in izip!(lv.op.into_iter(), STACK_BEHAVIORS.into_iter()) {
         if let Some(stack_behavior) = stack_behavior {
-            eval_ext_circuit_one(builder, lv, op, stack_behavior, yield_constr);
+            eval_ext_circuit_one(builder, lv, nv, op, stack_behavior, yield_constr);
         }
     }
 }
