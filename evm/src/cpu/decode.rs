@@ -24,7 +24,7 @@ use crate::cpu::columns::{CpuColumnsView, COL_MAP};
 /// `is_invalid`. The kernel then verifies that the opcode was _actually_ invalid.
 const OPCODES: [(u8, usize, bool, usize); 18] = [
     // (start index of block, number of top bits to check (log2), kernel-only, flag column)
-    // ADD, MUL, SUB, DIV, MOD, LT and GT flags are handled partly manually here, and partly through the Arithmetic table CTL.
+    // ADD, MUL, SUB, DIV, MOD, LT, GT and BYTE flags are handled partly manually here, and partly through the Arithmetic table CTL.
     // ADDMOD, MULMOD and SUBMOD flags are handled partly manually here, and partly through the Arithmetic table CTL.
     // FP254 operation flags are handled partly manually here, and partly through the Arithmetic table CTL.
     (0x14, 1, false, COL_MAP.op.eq_iszero),
