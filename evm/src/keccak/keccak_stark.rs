@@ -777,7 +777,7 @@ mod tests {
             &trace_poly_values,
             &trace_commitments,
             &ctl_data,
-            GrandProductChallengeSet {
+            &GrandProductChallengeSet {
                 challenges: vec![ctl_z_data.challenge; config.num_challenges],
             },
             &mut Challenger::new(),

@@ -47,11 +47,11 @@ use plonky2::util::transpose;
 use super::NUM_BYTES;
 use crate::byte_packing::columns::{
     index_bytes, value_bytes, ADDR_CONTEXT, ADDR_SEGMENT, ADDR_VIRTUAL, BYTE_INDICES_COLS, IS_READ,
-    NUM_COLUMNS, RANGE_COUNTER, RC_COLS, SEQUENCE_END, SEQUENCE_LEN, TIMESTAMP,
+    NUM_COLUMNS, RANGE_COUNTER, RC_FREQUENCIES, SEQUENCE_END, SEQUENCE_LEN, TIMESTAMP,
 };
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cross_table_lookup::Column;
-use crate::lookup::{eval_lookups, eval_lookups_circuit, permuted_cols};
+use crate::lookup::Lookup;
 use crate::stark::Stark;
 use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 use crate::witness::memory::MemoryAddress;
@@ -240,11 +240,18 @@ impl<F: RichField + Extendable<D>, const D: usize> BytePackingStark<F, D> {
         // For each column c in cols, generate the range-check
         // permutations and put them in the corresponding range-check
         // columns rc_c and rc_c+1.
-        for (i, rc_c) in (0..NUM_BYTES).zip(RC_COLS.step_by(2)) {
-            let c = value_bytes(i);
-            let (col_perm, table_perm) = permuted_cols(&cols[c], &cols[RANGE_COUNTER]);
-            cols[rc_c].copy_from_slice(&col_perm);
-            cols[rc_c + 1].copy_from_slice(&table_perm);
+        for col in 0..NUM_BYTES {
+            for i in 0..n_rows {
+                let c = value_bytes(col);
+                let x = cols[c][i].to_canonical_u64() as usize;
+                assert!(
+                    x < BYTE_RANGE_MAX,
+                    "column value {} exceeds the max range value {}",
+                    x,
+                    BYTE_RANGE_MAX
+                );
+                cols[RC_FREQUENCIES][x] += F::ONE;
+            }
         }
     }
 
@@ -291,11 +298,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
         FE: FieldExtension<D2, BaseField = F>,
         P: PackedField<Scalar = FE>,
     {
-        // Range check all the columns
-        for col in RC_COLS.step_by(2) {
-            eval_lookups(vars, yield_constr, col, col + 1);
-        }
-
         let one = P::ONES;
 
         // We filter active columns by summing all the byte indices.
@@ -417,11 +419,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
         vars: StarkEvaluationTargets<D, { Self::COLUMNS }>,
         yield_constr: &mut RecursiveConstraintConsumer<F, D>,
     ) {
-        // Range check all the columns
-        for col in RC_COLS.step_by(2) {
-            eval_lookups_circuit(builder, vars, yield_constr, col, col + 1);
-        }
-
         // We filter active columns by summing all the byte indices.
         // Constraining each of them to be boolean is done later on below.
         let current_filter = builder.add_many_extension(&vars.local_values[BYTE_INDICES_COLS]);
@@ -568,6 +565,14 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
 
     fn constraint_degree(&self) -> usize {
         3
+    }
+
+    fn lookups(&self) -> Vec<Lookup> {
+        vec![Lookup {
+            columns: (value_bytes(0)..value_bytes(NUM_BYTES)).collect(),
+            table_column: RANGE_COUNTER,
+            frequencies_column: RC_FREQUENCIES,
+        }]
     }
 }
 

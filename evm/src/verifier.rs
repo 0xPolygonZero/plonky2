@@ -17,7 +17,9 @@ use crate::config::StarkConfig;
 use crate::constraint_consumer::ConstraintConsumer;
 use crate::cpu::cpu_stark::CpuStark;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
-use crate::cross_table_lookup::{verify_cross_table_lookups, CtlCheckVars, GrandProductChallenge};
+use crate::cross_table_lookup::{
+    verify_cross_table_lookups, CtlCheckVars, GrandProductChallenge, GrandProductChallengeSet,
+};
 use crate::keccak::keccak_stark::KeccakStark;
 use crate::keccak_sponge::keccak_sponge_stark::KeccakSpongeStark;
 use crate::logic::LogicStark;
@@ -77,6 +79,7 @@ where
         &all_proof.stark_proofs[Table::Arithmetic as usize].proof,
         &stark_challenges[Table::Arithmetic as usize],
         &ctl_vars_per_table[Table::Arithmetic as usize],
+        &ctl_challenges,
         config,
     )?;
     verify_stark_proof_with_challenges(
@@ -84,6 +87,7 @@ where
         &all_proof.stark_proofs[Table::BytePacking as usize].proof,
         &stark_challenges[Table::BytePacking as usize],
         &ctl_vars_per_table[Table::BytePacking as usize],
+        &ctl_challenges,
         config,
     )?;
     verify_stark_proof_with_challenges(
@@ -91,6 +95,7 @@ where
         &all_proof.stark_proofs[Table::Cpu as usize].proof,
         &stark_challenges[Table::Cpu as usize],
         &ctl_vars_per_table[Table::Cpu as usize],
+        &ctl_challenges,
         config,
     )?;
     verify_stark_proof_with_challenges(
@@ -98,6 +103,7 @@ where
         &all_proof.stark_proofs[Table::Keccak as usize].proof,
         &stark_challenges[Table::Keccak as usize],
         &ctl_vars_per_table[Table::Keccak as usize],
+        &ctl_challenges,
         config,
     )?;
     verify_stark_proof_with_challenges(
@@ -105,6 +111,7 @@ where
         &all_proof.stark_proofs[Table::KeccakSponge as usize].proof,
         &stark_challenges[Table::KeccakSponge as usize],
         &ctl_vars_per_table[Table::KeccakSponge as usize],
+        &ctl_challenges,
         config,
     )?;
     verify_stark_proof_with_challenges(
@@ -112,6 +119,7 @@ where
         &all_proof.stark_proofs[Table::Logic as usize].proof,
         &stark_challenges[Table::Logic as usize],
         &ctl_vars_per_table[Table::Logic as usize],
+        &ctl_challenges,
         config,
     )?;
     verify_stark_proof_with_challenges(
@@ -119,6 +127,7 @@ where
         &all_proof.stark_proofs[Table::Memory as usize].proof,
         &stark_challenges[Table::Memory as usize],
         &ctl_vars_per_table[Table::Memory as usize],
+        &ctl_challenges,
         config,
     )?;
 
@@ -296,6 +305,7 @@ pub(crate) fn verify_stark_proof_with_challenges<
     proof: &StarkProof<F, C, D>,
     challenges: &StarkProofChallenges<F, D>,
     ctl_vars: &[CtlCheckVars<F, F::Extension, F::Extension, D>],
+    ctl_challenges: &GrandProductChallengeSet<F>,
     config: &StarkConfig,
 ) -> Result<()>
 where
@@ -332,9 +342,10 @@ where
     );
     let num_lookup_columns = stark.num_lookup_helper_columns(config);
     let lookup_challenges = (num_lookup_columns > 0).then(|| {
-        ctl_vars
+        ctl_challenges
+            .challenges
             .iter()
-            .map(|ch| ch.challenges.beta)
+            .map(|ch| ch.beta)
             .collect::<Vec<_>>()
     });
 

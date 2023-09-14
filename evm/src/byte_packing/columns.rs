@@ -42,7 +42,6 @@ pub(crate) const fn value_bytes(i: usize) -> usize {
 // The two permutations associated to the byte in column i will be in
 // columns RC_COLS[2i] and RC_COLS[2i+1].
 pub(crate) const RANGE_COUNTER: usize = BYTES_VALUES_START + NUM_BYTES;
-pub(crate) const NUM_RANGE_CHECK_COLS: usize = 1 + 2 * NUM_BYTES;
-pub(crate) const RC_COLS: Range<usize> = RANGE_COUNTER + 1..RANGE_COUNTER + NUM_RANGE_CHECK_COLS;
+pub(crate) const RC_FREQUENCIES: usize = RANGE_COUNTER + 1;
 
-pub(crate) const NUM_COLUMNS: usize = RANGE_COUNTER + NUM_RANGE_CHECK_COLS;
+pub(crate) const NUM_COLUMNS: usize = RANGE_COUNTER + 2;
