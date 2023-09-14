@@ -18,6 +18,7 @@ fn get_addr<T: Copy>(lv: &CpuColumnsView<T>) -> (T, T, T) {
 
 fn eval_packed_load<P: PackedField>(
     lv: &CpuColumnsView<P>,
+    nv: &CpuColumnsView<P>,
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
     // The opcode for MLOAD_GENERAL is 0xfb. If the operation is MLOAD_GENERAL, lv.opcode_bits[0] = 1
@@ -42,12 +43,19 @@ fn eval_packed_load<P: PackedField>(
     }
 
     // Stack constraints
-    stack::eval_packed_one(lv, filter, stack::MLOAD_GENERAL_OP.unwrap(), yield_constr);
+    stack::eval_packed_one(
+        lv,
+        nv,
+        filter,
+        stack::MLOAD_GENERAL_OP.unwrap(),
+        yield_constr,
+    );
 }
 
 fn eval_ext_circuit_load<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
     lv: &CpuColumnsView<ExtensionTarget<D>>,
+    nv: &CpuColumnsView<ExtensionTarget<D>>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
     let mut filter = lv.op.m_op_general;
@@ -93,6 +101,7 @@ fn eval_ext_circuit_load<F: RichField + Extendable<D>, const D: usize>(
     stack::eval_ext_circuit_one(
         builder,
         lv,
+        nv,
         filter,
         stack::MLOAD_GENERAL_OP.unwrap(),
         yield_constr,
@@ -101,6 +110,7 @@ fn eval_ext_circuit_load<F: RichField + Extendable<D>, const D: usize>(
 
 fn eval_packed_store<P: PackedField>(
     lv: &CpuColumnsView<P>,
+    nv: &CpuColumnsView<P>,
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
     let filter = lv.op.m_op_general * (P::ONES - lv.opcode_bits[0]);
@@ -124,12 +134,19 @@ fn eval_packed_store<P: PackedField>(
     }
 
     // Stack constraints
-    stack::eval_packed_one(lv, filter, stack::MSTORE_GENERAL_OP.unwrap(), yield_constr);
+    stack::eval_packed_one(
+        lv,
+        nv,
+        filter,
+        stack::MSTORE_GENERAL_OP.unwrap(),
+        yield_constr,
+    );
 }
 
 fn eval_ext_circuit_store<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
     lv: &CpuColumnsView<ExtensionTarget<D>>,
+    nv: &CpuColumnsView<ExtensionTarget<D>>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
     let mut filter = lv.op.m_op_general;
@@ -177,6 +194,7 @@ fn eval_ext_circuit_store<F: RichField + Extendable<D>, const D: usize>(
     stack::eval_ext_circuit_one(
         builder,
         lv,
+        nv,
         filter,
         stack::MSTORE_GENERAL_OP.unwrap(),
         yield_constr,
@@ -185,17 +203,19 @@ fn eval_ext_circuit_store<F: RichField + Extendable<D>, const D: usize>(
 
 pub fn eval_packed<P: PackedField>(
     lv: &CpuColumnsView<P>,
+    nv: &CpuColumnsView<P>,
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
-    eval_packed_load(lv, yield_constr);
-    eval_packed_store(lv, yield_constr);
+    eval_packed_load(lv, nv, yield_constr);
+    eval_packed_store(lv, nv, yield_constr);
 }
 
 pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
     lv: &CpuColumnsView<ExtensionTarget<D>>,
+    nv: &CpuColumnsView<ExtensionTarget<D>>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
-    eval_ext_circuit_load(builder, lv, yield_constr);
-    eval_ext_circuit_store(builder, lv, yield_constr);
+    eval_ext_circuit_load(builder, lv, nv, yield_constr);
+    eval_ext_circuit_store(builder, lv, nv, yield_constr);
 }
