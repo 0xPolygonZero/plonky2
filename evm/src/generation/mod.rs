@@ -284,12 +284,9 @@ fn simulate_cpu<F: RichField + Extendable<D>, const D: usize>(
     loop {
         // If we've reached the kernel's halt routine, and our trace length is a power of 2, stop.
         let pc = state.registers.program_counter;
-        let in_halt_loop = state.registers.is_kernel && pc == halt_pc;
-        if in_halt_loop {
+        let halt = state.registers.is_kernel && pc == halt_pc;
+        if halt {
             log::info!("CPU halted after {} cycles", state.traces.clock());
-
-            // Execute this last transition then process padding.
-            transition(state)?;
 
             // Padding
             let mut row = CpuColumnsView::<F>::default();
@@ -306,6 +303,7 @@ fn simulate_cpu<F: RichField + Extendable<D>, const D: usize>(
                 row.clock += F::ONE;
             }
             log::info!("CPU trace padded to {} cycles", state.traces.clock());
+
             return Ok(());
         }
 
