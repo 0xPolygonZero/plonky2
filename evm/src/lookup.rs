@@ -30,7 +30,7 @@ impl Lookup {
     pub(crate) fn num_helper_columns(&self, constraint_degree: usize) -> usize {
         // One helper column for each column batch of size `constraint_degree-1`,
         // then one column for the inverse of `table + challenge` and one for the `Z` polynomial.
-        ceil_div_usize(self.columns.len(), constraint_degree - 1) + 2
+        ceil_div_usize(self.columns.len(), constraint_degree - 1) + 1
     }
 }
 
@@ -89,7 +89,7 @@ pub(crate) fn lookup_helper_columns<F: Field>(
     for x in table.iter_mut() {
         *x = challenge + *x;
     }
-    helper_columns.push(F::batch_multiplicative_inverse(&table).into());
+    let table_inverse: Vec<F> = F::batch_multiplicative_inverse(&table).into();
 
     // Compute the `Z` polynomial with `Z(1)=0` and `Z(gx) = Z(x) + sum h_i(x) - frequencies(x)g(x)`.
     // This enforces the check from the paper, that the sum of the h_k(x) polynomials is 0 over H.
@@ -99,11 +99,11 @@ pub(crate) fn lookup_helper_columns<F: Field>(
     let mut z = Vec::with_capacity(frequencies.len());
     z.push(F::ZERO);
     for i in 0..frequencies.len() - 1 {
-        let x = helper_columns[..num_helper_columns - 2]
+        let x = helper_columns[..num_helper_columns - 1]
             .iter()
             .map(|col| col.values[i])
             .sum::<F>()
-            - frequencies[i] * helper_columns[num_helper_columns - 2].values[i];
+            - frequencies[i] * table_inverse[i];
         z.push(z[i] + x);
     }
     helper_columns.push(z.into());
@@ -158,20 +158,17 @@ pub(crate) fn eval_lookups_checks<F, FE, P, S, const D: usize, const D2: usize>(
                     _ => todo!("Allow other constraint degrees."),
                 }
             }
-            // Check that the penultimate helper column contains `1/(table+challenge)`.
-            let x = lookup_vars.local_values[start + num_helper_columns - 2];
-            let x = x * (vars.local_values[lookup.table_column] + challenge);
-            yield_constr.constraint(x - P::ONES);
 
             // Check the `Z` polynomial.
             let z = lookup_vars.local_values[start + num_helper_columns - 1];
             let next_z = lookup_vars.next_values[start + num_helper_columns - 1];
-            let y = lookup_vars.local_values[start..start + num_helper_columns - 2]
+            let table_with_challenge = vars.local_values[lookup.table_column] + challenge;
+            let y = lookup_vars.local_values[start..start + num_helper_columns - 1]
                 .iter()
                 .fold(P::ZEROS, |acc, x| acc + *x)
-                - vars.local_values[lookup.frequencies_column]
-                    * lookup_vars.local_values[start + num_helper_columns - 2];
-            yield_constr.constraint(next_z - z - y);
+                * table_with_challenge
+                - vars.local_values[lookup.frequencies_column];
+            yield_constr.constraint((next_z - z) * table_with_challenge - y);
             start += num_helper_columns;
         }
     }
@@ -224,23 +221,21 @@ pub(crate) fn eval_lookups_checks_circuit<
                     _ => todo!("Allow other constraint degrees."),
                 }
             }
-            let x = lookup_vars.local_values[start + num_helper_columns - 2];
-            let tmp = builder.add_extension(vars.local_values[lookup.table_column], challenge);
-            let x = builder.mul_sub_extension(x, tmp, one);
-            yield_constr.constraint(builder, x);
 
             let z = lookup_vars.local_values[start + num_helper_columns - 1];
             let next_z = lookup_vars.next_values[start + num_helper_columns - 1];
-            let y = builder.add_many_extension(
-                &lookup_vars.local_values[start..start + num_helper_columns - 2],
+            let table_with_challenge =
+                builder.add_extension(vars.local_values[lookup.table_column], challenge);
+            let mut y = builder.add_many_extension(
+                &lookup_vars.local_values[start..start + num_helper_columns - 1],
             );
-            let tmp = builder.mul_extension(
-                vars.local_values[lookup.frequencies_column],
-                lookup_vars.local_values[start + num_helper_columns - 2],
-            );
-            let y = builder.sub_extension(y, tmp);
-            let constraint = builder.sub_extension(next_z, z);
-            let constraint = builder.sub_extension(constraint, y);
+
+            y = builder.mul_extension(y, table_with_challenge);
+            y = builder.sub_extension(y, vars.local_values[lookup.frequencies_column]);
+
+            let mut constraint = builder.sub_extension(next_z, z);
+            constraint = builder.mul_extension(constraint, table_with_challenge);
+            constraint = builder.sub_extension(constraint, y);
             yield_constr.constraint(builder, constraint);
             start += num_helper_columns;
         }
