@@ -11,8 +11,8 @@ pub(crate) const KECCAK_RATE_BYTES: usize = 136;
 pub(crate) const KECCAK_RATE_U32S: usize = KECCAK_RATE_BYTES / 4;
 pub(crate) const KECCAK_CAPACITY_BYTES: usize = 64;
 pub(crate) const KECCAK_CAPACITY_U32S: usize = KECCAK_CAPACITY_BYTES / 4;
-pub(crate) const KECCAK_DIGEST_U32S: usize = 8;
 pub(crate) const KECCAK_DIGEST_BYTES: usize = 32;
+pub(crate) const KECCAK_DIGEST_U32S: usize = KECCAK_DIGEST_BYTES / 4;
 
 #[repr(C)]
 #[derive(Eq, PartialEq, Debug)]

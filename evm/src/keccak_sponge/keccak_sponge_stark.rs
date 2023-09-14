@@ -60,21 +60,17 @@ pub(crate) fn ctl_looking_keccak<F: Field>() -> Vec<Column<F>> {
 
     // We recover the 32-bit digest limbs from their corresponding bytes,
     // and then append them to the rest of the updated state limbs.
-    let digest_u32s = cols
-        .updated_digest_state_bytes
-        .chunks_exact(4)
-        .map(|c| {
-            Column::linear_combination(
-                c.iter()
-                    .enumerate()
-                    .map(|(i, &b)| (b, F::from_canonical_usize(1 << (8 * i)))),
-            )
-        })
-        .collect::<Vec<_>>();
+    let digest_u32s = cols.updated_digest_state_bytes.chunks_exact(4).map(|c| {
+        Column::linear_combination(
+            c.iter()
+                .enumerate()
+                .map(|(i, &b)| (b, F::from_canonical_usize(1 << (8 * i)))),
+        )
+    });
 
     res.extend(digest_u32s);
 
-    res.extend(Column::singles(&cols.partial_updated_state_u32s).collect::<Vec<_>>());
+    res.extend(Column::singles(&cols.partial_updated_state_u32s));
 
     res
 }
@@ -399,20 +395,24 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakSpongeStark<F, D> {
                 .map(|i| F::from_canonical_u32(i))
                 .collect::<Vec<_>>(),
         );
-        for (l, &elt) in sponge_state[..KECCAK_DIGEST_U32S].iter().enumerate() {
-            let mut cur_elt = elt;
-            (0..4).for_each(|i| {
-                row.updated_digest_state_bytes[l * 4 + i] = F::from_canonical_u32(cur_elt & 0xFF);
-                cur_elt >>= 8;
-            });
+        sponge_state[..KECCAK_DIGEST_U32S]
+            .iter()
+            .enumerate()
+            .for_each(|(l, &elt)| {
+                let mut cur_elt = elt;
+                (0..4).for_each(|i| {
+                    row.updated_digest_state_bytes[l * 4 + i] =
+                        F::from_canonical_u32(cur_elt & 0xFF);
+                    cur_elt >>= 8;
+                });
 
-            // 32-bit limb reconstruction consistency check.
-            let mut s = row.updated_digest_state_bytes[l * 4].to_canonical_u64();
-            for i in 1..4 {
-                s += row.updated_digest_state_bytes[l * 4 + i].to_canonical_u64() << (8 * i);
-            }
-            assert_eq!(elt as u64, s, "not equal");
-        }
+                // 32-bit limb reconstruction consistency check.
+                let mut s = row.updated_digest_state_bytes[l * 4].to_canonical_u64();
+                for i in 1..4 {
+                    s += row.updated_digest_state_bytes[l * 4 + i].to_canonical_u64() << (8 * i);
+                }
+                assert_eq!(elt as u64, s, "not equal");
+            })
     }
 
     fn generate_padding_row(&self) -> [F; NUM_KECCAK_SPONGE_COLUMNS] {
