@@ -62,16 +62,7 @@ impl BinaryOperator {
                 } else {
                     input1.byte(31 - input0.as_usize()).into()
                 }
-            } /*
-              BinaryOperator::Shl => {
-                  if input0 < 256.into() {
-                      input1 << input0
-                  } else {
-                      U256::zero()
-                  }
-              }
-              BinaryOperator::Shr => input1 >> input0,
-              */
+            }
         }
     }
 
@@ -121,10 +112,6 @@ impl TernaryOperator {
 }
 
 /// An enum representing arithmetic operations that can be either binary or ternary.
-///
-/// Binary operations include a special `is_simulated` flag to differentiate SHL
-/// and SHR operations from MUL and DIV respectively, as the former are simulated
-/// with the latter by scaling their inputs.
 #[derive(Debug)]
 pub(crate) enum Operation {
     BinaryOperation {
@@ -147,7 +134,8 @@ impl Operation {
     ///
     /// NB: This works as you would expect, EXCEPT for SHL and SHR,
     /// whose inputs need a small amount of preprocessing. Specifically,
-    /// to create `SHL(shift, value)`, call
+    /// to create `SHL(shift, value)`, call (note the reversal of
+    /// argument order):
     ///
     ///    `Operation::binary(BinaryOperator::Shl, value, 1 << shift)`
     ///
