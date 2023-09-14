@@ -102,7 +102,7 @@ pub fn generate<F: RichField>(lv: &mut CpuColumnsView<F>) {
     }
 
     if opcode == 0xfb || opcode == 0xfc {
-        lv[COL_MAP.op.m_op_general] = F::from_bool(kernel);
+        lv.op.m_op_general = F::from_bool(kernel);
     }
 }
 
@@ -186,11 +186,11 @@ pub fn eval_packed_generic<P: PackedField>(
         .enumerate()
         .map(|(i, bit)| bit * P::Scalar::from_canonical_u64(1 << i))
         .sum();
-    yield_constr.constraint((P::ONES - kernel_mode) * lv[COL_MAP.op.m_op_general]);
+    yield_constr.constraint((P::ONES - kernel_mode) * lv.op.m_op_general);
 
     let m_op_constr = (opcode - P::Scalar::from_canonical_usize(0xfb_usize))
         * (opcode - P::Scalar::from_canonical_usize(0xfc_usize))
-        * lv[COL_MAP.op.m_op_general];
+        * lv.op.m_op_general;
     yield_constr.constraint(m_op_constr);
 }
 
@@ -285,13 +285,13 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
 
     let one_extension = builder.constant_extension(F::Extension::ONE);
     let is_not_kernel_mode = builder.sub_extension(one_extension, kernel_mode);
-    let constr = builder.mul_extension(is_not_kernel_mode, lv[COL_MAP.op.m_op_general]);
+    let constr = builder.mul_extension(is_not_kernel_mode, lv.op.m_op_general);
     yield_constr.constraint(builder, constr);
 
     let mload_constr = builder.sub_extension(opcode, mload_opcode);
     let mstore_constr = builder.sub_extension(opcode, mstore_opcode);
     let mut m_op_constr = builder.mul_extension(mload_constr, mstore_constr);
-    m_op_constr = builder.mul_extension(m_op_constr, lv[COL_MAP.op.m_op_general]);
+    m_op_constr = builder.mul_extension(m_op_constr, lv.op.m_op_general);
 
     yield_constr.constraint(builder, m_op_constr);
 }
