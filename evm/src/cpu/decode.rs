@@ -43,10 +43,10 @@ const OPCODES: [(u8, usize, bool, usize); 16] = [
     (0x80, 4, false, COL_MAP.op.dup),  // 0x80-0x8f
     (0x90, 4, false, COL_MAP.op.swap), // 0x90-0x9f
     (0xee, 0, true, COL_MAP.op.mstore_32bytes),
-    // MLOAD_GENERAL and MSTORE_GENERAL flags are handled manually here.
     (0xf6, 1, true, COL_MAP.op.context_op), // 0xf6-0xf7
     (0xf8, 0, true, COL_MAP.op.mload_32bytes),
     (0xf9, 0, true, COL_MAP.op.exit_kernel),
+    // MLOAD_GENERAL and MSTORE_GENERAL flags are handled manually here.
 ];
 
 /// List of combined opcodes requiring a special handling.
