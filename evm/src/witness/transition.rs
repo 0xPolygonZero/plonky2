@@ -179,8 +179,7 @@ fn fill_op_flag<F: Field>(op: Operation, row: &mut CpuColumnsView<F>) {
         Operation::Mload32Bytes => &mut flags.mload_32bytes,
         Operation::Mstore32Bytes => &mut flags.mstore_32bytes,
         Operation::ExitKernel => &mut flags.exit_kernel,
-        Operation::MloadGeneral => &mut flags.mload_general,
-        Operation::MstoreGeneral => &mut flags.mstore_general,
+        Operation::MloadGeneral | Operation::MstoreGeneral => &mut flags.m_op_general,
     } = F::ONE;
 }
 
