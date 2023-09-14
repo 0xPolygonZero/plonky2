@@ -3,6 +3,7 @@ use itertools::Itertools;
 use keccak_hash::keccak;
 use plonky2::field::types::Field;
 
+use super::util::{byte_packing_log, byte_unpacking_log};
 use crate::arithmetic::BinaryOperator;
 use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::kernel::aggregator::KERNEL;
@@ -28,8 +29,6 @@ use crate::{arithmetic, logic};
 pub(crate) enum Operation {
     Iszero,
     Not,
-    Shl,
-    Shr,
     Syscall(u8, usize, bool), // (syscall number, minimum stack length, increases stack length)
     Eq,
     BinaryLogic(logic::Op),
@@ -47,6 +46,8 @@ pub(crate) enum Operation {
     Swap(u8),
     GetContext,
     SetContext,
+    Mload32Bytes,
+    Mstore32Bytes,
     ExitKernel,
     MloadGeneral,
     MstoreGeneral,
@@ -470,6 +471,7 @@ pub(crate) fn generate_iszero<F: Field>(
 fn append_shift<F: Field>(
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
+    is_shl: bool,
     input0: U256,
     input1: U256,
     log_in0: MemoryOp,
@@ -497,10 +499,10 @@ fn append_shift<F: Field>(
     } else {
         U256::one() << input0
     };
-    let operator = if row.op.shl.is_one() {
-        BinaryOperator::Mul
+    let operator = if is_shl {
+        BinaryOperator::Shl
     } else {
-        BinaryOperator::Div
+        BinaryOperator::Shr
     };
     let operation = arithmetic::Operation::binary(operator, input1, input0);
 
@@ -524,7 +526,7 @@ pub(crate) fn generate_shl<F: Field>(
     } else {
         input1 << input0
     };
-    append_shift(state, row, input0, input1, log_in0, log_in1, result)
+    append_shift(state, row, true, input0, input1, log_in0, log_in1, result)
 }
 
 pub(crate) fn generate_shr<F: Field>(
@@ -539,7 +541,7 @@ pub(crate) fn generate_shr<F: Field>(
     } else {
         input1 >> input0
     };
-    append_shift(state, row, input0, input1, log_in0, log_in1, result)
+    append_shift(state, row, false, input0, input1, log_in0, log_in1, result)
 }
 
 pub(crate) fn generate_syscall<F: Field>(
@@ -686,6 +688,45 @@ pub(crate) fn generate_mload_general<F: Field>(
     Ok(())
 }
 
+pub(crate) fn generate_mload_32bytes<F: Field>(
+    state: &mut GenerationState<F>,
+    mut row: CpuColumnsView<F>,
+) -> Result<(), ProgramError> {
+    let [(context, log_in0), (segment, log_in1), (base_virt, log_in2), (len, log_in3)] =
+        stack_pop_with_log_and_fill::<4, _>(state, &mut row)?;
+    let len = len.as_usize();
+
+    let base_address = MemoryAddress::new_u256s(context, segment, base_virt)?;
+    if usize::MAX - base_address.virt < len {
+        return Err(ProgramError::MemoryError(VirtTooLarge {
+            virt: base_address.virt.into(),
+        }));
+    }
+    let bytes = (0..len)
+        .map(|i| {
+            let address = MemoryAddress {
+                virt: base_address.virt + i,
+                ..base_address
+            };
+            let val = state.memory.get(address);
+            val.as_u32() as u8
+        })
+        .collect_vec();
+
+    let packed_int = U256::from_big_endian(&bytes);
+    let log_out = stack_push_log_and_fill(state, &mut row, packed_int)?;
+
+    byte_packing_log(state, base_address, bytes);
+
+    state.traces.push_memory(log_in0);
+    state.traces.push_memory(log_in1);
+    state.traces.push_memory(log_in2);
+    state.traces.push_memory(log_in3);
+    state.traces.push_memory(log_out);
+    state.traces.push_cpu(row);
+    Ok(())
+}
+
 pub(crate) fn generate_mstore_general<F: Field>(
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
@@ -711,6 +752,27 @@ pub(crate) fn generate_mstore_general<F: Field>(
     state.traces.push_memory(log_in2);
     state.traces.push_memory(log_in3);
     state.traces.push_memory(log_write);
+    state.traces.push_cpu(row);
+    Ok(())
+}
+
+pub(crate) fn generate_mstore_32bytes<F: Field>(
+    state: &mut GenerationState<F>,
+    mut row: CpuColumnsView<F>,
+) -> Result<(), ProgramError> {
+    let [(context, log_in0), (segment, log_in1), (base_virt, log_in2), (val, log_in3), (len, log_in4)] =
+        stack_pop_with_log_and_fill::<5, _>(state, &mut row)?;
+    let len = len.as_usize();
+
+    let base_address = MemoryAddress::new_u256s(context, segment, base_virt)?;
+
+    byte_unpacking_log(state, base_address, val, len);
+
+    state.traces.push_memory(log_in0);
+    state.traces.push_memory(log_in1);
+    state.traces.push_memory(log_in2);
+    state.traces.push_memory(log_in3);
+    state.traces.push_memory(log_in4);
     state.traces.push_cpu(row);
     Ok(())
 }

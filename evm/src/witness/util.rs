@@ -1,6 +1,7 @@
 use ethereum_types::U256;
 use plonky2::field::types::Field;
 
+use crate::byte_packing::byte_packing_stark::BytePackingOp;
 use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::kernel::keccak_util::keccakf_u8s;
 use crate::cpu::membus::{NUM_CHANNELS, NUM_GP_CHANNELS};
@@ -256,5 +257,65 @@ pub(crate) fn keccak_sponge_log<F: Field>(
         base_address,
         timestamp: clock * NUM_CHANNELS,
         input,
+    });
+}
+
+pub(crate) fn byte_packing_log<F: Field>(
+    state: &mut GenerationState<F>,
+    base_address: MemoryAddress,
+    bytes: Vec<u8>,
+) {
+    let clock = state.traces.clock();
+
+    let mut address = base_address;
+    for &byte in &bytes {
+        state.traces.push_memory(MemoryOp::new(
+            MemoryChannel::Code,
+            clock,
+            address,
+            MemoryOpKind::Read,
+            byte.into(),
+        ));
+        address.increment();
+    }
+
+    state.traces.push_byte_packing(BytePackingOp {
+        is_read: true,
+        base_address,
+        timestamp: clock * NUM_CHANNELS,
+        bytes,
+    });
+}
+
+pub(crate) fn byte_unpacking_log<F: Field>(
+    state: &mut GenerationState<F>,
+    base_address: MemoryAddress,
+    val: U256,
+    len: usize,
+) {
+    let clock = state.traces.clock();
+
+    let mut bytes = vec![0; 32];
+    val.to_little_endian(&mut bytes);
+    bytes.resize(len, 0);
+    bytes.reverse();
+
+    let mut address = base_address;
+    for &byte in &bytes {
+        state.traces.push_memory(MemoryOp::new(
+            MemoryChannel::Code,
+            clock,
+            address,
+            MemoryOpKind::Write,
+            byte.into(),
+        ));
+        address.increment();
+    }
+
+    state.traces.push_byte_packing(BytePackingOp {
+        is_read: false,
+        base_address,
+        timestamp: clock * NUM_CHANNELS,
+        bytes,
     });
 }

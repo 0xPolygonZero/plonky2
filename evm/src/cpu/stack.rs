@@ -62,29 +62,13 @@ pub(crate) const MSTORE_GENERAL_OP: Option<StackBehavior> = Some(StackBehavior {
 // except the first `num_pops` and the last `pushes as usize` channels have their read flag and
 // address constrained automatically in this file.
 const STACK_BEHAVIORS: OpsColumnsView<Option<StackBehavior>> = OpsColumnsView {
-    add: BASIC_BINARY_OP,
-    mul: BASIC_BINARY_OP,
-    sub: BASIC_BINARY_OP,
-    div: BASIC_BINARY_OP,
-    mod_: BASIC_BINARY_OP,
-    addmod: BASIC_TERNARY_OP,
-    mulmod: BASIC_TERNARY_OP,
-    addfp254: BASIC_BINARY_OP,
-    mulfp254: BASIC_BINARY_OP,
-    subfp254: BASIC_BINARY_OP,
-    submod: BASIC_TERNARY_OP,
-    lt: BASIC_BINARY_OP,
-    gt: BASIC_BINARY_OP,
+    binary_op: BASIC_BINARY_OP,
+    ternary_op: BASIC_TERNARY_OP,
+    fp254_op: BASIC_BINARY_OP,
     eq_iszero: None, // EQ is binary, IS_ZERO is unary.
     logic_op: BASIC_BINARY_OP,
     not: BASIC_UNARY_OP,
-    byte: BASIC_BINARY_OP,
-    shl: Some(StackBehavior {
-        num_pops: 2,
-        pushes: true,
-        disable_other_channels: false,
-    }),
-    shr: Some(StackBehavior {
+    shift: Some(StackBehavior {
         num_pops: 2,
         pushes: true,
         disable_other_channels: false,
@@ -120,6 +104,16 @@ const STACK_BEHAVIORS: OpsColumnsView<Option<StackBehavior>> = OpsColumnsView {
     dup: None,
     swap: None,
     context_op: None, // SET_CONTEXT is special since it involves the old and the new stack.
+    mstore_32bytes: Some(StackBehavior {
+        num_pops: 5,
+        pushes: false,
+        disable_other_channels: false,
+    }),
+    mload_32bytes: Some(StackBehavior {
+        num_pops: 4,
+        pushes: true,
+        disable_other_channels: false,
+    }),
     exit_kernel: Some(StackBehavior {
         num_pops: 1,
         pushes: false,

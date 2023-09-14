@@ -2,6 +2,7 @@ use std::any::type_name;
 
 use anyhow::{ensure, Result};
 use ethereum_types::U256;
+use itertools::Itertools;
 use plonky2::field::extension::{Extendable, FieldExtension};
 use plonky2::field::types::Field;
 use plonky2::fri::verifier::verify_fri_proof;
@@ -11,6 +12,7 @@ use plonky2::plonk::plonk_common::reduce_with_powers;
 
 use crate::all_stark::{AllStark, Table, NUM_TABLES};
 use crate::arithmetic::arithmetic_stark::ArithmeticStark;
+use crate::byte_packing::byte_packing_stark::BytePackingStark;
 use crate::config::StarkConfig;
 use crate::constraint_consumer::ConstraintConsumer;
 use crate::cpu::cpu_stark::CpuStark;
@@ -38,6 +40,7 @@ pub fn verify_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, co
 ) -> Result<()>
 where
     [(); ArithmeticStark::<F, D>::COLUMNS]:,
+    [(); BytePackingStark::<F, D>::COLUMNS]:,
     [(); CpuStark::<F, D>::COLUMNS]:,
     [(); KeccakStark::<F, D>::COLUMNS]:,
     [(); KeccakSpongeStark::<F, D>::COLUMNS]:,
@@ -53,6 +56,7 @@ where
 
     let AllStark {
         arithmetic_stark,
+        byte_packing_stark,
         cpu_stark,
         keccak_stark,
         keccak_sponge_stark,
@@ -73,6 +77,13 @@ where
         &all_proof.stark_proofs[Table::Arithmetic as usize].proof,
         &stark_challenges[Table::Arithmetic as usize],
         &ctl_vars_per_table[Table::Arithmetic as usize],
+        config,
+    )?;
+    verify_stark_proof_with_challenges(
+        byte_packing_stark,
+        &all_proof.stark_proofs[Table::BytePacking as usize].proof,
+        &stark_challenges[Table::BytePacking as usize],
+        &ctl_vars_per_table[Table::BytePacking as usize],
         config,
     )?;
     verify_stark_proof_with_challenges(
@@ -97,34 +108,30 @@ where
         config,
     )?;
     verify_stark_proof_with_challenges(
-        memory_stark,
-        &all_proof.stark_proofs[Table::Memory as usize].proof,
-        &stark_challenges[Table::Memory as usize],
-        &ctl_vars_per_table[Table::Memory as usize],
-        config,
-    )?;
-    verify_stark_proof_with_challenges(
         logic_stark,
         &all_proof.stark_proofs[Table::Logic as usize].proof,
         &stark_challenges[Table::Logic as usize],
         &ctl_vars_per_table[Table::Logic as usize],
         config,
     )?;
+    verify_stark_proof_with_challenges(
+        memory_stark,
+        &all_proof.stark_proofs[Table::Memory as usize].proof,
+        &stark_challenges[Table::Memory as usize],
+        &ctl_vars_per_table[Table::Memory as usize],
+        config,
+    )?;
 
     let public_values = all_proof.public_values;
 
-    // Extra products to add to the looked last value
-    // Arithmetic, KeccakSponge, Keccak, Logic
-    let mut extra_looking_products = vec![vec![F::ONE; config.num_challenges]; NUM_TABLES - 1];
+    // Extra products to add to the looked last value.
+    // Only necessary for the Memory values.
+    let mut extra_looking_products = vec![vec![F::ONE; config.num_challenges]; NUM_TABLES];
 
     // Memory
-    extra_looking_products.push(Vec::new());
-    for c in 0..config.num_challenges {
-        extra_looking_products[Table::Memory as usize].push(get_memory_extra_looking_products(
-            &public_values,
-            ctl_challenges.challenges[c],
-        ));
-    }
+    extra_looking_products[Table::Memory as usize] = (0..config.num_challenges)
+        .map(|i| get_memory_extra_looking_products(&public_values, ctl_challenges.challenges[i]))
+        .collect_vec();
 
     verify_cross_table_lookups::<F, D>(
         cross_table_lookups,
