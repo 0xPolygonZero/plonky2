@@ -208,7 +208,7 @@ impl<F: Field> Column<F> {
     where
         F: RichField + Extendable<D>,
     {
-        let pairs = self
+        let mut pairs = self
             .linear_combination
             .iter()
             .map(|&(c, f)| {
@@ -216,7 +216,8 @@ impl<F: Field> Column<F> {
                     v[c],
                     builder.constant_extension(F::Extension::from_basefield(f)),
                 )
-            });
+            })
+            .collect::<Vec<_>>();
         let next_row_pairs = self.next_row_linear_combination
             .iter()
             .map(|&(c, f)| {
@@ -225,9 +226,9 @@ impl<F: Field> Column<F> {
                     builder.constant_extension(F::Extension::from_basefield(f)),
                 )
             });
-        let all_pairs = pairs.chain(next_row_pairs).collect::<Vec<_>>();
+        pairs.extend(next_row_pairs);
         let constant = builder.constant_extension(F::Extension::from_basefield(self.constant));
-        builder.inner_product_extension(F::ONE, constant, all_pairs)
+        builder.inner_product_extension(F::ONE, constant, pairs)
     }
 }
 

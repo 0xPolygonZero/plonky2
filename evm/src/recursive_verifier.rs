@@ -414,7 +414,7 @@ fn verify_stark_proof_with_challenges_circuit<
         next_values,
         permutation_ctl_zs,
         permutation_ctl_zs_next,
-        permutation_ctl_zs_prev,
+        permutation_ctl_zs_prev: _,
         ctl_zs_last,
         quotient_polys,
     } = &proof.openings;
