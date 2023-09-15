@@ -1,5 +1,5 @@
+use alloc::format;
 use alloc::vec::Vec;
-use alloc::{format, vec};
 
 use itertools::Itertools;
 
@@ -415,7 +415,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let initial_trees_proof =
             self.add_virtual_fri_initial_trees_proof(num_leaves_per_oracle, merkle_proof_len);
 
-        let mut steps = vec![];
+        let mut steps = Vec::with_capacity(params.reduction_arity_bits.len());
         for &arity_bits in &params.reduction_arity_bits {
             assert!(merkle_proof_len >= arity_bits);
             merkle_proof_len -= arity_bits;

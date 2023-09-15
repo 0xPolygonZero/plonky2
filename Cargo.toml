@@ -10,10 +10,3 @@ incremental = true
 
 [profile.bench]
 opt-level = 3
-
-[patch.crates-io]
-plonky2_field = { path = "field" }
-plonky2_maybe_rayon = { path = "maybe_rayon" }
-plonky2 = { path = "plonky2" }
-starky = { path = "starky" }
-plonky2_util = { path = "util" }

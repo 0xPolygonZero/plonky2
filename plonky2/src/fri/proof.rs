@@ -194,7 +194,7 @@ impl<F: RichField + Extendable<D>, H: Hasher<F>, const D: usize> FriProof<F, H, 
 
         let mut compressed_query_proofs = CompressedFriQueryRounds {
             indices: indices.to_vec(),
-            initial_trees_proofs: HashMap::new(),
+            initial_trees_proofs: HashMap::with_capacity(indices.len()),
             steps: vec![HashMap::new(); num_reductions],
         };
 

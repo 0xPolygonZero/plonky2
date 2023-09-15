@@ -25,7 +25,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: nightly-2023-06-30
+          toolchain: nightly
           override: true
 
       - name: rust-cache
@@ -85,7 +85,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: nightly-2023-06-30
+          toolchain: nightly
           override: true
           components: rustfmt, clippy
 
