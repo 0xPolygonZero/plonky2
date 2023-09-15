@@ -25,6 +25,7 @@ pub(crate) fn generate_bootstrap_kernel<F: Field>(state: &mut GenerationState<F>
     for chunk in &KERNEL.code.iter().enumerate().chunks(NUM_GP_CHANNELS) {
         let mut cpu_row = CpuColumnsView::default();
         cpu_row.clock = F::from_canonical_usize(state.traces.clock());
+        cpu_row.is_bootstrap_kernel = F::ONE;
 
         // Write this chunk to memory, while simultaneously packing its bytes into a u32 word.
         for (channel, (addr, &byte)) in chunk.enumerate() {
@@ -39,6 +40,7 @@ pub(crate) fn generate_bootstrap_kernel<F: Field>(state: &mut GenerationState<F>
 
     let mut final_cpu_row = CpuColumnsView::default();
     final_cpu_row.clock = F::from_canonical_usize(state.traces.clock());
+    final_cpu_row.is_bootstrap_kernel = F::ONE;
     final_cpu_row.is_keccak_sponge = F::ONE;
     // The Keccak sponge CTL uses memory value columns for its inputs and outputs.
     final_cpu_row.mem_channels[0].value[0] = F::ZERO; // context
@@ -64,10 +66,8 @@ pub(crate) fn eval_bootstrap_kernel<F: Field, P: PackedField<Scalar = F>>(
     let next_values: &CpuColumnsView<_> = vars.next_values.borrow();
 
     // IS_BOOTSTRAP_KERNEL must have an init value of 1, a final value of 0, and a delta in {0, -1}.
-    let local_is_bootstrap =
-        P::ONES - local_values.op.into_iter().sum::<P>() - local_values.halt_state;
-    let next_is_bootstrap =
-        P::ONES - next_values.op.into_iter().sum::<P>() - next_values.halt_state;
+    let local_is_bootstrap = local_values.is_bootstrap_kernel;
+    let next_is_bootstrap = next_values.is_bootstrap_kernel;
     yield_constr.constraint_first_row(local_is_bootstrap - P::ONES);
     yield_constr.constraint_last_row(local_is_bootstrap);
     let delta_is_bootstrap = next_is_bootstrap - local_is_bootstrap;
@@ -113,12 +113,8 @@ pub(crate) fn eval_bootstrap_kernel_circuit<F: RichField + Extendable<D>, const 
     let one = builder.one_extension();
 
     // IS_BOOTSTRAP_KERNEL must have an init value of 1, a final value of 0, and a delta in {0, -1}.
-    let local_is_bootstrap =
-        builder.add_many_extension(local_values.op.iter().chain(&[local_values.halt_state]));
-    let local_is_bootstrap = builder.sub_extension(one, local_is_bootstrap);
-    let next_is_bootstrap =
-        builder.add_many_extension(next_values.op.iter().chain(&[next_values.halt_state]));
-    let next_is_bootstrap = builder.sub_extension(one, next_is_bootstrap);
+    let local_is_bootstrap = local_values.is_bootstrap_kernel;
+    let next_is_bootstrap = next_values.is_bootstrap_kernel;
     let constraint = builder.sub_extension(local_is_bootstrap, one);
     yield_constr.constraint_first_row(builder, constraint);
     yield_constr.constraint_last_row(builder, local_is_bootstrap);
