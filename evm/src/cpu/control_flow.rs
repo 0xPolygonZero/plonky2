@@ -64,7 +64,9 @@ pub fn eval_packed_generic<P: PackedField>(
 ) {
     // The null special instruction must be boolean.
     yield_constr.constraint(lv.halt_state * (lv.halt_state - P::ONES));
-    // The first row cannot be a null row.
+    // The first row cannot be a null row. In parallel, the `bootstrap_kernel` module
+    // enforces that the first row is a kernel bootstrapping row, implicitely enforcing
+    // that the operation flags are also turned off on that row.
     yield_constr.constraint_first_row(lv.halt_state);
     // Once we reach a null row, there must be only null rows.
     yield_constr.constraint_transition(lv.halt_state * (nv.halt_state - P::ONES));
@@ -72,7 +74,9 @@ pub fn eval_packed_generic<P: PackedField>(
     let is_cpu_cycle: P = COL_MAP.op.iter().map(|&col_i| lv[col_i]).sum();
     let is_cpu_cycle_next: P = COL_MAP.op.iter().map(|&col_i| nv[col_i]).sum();
     // Once we start executing instructions, then we continue until the end of the table
-    // or we reach dummy padding rows.
+    // or we reach dummy padding rows. This, along with the constraints on the first row,
+    // enforces that operation flags and the halt flag are mutually exclusive over the entire
+    // CPU trace.
     yield_constr
         .constraint_transition(is_cpu_cycle * (is_cpu_cycle_next + nv.halt_state - P::ONES));
 
@@ -126,7 +130,9 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     // The null special instruction must be boolean.
     let constr = builder.mul_sub_extension(lv.halt_state, lv.halt_state, lv.halt_state);
     yield_constr.constraint(builder, constr);
-    // The first row cannot be a null row.
+    // The first row cannot be a null row. In parallel, the `bootstrap_kernel` module
+    // enforces that the first row is a kernel bootstrapping row, implicitely enforcing
+    // that the operation flags are also turned off on that row.
     yield_constr.constraint_first_row(builder, lv.halt_state);
     // Once we reach a null row, there must be only null rows.
     let constr = builder.mul_sub_extension(lv.halt_state, nv.halt_state, lv.halt_state);
@@ -135,7 +141,9 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let is_cpu_cycle = builder.add_many_extension(COL_MAP.op.iter().map(|&col_i| lv[col_i]));
     let is_cpu_cycle_next = builder.add_many_extension(COL_MAP.op.iter().map(|&col_i| nv[col_i]));
     // Once we start executing instructions, then we continue until the end of the table
-    // or we reach dummy padding rows.
+    // or we reach dummy padding rows. This, along with the constraints on the first row,
+    // enforces that operation flags and the halt flag are mutually exclusive over the entire
+    // CPU trace.
     {
         let constr = builder.add_extension(is_cpu_cycle_next, nv.halt_state);
         let constr = builder.mul_sub_extension(is_cpu_cycle, constr, is_cpu_cycle);
