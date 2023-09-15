@@ -1,7 +1,6 @@
 use std::marker::PhantomData;
 use std::ops::Range;
 
-use itertools::Itertools;
 use plonky2::field::extension::{Extendable, FieldExtension};
 use plonky2::field::packed::PackedField;
 use plonky2::field::polynomial::PolynomialValues;
