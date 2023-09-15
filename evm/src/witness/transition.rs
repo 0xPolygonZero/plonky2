@@ -286,7 +286,7 @@ fn log_kernel_instruction<F: Field>(state: &GenerationState<F>, op: Operation) {
     let pc = state.registers.program_counter;
     let is_interesting_offset = KERNEL
         .offset_label(pc)
-        .filter(|label| !label.starts_with("halt_pc"))
+        .filter(|label| !label.starts_with("halt"))
         .is_some();
     let level = if is_interesting_offset {
         log::Level::Debug
