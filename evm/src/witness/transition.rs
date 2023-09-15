@@ -387,7 +387,7 @@ fn log_kernel_instruction<F: Field>(state: &GenerationState<F>, op: Operation) {
     } else {
         log::Level::Trace
     };
-    if state.traces.clock() > 15845 && state.traces.clock() < 15855 {
+    if state.traces.clock() > 15590 && state.traces.clock() < 15600 {
         println!("{:?}\n", state.traces.cpu[state.traces.clock() - 1]);
         log::log!(
             level,

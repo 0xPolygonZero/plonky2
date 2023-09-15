@@ -105,7 +105,7 @@ fn eval_packed_store<P: PackedField>(
     nv: &CpuColumnsView<P>,
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
-    let filter = lv.op.m_op_general * (P::ONES - lv.opcode_bits[0]);
+    let filter = lv.op.m_op_general * (lv.opcode_bits[0] - P::ONES);
 
     let (addr_context, addr_segment, addr_virtual) = get_addr(lv);
 
@@ -147,10 +147,28 @@ fn eval_packed_store<P: PackedField>(
         lv.op.m_op_general
             * (len_diff * lv.general.stack().stack_inv - lv.general.stack().stack_inv_aux),
     );
-    // If stack_len == 4, disable nv.mem_channels[0].
-    let is_top_chan_used =
-        P::ONES - lv.general.stack().stack_inv_aux * (P::ONES - lv.opcode_bits[0]);
-    // yield_constr.constraint(lv.op.m_op_general * (nv.mem_channels[0].used - is_top_chan_used));
+    // If stack_len != 4 and MSTORE, read new top of the stack in nv.mem_channels[0].
+    let top_read_channel = nv.mem_channels[0];
+    let is_top_read = lv.general.stack().stack_inv_aux * (P::ONES - lv.opcode_bits[0]);
+    // Constrain `stack_inv_aux_2`. It contains `stack_inv_aux * opcode_bits[0]`.
+    yield_constr
+        .constraint(lv.op.m_op_general * (lv.general.stack().stack_inv_aux_2 - is_top_read));
+    let new_filter = lv.op.m_op_general * lv.general.stack().stack_inv_aux_2;
+    yield_constr.constraint_transition(new_filter * (top_read_channel.used - P::ONES));
+    yield_constr.constraint_transition(new_filter * (top_read_channel.is_read - P::ONES));
+    yield_constr.constraint_transition(new_filter * (top_read_channel.addr_context - nv.context));
+    yield_constr.constraint_transition(
+        new_filter
+            * (top_read_channel.addr_segment
+                - P::Scalar::from_canonical_u64(Segment::Stack as u64)),
+    );
+    let addr_virtual = nv.stack_len - P::ONES;
+    yield_constr.constraint_transition(new_filter * (top_read_channel.addr_virtual - addr_virtual));
+    // If stack_len == 4 or MLOAD, disable the channel.
+    yield_constr.constraint(
+        lv.op.m_op_general * (lv.general.stack().stack_inv_aux - P::ONES) * top_read_channel.used,
+    );
+    yield_constr.constraint(lv.op.m_op_general * lv.opcode_bits[0] * top_read_channel.used);
 }
 
 fn eval_ext_circuit_store<F: RichField + Extendable<D>, const D: usize>(
@@ -159,10 +177,8 @@ fn eval_ext_circuit_store<F: RichField + Extendable<D>, const D: usize>(
     nv: &CpuColumnsView<ExtensionTarget<D>>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
-    let mut filter = lv.op.m_op_general;
-    let one = builder.one_extension();
-    let minus = builder.sub_extension(one, lv.opcode_bits[0]);
-    filter = builder.mul_extension(filter, minus);
+    let filter =
+        builder.mul_sub_extension(lv.op.m_op_general, lv.opcode_bits[0], lv.op.m_op_general);
 
     let (addr_context, addr_segment, addr_virtual) = get_addr(lv);
 
@@ -201,14 +217,102 @@ fn eval_ext_circuit_store<F: RichField + Extendable<D>, const D: usize>(
     }
 
     // Stack constraints
-    // stack::eval_ext_circuit_one(
-    //     builder,
-    //     lv,
-    //     nv,
-    //     filter,
-    //     stack::MSTORE_GENERAL_OP.unwrap(),
-    //     yield_constr,
-    // );
+    // Pops.
+    for i in 1..4 {
+        let channel = lv.mem_channels[i];
+
+        {
+            let constr = builder.mul_sub_extension(filter, channel.used, filter);
+            yield_constr.constraint(builder, constr);
+        }
+        {
+            let constr = builder.mul_sub_extension(filter, channel.is_read, filter);
+            yield_constr.constraint(builder, constr);
+        }
+        {
+            let diff = builder.sub_extension(channel.addr_context, lv.context);
+            let constr = builder.mul_extension(filter, diff);
+            yield_constr.constraint(builder, constr);
+        }
+        {
+            let diff = builder.add_const_extension(
+                channel.addr_segment,
+                -F::from_canonical_u64(Segment::Stack as u64),
+            );
+            let constr = builder.mul_extension(filter, diff);
+            yield_constr.constraint(builder, constr);
+        }
+        // Remember that the first read (`i == 1`) is for the second stack element at `stack[stack_len - 1]`.
+        let addr_virtual =
+            builder.add_const_extension(lv.stack_len, -F::from_canonical_usize(i + 1));
+        let diff = builder.sub_extension(channel.addr_virtual, addr_virtual);
+        let constr = builder.mul_extension(filter, diff);
+        yield_constr.constraint(builder, constr);
+    }
+    // Constrain `stack_inv_aux`.
+    {
+        let len_diff = builder.add_const_extension(lv.stack_len, -F::from_canonical_usize(4));
+        let diff = builder.mul_sub_extension(
+            len_diff,
+            lv.general.stack().stack_inv,
+            lv.general.stack().stack_inv_aux,
+        );
+        let constr = builder.mul_extension(lv.op.m_op_general, diff);
+        yield_constr.constraint(builder, constr);
+    }
+    // If stack_len != 4 and MSTORE, read new top of the stack in nv.mem_channels[0].
+    let top_read_channel = nv.mem_channels[0];
+    let is_top_read = builder.mul_extension(lv.general.stack().stack_inv_aux, lv.opcode_bits[0]);
+    let is_top_read = builder.sub_extension(lv.general.stack().stack_inv_aux, is_top_read);
+    // Constrain `stack_inv_aux_2`. It contains `stack_inv_aux * opcode_bits[0]`.
+    {
+        let diff = builder.sub_extension(lv.general.stack().stack_inv_aux_2, is_top_read);
+        let constr = builder.mul_extension(lv.op.m_op_general, diff);
+        yield_constr.constraint(builder, constr);
+    }
+    let new_filter = builder.mul_extension(lv.op.m_op_general, lv.general.stack().stack_inv_aux_2);
+    {
+        let constr = builder.mul_sub_extension(new_filter, top_read_channel.used, new_filter);
+        yield_constr.constraint_transition(builder, constr);
+    }
+    {
+        let constr = builder.mul_sub_extension(new_filter, top_read_channel.is_read, new_filter);
+        yield_constr.constraint_transition(builder, constr);
+    }
+    {
+        let diff = builder.sub_extension(top_read_channel.addr_context, nv.context);
+        let constr = builder.mul_extension(new_filter, diff);
+        yield_constr.constraint_transition(builder, constr);
+    }
+    {
+        let diff = builder.add_const_extension(
+            top_read_channel.addr_segment,
+            -F::from_canonical_u64(Segment::Stack as u64),
+        );
+        let constr = builder.mul_extension(new_filter, diff);
+        yield_constr.constraint_transition(builder, constr);
+    }
+    {
+        let addr_virtual = builder.add_const_extension(nv.stack_len, -F::ONE);
+        let diff = builder.sub_extension(top_read_channel.addr_virtual, addr_virtual);
+        let constr = builder.mul_extension(new_filter, diff);
+        yield_constr.constraint_transition(builder, constr);
+    }
+    // If stack_len == 4 or MLOAD, disable the channel.
+    {
+        let diff = builder.mul_sub_extension(
+            lv.op.m_op_general,
+            lv.general.stack().stack_inv_aux,
+            lv.op.m_op_general,
+        );
+        let constr = builder.mul_extension(diff, top_read_channel.used);
+        yield_constr.constraint(builder, constr);
+    }
+    {
+        let mul = builder.mul_extension(lv.op.m_op_general, lv.opcode_bits[0]);
+        let constr = builder.mul_extension(mul, top_read_channel.used);
+        yield_constr.constraint(builder, constr);
+    }
 }
 
 pub fn eval_packed<P: PackedField>(

@@ -222,6 +222,9 @@ pub(crate) fn generate_jump<F: Field>(
     if let Some(inv) = diff.try_inverse() {
         row.general.stack_mut().stack_inv = inv;
         row.general.stack_mut().stack_inv_aux = F::ONE;
+    } else {
+        row.general.stack_mut().stack_inv = F::ZERO;
+        row.general.stack_mut().stack_inv_aux = F::ZERO;
     }
 
     state.traces.push_cpu(row);
@@ -282,6 +285,9 @@ pub(crate) fn generate_jumpi<F: Field>(
     if let Some(inv) = diff.try_inverse() {
         row.general.stack_mut().stack_inv = inv;
         row.general.stack_mut().stack_inv_aux = F::ONE;
+    } else {
+        row.general.stack_mut().stack_inv = F::ZERO;
+        row.general.stack_mut().stack_inv_aux = F::ZERO;
     }
 
     state.traces.push_memory(log_cond);
@@ -366,6 +372,9 @@ pub(crate) fn generate_set_context<F: Field>(
         if let Some(inv) = new_sp_field.try_inverse() {
             row.general.stack_mut().stack_inv = inv;
             row.general.stack_mut().stack_inv_aux = F::ONE;
+        } else {
+            row.general.stack_mut().stack_inv = F::ZERO;
+            row.general.stack_mut().stack_inv_aux = F::ZERO;
         }
 
         let new_top_addr = MemoryAddress::new(new_ctx, Segment::Stack, new_sp - 1);
@@ -742,6 +751,9 @@ pub(crate) fn generate_mload_general<F: Field>(
     if let Some(inv) = diff.try_inverse() {
         row.general.stack_mut().stack_inv = inv;
         row.general.stack_mut().stack_inv_aux = F::ONE;
+    } else {
+        row.general.stack_mut().stack_inv = F::ZERO;
+        row.general.stack_mut().stack_inv_aux = F::ZERO;
     }
 
     state.traces.push_memory(log_in1);
@@ -812,6 +824,11 @@ pub(crate) fn generate_mstore_general<F: Field>(
     if let Some(inv) = diff.try_inverse() {
         row.general.stack_mut().stack_inv = inv;
         row.general.stack_mut().stack_inv_aux = F::ONE;
+        row.general.stack_mut().stack_inv_aux_2 = F::ONE;
+        state.registers.is_stack_top_read = true;
+    } else {
+        row.general.stack_mut().stack_inv = F::ZERO;
+        row.general.stack_mut().stack_inv_aux = F::ZERO;
     }
 
     state.traces.push_memory(log_in1);
