@@ -96,7 +96,6 @@ pub fn ctl_arithmetic_rows<F: Field>() -> TableWithColumns<F> {
     TableWithColumns::new(
         Table::Arithmetic,
         cpu_arith_data_link(&COMBINED_OPS, &REGISTER_MAP),
-        vec![],
         filter_column,
     )
 }

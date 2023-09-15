@@ -589,8 +589,7 @@ where
                     next_z: permutation_ctl_zs_commitment.get_lde_values_packed(i_next_start, step)
                         [num_permutation_zs + i],
                     challenges: zs_columns.challenge,
-                    local_columns: &zs_columns.local_columns,
-                    next_columns: &zs_columns.next_columns,
+                    columns: &zs_columns.columns,
                     filter_column: &zs_columns.filter_column,
                 })
                 .collect::<Vec<_>>();
@@ -708,8 +707,7 @@ fn check_constraints<'a, F, C, S, const D: usize>(
                     local_z: permutation_ctl_zs_subgroup_evals[i][num_permutation_zs + iii],
                     next_z: permutation_ctl_zs_subgroup_evals[i_next][num_permutation_zs + iii],
                     challenges: zs_columns.challenge,
-                    local_columns: &zs_columns.local_columns,
-                    next_columns: &zs_columns.next_columns,
+                    columns: &zs_columns.columns,
                     filter_column: &zs_columns.filter_column,
                 })
                 .collect::<Vec<_>>();

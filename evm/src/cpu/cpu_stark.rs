@@ -103,7 +103,6 @@ pub fn ctl_arithmetic_base_rows<F: Field>() -> TableWithColumns<F> {
     TableWithColumns::new(
         Table::Cpu,
         columns,
-        vec![],
         Some(Column::sum([
             COL_MAP.op.binary_op,
             COL_MAP.op.fp254_op,
@@ -121,12 +120,7 @@ pub fn ctl_arithmetic_shift_rows<F: Field>() -> TableWithColumns<F> {
     // (also `ops` is used as the operation filter). The list of
     // operations includes binary operations which will simply ignore
     // the third input.
-    TableWithColumns::new(
-        Table::Cpu,
-        columns,
-        vec![],
-        Some(Column::single(COL_MAP.op.shift)),
-    )
+    TableWithColumns::new(Table::Cpu, columns, Some(Column::single(COL_MAP.op.shift)))
 }
 
 pub fn ctl_data_byte_packing<F: Field>() -> Vec<Column<F>> {
