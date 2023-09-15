@@ -31,7 +31,6 @@ use crate::all_stark::{all_cross_table_lookups, AllStark, Table, NUM_TABLES};
 use crate::arithmetic::arithmetic_stark::ArithmeticStark;
 use crate::byte_packing::byte_packing_stark::BytePackingStark;
 use crate::config::StarkConfig;
-use crate::cpu::cpu_stark::CpuStark;
 use crate::cross_table_lookup::{
     get_grand_product_challenge_set_target, verify_cross_table_lookups_circuit, CrossTableLookup,
     GrandProductChallengeSet,
@@ -302,7 +301,6 @@ where
     C::Hasher: AlgebraicHasher<F>,
     [(); ArithmeticStark::<F, D>::COLUMNS]:,
     [(); BytePackingStark::<F, D>::COLUMNS]:,
-    [(); CpuStark::<F, D>::COLUMNS]:,
     [(); KeccakStark::<F, D>::COLUMNS]:,
     [(); KeccakSpongeStark::<F, D>::COLUMNS]:,
     [(); LogicStark::<F, D>::COLUMNS]:,

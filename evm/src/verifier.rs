@@ -15,7 +15,6 @@ use crate::arithmetic::arithmetic_stark::ArithmeticStark;
 use crate::byte_packing::byte_packing_stark::BytePackingStark;
 use crate::config::StarkConfig;
 use crate::constraint_consumer::ConstraintConsumer;
-use crate::cpu::cpu_stark::CpuStark;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
 use crate::cross_table_lookup::{
     verify_cross_table_lookups, CtlCheckVars, GrandProductChallenge, GrandProductChallengeSet,
@@ -43,7 +42,6 @@ pub fn verify_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, co
 where
     [(); ArithmeticStark::<F, D>::COLUMNS]:,
     [(); BytePackingStark::<F, D>::COLUMNS]:,
-    [(); CpuStark::<F, D>::COLUMNS]:,
     [(); KeccakStark::<F, D>::COLUMNS]:,
     [(); KeccakSpongeStark::<F, D>::COLUMNS]:,
     [(); LogicStark::<F, D>::COLUMNS]:,
