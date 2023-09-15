@@ -65,7 +65,7 @@ impl<P: PackedField> ConstraintConsumer<P> {
     #[allow(clippy::collapsible_if)]
     pub fn constraint(&mut self, constraint: P) {
         if std::intrinsics::unlikely(self.debug_api) {
-            if !constraint.as_slice().iter().all(|e| e.eq(&P::Scalar::ZERO)) {
+            if !constraint.is_zeros() {
                 println!(
                     "ConstraintConsumer - DEBUG trace (non-zero-constraint): {:?}",
                     Backtrace::new()
