@@ -186,8 +186,7 @@ fn fill_op_flag<F: Field>(op: Operation, row: &mut CpuColumnsView<F>) {
         Operation::Mload32Bytes => &mut flags.mload_32bytes,
         Operation::Mstore32Bytes => &mut flags.mstore_32bytes,
         Operation::ExitKernel => &mut flags.exit_kernel,
-        Operation::MloadGeneral => &mut flags.mload_general,
-        Operation::MstoreGeneral => &mut flags.mstore_general,
+        Operation::MloadGeneral | Operation::MstoreGeneral => &mut flags.m_op_general,
     } = F::ONE;
 }
 
@@ -224,8 +223,7 @@ fn get_op_special_length(op: Operation) -> Option<usize> {
         Operation::Mload32Bytes => STACK_BEHAVIORS.mload_32bytes,
         Operation::Mstore32Bytes => STACK_BEHAVIORS.mstore_32bytes,
         Operation::ExitKernel => STACK_BEHAVIORS.exit_kernel,
-        Operation::MloadGeneral => STACK_BEHAVIORS.mload_general,
-        Operation::MstoreGeneral => STACK_BEHAVIORS.mstore_general,
+        Operation::MloadGeneral | Operation::MstoreGeneral => STACK_BEHAVIORS.m_op_general,
     };
     if let Some(behavior) = behavior_opt {
         if behavior.num_pops > 0 && !behavior.pushes {
@@ -389,15 +387,18 @@ fn log_kernel_instruction<F: Field>(state: &GenerationState<F>, op: Operation) {
     } else {
         log::Level::Trace
     };
-    log::log!(
-        level,
-        "Cycle {}, ctx={}, pc={}, instruction={:?}, stack={:?}",
-        state.traces.clock(),
-        state.registers.context,
-        KERNEL.offset_name(pc),
-        op,
-        state.stack(),
-    );
+    if state.traces.clock() > 15845 && state.traces.clock() < 15855 {
+        println!("{:?}\n", state.traces.cpu[state.traces.clock() - 1]);
+        log::log!(
+            level,
+            "Cycle {}, ctx={}, pc={}, instruction={:?}, stack={:?}",
+            state.traces.clock(),
+            state.registers.context,
+            KERNEL.offset_name(pc),
+            op,
+            state.stack(),
+        );
+    }
 
     assert!(pc < KERNEL.code.len(), "Kernel PC is out of range: {}", pc);
 }

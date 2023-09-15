@@ -738,6 +738,12 @@ pub(crate) fn generate_mload_general<F: Field>(
     );
     push_no_write(state, &mut row, val, None);
 
+    let diff = row.stack_len - F::from_canonical_usize(4);
+    if let Some(inv) = diff.try_inverse() {
+        row.general.stack_mut().stack_inv = inv;
+        row.general.stack_mut().stack_inv_aux = F::ONE;
+    }
+
     state.traces.push_memory(log_in1);
     state.traces.push_memory(log_in2);
     state.traces.push_memory(log_read);
@@ -802,11 +808,16 @@ pub(crate) fn generate_mstore_general<F: Field>(
     };
     let log_write = mem_write_gp_log_and_fill(4, address, state, &mut row, val);
 
+    let diff = row.stack_len - F::from_canonical_usize(4);
+    if let Some(inv) = diff.try_inverse() {
+        row.general.stack_mut().stack_inv = inv;
+        row.general.stack_mut().stack_inv_aux = F::ONE;
+    }
+
     state.traces.push_memory(log_in1);
     state.traces.push_memory(log_in2);
     state.traces.push_memory(log_in3);
     state.traces.push_memory(log_write);
-
     state.traces.push_cpu(row);
 
     Ok(())
