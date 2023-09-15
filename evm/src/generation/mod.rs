@@ -296,7 +296,6 @@ fn simulate_cpu<F: RichField + Extendable<D>, const D: usize>(
             row.is_kernel_mode = F::ONE;
             row.gas = F::from_canonical_u64(state.registers.gas_used);
             row.stack_len = F::from_canonical_usize(state.registers.stack_len);
-            row.halt_state = F::ONE;
 
             loop {
                 state.traces.push_cpu(row);

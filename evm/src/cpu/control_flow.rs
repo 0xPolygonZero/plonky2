@@ -51,19 +51,23 @@ pub fn eval_packed_generic<P: PackedField>(
     nv: &CpuColumnsView<P>,
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
-    // The null special instruction must be boolean.
-    yield_constr.constraint(lv.halt_state * (lv.halt_state - P::ONES));
-    // Once we reach a null row, there must be only null rows.
-    yield_constr.constraint_transition(lv.halt_state * (nv.halt_state - P::ONES));
-
     let is_cpu_cycle: P = COL_MAP.op.iter().map(|&col_i| lv[col_i]).sum();
     let is_cpu_cycle_next: P = COL_MAP.op.iter().map(|&col_i| nv[col_i]).sum();
+
+    let halt_state = P::ONES - lv.is_bootstrap_kernel - is_cpu_cycle;
+    let next_halt_state = P::ONES - nv.is_bootstrap_kernel - is_cpu_cycle_next;
+
+    // The null special instruction must be boolean.
+    yield_constr.constraint(halt_state * (halt_state - P::ONES));
+    // Once we reach a null row, there must be only null rows.
+    yield_constr.constraint_transition(halt_state * (next_halt_state - P::ONES));
+
     // Once we start executing instructions, then we continue until the end of the table
     // or we reach dummy padding rows. This, along with the constraints on the first row,
     // enforces that operation flags and the halt flag are mutually exclusive over the entire
     // CPU trace.
     yield_constr
-        .constraint_transition(is_cpu_cycle * (is_cpu_cycle_next + nv.halt_state - P::ONES));
+        .constraint_transition(is_cpu_cycle * (is_cpu_cycle_next + next_halt_state - P::ONES));
 
     // If a row is a CPU cycle and executing a native instruction (implemented as a table row; not
     // microcoded) then the program counter is incremented by 1 to obtain the next row's program
@@ -88,11 +92,11 @@ pub fn eval_packed_generic<P: PackedField>(
     // Padding rows should have their memory channels disabled.
     for i in 0..NUM_GP_CHANNELS {
         let channel = lv.mem_channels[i];
-        yield_constr.constraint(lv.halt_state * channel.used);
+        yield_constr.constraint(halt_state * channel.used);
     }
 
     // The last row must be a dummy padding row.
-    yield_constr.constraint_last_row(lv.halt_state - P::ONES);
+    yield_constr.constraint_last_row(halt_state - P::ONES);
 
     // Also, a padding row's `program_counter` must be at the `halt` label.
     // In particular, it ensures that the first padding row may only be added
@@ -100,7 +104,7 @@ pub fn eval_packed_generic<P: PackedField>(
     // the `program_counter` to arbitrary values (there's no transition
     // constraints) so we can place this requirement on them too.
     let halt_pc = get_halt_pc::<P::Scalar>();
-    yield_constr.constraint(lv.halt_state * (lv.program_counter - halt_pc));
+    yield_constr.constraint(halt_state * (lv.program_counter - halt_pc));
 }
 
 pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
@@ -109,21 +113,29 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     nv: &CpuColumnsView<ExtensionTarget<D>>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
-    // The null special instruction must be boolean.
-    let constr = builder.mul_sub_extension(lv.halt_state, lv.halt_state, lv.halt_state);
-    yield_constr.constraint(builder, constr);
-    // Once we reach a null row, there must be only null rows.
-    let constr = builder.mul_sub_extension(lv.halt_state, nv.halt_state, lv.halt_state);
-    yield_constr.constraint_transition(builder, constr);
+    let one = builder.one_extension();
 
     let is_cpu_cycle = builder.add_many_extension(COL_MAP.op.iter().map(|&col_i| lv[col_i]));
     let is_cpu_cycle_next = builder.add_many_extension(COL_MAP.op.iter().map(|&col_i| nv[col_i]));
+
+    let halt_state = builder.add_extension(lv.is_bootstrap_kernel, is_cpu_cycle);
+    let halt_state = builder.sub_extension(one, halt_state);
+    let next_halt_state = builder.add_extension(nv.is_bootstrap_kernel, is_cpu_cycle_next);
+    let next_halt_state = builder.sub_extension(one, next_halt_state);
+
+    // The null special instruction must be boolean.
+    let constr = builder.mul_sub_extension(halt_state, halt_state, halt_state);
+    yield_constr.constraint(builder, constr);
+    // Once we reach a null row, there must be only null rows.
+    let constr = builder.mul_sub_extension(halt_state, next_halt_state, halt_state);
+    yield_constr.constraint_transition(builder, constr);
+
     // Once we start executing instructions, then we continue until the end of the table
     // or we reach dummy padding rows. This, along with the constraints on the first row,
     // enforces that operation flags and the halt flag are mutually exclusive over the entire
     // CPU trace.
     {
-        let constr = builder.add_extension(is_cpu_cycle_next, nv.halt_state);
+        let constr = builder.add_extension(is_cpu_cycle_next, next_halt_state);
         let constr = builder.mul_sub_extension(is_cpu_cycle, constr, is_cpu_cycle);
         yield_constr.constraint_transition(builder, constr);
     }
@@ -171,14 +183,14 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     // Padding rows should have their memory channels disabled.
     for i in 0..NUM_GP_CHANNELS {
         let channel = lv.mem_channels[i];
-        let constr = builder.mul_extension(lv.halt_state, channel.used);
+        let constr = builder.mul_extension(halt_state, channel.used);
         yield_constr.constraint(builder, constr);
     }
 
     // The last row must be a dummy padding row.
     {
         let one = builder.one_extension();
-        let constr = builder.sub_extension(lv.halt_state, one);
+        let constr = builder.sub_extension(halt_state, one);
         yield_constr.constraint_last_row(builder, constr);
     }
 
@@ -191,7 +203,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
         let halt_pc = get_halt_pc();
         let halt_pc_target = builder.constant_extension(halt_pc);
         let constr = builder.sub_extension(lv.program_counter, halt_pc_target);
-        let constr = builder.mul_extension(lv.halt_state, constr);
+        let constr = builder.mul_extension(halt_state, constr);
 
         yield_constr.constraint(builder, constr);
     }
