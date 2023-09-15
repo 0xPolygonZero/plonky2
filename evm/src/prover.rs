@@ -24,6 +24,7 @@ use crate::arithmetic::arithmetic_stark::ArithmeticStark;
 use crate::byte_packing::byte_packing_stark::BytePackingStark;
 use crate::config::StarkConfig;
 use crate::constraint_consumer::ConstraintConsumer;
+use crate::cpu::cpu_stark::CpuStark;
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cross_table_lookup::{
     cross_table_lookup_data, get_grand_product_challenge_set, CtlCheckVars, CtlData,
@@ -54,6 +55,7 @@ where
     C: GenericConfig<D, F = F>,
     [(); ArithmeticStark::<F, D>::COLUMNS]:,
     [(); BytePackingStark::<F, D>::COLUMNS]:,
+    [(); CpuStark::<F, D>::COLUMNS]:,
     [(); KeccakStark::<F, D>::COLUMNS]:,
     [(); KeccakSpongeStark::<F, D>::COLUMNS]:,
     [(); LogicStark::<F, D>::COLUMNS]:,
@@ -76,6 +78,7 @@ where
     C: GenericConfig<D, F = F>,
     [(); ArithmeticStark::<F, D>::COLUMNS]:,
     [(); BytePackingStark::<F, D>::COLUMNS]:,
+    [(); CpuStark::<F, D>::COLUMNS]:,
     [(); KeccakStark::<F, D>::COLUMNS]:,
     [(); KeccakSpongeStark::<F, D>::COLUMNS]:,
     [(); LogicStark::<F, D>::COLUMNS]:,
@@ -104,6 +107,7 @@ where
     C: GenericConfig<D, F = F>,
     [(); ArithmeticStark::<F, D>::COLUMNS]:,
     [(); BytePackingStark::<F, D>::COLUMNS]:,
+    [(); CpuStark::<F, D>::COLUMNS]:,
     [(); KeccakStark::<F, D>::COLUMNS]:,
     [(); KeccakSpongeStark::<F, D>::COLUMNS]:,
     [(); LogicStark::<F, D>::COLUMNS]:,
@@ -196,6 +200,7 @@ where
     C: GenericConfig<D, F = F>,
     [(); ArithmeticStark::<F, D>::COLUMNS]:,
     [(); BytePackingStark::<F, D>::COLUMNS]:,
+    [(); CpuStark::<F, D>::COLUMNS]:,
     [(); KeccakStark::<F, D>::COLUMNS]:,
     [(); KeccakSpongeStark::<F, D>::COLUMNS]:,
     [(); LogicStark::<F, D>::COLUMNS]:,
