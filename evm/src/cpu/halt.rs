@@ -1,3 +1,6 @@
+//! Once the CPU execution is over (i.e. reached the `halt` label in the kernel),
+//! the CPU trace will be padded with special dummy rows, incurring no memory overhead.
+
 use plonky2::field::extension::Extendable;
 use plonky2::field::packed::PackedField;
 use plonky2::hash::hash_types::RichField;
@@ -19,9 +22,9 @@ pub fn eval_packed<P: PackedField>(
     let halt_state = P::ONES - lv.is_bootstrap_kernel - is_cpu_cycle;
     let next_halt_state = P::ONES - nv.is_bootstrap_kernel - is_cpu_cycle_next;
 
-    // The null special instruction must be boolean.
+    // The halt flag must be boolean.
     yield_constr.constraint(halt_state * (halt_state - P::ONES));
-    // Once we reach a null row, there must be only null rows.
+    // Once we reach a padding row, there must be only padding rows.
     yield_constr.constraint_transition(halt_state * (next_halt_state - P::ONES));
 
     // Padding rows should have their memory channels disabled.
@@ -58,10 +61,10 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let next_halt_state = builder.add_extension(nv.is_bootstrap_kernel, is_cpu_cycle_next);
     let next_halt_state = builder.sub_extension(one, next_halt_state);
 
-    // The null special instruction must be boolean.
+    // The halt flag must be boolean.
     let constr = builder.mul_sub_extension(halt_state, halt_state, halt_state);
     yield_constr.constraint(builder, constr);
-    // Once we reach a null row, there must be only null rows.
+    // Once we reach a padding row, there must be only padding rows.
     let constr = builder.mul_sub_extension(halt_state, next_halt_state, halt_state);
     yield_constr.constraint_transition(builder, constr);
 
