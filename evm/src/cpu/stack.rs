@@ -51,25 +51,10 @@ pub(crate) const JUMPI_OP: Option<StackBehavior> = Some(StackBehavior {
 // propertly constrained. The same applies  when `disable_other_channels` is set to `false`,
 // except the first `num_pops` and the last `pushes as usize` channels have their read flag and
 // address constrained automatically in this file.
-// If `new_top_stack_channel` contains a value, then this file will automatically constrain it
-// (typically if an instruction pops and pushes, and you know where the new top of the stack
-// will be). If it is set to `none`, the new top of the stack must be constrained manually by the
-// operation. Note that instructions which only pop also have it set to `None`, even if we constrain
-// the next top in this file: their logic is special and depends on stack_len.
 pub(crate) const STACK_BEHAVIORS: OpsColumnsView<Option<StackBehavior>> = OpsColumnsView {
-    add: BASIC_BINARY_OP,
-    mul: BASIC_BINARY_OP,
-    sub: BASIC_BINARY_OP,
-    div: BASIC_BINARY_OP,
-    mod_: BASIC_BINARY_OP,
-    addmod: BASIC_TERNARY_OP,
-    mulmod: BASIC_TERNARY_OP,
-    addfp254: BASIC_BINARY_OP,
-    mulfp254: BASIC_BINARY_OP,
-    subfp254: BASIC_BINARY_OP,
-    submod: BASIC_TERNARY_OP,
-    lt: BASIC_BINARY_OP,
-    gt: BASIC_BINARY_OP,
+    binary_op: BASIC_BINARY_OP,
+    ternary_op: BASIC_TERNARY_OP,
+    fp254_op: BASIC_BINARY_OP,
     eq_iszero: None, // EQ is binary, IS_ZERO is unary.
     logic_op: BASIC_BINARY_OP,
     not: Some(StackBehavior {
@@ -78,14 +63,7 @@ pub(crate) const STACK_BEHAVIORS: OpsColumnsView<Option<StackBehavior>> = OpsCol
         new_top_stack_channel: Some(NUM_GP_CHANNELS - 1),
         disable_other_channels: true,
     }),
-    byte: BASIC_BINARY_OP,
-    shl: Some(StackBehavior {
-        num_pops: 2,
-        pushes: true,
-        new_top_stack_channel: Some(NUM_GP_CHANNELS - 1),
-        disable_other_channels: false,
-    }),
-    shr: Some(StackBehavior {
+    shift: Some(StackBehavior {
         num_pops: 2,
         pushes: true,
         new_top_stack_channel: Some(NUM_GP_CHANNELS - 1),
@@ -304,6 +282,11 @@ pub(crate) fn eval_packed_one<P: PackedField>(
             yield_constr.constraint(filter * channel.used);
         }
     }
+
+    // Constrain new stack length.
+    let num_pops = P::Scalar::from_canonical_usize(stack_behavior.num_pops);
+    let push = P::Scalar::from_canonical_usize(stack_behavior.pushes as usize);
+    yield_constr.constraint_transition(filter * (nv.stack_len - (lv.stack_len - num_pops + push)));
 }
 
 pub fn eval_packed<P: PackedField>(
@@ -524,6 +507,16 @@ pub(crate) fn eval_ext_circuit_one<F: RichField + Extendable<D>, const D: usize>
             yield_constr.constraint(builder, constr);
         }
     }
+
+    // Constrain new stack length.
+    let diff = builder.constant_extension(
+        F::Extension::from_canonical_usize(stack_behavior.num_pops)
+            - F::Extension::from_canonical_usize(stack_behavior.pushes as usize),
+    );
+    let diff = builder.sub_extension(lv.stack_len, diff);
+    let diff = builder.sub_extension(nv.stack_len, diff);
+    let constr = builder.mul_extension(filter, diff);
+    yield_constr.constraint_transition(builder, constr);
 }
 
 pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(

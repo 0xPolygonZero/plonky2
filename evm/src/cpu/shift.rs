@@ -13,7 +13,7 @@ pub(crate) fn eval_packed<P: PackedField>(
     lv: &CpuColumnsView<P>,
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
-    let is_shift = lv.op.shl + lv.op.shr;
+    let is_shift = lv.op.shift;
     let displacement = lv.mem_channels[0].value; // holds the shift displacement d
     let two_exp = lv.mem_channels[2]; // holds 2^d
 
@@ -64,7 +64,7 @@ pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     lv: &CpuColumnsView<ExtensionTarget<D>>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
-    let is_shift = builder.add_extension(lv.op.shl, lv.op.shr);
+    let is_shift = lv.op.shift;
     let displacement = lv.mem_channels[0].value;
     let two_exp = lv.mem_channels[2];
 

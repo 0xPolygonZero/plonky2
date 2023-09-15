@@ -7,32 +7,17 @@ use crate::util::{indices_arr, transmute_no_compile_time_size_checks};
 #[repr(C)]
 #[derive(Clone, Copy, Eq, PartialEq, Debug)]
 pub struct OpsColumnsView<T: Copy> {
-    // TODO: combine ADD, MUL, SUB, DIV, MOD, ADDFP254, MULFP254, SUBFP254, LT, and GT into one flag
-    pub add: T,
-    pub mul: T,
-    pub sub: T,
-    pub div: T,
-    pub mod_: T,
-    // TODO: combine ADDMOD, MULMOD and SUBMOD into one flag
-    pub addmod: T,
-    pub mulmod: T,
-    pub addfp254: T,
-    pub mulfp254: T,
-    pub subfp254: T,
-    pub submod: T,
-    pub lt: T,
-    pub gt: T,
-    pub eq_iszero: T, // Combines EQ and ISZERO flags.
-    pub logic_op: T,  // Combines AND, OR and XOR flags.
+    pub binary_op: T,  // Combines ADD, MUL, SUB, DIV, MOD, LT, GT and BYTE flags.
+    pub ternary_op: T, // Combines ADDMOD, MULMOD and SUBMOD flags.
+    pub fp254_op: T,   // Combines ADD_FP254, MUL_FP254 and SUB_FP254 flags.
+    pub eq_iszero: T,  // Combines EQ and ISZERO flags.
+    pub logic_op: T,   // Combines AND, OR and XOR flags.
     pub not: T,
-    pub byte: T,
-    // TODO: combine SHL and SHR into one flag
-    pub shl: T,
-    pub shr: T,
+    pub shift: T, // Combines SHL and SHR flags.
     pub keccak_general: T,
     pub prover_input: T,
     pub pop: T,
-    pub jumps: T, // Note: This column must be 0 when is_cpu_cycle = 0.
+    pub jumps: T, // Combines JUMP and JUMPI flags.
     pub pc: T,
     pub jumpdest: T,
     pub push0: T,

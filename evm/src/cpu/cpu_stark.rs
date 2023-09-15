@@ -48,9 +48,8 @@ pub fn ctl_filter_keccak_sponge<F: Field>() -> Column<F> {
 
 /// Create the vector of Columns corresponding to the two inputs and
 /// one output of a binary operation.
-fn ctl_data_binops<F: Field>(ops: &[usize]) -> Vec<Column<F>> {
-    let mut res = Column::singles(ops).collect_vec();
-    res.extend(Column::singles(COL_MAP.mem_channels[0].value));
+fn ctl_data_binops<F: Field>() -> Vec<Column<F>> {
+    let mut res = Column::singles(COL_MAP.mem_channels[0].value).collect_vec();
     res.extend(Column::singles(COL_MAP.mem_channels[1].value));
     res.extend(Column::singles(
         COL_MAP.mem_channels[NUM_GP_CHANNELS - 1].value,
@@ -70,10 +69,9 @@ fn ctl_data_binops<F: Field>(ops: &[usize]) -> Vec<Column<F>> {
 /// case of shift operations, which will skip the first memory channel and use the
 /// next three as ternary inputs. Because both `MUL` and `DIV` are binary operations,
 /// the last memory channel used for the inputs will be safely ignored.
-fn ctl_data_ternops<F: Field>(ops: &[usize], is_shift: bool) -> Vec<Column<F>> {
+fn ctl_data_ternops<F: Field>(is_shift: bool) -> Vec<Column<F>> {
     let offset = is_shift as usize;
-    let mut res = Column::singles(ops).collect_vec();
-    res.extend(Column::singles(COL_MAP.mem_channels[offset].value));
+    let mut res = Column::singles(COL_MAP.mem_channels[offset].value).collect_vec();
     res.extend(Column::singles(COL_MAP.mem_channels[offset + 1].value));
     res.extend(Column::singles(COL_MAP.mem_channels[offset + 2].value));
     res.extend(Column::singles(
@@ -85,7 +83,7 @@ fn ctl_data_ternops<F: Field>(ops: &[usize], is_shift: bool) -> Vec<Column<F>> {
 pub fn ctl_data_logic<F: Field>() -> Vec<Column<F>> {
     // Instead of taking single columns, we reconstruct the entire opcode value directly.
     let mut res = vec![Column::le_bits(COL_MAP.opcode_bits)];
-    res.extend(ctl_data_binops(&[]));
+    res.extend(ctl_data_binops());
     res
 }
 
@@ -94,22 +92,9 @@ pub fn ctl_filter_logic<F: Field>() -> Column<F> {
 }
 
 pub fn ctl_arithmetic_base_rows<F: Field>() -> TableWithColumns<F> {
-    const OPS: [usize; 14] = [
-        COL_MAP.op.add,
-        COL_MAP.op.sub,
-        COL_MAP.op.mul,
-        COL_MAP.op.lt,
-        COL_MAP.op.gt,
-        COL_MAP.op.addfp254,
-        COL_MAP.op.mulfp254,
-        COL_MAP.op.subfp254,
-        COL_MAP.op.addmod,
-        COL_MAP.op.mulmod,
-        COL_MAP.op.submod,
-        COL_MAP.op.div,
-        COL_MAP.op.mod_,
-        COL_MAP.op.byte,
-    ];
+    // Instead of taking single columns, we reconstruct the entire opcode value directly.
+    let mut columns = vec![Column::le_bits(COL_MAP.opcode_bits)];
+    columns.extend(ctl_data_ternops(false));
     // Create the CPU Table whose columns are those with the three
     // inputs and one output of the ternary operations listed in `ops`
     // (also `ops` is used as the operation filter). The list of
@@ -117,40 +102,25 @@ pub fn ctl_arithmetic_base_rows<F: Field>() -> TableWithColumns<F> {
     // the third input.
     TableWithColumns::new(
         Table::Cpu,
-        ctl_data_ternops(&OPS, false),
-        Some(Column::sum(OPS)),
+        columns,
+        Some(Column::sum([
+            COL_MAP.op.binary_op,
+            COL_MAP.op.fp254_op,
+            COL_MAP.op.ternary_op,
+        ])),
     )
 }
 
 pub fn ctl_arithmetic_shift_rows<F: Field>() -> TableWithColumns<F> {
-    const OPS: [usize; 14] = [
-        COL_MAP.op.add,
-        COL_MAP.op.sub,
-        // SHL is interpreted as MUL on the arithmetic side
-        COL_MAP.op.shl,
-        COL_MAP.op.lt,
-        COL_MAP.op.gt,
-        COL_MAP.op.addfp254,
-        COL_MAP.op.mulfp254,
-        COL_MAP.op.subfp254,
-        COL_MAP.op.addmod,
-        COL_MAP.op.mulmod,
-        COL_MAP.op.submod,
-        // SHR is interpreted as DIV on the arithmetic side
-        COL_MAP.op.shr,
-        COL_MAP.op.mod_,
-        COL_MAP.op.byte,
-    ];
+    // Instead of taking single columns, we reconstruct the entire opcode value directly.
+    let mut columns = vec![Column::le_bits(COL_MAP.opcode_bits)];
+    columns.extend(ctl_data_ternops(true));
     // Create the CPU Table whose columns are those with the three
     // inputs and one output of the ternary operations listed in `ops`
     // (also `ops` is used as the operation filter). The list of
     // operations includes binary operations which will simply ignore
     // the third input.
-    TableWithColumns::new(
-        Table::Cpu,
-        ctl_data_ternops(&OPS, true),
-        Some(Column::sum([COL_MAP.op.shl, COL_MAP.op.shr])),
-    )
+    TableWithColumns::new(Table::Cpu, columns, Some(Column::single(COL_MAP.op.shift)))
 }
 
 pub fn ctl_data_byte_packing<F: Field>() -> Vec<Column<F>> {
