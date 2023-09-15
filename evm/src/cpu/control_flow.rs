@@ -53,10 +53,6 @@ pub fn eval_packed_generic<P: PackedField>(
 ) {
     // The null special instruction must be boolean.
     yield_constr.constraint(lv.halt_state * (lv.halt_state - P::ONES));
-    // The first row cannot be a null row. In parallel, the `bootstrap_kernel` module
-    // enforces that the first row is a kernel bootstrapping row, implicitely enforcing
-    // that the operation flags are also turned off on that row.
-    yield_constr.constraint_first_row(lv.halt_state);
     // Once we reach a null row, there must be only null rows.
     yield_constr.constraint_transition(lv.halt_state * (nv.halt_state - P::ONES));
 
@@ -105,9 +101,6 @@ pub fn eval_packed_generic<P: PackedField>(
     // constraints) so we can place this requirement on them too.
     let halt_pc = get_halt_pc::<P::Scalar>();
     yield_constr.constraint(lv.halt_state * (lv.program_counter - halt_pc));
-
-    // Finally, the last row must be in kernel mode.
-    yield_constr.constraint_last_row(lv.is_kernel_mode - P::ONES);
 }
 
 pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
@@ -119,10 +112,6 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     // The null special instruction must be boolean.
     let constr = builder.mul_sub_extension(lv.halt_state, lv.halt_state, lv.halt_state);
     yield_constr.constraint(builder, constr);
-    // The first row cannot be a null row. In parallel, the `bootstrap_kernel` module
-    // enforces that the first row is a kernel bootstrapping row, implicitely enforcing
-    // that the operation flags are also turned off on that row.
-    yield_constr.constraint_first_row(builder, lv.halt_state);
     // Once we reach a null row, there must be only null rows.
     let constr = builder.mul_sub_extension(lv.halt_state, nv.halt_state, lv.halt_state);
     yield_constr.constraint_transition(builder, constr);
@@ -205,12 +194,5 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
         let constr = builder.mul_extension(lv.halt_state, constr);
 
         yield_constr.constraint(builder, constr);
-    }
-
-    // Finally, the last row must be in kernel mode.
-    {
-        let one = builder.one_extension();
-        let constr = builder.sub_extension(lv.is_kernel_mode, one);
-        yield_constr.constraint_last_row(builder, constr);
     }
 }

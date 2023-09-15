@@ -298,9 +298,12 @@ fn simulate_cpu<F: RichField + Extendable<D>, const D: usize>(
             row.stack_len = F::from_canonical_usize(state.registers.stack_len);
             row.halt_state = F::ONE;
 
-            while !state.traces.clock().is_power_of_two() {
+            loop {
                 state.traces.push_cpu(row);
                 row.clock += F::ONE;
+                if state.traces.clock().is_power_of_two() {
+                    break;
+                }
             }
             log::info!("CPU trace padded to {} cycles", state.traces.clock());
 
