@@ -59,7 +59,7 @@ pub struct RecursiveAllProof<
 pub(crate) struct PublicInputs<T: Copy + Default + Eq + PartialEq + Debug, P: PlonkyPermutation<T>>
 {
     pub(crate) trace_cap: Vec<Vec<T>>,
-    pub(crate) ctl_zs_last: Vec<T>,
+    pub(crate) ctl_zs_first: Vec<T>,
     pub(crate) ctl_challenges: GrandProductChallengeSet<T>,
     pub(crate) challenger_state_before: P,
     pub(crate) challenger_state_after: P,
@@ -85,11 +85,11 @@ impl<T: Copy + Debug + Default + Eq + PartialEq, P: PlonkyPermutation<T>> Public
         };
         let challenger_state_before = P::new(&mut iter);
         let challenger_state_after = P::new(&mut iter);
-        let ctl_zs_last: Vec<_> = iter.collect();
+        let ctl_zs_first: Vec<_> = iter.collect();
 
         Self {
             trace_cap,
-            ctl_zs_last,
+            ctl_zs_first,
             ctl_challenges,
             challenger_state_before,
             challenger_state_after,
@@ -150,7 +150,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         // Verify the CTL checks.
         verify_cross_table_lookups::<F, D>(
             &cross_table_lookups,
-            pis.map(|p| p.ctl_zs_last),
+            pis.map(|p| p.ctl_zs_first),
             extra_looking_products,
             inner_config,
         )?;
@@ -350,7 +350,7 @@ where
     let challenger_state = challenger.compact(&mut builder);
     builder.register_public_inputs(challenger_state.as_ref());
 
-    builder.register_public_inputs(&proof_target.openings.ctl_zs_last);
+    builder.register_public_inputs(&proof_target.openings.ctl_zs_first);
 
     verify_stark_proof_with_challenges_circuit::<F, C, _, D>(
         &mut builder,
@@ -414,7 +414,7 @@ fn verify_stark_proof_with_challenges_circuit<
         next_values,
         permutation_ctl_zs,
         permutation_ctl_zs_next,
-        ctl_zs_last,
+        ctl_zs_first,
         quotient_polys,
     } = &proof.openings;
     let vars = StarkEvaluationTargets {
@@ -484,8 +484,7 @@ fn verify_stark_proof_with_challenges_circuit<
         builder,
         challenges.stark_zeta,
         F::primitive_root_of_unity(degree_bits),
-        degree_bits,
-        ctl_zs_last.len(),
+        ctl_zs_first.len(),
         inner_config,
     );
     builder.verify_fri_proof::<C>(
@@ -869,7 +868,7 @@ fn add_virtual_stark_opening_set<F: RichField + Extendable<D>, S: Stark<F, D>, c
             .add_virtual_extension_targets(stark.num_permutation_batches(config) + num_ctl_zs),
         permutation_ctl_zs_next: builder
             .add_virtual_extension_targets(stark.num_permutation_batches(config) + num_ctl_zs),
-        ctl_zs_last: builder.add_virtual_targets(num_ctl_zs),
+        ctl_zs_first: builder.add_virtual_targets(num_ctl_zs),
         quotient_polys: builder
             .add_virtual_extension_targets(stark.quotient_degree_factor() * num_challenges),
     }

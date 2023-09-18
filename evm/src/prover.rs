@@ -453,7 +453,6 @@ where
         trace_commitment,
         &permutation_ctl_zs_commitment,
         &quotient_commitment,
-        degree_bits,
         stark.num_permutation_batches(config),
     );
     challenger.observe_openings(&openings.to_fri_openings());
@@ -468,7 +467,7 @@ where
         timing,
         "compute openings proof",
         PolynomialBatch::prove_openings(
-            &stark.fri_instance(zeta, g, degree_bits, ctl_data.len(), config),
+            &stark.fri_instance(zeta, g, ctl_data.len(), config),
             &initial_merkle_trees,
             challenger,
             &fri_params,
