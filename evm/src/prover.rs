@@ -150,7 +150,8 @@ where
         challenger.observe_cap(cap);
     }
 
-    observe_public_values::<F, C, D>(&mut challenger, &public_values);
+    observe_public_values::<F, C, D>(&mut challenger, &public_values)
+        .map_err(|_| anyhow::Error::msg("Invalid conversion of public values."))?;
 
     let ctl_challenges = get_grand_product_challenge_set(&mut challenger, config.num_challenges);
     let ctl_data_per_table = timed!(

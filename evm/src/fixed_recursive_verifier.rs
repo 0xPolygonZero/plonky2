@@ -47,9 +47,8 @@ use crate::proof::{
 use crate::prover::prove;
 use crate::recursive_verifier::{
     add_common_recursion_gates, add_virtual_public_values,
-    get_memory_extra_looking_products_circuit, recursive_stark_circuit, set_block_hashes_target,
-    set_block_metadata_target, set_extra_public_values_target, set_public_value_targets,
-    set_trie_roots_target, PlonkWrapperCircuit, PublicInputs, StarkWrapperCircuit,
+    get_memory_extra_looking_products_circuit, recursive_stark_circuit, set_public_value_targets,
+    PlonkWrapperCircuit, PublicInputs, StarkWrapperCircuit,
 };
 use crate::stark::Stark;
 use crate::util::h256_limbs;
@@ -905,7 +904,10 @@ where
             &mut root_inputs,
             &self.root.public_values,
             &all_proof.public_values,
-        );
+        )
+        .map_err(|_| {
+            anyhow::Error::msg("Invalid conversion when setting public values targets.")
+        })?;
 
         let root_proof = self.root.circuit.prove(root_inputs)?;
 
@@ -939,32 +941,15 @@ where
             &self.aggregation.circuit.verifier_only,
         );
 
-        set_block_hashes_target(
+        set_public_value_targets(
             &mut agg_inputs,
-            &self.aggregation.public_values.block_hashes,
-            &public_values.block_hashes,
-        );
-        set_block_metadata_target(
-            &mut agg_inputs,
-            &self.aggregation.public_values.block_metadata,
-            &public_values.block_metadata,
-        );
+            &self.aggregation.public_values,
+            &public_values,
+        )
+        .map_err(|_| {
+            anyhow::Error::msg("Invalid conversion when setting public values targets.")
+        })?;
 
-        set_trie_roots_target(
-            &mut agg_inputs,
-            &self.aggregation.public_values.trie_roots_before,
-            &public_values.trie_roots_before,
-        );
-        set_trie_roots_target(
-            &mut agg_inputs,
-            &self.aggregation.public_values.trie_roots_after,
-            &public_values.trie_roots_after,
-        );
-        set_extra_public_values_target(
-            &mut agg_inputs,
-            &self.aggregation.public_values.extra_block_data,
-            &public_values.extra_block_data,
-        );
         let aggregation_proof = self.aggregation.circuit.prove(agg_inputs)?;
         Ok((aggregation_proof, public_values))
     }
@@ -1022,32 +1007,10 @@ where
         block_inputs
             .set_verifier_data_target(&self.block.cyclic_vk, &self.block.circuit.verifier_only);
 
-        set_block_hashes_target(
-            &mut block_inputs,
-            &self.block.public_values.block_hashes,
-            &public_values.block_hashes,
-        );
-        set_extra_public_values_target(
-            &mut block_inputs,
-            &self.block.public_values.extra_block_data,
-            &public_values.extra_block_data,
-        );
-        set_block_metadata_target(
-            &mut block_inputs,
-            &self.block.public_values.block_metadata,
-            &public_values.block_metadata,
-        );
-
-        set_trie_roots_target(
-            &mut block_inputs,
-            &self.block.public_values.trie_roots_before,
-            &public_values.trie_roots_before,
-        );
-        set_trie_roots_target(
-            &mut block_inputs,
-            &self.block.public_values.trie_roots_after,
-            &public_values.trie_roots_after,
-        );
+        set_public_value_targets(&mut block_inputs, &self.block.public_values, &public_values)
+            .map_err(|_| {
+                anyhow::Error::msg("Invalid conversion when setting public values targets.")
+            })?;
 
         let block_proof = self.block.circuit.prove(block_inputs)?;
         Ok((block_proof, public_values))
