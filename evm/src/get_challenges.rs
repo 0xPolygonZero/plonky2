@@ -13,7 +13,7 @@ use crate::permutation::{
     get_n_grand_product_challenge_sets_target,
 };
 use crate::proof::*;
-use crate::util::{h256_limbs, u256_limbs, u256_lowest_limb, u256_lowest_word};
+use crate::util::{h256_limbs, u256_limbs, u256_to_u32, u256_to_u64};
 use crate::witness::errors::ProgramError;
 
 fn observe_root<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
@@ -61,15 +61,15 @@ fn observe_block_metadata<
     challenger.observe_elements(
         &u256_limbs::<F>(U256::from_big_endian(&block_metadata.block_beneficiary.0))[..5],
     );
-    challenger.observe_element(u256_lowest_limb(block_metadata.block_timestamp)?);
-    challenger.observe_element(u256_lowest_limb(block_metadata.block_number)?);
-    challenger.observe_element(u256_lowest_limb(block_metadata.block_difficulty)?);
-    challenger.observe_element(u256_lowest_limb(block_metadata.block_gaslimit)?);
-    challenger.observe_element(u256_lowest_limb(block_metadata.block_chain_id)?);
-    let basefee = u256_lowest_word(block_metadata.block_base_fee)?;
+    challenger.observe_element(u256_to_u32(block_metadata.block_timestamp)?);
+    challenger.observe_element(u256_to_u32(block_metadata.block_number)?);
+    challenger.observe_element(u256_to_u32(block_metadata.block_difficulty)?);
+    challenger.observe_element(u256_to_u32(block_metadata.block_gaslimit)?);
+    challenger.observe_element(u256_to_u32(block_metadata.block_chain_id)?);
+    let basefee = u256_to_u64(block_metadata.block_base_fee)?;
     challenger.observe_element(basefee.0);
     challenger.observe_element(basefee.1);
-    challenger.observe_element(u256_lowest_limb(block_metadata.block_gas_used)?);
+    challenger.observe_element(u256_to_u32(block_metadata.block_gas_used)?);
     for i in 0..8 {
         challenger.observe_elements(&u256_limbs(block_metadata.block_bloom[i]));
     }
@@ -106,10 +106,10 @@ fn observe_extra_block_data<
     challenger: &mut Challenger<F, C::Hasher>,
     extra_data: &ExtraBlockData,
 ) -> Result<(), ProgramError> {
-    challenger.observe_element(u256_lowest_limb(extra_data.txn_number_before)?);
-    challenger.observe_element(u256_lowest_limb(extra_data.txn_number_after)?);
-    challenger.observe_element(u256_lowest_limb(extra_data.gas_used_before)?);
-    challenger.observe_element(u256_lowest_limb(extra_data.gas_used_after)?);
+    challenger.observe_element(u256_to_u32(extra_data.txn_number_before)?);
+    challenger.observe_element(u256_to_u32(extra_data.txn_number_after)?);
+    challenger.observe_element(u256_to_u32(extra_data.gas_used_before)?);
+    challenger.observe_element(u256_to_u32(extra_data.gas_used_after)?);
     for i in 0..8 {
         challenger.observe_elements(&u256_limbs(extra_data.block_bloom_before[i]));
     }

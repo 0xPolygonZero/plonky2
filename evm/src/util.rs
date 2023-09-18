@@ -49,7 +49,7 @@ pub fn trace_rows_to_poly_values<F: Field, const COLUMNS: usize>(
 
 /// Returns the lowest LE 32-bit limb of a `U256` as a field element,
 /// and errors if the integer is actually greater.
-pub(crate) fn u256_lowest_limb<F: Field>(u256: U256) -> Result<F, ProgramError> {
+pub(crate) fn u256_to_u32<F: Field>(u256: U256) -> Result<F, ProgramError> {
     if TryInto::<u32>::try_into(u256).is_err() {
         return Err(ProgramError::IntegerTooLarge);
     }
@@ -59,7 +59,7 @@ pub(crate) fn u256_lowest_limb<F: Field>(u256: U256) -> Result<F, ProgramError> 
 
 /// Returns the lowest LE 64-bit word of a `U256` as two field elements
 /// each storing a 32-bit limb, and errors if the integer is actually greater.
-pub(crate) fn u256_lowest_word<F: Field>(u256: U256) -> Result<(F, F), ProgramError> {
+pub(crate) fn u256_to_u64<F: Field>(u256: U256) -> Result<(F, F), ProgramError> {
     if TryInto::<u64>::try_into(u256).is_err() {
         return Err(ProgramError::IntegerTooLarge);
     }

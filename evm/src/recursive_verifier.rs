@@ -43,7 +43,7 @@ use crate::proof::{
     TrieRootsTarget,
 };
 use crate::stark::Stark;
-use crate::util::{h256_limbs, u256_limbs, u256_lowest_limb, u256_lowest_word};
+use crate::util::{h256_limbs, u256_limbs, u256_to_u32, u256_to_u64};
 use crate::vanishing_poly::eval_vanishing_poly_circuit;
 use crate::vars::StarkEvaluationTargets;
 use crate::witness::errors::ProgramError;
@@ -1009,31 +1009,31 @@ where
     witness.set_target_arr(&block_metadata_target.block_beneficiary, &beneficiary_limbs);
     witness.set_target(
         block_metadata_target.block_timestamp,
-        u256_lowest_limb(block_metadata.block_timestamp)?,
+        u256_to_u32(block_metadata.block_timestamp)?,
     );
     witness.set_target(
         block_metadata_target.block_number,
-        u256_lowest_limb(block_metadata.block_number)?,
+        u256_to_u32(block_metadata.block_number)?,
     );
     witness.set_target(
         block_metadata_target.block_difficulty,
-        u256_lowest_limb(block_metadata.block_difficulty)?,
+        u256_to_u32(block_metadata.block_difficulty)?,
     );
     witness.set_target(
         block_metadata_target.block_gaslimit,
-        u256_lowest_limb(block_metadata.block_gaslimit)?,
+        u256_to_u32(block_metadata.block_gaslimit)?,
     );
     witness.set_target(
         block_metadata_target.block_chain_id,
-        u256_lowest_limb(block_metadata.block_chain_id)?,
+        u256_to_u32(block_metadata.block_chain_id)?,
     );
     // Basefee fits in 2 limbs
-    let basefee = u256_lowest_word(block_metadata.block_base_fee)?;
+    let basefee = u256_to_u64(block_metadata.block_base_fee)?;
     witness.set_target(block_metadata_target.block_base_fee[0], basefee.0);
     witness.set_target(block_metadata_target.block_base_fee[1], basefee.1);
     witness.set_target(
         block_metadata_target.block_gas_used,
-        u256_lowest_limb(block_metadata.block_gas_used)?,
+        u256_to_u32(block_metadata.block_gas_used)?,
     );
     let mut block_bloom_limbs = [F::ZERO; 64];
     for (i, limbs) in block_bloom_limbs.chunks_exact_mut(8).enumerate() {
