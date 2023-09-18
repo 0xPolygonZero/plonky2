@@ -84,7 +84,6 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
         &self,
         zeta: F::Extension,
         g: F,
-        degree_bits: usize,
         num_ctl_zs: usize,
         config: &StarkConfig,
     ) -> FriInstanceInfo<F, D> {
@@ -131,13 +130,13 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
             point: zeta.scalar_mul(g),
             polynomials: [trace_info, permutation_ctl_zs_info].concat(),
         };
-        let ctl_last_batch = FriBatchInfo {
-            point: F::Extension::primitive_root_of_unity(degree_bits).inverse(),
+        let ctl_first_batch = FriBatchInfo {
+            point: F::Extension::ONE,
             polynomials: ctl_zs_info,
         };
         FriInstanceInfo {
             oracles: vec![trace_oracle, permutation_ctl_oracle, quotient_oracle],
-            batches: vec![zeta_batch, zeta_next_batch, ctl_last_batch],
+            batches: vec![zeta_batch, zeta_next_batch, ctl_first_batch],
         }
     }
 
@@ -147,7 +146,6 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
         builder: &mut CircuitBuilder<F, D>,
         zeta: ExtensionTarget<D>,
         g: F,
-        degree_bits: usize,
         num_ctl_zs: usize,
         inner_config: &StarkConfig,
     ) -> FriInstanceInfoTarget<D> {
@@ -195,14 +193,13 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
             point: zeta_next,
             polynomials: [trace_info, permutation_ctl_zs_info].concat(),
         };
-        let ctl_last_batch = FriBatchInfoTarget {
-            point: builder
-                .constant_extension(F::Extension::primitive_root_of_unity(degree_bits).inverse()),
+        let ctl_first_batch = FriBatchInfoTarget {
+            point: builder.one_extension(),
             polynomials: ctl_zs_info,
         };
         FriInstanceInfoTarget {
             oracles: vec![trace_oracle, permutation_ctl_oracle, quotient_oracle],
-            batches: vec![zeta_batch, zeta_next_batch, ctl_last_batch],
+            batches: vec![zeta_batch, zeta_next_batch, ctl_first_batch],
         }
     }
 
