@@ -905,7 +905,9 @@ where
             &self.root.public_values,
             &all_proof.public_values,
         )
-        .map_err(|_| anyhow::Error::msg("Invalid conversion when setting public_values target."))?;
+        .map_err(|_| {
+            anyhow::Error::msg("Invalid conversion when setting public values targets.")
+        })?;
 
         let root_proof = self.root.circuit.prove(root_inputs)?;
 
@@ -944,7 +946,9 @@ where
             &self.aggregation.public_values,
             &public_values,
         )
-        .map_err(|_| anyhow::Error::msg("Invalid conversion when setting public values target."))?;
+        .map_err(|_| {
+            anyhow::Error::msg("Invalid conversion when setting public values targets.")
+        })?;
 
         let aggregation_proof = self.aggregation.circuit.prove(agg_inputs)?;
         Ok((aggregation_proof, public_values))
@@ -1005,7 +1009,7 @@ where
 
         set_public_value_targets(&mut block_inputs, &self.block.public_values, &public_values)
             .map_err(|_| {
-                anyhow::Error::msg("Invalid conversion when setting public values target.")
+                anyhow::Error::msg("Invalid conversion when setting public values targets.")
             })?;
 
         let block_proof = self.block.circuit.prove(block_inputs)?;
