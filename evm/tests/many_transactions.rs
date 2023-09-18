@@ -1,6 +1,5 @@
 #![allow(clippy::upper_case_acronyms)]
 
-//use core::slice::SlicePattern;
 use std::collections::HashMap;
 use std::str::FromStr;
 use std::time::Duration;
