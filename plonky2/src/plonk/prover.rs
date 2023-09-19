@@ -112,7 +112,11 @@ pub fn prove<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: 
     common_data: &CommonCircuitData<F, D>,
     inputs: PartialWitness<F>,
     timing: &mut TimingTree,
-) -> Result<ProofWithPublicInputs<F, C, D>> {
+) -> Result<ProofWithPublicInputs<F, C, D>>
+where
+    C::Hasher: Hasher<F>,
+    C::InnerHasher: Hasher<F>,
+{
     let partition_witness = timed!(
         timing,
         &format!("run {} generators", prover_data.generators.len()),
