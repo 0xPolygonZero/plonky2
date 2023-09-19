@@ -467,6 +467,118 @@ pub fn test_same_luts() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[test]
+fn test_big_lut() -> anyhow::Result<()> {
+    use crate::field::types::Field;
+    use crate::iop::witness::{PartialWitness, WitnessWrite};
+    use crate::plonk::circuit_builder::CircuitBuilder;
+    use crate::plonk::circuit_data::CircuitConfig;
+    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
+
+    const D: usize = 2;
+    type C = PoseidonGoldilocksConfig;
+    type F = <C as GenericConfig<D>>::F;
+
+    LOGGER_INITIALIZED.call_once(|| init_logger().unwrap());
+    let config = CircuitConfig::standard_recursion_config();
+    let mut builder = CircuitBuilder::<F, D>::new(config);
+
+    const LUT_SIZE: usize = u16::MAX as usize +1;
+    let inputs: [u16; LUT_SIZE] = core::array::from_fn(|i| i as u16);
+    let lut_fn = |inp: u16| inp/10;
+    let lut_index = builder.add_lookup_table_from_fn(lut_fn, &inputs);
+
+    let initial_a = builder.add_virtual_target();
+    let initial_b = builder.add_virtual_target();
+
+    let look_val_a = 51;
+    let look_val_b = 2;
+
+    let output_a = builder.add_lookup_from_index(initial_a, lut_index);
+    let output_b = builder.add_lookup_from_index(initial_b, lut_index);
+
+    builder.register_public_input(output_a);
+    builder.register_public_input(output_b);
+
+    let data = builder.build::<C>();
+
+    let mut pw = PartialWitness::new();
+
+    pw.set_target(initial_a, F::from_canonical_u16(look_val_a));
+    pw.set_target(initial_b, F::from_canonical_u16(look_val_b));
+
+    let proof = data.prove(pw)?;
+    assert_eq!(
+        proof.public_inputs[0],
+        F::from_canonical_u16(lut_fn(look_val_a))
+    );
+    assert_eq!(
+        proof.public_inputs[1],
+        F::from_canonical_u16(lut_fn(look_val_b))
+    );
+
+    data.verify(proof)
+}
+
+#[test]
+fn test_many_lookups_on_big_lut() -> anyhow::Result<()> {
+    use crate::field::types::Field;
+    use crate::iop::witness::{PartialWitness, WitnessWrite};
+    use crate::plonk::circuit_builder::CircuitBuilder;
+    use crate::plonk::circuit_data::CircuitConfig;
+    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
+
+    const D: usize = 2;
+    type C = PoseidonGoldilocksConfig;
+    type F = <C as GenericConfig<D>>::F;
+
+    LOGGER_INITIALIZED.call_once(|| init_logger().unwrap());
+    let config = CircuitConfig::standard_recursion_config();
+    let mut builder = CircuitBuilder::<F, D>::new(config);
+
+    const LUT_SIZE: usize = u16::MAX as usize +1;
+    let inputs: [u16; LUT_SIZE] = core::array::from_fn(|i| i as u16);
+    let lut_fn = |inp: u16| inp/10;
+    let lut_index = builder.add_lookup_table_from_fn(lut_fn, &inputs);
+
+    let inputs = (0..LUT_SIZE).map(|_| {
+        let input_target = builder.add_virtual_target();
+        _ = builder.add_lookup_from_index(input_target, lut_index);
+        input_target
+    }).collect::<Vec<_>>();
+
+    let initial_a = builder.add_virtual_target();
+    let initial_b = builder.add_virtual_target();
+
+    let look_val_a = 51;
+    let look_val_b = 2;
+
+    let output_a = builder.add_lookup_from_index(initial_a, lut_index);
+    let output_b = builder.add_lookup_from_index(initial_b, lut_index);
+    let sum = builder.add(output_a, output_b);
+
+    builder.register_public_input(sum);
+
+    let data = builder.build::<C>();
+
+    let mut pw = PartialWitness::new();
+
+    inputs.into_iter().enumerate().for_each(|(i,t)|
+        pw.set_target(t, F::from_canonical_usize(i))
+    );
+    pw.set_target(initial_a, F::from_canonical_u16(look_val_a));
+    pw.set_target(initial_b, F::from_canonical_u16(look_val_b));
+
+    let proof = data.prove(pw)?;
+    assert_eq!(
+        proof.public_inputs[0],
+        F::from_canonical_u16(lut_fn(look_val_a) + lut_fn(look_val_b))
+    );
+
+    data.verify(proof)
+
+}
+
 fn init_logger() -> anyhow::Result<()> {
     let mut builder = env_logger::Builder::from_default_env();
     builder.format_timestamp(None);
