@@ -362,6 +362,9 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
             next_filter * (next_position - one) * (next_position - current_position - one),
         );
 
+        // The last row must be the end of a sequence or a padding row.
+        yield_constr.constraint_last_row(current_filter * (current_sequence_end - one));
+
         // If the next position is one in an active row, the current end flag must be one.
         yield_constr
             .constraint_transition(next_filter * current_sequence_end * (next_position - one));
@@ -490,7 +493,12 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
             builder.mul_sub_extension(is_new_or_inactive, position_diff, is_new_or_inactive);
         yield_constr.constraint_transition(builder, constraint);
 
-        // If the next position is one in an active row, the end flag must be one.
+        // The last row must be the end of a sequence or a padding row.
+        let constraint =
+            builder.mul_sub_extension(current_filter, current_sequence_end, current_filter);
+        yield_constr.constraint_last_row(builder, constraint);
+
+        // If the next position is one in an active row, the current end flag must be one.
         let constraint = builder.mul_extension(next_filter, current_sequence_end);
         let constraint = builder.mul_sub_extension(constraint, next_position, constraint);
         yield_constr.constraint_transition(builder, constraint);
