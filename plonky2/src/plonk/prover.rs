@@ -112,6 +112,21 @@ pub fn prove<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: 
     common_data: &CommonCircuitData<F, D>,
     inputs: PartialWitness<F>,
     timing: &mut TimingTree,
+) -> Result<ProofWithPublicInputs<F, C, D>> {
+    let partition_witness = timed!(
+        timing,
+        &format!("run {} generators", prover_data.generators.len()),
+        generate_partial_witness(inputs, prover_data, common_data)
+    );
+
+    prove_with_partition_witness(prover_data, common_data, partition_witness, timing)
+}
+
+pub fn prove_with_partition_witness<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
+    prover_data: &ProverOnlyCircuitData<F, C, D>,
+    common_data: &CommonCircuitData<F, D>,
+    mut partition_witness: PartitionWitness<F>,
+    timing: &mut TimingTree,
 ) -> Result<ProofWithPublicInputs<F, C, D>>
 where
     C::Hasher: Hasher<F>,
@@ -122,12 +137,6 @@ where
     let num_challenges = config.num_challenges;
     let quotient_degree = common_data.quotient_degree();
     let degree = common_data.degree();
-
-    let mut partition_witness = timed!(
-        timing,
-        &format!("run {} generators", prover_data.generators.len()),
-        generate_partial_witness(inputs, prover_data, common_data)
-    );
 
     set_lookup_wires(prover_data, common_data, &mut partition_witness);
 
