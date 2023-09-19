@@ -179,7 +179,7 @@ impl<F: Field> Column<F> {
 
         // If we access the next row at the last row, for sanity, we consider the next row's values to be 0.
         // If CTLs are correctly written, the filter should be 0 in that case anyway.
-        if !self.next_row_linear_combination.is_empty() && row < table.len() - 1 {
+        if !self.next_row_linear_combination.is_empty() && row < table[0].values.len() - 1 {
             res += self
                 .next_row_linear_combination
                 .iter()
@@ -497,7 +497,7 @@ pub(crate) fn eval_cross_table_lookup_checks<F, FE, P, S, const D: usize, const 
             .collect::<Vec<_>>();
         let combined = challenges.combine(evals.iter());
         let local_filter = if let Some(column) = filter_column {
-            column.eval(vars.local_values)
+            column.eval_with_next(vars.local_values, vars.next_values)
         } else {
             P::ONES
         };
