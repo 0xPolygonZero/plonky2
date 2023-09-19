@@ -122,7 +122,11 @@ pub fn prove<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: 
     prove_with_partition_witness(prover_data, common_data, partition_witness, timing)
 }
 
-pub fn prove_with_partition_witness<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
+pub fn prove_with_partition_witness<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
     prover_data: &ProverOnlyCircuitData<F, C, D>,
     common_data: &CommonCircuitData<F, D>,
     mut partition_witness: PartitionWitness<F>,
