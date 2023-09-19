@@ -52,7 +52,9 @@ where
     let AllProofChallenges {
         stark_challenges,
         ctl_challenges,
-    } = all_proof.get_challenges(config);
+    } = all_proof
+        .get_challenges(config)
+        .map_err(|_| anyhow::Error::msg("Invalid sampling of proof challenges."))?;
 
     let num_lookup_columns = all_stark.num_lookups_helper_columns(config);
 
@@ -144,7 +146,9 @@ where
 
     verify_cross_table_lookups::<F, D>(
         cross_table_lookups,
-        all_proof.stark_proofs.map(|p| p.proof.openings.ctl_zs_last),
+        all_proof
+            .stark_proofs
+            .map(|p| p.proof.openings.ctl_zs_first),
         extra_looking_products,
         config,
     )
@@ -318,7 +322,7 @@ where
         next_values,
         auxiliary_polys,
         auxiliary_polys_next,
-        ctl_zs_last,
+        ctl_zs_first,
         quotient_polys,
     } = &proof.openings;
     let vars = StarkEvaluationVars {
@@ -393,8 +397,7 @@ where
         &stark.fri_instance(
             challenges.stark_zeta,
             F::primitive_root_of_unity(degree_bits),
-            degree_bits,
-            ctl_zs_last.len(),
+            ctl_zs_first.len(),
             config,
         ),
         &proof.openings.to_fri_openings(),
@@ -434,7 +437,7 @@ where
         next_values,
         auxiliary_polys,
         auxiliary_polys_next,
-        ctl_zs_last,
+        ctl_zs_first,
         quotient_polys,
     } = openings;
 
@@ -451,7 +454,7 @@ where
     ensure!(next_values.len() == S::COLUMNS);
     ensure!(auxiliary_polys.len() == num_auxiliary);
     ensure!(auxiliary_polys_next.len() == num_auxiliary);
-    ensure!(ctl_zs_last.len() == num_ctl_zs);
+    ensure!(ctl_zs_first.len() == num_ctl_zs);
     ensure!(quotient_polys.len() == stark.num_quotient_polys(config));
 
     Ok(())

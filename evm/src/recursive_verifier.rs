@@ -43,9 +43,10 @@ use crate::proof::{
     TrieRootsTarget,
 };
 use crate::stark::Stark;
-use crate::util::{h256_limbs, u256_limbs};
+use crate::util::{h256_limbs, u256_limbs, u256_to_u32, u256_to_u64};
 use crate::vanishing_poly::eval_vanishing_poly_circuit;
 use crate::vars::StarkEvaluationTargets;
+use crate::witness::errors::ProgramError;
 
 /// Table-wise recursive proofs of an `AllProof`.
 pub struct RecursiveAllProof<
@@ -59,7 +60,7 @@ pub struct RecursiveAllProof<
 pub(crate) struct PublicInputs<T: Copy + Default + Eq + PartialEq + Debug, P: PlonkyPermutation<T>>
 {
     pub(crate) trace_cap: Vec<Vec<T>>,
-    pub(crate) ctl_zs_last: Vec<T>,
+    pub(crate) ctl_zs_first: Vec<T>,
     pub(crate) ctl_challenges: GrandProductChallengeSet<T>,
     pub(crate) challenger_state_before: P,
     pub(crate) challenger_state_after: P,
@@ -85,11 +86,11 @@ impl<T: Copy + Debug + Default + Eq + PartialEq, P: PlonkyPermutation<T>> Public
         };
         let challenger_state_before = P::new(&mut iter);
         let challenger_state_after = P::new(&mut iter);
-        let ctl_zs_last: Vec<_> = iter.collect();
+        let ctl_zs_first: Vec<_> = iter.collect();
 
         Self {
             trace_cap,
-            ctl_zs_last,
+            ctl_zs_first,
             ctl_challenges,
             challenger_state_before,
             challenger_state_after,
@@ -150,7 +151,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         // Verify the CTL checks.
         verify_cross_table_lookups::<F, D>(
             &cross_table_lookups,
-            pis.map(|p| p.ctl_zs_last),
+            pis.map(|p| p.ctl_zs_first),
             extra_looking_products,
             inner_config,
         )?;
@@ -344,7 +345,7 @@ where
     let challenger_state = challenger.compact(&mut builder);
     builder.register_public_inputs(challenger_state.as_ref());
 
-    builder.register_public_inputs(&proof_target.openings.ctl_zs_last);
+    builder.register_public_inputs(&proof_target.openings.ctl_zs_first);
 
     verify_stark_proof_with_challenges_circuit::<F, C, _, D>(
         &mut builder,
@@ -410,7 +411,7 @@ fn verify_stark_proof_with_challenges_circuit<
         next_values,
         auxiliary_polys,
         auxiliary_polys_next,
-        ctl_zs_last,
+        ctl_zs_first,
         quotient_polys,
     } = &proof.openings;
     let vars = StarkEvaluationTargets {
@@ -485,8 +486,7 @@ fn verify_stark_proof_with_challenges_circuit<
         builder,
         challenges.stark_zeta,
         F::primitive_root_of_unity(degree_bits),
-        degree_bits,
-        ctl_zs_last.len(),
+        ctl_zs_first.len(),
         inner_config,
     );
     builder.verify_fri_proof::<C>(
@@ -870,7 +870,7 @@ fn add_virtual_stark_opening_set<F: RichField + Extendable<D>, S: Stark<F, D>, c
             .add_virtual_extension_targets(stark.num_lookup_helper_columns(config) + num_ctl_zs),
         auxiliary_polys_next: builder
             .add_virtual_extension_targets(stark.num_lookup_helper_columns(config) + num_ctl_zs),
-        ctl_zs_last: builder.add_virtual_targets(num_ctl_zs),
+        ctl_zs_first: builder.add_virtual_targets(num_ctl_zs),
         quotient_polys: builder
             .add_virtual_extension_targets(stark.quotient_degree_factor() * num_challenges),
     }
@@ -906,7 +906,8 @@ pub(crate) fn set_public_value_targets<F, W, const D: usize>(
     witness: &mut W,
     public_values_target: &PublicValuesTarget,
     public_values: &PublicValues,
-) where
+) -> Result<(), ProgramError>
+where
     F: RichField + Extendable<D>,
     W: Witness<F>,
 {
@@ -924,7 +925,7 @@ pub(crate) fn set_public_value_targets<F, W, const D: usize>(
         witness,
         &public_values_target.block_metadata,
         &public_values.block_metadata,
-    );
+    )?;
     set_block_hashes_target(
         witness,
         &public_values_target.block_hashes,
@@ -935,6 +936,8 @@ pub(crate) fn set_public_value_targets<F, W, const D: usize>(
         &public_values_target.extra_block_data,
         &public_values.extra_block_data,
     );
+
+    Ok(())
 }
 
 pub(crate) fn set_trie_roots_target<F, W, const D: usize>(
@@ -995,7 +998,8 @@ pub(crate) fn set_block_metadata_target<F, W, const D: usize>(
     witness: &mut W,
     block_metadata_target: &BlockMetadataTarget,
     block_metadata: &BlockMetadata,
-) where
+) -> Result<(), ProgramError>
+where
     F: RichField + Extendable<D>,
     W: Witness<F>,
 {
@@ -1006,42 +1010,39 @@ pub(crate) fn set_block_metadata_target<F, W, const D: usize>(
     witness.set_target_arr(&block_metadata_target.block_beneficiary, &beneficiary_limbs);
     witness.set_target(
         block_metadata_target.block_timestamp,
-        F::from_canonical_u32(block_metadata.block_timestamp.as_u32()),
+        u256_to_u32(block_metadata.block_timestamp)?,
     );
     witness.set_target(
         block_metadata_target.block_number,
-        F::from_canonical_u32(block_metadata.block_number.as_u32()),
+        u256_to_u32(block_metadata.block_number)?,
     );
     witness.set_target(
         block_metadata_target.block_difficulty,
-        F::from_canonical_u32(block_metadata.block_difficulty.as_u32()),
+        u256_to_u32(block_metadata.block_difficulty)?,
     );
     witness.set_target(
         block_metadata_target.block_gaslimit,
-        F::from_canonical_u32(block_metadata.block_gaslimit.as_u32()),
+        u256_to_u32(block_metadata.block_gaslimit)?,
     );
     witness.set_target(
         block_metadata_target.block_chain_id,
-        F::from_canonical_u32(block_metadata.block_chain_id.as_u32()),
+        u256_to_u32(block_metadata.block_chain_id)?,
     );
     // Basefee fits in 2 limbs
-    witness.set_target(
-        block_metadata_target.block_base_fee[0],
-        F::from_canonical_u32(block_metadata.block_base_fee.as_u64() as u32),
-    );
-    witness.set_target(
-        block_metadata_target.block_base_fee[1],
-        F::from_canonical_u32((block_metadata.block_base_fee.as_u64() >> 32) as u32),
-    );
+    let basefee = u256_to_u64(block_metadata.block_base_fee)?;
+    witness.set_target(block_metadata_target.block_base_fee[0], basefee.0);
+    witness.set_target(block_metadata_target.block_base_fee[1], basefee.1);
     witness.set_target(
         block_metadata_target.block_gas_used,
-        F::from_canonical_u64(block_metadata.block_gas_used.as_u64()),
+        u256_to_u32(block_metadata.block_gas_used)?,
     );
     let mut block_bloom_limbs = [F::ZERO; 64];
     for (i, limbs) in block_bloom_limbs.chunks_exact_mut(8).enumerate() {
         limbs.copy_from_slice(&u256_limbs(block_metadata.block_bloom[i]));
     }
     witness.set_target_arr(&block_metadata_target.block_bloom, &block_bloom_limbs);
+
+    Ok(())
 }
 
 pub(crate) fn set_block_hashes_target<F, W, const D: usize>(

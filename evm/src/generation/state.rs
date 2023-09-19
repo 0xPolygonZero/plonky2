@@ -116,7 +116,7 @@ impl<F: Field> GenerationState<F> {
         let code = self.memory.contexts[ctx].segments[Segment::Returndata as usize].content
             [..returndata_size]
             .iter()
-            .map(|x| x.as_u32() as u8)
+            .map(|x| x.low_u32() as u8)
             .collect::<Vec<_>>();
         debug_assert_eq!(keccak(&code), codehash);
 

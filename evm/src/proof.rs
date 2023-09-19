@@ -623,7 +623,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> S
     }
 
     pub fn num_ctl_zs(&self) -> usize {
-        self.openings.ctl_zs_last.len()
+        self.openings.ctl_zs_first.len()
     }
 }
 
@@ -700,8 +700,8 @@ pub struct StarkOpeningSet<F: RichField + Extendable<D>, const D: usize> {
     pub auxiliary_polys: Vec<F::Extension>,
     /// Openings of lookups and cross-table lookups `Z` polynomials at `g * zeta`.
     pub auxiliary_polys_next: Vec<F::Extension>,
-    /// Openings of cross-table lookups `Z` polynomials at `g^-1`.
-    pub ctl_zs_last: Vec<F>,
+    /// Openings of cross-table lookups `Z` polynomials at `1`.
+    pub ctl_zs_first: Vec<F>,
     /// Openings of quotient polynomials at `zeta`.
     pub quotient_polys: Vec<F::Extension>,
 }
@@ -713,7 +713,6 @@ impl<F: RichField + Extendable<D>, const D: usize> StarkOpeningSet<F, D> {
         trace_commitment: &PolynomialBatch<F, C, D>,
         auxiliary_polys_commitment: &PolynomialBatch<F, C, D>,
         quotient_commitment: &PolynomialBatch<F, C, D>,
-        degree_bits: usize,
         num_lookup_columns: usize,
     ) -> Self {
         let eval_commitment = |z: F::Extension, c: &PolynomialBatch<F, C, D>| {
@@ -734,10 +733,8 @@ impl<F: RichField + Extendable<D>, const D: usize> StarkOpeningSet<F, D> {
             next_values: eval_commitment(zeta_next, trace_commitment),
             auxiliary_polys: eval_commitment(zeta, auxiliary_polys_commitment),
             auxiliary_polys_next: eval_commitment(zeta_next, auxiliary_polys_commitment),
-            ctl_zs_last: eval_commitment_base(
-                F::primitive_root_of_unity(degree_bits).inverse(),
-                auxiliary_polys_commitment,
-            )[num_lookup_columns..]
+            ctl_zs_first: eval_commitment_base(F::ONE, auxiliary_polys_commitment)
+                [num_lookup_columns..]
                 .to_vec(),
             quotient_polys: eval_commitment(zeta, quotient_commitment),
         }
@@ -761,10 +758,10 @@ impl<F: RichField + Extendable<D>, const D: usize> StarkOpeningSet<F, D> {
                 .copied()
                 .collect_vec(),
         };
-        debug_assert!(!self.ctl_zs_last.is_empty());
-        let ctl_last_batch = FriOpeningBatch {
+        debug_assert!(!self.ctl_zs_first.is_empty());
+        let ctl_first_batch = FriOpeningBatch {
             values: self
-                .ctl_zs_last
+                .ctl_zs_first
                 .iter()
                 .copied()
                 .map(F::Extension::from_basefield)
@@ -772,7 +769,7 @@ impl<F: RichField + Extendable<D>, const D: usize> StarkOpeningSet<F, D> {
         };
 
         FriOpenings {
-            batches: vec![zeta_batch, zeta_next_batch, ctl_last_batch],
+            batches: vec![zeta_batch, zeta_next_batch, ctl_first_batch],
         }
     }
 }
@@ -783,7 +780,7 @@ pub struct StarkOpeningSetTarget<const D: usize> {
     pub next_values: Vec<ExtensionTarget<D>>,
     pub auxiliary_polys: Vec<ExtensionTarget<D>>,
     pub auxiliary_polys_next: Vec<ExtensionTarget<D>>,
-    pub ctl_zs_last: Vec<Target>,
+    pub ctl_zs_first: Vec<Target>,
     pub quotient_polys: Vec<ExtensionTarget<D>>,
 }
 
@@ -793,7 +790,7 @@ impl<const D: usize> StarkOpeningSetTarget<D> {
         buffer.write_target_ext_vec(&self.next_values)?;
         buffer.write_target_ext_vec(&self.auxiliary_polys)?;
         buffer.write_target_ext_vec(&self.auxiliary_polys_next)?;
-        buffer.write_target_vec(&self.ctl_zs_last)?;
+        buffer.write_target_vec(&self.ctl_zs_first)?;
         buffer.write_target_ext_vec(&self.quotient_polys)?;
         Ok(())
     }
@@ -803,7 +800,7 @@ impl<const D: usize> StarkOpeningSetTarget<D> {
         let next_values = buffer.read_target_ext_vec::<D>()?;
         let auxiliary_polys = buffer.read_target_ext_vec::<D>()?;
         let auxiliary_polys_next = buffer.read_target_ext_vec::<D>()?;
-        let ctl_zs_last = buffer.read_target_vec()?;
+        let ctl_zs_first = buffer.read_target_vec()?;
         let quotient_polys = buffer.read_target_ext_vec::<D>()?;
 
         Ok(Self {
@@ -811,7 +808,7 @@ impl<const D: usize> StarkOpeningSetTarget<D> {
             next_values,
             auxiliary_polys,
             auxiliary_polys_next,
-            ctl_zs_last,
+            ctl_zs_first,
             quotient_polys,
         })
     }
@@ -834,10 +831,10 @@ impl<const D: usize> StarkOpeningSetTarget<D> {
                 .copied()
                 .collect_vec(),
         };
-        debug_assert!(!self.ctl_zs_last.is_empty());
-        let ctl_last_batch = FriOpeningBatchTarget {
+        debug_assert!(!self.ctl_zs_first.is_empty());
+        let ctl_first_batch = FriOpeningBatchTarget {
             values: self
-                .ctl_zs_last
+                .ctl_zs_first
                 .iter()
                 .copied()
                 .map(|t| t.to_ext_target(zero))
@@ -845,7 +842,7 @@ impl<const D: usize> StarkOpeningSetTarget<D> {
         };
 
         FriOpeningsTarget {
-            batches: vec![zeta_batch, zeta_next_batch, ctl_last_batch],
+            batches: vec![zeta_batch, zeta_next_batch, ctl_first_batch],
         }
     }
 }

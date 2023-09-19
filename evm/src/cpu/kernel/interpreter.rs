@@ -200,7 +200,7 @@ impl<'a> Interpreter<'a> {
         self.generation_state.memory.contexts[0].segments[segment as usize]
             .content
             .iter()
-            .map(|x| x.as_u32() as u8)
+            .map(|x| x.low_u32() as u8)
             .collect()
     }
 
@@ -1045,7 +1045,7 @@ impl<'a> Interpreter<'a> {
                 self.generation_state
                     .memory
                     .mload_general(context, segment, offset + i)
-                    .as_u32() as u8
+                    .low_u32() as u8
             })
             .collect();
         let value = U256::from_big_endian(&bytes);

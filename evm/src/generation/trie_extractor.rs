@@ -20,7 +20,7 @@ pub(crate) struct AccountTrieRecord {
 
 pub(crate) fn read_state_trie_value(slice: &[U256]) -> AccountTrieRecord {
     AccountTrieRecord {
-        nonce: slice[0].as_u64(),
+        nonce: slice[0].low_u64(),
         balance: slice[1],
         storage_ptr: slice[2].as_usize(),
         code_hash: H256::from_uint(&slice[3]),
