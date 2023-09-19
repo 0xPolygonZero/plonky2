@@ -354,8 +354,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
             current_sequence_end * next_filter * (next_sequence_start - one),
         );
 
-        // The current position in a byte sequence must increase by one on the next row
-        // or be one on the next row (i.e. a start of a new sequence).
+        // The active position in a byte sequence must increase by one on every row
+        // or be one on the next row (i.e. at the start of a new sequence).
         let current_position = self.get_active_position(vars.local_values);
         let next_position = self.get_active_position(vars.next_values);
         yield_constr.constraint_transition(
@@ -482,8 +482,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
         let constraint = builder.mul_extension(next_filter, constraint);
         yield_constr.constraint_transition(builder, constraint);
 
-        // The current position in a byte sequence must increase by one on the next row
-        // or be one on the next row (i.e. a start of a new sequence).
+        // The active position in a byte sequence must increase by one on every row
+        // or be one on the next row (i.e. at the start of a new sequence).
         let current_position = self.get_active_position_circuit(builder, vars.local_values);
         let next_position = self.get_active_position_circuit(builder, vars.next_values);
 
