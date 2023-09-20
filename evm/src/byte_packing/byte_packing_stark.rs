@@ -47,7 +47,7 @@ use plonky2::util::transpose;
 use super::NUM_BYTES;
 use crate::byte_packing::columns::{
     index_bytes, value_bytes, ADDR_CONTEXT, ADDR_SEGMENT, ADDR_VIRTUAL, BYTE_INDICES_COLS, IS_READ,
-    NUM_COLUMNS, RANGE_COUNTER, RC_COLS, SEQUENCE_END, SEQUENCE_LEN, TIMESTAMP,
+    NUM_COLUMNS, RANGE_COUNTER, RC_COLS, SEQUENCE_END, TIMESTAMP,
 };
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cross_table_lookup::Column;
@@ -76,15 +76,16 @@ pub(crate) fn ctl_looked_data<F: Field>() -> Vec<Column<F>> {
         })
         .collect();
 
-    Column::singles([
-        ADDR_CONTEXT,
-        ADDR_SEGMENT,
-        ADDR_VIRTUAL,
-        SEQUENCE_LEN,
-        TIMESTAMP,
-    ])
-    .chain(outputs)
-    .collect()
+    // This will correspond to the actual sequence length when the `SEQUENCE_END` flag is on.
+    let sequence_len: Column<F> = Column::linear_combination(
+        (0..NUM_BYTES).map(|i| (index_bytes(i), F::from_canonical_usize(i + 1))),
+    );
+
+    Column::singles([ADDR_CONTEXT, ADDR_SEGMENT, ADDR_VIRTUAL])
+        .chain([sequence_len])
+        .chain(Column::singles(&[TIMESTAMP]))
+        .chain(outputs)
+        .collect()
 }
 
 pub fn ctl_looked_filter<F: Field>() -> Column<F> {
@@ -202,7 +203,6 @@ impl<F: RichField + Extendable<D>, const D: usize> BytePackingStark<F, D> {
         row[ADDR_VIRTUAL] = F::from_canonical_usize(virt + bytes.len() - 1);
 
         row[TIMESTAMP] = F::from_canonical_usize(timestamp);
-        row[SEQUENCE_LEN] = F::from_canonical_usize(bytes.len());
 
         for (i, &byte) in bytes.iter().rev().enumerate() {
             if i == bytes.len() - 1 {
@@ -354,27 +354,20 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
             current_sequence_end * next_filter * (next_sequence_start - one),
         );
 
-        // The remaining length of a byte sequence must decrease by one or be zero.
-        let current_sequence_length = vars.local_values[SEQUENCE_LEN];
+        // The active position in a byte sequence must increase by one on every row
+        // or be one on the next row (i.e. at the start of a new sequence).
         let current_position = self.get_active_position(vars.local_values);
         let next_position = self.get_active_position(vars.next_values);
-        let current_remaining_length = current_sequence_length - current_position;
-        let next_sequence_length = vars.next_values[SEQUENCE_LEN];
-        let next_remaining_length = next_sequence_length - next_position;
         yield_constr.constraint_transition(
-            current_remaining_length * (current_remaining_length - next_remaining_length - one),
+            next_filter * (next_position - one) * (next_position - current_position - one),
         );
 
-        // At the start of a sequence, the remaining length must be equal to the starting length minus one
-        yield_constr.constraint(
-            current_sequence_start * (current_sequence_length - current_remaining_length - one),
-        );
+        // The last row must be the end of a sequence or a padding row.
+        yield_constr.constraint_last_row(current_filter * (current_sequence_end - one));
 
-        // The remaining length on the last row must be zero.
-        yield_constr.constraint_last_row(current_remaining_length);
-
-        // If the current remaining length is zero, the end flag must be one.
-        yield_constr.constraint(current_remaining_length * current_sequence_end);
+        // If the next position is one in an active row, the current end flag must be one.
+        yield_constr
+            .constraint_transition(next_filter * current_sequence_end * (next_position - one));
 
         // The context, segment and timestamp fields must remain unchanged throughout a byte sequence.
         // The virtual address must decrement by one at each step of a sequence.
@@ -489,36 +482,26 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
         let constraint = builder.mul_extension(next_filter, constraint);
         yield_constr.constraint_transition(builder, constraint);
 
-        // The remaining length of a byte sequence must decrease by one or be zero.
-        let current_sequence_length = vars.local_values[SEQUENCE_LEN];
-        let next_sequence_length = vars.next_values[SEQUENCE_LEN];
+        // The active position in a byte sequence must increase by one on every row
+        // or be one on the next row (i.e. at the start of a new sequence).
         let current_position = self.get_active_position_circuit(builder, vars.local_values);
         let next_position = self.get_active_position_circuit(builder, vars.next_values);
 
-        let current_remaining_length =
-            builder.sub_extension(current_sequence_length, current_position);
-        let next_remaining_length = builder.sub_extension(next_sequence_length, next_position);
-        let length_diff = builder.sub_extension(current_remaining_length, next_remaining_length);
-        let constraint = builder.mul_sub_extension(
-            current_remaining_length,
-            length_diff,
-            current_remaining_length,
-        );
+        let position_diff = builder.sub_extension(next_position, current_position);
+        let is_new_or_inactive = builder.mul_sub_extension(next_filter, next_position, next_filter);
+        let constraint =
+            builder.mul_sub_extension(is_new_or_inactive, position_diff, is_new_or_inactive);
         yield_constr.constraint_transition(builder, constraint);
 
-        // At the start of a sequence, the remaining length must be equal to the starting length minus one
-        let current_sequence_length = vars.local_values[SEQUENCE_LEN];
-        let length_diff = builder.sub_extension(current_sequence_length, current_remaining_length);
+        // The last row must be the end of a sequence or a padding row.
         let constraint =
-            builder.mul_sub_extension(current_sequence_start, length_diff, current_sequence_start);
-        yield_constr.constraint(builder, constraint);
+            builder.mul_sub_extension(current_filter, current_sequence_end, current_filter);
+        yield_constr.constraint_last_row(builder, constraint);
 
-        // The remaining length on the last row must be zero.
-        yield_constr.constraint_last_row(builder, current_remaining_length);
-
-        // If the current remaining length is zero, the end flag must be one.
-        let constraint = builder.mul_extension(current_remaining_length, current_sequence_end);
-        yield_constr.constraint(builder, constraint);
+        // If the next position is one in an active row, the current end flag must be one.
+        let constraint = builder.mul_extension(next_filter, current_sequence_end);
+        let constraint = builder.mul_sub_extension(constraint, next_position, constraint);
+        yield_constr.constraint_transition(builder, constraint);
 
         // The context, segment and timestamp fields must remain unchanged throughout a byte sequence.
         // The virtual address must decrement by one at each step of a sequence.
