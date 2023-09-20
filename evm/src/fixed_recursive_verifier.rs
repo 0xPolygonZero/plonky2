@@ -377,49 +377,49 @@ where
         let arithmetic = RecursiveCircuitsForTable::new(
             Table::Arithmetic,
             &all_stark.arithmetic_stark,
-            degree_bits_ranges[0].clone(),
+            degree_bits_ranges[Table::Arithmetic as usize].clone(),
             &all_stark.cross_table_lookups,
             stark_config,
         );
         let byte_packing = RecursiveCircuitsForTable::new(
             Table::BytePacking,
             &all_stark.byte_packing_stark,
-            degree_bits_ranges[1].clone(),
+            degree_bits_ranges[Table::BytePacking as usize].clone(),
             &all_stark.cross_table_lookups,
             stark_config,
         );
         let cpu = RecursiveCircuitsForTable::new(
             Table::Cpu,
             &all_stark.cpu_stark,
-            degree_bits_ranges[2].clone(),
+            degree_bits_ranges[Table::Cpu as usize].clone(),
             &all_stark.cross_table_lookups,
             stark_config,
         );
         let keccak = RecursiveCircuitsForTable::new(
             Table::Keccak,
             &all_stark.keccak_stark,
-            degree_bits_ranges[3].clone(),
+            degree_bits_ranges[Table::Keccak as usize].clone(),
             &all_stark.cross_table_lookups,
             stark_config,
         );
         let keccak_sponge = RecursiveCircuitsForTable::new(
             Table::KeccakSponge,
             &all_stark.keccak_sponge_stark,
-            degree_bits_ranges[4].clone(),
+            degree_bits_ranges[Table::KeccakSponge as usize].clone(),
             &all_stark.cross_table_lookups,
             stark_config,
         );
         let logic = RecursiveCircuitsForTable::new(
             Table::Logic,
             &all_stark.logic_stark,
-            degree_bits_ranges[5].clone(),
+            degree_bits_ranges[Table::Logic as usize].clone(),
             &all_stark.cross_table_lookups,
             stark_config,
         );
         let memory = RecursiveCircuitsForTable::new(
             Table::Memory,
             &all_stark.memory_stark,
-            degree_bits_ranges[6].clone(),
+            degree_bits_ranges[Table::Memory as usize].clone(),
             &all_stark.cross_table_lookups,
             stark_config,
         );

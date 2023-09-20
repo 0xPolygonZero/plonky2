@@ -74,32 +74,66 @@ impl Default for BlockHashes {
     }
 }
 
+/// User-provided helper values to compute the `BLOCKHASH` opcode.
+/// The proofs across consecutive blocks ensure that these values
+/// are consistent (i.e. shifted by one to the left).
+///
+/// When the block number is less than 256, dummy values, i.e. `H256::default()`,
+/// should be used for the additional block hashes.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BlockHashes {
+    /// The previous 256 hashes to the current block. The leftmost hash, i.e. `prev_hashes[0]`,
+    /// is the oldest, and the rightmost, i.e. `prev_hashes[255]` is the hash of the parent block.
     pub prev_hashes: Vec<H256>,
+    // The hash of the current block.
     pub cur_hash: H256,
 }
 
+/// Metadata contained in a block header. Those are identical between
+/// all state transition proofs within the same block.
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct BlockMetadata {
+    /// The address of this block's producer.
     pub block_beneficiary: Address,
+    /// The timestamp of this block.
     pub block_timestamp: U256,
+    /// The index of this block.
     pub block_number: U256,
+    /// The difficulty (before PoS transition) of this block.
     pub block_difficulty: U256,
+    /// The gas limit of this block. It must fit in a `u32`.
     pub block_gaslimit: U256,
+    /// The chain id of this block.
     pub block_chain_id: U256,
+    /// The base fee of this block.
     pub block_base_fee: U256,
+    /// The total gas used in this block. It must fit in a `u32`.
     pub block_gas_used: U256,
+    /// The block bloom of this block, represented as the consecutive
+    /// 32-byte chunks of a block's final bloom filter string.
     pub block_bloom: [U256; 8],
 }
 
+/// Additional block data that are specific to the local transaction being proven,
+/// unlike `BlockMetadata`.
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct ExtraBlockData {
+    /// The transaction count prior execution of the local state transition, starting
+    /// at 0 for the initial transaction of a block.
     pub txn_number_before: U256,
+    /// The transaction count after execution of the local state transition.
     pub txn_number_after: U256,
+    /// The accumulated gas used prior execution of the local state transition, starting
+    /// at 0 for the initial transaction of a block.
     pub gas_used_before: U256,
+    /// The accumulated gas used after execution of the local state transition. It should
+    /// match the `block_gas_used` value after execution of the last transaction in a block.
     pub gas_used_after: U256,
+    /// The accumulated bloom filter of this block prior execution of the local state transition,
+    /// starting with all zeros for the initial transaction of a block.
     pub block_bloom_before: [U256; 8],
+    /// The accumulated bloom filter after execution of the local state transition. It should
+    /// match the `block_bloom` value after execution of the last transaction in a block.
     pub block_bloom_after: [U256; 8],
 }
 
