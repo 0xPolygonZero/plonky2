@@ -30,6 +30,7 @@ use crate::config::StarkConfig;
 use crate::constraint_consumer::RecursiveConstraintConsumer;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
 use crate::cross_table_lookup::{verify_cross_table_lookups, CrossTableLookup, CtlCheckVarsTarget};
+use crate::evaluation_frame::StarkEvaluationFrame;
 use crate::memory::segments::Segment;
 use crate::memory::VALUE_LIMBS;
 use crate::permutation::{
@@ -45,7 +46,6 @@ use crate::proof::{
 use crate::stark::Stark;
 use crate::util::{h256_limbs, u256_limbs, u256_to_u32, u256_to_u64};
 use crate::vanishing_poly::eval_vanishing_poly_circuit;
-use crate::vars::StarkEvaluationTargets;
 use crate::witness::errors::ProgramError;
 
 /// Table-wise recursive proofs of an `AllProof`.
@@ -297,7 +297,6 @@ pub(crate) fn recursive_stark_circuit<
     min_degree_bits: usize,
 ) -> StarkWrapperCircuit<F, C, D>
 where
-    [(); S::COLUMNS]:,
     C::Hasher: AlgebraicHasher<F>,
 {
     let mut builder = CircuitBuilder::<F, D>::new(circuit_config.clone());
@@ -405,7 +404,6 @@ fn verify_stark_proof_with_challenges_circuit<
     inner_config: &StarkConfig,
 ) where
     C::Hasher: AlgebraicHasher<F>,
-    [(); S::COLUMNS]:,
 {
     let zero = builder.zero();
     let one = builder.one_extension();
@@ -418,10 +416,7 @@ fn verify_stark_proof_with_challenges_circuit<
         ctl_zs_first,
         quotient_polys,
     } = &proof.openings;
-    let vars = StarkEvaluationTargets {
-        local_values: &local_values.to_vec().try_into().unwrap(),
-        next_values: &next_values.to_vec().try_into().unwrap(),
-    };
+    let vars = S::EvaluationFrameTarget::from_values(local_values, next_values);
 
     let degree_bits = proof.recover_degree_bits(inner_config);
     let zeta_pow_deg = builder.exp_power_of_2_extension(challenges.stark_zeta, degree_bits);
@@ -456,7 +451,7 @@ fn verify_stark_proof_with_challenges_circuit<
             builder,
             stark,
             inner_config,
-            vars,
+            &vars,
             permutation_data,
             ctl_vars,
             &mut consumer,

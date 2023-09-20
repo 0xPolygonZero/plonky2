@@ -17,10 +17,10 @@ use plonky2_util::ceil_div_usize;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::kernel::keccak_util::keccakf_u32s;
 use crate::cross_table_lookup::Column;
+use crate::evaluation_frame::StarkEvaluationFrame;
 use crate::keccak_sponge::columns::*;
 use crate::stark::Stark;
 use crate::util::trace_rows_to_poly_values;
-use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 use crate::witness::memory::MemoryAddress;
 
 pub(crate) fn ctl_looked_data<F: Field>() -> Vec<Column<F>> {
@@ -422,12 +422,44 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakSpongeStark<F, D> {
     }
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakSpongeStark<F, D> {
+pub struct KeccakSpongeStarkEvaluationFrame<T: Copy + Default> {
+    local_values: [T; NUM_KECCAK_SPONGE_COLUMNS],
+    next_values: [T; NUM_KECCAK_SPONGE_COLUMNS],
+}
+
+impl<T: Copy + Default> StarkEvaluationFrame<T> for KeccakSpongeStarkEvaluationFrame<T> {
     const COLUMNS: usize = NUM_KECCAK_SPONGE_COLUMNS;
+
+    fn get_local_values(&self) -> &[T] {
+        &self.local_values
+    }
+
+    fn get_next_values(&self) -> &[T] {
+        &self.next_values
+    }
+
+    fn from_values(lv: &[T], nv: &[T]) -> Self {
+        assert_eq!(lv.len(), Self::COLUMNS);
+        assert_eq!(nv.len(), Self::COLUMNS);
+
+        Self {
+            local_values: lv.try_into().unwrap(),
+            next_values: nv.try_into().unwrap(),
+        }
+    }
+}
+
+impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakSpongeStark<F, D> {
+    type EvaluationFrame<FE, P, const D2: usize> = KeccakSpongeStarkEvaluationFrame<P>
+    where
+        FE: FieldExtension<D2, BaseField = F>,
+        P: PackedField<Scalar = FE>;
+
+    type EvaluationFrameTarget = KeccakSpongeStarkEvaluationFrame<ExtensionTarget<D>>;
 
     fn eval_packed_generic<FE, P, const D2: usize>(
         &self,
-        vars: StarkEvaluationVars<FE, P, { Self::COLUMNS }>,
+        vars: &Self::EvaluationFrame<FE, P, D2>,
         yield_constr: &mut ConstraintConsumer<P>,
     ) where
         FE: FieldExtension<D2, BaseField = F>,
@@ -537,7 +569,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakSpongeS
     fn eval_ext_circuit(
         &self,
         builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
-        vars: StarkEvaluationTargets<D, { Self::COLUMNS }>,
+        vars: &Self::EvaluationFrameTarget,
         yield_constr: &mut RecursiveConstraintConsumer<F, D>,
     ) {
         let local_values: &KeccakSpongeColumnsView<ExtensionTarget<D>> = vars.local_values.borrow();

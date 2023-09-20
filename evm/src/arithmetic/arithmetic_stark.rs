@@ -7,18 +7,20 @@ use plonky2::field::packed::PackedField;
 use plonky2::field::polynomial::PolynomialValues;
 use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
+use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::util::transpose;
 use static_assertions::const_assert;
 
+use super::columns::NUM_ARITH_COLUMNS;
 use crate::all_stark::Table;
 use crate::arithmetic::{addcy, byte, columns, divmod, modular, mul, Operation};
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cross_table_lookup::{Column, TableWithColumns};
+use crate::evaluation_frame::StarkEvaluationFrame;
 use crate::lookup::{eval_lookups, eval_lookups_circuit, permuted_cols};
 use crate::permutation::PermutationPair;
 use crate::stark::Stark;
-use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 
 /// Link the 16-bit columns of the arithmetic table, split into groups
 /// of N_LIMBS at a time in `regs`, with the corresponding 32-bit
@@ -167,12 +169,44 @@ impl<F: RichField, const D: usize> ArithmeticStark<F, D> {
     }
 }
 
+pub struct ArithmeticStarkEvaluationFrame<T: Copy + Default> {
+    local_values: [T; NUM_ARITH_COLUMNS],
+    next_values: [T; NUM_ARITH_COLUMNS],
+}
+
+impl<T: Copy + Default> StarkEvaluationFrame<T> for ArithmeticStarkEvaluationFrame<T> {
+    const COLUMNS: usize = NUM_ARITH_COLUMNS;
+
+    fn get_local_values(&self) -> &[T] {
+        &self.local_values
+    }
+
+    fn get_next_values(&self) -> &[T] {
+        &self.next_values
+    }
+
+    fn from_values(lv: &[T], nv: &[T]) -> Self {
+        assert_eq!(lv.len(), Self::COLUMNS);
+        assert_eq!(nv.len(), Self::COLUMNS);
+
+        Self {
+            local_values: lv.try_into().unwrap(),
+            next_values: nv.try_into().unwrap(),
+        }
+    }
+}
+
 impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ArithmeticStark<F, D> {
-    const COLUMNS: usize = columns::NUM_ARITH_COLUMNS;
+    type EvaluationFrame<FE, P, const D2: usize> = ArithmeticStarkEvaluationFrame<P>
+    where
+        FE: FieldExtension<D2, BaseField = F>,
+        P: PackedField<Scalar = FE>;
+
+    type EvaluationFrameTarget = ArithmeticStarkEvaluationFrame<ExtensionTarget<D>>;
 
     fn eval_packed_generic<FE, P, const D2: usize>(
         &self,
-        vars: StarkEvaluationVars<FE, P, { Self::COLUMNS }>,
+        vars: &Self::EvaluationFrame<FE, P, D2>,
         yield_constr: &mut ConstraintConsumer<P>,
     ) where
         FE: FieldExtension<D2, BaseField = F>,
@@ -183,8 +217,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ArithmeticSta
             eval_lookups(vars, yield_constr, col, col + 1);
         }
 
-        let lv = vars.local_values;
-        let nv = vars.next_values;
+        let lv: &[P; NUM_ARITH_COLUMNS] = vars.get_local_values().try_into().unwrap();
+        let nv: &[P; NUM_ARITH_COLUMNS] = vars.get_next_values().try_into().unwrap();
 
         // Check the range column: First value must be 0, last row
         // must be 2^16-1, and intermediate rows must increment by 0
@@ -207,7 +241,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ArithmeticSta
     fn eval_ext_circuit(
         &self,
         builder: &mut CircuitBuilder<F, D>,
-        vars: StarkEvaluationTargets<D, { Self::COLUMNS }>,
+        vars: &Self::EvaluationFrameTarget,
         yield_constr: &mut RecursiveConstraintConsumer<F, D>,
     ) {
         // Range check all the columns
@@ -215,8 +249,10 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ArithmeticSta
             eval_lookups_circuit(builder, vars, yield_constr, col, col + 1);
         }
 
-        let lv = vars.local_values;
-        let nv = vars.next_values;
+        let lv: &[ExtensionTarget<D>; NUM_ARITH_COLUMNS] =
+            vars.get_local_values().try_into().unwrap();
+        let nv: &[ExtensionTarget<D>; NUM_ARITH_COLUMNS] =
+            vars.get_next_values().try_into().unwrap();
 
         let rc1 = lv[columns::RANGE_COUNTER];
         let rc2 = nv[columns::RANGE_COUNTER];

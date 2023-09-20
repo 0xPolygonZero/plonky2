@@ -12,8 +12,8 @@ use plonky2_util::ceil_div_usize;
 
 use crate::config::StarkConfig;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
+use crate::evaluation_frame::StarkEvaluationFrame;
 use crate::permutation::PermutationPair;
-use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 
 const TRACE_ORACLE_INDEX: usize = 0;
 const PERMUTATION_CTL_ORACLE_INDEX: usize = 1;
@@ -22,7 +22,16 @@ const QUOTIENT_ORACLE_INDEX: usize = 2;
 /// Represents a STARK system.
 pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
     /// The total number of columns in the trace.
-    const COLUMNS: usize;
+    const COLUMNS: usize = Self::EvaluationFrameTarget::COLUMNS;
+
+    /// This is used to evaluate constraints natively.
+    type EvaluationFrame<FE, P, const D2: usize>: StarkEvaluationFrame<P>
+    where
+        FE: FieldExtension<D2, BaseField = F>,
+        P: PackedField<Scalar = FE>;
+
+    /// The `Target` version of `Self::EvaluationFrame`, used to evaluate constraints recursively.
+    type EvaluationFrameTarget: StarkEvaluationFrame<ExtensionTarget<D>>;
 
     /// Evaluate constraints at a vector of points.
     ///
@@ -32,7 +41,7 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
     /// constraints over `F`.
     fn eval_packed_generic<FE, P, const D2: usize>(
         &self,
-        vars: StarkEvaluationVars<FE, P, { Self::COLUMNS }>,
+        vars: &Self::EvaluationFrame<FE, P, D2>,
         yield_constr: &mut ConstraintConsumer<P>,
     ) where
         FE: FieldExtension<D2, BaseField = F>,
@@ -41,7 +50,7 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
     /// Evaluate constraints at a vector of points from the base field `F`.
     fn eval_packed_base<P: PackedField<Scalar = F>>(
         &self,
-        vars: StarkEvaluationVars<F, P, { Self::COLUMNS }>,
+        vars: &Self::EvaluationFrame<F, P, 1>,
         yield_constr: &mut ConstraintConsumer<P>,
     ) {
         self.eval_packed_generic(vars, yield_constr)
@@ -50,7 +59,7 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
     /// Evaluate constraints at a single point from the degree `D` extension field.
     fn eval_ext(
         &self,
-        vars: StarkEvaluationVars<F::Extension, F::Extension, { Self::COLUMNS }>,
+        vars: &Self::EvaluationFrame<F::Extension, F::Extension, D>,
         yield_constr: &mut ConstraintConsumer<F::Extension>,
     ) {
         self.eval_packed_generic(vars, yield_constr)
@@ -63,7 +72,7 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
     fn eval_ext_circuit(
         &self,
         builder: &mut CircuitBuilder<F, D>,
-        vars: StarkEvaluationTargets<D, { Self::COLUMNS }>,
+        vars: &Self::EvaluationFrameTarget,
         yield_constr: &mut RecursiveConstraintConsumer<F, D>,
     );
 
