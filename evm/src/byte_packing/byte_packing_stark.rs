@@ -51,7 +51,7 @@ use crate::byte_packing::columns::{
 };
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cross_table_lookup::Column;
-use crate::evaluation_frame::StarkEvaluationFrame;
+use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
 use crate::lookup::{eval_lookups, eval_lookups_circuit, permuted_cols};
 use crate::stark::Stark;
 use crate::witness::memory::MemoryAddress;
@@ -280,40 +280,13 @@ impl<F: RichField + Extendable<D>, const D: usize> BytePackingStark<F, D> {
     }
 }
 
-pub struct BytePackingStarkEvaluationFrame<T: Copy + Default> {
-    local_values: [T; NUM_COLUMNS],
-    next_values: [T; NUM_COLUMNS],
-}
-
-impl<T: Copy + Default> StarkEvaluationFrame<T> for BytePackingStarkEvaluationFrame<T> {
-    const COLUMNS: usize = NUM_COLUMNS;
-
-    fn get_local_values(&self) -> &[T] {
-        &self.local_values
-    }
-
-    fn get_next_values(&self) -> &[T] {
-        &self.next_values
-    }
-
-    fn from_values(lv: &[T], nv: &[T]) -> Self {
-        assert_eq!(lv.len(), Self::COLUMNS);
-        assert_eq!(nv.len(), Self::COLUMNS);
-
-        Self {
-            local_values: lv.try_into().unwrap(),
-            next_values: nv.try_into().unwrap(),
-        }
-    }
-}
-
 impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingStark<F, D> {
-    type EvaluationFrame<FE, P, const D2: usize> = BytePackingStarkEvaluationFrame<P>
+    type EvaluationFrame<FE, P, const D2: usize> = StarkFrame<P, NUM_COLUMNS>
     where
         FE: FieldExtension<D2, BaseField = F>,
         P: PackedField<Scalar = FE>;
 
-    type EvaluationFrameTarget = BytePackingStarkEvaluationFrame<ExtensionTarget<D>>;
+    type EvaluationFrameTarget = StarkFrame<ExtensionTarget<D>, NUM_COLUMNS>;
 
     fn eval_packed_generic<FE, P, const D2: usize>(
         &self,

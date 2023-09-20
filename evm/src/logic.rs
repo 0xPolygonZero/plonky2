@@ -14,7 +14,7 @@ use plonky2_util::ceil_div_usize;
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cross_table_lookup::Column;
-use crate::evaluation_frame::StarkEvaluationFrame;
+use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
 use crate::logic::columns::NUM_COLUMNS;
 use crate::stark::Stark;
 use crate::util::{limb_from_bits_le, limb_from_bits_le_recursive, trace_rows_to_poly_values};
@@ -180,40 +180,14 @@ impl<F: RichField, const D: usize> LogicStark<F, D> {
         rows
     }
 }
-pub struct LogicStarkEvaluationFrame<T: Copy + Default> {
-    local_values: [T; NUM_COLUMNS],
-    next_values: [T; NUM_COLUMNS],
-}
-
-impl<T: Copy + Default> StarkEvaluationFrame<T> for LogicStarkEvaluationFrame<T> {
-    const COLUMNS: usize = NUM_COLUMNS;
-
-    fn get_local_values(&self) -> &[T] {
-        &self.local_values
-    }
-
-    fn get_next_values(&self) -> &[T] {
-        &self.next_values
-    }
-
-    fn from_values(lv: &[T], nv: &[T]) -> Self {
-        assert_eq!(lv.len(), Self::COLUMNS);
-        assert_eq!(nv.len(), Self::COLUMNS);
-
-        Self {
-            local_values: lv.try_into().unwrap(),
-            next_values: nv.try_into().unwrap(),
-        }
-    }
-}
 
 impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for LogicStark<F, D> {
-    type EvaluationFrame<FE, P, const D2: usize> = LogicStarkEvaluationFrame<P>
+    type EvaluationFrame<FE, P, const D2: usize> = StarkFrame<P, NUM_COLUMNS>
     where
         FE: FieldExtension<D2, BaseField = F>,
         P: PackedField<Scalar = FE>;
 
-    type EvaluationFrameTarget = LogicStarkEvaluationFrame<ExtensionTarget<D>>;
+    type EvaluationFrameTarget = StarkFrame<ExtensionTarget<D>, NUM_COLUMNS>;
 
     fn eval_packed_generic<FE, P, const D2: usize>(
         &self,
@@ -223,7 +197,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for LogicStark<F,
         FE: FieldExtension<D2, BaseField = F>,
         P: PackedField<Scalar = FE>,
     {
-        let lv = &vars.local_values;
+        let lv = vars.get_local_values();
 
         // IS_AND, IS_OR, and IS_XOR come from the CPU table, so we assume they're valid.
         let is_and = lv[columns::IS_AND];
@@ -272,7 +246,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for LogicStark<F,
         vars: &Self::EvaluationFrameTarget,
         yield_constr: &mut RecursiveConstraintConsumer<F, D>,
     ) {
-        let lv = &vars.local_values;
+        let lv = vars.get_local_values();
 
         // IS_AND, IS_OR, and IS_XOR come from the CPU table, so we assume they're valid.
         let is_and = lv[columns::IS_AND];

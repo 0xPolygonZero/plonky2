@@ -13,7 +13,7 @@ use plonky2::util::timing::TimingTree;
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cross_table_lookup::Column;
-use crate::evaluation_frame::StarkEvaluationFrame;
+use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
 use crate::keccak::columns::{
     reg_a, reg_a_prime, reg_a_prime_prime, reg_a_prime_prime_0_0_bit, reg_a_prime_prime_prime,
     reg_b, reg_c, reg_c_prime, reg_input_limb, reg_output_limb, reg_preimage, reg_step,
@@ -238,40 +238,14 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakStark<F, D> {
         trace_polys
     }
 }
-pub struct KeccakStarkEvaluationFrame<T: Copy + Default> {
-    local_values: [T; NUM_COLUMNS],
-    next_values: [T; NUM_COLUMNS],
-}
-
-impl<T: Copy + Default> StarkEvaluationFrame<T> for KeccakStarkEvaluationFrame<T> {
-    const COLUMNS: usize = NUM_COLUMNS;
-
-    fn get_local_values(&self) -> &[T] {
-        &self.local_values
-    }
-
-    fn get_next_values(&self) -> &[T] {
-        &self.next_values
-    }
-
-    fn from_values(lv: &[T], nv: &[T]) -> Self {
-        assert_eq!(lv.len(), Self::COLUMNS);
-        assert_eq!(nv.len(), Self::COLUMNS);
-
-        Self {
-            local_values: lv.try_into().unwrap(),
-            next_values: nv.try_into().unwrap(),
-        }
-    }
-}
 
 impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakStark<F, D> {
-    type EvaluationFrame<FE, P, const D2: usize> = KeccakStarkEvaluationFrame<P>
+    type EvaluationFrame<FE, P, const D2: usize> = StarkFrame<P, NUM_COLUMNS>
     where
         FE: FieldExtension<D2, BaseField = F>,
         P: PackedField<Scalar = FE>;
 
-    type EvaluationFrameTarget = KeccakStarkEvaluationFrame<ExtensionTarget<D>>;
+    type EvaluationFrameTarget = StarkFrame<ExtensionTarget<D>, NUM_COLUMNS>;
 
     fn eval_packed_generic<FE, P, const D2: usize>(
         &self,

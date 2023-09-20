@@ -19,7 +19,7 @@ use crate::cpu::{
     modfp254, pc, push0, shift, simple_logic, stack, stack_bounds, syscalls_exceptions,
 };
 use crate::cross_table_lookup::{Column, TableWithColumns};
-use crate::evaluation_frame::StarkEvaluationFrame;
+use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
 use crate::memory::segments::Segment;
 use crate::memory::{NUM_CHANNELS, VALUE_LIMBS};
 use crate::stark::Stark;
@@ -227,40 +227,13 @@ impl<F: RichField, const D: usize> CpuStark<F, D> {
     }
 }
 
-pub struct CpuStarkEvaluationFrame<T: Copy + Default> {
-    local_values: [T; NUM_CPU_COLUMNS],
-    next_values: [T; NUM_CPU_COLUMNS],
-}
-
-impl<T: Copy + Default> StarkEvaluationFrame<T> for CpuStarkEvaluationFrame<T> {
-    const COLUMNS: usize = NUM_CPU_COLUMNS;
-
-    fn get_local_values(&self) -> &[T] {
-        &self.local_values
-    }
-
-    fn get_next_values(&self) -> &[T] {
-        &self.next_values
-    }
-
-    fn from_values(lv: &[T], nv: &[T]) -> Self {
-        assert_eq!(lv.len(), Self::COLUMNS);
-        assert_eq!(nv.len(), Self::COLUMNS);
-
-        Self {
-            local_values: lv.try_into().unwrap(),
-            next_values: nv.try_into().unwrap(),
-        }
-    }
-}
-
 impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D> {
-    type EvaluationFrame<FE, P, const D2: usize> = CpuStarkEvaluationFrame<P>
+    type EvaluationFrame<FE, P, const D2: usize> = StarkFrame<P, NUM_CPU_COLUMNS>
     where
         FE: FieldExtension<D2, BaseField = F>,
         P: PackedField<Scalar = FE>;
 
-    type EvaluationFrameTarget = CpuStarkEvaluationFrame<ExtensionTarget<D>>;
+    type EvaluationFrameTarget = StarkFrame<ExtensionTarget<D>, NUM_CPU_COLUMNS>;
 
     fn eval_packed_generic<FE, P, const D2: usize>(
         &self,
@@ -303,8 +276,15 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
         vars: &Self::EvaluationFrameTarget,
         yield_constr: &mut RecursiveConstraintConsumer<F, D>,
     ) {
-        let local_values = vars.local_values.borrow();
-        let next_values = vars.next_values.borrow();
+        let local_values =
+            TryInto::<[ExtensionTarget<D>; NUM_CPU_COLUMNS]>::try_into(vars.get_local_values())
+                .unwrap();
+        let local_values: &CpuColumnsView<ExtensionTarget<D>> = local_values.borrow();
+        let next_values =
+            TryInto::<[ExtensionTarget<D>; NUM_CPU_COLUMNS]>::try_into(vars.get_next_values())
+                .unwrap();
+        let next_values: &CpuColumnsView<ExtensionTarget<D>> = next_values.borrow();
+
         bootstrap_kernel::eval_bootstrap_kernel_ext_circuit(
             builder,
             local_values,

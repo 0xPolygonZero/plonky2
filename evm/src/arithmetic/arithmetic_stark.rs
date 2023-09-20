@@ -17,7 +17,7 @@ use crate::all_stark::Table;
 use crate::arithmetic::{addcy, byte, columns, divmod, modular, mul, Operation};
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cross_table_lookup::{Column, TableWithColumns};
-use crate::evaluation_frame::StarkEvaluationFrame;
+use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
 use crate::lookup::{eval_lookups, eval_lookups_circuit, permuted_cols};
 use crate::permutation::PermutationPair;
 use crate::stark::Stark;
@@ -169,40 +169,13 @@ impl<F: RichField, const D: usize> ArithmeticStark<F, D> {
     }
 }
 
-pub struct ArithmeticStarkEvaluationFrame<T: Copy + Default> {
-    local_values: [T; NUM_ARITH_COLUMNS],
-    next_values: [T; NUM_ARITH_COLUMNS],
-}
-
-impl<T: Copy + Default> StarkEvaluationFrame<T> for ArithmeticStarkEvaluationFrame<T> {
-    const COLUMNS: usize = NUM_ARITH_COLUMNS;
-
-    fn get_local_values(&self) -> &[T] {
-        &self.local_values
-    }
-
-    fn get_next_values(&self) -> &[T] {
-        &self.next_values
-    }
-
-    fn from_values(lv: &[T], nv: &[T]) -> Self {
-        assert_eq!(lv.len(), Self::COLUMNS);
-        assert_eq!(nv.len(), Self::COLUMNS);
-
-        Self {
-            local_values: lv.try_into().unwrap(),
-            next_values: nv.try_into().unwrap(),
-        }
-    }
-}
-
 impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ArithmeticStark<F, D> {
-    type EvaluationFrame<FE, P, const D2: usize> = ArithmeticStarkEvaluationFrame<P>
+    type EvaluationFrame<FE, P, const D2: usize> = StarkFrame<P, NUM_ARITH_COLUMNS>
     where
         FE: FieldExtension<D2, BaseField = F>,
         P: PackedField<Scalar = FE>;
 
-    type EvaluationFrameTarget = ArithmeticStarkEvaluationFrame<ExtensionTarget<D>>;
+    type EvaluationFrameTarget = StarkFrame<ExtensionTarget<D>, NUM_ARITH_COLUMNS>;
 
     fn eval_packed_generic<FE, P, const D2: usize>(
         &self,
