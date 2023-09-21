@@ -905,7 +905,10 @@ impl<'a> Interpreter<'a> {
             .prover_inputs_map
             .get(&(self.generation_state.registers.program_counter - 1))
             .ok_or_else(|| anyhow!("Offset not in prover inputs."))?;
-        let output = self.generation_state.prover_input(prover_input_fn);
+        let output = self
+            .generation_state
+            .prover_input(prover_input_fn)
+            .map_err(|_| anyhow!("Invalid prover inputs."))?;
         self.push(output);
         Ok(())
     }

@@ -14,6 +14,7 @@ pub enum ProgramError {
     GasLimitError,
     InterpreterError,
     IntegerTooLarge,
+    ProverInputError(ProverInputError),
 }
 
 #[allow(clippy::enum_variant_names)]
@@ -22,4 +23,13 @@ pub enum MemoryError {
     ContextTooLarge { context: U256 },
     SegmentTooLarge { segment: U256 },
     VirtTooLarge { virt: U256 },
+}
+
+#[derive(Debug)]
+pub enum ProverInputError {
+    OutOfMptData,
+    OutOfRlpData,
+    CodeHashNotFound,
+    InvalidInput,
+    InvalidFunction,
 }

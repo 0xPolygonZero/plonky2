@@ -15,6 +15,7 @@ use crate::cpu::stack_bounds::MAX_USER_STACK_SIZE;
 use crate::extension_tower::BN_BASE;
 use crate::generation::state::GenerationState;
 use crate::memory::segments::Segment;
+use crate::util::u256_to_usize;
 use crate::witness::errors::MemoryError::{ContextTooLarge, SegmentTooLarge, VirtTooLarge};
 use crate::witness::errors::ProgramError;
 use crate::witness::errors::ProgramError::MemoryError;
@@ -127,7 +128,7 @@ pub(crate) fn generate_keccak_general<F: Field>(
     row.is_keccak_sponge = F::ONE;
     let [(context, log_in0), (segment, log_in1), (base_virt, log_in2), (len, log_in3)] =
         stack_pop_with_log_and_fill::<4, _>(state, &mut row)?;
-    let len = TryInto::<usize>::try_into(len).map_err(|_| ProgramError::IntegerTooLarge)?;
+    let len = u256_to_usize(len)?;
 
     let base_address = MemoryAddress::new_u256s(context, segment, base_virt)?;
     let input = (0..len)
@@ -162,7 +163,7 @@ pub(crate) fn generate_prover_input<F: Field>(
 ) -> Result<(), ProgramError> {
     let pc = state.registers.program_counter;
     let input_fn = &KERNEL.prover_inputs[&pc];
-    let input = state.prover_input(input_fn);
+    let input = state.prover_input(input_fn)?;
     let write = stack_push_log_and_fill(state, &mut row, input)?;
 
     state.traces.push_memory(write);
@@ -312,7 +313,7 @@ pub(crate) fn generate_set_context<F: Field>(
     let [(ctx, log_in)] = stack_pop_with_log_and_fill::<1, _>(state, &mut row)?;
     let sp_to_save = state.registers.stack_len.into();
     let old_ctx = state.registers.context;
-    let new_ctx = TryInto::<usize>::try_into(ctx).map_err(|_| ProgramError::IntegerTooLarge)?;
+    let new_ctx = u256_to_usize(ctx)?;
 
     let sp_field = ContextMetadata::StackSize as usize;
     let old_sp_addr = MemoryAddress::new(old_ctx, Segment::ContextMetadata, sp_field);
@@ -347,7 +348,7 @@ pub(crate) fn generate_set_context<F: Field>(
     };
 
     state.registers.context = new_ctx;
-    let new_sp = TryInto::<usize>::try_into(new_sp).map_err(|_| ProgramError::IntegerTooLarge)?;
+    let new_sp = u256_to_usize(new_sp)?;
     state.registers.stack_len = new_sp;
     state.traces.push_memory(log_in);
     state.traces.push_memory(log_write_old_sp);
@@ -590,8 +591,7 @@ pub(crate) fn generate_syscall<F: Field>(
     );
 
     let handler_addr = (handler_addr0 << 16) + (handler_addr1 << 8) + handler_addr2;
-    let new_program_counter =
-        TryInto::<usize>::try_into(handler_addr).map_err(|_| ProgramError::IntegerTooLarge)?;
+    let new_program_counter = u256_to_usize(handler_addr)?;
 
     let syscall_info = U256::from(state.registers.program_counter + 1)
         + (U256::from(u64::from(state.registers.is_kernel)) << 32)
@@ -696,7 +696,7 @@ pub(crate) fn generate_mload_32bytes<F: Field>(
 ) -> Result<(), ProgramError> {
     let [(context, log_in0), (segment, log_in1), (base_virt, log_in2), (len, log_in3)] =
         stack_pop_with_log_and_fill::<4, _>(state, &mut row)?;
-    let len = TryInto::<usize>::try_into(len).map_err(|_| ProgramError::IntegerTooLarge)?;
+    let len = u256_to_usize(len)?;
 
     let base_address = MemoryAddress::new_u256s(context, segment, base_virt)?;
     if usize::MAX - base_address.virt < len {
@@ -764,7 +764,7 @@ pub(crate) fn generate_mstore_32bytes<F: Field>(
 ) -> Result<(), ProgramError> {
     let [(context, log_in0), (segment, log_in1), (base_virt, log_in2), (val, log_in3), (len, log_in4)] =
         stack_pop_with_log_and_fill::<5, _>(state, &mut row)?;
-    let len = TryInto::<usize>::try_into(len).map_err(|_| ProgramError::IntegerTooLarge)?;
+    let len = u256_to_usize(len)?;
 
     let base_address = MemoryAddress::new_u256s(context, segment, base_virt)?;
 
@@ -829,8 +829,7 @@ pub(crate) fn generate_exception<F: Field>(
     );
 
     let handler_addr = (handler_addr0 << 16) + (handler_addr1 << 8) + handler_addr2;
-    let new_program_counter =
-        TryInto::<usize>::try_into(handler_addr).map_err(|_| ProgramError::IntegerTooLarge)?;
+    let new_program_counter = u256_to_usize(handler_addr)?;
 
     let exc_info =
         U256::from(state.registers.program_counter) + (U256::from(state.registers.gas_used) << 192);
