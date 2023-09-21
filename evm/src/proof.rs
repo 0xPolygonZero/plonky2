@@ -39,14 +39,6 @@ pub(crate) struct AllProofChallenges<F: RichField + Extendable<D>, const D: usiz
     pub ctl_challenges: GrandProductChallengeSet<F>,
 }
 
-#[allow(unused)] // TODO: should be used soon
-pub(crate) struct AllChallengerState<F: RichField + Extendable<D>, H: Hasher<F>, const D: usize> {
-    /// Sponge state of the challenger before starting each proof,
-    /// along with the final state after all proofs are done. This final state isn't strictly needed.
-    pub states: [H::Permutation; NUM_TABLES + 1],
-    pub ctl_challenges: GrandProductChallengeSet<F>,
-}
-
 /// Memory values which are public.
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct PublicValues {
