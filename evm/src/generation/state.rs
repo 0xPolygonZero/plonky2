@@ -10,6 +10,7 @@ use crate::generation::mpt::all_mpt_prover_inputs_reversed;
 use crate::generation::rlp::all_rlp_prover_inputs_reversed;
 use crate::generation::GenerationInputs;
 use crate::memory::segments::Segment;
+use crate::witness::errors::ProgramError;
 use crate::witness::memory::{MemoryAddress, MemoryState};
 use crate::witness::state::RegistersState;
 use crate::witness::traces::{TraceCheckpoint, Traces};
@@ -78,18 +79,20 @@ impl<F: Field> GenerationState<F> {
 
     /// Updates `program_counter`, and potentially adds some extra handling if we're jumping to a
     /// special location.
-    pub fn jump_to(&mut self, dst: usize) {
+    pub fn jump_to(&mut self, dst: usize) -> Result<(), ProgramError> {
         self.registers.program_counter = dst;
         if dst == KERNEL.global_labels["observe_new_address"] {
-            let tip_u256 = stack_peek(self, 0).expect("Empty stack");
+            let tip_u256 = stack_peek(self, 0)?;
             let tip_h256 = H256::from_uint(&tip_u256);
             let tip_h160 = H160::from(tip_h256);
             self.observe_address(tip_h160);
         } else if dst == KERNEL.global_labels["observe_new_contract"] {
-            let tip_u256 = stack_peek(self, 0).expect("Empty stack");
+            let tip_u256 = stack_peek(self, 0)?;
             let tip_h256 = H256::from_uint(&tip_u256);
             self.observe_contract(tip_h256);
         }
+
+        Ok(())
     }
 
     /// Observe the given address, so that we will be able to recognize the associated state key.

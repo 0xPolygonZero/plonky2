@@ -218,7 +218,7 @@ pub(crate) fn generate_jump<F: Field>(
 
     state.traces.push_memory(log_in0);
     state.traces.push_cpu(row);
-    state.jump_to(dst as usize);
+    state.jump_to(dst as usize)?;
     Ok(())
 }
 
@@ -242,7 +242,7 @@ pub(crate) fn generate_jumpi<F: Field>(
         let dst: u32 = dst
             .try_into()
             .map_err(|_| ProgramError::InvalidJumpiDestination)?;
-        state.jump_to(dst as usize);
+        state.jump_to(dst as usize)?;
     } else {
         row.general.jumps_mut().should_jump = F::ZERO;
         row.general.jumps_mut().cond_sum_pinv = F::ZERO;
