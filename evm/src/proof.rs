@@ -689,8 +689,7 @@ where
     C: GenericConfig<D, F = F>,
 {
     pub(crate) init_challenger_state: <C::Hasher as Hasher<F>>::Permutation,
-    // TODO: set it back to pub(crate) when cpu trace len is a public input
-    pub proof: StarkProof<F, C, D>,
+    pub(crate) proof: StarkProof<F, C, D>,
 }
 
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> StarkProof<F, C, D> {
