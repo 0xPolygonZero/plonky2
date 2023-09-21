@@ -9,6 +9,7 @@ use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 
+use super::columns::CpuColumnsView;
 use super::halt;
 use crate::all_stark::Table;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};

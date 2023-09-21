@@ -1,6 +1,3 @@
-// TODO: remove when possible.
-#![allow(dead_code)]
-
 use std::borrow::{Borrow, BorrowMut};
 use std::fmt::Debug;
 use std::mem::{size_of, transmute};
