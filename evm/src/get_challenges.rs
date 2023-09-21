@@ -6,7 +6,6 @@ use plonky2::iop::challenger::{Challenger, RecursiveChallenger};
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::config::{AlgebraicHasher, GenericConfig};
 
-use crate::all_stark::AllStark;
 use crate::config::StarkConfig;
 use crate::cross_table_lookup::get_grand_product_challenge_set;
 use crate::proof::*;
