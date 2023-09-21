@@ -1,4 +1,4 @@
-use std::borrow::{Borrow, BorrowMut};
+use std::borrow::Borrow;
 use std::iter::repeat;
 use std::marker::PhantomData;
 
@@ -12,7 +12,7 @@ use plonky2::iop::ext_target::ExtensionTarget;
 use super::halt;
 use crate::all_stark::Table;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
-use crate::cpu::columns::{CpuColumnsView, COL_MAP, NUM_CPU_COLUMNS};
+use crate::cpu::columns::{COL_MAP, NUM_CPU_COLUMNS};
 use crate::cpu::membus::NUM_GP_CHANNELS;
 use crate::cpu::{
     bootstrap_kernel, contextops, control_flow, decode, dup_swap, gas, jumps, membus, memio,
@@ -196,15 +196,6 @@ pub fn ctl_filter_gp_memory<F: Field>(channel: usize) -> Column<F> {
 #[derive(Copy, Clone, Default)]
 pub struct CpuStark<F, const D: usize> {
     pub f: PhantomData<F>,
-}
-
-impl<F: RichField, const D: usize> CpuStark<F, D> {
-    // TODO: Remove?
-    pub fn generate(&self, local_values: &mut [F; NUM_CPU_COLUMNS]) {
-        let local_values: &mut CpuColumnsView<_> = local_values.borrow_mut();
-        decode::generate(local_values);
-        membus::generate(local_values);
-    }
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D> {
