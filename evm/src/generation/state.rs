@@ -10,6 +10,7 @@ use crate::generation::mpt::all_mpt_prover_inputs_reversed;
 use crate::generation::rlp::all_rlp_prover_inputs_reversed;
 use crate::generation::GenerationInputs;
 use crate::memory::segments::Segment;
+use crate::util::u256_to_usize;
 use crate::witness::errors::ProgramError;
 use crate::witness::memory::{MemoryAddress, MemoryState};
 use crate::witness::state::RegistersState;
@@ -89,7 +90,7 @@ impl<F: Field> GenerationState<F> {
         } else if dst == KERNEL.global_labels["observe_new_contract"] {
             let tip_u256 = stack_peek(self, 0)?;
             let tip_h256 = H256::from_uint(&tip_u256);
-            self.observe_contract(tip_h256);
+            self.observe_contract(tip_h256)?;
         }
 
         Ok(())
@@ -104,9 +105,9 @@ impl<F: Field> GenerationState<F> {
 
     /// Observe the given code hash and store the associated code.
     /// When called, the code corresponding to `codehash` should be stored in the return data.
-    pub fn observe_contract(&mut self, codehash: H256) {
+    pub fn observe_contract(&mut self, codehash: H256) -> Result<(), ProgramError> {
         if self.inputs.contract_code.contains_key(&codehash) {
-            return; // Return early if the code hash has already been observed.
+            return Ok(()); // Return early if the code hash has already been observed.
         }
 
         let ctx = self.registers.context;
@@ -115,7 +116,7 @@ impl<F: Field> GenerationState<F> {
             Segment::ContextMetadata,
             ContextMetadata::ReturndataSize as usize,
         );
-        let returndata_size = self.memory.get(returndata_size_addr).as_usize();
+        let returndata_size = u256_to_usize(self.memory.get(returndata_size_addr))?;
         let code = self.memory.contexts[ctx].segments[Segment::Returndata as usize].content
             [..returndata_size]
             .iter()
@@ -124,6 +125,8 @@ impl<F: Field> GenerationState<F> {
         debug_assert_eq!(keccak(&code), codehash);
 
         self.inputs.contract_code.insert(codehash, code);
+
+        Ok(())
     }
 
     pub fn checkpoint(&self) -> GenerationStateCheckpoint {

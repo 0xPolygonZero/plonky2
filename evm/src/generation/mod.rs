@@ -236,7 +236,8 @@ pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
         state.traces.get_lengths()
     );
 
-    let outputs = get_outputs(&mut state);
+    let outputs =
+        get_outputs(&mut state).map_err(|_| anyhow!("Failed to generate post-state info"))?;
 
     let read_metadata = |field| state.memory.read_global_metadata(field);
     let trie_roots_before = TrieRoots {
