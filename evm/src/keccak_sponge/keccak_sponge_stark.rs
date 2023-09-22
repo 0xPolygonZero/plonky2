@@ -438,11 +438,11 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakSpongeS
         FE: FieldExtension<D2, BaseField = F>,
         P: PackedField<Scalar = FE>,
     {
-        let local_values =
-            TryInto::<[P; NUM_KECCAK_SPONGE_COLUMNS]>::try_into(vars.get_local_values()).unwrap();
+        let local_values: &[P; NUM_KECCAK_SPONGE_COLUMNS] =
+            vars.get_local_values().try_into().unwrap();
         let local_values: &KeccakSpongeColumnsView<P> = local_values.borrow();
-        let next_values =
-            TryInto::<[P; NUM_KECCAK_SPONGE_COLUMNS]>::try_into(vars.get_next_values()).unwrap();
+        let next_values: &[P; NUM_KECCAK_SPONGE_COLUMNS] =
+            vars.get_next_values().try_into().unwrap();
         let next_values: &KeccakSpongeColumnsView<P> = next_values.borrow();
 
         // Each flag (full-input block, final block or implied dummy flag) must be boolean.
@@ -549,15 +549,11 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakSpongeS
         vars: &Self::EvaluationFrameTarget,
         yield_constr: &mut RecursiveConstraintConsumer<F, D>,
     ) {
-        let local_values = TryInto::<[ExtensionTarget<D>; NUM_KECCAK_SPONGE_COLUMNS]>::try_into(
-            vars.get_local_values(),
-        )
-        .unwrap();
+        let local_values: &[ExtensionTarget<D>; NUM_KECCAK_SPONGE_COLUMNS] =
+            vars.get_local_values().try_into().unwrap();
         let local_values: &KeccakSpongeColumnsView<ExtensionTarget<D>> = local_values.borrow();
-        let next_values = TryInto::<[ExtensionTarget<D>; NUM_KECCAK_SPONGE_COLUMNS]>::try_into(
-            vars.get_next_values(),
-        )
-        .unwrap();
+        let next_values: &[ExtensionTarget<D>; NUM_KECCAK_SPONGE_COLUMNS] =
+            vars.get_next_values().try_into().unwrap();
         let next_values: &KeccakSpongeColumnsView<ExtensionTarget<D>> = next_values.borrow();
 
         let one = builder.one_extension();
