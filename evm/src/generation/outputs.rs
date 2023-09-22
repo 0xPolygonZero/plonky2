@@ -77,7 +77,7 @@ fn account_trie_record_to_output<F: Field>(
         .inputs
         .contract_code
         .get(&account.code_hash)
-        .ok_or_else(|| ProgramError::UnknownContractCode)?
+        .ok_or(ProgramError::UnknownContractCode)?
         .clone();
 
     Ok(AccountOutput {
