@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use ethereum_types::BigEndianHash;
 
 use crate::cpu::kernel::aggregator::KERNEL;
@@ -22,7 +22,8 @@ fn mpt_read() -> Result<()> {
 
     let initial_stack = vec![0xdeadbeefu32.into()];
     let mut interpreter = Interpreter::new_with_kernel(load_all_mpts, initial_stack);
-    interpreter.generation_state.mpt_prover_inputs = all_mpt_prover_inputs_reversed(&trie_inputs);
+    interpreter.generation_state.mpt_prover_inputs =
+        all_mpt_prover_inputs_reversed(&trie_inputs).map_err(|_| anyhow!("Invalid MPT data"))?;
     interpreter.run()?;
     assert_eq!(interpreter.stack(), vec![]);
 

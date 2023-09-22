@@ -6,6 +6,7 @@ pub enum ProgramError {
     OutOfGas,
     InvalidOpcode,
     StackUnderflow,
+    FailedRlpDecoding,
     InvalidJumpDestination,
     InvalidJumpiDestination,
     StackOverflow,
@@ -30,6 +31,7 @@ pub enum ProverInputError {
     OutOfMptData,
     OutOfRlpData,
     CodeHashNotFound,
+    InvalidMptInput,
     InvalidInput,
     InvalidFunction,
 }

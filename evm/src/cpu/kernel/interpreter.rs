@@ -117,7 +117,7 @@ impl<'a> Interpreter<'a> {
         let mut result = Self {
             kernel_mode: true,
             jumpdests: find_jumpdests(code),
-            generation_state: GenerationState::new(GenerationInputs::default(), code),
+            generation_state: GenerationState::new(GenerationInputs::default(), code).unwrap(),
             prover_inputs_map: prover_inputs,
             context: 0,
             halt_offsets: vec![DEFAULT_HALT_OFFSET],

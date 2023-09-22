@@ -1,6 +1,6 @@
 use std::any::type_name;
 
-use anyhow::{anyhow, ensure, Result};
+use anyhow::{ensure, Result};
 use itertools::Itertools;
 use once_cell::sync::Lazy;
 use plonky2::field::extension::Extendable;
@@ -379,11 +379,9 @@ where
             .flat_map(|mut quotient_poly| {
                 quotient_poly
                     .trim_to_len(degree * stark.quotient_degree_factor())
-                    .map_err(|| {
-                        anyhow!(
-                            "Quotient has failed, the vanishing polynomial is not divisible by Z_H"
-                        )
-                    });
+                    .expect(
+                        "Quotient has failed, the vanishing polynomial is not divisible by Z_H",
+                    );
                 // Split quotient into degree-n chunks.
                 quotient_poly.chunks(degree)
             })

@@ -70,7 +70,11 @@ impl<F: Field> GenerationState<F> {
     fn run_sf(&self, input_fn: &ProverInputFn) -> Result<U256, ProgramError> {
         let field = EvmField::from_str(input_fn.0[1].as_str()).unwrap();
         let inputs: [U256; 4] = match field {
-            Bls381Base => (0..4).map(|i| stack_peek(self, i)).collect(),
+            Bls381Base => (0..4)
+                .map(|i| stack_peek(self, i))
+                .collect::<Result<Vec<U256>, _>>()?
+                .try_into()
+                .unwrap(),
             _ => todo!(),
         };
         let res = match input_fn.0[2].as_str() {
