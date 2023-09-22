@@ -243,11 +243,9 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
         FE: FieldExtension<D2, BaseField = F>,
         P: PackedField<Scalar = FE>,
     {
-        let local_values =
-            TryInto::<[P; NUM_CPU_COLUMNS]>::try_into(vars.get_local_values()).unwrap();
+        let local_values: &[P; NUM_CPU_COLUMNS] = vars.get_local_values().try_into().unwrap();
         let local_values: &CpuColumnsView<P> = local_values.borrow();
-        let next_values =
-            TryInto::<[P; NUM_CPU_COLUMNS]>::try_into(vars.get_next_values()).unwrap();
+        let next_values: &[P; NUM_CPU_COLUMNS] = vars.get_next_values().try_into().unwrap();
         let next_values: &CpuColumnsView<P> = next_values.borrow();
 
         bootstrap_kernel::eval_bootstrap_kernel_packed(local_values, next_values, yield_constr);
@@ -276,13 +274,11 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
         vars: &Self::EvaluationFrameTarget,
         yield_constr: &mut RecursiveConstraintConsumer<F, D>,
     ) {
-        let local_values =
-            TryInto::<[ExtensionTarget<D>; NUM_CPU_COLUMNS]>::try_into(vars.get_local_values())
-                .unwrap();
+        let local_values: &[ExtensionTarget<D>; NUM_CPU_COLUMNS] =
+            vars.get_local_values().try_into().unwrap();
         let local_values: &CpuColumnsView<ExtensionTarget<D>> = local_values.borrow();
-        let next_values =
-            TryInto::<[ExtensionTarget<D>; NUM_CPU_COLUMNS]>::try_into(vars.get_next_values())
-                .unwrap();
+        let next_values: &[ExtensionTarget<D>; NUM_CPU_COLUMNS] =
+            vars.get_next_values().try_into().unwrap();
         let next_values: &CpuColumnsView<ExtensionTarget<D>> = next_values.borrow();
 
         bootstrap_kernel::eval_bootstrap_kernel_ext_circuit(
