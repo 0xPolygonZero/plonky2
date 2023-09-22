@@ -6,7 +6,7 @@ pub enum ProgramError {
     OutOfGas,
     InvalidOpcode,
     StackUnderflow,
-    FailedRlpDecoding,
+    InvalidRlp,
     InvalidJumpDestination,
     InvalidJumpiDestination,
     StackOverflow,

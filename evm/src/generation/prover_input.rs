@@ -60,15 +60,18 @@ impl<F: Field> GenerationState<F> {
 
     /// Finite field operations.
     fn run_ff(&self, input_fn: &ProverInputFn) -> Result<U256, ProgramError> {
-        let field = EvmField::from_str(input_fn.0[1].as_str()).unwrap();
-        let op = FieldOp::from_str(input_fn.0[2].as_str()).unwrap();
+        let field = EvmField::from_str(input_fn.0[1].as_str())
+            .map_err(|_| ProgramError::ProverInputError(InvalidFunction))?;
+        let op = FieldOp::from_str(input_fn.0[2].as_str())
+            .map_err(|_| ProgramError::ProverInputError(InvalidFunction))?;
         let x = stack_peek(self, 0)?;
         field.op(op, x)
     }
 
     /// Special finite field operations.
     fn run_sf(&self, input_fn: &ProverInputFn) -> Result<U256, ProgramError> {
-        let field = EvmField::from_str(input_fn.0[1].as_str()).unwrap();
+        let field = EvmField::from_str(input_fn.0[1].as_str())
+            .map_err(|_| ProgramError::ProverInputError(InvalidFunction))?;
         let inputs: [U256; 4] = match field {
             Bls381Base => (0..4)
                 .map(|i| stack_peek(self, i))
@@ -92,7 +95,8 @@ impl<F: Field> GenerationState<F> {
 
     /// Finite field extension operations.
     fn run_ffe(&self, input_fn: &ProverInputFn) -> Result<U256, ProgramError> {
-        let field = EvmField::from_str(input_fn.0[1].as_str()).unwrap();
+        let field = EvmField::from_str(input_fn.0[1].as_str())
+            .map_err(|_| ProgramError::ProverInputError(InvalidFunction))?;
         let n = input_fn.0[2]
             .as_str()
             .split('_')
