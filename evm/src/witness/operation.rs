@@ -364,6 +364,10 @@ pub(crate) fn generate_push<F: Field>(
 ) -> Result<(), ProgramError> {
     let code_context = state.registers.code_context();
     let num_bytes = n as usize;
+    if num_bytes > 32 {
+        // The call to `U256::from_big_endian()` would panic.
+        return Err(ProgramError::IntegerTooLarge);
+    }
     let initial_offset = state.registers.program_counter + 1;
 
     // First read val without going through `mem_read_with_log` type methods, so we can pass it
@@ -697,6 +701,10 @@ pub(crate) fn generate_mload_32bytes<F: Field>(
     let [(context, log_in0), (segment, log_in1), (base_virt, log_in2), (len, log_in3)] =
         stack_pop_with_log_and_fill::<4, _>(state, &mut row)?;
     let len = u256_to_usize(len)?;
+    if len > 32 {
+        // The call to `U256::from_big_endian()` would panic.
+        return Err(ProgramError::IntegerTooLarge);
+    }
 
     let base_address = MemoryAddress::new_u256s(context, segment, base_virt)?;
     if usize::MAX - base_address.virt < len {
