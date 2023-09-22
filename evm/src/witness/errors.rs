@@ -16,6 +16,7 @@ pub enum ProgramError {
     InterpreterError,
     IntegerTooLarge,
     ProverInputError(ProverInputError),
+    UnknownContractCode,
 }
 
 #[allow(clippy::enum_variant_names)]
