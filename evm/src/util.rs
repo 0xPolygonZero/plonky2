@@ -180,6 +180,8 @@ pub(crate) fn u256_to_biguint(x: U256) -> BigUint {
 
 pub(crate) fn biguint_to_u256(x: BigUint) -> U256 {
     let bytes = x.to_bytes_le();
+    // This could panic if `bytes.len() > 32` but this is only
+    // used here with `BigUint` constructed from `U256`.
     U256::from_little_endian(&bytes)
 }
 
