@@ -16,10 +16,10 @@ use plonky2::plonk::config::GenericConfig;
 use crate::all_stark::{Table, NUM_TABLES};
 use crate::config::StarkConfig;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
+use crate::evaluation_frame::StarkEvaluationFrame;
 use crate::permutation::{GrandProductChallenge, GrandProductChallengeSet};
 use crate::proof::{StarkProofTarget, StarkProofWithMetadata};
 use crate::stark::Stark;
-use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 
 /// Represent a linear combination of columns.
 #[derive(Clone, Debug)]
@@ -473,7 +473,7 @@ impl<'a, F: RichField + Extendable<D>, const D: usize>
 /// Z(w) = Z(gw) * combine(w) where combine is called on the local row
 /// and not the next. This enables CTLs across two rows.
 pub(crate) fn eval_cross_table_lookup_checks<F, FE, P, S, const D: usize, const D2: usize>(
-    vars: StarkEvaluationVars<FE, P, { S::COLUMNS }>,
+    vars: &S::EvaluationFrame<FE, P, D2>,
     ctl_vars: &[CtlCheckVars<F, FE, P, D2>],
     consumer: &mut ConstraintConsumer<P>,
 ) where
@@ -482,6 +482,9 @@ pub(crate) fn eval_cross_table_lookup_checks<F, FE, P, S, const D: usize, const 
     P: PackedField<Scalar = FE>,
     S: Stark<F, D>,
 {
+    let local_values = vars.get_local_values();
+    let next_values = vars.get_next_values();
+
     for lookup_vars in ctl_vars {
         let CtlCheckVars {
             local_z,
@@ -493,11 +496,11 @@ pub(crate) fn eval_cross_table_lookup_checks<F, FE, P, S, const D: usize, const 
 
         let evals = columns
             .iter()
-            .map(|c| c.eval_with_next(vars.local_values, vars.next_values))
+            .map(|c| c.eval_with_next(local_values, next_values))
             .collect::<Vec<_>>();
         let combined = challenges.combine(evals.iter());
         let local_filter = if let Some(column) = filter_column {
-            column.eval_with_next(vars.local_values, vars.next_values)
+            column.eval_with_next(local_values, next_values)
         } else {
             P::ONES
         };
@@ -580,10 +583,13 @@ pub(crate) fn eval_cross_table_lookup_checks_circuit<
     const D: usize,
 >(
     builder: &mut CircuitBuilder<F, D>,
-    vars: StarkEvaluationTargets<D, { S::COLUMNS }>,
+    vars: &S::EvaluationFrameTarget,
     ctl_vars: &[CtlCheckVarsTarget<F, D>],
     consumer: &mut RecursiveConstraintConsumer<F, D>,
 ) {
+    let local_values = vars.get_local_values();
+    let next_values = vars.get_next_values();
+
     for lookup_vars in ctl_vars {
         let CtlCheckVarsTarget {
             local_z,
@@ -595,7 +601,7 @@ pub(crate) fn eval_cross_table_lookup_checks_circuit<
 
         let one = builder.one_extension();
         let local_filter = if let Some(column) = filter_column {
-            column.eval_circuit(builder, vars.local_values)
+            column.eval_circuit(builder, local_values)
         } else {
             one
         };
@@ -611,7 +617,7 @@ pub(crate) fn eval_cross_table_lookup_checks_circuit<
 
         let evals = columns
             .iter()
-            .map(|c| c.eval_with_next_circuit(builder, vars.local_values, vars.next_values))
+            .map(|c| c.eval_with_next_circuit(builder, local_values, next_values))
             .collect::<Vec<_>>();
 
         let combined = challenges.combine_circuit(builder, &evals);

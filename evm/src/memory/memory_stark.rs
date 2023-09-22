@@ -7,6 +7,7 @@ use plonky2::field::packed::PackedField;
 use plonky2::field::polynomial::PolynomialValues;
 use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
+use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::timed;
 use plonky2::util::timing::TimingTree;
 use plonky2::util::transpose;
@@ -14,6 +15,7 @@ use plonky2_maybe_rayon::*;
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cross_table_lookup::Column;
+use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
 use crate::lookup::{eval_lookups, eval_lookups_circuit, permuted_cols};
 use crate::memory::columns::{
     value_limb, ADDR_CONTEXT, ADDR_SEGMENT, ADDR_VIRTUAL, CONTEXT_FIRST_CHANGE, COUNTER,
@@ -23,7 +25,6 @@ use crate::memory::columns::{
 use crate::memory::VALUE_LIMBS;
 use crate::permutation::PermutationPair;
 use crate::stark::Stark;
-use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 use crate::witness::memory::MemoryOpKind::Read;
 use crate::witness::memory::{MemoryAddress, MemoryOp};
 
@@ -238,48 +239,55 @@ impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F, D> {
-    const COLUMNS: usize = NUM_COLUMNS;
+    type EvaluationFrame<FE, P, const D2: usize> = StarkFrame<P, NUM_COLUMNS>
+    where
+        FE: FieldExtension<D2, BaseField = F>,
+        P: PackedField<Scalar = FE>;
+
+    type EvaluationFrameTarget = StarkFrame<ExtensionTarget<D>, NUM_COLUMNS>;
 
     fn eval_packed_generic<FE, P, const D2: usize>(
         &self,
-        vars: StarkEvaluationVars<FE, P, { Self::COLUMNS }>,
+        vars: &Self::EvaluationFrame<FE, P, D2>,
         yield_constr: &mut ConstraintConsumer<P>,
     ) where
         FE: FieldExtension<D2, BaseField = F>,
         P: PackedField<Scalar = FE>,
     {
         let one = P::from(FE::ONE);
+        let local_values = vars.get_local_values();
+        let next_values = vars.get_next_values();
 
-        let timestamp = vars.local_values[TIMESTAMP];
-        let addr_context = vars.local_values[ADDR_CONTEXT];
-        let addr_segment = vars.local_values[ADDR_SEGMENT];
-        let addr_virtual = vars.local_values[ADDR_VIRTUAL];
-        let values: Vec<_> = (0..8).map(|i| vars.local_values[value_limb(i)]).collect();
+        let timestamp = local_values[TIMESTAMP];
+        let addr_context = local_values[ADDR_CONTEXT];
+        let addr_segment = local_values[ADDR_SEGMENT];
+        let addr_virtual = local_values[ADDR_VIRTUAL];
+        let value_limbs: Vec<_> = (0..8).map(|i| local_values[value_limb(i)]).collect();
 
-        let next_timestamp = vars.next_values[TIMESTAMP];
-        let next_is_read = vars.next_values[IS_READ];
-        let next_addr_context = vars.next_values[ADDR_CONTEXT];
-        let next_addr_segment = vars.next_values[ADDR_SEGMENT];
-        let next_addr_virtual = vars.next_values[ADDR_VIRTUAL];
-        let next_values: Vec<_> = (0..8).map(|i| vars.next_values[value_limb(i)]).collect();
+        let next_timestamp = next_values[TIMESTAMP];
+        let next_is_read = next_values[IS_READ];
+        let next_addr_context = next_values[ADDR_CONTEXT];
+        let next_addr_segment = next_values[ADDR_SEGMENT];
+        let next_addr_virtual = next_values[ADDR_VIRTUAL];
+        let next_values_limbs: Vec<_> = (0..8).map(|i| next_values[value_limb(i)]).collect();
 
         // The filter must be 0 or 1.
-        let filter = vars.local_values[FILTER];
+        let filter = local_values[FILTER];
         yield_constr.constraint(filter * (filter - P::ONES));
 
         // If this is a dummy row (filter is off), it must be a read. This means the prover can
         // insert reads which never appear in the CPU trace (which are harmless), but not writes.
         let is_dummy = P::ONES - filter;
-        let is_write = P::ONES - vars.local_values[IS_READ];
+        let is_write = P::ONES - local_values[IS_READ];
         yield_constr.constraint(is_dummy * is_write);
 
-        let context_first_change = vars.local_values[CONTEXT_FIRST_CHANGE];
-        let segment_first_change = vars.local_values[SEGMENT_FIRST_CHANGE];
-        let virtual_first_change = vars.local_values[VIRTUAL_FIRST_CHANGE];
+        let context_first_change = local_values[CONTEXT_FIRST_CHANGE];
+        let segment_first_change = local_values[SEGMENT_FIRST_CHANGE];
+        let virtual_first_change = local_values[VIRTUAL_FIRST_CHANGE];
         let address_unchanged =
             one - context_first_change - segment_first_change - virtual_first_change;
 
-        let range_check = vars.local_values[RANGE_CHECK];
+        let range_check = local_values[RANGE_CHECK];
 
         let not_context_first_change = one - context_first_change;
         let not_segment_first_change = one - segment_first_change;
@@ -313,7 +321,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
         // Enumerate purportedly-ordered log.
         for i in 0..8 {
             yield_constr.constraint_transition(
-                next_is_read * address_unchanged * (next_values[i] - values[i]),
+                next_is_read * address_unchanged * (next_values_limbs[i] - value_limbs[i]),
             );
         }
 
@@ -323,46 +331,48 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
     fn eval_ext_circuit(
         &self,
         builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
-        vars: StarkEvaluationTargets<D, { Self::COLUMNS }>,
+        vars: &Self::EvaluationFrameTarget,
         yield_constr: &mut RecursiveConstraintConsumer<F, D>,
     ) {
         let one = builder.one_extension();
+        let local_values = vars.get_local_values();
+        let next_values = vars.get_next_values();
 
-        let addr_context = vars.local_values[ADDR_CONTEXT];
-        let addr_segment = vars.local_values[ADDR_SEGMENT];
-        let addr_virtual = vars.local_values[ADDR_VIRTUAL];
-        let values: Vec<_> = (0..8).map(|i| vars.local_values[value_limb(i)]).collect();
-        let timestamp = vars.local_values[TIMESTAMP];
+        let addr_context = local_values[ADDR_CONTEXT];
+        let addr_segment = local_values[ADDR_SEGMENT];
+        let addr_virtual = local_values[ADDR_VIRTUAL];
+        let value_limbs: Vec<_> = (0..8).map(|i| local_values[value_limb(i)]).collect();
+        let timestamp = local_values[TIMESTAMP];
 
-        let next_addr_context = vars.next_values[ADDR_CONTEXT];
-        let next_addr_segment = vars.next_values[ADDR_SEGMENT];
-        let next_addr_virtual = vars.next_values[ADDR_VIRTUAL];
-        let next_values: Vec<_> = (0..8).map(|i| vars.next_values[value_limb(i)]).collect();
-        let next_is_read = vars.next_values[IS_READ];
-        let next_timestamp = vars.next_values[TIMESTAMP];
+        let next_addr_context = next_values[ADDR_CONTEXT];
+        let next_addr_segment = next_values[ADDR_SEGMENT];
+        let next_addr_virtual = next_values[ADDR_VIRTUAL];
+        let next_values_limbs: Vec<_> = (0..8).map(|i| next_values[value_limb(i)]).collect();
+        let next_is_read = next_values[IS_READ];
+        let next_timestamp = next_values[TIMESTAMP];
 
         // The filter must be 0 or 1.
-        let filter = vars.local_values[FILTER];
+        let filter = local_values[FILTER];
         let constraint = builder.mul_sub_extension(filter, filter, filter);
         yield_constr.constraint(builder, constraint);
 
         // If this is a dummy row (filter is off), it must be a read. This means the prover can
         // insert reads which never appear in the CPU trace (which are harmless), but not writes.
         let is_dummy = builder.sub_extension(one, filter);
-        let is_write = builder.sub_extension(one, vars.local_values[IS_READ]);
+        let is_write = builder.sub_extension(one, local_values[IS_READ]);
         let is_dummy_write = builder.mul_extension(is_dummy, is_write);
         yield_constr.constraint(builder, is_dummy_write);
 
-        let context_first_change = vars.local_values[CONTEXT_FIRST_CHANGE];
-        let segment_first_change = vars.local_values[SEGMENT_FIRST_CHANGE];
-        let virtual_first_change = vars.local_values[VIRTUAL_FIRST_CHANGE];
+        let context_first_change = local_values[CONTEXT_FIRST_CHANGE];
+        let segment_first_change = local_values[SEGMENT_FIRST_CHANGE];
+        let virtual_first_change = local_values[VIRTUAL_FIRST_CHANGE];
         let address_unchanged = {
             let mut cur = builder.sub_extension(one, context_first_change);
             cur = builder.sub_extension(cur, segment_first_change);
             builder.sub_extension(cur, virtual_first_change)
         };
 
-        let range_check = vars.local_values[RANGE_CHECK];
+        let range_check = local_values[RANGE_CHECK];
 
         let not_context_first_change = builder.sub_extension(one, context_first_change);
         let not_segment_first_change = builder.sub_extension(one, segment_first_change);
@@ -433,7 +443,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
 
         // Enumerate purportedly-ordered log.
         for i in 0..8 {
-            let value_diff = builder.sub_extension(next_values[i], values[i]);
+            let value_diff = builder.sub_extension(next_values_limbs[i], value_limbs[i]);
             let zero_if_read = builder.mul_extension(address_unchanged, value_diff);
             let read_constraint = builder.mul_extension(next_is_read, zero_if_read);
             yield_constr.constraint_transition(builder, read_constraint);

@@ -17,10 +17,10 @@ use plonky2_util::ceil_div_usize;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::kernel::keccak_util::keccakf_u32s;
 use crate::cross_table_lookup::Column;
+use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
 use crate::keccak_sponge::columns::*;
 use crate::stark::Stark;
 use crate::util::trace_rows_to_poly_values;
-use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 use crate::witness::memory::MemoryAddress;
 
 pub(crate) fn ctl_looked_data<F: Field>() -> Vec<Column<F>> {
@@ -423,18 +423,27 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakSpongeStark<F, D> {
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakSpongeStark<F, D> {
-    const COLUMNS: usize = NUM_KECCAK_SPONGE_COLUMNS;
+    type EvaluationFrame<FE, P, const D2: usize> = StarkFrame<P, NUM_KECCAK_SPONGE_COLUMNS>
+    where
+        FE: FieldExtension<D2, BaseField = F>,
+        P: PackedField<Scalar = FE>;
+
+    type EvaluationFrameTarget = StarkFrame<ExtensionTarget<D>, NUM_KECCAK_SPONGE_COLUMNS>;
 
     fn eval_packed_generic<FE, P, const D2: usize>(
         &self,
-        vars: StarkEvaluationVars<FE, P, { Self::COLUMNS }>,
+        vars: &Self::EvaluationFrame<FE, P, D2>,
         yield_constr: &mut ConstraintConsumer<P>,
     ) where
         FE: FieldExtension<D2, BaseField = F>,
         P: PackedField<Scalar = FE>,
     {
-        let local_values: &KeccakSpongeColumnsView<P> = vars.local_values.borrow();
-        let next_values: &KeccakSpongeColumnsView<P> = vars.next_values.borrow();
+        let local_values =
+            TryInto::<[P; NUM_KECCAK_SPONGE_COLUMNS]>::try_into(vars.get_local_values()).unwrap();
+        let local_values: &KeccakSpongeColumnsView<P> = local_values.borrow();
+        let next_values =
+            TryInto::<[P; NUM_KECCAK_SPONGE_COLUMNS]>::try_into(vars.get_next_values()).unwrap();
+        let next_values: &KeccakSpongeColumnsView<P> = next_values.borrow();
 
         // Each flag (full-input block, final block or implied dummy flag) must be boolean.
         let is_full_input_block = local_values.is_full_input_block;
@@ -537,11 +546,19 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakSpongeS
     fn eval_ext_circuit(
         &self,
         builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
-        vars: StarkEvaluationTargets<D, { Self::COLUMNS }>,
+        vars: &Self::EvaluationFrameTarget,
         yield_constr: &mut RecursiveConstraintConsumer<F, D>,
     ) {
-        let local_values: &KeccakSpongeColumnsView<ExtensionTarget<D>> = vars.local_values.borrow();
-        let next_values: &KeccakSpongeColumnsView<ExtensionTarget<D>> = vars.next_values.borrow();
+        let local_values = TryInto::<[ExtensionTarget<D>; NUM_KECCAK_SPONGE_COLUMNS]>::try_into(
+            vars.get_local_values(),
+        )
+        .unwrap();
+        let local_values: &KeccakSpongeColumnsView<ExtensionTarget<D>> = local_values.borrow();
+        let next_values = TryInto::<[ExtensionTarget<D>; NUM_KECCAK_SPONGE_COLUMNS]>::try_into(
+            vars.get_next_values(),
+        )
+        .unwrap();
+        let next_values: &KeccakSpongeColumnsView<ExtensionTarget<D>> = next_values.borrow();
 
         let one = builder.one_extension();
 
