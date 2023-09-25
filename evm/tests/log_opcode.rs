@@ -793,7 +793,7 @@ fn test_two_txn() -> anyhow::Result<()> {
         block_timestamp: 0x03e8.into(),
         block_number: 1.into(),
         block_difficulty: 0x020000.into(),
-        block_random: H256::from_low_u64_le(0x020000),
+        block_random: H256::from_uint(0x020000.into()),
         block_gaslimit: 0xffffffffu32.into(),
         block_chain_id: 1.into(),
         block_base_fee: 0xa.into(),
