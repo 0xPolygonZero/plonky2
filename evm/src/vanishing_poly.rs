@@ -13,11 +13,10 @@ use crate::lookup::{
     LookupCheckVarsTarget,
 };
 use crate::stark::Stark;
-use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 
 pub(crate) fn eval_vanishing_poly<F, FE, P, S, const D: usize, const D2: usize>(
     stark: &S,
-    vars: StarkEvaluationVars<FE, P, { S::COLUMNS }>,
+    vars: &S::EvaluationFrame<FE, P, D2>,
     lookups: &[Lookup],
     lookup_vars: Option<LookupCheckVars<F, FE, P, D2>>,
     ctl_vars: &[CtlCheckVars<F, FE, P, D2>],
@@ -44,14 +43,13 @@ pub(crate) fn eval_vanishing_poly<F, FE, P, S, const D: usize, const D2: usize>(
 pub(crate) fn eval_vanishing_poly_circuit<F, S, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     stark: &S,
-    vars: StarkEvaluationTargets<D, { S::COLUMNS }>,
+    vars: &S::EvaluationFrameTarget,
     lookup_vars: Option<LookupCheckVarsTarget<D>>,
     ctl_vars: &[CtlCheckVarsTarget<F, D>],
     consumer: &mut RecursiveConstraintConsumer<F, D>,
 ) where
     F: RichField + Extendable<D>,
     S: Stark<F, D>,
-    [(); S::COLUMNS]:,
 {
     stark.eval_ext_circuit(builder, vars, consumer);
     if let Some(lookup_vars) = lookup_vars {

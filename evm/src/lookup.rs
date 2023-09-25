@@ -12,8 +12,8 @@ use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2_util::ceil_div_usize;
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
+use crate::evaluation_frame::StarkEvaluationFrame;
 use crate::stark::Stark;
-use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 
 pub struct Lookup {
     /// Columns whose values should be contained in the lookup table.
@@ -131,7 +131,7 @@ where
 pub(crate) fn eval_packed_lookups_generic<F, FE, P, S, const D: usize, const D2: usize>(
     stark: &S,
     lookups: &[Lookup],
-    vars: StarkEvaluationVars<FE, P, { S::COLUMNS }>,
+    vars: &S::EvaluationFrame<FE, P, D2>,
     lookup_vars: LookupCheckVars<F, FE, P, D2>,
     yield_constr: &mut ConstraintConsumer<P>,
 ) where
@@ -152,7 +152,7 @@ pub(crate) fn eval_packed_lookups_generic<F, FE, P, S, const D: usize, const D2:
             for (j, chunk) in lookup.columns.chunks(degree - 1).enumerate() {
                 let mut x = lookup_vars.local_values[start + j];
                 let mut y = P::ZEROS;
-                let fs = chunk.iter().map(|&k| vars.local_values[k]);
+                let fs = chunk.iter().map(|&k| vars.get_local_values()[k]);
                 for f in fs {
                     x *= f + challenge;
                     y += f + challenge;
@@ -167,12 +167,12 @@ pub(crate) fn eval_packed_lookups_generic<F, FE, P, S, const D: usize, const D2:
             // Check the `Z` polynomial.
             let z = lookup_vars.local_values[start + num_helper_columns - 1];
             let next_z = lookup_vars.next_values[start + num_helper_columns - 1];
-            let table_with_challenge = vars.local_values[lookup.table_column] + challenge;
+            let table_with_challenge = vars.get_local_values()[lookup.table_column] + challenge;
             let y = lookup_vars.local_values[start..start + num_helper_columns - 1]
                 .iter()
                 .fold(P::ZEROS, |acc, x| acc + *x)
                 * table_with_challenge
-                - vars.local_values[lookup.frequencies_column];
+                - vars.get_local_values()[lookup.frequencies_column];
             yield_constr.constraint((next_z - z) * table_with_challenge - y);
             start += num_helper_columns;
         }
@@ -192,7 +192,7 @@ pub(crate) fn eval_ext_lookups_circuit<
 >(
     builder: &mut CircuitBuilder<F, D>,
     stark: &S,
-    vars: StarkEvaluationTargets<D, { S::COLUMNS }>,
+    vars: &S::EvaluationFrameTarget,
     lookup_vars: LookupCheckVarsTarget<D>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
@@ -208,7 +208,7 @@ pub(crate) fn eval_ext_lookups_circuit<
             for (j, chunk) in lookup.columns.chunks(degree - 1).enumerate() {
                 let mut x = lookup_vars.local_values[start + j];
                 let mut y = builder.zero_extension();
-                let fs = chunk.iter().map(|&k| vars.local_values[k]);
+                let fs = chunk.iter().map(|&k| vars.get_local_values()[k]);
                 for f in fs {
                     let tmp = builder.add_extension(f, challenge);
                     x = builder.mul_extension(x, tmp);
@@ -230,13 +230,13 @@ pub(crate) fn eval_ext_lookups_circuit<
             let z = lookup_vars.local_values[start + num_helper_columns - 1];
             let next_z = lookup_vars.next_values[start + num_helper_columns - 1];
             let table_with_challenge =
-                builder.add_extension(vars.local_values[lookup.table_column], challenge);
+                builder.add_extension(vars.get_local_values()[lookup.table_column], challenge);
             let mut y = builder.add_many_extension(
                 &lookup_vars.local_values[start..start + num_helper_columns - 1],
             );
 
             y = builder.mul_extension(y, table_with_challenge);
-            y = builder.sub_extension(y, vars.local_values[lookup.frequencies_column]);
+            y = builder.sub_extension(y, vars.get_local_values()[lookup.frequencies_column]);
 
             let mut constraint = builder.sub_extension(next_z, z);
             constraint = builder.mul_extension(constraint, table_with_challenge);

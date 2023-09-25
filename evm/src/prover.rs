@@ -20,28 +20,21 @@ use plonky2_maybe_rayon::*;
 use plonky2_util::{log2_ceil, log2_strict};
 
 use crate::all_stark::{AllStark, Table, NUM_TABLES};
-use crate::arithmetic::arithmetic_stark::ArithmeticStark;
-use crate::byte_packing::byte_packing_stark::BytePackingStark;
 use crate::config::StarkConfig;
 use crate::constraint_consumer::ConstraintConsumer;
-use crate::cpu::cpu_stark::CpuStark;
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cross_table_lookup::{
     cross_table_lookup_data, get_grand_product_challenge_set, CtlCheckVars, CtlData,
     GrandProductChallengeSet,
 };
+use crate::evaluation_frame::StarkEvaluationFrame;
 use crate::generation::outputs::GenerationOutputs;
 use crate::generation::{generate_traces, GenerationInputs};
 use crate::get_challenges::observe_public_values;
-use crate::keccak::keccak_stark::KeccakStark;
-use crate::keccak_sponge::keccak_sponge_stark::KeccakSpongeStark;
-use crate::logic::LogicStark;
 use crate::lookup::{lookup_helper_columns, Lookup, LookupCheckVars};
-use crate::memory::memory_stark::MemoryStark;
 use crate::proof::{AllProof, PublicValues, StarkOpeningSet, StarkProof, StarkProofWithMetadata};
 use crate::stark::Stark;
 use crate::vanishing_poly::eval_vanishing_poly;
-use crate::vars::StarkEvaluationVars;
 
 /// Generate traces, then create all STARK proofs.
 pub fn prove<F, C, const D: usize>(
@@ -53,13 +46,6 @@ pub fn prove<F, C, const D: usize>(
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
-    [(); ArithmeticStark::<F, D>::COLUMNS]:,
-    [(); BytePackingStark::<F, D>::COLUMNS]:,
-    [(); CpuStark::<F, D>::COLUMNS]:,
-    [(); KeccakStark::<F, D>::COLUMNS]:,
-    [(); KeccakSpongeStark::<F, D>::COLUMNS]:,
-    [(); LogicStark::<F, D>::COLUMNS]:,
-    [(); MemoryStark::<F, D>::COLUMNS]:,
 {
     let (proof, _outputs) = prove_with_outputs(all_stark, config, inputs, timing)?;
     Ok(proof)
@@ -76,13 +62,6 @@ pub fn prove_with_outputs<F, C, const D: usize>(
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
-    [(); ArithmeticStark::<F, D>::COLUMNS]:,
-    [(); BytePackingStark::<F, D>::COLUMNS]:,
-    [(); CpuStark::<F, D>::COLUMNS]:,
-    [(); KeccakStark::<F, D>::COLUMNS]:,
-    [(); KeccakSpongeStark::<F, D>::COLUMNS]:,
-    [(); LogicStark::<F, D>::COLUMNS]:,
-    [(); MemoryStark::<F, D>::COLUMNS]:,
 {
     timed!(timing, "build kernel", Lazy::force(&KERNEL));
     let (traces, public_values, outputs) = timed!(
@@ -105,13 +84,6 @@ pub(crate) fn prove_with_traces<F, C, const D: usize>(
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
-    [(); ArithmeticStark::<F, D>::COLUMNS]:,
-    [(); BytePackingStark::<F, D>::COLUMNS]:,
-    [(); CpuStark::<F, D>::COLUMNS]:,
-    [(); KeccakStark::<F, D>::COLUMNS]:,
-    [(); KeccakSpongeStark::<F, D>::COLUMNS]:,
-    [(); LogicStark::<F, D>::COLUMNS]:,
-    [(); MemoryStark::<F, D>::COLUMNS]:,
 {
     let rate_bits = config.fri_config.rate_bits;
     let cap_height = config.fri_config.cap_height;
@@ -199,13 +171,6 @@ fn prove_with_commitments<F, C, const D: usize>(
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
-    [(); ArithmeticStark::<F, D>::COLUMNS]:,
-    [(); BytePackingStark::<F, D>::COLUMNS]:,
-    [(); CpuStark::<F, D>::COLUMNS]:,
-    [(); KeccakStark::<F, D>::COLUMNS]:,
-    [(); KeccakSpongeStark::<F, D>::COLUMNS]:,
-    [(); LogicStark::<F, D>::COLUMNS]:,
-    [(); MemoryStark::<F, D>::COLUMNS]:,
 {
     let arithmetic_proof = timed!(
         timing,
@@ -332,7 +297,6 @@ where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
     S: Stark<F, D>,
-    [(); S::COLUMNS]:,
 {
     let degree = trace_poly_values[0].len();
     let degree_bits = log2_strict(degree);
@@ -531,7 +495,6 @@ where
     P: PackedField<Scalar = F>,
     C: GenericConfig<D, F = F>,
     S: Stark<F, D>,
-    [(); S::COLUMNS]:,
 {
     let degree = 1 << degree_bits;
     let rate_bits = config.fri_config.rate_bits;
@@ -554,12 +517,8 @@ where
     let z_h_on_coset = ZeroPolyOnCoset::<F>::new(degree_bits, quotient_degree_bits);
 
     // Retrieve the LDE values at index `i`.
-    let get_trace_values_packed = |i_start| -> [P; S::COLUMNS] {
-        trace_commitment
-            .get_lde_values_packed(i_start, step)
-            .try_into()
-            .unwrap()
-    };
+    let get_trace_values_packed =
+        |i_start| -> Vec<P> { trace_commitment.get_lde_values_packed(i_start, step) };
 
     // Last element of the subgroup.
     let last = F::primitive_root_of_unity(degree_bits).inverse();
@@ -590,10 +549,10 @@ where
                 lagrange_basis_first,
                 lagrange_basis_last,
             );
-            let vars = StarkEvaluationVars {
-                local_values: &get_trace_values_packed(i_start),
-                next_values: &get_trace_values_packed(i_next_start),
-            };
+            let vars = S::EvaluationFrame::from_values(
+                &get_trace_values_packed(i_start),
+                &get_trace_values_packed(i_next_start),
+            );
             let lookup_vars = lookup_challenges.map(|challenges| LookupCheckVars {
                 local_values: auxiliary_polys_commitment.get_lde_values_packed(i_start, step)
                     [..num_lookup_columns]
@@ -617,7 +576,7 @@ where
                 .collect::<Vec<_>>();
             eval_vanishing_poly::<F, F, P, S, D, 1>(
                 stark,
-                vars,
+                &vars,
                 lookups,
                 lookup_vars,
                 &ctl_vars,
@@ -663,7 +622,6 @@ fn check_constraints<'a, F, C, S, const D: usize>(
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
     S: Stark<F, D>,
-    [(); S::COLUMNS]:,
 {
     let degree = 1 << degree_bits;
     let rate_bits = 0; // Set this to higher value to check constraint degree.
@@ -709,10 +667,10 @@ fn check_constraints<'a, F, C, S, const D: usize>(
                 lagrange_basis_first,
                 lagrange_basis_last,
             );
-            let vars = StarkEvaluationVars {
-                local_values: trace_subgroup_evals[i].as_slice().try_into().unwrap(),
-                next_values: trace_subgroup_evals[i_next].as_slice().try_into().unwrap(),
-            };
+            let vars = S::EvaluationFrame::from_values(
+                &trace_subgroup_evals[i],
+                &trace_subgroup_evals[i_next],
+            );
             let lookup_vars = lookup_challenges.map(|challenges| LookupCheckVars {
                 local_values: auxiliary_subgroup_evals[i][..num_lookup_columns].to_vec(),
                 next_values: auxiliary_subgroup_evals[i_next][..num_lookup_columns].to_vec(),
@@ -733,7 +691,7 @@ fn check_constraints<'a, F, C, S, const D: usize>(
                 .collect::<Vec<_>>();
             eval_vanishing_poly::<F, F, F, S, D, 1>(
                 stark,
-                vars,
+                &vars,
                 lookups,
                 lookup_vars,
                 &ctl_vars,
