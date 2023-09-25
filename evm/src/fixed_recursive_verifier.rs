@@ -819,16 +819,28 @@ where
 
         let zero = builder.zero();
         let has_not_parent_block = builder.sub(one, has_parent_block.target);
+
         // Chack that the genesis block number is 0.
         let gen_block_constr = builder.mul(has_not_parent_block, rhs.block_metadata.block_number);
         builder.connect(gen_block_constr, zero);
 
-        // Check that the genesis block has a predetermined state trie root.
-        for (&limb0, limb1) in rhs
+        // Check that the genesis block has the predetermined state trie root in `ExtraBlockData`.
+        Self::connect_genesis_block(builder, rhs, has_not_parent_block);
+    }
+
+    fn connect_genesis_block(
+        builder: &mut CircuitBuilder<F, D>,
+        x: &PublicValuesTarget,
+        has_not_parent_block: Target,
+    ) where
+        F: RichField + Extendable<D>,
+    {
+        let zero = builder.zero();
+        for (&limb0, limb1) in x
             .trie_roots_before
             .state_root
             .iter()
-            .zip(rhs.extra_block_data.genesis_state_root)
+            .zip(x.extra_block_data.genesis_state_root)
         {
             let mut constr = builder.sub(limb0, limb1);
             constr = builder.mul(has_not_parent_block, constr);
