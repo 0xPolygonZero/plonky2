@@ -101,7 +101,7 @@ pub struct BlockMetadata {
     pub block_number: U256,
     /// The difficulty (before PoS transition) of this block.
     pub block_difficulty: U256,
-    pub block_random: U256,
+    pub block_random: H256,
     /// The gas limit of this block. It must fit in a `u32`.
     pub block_gaslimit: U256,
     /// The chain id of this block.
