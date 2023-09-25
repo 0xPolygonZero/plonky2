@@ -16,7 +16,8 @@ pub(crate) const fn index_bytes(i: usize) -> usize {
     BYTES_INDICES_START + i
 }
 
-// Note: Those are used as filter for distinguishing active vs padding rows.
+// Note: Those are used as filter for distinguishing active vs padding rows,
+// and also to obtain the length of a sequence of bytes being processed.
 pub(crate) const BYTE_INDICES_COLS: Range<usize> =
     BYTES_INDICES_START..BYTES_INDICES_START + NUM_BYTES;
 
@@ -25,12 +26,8 @@ pub(crate) const ADDR_SEGMENT: usize = ADDR_CONTEXT + 1;
 pub(crate) const ADDR_VIRTUAL: usize = ADDR_SEGMENT + 1;
 pub(crate) const TIMESTAMP: usize = ADDR_VIRTUAL + 1;
 
-/// The total length of a sequence of bytes.
-/// Cannot be greater than 32.
-pub(crate) const SEQUENCE_LEN: usize = TIMESTAMP + 1;
-
 // 32 byte limbs hold a total of 256 bits.
-const BYTES_VALUES_START: usize = SEQUENCE_LEN + 1;
+const BYTES_VALUES_START: usize = TIMESTAMP + 1;
 pub(crate) const fn value_bytes(i: usize) -> usize {
     debug_assert!(i < NUM_BYTES);
     BYTES_VALUES_START + i

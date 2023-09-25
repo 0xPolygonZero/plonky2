@@ -74,32 +74,66 @@ impl Default for BlockHashes {
     }
 }
 
+/// User-provided helper values to compute the `BLOCKHASH` opcode.
+/// The proofs across consecutive blocks ensure that these values
+/// are consistent (i.e. shifted by one to the left).
+///
+/// When the block number is less than 256, dummy values, i.e. `H256::default()`,
+/// should be used for the additional block hashes.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BlockHashes {
+    /// The previous 256 hashes to the current block. The leftmost hash, i.e. `prev_hashes[0]`,
+    /// is the oldest, and the rightmost, i.e. `prev_hashes[255]` is the hash of the parent block.
     pub prev_hashes: Vec<H256>,
+    // The hash of the current block.
     pub cur_hash: H256,
 }
 
+/// Metadata contained in a block header. Those are identical between
+/// all state transition proofs within the same block.
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct BlockMetadata {
+    /// The address of this block's producer.
     pub block_beneficiary: Address,
+    /// The timestamp of this block.
     pub block_timestamp: U256,
+    /// The index of this block.
     pub block_number: U256,
+    /// The difficulty (before PoS transition) of this block.
     pub block_difficulty: U256,
+    /// The gas limit of this block. It must fit in a `u32`.
     pub block_gaslimit: U256,
+    /// The chain id of this block.
     pub block_chain_id: U256,
+    /// The base fee of this block.
     pub block_base_fee: U256,
+    /// The total gas used in this block. It must fit in a `u32`.
     pub block_gas_used: U256,
+    /// The block bloom of this block, represented as the consecutive
+    /// 32-byte chunks of a block's final bloom filter string.
     pub block_bloom: [U256; 8],
 }
 
+/// Additional block data that are specific to the local transaction being proven,
+/// unlike `BlockMetadata`.
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct ExtraBlockData {
+    /// The transaction count prior execution of the local state transition, starting
+    /// at 0 for the initial transaction of a block.
     pub txn_number_before: U256,
+    /// The transaction count after execution of the local state transition.
     pub txn_number_after: U256,
+    /// The accumulated gas used prior execution of the local state transition, starting
+    /// at 0 for the initial transaction of a block.
     pub gas_used_before: U256,
+    /// The accumulated gas used after execution of the local state transition. It should
+    /// match the `block_gas_used` value after execution of the last transaction in a block.
     pub gas_used_after: U256,
+    /// The accumulated bloom filter of this block prior execution of the local state transition,
+    /// starting with all zeros for the initial transaction of a block.
     pub block_bloom_before: [U256; 8],
+    /// The accumulated bloom filter after execution of the local state transition. It should
+    /// match the `block_bloom` value after execution of the last transaction in a block.
     pub block_bloom_after: [U256; 8],
 }
 
@@ -623,7 +657,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> S
     }
 
     pub fn num_ctl_zs(&self) -> usize {
-        self.openings.ctl_zs_last.len()
+        self.openings.ctl_zs_first.len()
     }
 }
 
@@ -704,8 +738,8 @@ pub struct StarkOpeningSet<F: RichField + Extendable<D>, const D: usize> {
     pub permutation_ctl_zs: Vec<F::Extension>,
     /// Openings of permutations and cross-table lookups `Z` polynomials at `g * zeta`.
     pub permutation_ctl_zs_next: Vec<F::Extension>,
-    /// Openings of cross-table lookups `Z` polynomials at `g^-1`.
-    pub ctl_zs_last: Vec<F>,
+    /// Openings of cross-table lookups `Z` polynomials at `1`.
+    pub ctl_zs_first: Vec<F>,
     /// Openings of quotient polynomials at `zeta`.
     pub quotient_polys: Vec<F::Extension>,
 }
@@ -717,7 +751,6 @@ impl<F: RichField + Extendable<D>, const D: usize> StarkOpeningSet<F, D> {
         trace_commitment: &PolynomialBatch<F, C, D>,
         permutation_ctl_zs_commitment: &PolynomialBatch<F, C, D>,
         quotient_commitment: &PolynomialBatch<F, C, D>,
-        degree_bits: usize,
         num_permutation_zs: usize,
     ) -> Self {
         let eval_commitment = |z: F::Extension, c: &PolynomialBatch<F, C, D>| {
@@ -738,10 +771,8 @@ impl<F: RichField + Extendable<D>, const D: usize> StarkOpeningSet<F, D> {
             next_values: eval_commitment(zeta_next, trace_commitment),
             permutation_ctl_zs: eval_commitment(zeta, permutation_ctl_zs_commitment),
             permutation_ctl_zs_next: eval_commitment(zeta_next, permutation_ctl_zs_commitment),
-            ctl_zs_last: eval_commitment_base(
-                F::primitive_root_of_unity(degree_bits).inverse(),
-                permutation_ctl_zs_commitment,
-            )[num_permutation_zs..]
+            ctl_zs_first: eval_commitment_base(F::ONE, permutation_ctl_zs_commitment)
+                [num_permutation_zs..]
                 .to_vec(),
             quotient_polys: eval_commitment(zeta, quotient_commitment),
         }
@@ -765,10 +796,10 @@ impl<F: RichField + Extendable<D>, const D: usize> StarkOpeningSet<F, D> {
                 .copied()
                 .collect_vec(),
         };
-        debug_assert!(!self.ctl_zs_last.is_empty());
-        let ctl_last_batch = FriOpeningBatch {
+        debug_assert!(!self.ctl_zs_first.is_empty());
+        let ctl_first_batch = FriOpeningBatch {
             values: self
-                .ctl_zs_last
+                .ctl_zs_first
                 .iter()
                 .copied()
                 .map(F::Extension::from_basefield)
@@ -776,7 +807,7 @@ impl<F: RichField + Extendable<D>, const D: usize> StarkOpeningSet<F, D> {
         };
 
         FriOpenings {
-            batches: vec![zeta_batch, zeta_next_batch, ctl_last_batch],
+            batches: vec![zeta_batch, zeta_next_batch, ctl_first_batch],
         }
     }
 }
@@ -787,7 +818,7 @@ pub struct StarkOpeningSetTarget<const D: usize> {
     pub next_values: Vec<ExtensionTarget<D>>,
     pub permutation_ctl_zs: Vec<ExtensionTarget<D>>,
     pub permutation_ctl_zs_next: Vec<ExtensionTarget<D>>,
-    pub ctl_zs_last: Vec<Target>,
+    pub ctl_zs_first: Vec<Target>,
     pub quotient_polys: Vec<ExtensionTarget<D>>,
 }
 
@@ -797,7 +828,7 @@ impl<const D: usize> StarkOpeningSetTarget<D> {
         buffer.write_target_ext_vec(&self.next_values)?;
         buffer.write_target_ext_vec(&self.permutation_ctl_zs)?;
         buffer.write_target_ext_vec(&self.permutation_ctl_zs_next)?;
-        buffer.write_target_vec(&self.ctl_zs_last)?;
+        buffer.write_target_vec(&self.ctl_zs_first)?;
         buffer.write_target_ext_vec(&self.quotient_polys)?;
         Ok(())
     }
@@ -807,7 +838,7 @@ impl<const D: usize> StarkOpeningSetTarget<D> {
         let next_values = buffer.read_target_ext_vec::<D>()?;
         let permutation_ctl_zs = buffer.read_target_ext_vec::<D>()?;
         let permutation_ctl_zs_next = buffer.read_target_ext_vec::<D>()?;
-        let ctl_zs_last = buffer.read_target_vec()?;
+        let ctl_zs_first = buffer.read_target_vec()?;
         let quotient_polys = buffer.read_target_ext_vec::<D>()?;
 
         Ok(Self {
@@ -815,7 +846,7 @@ impl<const D: usize> StarkOpeningSetTarget<D> {
             next_values,
             permutation_ctl_zs,
             permutation_ctl_zs_next,
-            ctl_zs_last,
+            ctl_zs_first,
             quotient_polys,
         })
     }
@@ -838,10 +869,10 @@ impl<const D: usize> StarkOpeningSetTarget<D> {
                 .copied()
                 .collect_vec(),
         };
-        debug_assert!(!self.ctl_zs_last.is_empty());
-        let ctl_last_batch = FriOpeningBatchTarget {
+        debug_assert!(!self.ctl_zs_first.is_empty());
+        let ctl_first_batch = FriOpeningBatchTarget {
             values: self
-                .ctl_zs_last
+                .ctl_zs_first
                 .iter()
                 .copied()
                 .map(|t| t.to_ext_target(zero))
@@ -849,7 +880,7 @@ impl<const D: usize> StarkOpeningSetTarget<D> {
         };
 
         FriOpeningsTarget {
-            batches: vec![zeta_batch, zeta_next_batch, ctl_last_batch],
+            batches: vec![zeta_batch, zeta_next_batch, ctl_first_batch],
         }
     }
 }

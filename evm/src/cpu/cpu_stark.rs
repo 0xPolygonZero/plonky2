@@ -7,7 +7,9 @@ use plonky2::field::extension::{Extendable, FieldExtension};
 use plonky2::field::packed::PackedField;
 use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
+use plonky2::iop::ext_target::ExtensionTarget;
 
+use super::halt;
 use crate::all_stark::Table;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::{CpuColumnsView, COL_MAP, NUM_CPU_COLUMNS};
@@ -17,10 +19,10 @@ use crate::cpu::{
     modfp254, pc, push0, shift, simple_logic, stack, stack_bounds, syscalls_exceptions,
 };
 use crate::cross_table_lookup::{Column, TableWithColumns};
+use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
 use crate::memory::segments::Segment;
 use crate::memory::{NUM_CHANNELS, VALUE_LIMBS};
 use crate::stark::Stark;
-use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 
 pub fn ctl_data_keccak_sponge<F: Field>() -> Vec<Column<F>> {
     // When executing KECCAK_GENERAL, the GP memory channels are used as follows:
@@ -226,24 +228,33 @@ impl<F: RichField, const D: usize> CpuStark<F, D> {
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D> {
-    const COLUMNS: usize = NUM_CPU_COLUMNS;
+    type EvaluationFrame<FE, P, const D2: usize> = StarkFrame<P, NUM_CPU_COLUMNS>
+    where
+        FE: FieldExtension<D2, BaseField = F>,
+        P: PackedField<Scalar = FE>;
+
+    type EvaluationFrameTarget = StarkFrame<ExtensionTarget<D>, NUM_CPU_COLUMNS>;
 
     fn eval_packed_generic<FE, P, const D2: usize>(
         &self,
-        vars: StarkEvaluationVars<FE, P, { Self::COLUMNS }>,
+        vars: &Self::EvaluationFrame<FE, P, D2>,
         yield_constr: &mut ConstraintConsumer<P>,
     ) where
         FE: FieldExtension<D2, BaseField = F>,
         P: PackedField<Scalar = FE>,
     {
-        let local_values = vars.local_values.borrow();
-        let next_values = vars.next_values.borrow();
-        bootstrap_kernel::eval_bootstrap_kernel(vars, yield_constr);
+        let local_values: &[P; NUM_CPU_COLUMNS] = vars.get_local_values().try_into().unwrap();
+        let local_values: &CpuColumnsView<P> = local_values.borrow();
+        let next_values: &[P; NUM_CPU_COLUMNS] = vars.get_next_values().try_into().unwrap();
+        let next_values: &CpuColumnsView<P> = next_values.borrow();
+
+        bootstrap_kernel::eval_bootstrap_kernel_packed(local_values, next_values, yield_constr);
         contextops::eval_packed(local_values, next_values, yield_constr);
         control_flow::eval_packed_generic(local_values, next_values, yield_constr);
         decode::eval_packed_generic(local_values, yield_constr);
         dup_swap::eval_packed(local_values, next_values, yield_constr);
         gas::eval_packed(local_values, next_values, yield_constr);
+        halt::eval_packed(local_values, next_values, yield_constr);
         jumps::eval_packed(local_values, next_values, yield_constr);
         membus::eval_packed(local_values, yield_constr);
         memio::eval_packed(local_values, next_values, yield_constr);
@@ -260,17 +271,28 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
     fn eval_ext_circuit(
         &self,
         builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
-        vars: StarkEvaluationTargets<D, { Self::COLUMNS }>,
+        vars: &Self::EvaluationFrameTarget,
         yield_constr: &mut RecursiveConstraintConsumer<F, D>,
     ) {
-        let local_values = vars.local_values.borrow();
-        let next_values = vars.next_values.borrow();
-        bootstrap_kernel::eval_bootstrap_kernel_circuit(builder, vars, yield_constr);
+        let local_values: &[ExtensionTarget<D>; NUM_CPU_COLUMNS] =
+            vars.get_local_values().try_into().unwrap();
+        let local_values: &CpuColumnsView<ExtensionTarget<D>> = local_values.borrow();
+        let next_values: &[ExtensionTarget<D>; NUM_CPU_COLUMNS] =
+            vars.get_next_values().try_into().unwrap();
+        let next_values: &CpuColumnsView<ExtensionTarget<D>> = next_values.borrow();
+
+        bootstrap_kernel::eval_bootstrap_kernel_ext_circuit(
+            builder,
+            local_values,
+            next_values,
+            yield_constr,
+        );
         contextops::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         control_flow::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         decode::eval_ext_circuit(builder, local_values, yield_constr);
         dup_swap::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         gas::eval_ext_circuit(builder, local_values, next_values, yield_constr);
+        halt::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         jumps::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         membus::eval_ext_circuit(builder, local_values, yield_constr);
         memio::eval_ext_circuit(builder, local_values, next_values, yield_constr);

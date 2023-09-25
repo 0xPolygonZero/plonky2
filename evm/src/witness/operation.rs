@@ -143,7 +143,7 @@ pub(crate) fn generate_keccak_general<F: Field>(
                 ..base_address
             };
             let val = state.memory.get(address);
-            val.as_u32() as u8
+            val.low_u32() as u8
         })
         .collect_vec();
     log::debug!("Hashing {:?}", input);
@@ -415,7 +415,7 @@ pub(crate) fn generate_push<F: Field>(
                     Segment::Code,
                     initial_offset + i,
                 ))
-                .as_u32() as u8
+                .low_u32() as u8
         })
         .collect_vec();
 
@@ -784,7 +784,7 @@ pub(crate) fn generate_mload_32bytes<F: Field>(
                 ..base_address
             };
             let val = state.memory.get(address);
-            val.as_u32() as u8
+            val.low_u32() as u8
         })
         .collect_vec();
 
