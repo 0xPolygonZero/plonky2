@@ -366,7 +366,7 @@ fn test_log_with_aggreg() -> anyhow::Result<()> {
             .unwrap(),
             U256::from_dec_str("2722259584404615024560450425766186844160").unwrap(),
         ],
-        block_random: Default::default()
+        block_random: Default::default(),
     };
 
     let beneficiary_account_after = AccountRlp {
