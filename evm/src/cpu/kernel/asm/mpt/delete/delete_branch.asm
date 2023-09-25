@@ -22,13 +22,13 @@ global mpt_delete_branch:
     %mload_trie_data
     %jump(mpt_delete)
 
-after_mpt_delete_branch:
+global after_mpt_delete_branch:
     // stack: updated_child_ptr, first_nibble, node_payload_ptr, retdest
     // If the updated child is empty, check if we need to normalize the branch node.
     DUP1 %mload_trie_data ISZERO %jumpi(maybe_normalize_branch)
 
 // Set `branch[first_nibble] = updated_child_ptr`.
-update_branch:
+global update_branch_cheese:
     // stack: updated_child_ptr, first_nibble, node_payload_ptr, retdest
     DUP3 DUP3 ADD
     // stack: node_payload_ptr+first_nibble, updated_child_ptr, first_nibble, node_payload_ptr, retdest
@@ -41,7 +41,7 @@ update_branch:
 
 // The updated child is empty. Count how many non-empty children the branch node has.
 // If it's one, transform the branch node into an leaf/extension node and return it.
-maybe_normalize_branch:
+global maybe_normalize_branch:
     // stack: updated_child_ptr, first_nibble, node_payload_ptr, retdest
     PUSH 0 %mstore_kernel_general(0) PUSH 0 %mstore_kernel_general(1)
     // stack: updated_child_ptr, first_nibble, node_payload_ptr, retdest
@@ -50,26 +50,26 @@ maybe_normalize_branch:
 // KernelGeneral[0]. Also store the last non-empty child in KernelGeneral[1].
 loop:
     // stack: i, updated_child_ptr, first_nibble, node_payload_ptr, retdest
-    DUP1 DUP4 EQ %jumpi(loop_eq_first_nibble)
+    DUP1 DUP4 EQ %jumpi(loop_eq_first_nibble_cheese)
     // stack: i, updated_child_ptr, first_nibble, node_payload_ptr, retdest
-    DUP1 %eq_const(16) %jumpi(loop_end)
-    DUP1 DUP5 ADD %mload_trie_data %mload_trie_data ISZERO ISZERO %jumpi(loop_non_empty)
-    // stack: i, updated_child_ptr, first_nibble, node_payload_ptr, retdest
-    %increment %jump(loop)
-loop_eq_first_nibble:
+    DUP1 %eq_const(16) %jumpi(loop_end_cheese)
+    DUP1 DUP5 ADD %mload_trie_data %mload_trie_data ISZERO ISZERO %jumpi(loop_non_empty_cheese)
     // stack: i, updated_child_ptr, first_nibble, node_payload_ptr, retdest
     %increment %jump(loop)
-loop_non_empty:
+global loop_eq_first_nibble_cheese:
+    // stack: i, updated_child_ptr, first_nibble, node_payload_ptr, retdest
+    %increment %jump(loop)
+global loop_non_empty_cheese:
     // stack: i, updated_child_ptr, first_nibble, node_payload_ptr, retdest
     %mload_kernel_general(0) %increment %mstore_kernel_general(0)
     DUP1 %mstore_kernel_general(1)
     %increment %jump(loop)
-loop_end:
+global loop_end_cheese:
     // stack: i, updated_child_ptr, first_nibble, node_payload_ptr, retdest
     POP
     // stack: updated_child_ptr, first_nibble, node_payload_ptr, retdest
     // If there's more than one non-empty child, simply update the branch node.
-    %mload_kernel_general(0) %gt_const(1) %jumpi(update_branch)
+    %mload_kernel_general(0) %gt_const(1) %jumpi(update_branch_cheese)
     %mload_kernel_general(0) ISZERO %jumpi(panic) // This should never happen.
     // Otherwise, transform the branch node into a leaf/extension node.
     // stack: updated_child_ptr, first_nibble, node_payload_ptr, retdest
@@ -77,14 +77,18 @@ loop_end:
     // stack: i, updated_child_ptr, first_nibble, node_payload_ptr, retdest
     DUP4 ADD %mload_trie_data
     // stack: only_child_ptr, updated_child_ptr, first_nibble, node_payload_ptr, retdest
+global pre_normalize_branch_jump:
     DUP1 %mload_trie_data %eq_const(@MPT_NODE_BRANCH)     %jumpi(maybe_normalize_branch_branch)
+global pre_normalize_ext_jump:
     DUP1 %mload_trie_data %eq_const(@MPT_NODE_EXTENSION)  %jumpi(maybe_normalize_branch_leafext)
+global pre_normalize_leaf_jump:
     DUP1 %mload_trie_data %eq_const(@MPT_NODE_LEAF)       %jumpi(maybe_normalize_branch_leafext)
+global pre_normalize_panic_jump:
     PANIC // This should never happen.
 
 // The only child of the branch node is a branch node.
 // Transform the branch node into an extension node of length 1.
-maybe_normalize_branch_branch:
+global maybe_normalize_branch_branch:
     // stack: only_child_ptr, updated_child_ptr, first_nibble, node_payload_ptr, retdest
     %get_trie_data_size // pointer to the extension node we're about to create
     // stack: extension_ptr, only_child_ptr, updated_child_ptr, first_nibble, node_payload_ptr, retdest
@@ -101,7 +105,7 @@ maybe_normalize_branch_branch:
 // The only child of the branch node is a leaf/extension node.
 // Transform the branch node into an leaf/extension node of length 1+len(child).
 // For that, return the modified child as the new node.
-maybe_normalize_branch_leafext:
+global maybe_normalize_branch_leafext:
     // stack: only_child_ptr, updated_child_ptr, first_nibble, node_payload_ptr, retdest
     DUP1 %increment %mload_trie_data
     // stack: child_len, only_child_ptr, updated_child_ptr, first_nibble, node_payload_ptr, retdest

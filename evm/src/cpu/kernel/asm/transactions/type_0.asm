@@ -15,16 +15,23 @@ global process_type_0_txn:
     // stack: retdest
     PUSH 0 // initial pos
     // stack: pos, retdest
+global push_zero:
     %decode_rlp_list_len
     // We don't actually need the length.
     %stack (pos, len) -> (pos)
 
     // stack: pos, retdest
+global nonce_zero:
     %decode_and_store_nonce
+global gas_legacy_zero:
     %decode_and_store_gas_price_legacy
+global limit_zero:
     %decode_and_store_gas_limit
+global store_to_zero:
     %decode_and_store_to
+global store_value_zero:
     %decode_and_store_value
+global store_data_zero:
     %decode_and_store_data
     // stack: pos, retdest
 

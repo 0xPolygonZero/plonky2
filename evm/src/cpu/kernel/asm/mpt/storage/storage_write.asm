@@ -5,7 +5,9 @@
 
 global sys_sstore:
     %check_static
+global pre_gas_fault:
     DUP1 %leftover_gas %le_const(@GAS_CALLSTIPEND) %jumpi(fault_exception)
+global post_gas_fault:
     %stack (kexit_info, slot, value) -> (slot, kexit_info, slot, value)
     %sload_current
     %address
@@ -31,15 +33,15 @@ global sys_sstore:
     DUP2 ISZERO ISZERO %mul_const(@GAS_SRESET) ADD
     %jump(sstore_charge_gas)
 
-sstore_warm:
+global sstore_warm:
     // stack: gas, original_value, current_value, kexit_info, slot, value)
     %add_const(@GAS_WARMACCESS)
 
-sstore_charge_gas:
+global sstore_charge_gas:
     %stack (gas, original_value, current_value, kexit_info, slot, value) -> (gas, kexit_info, current_value, value, original_value, slot)
     %charge_gas
 
-sstore_refund:
+global sstore_refund:
     %stack (kexit_info, current_value, value, original_value, slot) -> (current_value, value, current_value, value, original_value, slot, kexit_info)
     EQ %jumpi(sstore_no_refund)
     %stack (current_value, value, original_value, slot, kexit_info) -> (current_value, original_value, current_value, value, original_value, slot, kexit_info)
@@ -52,37 +54,37 @@ sstore_refund:
     ISZERO %jumpi(sstore_dirty_clear2)
     %jump(sstore_dirty_reset)
 
-sstore_dirty_clear1:
+global sstore_dirty_clear1:
     PUSH @REFUND_SCLEAR PUSH 0 SUB %refund_gas
     %jump(sstore_dirty_reset)
 
-sstore_dirty_clear2:
+global sstore_dirty_clear2:
     PUSH @REFUND_SCLEAR %refund_gas
 
-sstore_dirty_reset:
+global sstore_dirty_reset:
     %stack (current_value, value, original_value, slot, kexit_info) -> (original_value, value, current_value, value, original_value, slot, kexit_info)
     EQ %jumpi(sstore_dirty_reset2)
     %jump(sstore_no_refund)
-sstore_dirty_reset2:
+global sstore_dirty_reset2:
     %stack (current_value, value, original_value, slot, kexit_info) -> (original_value, current_value, value, original_value, slot, kexit_info)
     ISZERO %jumpi(sstore_dirty_reset_sset)
     PUSH @GAS_WARMACCESS PUSH @GAS_SRESET SUB %refund_gas
     %jump(sstore_no_refund)
-sstore_dirty_reset_sset:
+global sstore_dirty_reset_sset:
     PUSH @GAS_WARMACCESS PUSH @GAS_SSET SUB %refund_gas
     %jump(sstore_no_refund)
 
-sstore_refund_original:
+global sstore_refund_original:
     %stack (current_value, value, original_value, slot, kexit_info) -> (value, current_value, value, original_value, slot, kexit_info)
     ISZERO %jumpi(sstore_sclear)
     %jump(sstore_no_refund)
-sstore_sclear:
+global sstore_sclear:
     PUSH @REFUND_SCLEAR %refund_gas
     %jump(sstore_no_refund)
 
-sstore_no_refund:
+global sstore_no_refund:
     %stack (current_value, value, original_value, slot, kexit_info) -> (kexit_info, current_value, slot, value)
-sstore_after_refund:
+global sstore_after_refund:
     // stack: kexit_info, current_value, slot, value
     // Check if `value` is equal to `current_value`, and if so exit the kernel early.
     %stack (kexit_info, current_value, slot, value) -> (value, current_value, current_value, slot, value, kexit_info)
@@ -113,7 +115,7 @@ sstore_after_refund:
     // stack: storage_root_ptr, 64, storage_key, value_ptr, after_storage_insert, kexit_info
     %jump(mpt_insert)
 
-after_storage_insert:
+global after_storage_insert:
     // stack: new_storage_root_ptr, kexit_info
     %current_account_data
     // stack: account_ptr, new_storage_root_ptr, kexit_info
@@ -125,13 +127,13 @@ after_storage_insert:
     // stack: kexit_info
     EXIT_KERNEL
 
-sstore_noop:
+global sstore_noop:
     // stack: current_value, slot, value, kexit_info
     %pop3
     EXIT_KERNEL
 
 // Delete the slot from the storage trie.
-sstore_delete:
+global sstore_delete:
     // stack: slot, value, kexit_info
     SWAP1 POP
     PUSH after_storage_insert SWAP1
