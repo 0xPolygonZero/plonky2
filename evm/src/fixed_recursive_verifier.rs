@@ -29,6 +29,7 @@ use plonky2_util::log2_ceil;
 
 use crate::all_stark::{all_cross_table_lookups, AllStark, Table, NUM_TABLES};
 use crate::arithmetic::arithmetic_stark::ArithmeticStark;
+use crate::byte_packing::byte_packing_stark::BytePackingStark;
 use crate::config::StarkConfig;
 use crate::cpu::cpu_stark::CpuStark;
 use crate::cross_table_lookup::{verify_cross_table_lookups_circuit, CrossTableLookup};
@@ -46,9 +47,8 @@ use crate::proof::{
 use crate::prover::prove;
 use crate::recursive_verifier::{
     add_common_recursion_gates, add_virtual_public_values,
-    get_memory_extra_looking_products_circuit, recursive_stark_circuit, set_block_hashes_target,
-    set_block_metadata_target, set_extra_public_values_target, set_public_value_targets,
-    set_trie_roots_target, PlonkWrapperCircuit, PublicInputs, StarkWrapperCircuit,
+    get_memory_extra_looking_products_circuit, recursive_stark_circuit, set_public_value_targets,
+    PlonkWrapperCircuit, PublicInputs, StarkWrapperCircuit,
 };
 use crate::stark::Stark;
 use crate::util::h256_limbs;
@@ -298,6 +298,7 @@ where
     C: GenericConfig<D, F = F> + 'static,
     C::Hasher: AlgebraicHasher<F>,
     [(); ArithmeticStark::<F, D>::COLUMNS]:,
+    [(); BytePackingStark::<F, D>::COLUMNS]:,
     [(); CpuStark::<F, D>::COLUMNS]:,
     [(); KeccakStark::<F, D>::COLUMNS]:,
     [(); KeccakSpongeStark::<F, D>::COLUMNS]:,
@@ -374,47 +375,62 @@ where
         let arithmetic = RecursiveCircuitsForTable::new(
             Table::Arithmetic,
             &all_stark.arithmetic_stark,
-            degree_bits_ranges[0].clone(),
+            degree_bits_ranges[Table::Arithmetic as usize].clone(),
+            &all_stark.cross_table_lookups,
+            stark_config,
+        );
+        let byte_packing = RecursiveCircuitsForTable::new(
+            Table::BytePacking,
+            &all_stark.byte_packing_stark,
+            degree_bits_ranges[Table::BytePacking as usize].clone(),
             &all_stark.cross_table_lookups,
             stark_config,
         );
         let cpu = RecursiveCircuitsForTable::new(
             Table::Cpu,
             &all_stark.cpu_stark,
-            degree_bits_ranges[1].clone(),
+            degree_bits_ranges[Table::Cpu as usize].clone(),
             &all_stark.cross_table_lookups,
             stark_config,
         );
         let keccak = RecursiveCircuitsForTable::new(
             Table::Keccak,
             &all_stark.keccak_stark,
-            degree_bits_ranges[2].clone(),
+            degree_bits_ranges[Table::Keccak as usize].clone(),
             &all_stark.cross_table_lookups,
             stark_config,
         );
         let keccak_sponge = RecursiveCircuitsForTable::new(
             Table::KeccakSponge,
             &all_stark.keccak_sponge_stark,
-            degree_bits_ranges[3].clone(),
+            degree_bits_ranges[Table::KeccakSponge as usize].clone(),
             &all_stark.cross_table_lookups,
             stark_config,
         );
         let logic = RecursiveCircuitsForTable::new(
             Table::Logic,
             &all_stark.logic_stark,
-            degree_bits_ranges[4].clone(),
+            degree_bits_ranges[Table::Logic as usize].clone(),
             &all_stark.cross_table_lookups,
             stark_config,
         );
         let memory = RecursiveCircuitsForTable::new(
             Table::Memory,
             &all_stark.memory_stark,
-            degree_bits_ranges[5].clone(),
+            degree_bits_ranges[Table::Memory as usize].clone(),
             &all_stark.cross_table_lookups,
             stark_config,
         );
 
-        let by_table = [arithmetic, cpu, keccak, keccak_sponge, logic, memory];
+        let by_table = [
+            arithmetic,
+            byte_packing,
+            cpu,
+            keccak,
+            keccak_sponge,
+            logic,
+            memory,
+        ];
         let root = Self::create_root_circuit(&by_table, stark_config);
         let aggregation = Self::create_aggregation_circuit(&root);
         let block = Self::create_block_circuit(&aggregation);
@@ -489,13 +505,13 @@ where
             }
         }
 
-        // Extra products to add to the looked last value
-        // Arithmetic, KeccakSponge, Keccak, Logic
+        // Extra products to add to the looked last value.
+        // Only necessary for the Memory values.
         let mut extra_looking_products =
-            vec![vec![builder.constant(F::ONE); stark_config.num_challenges]; NUM_TABLES - 1];
+            vec![vec![builder.one(); stark_config.num_challenges]; NUM_TABLES];
 
         // Memory
-        let memory_looking_products = (0..stark_config.num_challenges)
+        extra_looking_products[Table::Memory as usize] = (0..stark_config.num_challenges)
             .map(|c| {
                 get_memory_extra_looking_products_circuit(
                     &mut builder,
@@ -504,13 +520,12 @@ where
                 )
             })
             .collect_vec();
-        extra_looking_products.push(memory_looking_products);
 
         // Verify the CTL checks.
         verify_cross_table_lookups_circuit::<F, D>(
             &mut builder,
             all_cross_table_lookups(),
-            pis.map(|p| p.ctl_zs_last),
+            pis.map(|p| p.ctl_zs_first),
             extra_looking_products,
             stark_config,
         );
@@ -914,7 +929,10 @@ where
             &mut root_inputs,
             &self.root.public_values,
             &all_proof.public_values,
-        );
+        )
+        .map_err(|_| {
+            anyhow::Error::msg("Invalid conversion when setting public values targets.")
+        })?;
 
         let root_proof = self.root.circuit.prove(root_inputs)?;
 
@@ -948,32 +966,15 @@ where
             &self.aggregation.circuit.verifier_only,
         );
 
-        set_block_hashes_target(
+        set_public_value_targets(
             &mut agg_inputs,
-            &self.aggregation.public_values.block_hashes,
-            &public_values.block_hashes,
-        );
-        set_block_metadata_target(
-            &mut agg_inputs,
-            &self.aggregation.public_values.block_metadata,
-            &public_values.block_metadata,
-        );
+            &self.aggregation.public_values,
+            &public_values,
+        )
+        .map_err(|_| {
+            anyhow::Error::msg("Invalid conversion when setting public values targets.")
+        })?;
 
-        set_trie_roots_target(
-            &mut agg_inputs,
-            &self.aggregation.public_values.trie_roots_before,
-            &public_values.trie_roots_before,
-        );
-        set_trie_roots_target(
-            &mut agg_inputs,
-            &self.aggregation.public_values.trie_roots_after,
-            &public_values.trie_roots_after,
-        );
-        set_extra_public_values_target(
-            &mut agg_inputs,
-            &self.aggregation.public_values.extra_block_data,
-            &public_values.extra_block_data,
-        );
         let aggregation_proof = self.aggregation.circuit.prove(agg_inputs)?;
         Ok((aggregation_proof, public_values))
     }
@@ -1049,32 +1050,10 @@ where
         block_inputs
             .set_verifier_data_target(&self.block.cyclic_vk, &self.block.circuit.verifier_only);
 
-        set_block_hashes_target(
-            &mut block_inputs,
-            &self.block.public_values.block_hashes,
-            &public_values.block_hashes,
-        );
-        set_extra_public_values_target(
-            &mut block_inputs,
-            &self.block.public_values.extra_block_data,
-            &public_values.extra_block_data,
-        );
-        set_block_metadata_target(
-            &mut block_inputs,
-            &self.block.public_values.block_metadata,
-            &public_values.block_metadata,
-        );
-
-        set_trie_roots_target(
-            &mut block_inputs,
-            &self.block.public_values.trie_roots_before,
-            &public_values.trie_roots_before,
-        );
-        set_trie_roots_target(
-            &mut block_inputs,
-            &self.block.public_values.trie_roots_after,
-            &public_values.trie_roots_after,
-        );
+        set_public_value_targets(&mut block_inputs, &self.block.public_values, &public_values)
+            .map_err(|_| {
+                anyhow::Error::msg("Invalid conversion when setting public values targets.")
+            })?;
 
         let block_proof = self.block.circuit.prove(block_inputs)?;
         Ok((block_proof, public_values))

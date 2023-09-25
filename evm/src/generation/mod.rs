@@ -16,6 +16,7 @@ use GlobalMetadata::{
 use crate::all_stark::{AllStark, NUM_TABLES};
 use crate::config::StarkConfig;
 use crate::cpu::bootstrap_kernel::generate_bootstrap_kernel;
+use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
 use crate::generation::outputs::{get_outputs, GenerationOutputs};
@@ -281,26 +282,36 @@ pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
 fn simulate_cpu<F: RichField + Extendable<D>, const D: usize>(
     state: &mut GenerationState<F>,
 ) -> anyhow::Result<()> {
-    let halt_pc0 = KERNEL.global_labels["halt_pc0"];
-    let halt_pc1 = KERNEL.global_labels["halt_pc1"];
+    let halt_pc = KERNEL.global_labels["halt"];
 
-    let mut already_in_halt_loop = false;
     loop {
         // If we've reached the kernel's halt routine, and our trace length is a power of 2, stop.
         let pc = state.registers.program_counter;
-        let in_halt_loop = state.registers.is_kernel && (pc == halt_pc0 || pc == halt_pc1);
-        if in_halt_loop && !already_in_halt_loop {
+        let halt = state.registers.is_kernel && pc == halt_pc;
+        if halt {
             log::info!("CPU halted after {} cycles", state.traces.clock());
+
+            // Padding
+            let mut row = CpuColumnsView::<F>::default();
+            row.clock = F::from_canonical_usize(state.traces.clock());
+            row.context = F::from_canonical_usize(state.registers.context);
+            row.program_counter = F::from_canonical_usize(pc);
+            row.is_kernel_mode = F::ONE;
+            row.gas = F::from_canonical_u64(state.registers.gas_used);
+            row.stack_len = F::from_canonical_usize(state.registers.stack_len);
+
+            loop {
+                state.traces.push_cpu(row);
+                row.clock += F::ONE;
+                if state.traces.clock().is_power_of_two() {
+                    break;
+                }
+            }
+            log::info!("CPU trace padded to {} cycles", state.traces.clock());
+
+            return Ok(());
         }
-        already_in_halt_loop |= in_halt_loop;
 
         transition(state)?;
-
-        if already_in_halt_loop && state.traces.clock().is_power_of_two() {
-            log::info!("CPU trace padded to {} cycles", state.traces.clock());
-            break;
-        }
     }
-
-    Ok(())
 }

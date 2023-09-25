@@ -27,15 +27,17 @@ pub(crate) enum BinaryOperator {
     MulFp254,
     SubFp254,
     Byte,
+    Shl, // simulated with MUL
+    Shr, // simulated with DIV
 }
 
 impl BinaryOperator {
     pub(crate) fn result(&self, input0: U256, input1: U256) -> U256 {
         match self {
             BinaryOperator::Add => input0.overflowing_add(input1).0,
-            BinaryOperator::Mul => input0.overflowing_mul(input1).0,
+            BinaryOperator::Mul | BinaryOperator::Shl => input0.overflowing_mul(input1).0,
             BinaryOperator::Sub => input0.overflowing_sub(input1).0,
-            BinaryOperator::Div => {
+            BinaryOperator::Div | BinaryOperator::Shr => {
                 if input1.is_zero() {
                     U256::zero()
                 } else {
@@ -77,6 +79,8 @@ impl BinaryOperator {
             BinaryOperator::MulFp254 => columns::IS_MULFP254,
             BinaryOperator::SubFp254 => columns::IS_SUBFP254,
             BinaryOperator::Byte => columns::IS_BYTE,
+            BinaryOperator::Shl => columns::IS_SHL,
+            BinaryOperator::Shr => columns::IS_SHR,
         }
     }
 }
@@ -107,6 +111,7 @@ impl TernaryOperator {
     }
 }
 
+/// An enum representing arithmetic operations that can be either binary or ternary.
 #[derive(Debug)]
 pub(crate) enum Operation {
     BinaryOperation {
@@ -125,6 +130,21 @@ pub(crate) enum Operation {
 }
 
 impl Operation {
+    /// Create a binary operator with given inputs.
+    ///
+    /// NB: This works as you would expect, EXCEPT for SHL and SHR,
+    /// whose inputs need a small amount of preprocessing. Specifically,
+    /// to create `SHL(shift, value)`, call (note the reversal of
+    /// argument order):
+    ///
+    ///    `Operation::binary(BinaryOperator::Shl, value, 1 << shift)`
+    ///
+    /// Similarly, to create `SHR(shift, value)`, call
+    ///
+    ///    `Operation::binary(BinaryOperator::Shr, value, 1 << shift)`
+    ///
+    /// See witness/operation.rs::append_shift() for an example (indeed
+    /// the only call site for such inputs).
     pub(crate) fn binary(operator: BinaryOperator, input0: U256, input1: U256) -> Self {
         let result = operator.result(input0, input1);
         Self::BinaryOperation {
@@ -164,6 +184,10 @@ impl Operation {
     /// use vectors because that's what utils::transpose (who consumes
     /// the result of this function as part of the range check code)
     /// expects.
+    ///
+    /// The `is_simulated` bool indicates whether we use a native arithmetic
+    /// operation or simulate one with another. This is used to distinguish
+    /// SHL and SHR operations that are simulated through MUL and DIV respectively.
     fn to_rows<F: PrimeField64>(&self) -> (Vec<F>, Option<Vec<F>>) {
         match *self {
             Operation::BinaryOperation {
@@ -214,11 +238,11 @@ fn binary_op_to_rows<F: PrimeField64>(
             addcy::generate(&mut row, op.row_filter(), input0, input1);
             (row, None)
         }
-        BinaryOperator::Mul => {
+        BinaryOperator::Mul | BinaryOperator::Shl => {
             mul::generate(&mut row, input0, input1);
             (row, None)
         }
-        BinaryOperator::Div | BinaryOperator::Mod => {
+        BinaryOperator::Div | BinaryOperator::Mod | BinaryOperator::Shr => {
             let mut nv = vec![F::ZERO; columns::NUM_ARITH_COLUMNS];
             divmod::generate(&mut row, &mut nv, op.row_filter(), input0, input1, result);
             (row, Some(nv))

@@ -5,7 +5,7 @@ use std::time::Duration;
 use env_logger::{try_init_from_env, Env, DEFAULT_FILTER_ENV};
 use eth_trie_utils::nibbles::Nibbles;
 use eth_trie_utils::partial_trie::{HashedPartialTrie, PartialTrie};
-use ethereum_types::{Address, H256};
+use ethereum_types::{Address, H256, U256};
 use hex_literal::hex;
 use keccak_hash::keccak;
 use plonky2::field::goldilocks_field::GoldilocksField;
@@ -62,7 +62,10 @@ fn self_balance_gas_cost() -> anyhow::Result<()> {
     + 22100; // SSTORE
     let code_hash = keccak(code);
 
-    let beneficiary_account_before = AccountRlp::default();
+    let beneficiary_account_before = AccountRlp {
+        nonce: 1.into(),
+        ..AccountRlp::default()
+    };
     let sender_account_before = AccountRlp {
         balance: 0x3635c9adc5dea00000u128.into(),
         ..AccountRlp::default()
@@ -89,10 +92,18 @@ fn self_balance_gas_cost() -> anyhow::Result<()> {
 
     let txn = hex!("f861800a8405f5e10094100000000000000000000000000000000000000080801ba07e09e26678ed4fac08a249ebe8ed680bf9051a5e14ad223e4b2b9d26e0208f37a05f6e3f188e3e6eab7d7d3b6568f5eac7d687b08d307d3154ccd8c87b4630509b");
 
+    let gas_used = 21_000 + code_gas;
+
     let block_metadata = BlockMetadata {
         block_beneficiary: Address::from(beneficiary),
+        block_difficulty: 0x20000.into(),
+        block_number: 1.into(),
+        block_chain_id: 1.into(),
+        block_timestamp: 0x03e8.into(),
+        block_gaslimit: 0xff112233u32.into(),
+        block_gas_used: gas_used.into(),
+        block_bloom: [0.into(); 8],
         block_base_fee: 0xa.into(),
-        ..BlockMetadata::default()
     };
 
     let mut contract_code = HashMap::new();
@@ -100,9 +111,12 @@ fn self_balance_gas_cost() -> anyhow::Result<()> {
     contract_code.insert(code_hash, code.to_vec());
 
     let expected_state_trie_after = {
-        let beneficiary_account_after = AccountRlp::default();
+        let beneficiary_account_after = AccountRlp {
+            nonce: 1.into(),
+            ..AccountRlp::default()
+        };
         let sender_account_after = AccountRlp {
-            balance: 999999999999999568680u128.into(),
+            balance: sender_account_before.balance - U256::from(gas_used) * U256::from(10),
             nonce: 1.into(),
             ..AccountRlp::default()
         };
@@ -132,7 +146,6 @@ fn self_balance_gas_cost() -> anyhow::Result<()> {
         expected_state_trie_after
     };
 
-    let gas_used = 21_000 + code_gas;
     let receipt_0 = LegacyReceiptRlp {
         status: true,
         cum_gas_used: gas_used.into(),

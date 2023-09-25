@@ -2,6 +2,7 @@ use std::any::type_name;
 
 use anyhow::{ensure, Result};
 use ethereum_types::U256;
+use itertools::Itertools;
 use plonky2::field::extension::{Extendable, FieldExtension};
 use plonky2::field::types::Field;
 use plonky2::fri::verifier::verify_fri_proof;
@@ -11,6 +12,7 @@ use plonky2::plonk::plonk_common::reduce_with_powers;
 
 use crate::all_stark::{AllStark, Table, NUM_TABLES};
 use crate::arithmetic::arithmetic_stark::ArithmeticStark;
+use crate::byte_packing::byte_packing_stark::BytePackingStark;
 use crate::config::StarkConfig;
 use crate::constraint_consumer::ConstraintConsumer;
 use crate::cpu::cpu_stark::CpuStark;
@@ -38,6 +40,7 @@ pub fn verify_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, co
 ) -> Result<()>
 where
     [(); ArithmeticStark::<F, D>::COLUMNS]:,
+    [(); BytePackingStark::<F, D>::COLUMNS]:,
     [(); CpuStark::<F, D>::COLUMNS]:,
     [(); KeccakStark::<F, D>::COLUMNS]:,
     [(); KeccakSpongeStark::<F, D>::COLUMNS]:,
@@ -47,12 +50,15 @@ where
     let AllProofChallenges {
         stark_challenges,
         ctl_challenges,
-    } = all_proof.get_challenges(all_stark, config);
+    } = all_proof
+        .get_challenges(all_stark, config)
+        .map_err(|_| anyhow::Error::msg("Invalid sampling of proof challenges."))?;
 
     let nums_permutation_zs = all_stark.nums_permutation_zs(config);
 
     let AllStark {
         arithmetic_stark,
+        byte_packing_stark,
         cpu_stark,
         keccak_stark,
         keccak_sponge_stark,
@@ -73,6 +79,13 @@ where
         &all_proof.stark_proofs[Table::Arithmetic as usize].proof,
         &stark_challenges[Table::Arithmetic as usize],
         &ctl_vars_per_table[Table::Arithmetic as usize],
+        config,
+    )?;
+    verify_stark_proof_with_challenges(
+        byte_packing_stark,
+        &all_proof.stark_proofs[Table::BytePacking as usize].proof,
+        &stark_challenges[Table::BytePacking as usize],
+        &ctl_vars_per_table[Table::BytePacking as usize],
         config,
     )?;
     verify_stark_proof_with_challenges(
@@ -97,38 +110,36 @@ where
         config,
     )?;
     verify_stark_proof_with_challenges(
-        memory_stark,
-        &all_proof.stark_proofs[Table::Memory as usize].proof,
-        &stark_challenges[Table::Memory as usize],
-        &ctl_vars_per_table[Table::Memory as usize],
-        config,
-    )?;
-    verify_stark_proof_with_challenges(
         logic_stark,
         &all_proof.stark_proofs[Table::Logic as usize].proof,
         &stark_challenges[Table::Logic as usize],
         &ctl_vars_per_table[Table::Logic as usize],
         config,
     )?;
+    verify_stark_proof_with_challenges(
+        memory_stark,
+        &all_proof.stark_proofs[Table::Memory as usize].proof,
+        &stark_challenges[Table::Memory as usize],
+        &ctl_vars_per_table[Table::Memory as usize],
+        config,
+    )?;
 
     let public_values = all_proof.public_values;
 
-    // Extra products to add to the looked last value
-    // Arithmetic, KeccakSponge, Keccak, Logic
-    let mut extra_looking_products = vec![vec![F::ONE; config.num_challenges]; NUM_TABLES - 1];
+    // Extra products to add to the looked last value.
+    // Only necessary for the Memory values.
+    let mut extra_looking_products = vec![vec![F::ONE; config.num_challenges]; NUM_TABLES];
 
     // Memory
-    extra_looking_products.push(Vec::new());
-    for c in 0..config.num_challenges {
-        extra_looking_products[Table::Memory as usize].push(get_memory_extra_looking_products(
-            &public_values,
-            ctl_challenges.challenges[c],
-        ));
-    }
+    extra_looking_products[Table::Memory as usize] = (0..config.num_challenges)
+        .map(|i| get_memory_extra_looking_products(&public_values, ctl_challenges.challenges[i]))
+        .collect_vec();
 
     verify_cross_table_lookups::<F, D>(
         cross_table_lookups,
-        all_proof.stark_proofs.map(|p| p.proof.openings.ctl_zs_last),
+        all_proof
+            .stark_proofs
+            .map(|p| p.proof.openings.ctl_zs_first),
         extra_looking_products,
         config,
     )
@@ -301,7 +312,7 @@ where
         next_values,
         permutation_ctl_zs,
         permutation_ctl_zs_next,
-        ctl_zs_last,
+        ctl_zs_first,
         quotient_polys,
     } = &proof.openings;
     let vars = StarkEvaluationVars {
@@ -367,8 +378,7 @@ where
         &stark.fri_instance(
             challenges.stark_zeta,
             F::primitive_root_of_unity(degree_bits),
-            degree_bits,
-            ctl_zs_last.len(),
+            ctl_zs_first.len(),
             config,
         ),
         &proof.openings.to_fri_openings(),
@@ -408,7 +418,7 @@ where
         next_values,
         permutation_ctl_zs,
         permutation_ctl_zs_next,
-        ctl_zs_last,
+        ctl_zs_first,
         quotient_polys,
     } = openings;
 
@@ -425,7 +435,7 @@ where
     ensure!(next_values.len() == S::COLUMNS);
     ensure!(permutation_ctl_zs.len() == num_zs);
     ensure!(permutation_ctl_zs_next.len() == num_zs);
-    ensure!(ctl_zs_last.len() == num_ctl_zs);
+    ensure!(ctl_zs_first.len() == num_ctl_zs);
     ensure!(quotient_polys.len() == stark.num_quotient_polys(config));
 
     Ok(())

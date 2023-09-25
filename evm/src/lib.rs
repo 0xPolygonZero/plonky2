@@ -8,6 +8,7 @@
 
 pub mod all_stark;
 pub mod arithmetic;
+pub mod byte_packing;
 pub mod config;
 pub mod constraint_consumer;
 pub mod cpu;

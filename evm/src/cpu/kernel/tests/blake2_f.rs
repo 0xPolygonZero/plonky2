@@ -75,7 +75,7 @@ fn run_blake2_f(
 
     Ok(hash
         .iter()
-        .map(|&x| x.as_u64())
+        .map(|&x| x.low_u64())
         .collect::<Vec<_>>()
         .try_into()
         .unwrap())

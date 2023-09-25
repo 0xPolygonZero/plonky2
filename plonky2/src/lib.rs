@@ -12,7 +12,9 @@ pub mod gadgets;
 pub mod gates;
 pub mod hash;
 pub mod iop;
-pub mod lookup_test;
 pub mod plonk;
 pub mod recursion;
 pub mod util;
+
+#[cfg(test)]
+mod lookup_test;

@@ -1,5 +1,6 @@
 use plonky2::field::extension::Extendable;
 use plonky2::field::packed::PackedField;
+use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 
@@ -22,26 +23,15 @@ use crate::cpu::columns::{CpuColumnsView, COL_MAP};
 /// behavior.
 /// Note: invalid opcodes are not represented here. _Any_ opcode is permitted to decode to
 /// `is_invalid`. The kernel then verifies that the opcode was _actually_ invalid.
-const OPCODES: [(u8, usize, bool, usize); 31] = [
+const OPCODES: [(u8, usize, bool, usize); 16] = [
     // (start index of block, number of top bits to check (log2), kernel-only, flag column)
-    (0x01, 0, false, COL_MAP.op.add),
-    (0x02, 0, false, COL_MAP.op.mul),
-    (0x03, 0, false, COL_MAP.op.sub),
-    (0x04, 0, false, COL_MAP.op.div),
-    (0x06, 0, false, COL_MAP.op.mod_),
-    (0x08, 0, false, COL_MAP.op.addmod),
-    (0x09, 0, false, COL_MAP.op.mulmod),
-    (0x0c, 0, true, COL_MAP.op.addfp254),
-    (0x0d, 0, true, COL_MAP.op.mulfp254),
-    (0x0e, 0, true, COL_MAP.op.subfp254),
-    (0x10, 0, false, COL_MAP.op.lt),
-    (0x11, 0, false, COL_MAP.op.gt),
+    // ADD, MUL, SUB, DIV, MOD, LT, GT and BYTE flags are handled partly manually here, and partly through the Arithmetic table CTL.
+    // ADDMOD, MULMOD and SUBMOD flags are handled partly manually here, and partly through the Arithmetic table CTL.
+    // FP254 operation flags are handled partly manually here, and partly through the Arithmetic table CTL.
     (0x14, 1, false, COL_MAP.op.eq_iszero),
     // AND, OR and XOR flags are handled partly manually here, and partly through the Logic table CTL.
     (0x19, 0, false, COL_MAP.op.not),
-    (0x1a, 0, false, COL_MAP.op.byte),
-    (0x1b, 0, false, COL_MAP.op.shl),
-    (0x1c, 0, false, COL_MAP.op.shr),
+    // SHL and SHR flags are handled partly manually here, and partly through the Logic table CTL.
     (0x21, 0, true, COL_MAP.op.keccak_general),
     (0x49, 0, true, COL_MAP.op.prover_input),
     (0x50, 0, false, COL_MAP.op.pop),
@@ -49,13 +39,26 @@ const OPCODES: [(u8, usize, bool, usize); 31] = [
     (0x58, 0, false, COL_MAP.op.pc),
     (0x5b, 0, false, COL_MAP.op.jumpdest),
     (0x5f, 0, false, COL_MAP.op.push0),
-    (0x60, 5, false, COL_MAP.op.push),      // 0x60-0x7f
-    (0x80, 4, false, COL_MAP.op.dup),       // 0x80-0x8f
-    (0x90, 4, false, COL_MAP.op.swap),      // 0x90-0x9f
+    (0x60, 5, false, COL_MAP.op.push), // 0x60-0x7f
+    (0x80, 4, false, COL_MAP.op.dup),  // 0x80-0x8f
+    (0x90, 4, false, COL_MAP.op.swap), // 0x90-0x9f
+    (0xee, 0, true, COL_MAP.op.mstore_32bytes),
     (0xf6, 1, true, COL_MAP.op.context_op), // 0xf6-0xf7
+    (0xf8, 0, true, COL_MAP.op.mload_32bytes),
     (0xf9, 0, true, COL_MAP.op.exit_kernel),
-    (0xfb, 0, true, COL_MAP.op.mload_general),
-    (0xfc, 0, true, COL_MAP.op.mstore_general),
+    // MLOAD_GENERAL and MSTORE_GENERAL flags are handled manually here.
+];
+
+/// List of combined opcodes requiring a special handling.
+/// Each index in the list corresponds to an arbitrary combination
+/// of opcodes defined in evm/src/cpu/columns/ops.rs.
+const COMBINED_OPCODES: [usize; 6] = [
+    COL_MAP.op.logic_op,
+    COL_MAP.op.fp254_op,
+    COL_MAP.op.binary_op,
+    COL_MAP.op.ternary_op,
+    COL_MAP.op.shift,
+    COL_MAP.op.m_op_general,
 ];
 
 pub fn generate<F: RichField>(lv: &mut CpuColumnsView<F>) {
@@ -97,6 +100,10 @@ pub fn generate<F: RichField>(lv: &mut CpuColumnsView<F>) {
         let flag = available && opcode_match;
         lv[col] = F::from_bool(flag);
     }
+
+    if opcode == 0xfb || opcode == 0xfc {
+        lv.op.m_op_general = F::from_bool(kernel);
+    }
 }
 
 /// Break up an opcode (which is 8 bits long) into its eight bits.
@@ -132,17 +139,17 @@ pub fn eval_packed_generic<P: PackedField>(
         let flag = lv[flag_col];
         yield_constr.constraint(flag * (flag - P::ONES));
     }
-    // Manually check the logic_op flag combining AND, OR and XOR.
-    let flag = lv.op.logic_op;
-    yield_constr.constraint(flag * (flag - P::ONES));
+    // Also check that the combined instruction flags are valid.
+    for flag_idx in COMBINED_OPCODES {
+        yield_constr.constraint(lv[flag_idx] * (lv[flag_idx] - P::ONES));
+    }
 
-    // Now check that they sum to 0 or 1.
-    // Includes the logic_op flag encompassing AND, OR and XOR opcodes.
+    // Now check that they sum to 0 or 1, including the combined flags.
     let flag_sum: P = OPCODES
         .into_iter()
         .map(|(_, _, _, flag_col)| lv[flag_col])
-        .sum::<P>()
-        + lv.op.logic_op;
+        .chain(COMBINED_OPCODES.map(|op| lv[op]))
+        .sum::<P>();
     yield_constr.constraint(flag_sum * (flag_sum - P::ONES));
 
     // Finally, classify all opcodes, together with the kernel flag, into blocks
@@ -171,6 +178,20 @@ pub fn eval_packed_generic<P: PackedField>(
         // correct mode.
         yield_constr.constraint(lv[col] * (unavailable + opcode_mismatch));
     }
+
+    // Manually check lv.op.m_op_constr
+    let opcode: P = lv
+        .opcode_bits
+        .into_iter()
+        .enumerate()
+        .map(|(i, bit)| bit * P::Scalar::from_canonical_u64(1 << i))
+        .sum();
+    yield_constr.constraint((P::ONES - kernel_mode) * lv.op.m_op_general);
+
+    let m_op_constr = (opcode - P::Scalar::from_canonical_usize(0xfb_usize))
+        * (opcode - P::Scalar::from_canonical_usize(0xfc_usize))
+        * lv.op.m_op_general;
+    yield_constr.constraint(m_op_constr);
 }
 
 pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
@@ -202,15 +223,16 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
         let constr = builder.mul_sub_extension(flag, flag, flag);
         yield_constr.constraint(builder, constr);
     }
-    // Manually check the logic_op flag combining AND, OR and XOR.
-    let flag = lv.op.logic_op;
-    let constr = builder.mul_sub_extension(flag, flag, flag);
-    yield_constr.constraint(builder, constr);
+    // Also check that the combined instruction flags are valid.
+    for flag_idx in COMBINED_OPCODES {
+        let constr = builder.mul_sub_extension(lv[flag_idx], lv[flag_idx], lv[flag_idx]);
+        yield_constr.constraint(builder, constr);
+    }
 
-    // Now check that they sum to 0 or 1.
-    // Includes the logic_op flag encompassing AND, OR and XOR opcodes.
+    // Now check that they sum to 0 or 1, including the combined flags.
     {
-        let mut flag_sum = lv.op.logic_op;
+        let mut flag_sum =
+            builder.add_many_extension(COMBINED_OPCODES.into_iter().map(|idx| lv[idx]));
         for (_, _, _, flag_col) in OPCODES {
             let flag = lv[flag_col];
             flag_sum = builder.add_extension(flag_sum, flag);
@@ -248,4 +270,28 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
         let constr = builder.mul_extension(lv[col], constr);
         yield_constr.constraint(builder, constr);
     }
+
+    // Manually check lv.op.m_op_constr
+    let opcode = lv
+        .opcode_bits
+        .into_iter()
+        .rev()
+        .fold(builder.zero_extension(), |cumul, bit| {
+            builder.mul_const_add_extension(F::TWO, cumul, bit)
+        });
+
+    let mload_opcode = builder.constant_extension(F::Extension::from_canonical_usize(0xfb_usize));
+    let mstore_opcode = builder.constant_extension(F::Extension::from_canonical_usize(0xfc_usize));
+
+    let one_extension = builder.constant_extension(F::Extension::ONE);
+    let is_not_kernel_mode = builder.sub_extension(one_extension, kernel_mode);
+    let constr = builder.mul_extension(is_not_kernel_mode, lv.op.m_op_general);
+    yield_constr.constraint(builder, constr);
+
+    let mload_constr = builder.sub_extension(opcode, mload_opcode);
+    let mstore_constr = builder.sub_extension(opcode, mstore_opcode);
+    let mut m_op_constr = builder.mul_extension(mload_constr, mstore_constr);
+    m_op_constr = builder.mul_extension(m_op_constr, lv.op.m_op_general);
+
+    yield_constr.constraint(builder, m_op_constr);
 }
