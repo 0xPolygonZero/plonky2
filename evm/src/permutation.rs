@@ -23,8 +23,8 @@ use plonky2_maybe_rayon::*;
 
 use crate::config::StarkConfig;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
+use crate::evaluation_frame::StarkEvaluationFrame;
 use crate::stark::Stark;
-use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 
 /// A pair of lists of columns, `lhs` and `rhs`, that should be permutations of one another.
 /// In particular, there should exist some permutation `pi` such that for any `i`,
@@ -326,7 +326,7 @@ where
 pub(crate) fn eval_permutation_checks<F, FE, P, S, const D: usize, const D2: usize>(
     stark: &S,
     config: &StarkConfig,
-    vars: StarkEvaluationVars<FE, P, { S::COLUMNS }>,
+    vars: &S::EvaluationFrame<FE, P, D2>,
     permutation_vars: PermutationCheckVars<F, FE, P, D2>,
     consumer: &mut ConstraintConsumer<P>,
 ) where
@@ -335,6 +335,8 @@ pub(crate) fn eval_permutation_checks<F, FE, P, S, const D: usize, const D2: usi
     P: PackedField<Scalar = FE>,
     S: Stark<F, D>,
 {
+    let local_values = vars.get_local_values();
+
     let PermutationCheckVars {
         local_zs,
         next_zs,
@@ -368,7 +370,7 @@ pub(crate) fn eval_permutation_checks<F, FE, P, S, const D: usize, const D2: usi
                 let mut factor = ReducingFactor::new(*beta);
                 let (lhs, rhs): (Vec<_>, Vec<_>) = column_pairs
                     .iter()
-                    .map(|&(i, j)| (vars.local_values[i], vars.local_values[j]))
+                    .map(|&(i, j)| (local_values[i], local_values[j]))
                     .unzip();
                 (
                     factor.reduce_ext(lhs.into_iter()) + FE::from_basefield(*gamma),
@@ -392,14 +394,15 @@ pub(crate) fn eval_permutation_checks_circuit<F, S, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     stark: &S,
     config: &StarkConfig,
-    vars: StarkEvaluationTargets<D, { S::COLUMNS }>,
+    vars: &S::EvaluationFrameTarget,
     permutation_data: PermutationCheckDataTarget<D>,
     consumer: &mut RecursiveConstraintConsumer<F, D>,
 ) where
     F: RichField + Extendable<D>,
     S: Stark<F, D>,
-    [(); S::COLUMNS]:,
 {
+    let local_values = vars.get_local_values();
+
     let PermutationCheckDataTarget {
         local_zs,
         next_zs,
@@ -437,7 +440,7 @@ pub(crate) fn eval_permutation_checks_circuit<F, S, const D: usize>(
                     let mut factor = ReducingFactorTarget::new(beta_ext);
                     let (lhs, rhs): (Vec<_>, Vec<_>) = column_pairs
                         .iter()
-                        .map(|&(i, j)| (vars.local_values[i], vars.local_values[j]))
+                        .map(|&(i, j)| (local_values[i], local_values[j]))
                         .unzip();
                     let reduced_lhs = factor.reduce(&lhs, builder);
                     let reduced_rhs = factor.reduce(&rhs, builder);

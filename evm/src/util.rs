@@ -11,6 +11,8 @@ use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::util::transpose;
 
+use crate::witness::errors::ProgramError;
+
 /// Construct an integer from its constituent bits (in little-endian order)
 pub fn limb_from_bits_le<P: PackedField>(iter: impl IntoIterator<Item = P>) -> P {
     // TODO: This is technically wrong, as 1 << i won't be canonical for all fields...
@@ -45,6 +47,29 @@ pub fn trace_rows_to_poly_values<F: Field, const COLUMNS: usize>(
         .collect()
 }
 
+/// Returns the lowest LE 32-bit limb of a `U256` as a field element,
+/// and errors if the integer is actually greater.
+pub(crate) fn u256_to_u32<F: Field>(u256: U256) -> Result<F, ProgramError> {
+    if TryInto::<u32>::try_into(u256).is_err() {
+        return Err(ProgramError::IntegerTooLarge);
+    }
+
+    Ok(F::from_canonical_u32(u256.low_u32()))
+}
+
+/// Returns the lowest LE 64-bit word of a `U256` as two field elements
+/// each storing a 32-bit limb, and errors if the integer is actually greater.
+pub(crate) fn u256_to_u64<F: Field>(u256: U256) -> Result<(F, F), ProgramError> {
+    if TryInto::<u64>::try_into(u256).is_err() {
+        return Err(ProgramError::IntegerTooLarge);
+    }
+
+    Ok((
+        F::from_canonical_u32(u256.low_u64() as u32),
+        F::from_canonical_u32((u256.low_u64() >> 32) as u32),
+    ))
+}
+
 #[allow(unused)] // TODO: Remove?
 /// Returns the 32-bit little-endian limbs of a `U256`.
 pub(crate) fn u256_limbs<F: Field>(u256: U256) -> [F; 8] {
@@ -64,7 +89,9 @@ pub(crate) fn u256_limbs<F: Field>(u256: U256) -> [F; 8] {
 #[allow(unused)]
 /// Returns the 32-bit little-endian limbs of a `H256`.
 pub(crate) fn h256_limbs<F: Field>(h256: H256) -> [F; 8] {
-    h256.0
+    let mut temp_h256 = h256.0;
+    temp_h256.reverse();
+    temp_h256
         .chunks(4)
         .map(|chunk| u32::from_le_bytes(chunk.try_into().unwrap()))
         .map(F::from_canonical_u32)

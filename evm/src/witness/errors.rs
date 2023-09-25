@@ -13,6 +13,7 @@ pub enum ProgramError {
     MemoryError(MemoryError),
     GasLimitError,
     InterpreterError,
+    IntegerTooLarge,
 }
 
 #[allow(clippy::enum_variant_names)]

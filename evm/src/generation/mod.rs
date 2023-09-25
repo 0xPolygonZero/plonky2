@@ -16,12 +16,13 @@ use GlobalMetadata::{
 use crate::all_stark::{AllStark, NUM_TABLES};
 use crate::config::StarkConfig;
 use crate::cpu::bootstrap_kernel::generate_bootstrap_kernel;
+use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
 use crate::generation::outputs::{get_outputs, GenerationOutputs};
 use crate::generation::state::GenerationState;
 use crate::memory::segments::Segment;
-use crate::proof::{BlockMetadata, PublicValues, TrieRoots};
+use crate::proof::{BlockHashes, BlockMetadata, ExtraBlockData, PublicValues, TrieRoots};
 use crate::util::h2u;
 use crate::witness::memory::{MemoryAddress, MemoryChannel};
 use crate::witness::transition::transition;
@@ -38,6 +39,12 @@ use crate::witness::util::mem_write_log;
 /// Inputs needed for trace generation.
 #[derive(Clone, Debug, Deserialize, Serialize, Default)]
 pub struct GenerationInputs {
+    pub txn_number_before: U256,
+    pub gas_used_before: U256,
+    pub block_bloom_before: [U256; 8],
+    pub gas_used_after: U256,
+    pub block_bloom_after: [U256; 8],
+
     pub signed_txns: Vec<Vec<u8>>,
     pub tries: TrieInputs,
     /// Expected trie roots after the transactions are executed.
@@ -48,6 +55,8 @@ pub struct GenerationInputs {
     pub contract_code: HashMap<H256, Vec<u8>>,
 
     pub block_metadata: BlockMetadata,
+
+    pub block_hashes: BlockHashes,
 
     /// A list of known addresses in the input state trie (which itself doesn't hold addresses,
     /// only state keys). This is only useful for debugging, so that we can return addresses in the
@@ -96,6 +105,18 @@ fn apply_metadata_and_tries_memops<F: RichField + Extendable<D>, const D: usize>
         (GlobalMetadata::BlockChainId, metadata.block_chain_id),
         (GlobalMetadata::BlockBaseFee, metadata.block_base_fee),
         (
+            GlobalMetadata::BlockCurrentHash,
+            h2u(inputs.block_hashes.cur_hash),
+        ),
+        (GlobalMetadata::BlockGasUsed, metadata.block_gas_used),
+        (GlobalMetadata::BlockGasUsedBefore, inputs.gas_used_before),
+        (GlobalMetadata::BlockGasUsedAfter, inputs.gas_used_after),
+        (GlobalMetadata::TxnNumberBefore, inputs.txn_number_before),
+        (
+            GlobalMetadata::TxnNumberAfter,
+            inputs.txn_number_before + inputs.signed_txns.len(),
+        ),
+        (
             GlobalMetadata::StateTrieRootDigestBefore,
             h2u(tries.state_trie.hash()),
         ),
@@ -122,14 +143,65 @@ fn apply_metadata_and_tries_memops<F: RichField + Extendable<D>, const D: usize>
     ];
 
     let channel = MemoryChannel::GeneralPurpose(0);
-    let ops = fields.map(|(field, val)| {
+    let mut ops = fields
+        .map(|(field, val)| {
+            mem_write_log(
+                channel,
+                MemoryAddress::new(0, Segment::GlobalMetadata, field as usize),
+                state,
+                val,
+            )
+        })
+        .to_vec();
+
+    // Write the block's final block bloom filter.
+    ops.extend((0..8).map(|i| {
         mem_write_log(
             channel,
-            MemoryAddress::new(0, Segment::GlobalMetadata, field as usize),
+            MemoryAddress::new(0, Segment::GlobalBlockBloom, i),
             state,
-            val,
+            metadata.block_bloom[i],
         )
-    });
+    }));
+    // Write the block's bloom filter before the current transaction.
+    ops.extend(
+        (0..8)
+            .map(|i| {
+                mem_write_log(
+                    channel,
+                    MemoryAddress::new(0, Segment::GlobalBlockBloom, i + 8),
+                    state,
+                    inputs.block_bloom_before[i],
+                )
+            })
+            .collect::<Vec<_>>(),
+    );
+    // Write the block's bloom filter after the current transaction.
+    ops.extend(
+        (0..8)
+            .map(|i| {
+                mem_write_log(
+                    channel,
+                    MemoryAddress::new(0, Segment::GlobalBlockBloom, i + 16),
+                    state,
+                    inputs.block_bloom_after[i],
+                )
+            })
+            .collect::<Vec<_>>(),
+    );
+    // Write previous block hashes.
+    ops.extend(
+        (0..256)
+            .map(|i| {
+                mem_write_log(
+                    channel,
+                    MemoryAddress::new(0, Segment::BlockHashes, i),
+                    state,
+                    h2u(inputs.block_hashes.prev_hashes[i]),
+                )
+            })
+            .collect::<Vec<_>>(),
+    );
 
     state.memory.apply_ops(&ops);
     state.traces.memory_ops.extend(ops);
@@ -160,7 +232,7 @@ pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
 
     log::info!(
         "Trace lengths (before padding): {:?}",
-        state.traces.checkpoint()
+        state.traces.get_lengths()
     );
 
     let outputs = get_outputs(&mut state);
@@ -177,10 +249,24 @@ pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
         receipts_root: H256::from_uint(&read_metadata(ReceiptTrieRootDigestAfter)),
     };
 
+    let gas_used_after = read_metadata(GlobalMetadata::BlockGasUsedAfter);
+    let txn_number_after = read_metadata(GlobalMetadata::TxnNumberAfter);
+
+    let extra_block_data = ExtraBlockData {
+        txn_number_before: inputs.txn_number_before,
+        txn_number_after,
+        gas_used_before: inputs.gas_used_before,
+        gas_used_after,
+        block_bloom_before: inputs.block_bloom_before,
+        block_bloom_after: inputs.block_bloom_after,
+    };
+
     let public_values = PublicValues {
         trie_roots_before,
         trie_roots_after,
         block_metadata: inputs.block_metadata,
+        block_hashes: inputs.block_hashes,
+        extra_block_data,
     };
 
     let tables = timed!(
@@ -194,26 +280,36 @@ pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
 fn simulate_cpu<F: RichField + Extendable<D>, const D: usize>(
     state: &mut GenerationState<F>,
 ) -> anyhow::Result<()> {
-    let halt_pc0 = KERNEL.global_labels["halt_pc0"];
-    let halt_pc1 = KERNEL.global_labels["halt_pc1"];
+    let halt_pc = KERNEL.global_labels["halt"];
 
-    let mut already_in_halt_loop = false;
     loop {
         // If we've reached the kernel's halt routine, and our trace length is a power of 2, stop.
         let pc = state.registers.program_counter;
-        let in_halt_loop = state.registers.is_kernel && (pc == halt_pc0 || pc == halt_pc1);
-        if in_halt_loop && !already_in_halt_loop {
+        let halt = state.registers.is_kernel && pc == halt_pc;
+        if halt {
             log::info!("CPU halted after {} cycles", state.traces.clock());
+
+            // Padding
+            let mut row = CpuColumnsView::<F>::default();
+            row.clock = F::from_canonical_usize(state.traces.clock());
+            row.context = F::from_canonical_usize(state.registers.context);
+            row.program_counter = F::from_canonical_usize(pc);
+            row.is_kernel_mode = F::ONE;
+            row.gas = F::from_canonical_u64(state.registers.gas_used);
+            row.stack_len = F::from_canonical_usize(state.registers.stack_len);
+
+            loop {
+                state.traces.push_cpu(row);
+                row.clock += F::ONE;
+                if state.traces.clock().is_power_of_two() {
+                    break;
+                }
+            }
+            log::info!("CPU trace padded to {} cycles", state.traces.clock());
+
+            return Ok(());
         }
-        already_in_halt_loop |= in_halt_loop;
 
         transition(state)?;
-
-        if already_in_halt_loop && state.traces.clock().is_power_of_two() {
-            log::info!("CPU trace padded to {} cycles", state.traces.clock());
-            break;
-        }
     }
-
-    Ok(())
 }

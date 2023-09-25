@@ -2,6 +2,7 @@ use core::mem::{self, MaybeUninit};
 use std::collections::BTreeMap;
 use std::ops::Range;
 
+use eth_trie_utils::partial_trie::{HashedPartialTrie, Node, PartialTrie};
 use hashbrown::HashMap;
 use itertools::{zip_eq, Itertools};
 use plonky2::field::extension::Extendable;
@@ -27,28 +28,23 @@ use plonky2::util::timing::TimingTree;
 use plonky2_util::log2_ceil;
 
 use crate::all_stark::{all_cross_table_lookups, AllStark, Table, NUM_TABLES};
-use crate::arithmetic::arithmetic_stark::ArithmeticStark;
 use crate::config::StarkConfig;
-use crate::cpu::cpu_stark::CpuStark;
 use crate::cross_table_lookup::{verify_cross_table_lookups_circuit, CrossTableLookup};
 use crate::generation::GenerationInputs;
 use crate::get_challenges::observe_public_values_target;
-use crate::keccak::keccak_stark::KeccakStark;
-use crate::keccak_sponge::keccak_sponge_stark::KeccakSpongeStark;
-use crate::logic::LogicStark;
-use crate::memory::memory_stark::MemoryStark;
 use crate::permutation::{get_grand_product_challenge_set_target, GrandProductChallengeSet};
 use crate::proof::{
-    BlockMetadataTarget, PublicValues, PublicValuesTarget, StarkProofWithMetadata, TrieRootsTarget,
+    BlockHashesTarget, BlockMetadataTarget, ExtraBlockDataTarget, PublicValues, PublicValuesTarget,
+    StarkProofWithMetadata, TrieRootsTarget,
 };
 use crate::prover::prove;
 use crate::recursive_verifier::{
     add_common_recursion_gates, add_virtual_public_values,
-    get_memory_extra_looking_products_circuit, recursive_stark_circuit, set_block_metadata_target,
-    set_public_value_targets, set_trie_roots_target, PlonkWrapperCircuit, PublicInputs,
-    StarkWrapperCircuit,
+    get_memory_extra_looking_products_circuit, recursive_stark_circuit, set_public_value_targets,
+    PlonkWrapperCircuit, PublicInputs, StarkWrapperCircuit,
 };
 use crate::stark::Stark;
+use crate::util::h256_limbs;
 
 /// The recursion threshold. We end a chain of recursive proofs once we reach this size.
 const THRESHOLD_DEGREE_BITS: usize = 13;
@@ -294,12 +290,6 @@ where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F> + 'static,
     C::Hasher: AlgebraicHasher<F>,
-    [(); ArithmeticStark::<F, D>::COLUMNS]:,
-    [(); CpuStark::<F, D>::COLUMNS]:,
-    [(); KeccakStark::<F, D>::COLUMNS]:,
-    [(); KeccakSpongeStark::<F, D>::COLUMNS]:,
-    [(); LogicStark::<F, D>::COLUMNS]:,
-    [(); MemoryStark::<F, D>::COLUMNS]:,
 {
     pub fn to_bytes(
         &self,
@@ -371,47 +361,62 @@ where
         let arithmetic = RecursiveCircuitsForTable::new(
             Table::Arithmetic,
             &all_stark.arithmetic_stark,
-            degree_bits_ranges[0].clone(),
+            degree_bits_ranges[Table::Arithmetic as usize].clone(),
+            &all_stark.cross_table_lookups,
+            stark_config,
+        );
+        let byte_packing = RecursiveCircuitsForTable::new(
+            Table::BytePacking,
+            &all_stark.byte_packing_stark,
+            degree_bits_ranges[Table::BytePacking as usize].clone(),
             &all_stark.cross_table_lookups,
             stark_config,
         );
         let cpu = RecursiveCircuitsForTable::new(
             Table::Cpu,
             &all_stark.cpu_stark,
-            degree_bits_ranges[1].clone(),
+            degree_bits_ranges[Table::Cpu as usize].clone(),
             &all_stark.cross_table_lookups,
             stark_config,
         );
         let keccak = RecursiveCircuitsForTable::new(
             Table::Keccak,
             &all_stark.keccak_stark,
-            degree_bits_ranges[2].clone(),
+            degree_bits_ranges[Table::Keccak as usize].clone(),
             &all_stark.cross_table_lookups,
             stark_config,
         );
         let keccak_sponge = RecursiveCircuitsForTable::new(
             Table::KeccakSponge,
             &all_stark.keccak_sponge_stark,
-            degree_bits_ranges[3].clone(),
+            degree_bits_ranges[Table::KeccakSponge as usize].clone(),
             &all_stark.cross_table_lookups,
             stark_config,
         );
         let logic = RecursiveCircuitsForTable::new(
             Table::Logic,
             &all_stark.logic_stark,
-            degree_bits_ranges[4].clone(),
+            degree_bits_ranges[Table::Logic as usize].clone(),
             &all_stark.cross_table_lookups,
             stark_config,
         );
         let memory = RecursiveCircuitsForTable::new(
             Table::Memory,
             &all_stark.memory_stark,
-            degree_bits_ranges[5].clone(),
+            degree_bits_ranges[Table::Memory as usize].clone(),
             &all_stark.cross_table_lookups,
             stark_config,
         );
 
-        let by_table = [arithmetic, cpu, keccak, keccak_sponge, logic, memory];
+        let by_table = [
+            arithmetic,
+            byte_packing,
+            cpu,
+            keccak,
+            keccak_sponge,
+            logic,
+            memory,
+        ];
         let root = Self::create_root_circuit(&by_table, stark_config);
         let aggregation = Self::create_aggregation_circuit(&root);
         let block = Self::create_block_circuit(&aggregation);
@@ -486,13 +491,13 @@ where
             }
         }
 
-        // Extra products to add to the looked last value
-        // Arithmetic, KeccakSponge, Keccak, Logic
+        // Extra products to add to the looked last value.
+        // Only necessary for the Memory values.
         let mut extra_looking_products =
-            vec![vec![builder.constant(F::ONE); stark_config.num_challenges]; NUM_TABLES - 1];
+            vec![vec![builder.one(); stark_config.num_challenges]; NUM_TABLES];
 
         // Memory
-        let memory_looking_products = (0..stark_config.num_challenges)
+        extra_looking_products[Table::Memory as usize] = (0..stark_config.num_challenges)
             .map(|c| {
                 get_memory_extra_looking_products_circuit(
                     &mut builder,
@@ -501,13 +506,12 @@ where
                 )
             })
             .collect_vec();
-        extra_looking_products.push(memory_looking_products);
 
         // Verify the CTL checks.
         verify_cross_table_lookups_circuit::<F, D>(
             &mut builder,
             all_cross_table_lookups(),
-            pis.map(|p| p.ctl_zs_last),
+            pis.map(|p| p.ctl_zs_first),
             extra_looking_products,
             stark_config,
         );
@@ -568,6 +572,17 @@ where
 
         let lhs_public_values = lhs.public_values(&mut builder);
         let rhs_public_values = rhs.public_values(&mut builder);
+        // Connect all block hash values
+        BlockHashesTarget::connect(
+            &mut builder,
+            public_values.block_hashes,
+            lhs_public_values.block_hashes,
+        );
+        BlockHashesTarget::connect(
+            &mut builder,
+            public_values.block_hashes,
+            rhs_public_values.block_hashes,
+        );
         // Connect all block metadata values.
         BlockMetadataTarget::connect(
             &mut builder,
@@ -598,6 +613,13 @@ where
             rhs_public_values.trie_roots_before,
         );
 
+        Self::connect_extra_public_values(
+            &mut builder,
+            &public_values.extra_block_data,
+            &lhs_public_values.extra_block_data,
+            &rhs_public_values.extra_block_data,
+        );
+
         // Pad to match the root circuit's degree.
         while log2_ceil(builder.num_gates()) < root.circuit.common.degree_bits() {
             builder.add_gate(NoopGate, vec![]);
@@ -610,6 +632,39 @@ where
             rhs,
             public_values,
             cyclic_vk,
+        }
+    }
+
+    fn connect_extra_public_values(
+        builder: &mut CircuitBuilder<F, D>,
+        pvs: &ExtraBlockDataTarget,
+        lhs: &ExtraBlockDataTarget,
+        rhs: &ExtraBlockDataTarget,
+    ) {
+        // Connect the transaction number in public values to the lhs and rhs values correctly.
+        builder.connect(pvs.txn_number_before, lhs.txn_number_before);
+        builder.connect(pvs.txn_number_after, rhs.txn_number_after);
+
+        // Connect lhs `txn_number_after`with rhs `txn_number_before`.
+        builder.connect(lhs.txn_number_after, rhs.txn_number_before);
+
+        // Connect the gas used in public values to the lhs and rhs values correctly.
+        builder.connect(pvs.gas_used_before, lhs.gas_used_before);
+        builder.connect(pvs.gas_used_after, rhs.gas_used_after);
+
+        // Connect lhs `gas_used_after`with rhs `gas_used_before`.
+        builder.connect(lhs.gas_used_after, rhs.gas_used_before);
+
+        // Connect the `block_bloom` in public values to the lhs and rhs values correctly.
+        for (&limb0, &limb1) in pvs.block_bloom_after.iter().zip(&rhs.block_bloom_after) {
+            builder.connect(limb0, limb1);
+        }
+        for (&limb0, &limb1) in pvs.block_bloom_before.iter().zip(&lhs.block_bloom_before) {
+            builder.connect(limb0, limb1);
+        }
+        // Connect lhs `block_bloom_after`with rhs `block_bloom_before`.
+        for (&limb0, &limb1) in lhs.block_bloom_after.iter().zip(&rhs.block_bloom_before) {
+            builder.connect(limb0, limb1);
         }
     }
 
@@ -651,6 +706,15 @@ where
         let parent_block_proof = builder.add_virtual_proof_with_pis(&expected_common_data);
         let agg_root_proof = builder.add_virtual_proof_with_pis(&agg.circuit.common);
 
+        // Connect block hashes
+        Self::connect_block_hashes(&mut builder, &parent_block_proof, &agg_root_proof);
+
+        let parent_pv = PublicValuesTarget::from_public_inputs(&parent_block_proof.public_inputs);
+        let agg_pv = PublicValuesTarget::from_public_inputs(&agg_root_proof.public_inputs);
+
+        // Make connections between block proofs, and check initial and final block values.
+        Self::connect_block_proof(&mut builder, has_parent_block, &parent_pv, &agg_pv);
+
         let cyclic_vk = builder.add_verifier_data_public_inputs();
         builder
             .conditionally_verify_cyclic_proof_or_dummy::<C>(
@@ -671,6 +735,111 @@ where
             agg_root_proof,
             public_values,
             cyclic_vk,
+        }
+    }
+
+    /// Connect the 256 block hashes between two blocks
+    pub fn connect_block_hashes(
+        builder: &mut CircuitBuilder<F, D>,
+        lhs: &ProofWithPublicInputsTarget<D>,
+        rhs: &ProofWithPublicInputsTarget<D>,
+    ) {
+        let lhs_public_values = PublicValuesTarget::from_public_inputs(&lhs.public_inputs);
+        let rhs_public_values = PublicValuesTarget::from_public_inputs(&rhs.public_inputs);
+        for i in 0..255 {
+            for j in 0..8 {
+                builder.connect(
+                    lhs_public_values.block_hashes.prev_hashes[8 * (i + 1) + j],
+                    rhs_public_values.block_hashes.prev_hashes[8 * i + j],
+                );
+            }
+        }
+        let expected_hash = lhs_public_values.block_hashes.cur_hash;
+        let prev_block_hash = &rhs_public_values.block_hashes.prev_hashes[255 * 8..256 * 8];
+        for i in 0..expected_hash.len() {
+            builder.connect(expected_hash[i], prev_block_hash[i]);
+        }
+    }
+
+    fn connect_block_proof(
+        builder: &mut CircuitBuilder<F, D>,
+        has_parent_block: BoolTarget,
+        lhs: &PublicValuesTarget,
+        rhs: &PublicValuesTarget,
+    ) {
+        // Between blocks, we only connect state tries.
+        for (&limb0, limb1) in lhs
+            .trie_roots_after
+            .state_root
+            .iter()
+            .zip(rhs.trie_roots_before.state_root)
+        {
+            builder.connect(limb0, limb1);
+        }
+
+        // Connect block numbers.
+        let one = builder.one();
+        let prev_block_nb = builder.sub(rhs.block_metadata.block_number, one);
+        builder.connect(lhs.block_metadata.block_number, prev_block_nb);
+
+        // Check initial block values.
+        Self::connect_initial_values_block(builder, rhs);
+
+        // Connect intermediary values for gas_used and bloom filters to the block's final values. We only plug on the right, so there is no need to check the left-handside block.
+        Self::connect_final_block_values_to_intermediary(builder, rhs);
+
+        // Chack that the genesis block number is 0.
+        let zero = builder.zero();
+        let has_not_parent_block = builder.sub(one, has_parent_block.target);
+        let gen_block_constr = builder.mul(has_not_parent_block, rhs.block_metadata.block_number);
+        builder.connect(gen_block_constr, zero);
+
+        // TODO: Check that the genesis block has a predetermined state trie root.
+    }
+
+    fn connect_final_block_values_to_intermediary(
+        builder: &mut CircuitBuilder<F, D>,
+        x: &PublicValuesTarget,
+    ) where
+        F: RichField + Extendable<D>,
+    {
+        builder.connect(
+            x.block_metadata.block_gas_used,
+            x.extra_block_data.gas_used_after,
+        );
+
+        for (&limb0, &limb1) in x
+            .block_metadata
+            .block_bloom
+            .iter()
+            .zip(&x.extra_block_data.block_bloom_after)
+        {
+            builder.connect(limb0, limb1);
+        }
+    }
+
+    fn connect_initial_values_block(builder: &mut CircuitBuilder<F, D>, x: &PublicValuesTarget)
+    where
+        F: RichField + Extendable<D>,
+    {
+        let zero = builder.constant(F::ZERO);
+        // The initial number of transactions is 0.
+        builder.connect(x.extra_block_data.txn_number_before, zero);
+        // The initial gas used is 0
+        builder.connect(x.extra_block_data.gas_used_before, zero);
+
+        // The initial bloom filter is all zeroes.
+        for t in x.extra_block_data.block_bloom_before {
+            builder.connect(t, zero);
+        }
+
+        // The transactions and receipts tries are empty at the beginning of the block.
+        let initial_trie = HashedPartialTrie::from(Node::Empty).hash();
+
+        for (i, limb) in h256_limbs::<F>(initial_trie).into_iter().enumerate() {
+            let limb_target = builder.constant(limb);
+            builder.connect(x.trie_roots_before.transactions_root[i], limb_target);
+            builder.connect(x.trie_roots_before.receipts_root[i], limb_target);
         }
     }
 
@@ -721,7 +890,10 @@ where
             &mut root_inputs,
             &self.root.public_values,
             &all_proof.public_values,
-        );
+        )
+        .map_err(|_| {
+            anyhow::Error::msg("Invalid conversion when setting public values targets.")
+        })?;
 
         let root_proof = self.root.circuit.prove(root_inputs)?;
 
@@ -755,22 +927,14 @@ where
             &self.aggregation.circuit.verifier_only,
         );
 
-        set_block_metadata_target(
+        set_public_value_targets(
             &mut agg_inputs,
-            &self.aggregation.public_values.block_metadata,
-            &public_values.block_metadata,
-        );
-
-        set_trie_roots_target(
-            &mut agg_inputs,
-            &self.aggregation.public_values.trie_roots_before,
-            &public_values.trie_roots_before,
-        );
-        set_trie_roots_target(
-            &mut agg_inputs,
-            &self.aggregation.public_values.trie_roots_after,
-            &public_values.trie_roots_after,
-        );
+            &self.aggregation.public_values,
+            &public_values,
+        )
+        .map_err(|_| {
+            anyhow::Error::msg("Invalid conversion when setting public values targets.")
+        })?;
 
         let aggregation_proof = self.aggregation.circuit.prove(agg_inputs)?;
         Ok((aggregation_proof, public_values))
@@ -804,12 +968,22 @@ where
             block_inputs
                 .set_proof_with_pis_target(&self.block.parent_block_proof, parent_block_proof);
         } else {
+            // Initialize state_root_after and the block number for correct connection between blocks.
+            let state_trie_root_keys = 24..32;
+            let block_number_key = TrieRootsTarget::SIZE * 2 + 6;
+            let mut nonzero_pis = HashMap::new();
+            for (key, &value) in state_trie_root_keys
+                .zip_eq(&h256_limbs::<F>(public_values.trie_roots_before.state_root))
+            {
+                nonzero_pis.insert(key, value);
+            }
+            nonzero_pis.insert(block_number_key, F::NEG_ONE);
             block_inputs.set_proof_with_pis_target(
                 &self.block.parent_block_proof,
                 &cyclic_base_proof(
                     &self.block.circuit.common,
                     &self.block.circuit.verifier_only,
-                    HashMap::new(),
+                    nonzero_pis,
                 ),
             );
         }
@@ -819,22 +993,10 @@ where
         block_inputs
             .set_verifier_data_target(&self.block.cyclic_vk, &self.block.circuit.verifier_only);
 
-        set_block_metadata_target(
-            &mut block_inputs,
-            &self.block.public_values.block_metadata,
-            &public_values.block_metadata,
-        );
-
-        set_trie_roots_target(
-            &mut block_inputs,
-            &self.block.public_values.trie_roots_before,
-            &public_values.trie_roots_before,
-        );
-        set_trie_roots_target(
-            &mut block_inputs,
-            &self.block.public_values.trie_roots_after,
-            &public_values.trie_roots_after,
-        );
+        set_public_value_targets(&mut block_inputs, &self.block.public_values, &public_values)
+            .map_err(|_| {
+                anyhow::Error::msg("Invalid conversion when setting public values targets.")
+            })?;
 
         let block_proof = self.block.circuit.prove(block_inputs)?;
         Ok((block_proof, public_values))
@@ -907,10 +1069,7 @@ where
         degree_bits_range: Range<usize>,
         all_ctls: &[CrossTableLookup<F>],
         stark_config: &StarkConfig,
-    ) -> Self
-    where
-        [(); S::COLUMNS]:,
-    {
+    ) -> Self {
         let by_stark_size = degree_bits_range
             .map(|degree_bits| {
                 (
@@ -1031,10 +1190,7 @@ where
         degree_bits: usize,
         all_ctls: &[CrossTableLookup<F>],
         stark_config: &StarkConfig,
-    ) -> Self
-    where
-        [(); S::COLUMNS]:,
-    {
+    ) -> Self {
         let initial_wrapper = recursive_stark_circuit(
             table,
             stark,

@@ -4,7 +4,7 @@ use ethereum_types::U256;
 
 /// Create a U256, where the bits at indices inside the specified ranges are set to 1, and all other
 /// bits are set to 0.
-const fn u256_from_set_index_ranges<const N: usize>(ranges: [RangeInclusive<u8>; N]) -> U256 {
+const fn u256_from_set_index_ranges<const N: usize>(ranges: &[RangeInclusive<u8>; N]) -> U256 {
     let mut j = 0;
     let mut res_limbs = [0u64; 4];
     while j < ranges.len() {
@@ -28,7 +28,7 @@ const fn u256_from_set_index_ranges<const N: usize>(ranges: [RangeInclusive<u8>;
     U256(res_limbs)
 }
 
-pub const STACK_LENGTH_INCREASING_OPCODES_USER: U256 = u256_from_set_index_ranges([
+pub const STACK_LENGTH_INCREASING_OPCODES_USER: U256 = u256_from_set_index_ranges(&[
     0x30..=0x30, // ADDRESS
     0x32..=0x34, // ORIGIN, CALLER, CALLVALUE
     0x36..=0x36, // CALLDATASIZE
@@ -40,7 +40,7 @@ pub const STACK_LENGTH_INCREASING_OPCODES_USER: U256 = u256_from_set_index_range
     0x5f..=0x8f, // PUSH*, DUP*
 ]);
 
-pub const INVALID_OPCODES_USER: U256 = u256_from_set_index_ranges([
+pub const INVALID_OPCODES_USER: U256 = u256_from_set_index_ranges(&[
     0x0c..=0x0f,
     0x1e..=0x1f,
     0x21..=0x2f,
