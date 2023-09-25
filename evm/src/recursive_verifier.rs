@@ -1020,6 +1020,10 @@ where
         block_metadata_target.block_difficulty,
         u256_to_u32(block_metadata.block_difficulty)?,
     );
+    witness.set_target_arr(
+        &block_metadata_target.block_random,
+        &h256_limbs(block_metadata.block_random),
+    );
     witness.set_target(
         block_metadata_target.block_gaslimit,
         u256_to_u32(block_metadata.block_gaslimit)?,
