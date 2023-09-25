@@ -23,7 +23,7 @@ use crate::cpu::columns::{CpuColumnsView, COL_MAP};
 /// behavior.
 /// Note: invalid opcodes are not represented here. _Any_ opcode is permitted to decode to
 /// `is_invalid`. The kernel then verifies that the opcode was _actually_ invalid.
-const OPCODES: [(u8, usize, bool, usize); 16] = [
+const OPCODES: [(u8, usize, bool, usize); 14] = [
     // (start index of block, number of top bits to check (log2), kernel-only, flag column)
     // ADD, MUL, SUB, DIV, MOD, LT, GT and BYTE flags are handled partly manually here, and partly through the Arithmetic table CTL.
     // ADDMOD, MULMOD and SUBMOD flags are handled partly manually here, and partly through the Arithmetic table CTL.
@@ -39,14 +39,13 @@ const OPCODES: [(u8, usize, bool, usize); 16] = [
     (0x58, 0, false, COL_MAP.op.pc),
     (0x5b, 0, false, COL_MAP.op.jumpdest),
     (0x5f, 0, false, COL_MAP.op.push0),
-    (0x60, 5, false, COL_MAP.op.push), // 0x60-0x7f
-    (0x80, 4, false, COL_MAP.op.dup),  // 0x80-0x8f
-    (0x90, 4, false, COL_MAP.op.swap), // 0x90-0x9f
-    (0xee, 0, true, COL_MAP.op.mstore_32bytes),
+    (0x60, 5, false, COL_MAP.op.push),      // 0x60-0x7f
+    (0x80, 4, false, COL_MAP.op.dup),       // 0x80-0x8f
+    (0x90, 4, false, COL_MAP.op.swap),      // 0x90-0x9f
     (0xf6, 1, true, COL_MAP.op.context_op), // 0xf6-0xf7
-    (0xf8, 0, true, COL_MAP.op.mload_32bytes),
     (0xf9, 0, true, COL_MAP.op.exit_kernel),
     // MLOAD_GENERAL and MSTORE_GENERAL flags are handled manually here.
+    // MLOAD_32BYTES and MSTORE_32BYTES flags are handled manually here.
 ];
 
 /// List of combined opcodes requiring a special handling.
@@ -103,6 +102,10 @@ pub fn generate<F: RichField>(lv: &mut CpuColumnsView<F>) {
 
     if opcode == 0xfb || opcode == 0xfc {
         lv.op.m_op_general = F::from_bool(kernel);
+    }
+
+    if opcode == 0xee || opcode == 0xf8 {
+        lv.op.memop_32bytes = F::from_bool(kernel);
     }
 }
 
@@ -192,6 +195,13 @@ pub fn eval_packed_generic<P: PackedField>(
         * (opcode - P::Scalar::from_canonical_usize(0xfc_usize))
         * lv.op.m_op_general;
     yield_constr.constraint(m_op_constr);
+
+    // Manually check lv.memop_32bytes.
+    yield_constr.constraint((P::ONES - kernel_mode) * lv.op.memop_32bytes);
+    let memop_32bytes_constr = (opcode - P::Scalar::from_canonical_usize(0xee_usize))
+        * (opcode - P::Scalar::from_canonical_usize(0xf8_usize))
+        * lv.op.memop_32bytes;
+    yield_constr.constraint(memop_32bytes_constr);
 }
 
 pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
@@ -294,4 +304,21 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     m_op_constr = builder.mul_extension(m_op_constr, lv.op.m_op_general);
 
     yield_constr.constraint(builder, m_op_constr);
+
+    // Manually check lv.memop_32bytes.
+    let mload_32bytes_opcode =
+        builder.constant_extension(F::Extension::from_canonical_usize(0xf8_usize));
+    let mstore_32bytes_opcode =
+        builder.constant_extension(F::Extension::from_canonical_usize(0xee_usize));
+
+    let constr = builder.mul_extension(is_not_kernel_mode, lv.op.memop_32bytes);
+    yield_constr.constraint(builder, constr);
+
+    let mload_32bytes_constr = builder.sub_extension(opcode, mload_32bytes_opcode);
+    let mstore_32bytes_constr = builder.sub_extension(opcode, mstore_32bytes_opcode);
+    let mut memop_32bytes_constr =
+        builder.mul_extension(mstore_32bytes_constr, mload_32bytes_constr);
+    memop_32bytes_constr = builder.mul_extension(memop_32bytes_constr, lv.op.memop_32bytes);
+
+    yield_constr.constraint(builder, memop_32bytes_constr);
 }

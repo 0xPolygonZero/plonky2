@@ -176,8 +176,7 @@ fn fill_op_flag<F: Field>(op: Operation, row: &mut CpuColumnsView<F>) {
         Operation::Pc => &mut flags.pc,
         Operation::Jumpdest => &mut flags.jumpdest,
         Operation::GetContext | Operation::SetContext => &mut flags.context_op,
-        Operation::Mload32Bytes => &mut flags.mload_32bytes,
-        Operation::Mstore32Bytes => &mut flags.mstore_32bytes,
+        Operation::Mload32Bytes | Operation::Mstore32Bytes => &mut flags.memop_32bytes,
         Operation::ExitKernel => &mut flags.exit_kernel,
         Operation::MloadGeneral | Operation::MstoreGeneral => &mut flags.m_op_general,
     } = F::ONE;

@@ -50,6 +50,18 @@ fn eval_packed_load<P: PackedField>(
         stack::MLOAD_GENERAL_OP.unwrap(),
         yield_constr,
     );
+
+    // Check the stack for MLOAD_32BYTES.
+    // The second bit (in little-endian) of MLOAD_32BYTES is 0.
+    let filter = lv.op.memop_32bytes * (P::ONES - lv.opcode_bits[1]);
+
+    stack::eval_packed_one(
+        lv,
+        nv,
+        filter,
+        stack::MLOAD_32BYTES_OP.unwrap(),
+        yield_constr,
+    );
 }
 
 fn eval_ext_circuit_load<F: RichField + Extendable<D>, const D: usize>(
@@ -106,6 +118,20 @@ fn eval_ext_circuit_load<F: RichField + Extendable<D>, const D: usize>(
         stack::MLOAD_GENERAL_OP.unwrap(),
         yield_constr,
     );
+
+    // Check the stack for MLOAD_32BYTES.
+    let one = builder.one_extension();
+    let mut filter = builder.sub_extension(one, lv.opcode_bits[1]);
+    filter = builder.mul_extension(lv.op.memop_32bytes, filter);
+
+    stack::eval_ext_circuit_one(
+        builder,
+        lv,
+        nv,
+        filter,
+        stack::MLOAD_32BYTES_OP.unwrap(),
+        yield_constr,
+    );
 }
 
 fn eval_packed_store<P: PackedField>(
@@ -139,6 +165,18 @@ fn eval_packed_store<P: PackedField>(
         nv,
         filter,
         stack::MSTORE_GENERAL_OP.unwrap(),
+        yield_constr,
+    );
+
+    // Check the stack for MSTORE_32BYTES.
+    // The second bit (in little-endian) of MSTORE_32BYTES is 1.
+    let filter = lv.op.memop_32bytes * lv.opcode_bits[1];
+
+    stack::eval_packed_one(
+        lv,
+        nv,
+        filter,
+        stack::MSTORE_32BYTES_OP.unwrap(),
         yield_constr,
     );
 }
@@ -197,6 +235,18 @@ fn eval_ext_circuit_store<F: RichField + Extendable<D>, const D: usize>(
         nv,
         filter,
         stack::MSTORE_GENERAL_OP.unwrap(),
+        yield_constr,
+    );
+
+    // Check the stack for MSTORE_32BYTES.
+    let filter = builder.mul_extension(lv.op.memop_32bytes, lv.opcode_bits[1]);
+
+    stack::eval_ext_circuit_one(
+        builder,
+        lv,
+        nv,
+        filter,
+        stack::MSTORE_32BYTES_OP.unwrap(),
         yield_constr,
     );
 }

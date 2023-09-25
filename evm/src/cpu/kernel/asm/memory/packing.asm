@@ -42,8 +42,8 @@ global mload_packing_u64_LE:
 // Post stack: offset'
 global mstore_unpacking:
     // stack: context, segment, offset, value, len, retdest
-    %stack(context, segment, offset, value, len, retdest) -> (context, segment, offset, value, len, offset, len, retdest)
-    // stack: context, segment, offset, value, len, offset, len, retdest
+    %stack(context, segment, offset, value, len, retdest) -> (context, segment, offset, len, value, offset, len, retdest)
+    // stack: context, segment, offset, len, value, offset, len, retdest
     MSTORE_32BYTES
     // stack: offset, len, retdest
     ADD SWAP1

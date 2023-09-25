@@ -25,8 +25,7 @@ pub struct OpsColumnsView<T: Copy> {
     pub dup: T,
     pub swap: T,
     pub context_op: T,
-    pub mstore_32bytes: T,
-    pub mload_32bytes: T,
+    pub memop_32bytes: T,
     pub exit_kernel: T,
     pub m_op_general: T,
 

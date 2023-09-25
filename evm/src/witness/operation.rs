@@ -760,7 +760,7 @@ pub(crate) fn generate_mstore_32bytes<F: Field>(
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
-    let [(context, log_in0), (segment, log_in1), (base_virt, log_in2), (val, log_in3), (len, log_in4)] =
+    let [(context, log_in0), (segment, log_in1), (base_virt, log_in2), (len, log_in3), (val, log_in4)] =
         stack_pop_with_log_and_fill::<5, _>(state, &mut row)?;
     let len = len.as_usize();
 

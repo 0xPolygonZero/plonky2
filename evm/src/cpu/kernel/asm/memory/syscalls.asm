@@ -30,6 +30,7 @@ global sys_mstore:
     PUSH @SEGMENT_MAIN_MEMORY
     GET_CONTEXT
     // stack: addr: 3, value, len, kexit_info
+    %stack (ADDR: 3, value, len, kexit_info) -> (ADDR, len, value, kexit_info)
     MSTORE_32BYTES
     // stack: kexit_info
     EXIT_KERNEL

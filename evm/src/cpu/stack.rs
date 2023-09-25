@@ -56,6 +56,17 @@ pub(crate) const MSTORE_GENERAL_OP: Option<StackBehavior> = Some(StackBehavior {
     disable_other_channels: false,
 });
 
+pub(crate) const MLOAD_32BYTES_OP: Option<StackBehavior> = Some(StackBehavior {
+    num_pops: 4,
+    pushes: true,
+    disable_other_channels: false,
+});
+
+pub(crate) const MSTORE_32BYTES_OP: Option<StackBehavior> = Some(StackBehavior {
+    num_pops: 5,
+    pushes: false,
+    disable_other_channels: false,
+});
 // AUDITORS: If the value below is `None`, then the operation must be manually checked to ensure
 // that every general-purpose memory channel is either disabled or has its read flag and address
 // propertly constrained. The same applies  when `disable_other_channels` is set to `false`,
@@ -104,16 +115,7 @@ const STACK_BEHAVIORS: OpsColumnsView<Option<StackBehavior>> = OpsColumnsView {
     dup: None,
     swap: None,
     context_op: None, // SET_CONTEXT is special since it involves the old and the new stack.
-    mstore_32bytes: Some(StackBehavior {
-        num_pops: 5,
-        pushes: false,
-        disable_other_channels: false,
-    }),
-    mload_32bytes: Some(StackBehavior {
-        num_pops: 4,
-        pushes: true,
-        disable_other_channels: false,
-    }),
+    memop_32bytes: None,
     exit_kernel: Some(StackBehavior {
         num_pops: 1,
         pushes: false,
