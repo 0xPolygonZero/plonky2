@@ -548,10 +548,14 @@ pub(crate) fn get_memory_extra_looking_products_circuit<
         ),
     ];
 
-    let beneficiary_base_fee_cur_hash_fields: [(usize, &[Target]); 3] = [
+    let beneficiary_random_base_fee_cur_hash_fields: [(usize, &[Target]); 4] = [
         (
             GlobalMetadata::BlockBeneficiary as usize,
             &public_values.block_metadata.block_beneficiary,
+        ),
+        (
+            GlobalMetadata::BlockRandom as usize,
+            &public_values.block_metadata.block_random,
         ),
         (
             GlobalMetadata::BlockBaseFee as usize,
@@ -576,7 +580,7 @@ pub(crate) fn get_memory_extra_looking_products_circuit<
         );
     });
 
-    beneficiary_base_fee_cur_hash_fields.map(|(field, targets)| {
+    beneficiary_random_base_fee_cur_hash_fields.map(|(field, targets)| {
         product = add_data_write(
             builder,
             challenge,
