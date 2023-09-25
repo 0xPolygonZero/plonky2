@@ -101,6 +101,7 @@ pub struct BlockMetadata {
     pub block_number: U256,
     /// The difficulty (before PoS transition) of this block.
     pub block_difficulty: U256,
+    pub block_random: H256,
     /// The gas limit of this block. It must fit in a `u32`.
     pub block_gaslimit: U256,
     /// The chain id of this block.
@@ -175,6 +176,7 @@ impl PublicValuesTarget {
             block_timestamp,
             block_number,
             block_difficulty,
+            block_random,
             block_gaslimit,
             block_chain_id,
             block_base_fee,
@@ -186,6 +188,7 @@ impl PublicValuesTarget {
         buffer.write_target(block_timestamp)?;
         buffer.write_target(block_number)?;
         buffer.write_target(block_difficulty)?;
+        buffer.write_target_array(&block_random)?;
         buffer.write_target(block_gaslimit)?;
         buffer.write_target(block_chain_id)?;
         buffer.write_target_array(&block_base_fee)?;
@@ -235,6 +238,7 @@ impl PublicValuesTarget {
             block_timestamp: buffer.read_target()?,
             block_number: buffer.read_target()?,
             block_difficulty: buffer.read_target()?,
+            block_random: buffer.read_target_array()?,
             block_gaslimit: buffer.read_target()?,
             block_chain_id: buffer.read_target()?,
             block_base_fee: buffer.read_target_array()?,
@@ -407,6 +411,7 @@ pub struct BlockMetadataTarget {
     pub block_timestamp: Target,
     pub block_number: Target,
     pub block_difficulty: Target,
+    pub block_random: [Target; 8],
     pub block_gaslimit: Target,
     pub block_chain_id: Target,
     pub block_base_fee: [Target; 2],
@@ -415,24 +420,26 @@ pub struct BlockMetadataTarget {
 }
 
 impl BlockMetadataTarget {
-    const SIZE: usize = 77;
+    const SIZE: usize = 85;
 
     pub fn from_public_inputs(pis: &[Target]) -> Self {
         let block_beneficiary = pis[0..5].try_into().unwrap();
         let block_timestamp = pis[5];
         let block_number = pis[6];
         let block_difficulty = pis[7];
-        let block_gaslimit = pis[8];
-        let block_chain_id = pis[9];
-        let block_base_fee = pis[10..12].try_into().unwrap();
-        let block_gas_used = pis[12];
-        let block_bloom = pis[13..77].try_into().unwrap();
+        let block_random = pis[8..16].try_into().unwrap();
+        let block_gaslimit = pis[16];
+        let block_chain_id = pis[17];
+        let block_base_fee = pis[18..20].try_into().unwrap();
+        let block_gas_used = pis[20];
+        let block_bloom = pis[21..85].try_into().unwrap();
 
         Self {
             block_beneficiary,
             block_timestamp,
             block_number,
             block_difficulty,
+            block_random,
             block_gaslimit,
             block_chain_id,
             block_base_fee,
@@ -458,6 +465,9 @@ impl BlockMetadataTarget {
             block_timestamp: builder.select(condition, bm0.block_timestamp, bm1.block_timestamp),
             block_number: builder.select(condition, bm0.block_number, bm1.block_number),
             block_difficulty: builder.select(condition, bm0.block_difficulty, bm1.block_difficulty),
+            block_random: core::array::from_fn(|i| {
+                builder.select(condition, bm0.block_random[i], bm1.block_random[i])
+            }),
             block_gaslimit: builder.select(condition, bm0.block_gaslimit, bm1.block_gaslimit),
             block_chain_id: builder.select(condition, bm0.block_chain_id, bm1.block_chain_id),
             block_base_fee: core::array::from_fn(|i| {
@@ -481,6 +491,9 @@ impl BlockMetadataTarget {
         builder.connect(bm0.block_timestamp, bm1.block_timestamp);
         builder.connect(bm0.block_number, bm1.block_number);
         builder.connect(bm0.block_difficulty, bm1.block_difficulty);
+        for i in 0..8 {
+            builder.connect(bm0.block_random[i], bm1.block_random[i]);
+        }
         builder.connect(bm0.block_gaslimit, bm1.block_gaslimit);
         builder.connect(bm0.block_chain_id, bm1.block_chain_id);
         for i in 0..2 {

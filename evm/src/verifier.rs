@@ -1,7 +1,7 @@
 use std::any::type_name;
 
 use anyhow::{ensure, Result};
-use ethereum_types::U256;
+use ethereum_types::{BigEndianHash, U256};
 use itertools::Itertools;
 use plonky2::field::extension::{Extendable, FieldExtension};
 use plonky2::field::types::Field;
@@ -156,6 +156,10 @@ where
         (
             GlobalMetadata::BlockNumber,
             public_values.block_metadata.block_number,
+        ),
+        (
+            GlobalMetadata::BlockRandom,
+            public_values.block_metadata.block_random.into_uint(),
         ),
         (
             GlobalMetadata::BlockDifficulty,

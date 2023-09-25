@@ -548,10 +548,14 @@ pub(crate) fn get_memory_extra_looking_products_circuit<
         ),
     ];
 
-    let beneficiary_base_fee_cur_hash_fields: [(usize, &[Target]); 3] = [
+    let beneficiary_random_base_fee_cur_hash_fields: [(usize, &[Target]); 4] = [
         (
             GlobalMetadata::BlockBeneficiary as usize,
             &public_values.block_metadata.block_beneficiary,
+        ),
+        (
+            GlobalMetadata::BlockRandom as usize,
+            &public_values.block_metadata.block_random,
         ),
         (
             GlobalMetadata::BlockBaseFee as usize,
@@ -576,7 +580,7 @@ pub(crate) fn get_memory_extra_looking_products_circuit<
         );
     });
 
-    beneficiary_base_fee_cur_hash_fields.map(|(field, targets)| {
+    beneficiary_random_base_fee_cur_hash_fields.map(|(field, targets)| {
         product = add_data_write(
             builder,
             challenge,
@@ -772,6 +776,7 @@ pub(crate) fn add_virtual_block_metadata<F: RichField + Extendable<D>, const D: 
     let block_timestamp = builder.add_virtual_public_input();
     let block_number = builder.add_virtual_public_input();
     let block_difficulty = builder.add_virtual_public_input();
+    let block_random = builder.add_virtual_public_input_arr();
     let block_gaslimit = builder.add_virtual_public_input();
     let block_chain_id = builder.add_virtual_public_input();
     let block_base_fee = builder.add_virtual_public_input_arr();
@@ -782,6 +787,7 @@ pub(crate) fn add_virtual_block_metadata<F: RichField + Extendable<D>, const D: 
         block_timestamp,
         block_number,
         block_difficulty,
+        block_random,
         block_gaslimit,
         block_chain_id,
         block_base_fee,
@@ -1013,6 +1019,10 @@ where
     witness.set_target(
         block_metadata_target.block_difficulty,
         u256_to_u32(block_metadata.block_difficulty)?,
+    );
+    witness.set_target_arr(
+        &block_metadata_target.block_random,
+        &h256_limbs(block_metadata.block_random),
     );
     witness.set_target(
         block_metadata_target.block_gaslimit,
