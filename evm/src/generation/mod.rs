@@ -218,7 +218,7 @@ pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
     GenerationOutputs,
 )> {
     let mut state = GenerationState::<F>::new(inputs.clone(), &KERNEL.code)
-        .map_err(|_| anyhow!("Failed to parse all the initial prover inputs"))?;
+        .map_err(|err| anyhow!("Failed to parse all the initial prover inputs: {:?}", err))?;
 
     apply_metadata_and_tries_memops(&mut state, &inputs);
 
@@ -236,8 +236,8 @@ pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
         state.traces.get_lengths()
     );
 
-    let outputs =
-        get_outputs(&mut state).map_err(|_| anyhow!("Failed to generate post-state info"))?;
+    let outputs = get_outputs(&mut state)
+        .map_err(|err| anyhow!("Failed to generate post-state info: {:?}", err))?;
 
     let read_metadata = |field| state.memory.read_global_metadata(field);
     let trie_roots_before = TrieRoots {

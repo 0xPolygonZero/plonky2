@@ -23,7 +23,8 @@ fn mpt_read() -> Result<()> {
     let initial_stack = vec![0xdeadbeefu32.into()];
     let mut interpreter = Interpreter::new_with_kernel(load_all_mpts, initial_stack);
     interpreter.generation_state.mpt_prover_inputs =
-        all_mpt_prover_inputs_reversed(&trie_inputs).map_err(|_| anyhow!("Invalid MPT data"))?;
+        all_mpt_prover_inputs_reversed(&trie_inputs)
+            .map_err(|err| anyhow!("Invalid MPT data: {:?}", err))?;
     interpreter.run()?;
     assert_eq!(interpreter.stack(), vec![]);
 

@@ -47,7 +47,8 @@ fn prepare_interpreter(
     interpreter.push(0xDEADBEEFu32.into());
 
     interpreter.generation_state.mpt_prover_inputs =
-        all_mpt_prover_inputs_reversed(&trie_inputs).map_err(|_| anyhow!("Invalid MPT data"))?;
+        all_mpt_prover_inputs_reversed(&trie_inputs)
+            .map_err(|err| anyhow!("Invalid MPT data: {:?}", err))?;
     interpreter.run()?;
     assert_eq!(interpreter.stack(), vec![]);
 
