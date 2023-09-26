@@ -641,6 +641,14 @@ where
         lhs: &ExtraBlockDataTarget,
         rhs: &ExtraBlockDataTarget,
     ) {
+        // Connect genesis state root values.
+        for (&limb0, &limb1) in pvs.genesis_state_root.iter().zip(&rhs.genesis_state_root) {
+            builder.connect(limb0, limb1);
+        }
+        for (&limb0, &limb1) in pvs.genesis_state_root.iter().zip(&lhs.genesis_state_root) {
+            builder.connect(limb0, limb1);
+        }
+
         // Connect the transaction number in public values to the lhs and rhs values correctly.
         builder.connect(pvs.txn_number_before, lhs.txn_number_before);
         builder.connect(pvs.txn_number_after, rhs.txn_number_after);
@@ -777,6 +785,16 @@ where
             builder.connect(limb0, limb1);
         }
 
+        // Between blocks, the genesis state trie remains unchanged.
+        for (&limb0, limb1) in lhs
+            .extra_block_data
+            .genesis_state_root
+            .iter()
+            .zip(rhs.extra_block_data.genesis_state_root)
+        {
+            builder.connect(limb0, limb1);
+        }
+
         // Connect block numbers.
         let one = builder.one();
         let prev_block_nb = builder.sub(rhs.block_metadata.block_number, one);
@@ -788,13 +806,35 @@ where
         // Connect intermediary values for gas_used and bloom filters to the block's final values. We only plug on the right, so there is no need to check the left-handside block.
         Self::connect_final_block_values_to_intermediary(builder, rhs);
 
-        // Chack that the genesis block number is 0.
         let zero = builder.zero();
         let has_not_parent_block = builder.sub(one, has_parent_block.target);
+
+        // Check that the genesis block number is 0.
         let gen_block_constr = builder.mul(has_not_parent_block, rhs.block_metadata.block_number);
         builder.connect(gen_block_constr, zero);
 
-        // TODO: Check that the genesis block has a predetermined state trie root.
+        // Check that the genesis block has the predetermined state trie root in `ExtraBlockData`.
+        Self::connect_genesis_block(builder, rhs, has_not_parent_block);
+    }
+
+    fn connect_genesis_block(
+        builder: &mut CircuitBuilder<F, D>,
+        x: &PublicValuesTarget,
+        has_not_parent_block: Target,
+    ) where
+        F: RichField + Extendable<D>,
+    {
+        let zero = builder.zero();
+        for (&limb0, limb1) in x
+            .trie_roots_before
+            .state_root
+            .iter()
+            .zip(x.extra_block_data.genesis_state_root)
+        {
+            let mut constr = builder.sub(limb0, limb1);
+            constr = builder.mul(has_not_parent_block, constr);
+            builder.connect(constr, zero);
+        }
     }
 
     fn connect_final_block_values_to_intermediary(
@@ -968,16 +1008,34 @@ where
             block_inputs
                 .set_proof_with_pis_target(&self.block.parent_block_proof, parent_block_proof);
         } else {
-            // Initialize state_root_after and the block number for correct connection between blocks.
-            let state_trie_root_keys = 24..32;
-            let block_number_key = TrieRootsTarget::SIZE * 2 + 6;
+            // Initialize genesis_state_trie, state_root_after and the block number for correct connection between blocks.
+            // Initialize `state_root_after`.
+            let state_trie_root_after_keys = 24..32;
             let mut nonzero_pis = HashMap::new();
-            for (key, &value) in state_trie_root_keys
+            for (key, &value) in state_trie_root_after_keys
                 .zip_eq(&h256_limbs::<F>(public_values.trie_roots_before.state_root))
             {
                 nonzero_pis.insert(key, value);
             }
+
+            // Initialize the genesis state trie digest.
+            let genesis_state_trie_keys = TrieRootsTarget::SIZE * 2
+                + BlockMetadataTarget::SIZE
+                + BlockHashesTarget::BLOCK_HASHES_SIZE
+                ..TrieRootsTarget::SIZE * 2
+                    + BlockMetadataTarget::SIZE
+                    + BlockHashesTarget::BLOCK_HASHES_SIZE
+                    + 8;
+            for (key, &value) in genesis_state_trie_keys.zip_eq(&h256_limbs::<F>(
+                public_values.extra_block_data.genesis_state_root,
+            )) {
+                nonzero_pis.insert(key, value);
+            }
+
+            // Initialize the block number.
+            let block_number_key = TrieRootsTarget::SIZE * 2 + 6;
             nonzero_pis.insert(block_number_key, F::NEG_ONE);
+
             block_inputs.set_proof_with_pis_target(
                 &self.block.parent_block_proof,
                 &cyclic_base_proof(

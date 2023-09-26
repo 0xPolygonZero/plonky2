@@ -809,6 +809,7 @@ pub(crate) fn add_virtual_block_hashes<F: RichField + Extendable<D>, const D: us
 pub(crate) fn add_virtual_extra_block_data<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
 ) -> ExtraBlockDataTarget {
+    let genesis_state_root = builder.add_virtual_public_input_arr();
     let txn_number_before = builder.add_virtual_public_input();
     let txn_number_after = builder.add_virtual_public_input();
     let gas_used_before = builder.add_virtual_public_input();
@@ -816,6 +817,7 @@ pub(crate) fn add_virtual_extra_block_data<F: RichField + Extendable<D>, const D
     let block_bloom_before: [Target; 64] = builder.add_virtual_public_input_arr();
     let block_bloom_after: [Target; 64] = builder.add_virtual_public_input_arr();
     ExtraBlockDataTarget {
+        genesis_state_root,
         txn_number_before,
         txn_number_after,
         gas_used_before,
@@ -1077,6 +1079,10 @@ where
     F: RichField + Extendable<D>,
     W: Witness<F>,
 {
+    witness.set_target_arr(
+        &ed_target.genesis_state_root,
+        &h256_limbs::<F>(ed.genesis_state_root),
+    );
     witness.set_target(
         ed_target.txn_number_before,
         u256_to_u32(ed.txn_number_before)?,
