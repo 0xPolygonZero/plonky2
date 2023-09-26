@@ -34,6 +34,12 @@ impl Default for AccountRlp {
 }
 
 #[derive(RlpEncodable, RlpDecodable, Debug)]
+pub struct AccessListItemRlp {
+    pub address: Address,
+    pub storage_keys: Vec<U256>,
+}
+
+#[derive(RlpEncodable, RlpDecodable, Debug)]
 pub struct LegacyTransactionRlp {
     pub nonce: U256,
     pub gas_price: U256,
@@ -42,6 +48,37 @@ pub struct LegacyTransactionRlp {
     pub value: U256,
     pub data: Bytes,
     pub v: U256,
+    pub r: U256,
+    pub s: U256,
+}
+
+#[derive(RlpEncodable, RlpDecodable, Debug)]
+pub struct AccessListTransactionRlp {
+    pub chain_id: u64,
+    pub nonce: U256,
+    pub gas_price: U256,
+    pub gas: U256,
+    pub to: Address,
+    pub value: U256,
+    pub data: Bytes,
+    pub access_list: Vec<AccessListItemRlp>,
+    pub y_parity: U256,
+    pub r: U256,
+    pub s: U256,
+}
+
+#[derive(RlpEncodable, RlpDecodable, Debug)]
+pub struct FeeMarketTransactionRlp {
+    pub chain_id: u64,
+    pub nonce: U256,
+    pub max_priority_fee_per_gas: U256,
+    pub max_fee_per_gas: U256,
+    pub gas: U256,
+    pub to: Address,
+    pub value: U256,
+    pub data: Bytes,
+    pub access_list: Vec<AccessListItemRlp>,
+    pub y_parity: U256,
     pub r: U256,
     pub s: U256,
 }
