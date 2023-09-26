@@ -72,11 +72,7 @@ pub(crate) fn u256_to_u64<F: Field>(u256: U256) -> Result<(F, F), ProgramError> 
 
 /// Safe alternative to `U256::as_usize()`, which errors in case of overflow instead of panicking.
 pub(crate) fn u256_to_usize(u256: U256) -> Result<usize, ProgramError> {
-    if TryInto::<usize>::try_into(u256).is_err() {
-        return Err(ProgramError::IntegerTooLarge);
-    }
-
-    Ok(u256.as_usize())
+    u256.try_into().map_err(|_| ProgramError::IntegerTooLarge)
 }
 
 #[allow(unused)] // TODO: Remove?
