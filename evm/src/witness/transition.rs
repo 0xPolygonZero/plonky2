@@ -154,7 +154,6 @@ fn decode(registers: RegistersState, opcode: u8) -> Result<Operation, ProgramErr
 fn fill_op_flag<F: Field>(op: Operation, row: &mut CpuColumnsView<F>) {
     let flags = &mut row.op;
     *match op {
-        Operation::Push(0) => &mut flags.push0,
         Operation::Push(1..) => &mut flags.push,
         Operation::Dup(_) => &mut flags.dup,
         Operation::Swap(_) => &mut flags.swap,
@@ -173,7 +172,7 @@ fn fill_op_flag<F: Field>(op: Operation, row: &mut CpuColumnsView<F>) {
         Operation::ProverInput => &mut flags.prover_input,
         Operation::Pop => &mut flags.pop,
         Operation::Jump | Operation::Jumpi => &mut flags.jumps,
-        Operation::Pc => &mut flags.pc,
+        Operation::Pc | Operation::Push(0) => &mut flags.pc_push0,
         Operation::Jumpdest => &mut flags.jumpdest,
         Operation::GetContext | Operation::SetContext => &mut flags.context_op,
         Operation::Mload32Bytes => &mut flags.mload_32bytes,

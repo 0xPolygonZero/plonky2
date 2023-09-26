@@ -18,9 +18,7 @@ pub struct OpsColumnsView<T: Copy> {
     pub prover_input: T,
     pub pop: T,
     pub jumps: T, // Combines JUMP and JUMPI flags.
-    pub pc: T,
     pub jumpdest: T,
-    pub push0: T,
     pub push: T,
     pub dup: T,
     pub swap: T,
@@ -29,6 +27,7 @@ pub struct OpsColumnsView<T: Copy> {
     pub mload_32bytes: T,
     pub exit_kernel: T,
     pub m_op_general: T,
+    pub pc_push0: T, // Combines PC and PUSH0
 
     pub syscall: T,
     pub exception: T,

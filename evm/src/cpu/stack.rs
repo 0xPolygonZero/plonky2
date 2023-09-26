@@ -85,7 +85,7 @@ const STACK_BEHAVIORS: OpsColumnsView<Option<StackBehavior>> = OpsColumnsView {
         disable_other_channels: true,
     }),
     jumps: None, // Depends on whether it's a JUMP or a JUMPI.
-    pc: Some(StackBehavior {
+    pc_push0: Some(StackBehavior {
         num_pops: 0,
         pushes: true,
         disable_other_channels: true,
@@ -93,11 +93,6 @@ const STACK_BEHAVIORS: OpsColumnsView<Option<StackBehavior>> = OpsColumnsView {
     jumpdest: Some(StackBehavior {
         num_pops: 0,
         pushes: false,
-        disable_other_channels: true,
-    }),
-    push0: Some(StackBehavior {
-        num_pops: 0,
-        pushes: true,
         disable_other_channels: true,
     }),
     push: None, // TODO

@@ -11,7 +11,8 @@ pub fn eval_packed<P: PackedField>(
     lv: &CpuColumnsView<P>,
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
-    let filter = lv.op.pc;
+    // `PUSH0`'s opcode is odd, while `PC`'s opcode is even.
+    let filter = lv.op.pc_push0 * (P::ONES - lv.opcode_bits[0]);
     let push_value = lv.mem_channels[NUM_GP_CHANNELS - 1].value;
     yield_constr.constraint(filter * (push_value[0] - lv.program_counter));
     for &limb in &push_value[1..] {
@@ -24,7 +25,10 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     lv: &CpuColumnsView<ExtensionTarget<D>>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
-    let filter = lv.op.pc;
+    // `PUSH0`'s opcode is odd, while `PC`'s opcode is even.
+    let one = builder.one_extension();
+    let mut filter = builder.sub_extension(one, lv.opcode_bits[0]);
+    filter = builder.mul_extension(lv.op.pc_push0, filter);
     let push_value = lv.mem_channels[NUM_GP_CHANNELS - 1].value;
     {
         let diff = builder.sub_extension(push_value[0], lv.program_counter);
