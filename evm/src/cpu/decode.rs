@@ -51,13 +51,14 @@ const OPCODES: [(u8, usize, bool, usize); 14] = [
 /// List of combined opcodes requiring a special handling.
 /// Each index in the list corresponds to an arbitrary combination
 /// of opcodes defined in evm/src/cpu/columns/ops.rs.
-const COMBINED_OPCODES: [usize; 6] = [
+const COMBINED_OPCODES: [usize; 7] = [
     COL_MAP.op.logic_op,
     COL_MAP.op.fp254_op,
     COL_MAP.op.binary_op,
     COL_MAP.op.ternary_op,
     COL_MAP.op.shift,
     COL_MAP.op.m_op_general,
+    COL_MAP.op.memop_32bytes,
 ];
 
 pub fn generate<F: RichField>(lv: &mut CpuColumnsView<F>) {
