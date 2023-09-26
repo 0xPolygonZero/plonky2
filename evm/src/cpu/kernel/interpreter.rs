@@ -1066,8 +1066,8 @@ impl<'a> Interpreter<'a> {
         let context = self.pop().as_usize();
         let segment = Segment::all()[self.pop().as_usize()];
         let offset = self.pop().as_usize();
-        let value = self.pop();
         let len = self.pop().as_usize();
+        let value = self.pop();
 
         let mut bytes = vec![0; 32];
         value.to_little_endian(&mut bytes);
