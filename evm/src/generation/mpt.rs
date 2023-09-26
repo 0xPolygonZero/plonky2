@@ -6,7 +6,7 @@ use eth_trie_utils::nibbles::Nibbles;
 use eth_trie_utils::partial_trie::{HashedPartialTrie, PartialTrie};
 use ethereum_types::{Address, BigEndianHash, H256, U256, U512};
 use keccak_hash::keccak;
-use rlp::PayloadInfo;
+use rlp::{Decodable, DecoderError, Encodable, PayloadInfo, Rlp, RlpStream};
 use rlp_derive::{RlpDecodable, RlpEncodable};
 
 use crate::cpu::kernel::constants::trie_type::PartialTrieType;
@@ -39,12 +39,40 @@ pub struct AccessListItemRlp {
     pub storage_keys: Vec<U256>,
 }
 
+#[derive(Debug)]
+pub struct AddressOption(pub Option<Address>);
+
+impl Encodable for AddressOption {
+    fn rlp_append(&self, s: &mut RlpStream) {
+        match self.0 {
+            None => {
+                s.append_empty_data();
+            }
+            Some(value) => {
+                s.encoder().encode_value(&value.to_fixed_bytes());
+            }
+        }
+    }
+}
+
+impl Decodable for AddressOption {
+    fn decode(rlp: &Rlp) -> Result<Self, DecoderError> {
+        if rlp.is_int() && rlp.is_empty() {
+            return Ok(AddressOption(None));
+        }
+        if rlp.is_data() && rlp.size() == 20 {
+            return Ok(AddressOption(Some(Address::decode(rlp)?)));
+        }
+        Err(DecoderError::RlpExpectedToBeData)
+    }
+}
+
 #[derive(RlpEncodable, RlpDecodable, Debug)]
 pub struct LegacyTransactionRlp {
     pub nonce: U256,
     pub gas_price: U256,
     pub gas: U256,
-    pub to: Address,
+    pub to: AddressOption,
     pub value: U256,
     pub data: Bytes,
     pub v: U256,
@@ -58,7 +86,7 @@ pub struct AccessListTransactionRlp {
     pub nonce: U256,
     pub gas_price: U256,
     pub gas: U256,
-    pub to: Address,
+    pub to: AddressOption,
     pub value: U256,
     pub data: Bytes,
     pub access_list: Vec<AccessListItemRlp>,
@@ -74,7 +102,7 @@ pub struct FeeMarketTransactionRlp {
     pub max_priority_fee_per_gas: U256,
     pub max_fee_per_gas: U256,
     pub gas: U256,
-    pub to: Address,
+    pub to: AddressOption,
     pub value: U256,
     pub data: Bytes,
     pub access_list: Vec<AccessListItemRlp>,

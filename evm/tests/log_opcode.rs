@@ -17,7 +17,9 @@ use plonky2::util::timing::TimingTree;
 use plonky2_evm::all_stark::AllStark;
 use plonky2_evm::config::StarkConfig;
 use plonky2_evm::fixed_recursive_verifier::AllRecursiveCircuits;
-use plonky2_evm::generation::mpt::{AccountRlp, LegacyReceiptRlp, LegacyTransactionRlp, LogRlp};
+use plonky2_evm::generation::mpt::{
+    AccountRlp, AddressOption, LegacyReceiptRlp, LegacyTransactionRlp, LogRlp,
+};
 use plonky2_evm::generation::{GenerationInputs, TrieInputs};
 use plonky2_evm::proof::{BlockHashes, BlockMetadata, ExtraBlockData, PublicValues, TrieRoots};
 use plonky2_evm::prover::prove;
@@ -631,7 +633,7 @@ fn test_txn_and_receipt_trie_hash() -> anyhow::Result<()> {
         nonce: 157823u64.into(),
         gas_price: 1000000000u64.into(),
         gas: 250000u64.into(),
-        to: hex!("7ef66b77759e12Caf3dDB3E4AFF524E577C59D8D").into(),
+        to: AddressOption(Some(hex!("7ef66b77759e12Caf3dDB3E4AFF524E577C59D8D").into())),
         value: 0u64.into(),
         data: hex!("e9c6c176000000000000000000000000000000000000000000000000000000000000002a0000000000000000000000000000000000000000000000000000000000bd9fe6f7af1cc94b1aef2e0fa15f1b4baefa86eb60e78fa4bd082372a0a446d197fb58")
             .to_vec()
@@ -651,7 +653,7 @@ fn test_txn_and_receipt_trie_hash() -> anyhow::Result<()> {
         nonce: 157824u64.into(),
         gas_price: 1000000000u64.into(),
         gas: 250000u64.into(),
-        to: hex!("7ef66b77759e12Caf3dDB3E4AFF524E577C59D8D").into(),
+        to: AddressOption(Some(hex!("7ef66b77759e12Caf3dDB3E4AFF524E577C59D8D").into())),
         value: 0u64.into(),
         data: hex!("e9c6c176000000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000004920eaa814f7df6a2203dc0e472e8828be95957c6b329fee8e2b1bb6f044c1eb4fc243")
             .to_vec()
