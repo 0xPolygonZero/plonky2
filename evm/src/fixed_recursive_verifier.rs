@@ -659,6 +659,9 @@ where
         for (&limb0, &limb1) in pvs.genesis_state_root.iter().zip(&rhs.genesis_state_root) {
             builder.connect(limb0, limb1);
         }
+        for (&limb0, &limb1) in pvs.genesis_state_root.iter().zip(&lhs.genesis_state_root) {
+            builder.connect(limb0, limb1);
+        }
 
         // Connect the transaction number in public values to the lhs and rhs values correctly.
         builder.connect(pvs.txn_number_before, lhs.txn_number_before);
@@ -820,7 +823,7 @@ where
         let zero = builder.zero();
         let has_not_parent_block = builder.sub(one, has_parent_block.target);
 
-        // Chack that the genesis block number is 0.
+        // Check that the genesis block number is 0.
         let gen_block_constr = builder.mul(has_not_parent_block, rhs.block_metadata.block_number);
         builder.connect(gen_block_constr, zero);
 

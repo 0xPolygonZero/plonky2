@@ -118,7 +118,7 @@ pub struct BlockMetadata {
 /// unlike `BlockMetadata`.
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct ExtraBlockData {
-    /// The state trie digest of the gensis block.
+    /// The state trie digest of the genesis block.
     pub genesis_state_root: H256,
     /// The transaction count prior execution of the local state transition, starting
     /// at 0 for the initial transaction of a block.
