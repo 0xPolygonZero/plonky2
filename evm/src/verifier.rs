@@ -1,7 +1,7 @@
 use std::any::type_name;
 
 use anyhow::{ensure, Result};
-use ethereum_types::U256;
+use ethereum_types::{BigEndianHash, U256};
 use itertools::Itertools;
 use plonky2::field::extension::{Extendable, FieldExtension};
 use plonky2::field::types::Field;
@@ -11,17 +11,11 @@ use plonky2::plonk::config::GenericConfig;
 use plonky2::plonk::plonk_common::reduce_with_powers;
 
 use crate::all_stark::{AllStark, Table, NUM_TABLES};
-use crate::arithmetic::arithmetic_stark::ArithmeticStark;
-use crate::byte_packing::byte_packing_stark::BytePackingStark;
 use crate::config::StarkConfig;
 use crate::constraint_consumer::ConstraintConsumer;
-use crate::cpu::cpu_stark::CpuStark;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
 use crate::cross_table_lookup::{verify_cross_table_lookups, CtlCheckVars};
-use crate::keccak::keccak_stark::KeccakStark;
-use crate::keccak_sponge::keccak_sponge_stark::KeccakSpongeStark;
-use crate::logic::LogicStark;
-use crate::memory::memory_stark::MemoryStark;
+use crate::evaluation_frame::StarkEvaluationFrame;
 use crate::memory::segments::Segment;
 use crate::memory::VALUE_LIMBS;
 use crate::permutation::{GrandProductChallenge, PermutationCheckVars};
@@ -31,7 +25,6 @@ use crate::proof::{
 use crate::stark::Stark;
 use crate::util::h2u;
 use crate::vanishing_poly::eval_vanishing_poly;
-use crate::vars::StarkEvaluationVars;
 
 pub fn verify_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
     all_stark: &AllStark<F, D>,
@@ -39,13 +32,6 @@ pub fn verify_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, co
     config: &StarkConfig,
 ) -> Result<()>
 where
-    [(); ArithmeticStark::<F, D>::COLUMNS]:,
-    [(); BytePackingStark::<F, D>::COLUMNS]:,
-    [(); CpuStark::<F, D>::COLUMNS]:,
-    [(); KeccakStark::<F, D>::COLUMNS]:,
-    [(); KeccakSpongeStark::<F, D>::COLUMNS]:,
-    [(); LogicStark::<F, D>::COLUMNS]:,
-    [(); MemoryStark::<F, D>::COLUMNS]:,
 {
     let AllProofChallenges {
         stark_challenges,
@@ -170,6 +156,10 @@ where
         (
             GlobalMetadata::BlockNumber,
             public_values.block_metadata.block_number,
+        ),
+        (
+            GlobalMetadata::BlockRandom,
+            public_values.block_metadata.block_random.into_uint(),
         ),
         (
             GlobalMetadata::BlockDifficulty,
@@ -301,10 +291,7 @@ pub(crate) fn verify_stark_proof_with_challenges<
     challenges: &StarkProofChallenges<F, D>,
     ctl_vars: &[CtlCheckVars<F, F::Extension, F::Extension, D>],
     config: &StarkConfig,
-) -> Result<()>
-where
-    [(); S::COLUMNS]:,
-{
+) -> Result<()> {
     log::debug!("Checking proof: {}", type_name::<S>());
     validate_proof_shape(stark, proof, config, ctl_vars.len())?;
     let StarkOpeningSet {
@@ -315,10 +302,7 @@ where
         ctl_zs_first,
         quotient_polys,
     } = &proof.openings;
-    let vars = StarkEvaluationVars {
-        local_values: &local_values.to_vec().try_into().unwrap(),
-        next_values: &next_values.to_vec().try_into().unwrap(),
-    };
+    let vars = S::EvaluationFrame::from_values(local_values, next_values);
 
     let degree_bits = proof.recover_degree_bits(config);
     let (l_0, l_last) = eval_l_0_and_l_last(degree_bits, challenges.stark_zeta);
@@ -343,7 +327,7 @@ where
     eval_vanishing_poly::<F, F::Extension, F::Extension, S, D, D>(
         stark,
         config,
-        vars,
+        &vars,
         permutation_data,
         ctl_vars,
         &mut consumer,
@@ -401,7 +385,6 @@ where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
     S: Stark<F, D>,
-    [(); S::COLUMNS]:,
 {
     let StarkProof {
         trace_cap,

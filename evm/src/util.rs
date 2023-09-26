@@ -70,6 +70,11 @@ pub(crate) fn u256_to_u64<F: Field>(u256: U256) -> Result<(F, F), ProgramError> 
     ))
 }
 
+/// Safe alternative to `U256::as_usize()`, which errors in case of overflow instead of panicking.
+pub(crate) fn u256_to_usize(u256: U256) -> Result<usize, ProgramError> {
+    u256.try_into().map_err(|_| ProgramError::IntegerTooLarge)
+}
+
 #[allow(unused)] // TODO: Remove?
 /// Returns the 32-bit little-endian limbs of a `U256`.
 pub(crate) fn u256_limbs<F: Field>(u256: U256) -> [F; 8] {
@@ -171,6 +176,8 @@ pub(crate) fn u256_to_biguint(x: U256) -> BigUint {
 
 pub(crate) fn biguint_to_u256(x: BigUint) -> U256 {
     let bytes = x.to_bytes_le();
+    // This could panic if `bytes.len() > 32` but this is only
+    // used here with `BigUint` constructed from `U256`.
     U256::from_little_endian(&bytes)
 }
 

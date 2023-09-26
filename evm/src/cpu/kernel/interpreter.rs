@@ -117,7 +117,7 @@ impl<'a> Interpreter<'a> {
         let mut result = Self {
             kernel_mode: true,
             jumpdests: find_jumpdests(code),
-            generation_state: GenerationState::new(GenerationInputs::default(), code),
+            generation_state: GenerationState::new(GenerationInputs::default(), code).unwrap(),
             prover_inputs_map: prover_inputs,
             context: 0,
             halt_offsets: vec![DEFAULT_HALT_OFFSET],
@@ -905,7 +905,10 @@ impl<'a> Interpreter<'a> {
             .prover_inputs_map
             .get(&(self.generation_state.registers.program_counter - 1))
             .ok_or_else(|| anyhow!("Offset not in prover inputs."))?;
-        let output = self.generation_state.prover_input(prover_input_fn);
+        let output = self
+            .generation_state
+            .prover_input(prover_input_fn)
+            .map_err(|_| anyhow!("Invalid prover inputs."))?;
         self.push(output);
         Ok(())
     }

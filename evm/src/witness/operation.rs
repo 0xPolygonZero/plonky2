@@ -15,6 +15,7 @@ use crate::cpu::stack_bounds::MAX_USER_STACK_SIZE;
 use crate::extension_tower::BN_BASE;
 use crate::generation::state::GenerationState;
 use crate::memory::segments::Segment;
+use crate::util::u256_to_usize;
 use crate::witness::errors::MemoryError::{ContextTooLarge, SegmentTooLarge, VirtTooLarge};
 use crate::witness::errors::ProgramError;
 use crate::witness::errors::ProgramError::MemoryError;
@@ -127,7 +128,7 @@ pub(crate) fn generate_keccak_general<F: Field>(
     row.is_keccak_sponge = F::ONE;
     let [(context, log_in0), (segment, log_in1), (base_virt, log_in2), (len, log_in3)] =
         stack_pop_with_log_and_fill::<4, _>(state, &mut row)?;
-    let len = len.as_usize();
+    let len = u256_to_usize(len)?;
 
     let base_address = MemoryAddress::new_u256s(context, segment, base_virt)?;
     let input = (0..len)
@@ -162,7 +163,7 @@ pub(crate) fn generate_prover_input<F: Field>(
 ) -> Result<(), ProgramError> {
     let pc = state.registers.program_counter;
     let input_fn = &KERNEL.prover_inputs[&pc];
-    let input = state.prover_input(input_fn);
+    let input = state.prover_input(input_fn)?;
     let write = stack_push_log_and_fill(state, &mut row, input)?;
 
     state.traces.push_memory(write);
@@ -217,7 +218,7 @@ pub(crate) fn generate_jump<F: Field>(
 
     state.traces.push_memory(log_in0);
     state.traces.push_cpu(row);
-    state.jump_to(dst as usize);
+    state.jump_to(dst as usize)?;
     Ok(())
 }
 
@@ -241,7 +242,7 @@ pub(crate) fn generate_jumpi<F: Field>(
         let dst: u32 = dst
             .try_into()
             .map_err(|_| ProgramError::InvalidJumpiDestination)?;
-        state.jump_to(dst as usize);
+        state.jump_to(dst as usize)?;
     } else {
         row.general.jumps_mut().should_jump = F::ZERO;
         row.general.jumps_mut().cond_sum_pinv = F::ZERO;
@@ -312,7 +313,7 @@ pub(crate) fn generate_set_context<F: Field>(
     let [(ctx, log_in)] = stack_pop_with_log_and_fill::<1, _>(state, &mut row)?;
     let sp_to_save = state.registers.stack_len.into();
     let old_ctx = state.registers.context;
-    let new_ctx = ctx.as_usize();
+    let new_ctx = u256_to_usize(ctx)?;
 
     let sp_field = ContextMetadata::StackSize as usize;
     let old_sp_addr = MemoryAddress::new(old_ctx, Segment::ContextMetadata, sp_field);
@@ -347,7 +348,8 @@ pub(crate) fn generate_set_context<F: Field>(
     };
 
     state.registers.context = new_ctx;
-    state.registers.stack_len = new_sp.as_usize();
+    let new_sp = u256_to_usize(new_sp)?;
+    state.registers.stack_len = new_sp;
     state.traces.push_memory(log_in);
     state.traces.push_memory(log_write_old_sp);
     state.traces.push_memory(log_read_new_sp);
@@ -362,6 +364,10 @@ pub(crate) fn generate_push<F: Field>(
 ) -> Result<(), ProgramError> {
     let code_context = state.registers.code_context();
     let num_bytes = n as usize;
+    if num_bytes > 32 {
+        // The call to `U256::from_big_endian()` would panic.
+        return Err(ProgramError::IntegerTooLarge);
+    }
     let initial_offset = state.registers.program_counter + 1;
 
     // First read val without going through `mem_read_with_log` type methods, so we can pass it
@@ -589,7 +595,7 @@ pub(crate) fn generate_syscall<F: Field>(
     );
 
     let handler_addr = (handler_addr0 << 16) + (handler_addr1 << 8) + handler_addr2;
-    let new_program_counter = handler_addr.as_usize();
+    let new_program_counter = u256_to_usize(handler_addr)?;
 
     let syscall_info = U256::from(state.registers.program_counter + 1)
         + (U256::from(u64::from(state.registers.is_kernel)) << 32)
@@ -694,7 +700,11 @@ pub(crate) fn generate_mload_32bytes<F: Field>(
 ) -> Result<(), ProgramError> {
     let [(context, log_in0), (segment, log_in1), (base_virt, log_in2), (len, log_in3)] =
         stack_pop_with_log_and_fill::<4, _>(state, &mut row)?;
-    let len = len.as_usize();
+    let len = u256_to_usize(len)?;
+    if len > 32 {
+        // The call to `U256::from_big_endian()` would panic.
+        return Err(ProgramError::IntegerTooLarge);
+    }
 
     let base_address = MemoryAddress::new_u256s(context, segment, base_virt)?;
     if usize::MAX - base_address.virt < len {
@@ -762,7 +772,7 @@ pub(crate) fn generate_mstore_32bytes<F: Field>(
 ) -> Result<(), ProgramError> {
     let [(context, log_in0), (segment, log_in1), (base_virt, log_in2), (val, log_in3), (len, log_in4)] =
         stack_pop_with_log_and_fill::<5, _>(state, &mut row)?;
-    let len = len.as_usize();
+    let len = u256_to_usize(len)?;
 
     let base_address = MemoryAddress::new_u256s(context, segment, base_virt)?;
 
@@ -827,7 +837,7 @@ pub(crate) fn generate_exception<F: Field>(
     );
 
     let handler_addr = (handler_addr0 << 16) + (handler_addr1 << 8) + handler_addr2;
-    let new_program_counter = handler_addr.as_usize();
+    let new_program_counter = u256_to_usize(handler_addr)?;
 
     let exc_info =
         U256::from(state.registers.program_counter) + (U256::from(state.registers.gas_used) << 192);

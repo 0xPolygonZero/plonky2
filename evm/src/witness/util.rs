@@ -29,11 +29,14 @@ fn to_bits_le<F: Field>(n: u8) -> [F; 8] {
 }
 
 /// Peek at the stack item `i`th from the top. If `i=0` this gives the tip.
-pub(crate) fn stack_peek<F: Field>(state: &GenerationState<F>, i: usize) -> Option<U256> {
+pub(crate) fn stack_peek<F: Field>(
+    state: &GenerationState<F>,
+    i: usize,
+) -> Result<U256, ProgramError> {
     if i >= state.registers.stack_len {
-        return None;
+        return Err(ProgramError::StackUnderflow);
     }
-    Some(state.memory.get(MemoryAddress::new(
+    Ok(state.memory.get(MemoryAddress::new(
         state.registers.context,
         Segment::Stack,
         state.registers.stack_len - 1 - i,

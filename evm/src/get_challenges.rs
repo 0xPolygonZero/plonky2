@@ -64,6 +64,7 @@ fn observe_block_metadata<
     challenger.observe_element(u256_to_u32(block_metadata.block_timestamp)?);
     challenger.observe_element(u256_to_u32(block_metadata.block_number)?);
     challenger.observe_element(u256_to_u32(block_metadata.block_difficulty)?);
+    challenger.observe_elements(&h256_limbs::<F>(block_metadata.block_random));
     challenger.observe_element(u256_to_u32(block_metadata.block_gaslimit)?);
     challenger.observe_element(u256_to_u32(block_metadata.block_chain_id)?);
     let basefee = u256_to_u64(block_metadata.block_base_fee)?;
@@ -91,6 +92,7 @@ fn observe_block_metadata_target<
     challenger.observe_element(block_metadata.block_timestamp);
     challenger.observe_element(block_metadata.block_number);
     challenger.observe_element(block_metadata.block_difficulty);
+    challenger.observe_elements(&block_metadata.block_random);
     challenger.observe_element(block_metadata.block_gaslimit);
     challenger.observe_element(block_metadata.block_chain_id);
     challenger.observe_elements(&block_metadata.block_base_fee);

@@ -30,6 +30,7 @@ use crate::config::StarkConfig;
 use crate::constraint_consumer::RecursiveConstraintConsumer;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
 use crate::cross_table_lookup::{verify_cross_table_lookups, CrossTableLookup, CtlCheckVarsTarget};
+use crate::evaluation_frame::StarkEvaluationFrame;
 use crate::memory::segments::Segment;
 use crate::memory::VALUE_LIMBS;
 use crate::permutation::{
@@ -45,7 +46,6 @@ use crate::proof::{
 use crate::stark::Stark;
 use crate::util::{h256_limbs, u256_limbs, u256_to_u32, u256_to_u64};
 use crate::vanishing_poly::eval_vanishing_poly_circuit;
-use crate::vars::StarkEvaluationTargets;
 use crate::witness::errors::ProgramError;
 
 /// Table-wise recursive proofs of an `AllProof`.
@@ -297,7 +297,6 @@ pub(crate) fn recursive_stark_circuit<
     min_degree_bits: usize,
 ) -> StarkWrapperCircuit<F, C, D>
 where
-    [(); S::COLUMNS]:,
     C::Hasher: AlgebraicHasher<F>,
 {
     let mut builder = CircuitBuilder::<F, D>::new(circuit_config.clone());
@@ -405,7 +404,6 @@ fn verify_stark_proof_with_challenges_circuit<
     inner_config: &StarkConfig,
 ) where
     C::Hasher: AlgebraicHasher<F>,
-    [(); S::COLUMNS]:,
 {
     let zero = builder.zero();
     let one = builder.one_extension();
@@ -418,10 +416,7 @@ fn verify_stark_proof_with_challenges_circuit<
         ctl_zs_first,
         quotient_polys,
     } = &proof.openings;
-    let vars = StarkEvaluationTargets {
-        local_values: &local_values.to_vec().try_into().unwrap(),
-        next_values: &next_values.to_vec().try_into().unwrap(),
-    };
+    let vars = S::EvaluationFrameTarget::from_values(local_values, next_values);
 
     let degree_bits = proof.recover_degree_bits(inner_config);
     let zeta_pow_deg = builder.exp_power_of_2_extension(challenges.stark_zeta, degree_bits);
@@ -456,7 +451,7 @@ fn verify_stark_proof_with_challenges_circuit<
             builder,
             stark,
             inner_config,
-            vars,
+            &vars,
             permutation_data,
             ctl_vars,
             &mut consumer,
@@ -553,10 +548,14 @@ pub(crate) fn get_memory_extra_looking_products_circuit<
         ),
     ];
 
-    let beneficiary_base_fee_cur_hash_fields: [(usize, &[Target]); 3] = [
+    let beneficiary_random_base_fee_cur_hash_fields: [(usize, &[Target]); 4] = [
         (
             GlobalMetadata::BlockBeneficiary as usize,
             &public_values.block_metadata.block_beneficiary,
+        ),
+        (
+            GlobalMetadata::BlockRandom as usize,
+            &public_values.block_metadata.block_random,
         ),
         (
             GlobalMetadata::BlockBaseFee as usize,
@@ -581,7 +580,7 @@ pub(crate) fn get_memory_extra_looking_products_circuit<
         );
     });
 
-    beneficiary_base_fee_cur_hash_fields.map(|(field, targets)| {
+    beneficiary_random_base_fee_cur_hash_fields.map(|(field, targets)| {
         product = add_data_write(
             builder,
             challenge,
@@ -777,6 +776,7 @@ pub(crate) fn add_virtual_block_metadata<F: RichField + Extendable<D>, const D: 
     let block_timestamp = builder.add_virtual_public_input();
     let block_number = builder.add_virtual_public_input();
     let block_difficulty = builder.add_virtual_public_input();
+    let block_random = builder.add_virtual_public_input_arr();
     let block_gaslimit = builder.add_virtual_public_input();
     let block_chain_id = builder.add_virtual_public_input();
     let block_base_fee = builder.add_virtual_public_input_arr();
@@ -787,6 +787,7 @@ pub(crate) fn add_virtual_block_metadata<F: RichField + Extendable<D>, const D: 
         block_timestamp,
         block_number,
         block_difficulty,
+        block_random,
         block_gaslimit,
         block_chain_id,
         block_base_fee,
@@ -936,7 +937,7 @@ where
         witness,
         &public_values_target.extra_block_data,
         &public_values.extra_block_data,
-    );
+    )?;
 
     Ok(())
 }
@@ -1021,6 +1022,10 @@ where
         block_metadata_target.block_difficulty,
         u256_to_u32(block_metadata.block_difficulty)?,
     );
+    witness.set_target_arr(
+        &block_metadata_target.block_random,
+        &h256_limbs(block_metadata.block_random),
+    );
     witness.set_target(
         block_metadata_target.block_gaslimit,
         u256_to_u32(block_metadata.block_gaslimit)?,
@@ -1069,7 +1074,8 @@ pub(crate) fn set_extra_public_values_target<F, W, const D: usize>(
     witness: &mut W,
     ed_target: &ExtraBlockDataTarget,
     ed: &ExtraBlockData,
-) where
+) -> Result<(), ProgramError>
+where
     F: RichField + Extendable<D>,
     W: Witness<F>,
 {
@@ -1079,20 +1085,14 @@ pub(crate) fn set_extra_public_values_target<F, W, const D: usize>(
     );
     witness.set_target(
         ed_target.txn_number_before,
-        F::from_canonical_usize(ed.txn_number_before.as_usize()),
+        u256_to_u32(ed.txn_number_before)?,
     );
     witness.set_target(
         ed_target.txn_number_after,
-        F::from_canonical_usize(ed.txn_number_after.as_usize()),
+        u256_to_u32(ed.txn_number_after)?,
     );
-    witness.set_target(
-        ed_target.gas_used_before,
-        F::from_canonical_usize(ed.gas_used_before.as_usize()),
-    );
-    witness.set_target(
-        ed_target.gas_used_after,
-        F::from_canonical_usize(ed.gas_used_after.as_usize()),
-    );
+    witness.set_target(ed_target.gas_used_before, u256_to_u32(ed.gas_used_before)?);
+    witness.set_target(ed_target.gas_used_after, u256_to_u32(ed.gas_used_after)?);
 
     let block_bloom_before = ed.block_bloom_before;
     let mut block_bloom_limbs = [F::ZERO; 64];
@@ -1109,4 +1109,6 @@ pub(crate) fn set_extra_public_values_target<F, W, const D: usize>(
     }
 
     witness.set_target_arr(&ed_target.block_bloom_after, &block_bloom_limbs);
+
+    Ok(())
 }
