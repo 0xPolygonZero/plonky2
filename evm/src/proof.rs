@@ -499,6 +499,7 @@ impl BlockMetadataTarget {
         for i in 0..2 {
             builder.connect(bm0.block_base_fee[i], bm1.block_base_fee[i])
         }
+        builder.connect(bm0.block_gas_used, bm1.block_gas_used);
         for i in 0..64 {
             builder.connect(bm0.block_bloom[i], bm1.block_bloom[i])
         }
