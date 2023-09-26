@@ -114,7 +114,8 @@ fn eval_packed_dup<P: PackedField>(
     lv: &CpuColumnsView<P>,
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
-    let filter = lv.op.dup;
+    // DUP opcodes have 0 at the 5-th position, while SWAP opcodes have 1.
+    let filter = lv.op.dup_swap * (P::ONES - lv.opcode_bits[4]);
 
     let in_channel = &lv.mem_channels[0];
     let out_channel = &lv.mem_channels[NUM_GP_CHANNELS - 1];
@@ -139,8 +140,9 @@ fn eval_ext_circuit_dup<F: RichField + Extendable<D>, const D: usize>(
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
     let neg_one = builder.constant_extension(F::NEG_ONE.into());
-
-    let filter = lv.op.dup;
+    let one = builder.one_extension();
+    let mut filter = builder.sub_extension(one, lv.opcode_bits[4]);
+    filter = builder.mul_extension(lv.op.dup_swap, filter);
 
     let in_channel = &lv.mem_channels[0];
     let out_channel = &lv.mem_channels[NUM_GP_CHANNELS - 1];
@@ -166,7 +168,7 @@ fn eval_packed_swap<P: PackedField>(
 ) {
     let n_plus_one = n + P::ONES;
 
-    let filter = lv.op.swap;
+    let filter = lv.op.dup_swap * lv.opcode_bits[4];
 
     let in1_channel = &lv.mem_channels[0];
     let in2_channel = &lv.mem_channels[1];
@@ -192,7 +194,7 @@ fn eval_ext_circuit_swap<F: RichField + Extendable<D>, const D: usize>(
     let one = builder.one_extension();
     let n_plus_one = builder.add_extension(n, one);
 
-    let filter = lv.op.swap;
+    let filter = builder.mul_extension(lv.op.dup_swap, lv.opcode_bits[4]);
 
     let in1_channel = &lv.mem_channels[0];
     let in2_channel = &lv.mem_channels[1];

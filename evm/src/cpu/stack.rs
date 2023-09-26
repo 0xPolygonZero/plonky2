@@ -101,8 +101,7 @@ const STACK_BEHAVIORS: OpsColumnsView<Option<StackBehavior>> = OpsColumnsView {
         disable_other_channels: true,
     }),
     push: None, // TODO
-    dup: None,
-    swap: None,
+    dup_swap: None,
     context_op: None, // SET_CONTEXT is special since it involves the old and the new stack.
     mstore_32bytes: Some(StackBehavior {
         num_pops: 5,
