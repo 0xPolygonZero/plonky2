@@ -141,6 +141,7 @@ fn eval_ext_circuit_dup<F: RichField + Extendable<D>, const D: usize>(
 ) {
     let neg_one = builder.constant_extension(F::NEG_ONE.into());
     let one = builder.one_extension();
+    // DUP opcodes have 0 at the 5-th position, while SWAP opcodes have 1.
     let mut filter = builder.sub_extension(one, lv.opcode_bits[4]);
     filter = builder.mul_extension(lv.op.dup_swap, filter);
 
@@ -168,6 +169,7 @@ fn eval_packed_swap<P: PackedField>(
 ) {
     let n_plus_one = n + P::ONES;
 
+    // DUP opcodes have 0 at the 5-th position, while SWAP opcodes have 1.
     let filter = lv.op.dup_swap * lv.opcode_bits[4];
 
     let in1_channel = &lv.mem_channels[0];
@@ -194,6 +196,7 @@ fn eval_ext_circuit_swap<F: RichField + Extendable<D>, const D: usize>(
     let one = builder.one_extension();
     let n_plus_one = builder.add_extension(n, one);
 
+    // DUP opcodes have 0 at the 5-th position, while SWAP opcodes have 1.
     let filter = builder.mul_extension(lv.op.dup_swap, lv.opcode_bits[4]);
 
     let in1_channel = &lv.mem_channels[0];
