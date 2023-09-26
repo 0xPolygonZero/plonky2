@@ -23,18 +23,17 @@ use crate::cpu::columns::{CpuColumnsView, COL_MAP};
 /// behavior.
 /// Note: invalid opcodes are not represented here. _Any_ opcode is permitted to decode to
 /// `is_invalid`. The kernel then verifies that the opcode was _actually_ invalid.
-const OPCODES: [(u8, usize, bool, usize); 16] = [
+const OPCODES: [(u8, usize, bool, usize); 14] = [
     // (start index of block, number of top bits to check (log2), kernel-only, flag column)
     // ADD, MUL, SUB, DIV, MOD, LT, GT and BYTE flags are handled partly manually here, and partly through the Arithmetic table CTL.
     // ADDMOD, MULMOD and SUBMOD flags are handled partly manually here, and partly through the Arithmetic table CTL.
     // FP254 operation flags are handled partly manually here, and partly through the Arithmetic table CTL.
     (0x14, 1, false, COL_MAP.op.eq_iszero),
     // AND, OR and XOR flags are handled partly manually here, and partly through the Logic table CTL.
-    (0x19, 0, false, COL_MAP.op.not),
+    // NOT and POP are handled manually here.
     // SHL and SHR flags are handled partly manually here, and partly through the Logic table CTL.
     (0x21, 0, true, COL_MAP.op.keccak_general),
     (0x49, 0, true, COL_MAP.op.prover_input),
-    (0x50, 0, false, COL_MAP.op.pop),
     (0x56, 1, false, COL_MAP.op.jumps), // 0x56-0x57
     (0x58, 0, false, COL_MAP.op.pc),
     (0x5b, 0, false, COL_MAP.op.jumpdest),
@@ -52,13 +51,14 @@ const OPCODES: [(u8, usize, bool, usize); 16] = [
 /// List of combined opcodes requiring a special handling.
 /// Each index in the list corresponds to an arbitrary combination
 /// of opcodes defined in evm/src/cpu/columns/ops.rs.
-const COMBINED_OPCODES: [usize; 6] = [
+const COMBINED_OPCODES: [usize; 7] = [
     COL_MAP.op.logic_op,
     COL_MAP.op.fp254_op,
     COL_MAP.op.binary_op,
     COL_MAP.op.ternary_op,
     COL_MAP.op.shift,
     COL_MAP.op.m_op_general,
+    COL_MAP.op.not_pop,
 ];
 
 pub fn generate<F: RichField>(lv: &mut CpuColumnsView<F>) {
@@ -103,6 +103,11 @@ pub fn generate<F: RichField>(lv: &mut CpuColumnsView<F>) {
 
     if opcode == 0xfb || opcode == 0xfc {
         lv.op.m_op_general = F::from_bool(kernel);
+    }
+
+    // NOT and POP are not kernel-only instructions.
+    if opcode == 0x50 || opcode == 0x19 {
+        lv.op.not_pop = F::ONE;
     }
 }
 
@@ -192,6 +197,14 @@ pub fn eval_packed_generic<P: PackedField>(
         * (opcode - P::Scalar::from_canonical_usize(0xfc_usize))
         * lv.op.m_op_general;
     yield_constr.constraint(m_op_constr);
+
+    // Manually check lv.op.not_pop.
+    // Both NOT and POP can be called outside of the kernel mode:
+    // there is no need to constrain them in that regard.
+    let not_pop_op = (opcode - P::Scalar::from_canonical_usize(0x19_usize))
+        * (opcode - P::Scalar::from_canonical_usize(0x50_usize))
+        * lv.op.not_pop;
+    yield_constr.constraint(not_pop_op);
 }
 
 pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
@@ -294,4 +307,17 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     m_op_constr = builder.mul_extension(m_op_constr, lv.op.m_op_general);
 
     yield_constr.constraint(builder, m_op_constr);
+
+    // Manually check lv.op.not_pop.
+    // Both NOT and POP can be called outside of the kernel mode:
+    // there is no need to constrain them in that regard.
+    let not_opcode = builder.constant_extension(F::Extension::from_canonical_usize(0x19_usize));
+    let pop_opcode = builder.constant_extension(F::Extension::from_canonical_usize(0x50_usize));
+
+    let not_constr = builder.sub_extension(opcode, not_opcode);
+    let pop_constr = builder.sub_extension(opcode, pop_opcode);
+
+    let mut not_pop_constr = builder.mul_extension(not_constr, pop_constr);
+    not_pop_constr = builder.mul_extension(lv.op.not_pop, not_pop_constr);
+    yield_constr.constraint(builder, not_pop_constr);
 }

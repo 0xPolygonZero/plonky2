@@ -159,7 +159,7 @@ fn fill_op_flag<F: Field>(op: Operation, row: &mut CpuColumnsView<F>) {
         Operation::Dup(_) => &mut flags.dup,
         Operation::Swap(_) => &mut flags.swap,
         Operation::Iszero | Operation::Eq => &mut flags.eq_iszero,
-        Operation::Not => &mut flags.not,
+        Operation::Not | Operation::Pop => &mut flags.not_pop,
         Operation::Syscall(_, _, _) => &mut flags.syscall,
         Operation::BinaryLogic(_) => &mut flags.logic_op,
         Operation::BinaryArithmetic(arithmetic::BinaryOperator::AddFp254)
@@ -171,7 +171,6 @@ fn fill_op_flag<F: Field>(op: Operation, row: &mut CpuColumnsView<F>) {
         Operation::TernaryArithmetic(_) => &mut flags.ternary_op,
         Operation::KeccakGeneral => &mut flags.keccak_general,
         Operation::ProverInput => &mut flags.prover_input,
-        Operation::Pop => &mut flags.pop,
         Operation::Jump | Operation::Jumpi => &mut flags.jumps,
         Operation::Pc => &mut flags.pc,
         Operation::Jumpdest => &mut flags.jumpdest,

@@ -18,7 +18,7 @@ pub(crate) struct StackBehavior {
     disable_other_channels: bool,
 }
 
-const BASIC_UNARY_OP: Option<StackBehavior> = Some(StackBehavior {
+pub(crate) const BASIC_UNARY_OP: Option<StackBehavior> = Some(StackBehavior {
     num_pops: 1,
     pushes: true,
     disable_other_channels: true,
@@ -33,6 +33,13 @@ const BASIC_TERNARY_OP: Option<StackBehavior> = Some(StackBehavior {
     pushes: true,
     disable_other_channels: true,
 });
+
+const POP_OP: Option<StackBehavior> = Some(StackBehavior {
+    num_pops: 1,
+    pushes: false,
+    disable_other_channels: true,
+});
+
 pub(crate) const JUMP_OP: Option<StackBehavior> = Some(StackBehavior {
     num_pops: 1,
     pushes: false,
@@ -67,7 +74,7 @@ const STACK_BEHAVIORS: OpsColumnsView<Option<StackBehavior>> = OpsColumnsView {
     fp254_op: BASIC_BINARY_OP,
     eq_iszero: None, // EQ is binary, IS_ZERO is unary.
     logic_op: BASIC_BINARY_OP,
-    not: BASIC_UNARY_OP,
+    not_pop: None,
     shift: Some(StackBehavior {
         num_pops: 2,
         pushes: true,
@@ -79,12 +86,7 @@ const STACK_BEHAVIORS: OpsColumnsView<Option<StackBehavior>> = OpsColumnsView {
         disable_other_channels: true,
     }),
     prover_input: None, // TODO
-    pop: Some(StackBehavior {
-        num_pops: 1,
-        pushes: false,
-        disable_other_channels: true,
-    }),
-    jumps: None, // Depends on whether it's a JUMP or a JUMPI.
+    jumps: None,        // Depends on whether it's a JUMP or a JUMPI.
     pc: Some(StackBehavior {
         num_pops: 0,
         pushes: true,
@@ -200,6 +202,10 @@ pub fn eval_packed<P: PackedField>(
             eval_packed_one(lv, nv, op, stack_behavior, yield_constr);
         }
     }
+
+    // Stack constraints for POP.
+    let filter = lv.op.not_pop * (P::ONES - lv.opcode_bits[0]);
+    eval_packed_one(lv, nv, filter, POP_OP.unwrap(), yield_constr);
 }
 
 pub(crate) fn eval_ext_circuit_one<F: RichField + Extendable<D>, const D: usize>(
@@ -326,4 +332,10 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
             eval_ext_circuit_one(builder, lv, nv, op, stack_behavior, yield_constr);
         }
     }
+
+    // Stack constraints for POP.
+    let one = builder.one_extension();
+    let mut filter = builder.sub_extension(one, lv.opcode_bits[0]);
+    filter = builder.mul_extension(filter, lv.op.not_pop);
+    eval_ext_circuit_one(builder, lv, nv, filter, POP_OP.unwrap(), yield_constr);
 }

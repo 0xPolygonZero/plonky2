@@ -14,7 +14,7 @@ pub fn eval_packed<P: PackedField>(
     nv: &CpuColumnsView<P>,
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
-    not::eval_packed(lv, yield_constr);
+    not::eval_packed(lv, nv, yield_constr);
     eq_iszero::eval_packed(lv, nv, yield_constr);
 }
 
@@ -24,6 +24,6 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     nv: &CpuColumnsView<ExtensionTarget<D>>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
-    not::eval_ext_circuit(builder, lv, yield_constr);
+    not::eval_ext_circuit(builder, lv, nv, yield_constr);
     eq_iszero::eval_ext_circuit(builder, lv, nv, yield_constr);
 }
