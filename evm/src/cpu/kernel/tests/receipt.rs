@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use ethereum_types::{Address, U256};
 use hex_literal::hex;
 use keccak_hash::keccak;
@@ -413,7 +413,9 @@ fn test_mpt_insert_receipt() -> Result<()> {
     let initial_stack = vec![retdest];
 
     let mut interpreter = Interpreter::new_with_kernel(load_all_mpts, initial_stack);
-    interpreter.generation_state.mpt_prover_inputs = all_mpt_prover_inputs_reversed(&trie_inputs);
+    interpreter.generation_state.mpt_prover_inputs =
+        all_mpt_prover_inputs_reversed(&trie_inputs)
+            .map_err(|err| anyhow!("Invalid MPT data: {:?}", err))?;
     interpreter.run()?;
 
     // If TrieData is empty, we need to push 0 because the first value is always 0.

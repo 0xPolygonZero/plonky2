@@ -11,6 +11,7 @@ use rlp_derive::{RlpDecodable, RlpEncodable};
 
 use crate::cpu::kernel::constants::trie_type::PartialTrieType;
 use crate::generation::TrieInputs;
+use crate::witness::errors::{ProgramError, ProverInputError};
 use crate::Node;
 
 #[derive(RlpEncodable, RlpDecodable, Debug)]
@@ -60,15 +61,18 @@ pub struct LegacyReceiptRlp {
     pub logs: Vec<LogRlp>,
 }
 
-pub(crate) fn all_mpt_prover_inputs_reversed(trie_inputs: &TrieInputs) -> Vec<U256> {
-    let mut inputs = all_mpt_prover_inputs(trie_inputs);
+pub(crate) fn all_mpt_prover_inputs_reversed(
+    trie_inputs: &TrieInputs,
+) -> Result<Vec<U256>, ProgramError> {
+    let mut inputs = all_mpt_prover_inputs(trie_inputs)?;
     inputs.reverse();
-    inputs
+    Ok(inputs)
 }
 
-pub(crate) fn parse_receipts(rlp: &[u8]) -> Vec<U256> {
-    let payload_info = PayloadInfo::from(rlp).unwrap();
-    let decoded_receipt: LegacyReceiptRlp = rlp::decode(rlp).unwrap();
+pub(crate) fn parse_receipts(rlp: &[u8]) -> Result<Vec<U256>, ProgramError> {
+    let payload_info = PayloadInfo::from(rlp).map_err(|_| ProgramError::InvalidRlp)?;
+    let decoded_receipt: LegacyReceiptRlp =
+        rlp::decode(rlp).map_err(|_| ProgramError::InvalidRlp)?;
     let mut parsed_receipt = Vec::new();
 
     parsed_receipt.push(payload_info.value_len.into()); // payload_len of the entire receipt
@@ -76,13 +80,15 @@ pub(crate) fn parse_receipts(rlp: &[u8]) -> Vec<U256> {
     parsed_receipt.push(decoded_receipt.cum_gas_used);
     parsed_receipt.extend(decoded_receipt.bloom.iter().map(|byte| U256::from(*byte)));
     let encoded_logs = rlp::encode_list(&decoded_receipt.logs);
-    let logs_payload_info = PayloadInfo::from(&encoded_logs).unwrap();
+    let logs_payload_info =
+        PayloadInfo::from(&encoded_logs).map_err(|_| ProgramError::InvalidRlp)?;
     parsed_receipt.push(logs_payload_info.value_len.into()); // payload_len of all the logs
     parsed_receipt.push(decoded_receipt.logs.len().into());
 
     for log in decoded_receipt.logs {
         let encoded_log = rlp::encode(&log);
-        let log_payload_info = PayloadInfo::from(&encoded_log).unwrap();
+        let log_payload_info =
+            PayloadInfo::from(&encoded_log).map_err(|_| ProgramError::InvalidRlp)?;
         parsed_receipt.push(log_payload_info.value_len.into()); // payload of one log
         parsed_receipt.push(U256::from_big_endian(&log.address.to_fixed_bytes()));
         parsed_receipt.push(log.topics.len().into());
@@ -91,10 +97,10 @@ pub(crate) fn parse_receipts(rlp: &[u8]) -> Vec<U256> {
         parsed_receipt.extend(log.data.iter().map(|byte| U256::from(*byte)));
     }
 
-    parsed_receipt
+    Ok(parsed_receipt)
 }
 /// Generate prover inputs for the initial MPT data, in the format expected by `mpt/load.asm`.
-pub(crate) fn all_mpt_prover_inputs(trie_inputs: &TrieInputs) -> Vec<U256> {
+pub(crate) fn all_mpt_prover_inputs(trie_inputs: &TrieInputs) -> Result<Vec<U256>, ProgramError> {
     let mut prover_inputs = vec![];
 
     let storage_tries_by_state_key = trie_inputs
@@ -111,19 +117,19 @@ pub(crate) fn all_mpt_prover_inputs(trie_inputs: &TrieInputs) -> Vec<U256> {
         empty_nibbles(),
         &mut prover_inputs,
         &storage_tries_by_state_key,
-    );
+    )?;
 
     mpt_prover_inputs(&trie_inputs.transactions_trie, &mut prover_inputs, &|rlp| {
-        rlp::decode_list(rlp)
-    });
+        Ok(rlp::decode_list(rlp))
+    })?;
 
     mpt_prover_inputs(
         &trie_inputs.receipts_trie,
         &mut prover_inputs,
         &parse_receipts,
-    );
+    )?;
 
-    prover_inputs
+    Ok(prover_inputs)
 }
 
 /// Given a trie, generate the prover input data for that trie. In essence, this serializes a trie
@@ -134,36 +140,52 @@ pub(crate) fn mpt_prover_inputs<F>(
     trie: &HashedPartialTrie,
     prover_inputs: &mut Vec<U256>,
     parse_value: &F,
-) where
-    F: Fn(&[u8]) -> Vec<U256>,
+) -> Result<(), ProgramError>
+where
+    F: Fn(&[u8]) -> Result<Vec<U256>, ProgramError>,
 {
     prover_inputs.push((PartialTrieType::of(trie) as u32).into());
 
     match trie.deref() {
-        Node::Empty => {}
-        Node::Hash(h) => prover_inputs.push(U256::from_big_endian(h.as_bytes())),
+        Node::Empty => Ok(()),
+        Node::Hash(h) => {
+            prover_inputs.push(U256::from_big_endian(h.as_bytes()));
+            Ok(())
+        }
         Node::Branch { children, value } => {
             if value.is_empty() {
                 prover_inputs.push(U256::zero()); // value_present = 0
             } else {
-                let parsed_value = parse_value(value);
+                let parsed_value = parse_value(value)?;
                 prover_inputs.push(U256::one()); // value_present = 1
                 prover_inputs.extend(parsed_value);
             }
             for child in children {
-                mpt_prover_inputs(child, prover_inputs, parse_value);
+                mpt_prover_inputs(child, prover_inputs, parse_value)?;
             }
+
+            Ok(())
         }
         Node::Extension { nibbles, child } => {
             prover_inputs.push(nibbles.count.into());
-            prover_inputs.push(nibbles.try_into_u256().unwrap());
-            mpt_prover_inputs(child, prover_inputs, parse_value);
+            prover_inputs.push(
+                nibbles
+                    .try_into_u256()
+                    .map_err(|_| ProgramError::IntegerTooLarge)?,
+            );
+            mpt_prover_inputs(child, prover_inputs, parse_value)
         }
         Node::Leaf { nibbles, value } => {
             prover_inputs.push(nibbles.count.into());
-            prover_inputs.push(nibbles.try_into_u256().unwrap());
-            let leaf = parse_value(value);
+            prover_inputs.push(
+                nibbles
+                    .try_into_u256()
+                    .map_err(|_| ProgramError::IntegerTooLarge)?,
+            );
+            let leaf = parse_value(value)?;
             prover_inputs.extend(leaf);
+
+            Ok(())
         }
     }
 }
@@ -175,13 +197,20 @@ pub(crate) fn mpt_prover_inputs_state_trie(
     key: Nibbles,
     prover_inputs: &mut Vec<U256>,
     storage_tries_by_state_key: &HashMap<Nibbles, &HashedPartialTrie>,
-) {
+) -> Result<(), ProgramError> {
     prover_inputs.push((PartialTrieType::of(trie) as u32).into());
     match trie.deref() {
-        Node::Empty => {}
-        Node::Hash(h) => prover_inputs.push(U256::from_big_endian(h.as_bytes())),
+        Node::Empty => Ok(()),
+        Node::Hash(h) => {
+            prover_inputs.push(U256::from_big_endian(h.as_bytes()));
+            Ok(())
+        }
         Node::Branch { children, value } => {
-            assert!(value.is_empty(), "State trie should not have branch values");
+            if !value.is_empty() {
+                return Err(ProgramError::ProverInputError(
+                    ProverInputError::InvalidMptInput,
+                ));
+            }
             prover_inputs.push(U256::zero()); // value_present = 0
 
             for (i, child) in children.iter().enumerate() {
@@ -194,22 +223,28 @@ pub(crate) fn mpt_prover_inputs_state_trie(
                     extended_key,
                     prover_inputs,
                     storage_tries_by_state_key,
-                );
+                )?;
             }
+
+            Ok(())
         }
         Node::Extension { nibbles, child } => {
             prover_inputs.push(nibbles.count.into());
-            prover_inputs.push(nibbles.try_into_u256().unwrap());
+            prover_inputs.push(
+                nibbles
+                    .try_into_u256()
+                    .map_err(|_| ProgramError::IntegerTooLarge)?,
+            );
             let extended_key = key.merge_nibbles(nibbles);
             mpt_prover_inputs_state_trie(
                 child,
                 extended_key,
                 prover_inputs,
                 storage_tries_by_state_key,
-            );
+            )
         }
         Node::Leaf { nibbles, value } => {
-            let account: AccountRlp = rlp::decode(value).expect("Decoding failed");
+            let account: AccountRlp = rlp::decode(value).map_err(|_| ProgramError::InvalidRlp)?;
             let AccountRlp {
                 nonce,
                 balance,
@@ -228,18 +263,24 @@ pub(crate) fn mpt_prover_inputs_state_trie(
                        "In TrieInputs, an account's storage_root didn't match the associated storage trie hash");
 
             prover_inputs.push(nibbles.count.into());
-            prover_inputs.push(nibbles.try_into_u256().unwrap());
+            prover_inputs.push(
+                nibbles
+                    .try_into_u256()
+                    .map_err(|_| ProgramError::IntegerTooLarge)?,
+            );
             prover_inputs.push(nonce);
             prover_inputs.push(balance);
-            mpt_prover_inputs(storage_trie, prover_inputs, &parse_storage_value);
+            mpt_prover_inputs(storage_trie, prover_inputs, &parse_storage_value)?;
             prover_inputs.push(code_hash.into_uint());
+
+            Ok(())
         }
     }
 }
 
-fn parse_storage_value(value_rlp: &[u8]) -> Vec<U256> {
-    let value: U256 = rlp::decode(value_rlp).expect("Decoding failed");
-    vec![value]
+fn parse_storage_value(value_rlp: &[u8]) -> Result<Vec<U256>, ProgramError> {
+    let value: U256 = rlp::decode(value_rlp).map_err(|_| ProgramError::InvalidRlp)?;
+    Ok(vec![value])
 }
 
 fn empty_nibbles() -> Nibbles {

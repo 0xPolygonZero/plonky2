@@ -935,7 +935,7 @@ where
         witness,
         &public_values_target.extra_block_data,
         &public_values.extra_block_data,
-    );
+    )?;
 
     Ok(())
 }
@@ -1072,26 +1072,21 @@ pub(crate) fn set_extra_public_values_target<F, W, const D: usize>(
     witness: &mut W,
     ed_target: &ExtraBlockDataTarget,
     ed: &ExtraBlockData,
-) where
+) -> Result<(), ProgramError>
+where
     F: RichField + Extendable<D>,
     W: Witness<F>,
 {
     witness.set_target(
         ed_target.txn_number_before,
-        F::from_canonical_usize(ed.txn_number_before.as_usize()),
+        u256_to_u32(ed.txn_number_before)?,
     );
     witness.set_target(
         ed_target.txn_number_after,
-        F::from_canonical_usize(ed.txn_number_after.as_usize()),
+        u256_to_u32(ed.txn_number_after)?,
     );
-    witness.set_target(
-        ed_target.gas_used_before,
-        F::from_canonical_usize(ed.gas_used_before.as_usize()),
-    );
-    witness.set_target(
-        ed_target.gas_used_after,
-        F::from_canonical_usize(ed.gas_used_after.as_usize()),
-    );
+    witness.set_target(ed_target.gas_used_before, u256_to_u32(ed.gas_used_before)?);
+    witness.set_target(ed_target.gas_used_after, u256_to_u32(ed.gas_used_after)?);
 
     let block_bloom_before = ed.block_bloom_before;
     let mut block_bloom_limbs = [F::ZERO; 64];
@@ -1108,4 +1103,6 @@ pub(crate) fn set_extra_public_values_target<F, W, const D: usize>(
     }
 
     witness.set_target_arr(&ed_target.block_bloom_after, &block_bloom_limbs);
+
+    Ok(())
 }

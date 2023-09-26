@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use anyhow::anyhow;
 use eth_trie_utils::partial_trie::{HashedPartialTrie, PartialTrie};
 use ethereum_types::{Address, BigEndianHash, H256, U256};
 use plonky2::field::extension::Extendable;
@@ -220,7 +221,8 @@ pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
     PublicValues,
     GenerationOutputs,
 )> {
-    let mut state = GenerationState::<F>::new(inputs.clone(), &KERNEL.code);
+    let mut state = GenerationState::<F>::new(inputs.clone(), &KERNEL.code)
+        .map_err(|err| anyhow!("Failed to parse all the initial prover inputs: {:?}", err))?;
 
     apply_metadata_and_tries_memops(&mut state, &inputs);
 
@@ -238,7 +240,8 @@ pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
         state.traces.get_lengths()
     );
 
-    let outputs = get_outputs(&mut state);
+    let outputs = get_outputs(&mut state)
+        .map_err(|err| anyhow!("Failed to generate post-state info: {:?}", err))?;
 
     let read_metadata = |field| state.memory.read_global_metadata(field);
     let trie_roots_before = TrieRoots {
