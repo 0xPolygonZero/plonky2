@@ -300,7 +300,7 @@ fn log_kernel_instruction<F: Field>(state: &GenerationState<F>, op: Operation) {
         state.registers.context,
         KERNEL.offset_name(pc),
         op,
-        state.stack()
+        state.stack(),
     );
 
     assert!(pc < KERNEL.code.len(), "Kernel PC is out of range: {}", pc);

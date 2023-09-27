@@ -55,6 +55,7 @@ fn test_simple_transfer() -> anyhow::Result<()> {
         value: rlp::encode(&sender_account_before).to_vec(),
     }
     .into();
+
     let tries_before = TrieInputs {
         state_trie: state_trie_before,
         transactions_trie: HashedPartialTrie::from(Node::Empty),
@@ -125,10 +126,15 @@ fn test_simple_transfer() -> anyhow::Result<()> {
         Nibbles::from_str("0x80").unwrap(),
         rlp::encode(&receipt_0).to_vec(),
     );
+    let transactions_trie: HashedPartialTrie = Node::Leaf {
+        nibbles: Nibbles::from_str("0x80").unwrap(),
+        value: txn.to_vec(),
+    }
+    .into();
 
     let trie_roots_after = TrieRoots {
         state_root: expected_state_trie_after.hash(),
-        transactions_root: tries_before.transactions_trie.hash(), // TODO: Fix this when we have transactions trie.
+        transactions_root: transactions_trie.hash(),
         receipts_root: receipts_trie.hash(),
     };
     let inputs = GenerationInputs {

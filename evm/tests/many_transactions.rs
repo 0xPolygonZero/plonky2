@@ -1,3 +1,5 @@
+#![allow(clippy::upper_case_acronyms)]
+
 use std::collections::HashMap;
 use std::str::FromStr;
 use std::time::Duration;
@@ -25,10 +27,9 @@ type F = GoldilocksField;
 const D: usize = 2;
 type C = KeccakGoldilocksConfig;
 
-/// Test a simple token transfer to a new address.
+/// Test the validity of four transactions, where only the first one is valid and the other three abort.  
 #[test]
-#[ignore] // Too slow to run on CI.
-fn test_basic_smart_contract() -> anyhow::Result<()> {
+fn test_four_transactions() -> anyhow::Result<()> {
     init_logger();
 
     let all_stark = AllStark::<F, D>::default();
@@ -53,13 +54,12 @@ fn test_basic_smart_contract() -> anyhow::Result<()> {
     let code_gas = 3 + 3 + 3;
     let code_hash = keccak(code);
 
-    let beneficiary_account_before = AccountRlp {
-        nonce: 1.into(),
-        ..AccountRlp::default()
-    };
+    let beneficiary_account_before = AccountRlp::default();
     let sender_account_before = AccountRlp {
         nonce: 5.into(),
+
         balance: eth_to_wei(100_000.into()),
+
         ..AccountRlp::default()
     };
     let to_account_before = AccountRlp {
@@ -69,18 +69,15 @@ fn test_basic_smart_contract() -> anyhow::Result<()> {
 
     let state_trie_before = {
         let mut children = core::array::from_fn(|_| Node::Empty.into());
-        children[beneficiary_nibbles.get_nibble(0) as usize] = Node::Leaf {
-            nibbles: beneficiary_nibbles.truncate_n_nibbles_front(1),
-            value: rlp::encode(&beneficiary_account_before).to_vec(),
-        }
-        .into();
         children[sender_nibbles.get_nibble(0) as usize] = Node::Leaf {
             nibbles: sender_nibbles.truncate_n_nibbles_front(1),
+
             value: rlp::encode(&sender_account_before).to_vec(),
         }
         .into();
         children[to_nibbles.get_nibble(0) as usize] = Node::Leaf {
             nibbles: to_nibbles.truncate_n_nibbles_front(1),
+
             value: rlp::encode(&to_account_before).to_vec(),
         }
         .into();
@@ -98,34 +95,38 @@ fn test_basic_smart_contract() -> anyhow::Result<()> {
         storage_tries: vec![],
     };
 
+    // Generated using a little py-evm script.
+    let txn1 = hex!("f861050a8255f094a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0648242421ba02c89eb757d9deeb1f5b3859a9d4d679951ef610ac47ad4608dc142beb1b7e313a05af7e9fbab825455d36c36c7f4cfcafbeafa9a77bdff936b52afb36d4fe4bcdd");
+    let txn2 = hex!("f863800a83061a8094095e7baea6a6c7c4c2dfeb977efac326af552d87830186a0801ba0ffb600e63115a7362e7811894a91d8ba4330e526f22121c994c4692035dfdfd5a06198379fcac8de3dbfac48b165df4bf88e2088f294b61efb9a65fe2281c76e16");
+    let txn3 = hex!("f861800a8405f5e10094100000000000000000000000000000000000000080801ba07e09e26678ed4fac08a249ebe8ed680bf9051a5e14ad223e4b2b9d26e0208f37a05f6e3f188e3e6eab7d7d3b6568f5eac7d687b08d307d3154ccd8c87b4630509b");
+    let txn4 = hex!("f866800a82520894095e7baea6a6c7c4c2dfeb977efac326af552d878711c37937e080008026a01fcd0ce88ac7600698a771f206df24b70e67981b6f107bd7c1c24ea94f113bcba00d87cc5c7afc2988e4ff200b5a0c7016b0d5498bbc692065ca983fcbbfe02555");
+
     let txdata_gas = 2 * 16;
     let gas_used = 21_000 + code_gas + txdata_gas;
 
-    // Generated using a little py-evm script.
-    let txn = hex!("f861050a8255f094a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0648242421ba02c89eb757d9deeb1f5b3859a9d4d679951ef610ac47ad4608dc142beb1b7e313a05af7e9fbab825455d36c36c7f4cfcafbeafa9a77bdff936b52afb36d4fe4bcdd");
     let value = U256::from(100u32);
 
     let block_metadata = BlockMetadata {
         block_beneficiary: Address::from(beneficiary),
-        block_difficulty: 0x20000.into(),
-        block_number: 1.into(),
-        block_chain_id: 1.into(),
         block_timestamp: 0x03e8.into(),
-        block_gaslimit: 0xff112233u32.into(),
+        block_number: 1.into(),
+        block_difficulty: 0x020000.into(),
+        block_gaslimit: 0x445566u64.into(),
+        block_chain_id: 1.into(),
         block_gas_used: gas_used.into(),
-        block_bloom: [0.into(); 8],
-        block_base_fee: 0xa.into(),
-        block_random: Default::default(),
+        ..BlockMetadata::default()
     };
 
     let mut contract_code = HashMap::new();
     contract_code.insert(keccak(vec![]), vec![]);
     contract_code.insert(code_hash, code.to_vec());
 
+    // Update trie roots after the 4 transactions.
+    // State trie.
     let expected_state_trie_after: HashedPartialTrie = {
         let beneficiary_account_after = AccountRlp {
-            nonce: 1.into(),
-            ..AccountRlp::default()
+            balance: beneficiary_account_before.balance + gas_used * 10,
+            ..beneficiary_account_before
         };
         let sender_account_after = AccountRlp {
             balance: sender_account_before.balance - value - gas_used * 10,
@@ -140,16 +141,19 @@ fn test_basic_smart_contract() -> anyhow::Result<()> {
         let mut children = core::array::from_fn(|_| Node::Empty.into());
         children[beneficiary_nibbles.get_nibble(0) as usize] = Node::Leaf {
             nibbles: beneficiary_nibbles.truncate_n_nibbles_front(1),
+
             value: rlp::encode(&beneficiary_account_after).to_vec(),
         }
         .into();
         children[sender_nibbles.get_nibble(0) as usize] = Node::Leaf {
             nibbles: sender_nibbles.truncate_n_nibbles_front(1),
+
             value: rlp::encode(&sender_account_after).to_vec(),
         }
         .into();
         children[to_nibbles.get_nibble(0) as usize] = Node::Leaf {
             nibbles: to_nibbles.truncate_n_nibbles_front(1),
+
             value: rlp::encode(&to_account_after).to_vec(),
         }
         .into();
@@ -160,22 +164,46 @@ fn test_basic_smart_contract() -> anyhow::Result<()> {
     }
     .into();
 
+    // Transactions trie.
+    let mut transactions_trie: HashedPartialTrie = Node::Leaf {
+        nibbles: Nibbles::from_str("0x80").unwrap(),
+        value: txn1.to_vec(),
+    }
+    .into();
+    transactions_trie.insert(Nibbles::from_str("0x01").unwrap(), txn2.to_vec());
+    transactions_trie.insert(Nibbles::from_str("0x02").unwrap(), txn3.to_vec());
+    transactions_trie.insert(Nibbles::from_str("0x03").unwrap(), txn4.to_vec());
+
+    // Receipts trie.
+    let mut receipts_trie = HashedPartialTrie::from(Node::Empty);
     let receipt_0 = LegacyReceiptRlp {
         status: true,
         cum_gas_used: gas_used.into(),
-        bloom: vec![0; 256].into(),
+        bloom: [0x00; 256].to_vec().into(),
         logs: vec![],
     };
-    let mut receipts_trie = HashedPartialTrie::from(Node::Empty);
+    let receipt_1 = LegacyReceiptRlp {
+        status: false,
+        cum_gas_used: gas_used.into(),
+        bloom: [0x00; 256].to_vec().into(),
+        logs: vec![],
+    };
     receipts_trie.insert(
         Nibbles::from_str("0x80").unwrap(),
         rlp::encode(&receipt_0).to_vec(),
     );
-    let transactions_trie: HashedPartialTrie = Node::Leaf {
-        nibbles: Nibbles::from_str("0x80").unwrap(),
-        value: txn.to_vec(),
-    }
-    .into();
+    receipts_trie.insert(
+        Nibbles::from_str("0x01").unwrap(),
+        rlp::encode(&receipt_1).to_vec(),
+    );
+    receipts_trie.insert(
+        Nibbles::from_str("0x02").unwrap(),
+        rlp::encode(&receipt_1).to_vec(),
+    );
+    receipts_trie.insert(
+        Nibbles::from_str("0x03").unwrap(),
+        rlp::encode(&receipt_1).to_vec(),
+    );
 
     let trie_roots_after = TrieRoots {
         state_root: expected_state_trie_after.hash(),
@@ -183,22 +211,22 @@ fn test_basic_smart_contract() -> anyhow::Result<()> {
         receipts_root: receipts_trie.hash(),
     };
     let inputs = GenerationInputs {
-        signed_txns: vec![txn.to_vec()],
+        signed_txns: vec![txn1.to_vec(), txn2.to_vec(), txn3.to_vec(), txn4.to_vec()],
         tries: tries_before,
         trie_roots_after,
-        contract_code,
         genesis_state_trie_root: HashedPartialTrie::from(Node::Empty).hash(),
-        block_metadata,
-        txn_number_before: 0.into(),
+        contract_code,
+        block_metadata: block_metadata.clone(),
+        addresses: vec![],
+        block_bloom_before: [0.into(); 8],
         gas_used_before: 0.into(),
         gas_used_after: gas_used.into(),
-        block_bloom_before: [0.into(); 8],
+        txn_number_before: 0.into(),
         block_bloom_after: [0.into(); 8],
         block_hashes: BlockHashes {
             prev_hashes: vec![H256::default(); 256],
             cur_hash: H256::default(),
         },
-        addresses: vec![],
     };
 
     let mut timing = TimingTree::new("prove", log::Level::Debug);
