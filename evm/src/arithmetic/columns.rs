@@ -109,8 +109,7 @@ pub(crate) const MODULAR_DIV_DENOM_IS_ZERO: usize = AUX_REGISTER_2.end;
 // of the column and the permutation of the range. The two
 // permutations associated to column i will be in columns RC_COLS[2i]
 // and RC_COLS[2i+1].
-pub(crate) const NUM_RANGE_CHECK_COLS: usize = 1 + 2 * NUM_SHARED_COLS;
 pub(crate) const RANGE_COUNTER: usize = START_SHARED_COLS + NUM_SHARED_COLS;
-pub(crate) const RC_COLS: Range<usize> = RANGE_COUNTER + 1..RANGE_COUNTER + 1 + 2 * NUM_SHARED_COLS;
+pub(crate) const RC_FREQUENCIES: usize = RANGE_COUNTER + 1;
 
-pub const NUM_ARITH_COLUMNS: usize = START_SHARED_COLS + NUM_SHARED_COLS + NUM_RANGE_CHECK_COLS;
+pub const NUM_ARITH_COLUMNS: usize = START_SHARED_COLS + NUM_SHARED_COLS + 2;
