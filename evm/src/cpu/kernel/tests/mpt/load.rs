@@ -285,7 +285,7 @@ fn load_mpt_txn_trie() -> Result<()> {
         5.into(),   // value_ptr
         txn.len().into(),
     ];
-    expected_trie_data.extend::<Vec<U256>>(txn.into_iter().map(|b| b.into()).collect());
+    expected_trie_data.extend(txn.into_iter().map(U256::from));
     let trie_data = interpreter.get_trie_data();
 
     assert_eq!(trie_data, expected_trie_data);

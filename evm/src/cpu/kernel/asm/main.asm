@@ -16,28 +16,11 @@ global hash_initial_tries:
 
 global start_txns:
     // stack: (empty)
+    // The special case of an empty trie (i.e. for the first transaction)
+    // is handled outside of the kernel.
     %mload_global_metadata(@GLOBAL_METADATA_TXN_NUMBER_BEFORE)
     // stack: txn_nb
-    // If the txn trie is empty, we want to make sure that txn_nb is 0.
-    DUP1 ISZERO ISZERO
-    // stack: txn_nb != 0, txn_nb
-    %mload_global_metadata(@GLOBAL_METADATA_TXN_TRIE_DIGEST_BEFORE)
-    PUSH @EMPTY_NODE_HASH EQ
-    // stack: txn_trie_hash == empty_hash, txn_nb != 0, txn_nb
-    MUL
-    // stack: is_invalid_txn_nb, txn_nb
-    %jumpi(panic)
-    // stack: txn_nb
     %mload_global_metadata(@GLOBAL_METADATA_BLOCK_GAS_USED_BEFORE)
-    // If the txn trie is empty, we want to make sure that gas_used is 0.
-    DUP1 ISZERO ISZERO
-    // stack: init_gas_used != 0, init_gas_used, txn_nb
-    %mload_global_metadata(@GLOBAL_METADATA_TXN_TRIE_DIGEST_BEFORE)
-    PUSH @EMPTY_NODE_HASH EQ
-    // stack: txn_trie_hash == empty_hash, init_gas_used != 0, init_gas_used, txn_nb
-    MUL
-    // stack: is_invalid_gas_used, init_gas_used, txn_nb
-    %jumpi(panic)
     // stack: init_used_gas, txn_nb
     DUP2 %scalar_to_rlp
     // stack: txn_counter, init_gas_used, txn_nb

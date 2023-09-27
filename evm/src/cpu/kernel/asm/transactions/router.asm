@@ -40,9 +40,7 @@ read_txn_from_memory:
 
 global update_txn_trie:
     // stack: txn_rlp_len, txn_counter, num_nibbles, retdest
-    // We need to copy the transaction rlp since otherwise
-    // it will be eventually overwritten when hashing the
-    // state trie. We will write in the trie data segment.
+    // Copy the transaction rlp to the trie data segment.
     %get_trie_data_size
     // stack: value_ptr, txn_rlp_len, txn_counter, num_nibbles, retdest
     SWAP1

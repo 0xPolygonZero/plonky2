@@ -1,4 +1,4 @@
-// Pre-stack: status, leftover_gas, prev_cum_gas, txn_nb, retdest
+// Pre-stack: status, leftover_gas, prev_cum_gas, txn_nb, num_nibbles, retdest
 // Post stack: new_cum_gas, txn_nb
 // A receipt is stored in MPT_TRIE_DATA as:
 // [payload_len, status, cum_gas_used, bloom, logs_payload_len, num_logs, [logs]]
