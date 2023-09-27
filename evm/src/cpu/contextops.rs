@@ -1,3 +1,4 @@
+use itertools::izip;
 use plonky2::field::extension::Extendable;
 use plonky2::field::packed::PackedField;
 use plonky2::field::types::Field;
@@ -5,14 +6,72 @@ use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 
+use super::columns::ops::OpsColumnsView;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::kernel::constants::context_metadata::ContextMetadata;
 use crate::cpu::membus::NUM_GP_CHANNELS;
 use crate::memory::segments::Segment;
 
+// If true, the instruction will keep the current context for the next row.
+// If false, next row's context is handled manually.
+const KEEPS_CONTEXT: OpsColumnsView<bool> = OpsColumnsView {
+    binary_op: true,
+    ternary_op: true,
+    fp254_op: true,
+    eq_iszero: true,
+    logic_op: true,
+    not: true,
+    shift: true,
+    keccak_general: true,
+    prover_input: true,
+    pop: true,
+    jumps: true,
+    pc: true,
+    jumpdest: true,
+    push0: true,
+    push: true,
+    dup: true,
+    swap: true,
+    context_op: false,
+    mstore_32bytes: true,
+    mload_32bytes: true,
+    exit_kernel: true,
+    m_op_general: true,
+    syscall: true,
+    exception: true,
+};
+
+fn eval_packed_keep<P: PackedField>(
+    lv: &CpuColumnsView<P>,
+    nv: &CpuColumnsView<P>,
+    yield_constr: &mut ConstraintConsumer<P>,
+) {
+    for (op, keeps_context) in izip!(lv.op.into_iter(), KEEPS_CONTEXT.into_iter()) {
+        if keeps_context {
+            yield_constr.constraint_transition(op * (nv.context - lv.context));
+        }
+    }
+}
+
+fn eval_ext_circuit_keep<F: RichField + Extendable<D>, const D: usize>(
+    builder: &mut CircuitBuilder<F, D>,
+    lv: &CpuColumnsView<ExtensionTarget<D>>,
+    nv: &CpuColumnsView<ExtensionTarget<D>>,
+    yield_constr: &mut RecursiveConstraintConsumer<F, D>,
+) {
+    for (op, keeps_context) in izip!(lv.op.into_iter(), KEEPS_CONTEXT.into_iter()) {
+        if keeps_context {
+            let diff = builder.sub_extension(nv.context, lv.context);
+            let constr = builder.mul_extension(op, diff);
+            yield_constr.constraint_transition(builder, constr);
+        }
+    }
+}
+
 fn eval_packed_get<P: PackedField>(
     lv: &CpuColumnsView<P>,
+    nv: &CpuColumnsView<P>,
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
     // If the opcode is GET_CONTEXT, then lv.opcode_bits[0] = 0
@@ -35,6 +94,9 @@ fn eval_packed_get<P: PackedField>(
     let addr_virtual = lv.stack_len;
     yield_constr.constraint(filter * (channel.addr_virtual - addr_virtual));
 
+    // Keep context
+    yield_constr.constraint_transition(filter * (nv.context - lv.context));
+
     // Unused channels
     for i in 0..NUM_GP_CHANNELS - 1 {
         let channel = lv.mem_channels[i];
@@ -45,6 +107,7 @@ fn eval_packed_get<P: PackedField>(
 fn eval_ext_circuit_get<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     lv: &CpuColumnsView<ExtensionTarget<D>>,
+    nv: &CpuColumnsView<ExtensionTarget<D>>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
     let mut filter = lv.op.context_op;
@@ -96,6 +159,14 @@ fn eval_ext_circuit_get<F: RichField + Extendable<D>, const D: usize>(
         yield_constr.constraint(builder, constr);
     }
 
+    // Keep context
+    {
+        let diff = builder.sub_extension(nv.context, lv.context);
+        let constr = builder.mul_extension(filter, diff);
+        yield_constr.constraint_transition(builder, constr);
+    }
+
+    // Unused channels
     for i in 0..NUM_GP_CHANNELS - 1 {
         let channel = lv.mem_channels[i];
         let constr = builder.mul_extension(filter, channel.used);
@@ -278,7 +349,8 @@ pub fn eval_packed<P: PackedField>(
     nv: &CpuColumnsView<P>,
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
-    eval_packed_get(lv, yield_constr);
+    eval_packed_keep(lv, nv, yield_constr);
+    eval_packed_get(lv, nv, yield_constr);
     eval_packed_set(lv, nv, yield_constr);
 }
 
@@ -288,6 +360,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     nv: &CpuColumnsView<ExtensionTarget<D>>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
-    eval_ext_circuit_get(builder, lv, yield_constr);
+    eval_ext_circuit_keep(builder, lv, nv, yield_constr);
+    eval_ext_circuit_get(builder, lv, nv, yield_constr);
     eval_ext_circuit_set(builder, lv, nv, yield_constr);
 }

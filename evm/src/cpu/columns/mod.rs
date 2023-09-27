@@ -39,7 +39,6 @@ pub struct CpuColumnsView<T: Copy> {
     pub is_bootstrap_kernel: T,
 
     /// If CPU cycle: Current context.
-    // TODO: this is currently unconstrained
     pub context: T,
 
     /// If CPU cycle: Context for code memory channel.
