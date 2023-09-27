@@ -23,7 +23,7 @@ use crate::cpu::columns::{CpuColumnsView, COL_MAP};
 /// behavior.
 /// Note: invalid opcodes are not represented here. _Any_ opcode is permitted to decode to
 /// `is_invalid`. The kernel then verifies that the opcode was _actually_ invalid.
-const OPCODES: [(u8, usize, bool, usize); 16] = [
+const OPCODES: [(u8, usize, bool, usize); 14] = [
     // (start index of block, number of top bits to check (log2), kernel-only, flag column)
     // ADD, MUL, SUB, DIV, MOD, LT, GT and BYTE flags are handled partly manually here, and partly through the Arithmetic table CTL.
     // ADDMOD, MULMOD and SUBMOD flags are handled partly manually here, and partly through the Arithmetic table CTL.
@@ -32,12 +32,11 @@ const OPCODES: [(u8, usize, bool, usize); 16] = [
     // AND, OR and XOR flags are handled partly manually here, and partly through the Logic table CTL.
     (0x19, 0, false, COL_MAP.op.not),
     // SHL and SHR flags are handled partly manually here, and partly through the Logic table CTL.
-    (0x21, 0, true, COL_MAP.op.keccak_general),
+    // JUMPDEST and KECCAK_GENERAL are handled manually here.
     (0x49, 0, true, COL_MAP.op.prover_input),
     (0x50, 0, false, COL_MAP.op.pop),
     (0x56, 1, false, COL_MAP.op.jumps), // 0x56-0x57
     (0x58, 0, false, COL_MAP.op.pc),
-    (0x5b, 0, false, COL_MAP.op.jumpdest),
     (0x5f, 0, false, COL_MAP.op.push0),
     (0x60, 5, false, COL_MAP.op.push), // 0x60-0x7f
     (0x80, 4, false, COL_MAP.op.dup),  // 0x80-0x8f
@@ -52,13 +51,14 @@ const OPCODES: [(u8, usize, bool, usize); 16] = [
 /// List of combined opcodes requiring a special handling.
 /// Each index in the list corresponds to an arbitrary combination
 /// of opcodes defined in evm/src/cpu/columns/ops.rs.
-const COMBINED_OPCODES: [usize; 6] = [
+const COMBINED_OPCODES: [usize; 7] = [
     COL_MAP.op.logic_op,
     COL_MAP.op.fp254_op,
     COL_MAP.op.binary_op,
     COL_MAP.op.ternary_op,
     COL_MAP.op.shift,
     COL_MAP.op.m_op_general,
+    COL_MAP.op.jumpdest_keccak_general,
 ];
 
 pub fn generate<F: RichField>(lv: &mut CpuColumnsView<F>) {
@@ -192,6 +192,19 @@ pub fn eval_packed_generic<P: PackedField>(
         * (opcode - P::Scalar::from_canonical_usize(0xfc_usize))
         * lv.op.m_op_general;
     yield_constr.constraint(m_op_constr);
+
+    // Manually check lv.op.jumpdest_keccak_general.
+    // KECCAK_GENERAL is a kernel-only instruction, but not JUMPDEST.
+    // JUMPDEST is differentiated from KECCAK_GENERAL by its second bit set to 1.
+    yield_constr.constraint(
+        (P::ONES - kernel_mode) * lv.op.jumpdest_keccak_general * (P::ONES - lv.opcode_bits[1]),
+    );
+
+    // Check the JUMPDEST and KERNEL_GENERAL opcodes.
+    let jumpdest_keccak_general_constr = (opcode - P::Scalar::from_canonical_usize(0x21_usize))
+        * (opcode - P::Scalar::from_canonical_usize(0x5b_usize))
+        * lv.op.jumpdest_keccak_general;
+    yield_constr.constraint(jumpdest_keccak_general_constr);
 }
 
 pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
@@ -294,4 +307,31 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     m_op_constr = builder.mul_extension(m_op_constr, lv.op.m_op_general);
 
     yield_constr.constraint(builder, m_op_constr);
+
+    // Manually check lv.op.jumpdest_keccak_general.
+    // KECCAK_GENERAL is a kernel-only instruction, but not JUMPDEST.
+    // JUMPDEST is differentiated from KECCAK_GENERAL by its second bit set to 1.
+    let jumpdest_opcode =
+        builder.constant_extension(F::Extension::from_canonical_usize(0x5b_usize));
+    let keccak_general_opcode =
+        builder.constant_extension(F::Extension::from_canonical_usize(0x21_usize));
+
+    // Check that KECCAK_GENERAL is kernel-only.
+    let mut kernel_general_filter = builder.sub_extension(one, lv.opcode_bits[1]);
+    kernel_general_filter =
+        builder.mul_extension(lv.op.jumpdest_keccak_general, kernel_general_filter);
+    let constr = builder.mul_extension(is_not_kernel_mode, kernel_general_filter);
+    yield_constr.constraint(builder, constr);
+
+    // Check the JUMPDEST and KERNEL_GENERAL opcodes.
+    let jumpdest_constr = builder.sub_extension(opcode, jumpdest_opcode);
+    let keccak_general_constr = builder.sub_extension(opcode, keccak_general_opcode);
+    let mut jumpdest_keccak_general_constr =
+        builder.mul_extension(jumpdest_constr, keccak_general_constr);
+    jumpdest_keccak_general_constr = builder.mul_extension(
+        jumpdest_keccak_general_constr,
+        lv.op.jumpdest_keccak_general,
+    );
+
+    yield_constr.constraint(builder, jumpdest_keccak_general_constr);
 }
