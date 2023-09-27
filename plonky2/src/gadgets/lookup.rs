@@ -107,7 +107,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 // handle chunks that can fill all the slots of a `LookupGate`
                 lookup_iter.for_each(|chunk| {
                     let row = self.add_gate(gate.clone(), vec![]);
-                    for (i,(looking_in, looking_out)) in chunk.iter().enumerate() {
+                    for (i, (looking_in, looking_out)) in chunk.iter().enumerate() {
                         let gate_in = Target::wire(row, LookupGate::wire_ith_looking_inp(i));
                         let gate_out = Target::wire(row, LookupGate::wire_ith_looking_out(i));
                         self.connect(gate_in, *looking_in);
@@ -115,7 +115,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                     }
                 });
                 // deal with the last chunk
-                for (_,(looking_in, looking_out)) in last_chunk.iter().enumerate() {
+                for (_, (looking_in, looking_out)) in last_chunk.iter().enumerate() {
                     let (gate, i) =
                         self.find_slot(gate.clone(), &[F::from_canonical_usize(lut_index)], &[]);
                     let gate_in = Target::wire(gate, LookupGate::wire_ith_looking_inp(i));

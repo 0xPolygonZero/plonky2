@@ -483,9 +483,9 @@ fn test_big_lut() -> anyhow::Result<()> {
     let config = CircuitConfig::standard_recursion_config();
     let mut builder = CircuitBuilder::<F, D>::new(config);
 
-    const LUT_SIZE: usize = u16::MAX as usize +1;
+    const LUT_SIZE: usize = u16::MAX as usize + 1;
     let inputs: [u16; LUT_SIZE] = core::array::from_fn(|i| i as u16);
-    let lut_fn = |inp: u16| inp/10;
+    let lut_fn = |inp: u16| inp / 10;
     let lut_index = builder.add_lookup_table_from_fn(lut_fn, &inputs);
 
     let initial_a = builder.add_virtual_target();
@@ -536,16 +536,18 @@ fn test_many_lookups_on_big_lut() -> anyhow::Result<()> {
     let config = CircuitConfig::standard_recursion_config();
     let mut builder = CircuitBuilder::<F, D>::new(config);
 
-    const LUT_SIZE: usize = u16::MAX as usize +1;
+    const LUT_SIZE: usize = u16::MAX as usize + 1;
     let inputs: [u16; LUT_SIZE] = core::array::from_fn(|i| i as u16);
-    let lut_fn = |inp: u16| inp/10;
+    let lut_fn = |inp: u16| inp / 10;
     let lut_index = builder.add_lookup_table_from_fn(lut_fn, &inputs);
 
-    let inputs = (0..LUT_SIZE).map(|_| {
-        let input_target = builder.add_virtual_target();
-        _ = builder.add_lookup_from_index(input_target, lut_index);
-        input_target
-    }).collect::<Vec<_>>();
+    let inputs = (0..LUT_SIZE)
+        .map(|_| {
+            let input_target = builder.add_virtual_target();
+            _ = builder.add_lookup_from_index(input_target, lut_index);
+            input_target
+        })
+        .collect::<Vec<_>>();
 
     let initial_a = builder.add_virtual_target();
     let initial_b = builder.add_virtual_target();
@@ -563,9 +565,10 @@ fn test_many_lookups_on_big_lut() -> anyhow::Result<()> {
 
     let mut pw = PartialWitness::new();
 
-    inputs.into_iter().enumerate().for_each(|(i,t)|
-        pw.set_target(t, F::from_canonical_usize(i))
-    );
+    inputs
+        .into_iter()
+        .enumerate()
+        .for_each(|(i, t)| pw.set_target(t, F::from_canonical_usize(i)));
     pw.set_target(initial_a, F::from_canonical_u16(look_val_a));
     pw.set_target(initial_b, F::from_canonical_u16(look_val_b));
 
@@ -576,7 +579,6 @@ fn test_many_lookups_on_big_lut() -> anyhow::Result<()> {
     );
 
     data.verify(proof)
-
 }
 
 fn init_logger() -> anyhow::Result<()> {
