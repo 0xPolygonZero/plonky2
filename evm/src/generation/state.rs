@@ -10,6 +10,8 @@ use crate::generation::mpt::all_mpt_prover_inputs_reversed;
 use crate::generation::rlp::all_rlp_prover_inputs_reversed;
 use crate::generation::GenerationInputs;
 use crate::memory::segments::Segment;
+use crate::util::u256_to_usize;
+use crate::witness::errors::ProgramError;
 use crate::witness::memory::{MemoryAddress, MemoryState};
 use crate::witness::state::RegistersState;
 use crate::witness::traces::{TraceCheckpoint, Traces};
@@ -49,7 +51,7 @@ pub(crate) struct GenerationState<F: Field> {
 }
 
 impl<F: Field> GenerationState<F> {
-    pub(crate) fn new(inputs: GenerationInputs, kernel_code: &[u8]) -> Self {
+    pub(crate) fn new(inputs: GenerationInputs, kernel_code: &[u8]) -> Result<Self, ProgramError> {
         log::debug!("Input signed_txns: {:?}", &inputs.signed_txns);
         log::debug!("Input state_trie: {:?}", &inputs.tries.state_trie);
         log::debug!(
@@ -59,11 +61,11 @@ impl<F: Field> GenerationState<F> {
         log::debug!("Input receipts_trie: {:?}", &inputs.tries.receipts_trie);
         log::debug!("Input storage_tries: {:?}", &inputs.tries.storage_tries);
         log::debug!("Input contract_code: {:?}", &inputs.contract_code);
-        let mpt_prover_inputs = all_mpt_prover_inputs_reversed(&inputs.tries);
+        let mpt_prover_inputs = all_mpt_prover_inputs_reversed(&inputs.tries)?;
         let rlp_prover_inputs = all_rlp_prover_inputs_reversed(&inputs.signed_txns);
         let bignum_modmul_result_limbs = Vec::new();
 
-        Self {
+        Ok(Self {
             inputs,
             registers: Default::default(),
             memory: MemoryState::new(kernel_code),
@@ -73,23 +75,25 @@ impl<F: Field> GenerationState<F> {
             rlp_prover_inputs,
             state_key_to_address: HashMap::new(),
             bignum_modmul_result_limbs,
-        }
+        })
     }
 
     /// Updates `program_counter`, and potentially adds some extra handling if we're jumping to a
     /// special location.
-    pub fn jump_to(&mut self, dst: usize) {
+    pub fn jump_to(&mut self, dst: usize) -> Result<(), ProgramError> {
         self.registers.program_counter = dst;
         if dst == KERNEL.global_labels["observe_new_address"] {
-            let tip_u256 = stack_peek(self, 0).expect("Empty stack");
+            let tip_u256 = stack_peek(self, 0)?;
             let tip_h256 = H256::from_uint(&tip_u256);
             let tip_h160 = H160::from(tip_h256);
             self.observe_address(tip_h160);
         } else if dst == KERNEL.global_labels["observe_new_contract"] {
-            let tip_u256 = stack_peek(self, 0).expect("Empty stack");
+            let tip_u256 = stack_peek(self, 0)?;
             let tip_h256 = H256::from_uint(&tip_u256);
-            self.observe_contract(tip_h256);
+            self.observe_contract(tip_h256)?;
         }
+
+        Ok(())
     }
 
     /// Observe the given address, so that we will be able to recognize the associated state key.
@@ -101,9 +105,9 @@ impl<F: Field> GenerationState<F> {
 
     /// Observe the given code hash and store the associated code.
     /// When called, the code corresponding to `codehash` should be stored in the return data.
-    pub fn observe_contract(&mut self, codehash: H256) {
+    pub fn observe_contract(&mut self, codehash: H256) -> Result<(), ProgramError> {
         if self.inputs.contract_code.contains_key(&codehash) {
-            return; // Return early if the code hash has already been observed.
+            return Ok(()); // Return early if the code hash has already been observed.
         }
 
         let ctx = self.registers.context;
@@ -112,15 +116,17 @@ impl<F: Field> GenerationState<F> {
             Segment::ContextMetadata,
             ContextMetadata::ReturndataSize as usize,
         );
-        let returndata_size = self.memory.get(returndata_size_addr).as_usize();
+        let returndata_size = u256_to_usize(self.memory.get(returndata_size_addr))?;
         let code = self.memory.contexts[ctx].segments[Segment::Returndata as usize].content
             [..returndata_size]
             .iter()
-            .map(|x| x.as_u32() as u8)
+            .map(|x| x.low_u32() as u8)
             .collect::<Vec<_>>();
         debug_assert_eq!(keccak(&code), codehash);
 
         self.inputs.contract_code.insert(codehash, code);
+
+        Ok(())
     }
 
     pub fn checkpoint(&self) -> GenerationStateCheckpoint {

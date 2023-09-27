@@ -20,20 +20,14 @@ use plonky2_maybe_rayon::*;
 use plonky2_util::{log2_ceil, log2_strict};
 
 use crate::all_stark::{AllStark, Table, NUM_TABLES};
-use crate::arithmetic::arithmetic_stark::ArithmeticStark;
-use crate::byte_packing::byte_packing_stark::BytePackingStark;
 use crate::config::StarkConfig;
 use crate::constraint_consumer::ConstraintConsumer;
-use crate::cpu::cpu_stark::CpuStark;
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cross_table_lookup::{cross_table_lookup_data, CtlCheckVars, CtlData};
+use crate::evaluation_frame::StarkEvaluationFrame;
 use crate::generation::outputs::GenerationOutputs;
 use crate::generation::{generate_traces, GenerationInputs};
 use crate::get_challenges::observe_public_values;
-use crate::keccak::keccak_stark::KeccakStark;
-use crate::keccak_sponge::keccak_sponge_stark::KeccakSpongeStark;
-use crate::logic::LogicStark;
-use crate::memory::memory_stark::MemoryStark;
 use crate::permutation::{
     compute_permutation_z_polys, get_grand_product_challenge_set,
     get_n_grand_product_challenge_sets, GrandProductChallengeSet, PermutationCheckVars,
@@ -41,7 +35,6 @@ use crate::permutation::{
 use crate::proof::{AllProof, PublicValues, StarkOpeningSet, StarkProof, StarkProofWithMetadata};
 use crate::stark::Stark;
 use crate::vanishing_poly::eval_vanishing_poly;
-use crate::vars::StarkEvaluationVars;
 
 /// Generate traces, then create all STARK proofs.
 pub fn prove<F, C, const D: usize>(
@@ -53,13 +46,6 @@ pub fn prove<F, C, const D: usize>(
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
-    [(); ArithmeticStark::<F, D>::COLUMNS]:,
-    [(); BytePackingStark::<F, D>::COLUMNS]:,
-    [(); CpuStark::<F, D>::COLUMNS]:,
-    [(); KeccakStark::<F, D>::COLUMNS]:,
-    [(); KeccakSpongeStark::<F, D>::COLUMNS]:,
-    [(); LogicStark::<F, D>::COLUMNS]:,
-    [(); MemoryStark::<F, D>::COLUMNS]:,
 {
     let (proof, _outputs) = prove_with_outputs(all_stark, config, inputs, timing)?;
     Ok(proof)
@@ -76,13 +62,6 @@ pub fn prove_with_outputs<F, C, const D: usize>(
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
-    [(); ArithmeticStark::<F, D>::COLUMNS]:,
-    [(); BytePackingStark::<F, D>::COLUMNS]:,
-    [(); CpuStark::<F, D>::COLUMNS]:,
-    [(); KeccakStark::<F, D>::COLUMNS]:,
-    [(); KeccakSpongeStark::<F, D>::COLUMNS]:,
-    [(); LogicStark::<F, D>::COLUMNS]:,
-    [(); MemoryStark::<F, D>::COLUMNS]:,
 {
     timed!(timing, "build kernel", Lazy::force(&KERNEL));
     let (traces, public_values, outputs) = timed!(
@@ -105,13 +84,6 @@ pub(crate) fn prove_with_traces<F, C, const D: usize>(
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
-    [(); ArithmeticStark::<F, D>::COLUMNS]:,
-    [(); BytePackingStark::<F, D>::COLUMNS]:,
-    [(); CpuStark::<F, D>::COLUMNS]:,
-    [(); KeccakStark::<F, D>::COLUMNS]:,
-    [(); KeccakSpongeStark::<F, D>::COLUMNS]:,
-    [(); LogicStark::<F, D>::COLUMNS]:,
-    [(); MemoryStark::<F, D>::COLUMNS]:,
 {
     let rate_bits = config.fri_config.rate_bits;
     let cap_height = config.fri_config.cap_height;
@@ -150,7 +122,8 @@ where
         challenger.observe_cap(cap);
     }
 
-    observe_public_values::<F, C, D>(&mut challenger, &public_values);
+    observe_public_values::<F, C, D>(&mut challenger, &public_values)
+        .map_err(|_| anyhow::Error::msg("Invalid conversion of public values."))?;
 
     let ctl_challenges = get_grand_product_challenge_set(&mut challenger, config.num_challenges);
     let ctl_data_per_table = timed!(
@@ -196,13 +169,6 @@ fn prove_with_commitments<F, C, const D: usize>(
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
-    [(); ArithmeticStark::<F, D>::COLUMNS]:,
-    [(); BytePackingStark::<F, D>::COLUMNS]:,
-    [(); CpuStark::<F, D>::COLUMNS]:,
-    [(); KeccakStark::<F, D>::COLUMNS]:,
-    [(); KeccakSpongeStark::<F, D>::COLUMNS]:,
-    [(); LogicStark::<F, D>::COLUMNS]:,
-    [(); MemoryStark::<F, D>::COLUMNS]:,
 {
     let arithmetic_proof = timed!(
         timing,
@@ -321,7 +287,6 @@ where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
     S: Stark<F, D>,
-    [(); S::COLUMNS]:,
 {
     let degree = trace_poly_values[0].len();
     let degree_bits = log2_strict(degree);
@@ -453,7 +418,6 @@ where
         trace_commitment,
         &permutation_ctl_zs_commitment,
         &quotient_commitment,
-        degree_bits,
         stark.num_permutation_batches(config),
     );
     challenger.observe_openings(&openings.to_fri_openings());
@@ -468,7 +432,7 @@ where
         timing,
         "compute openings proof",
         PolynomialBatch::prove_openings(
-            &stark.fri_instance(zeta, g, degree_bits, ctl_data.len(), config),
+            &stark.fri_instance(zeta, g, ctl_data.len(), config),
             &initial_merkle_trees,
             challenger,
             &fri_params,
@@ -507,7 +471,6 @@ where
     P: PackedField<Scalar = F>,
     C: GenericConfig<D, F = F>,
     S: Stark<F, D>,
-    [(); S::COLUMNS]:,
 {
     let degree = 1 << degree_bits;
     let rate_bits = config.fri_config.rate_bits;
@@ -530,12 +493,8 @@ where
     let z_h_on_coset = ZeroPolyOnCoset::<F>::new(degree_bits, quotient_degree_bits);
 
     // Retrieve the LDE values at index `i`.
-    let get_trace_values_packed = |i_start| -> [P; S::COLUMNS] {
-        trace_commitment
-            .get_lde_values_packed(i_start, step)
-            .try_into()
-            .unwrap()
-    };
+    let get_trace_values_packed =
+        |i_start| -> Vec<P> { trace_commitment.get_lde_values_packed(i_start, step) };
 
     // Last element of the subgroup.
     let last = F::primitive_root_of_unity(degree_bits).inverse();
@@ -566,10 +525,10 @@ where
                 lagrange_basis_first,
                 lagrange_basis_last,
             );
-            let vars = StarkEvaluationVars {
-                local_values: &get_trace_values_packed(i_start),
-                next_values: &get_trace_values_packed(i_next_start),
-            };
+            let vars = S::EvaluationFrame::from_values(
+                &get_trace_values_packed(i_start),
+                &get_trace_values_packed(i_next_start),
+            );
             let permutation_check_vars =
                 permutation_challenges.map(|permutation_challenge_sets| PermutationCheckVars {
                     local_zs: permutation_ctl_zs_commitment.get_lde_values_packed(i_start, step)
@@ -597,7 +556,7 @@ where
             eval_vanishing_poly::<F, F, P, S, D, 1>(
                 stark,
                 config,
-                vars,
+                &vars,
                 permutation_check_vars,
                 &ctl_vars,
                 &mut consumer,
@@ -642,7 +601,6 @@ fn check_constraints<'a, F, C, S, const D: usize>(
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
     S: Stark<F, D>,
-    [(); S::COLUMNS]:,
 {
     let degree = 1 << degree_bits;
     let rate_bits = 0; // Set this to higher value to check constraint degree.
@@ -688,10 +646,10 @@ fn check_constraints<'a, F, C, S, const D: usize>(
                 lagrange_basis_first,
                 lagrange_basis_last,
             );
-            let vars = StarkEvaluationVars {
-                local_values: trace_subgroup_evals[i].as_slice().try_into().unwrap(),
-                next_values: trace_subgroup_evals[i_next].as_slice().try_into().unwrap(),
-            };
+            let vars = S::EvaluationFrame::from_values(
+                &trace_subgroup_evals[i],
+                &trace_subgroup_evals[i_next],
+            );
             let permutation_check_vars =
                 permutation_challenges.map(|permutation_challenge_sets| PermutationCheckVars {
                     local_zs: permutation_ctl_zs_subgroup_evals[i][..num_permutation_zs].to_vec(),
@@ -715,7 +673,7 @@ fn check_constraints<'a, F, C, S, const D: usize>(
             eval_vanishing_poly::<F, F, F, S, D, 1>(
                 stark,
                 config,
-                vars,
+                &vars,
                 permutation_check_vars,
                 &ctl_vars,
                 &mut consumer,

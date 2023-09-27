@@ -214,6 +214,7 @@ fn test_four_transactions() -> anyhow::Result<()> {
         signed_txns: vec![txn1.to_vec(), txn2.to_vec(), txn3.to_vec(), txn4.to_vec()],
         tries: tries_before,
         trie_roots_after,
+        genesis_state_trie_root: HashedPartialTrie::from(Node::Empty).hash(),
         contract_code,
         block_metadata: block_metadata.clone(),
         addresses: vec![],

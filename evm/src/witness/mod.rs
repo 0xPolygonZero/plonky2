@@ -1,4 +1,4 @@
-mod errors;
+pub(crate) mod errors;
 mod gas;
 pub(crate) mod memory;
 mod operation;

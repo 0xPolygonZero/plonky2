@@ -36,7 +36,6 @@ pub(crate) fn combined_kernel() -> Kernel {
         include_str!("asm/core/nonce.asm"),
         include_str!("asm/core/process_txn.asm"),
         include_str!("asm/core/syscall.asm"),
-        include_str!("asm/core/syscall_stubs.asm"),
         include_str!("asm/core/terminate.asm"),
         include_str!("asm/core/transfer.asm"),
         include_str!("asm/core/util.asm"),

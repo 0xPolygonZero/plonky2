@@ -74,32 +74,69 @@ impl Default for BlockHashes {
     }
 }
 
+/// User-provided helper values to compute the `BLOCKHASH` opcode.
+/// The proofs across consecutive blocks ensure that these values
+/// are consistent (i.e. shifted by one to the left).
+///
+/// When the block number is less than 256, dummy values, i.e. `H256::default()`,
+/// should be used for the additional block hashes.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BlockHashes {
+    /// The previous 256 hashes to the current block. The leftmost hash, i.e. `prev_hashes[0]`,
+    /// is the oldest, and the rightmost, i.e. `prev_hashes[255]` is the hash of the parent block.
     pub prev_hashes: Vec<H256>,
+    // The hash of the current block.
     pub cur_hash: H256,
 }
 
+/// Metadata contained in a block header. Those are identical between
+/// all state transition proofs within the same block.
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct BlockMetadata {
+    /// The address of this block's producer.
     pub block_beneficiary: Address,
+    /// The timestamp of this block.
     pub block_timestamp: U256,
+    /// The index of this block.
     pub block_number: U256,
+    /// The difficulty (before PoS transition) of this block.
     pub block_difficulty: U256,
+    pub block_random: H256,
+    /// The gas limit of this block. It must fit in a `u32`.
     pub block_gaslimit: U256,
+    /// The chain id of this block.
     pub block_chain_id: U256,
+    /// The base fee of this block.
     pub block_base_fee: U256,
+    /// The total gas used in this block. It must fit in a `u32`.
     pub block_gas_used: U256,
+    /// The block bloom of this block, represented as the consecutive
+    /// 32-byte chunks of a block's final bloom filter string.
     pub block_bloom: [U256; 8],
 }
 
+/// Additional block data that are specific to the local transaction being proven,
+/// unlike `BlockMetadata`.
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct ExtraBlockData {
+    /// The state trie digest of the genesis block.
+    pub genesis_state_root: H256,
+    /// The transaction count prior execution of the local state transition, starting
+    /// at 0 for the initial transaction of a block.
     pub txn_number_before: U256,
+    /// The transaction count after execution of the local state transition.
     pub txn_number_after: U256,
+    /// The accumulated gas used prior execution of the local state transition, starting
+    /// at 0 for the initial transaction of a block.
     pub gas_used_before: U256,
+    /// The accumulated gas used after execution of the local state transition. It should
+    /// match the `block_gas_used` value after execution of the last transaction in a block.
     pub gas_used_after: U256,
+    /// The accumulated bloom filter of this block prior execution of the local state transition,
+    /// starting with all zeros for the initial transaction of a block.
     pub block_bloom_before: [U256; 8],
+    /// The accumulated bloom filter after execution of the local state transition. It should
+    /// match the `block_bloom` value after execution of the last transaction in a block.
     pub block_bloom_after: [U256; 8],
 }
 
@@ -141,6 +178,7 @@ impl PublicValuesTarget {
             block_timestamp,
             block_number,
             block_difficulty,
+            block_random,
             block_gaslimit,
             block_chain_id,
             block_base_fee,
@@ -152,6 +190,7 @@ impl PublicValuesTarget {
         buffer.write_target(block_timestamp)?;
         buffer.write_target(block_number)?;
         buffer.write_target(block_difficulty)?;
+        buffer.write_target_array(&block_random)?;
         buffer.write_target(block_gaslimit)?;
         buffer.write_target(block_chain_id)?;
         buffer.write_target_array(&block_base_fee)?;
@@ -166,6 +205,7 @@ impl PublicValuesTarget {
         buffer.write_target_array(&cur_hash)?;
 
         let ExtraBlockDataTarget {
+            genesis_state_root,
             txn_number_before,
             txn_number_after,
             gas_used_before,
@@ -173,6 +213,7 @@ impl PublicValuesTarget {
             block_bloom_before,
             block_bloom_after,
         } = self.extra_block_data;
+        buffer.write_target_array(&genesis_state_root)?;
         buffer.write_target(txn_number_before)?;
         buffer.write_target(txn_number_after)?;
         buffer.write_target(gas_used_before)?;
@@ -201,6 +242,7 @@ impl PublicValuesTarget {
             block_timestamp: buffer.read_target()?,
             block_number: buffer.read_target()?,
             block_difficulty: buffer.read_target()?,
+            block_random: buffer.read_target_array()?,
             block_gaslimit: buffer.read_target()?,
             block_chain_id: buffer.read_target()?,
             block_base_fee: buffer.read_target_array()?,
@@ -214,6 +256,7 @@ impl PublicValuesTarget {
         };
 
         let extra_block_data = ExtraBlockDataTarget {
+            genesis_state_root: buffer.read_target_array()?,
             txn_number_before: buffer.read_target()?,
             txn_number_after: buffer.read_target()?,
             gas_used_before: buffer.read_target()?,
@@ -373,6 +416,7 @@ pub struct BlockMetadataTarget {
     pub block_timestamp: Target,
     pub block_number: Target,
     pub block_difficulty: Target,
+    pub block_random: [Target; 8],
     pub block_gaslimit: Target,
     pub block_chain_id: Target,
     pub block_base_fee: [Target; 2],
@@ -381,24 +425,26 @@ pub struct BlockMetadataTarget {
 }
 
 impl BlockMetadataTarget {
-    const SIZE: usize = 77;
+    pub const SIZE: usize = 85;
 
     pub fn from_public_inputs(pis: &[Target]) -> Self {
         let block_beneficiary = pis[0..5].try_into().unwrap();
         let block_timestamp = pis[5];
         let block_number = pis[6];
         let block_difficulty = pis[7];
-        let block_gaslimit = pis[8];
-        let block_chain_id = pis[9];
-        let block_base_fee = pis[10..12].try_into().unwrap();
-        let block_gas_used = pis[12];
-        let block_bloom = pis[13..77].try_into().unwrap();
+        let block_random = pis[8..16].try_into().unwrap();
+        let block_gaslimit = pis[16];
+        let block_chain_id = pis[17];
+        let block_base_fee = pis[18..20].try_into().unwrap();
+        let block_gas_used = pis[20];
+        let block_bloom = pis[21..85].try_into().unwrap();
 
         Self {
             block_beneficiary,
             block_timestamp,
             block_number,
             block_difficulty,
+            block_random,
             block_gaslimit,
             block_chain_id,
             block_base_fee,
@@ -424,6 +470,9 @@ impl BlockMetadataTarget {
             block_timestamp: builder.select(condition, bm0.block_timestamp, bm1.block_timestamp),
             block_number: builder.select(condition, bm0.block_number, bm1.block_number),
             block_difficulty: builder.select(condition, bm0.block_difficulty, bm1.block_difficulty),
+            block_random: core::array::from_fn(|i| {
+                builder.select(condition, bm0.block_random[i], bm1.block_random[i])
+            }),
             block_gaslimit: builder.select(condition, bm0.block_gaslimit, bm1.block_gaslimit),
             block_chain_id: builder.select(condition, bm0.block_chain_id, bm1.block_chain_id),
             block_base_fee: core::array::from_fn(|i| {
@@ -447,11 +496,15 @@ impl BlockMetadataTarget {
         builder.connect(bm0.block_timestamp, bm1.block_timestamp);
         builder.connect(bm0.block_number, bm1.block_number);
         builder.connect(bm0.block_difficulty, bm1.block_difficulty);
+        for i in 0..8 {
+            builder.connect(bm0.block_random[i], bm1.block_random[i]);
+        }
         builder.connect(bm0.block_gaslimit, bm1.block_gaslimit);
         builder.connect(bm0.block_chain_id, bm1.block_chain_id);
         for i in 0..2 {
             builder.connect(bm0.block_base_fee[i], bm1.block_base_fee[i])
         }
+        builder.connect(bm0.block_gas_used, bm1.block_gas_used);
         for i in 0..64 {
             builder.connect(bm0.block_bloom[i], bm1.block_bloom[i])
         }
@@ -465,7 +518,7 @@ pub struct BlockHashesTarget {
 }
 
 impl BlockHashesTarget {
-    const BLOCK_HASHES_SIZE: usize = 2056;
+    pub const BLOCK_HASHES_SIZE: usize = 2056;
     pub fn from_public_inputs(pis: &[Target]) -> Self {
         Self {
             prev_hashes: pis[0..2048].try_into().unwrap(),
@@ -505,6 +558,7 @@ impl BlockHashesTarget {
 
 #[derive(Eq, PartialEq, Debug, Copy, Clone)]
 pub struct ExtraBlockDataTarget {
+    pub genesis_state_root: [Target; 8],
     pub txn_number_before: Target,
     pub txn_number_after: Target,
     pub gas_used_before: Target,
@@ -514,17 +568,19 @@ pub struct ExtraBlockDataTarget {
 }
 
 impl ExtraBlockDataTarget {
-    const SIZE: usize = 132;
+    const SIZE: usize = 140;
 
     pub fn from_public_inputs(pis: &[Target]) -> Self {
-        let txn_number_before = pis[0];
-        let txn_number_after = pis[1];
-        let gas_used_before = pis[2];
-        let gas_used_after = pis[3];
-        let block_bloom_before = pis[4..68].try_into().unwrap();
-        let block_bloom_after = pis[68..132].try_into().unwrap();
+        let genesis_state_root = pis[0..8].try_into().unwrap();
+        let txn_number_before = pis[8];
+        let txn_number_after = pis[9];
+        let gas_used_before = pis[10];
+        let gas_used_after = pis[11];
+        let block_bloom_before = pis[12..76].try_into().unwrap();
+        let block_bloom_after = pis[76..140].try_into().unwrap();
 
         Self {
+            genesis_state_root,
             txn_number_before,
             txn_number_after,
             gas_used_before,
@@ -541,6 +597,13 @@ impl ExtraBlockDataTarget {
         ed1: Self,
     ) -> Self {
         Self {
+            genesis_state_root: core::array::from_fn(|i| {
+                builder.select(
+                    condition,
+                    ed0.genesis_state_root[i],
+                    ed1.genesis_state_root[i],
+                )
+            }),
             txn_number_before: builder.select(
                 condition,
                 ed0.txn_number_before,
@@ -571,6 +634,9 @@ impl ExtraBlockDataTarget {
         ed0: Self,
         ed1: Self,
     ) {
+        for i in 0..8 {
+            builder.connect(ed0.genesis_state_root[i], ed1.genesis_state_root[i]);
+        }
         builder.connect(ed0.txn_number_before, ed1.txn_number_before);
         builder.connect(ed0.txn_number_after, ed1.txn_number_after);
         builder.connect(ed0.gas_used_before, ed1.gas_used_before);
@@ -623,7 +689,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> S
     }
 
     pub fn num_ctl_zs(&self) -> usize {
-        self.openings.ctl_zs_last.len()
+        self.openings.ctl_zs_first.len()
     }
 }
 
@@ -704,8 +770,8 @@ pub struct StarkOpeningSet<F: RichField + Extendable<D>, const D: usize> {
     pub permutation_ctl_zs: Vec<F::Extension>,
     /// Openings of permutations and cross-table lookups `Z` polynomials at `g * zeta`.
     pub permutation_ctl_zs_next: Vec<F::Extension>,
-    /// Openings of cross-table lookups `Z` polynomials at `g^-1`.
-    pub ctl_zs_last: Vec<F>,
+    /// Openings of cross-table lookups `Z` polynomials at `1`.
+    pub ctl_zs_first: Vec<F>,
     /// Openings of quotient polynomials at `zeta`.
     pub quotient_polys: Vec<F::Extension>,
 }
@@ -717,7 +783,6 @@ impl<F: RichField + Extendable<D>, const D: usize> StarkOpeningSet<F, D> {
         trace_commitment: &PolynomialBatch<F, C, D>,
         permutation_ctl_zs_commitment: &PolynomialBatch<F, C, D>,
         quotient_commitment: &PolynomialBatch<F, C, D>,
-        degree_bits: usize,
         num_permutation_zs: usize,
     ) -> Self {
         let eval_commitment = |z: F::Extension, c: &PolynomialBatch<F, C, D>| {
@@ -738,10 +803,8 @@ impl<F: RichField + Extendable<D>, const D: usize> StarkOpeningSet<F, D> {
             next_values: eval_commitment(zeta_next, trace_commitment),
             permutation_ctl_zs: eval_commitment(zeta, permutation_ctl_zs_commitment),
             permutation_ctl_zs_next: eval_commitment(zeta_next, permutation_ctl_zs_commitment),
-            ctl_zs_last: eval_commitment_base(
-                F::primitive_root_of_unity(degree_bits).inverse(),
-                permutation_ctl_zs_commitment,
-            )[num_permutation_zs..]
+            ctl_zs_first: eval_commitment_base(F::ONE, permutation_ctl_zs_commitment)
+                [num_permutation_zs..]
                 .to_vec(),
             quotient_polys: eval_commitment(zeta, quotient_commitment),
         }
@@ -765,10 +828,10 @@ impl<F: RichField + Extendable<D>, const D: usize> StarkOpeningSet<F, D> {
                 .copied()
                 .collect_vec(),
         };
-        debug_assert!(!self.ctl_zs_last.is_empty());
-        let ctl_last_batch = FriOpeningBatch {
+        debug_assert!(!self.ctl_zs_first.is_empty());
+        let ctl_first_batch = FriOpeningBatch {
             values: self
-                .ctl_zs_last
+                .ctl_zs_first
                 .iter()
                 .copied()
                 .map(F::Extension::from_basefield)
@@ -776,7 +839,7 @@ impl<F: RichField + Extendable<D>, const D: usize> StarkOpeningSet<F, D> {
         };
 
         FriOpenings {
-            batches: vec![zeta_batch, zeta_next_batch, ctl_last_batch],
+            batches: vec![zeta_batch, zeta_next_batch, ctl_first_batch],
         }
     }
 }
@@ -787,7 +850,7 @@ pub struct StarkOpeningSetTarget<const D: usize> {
     pub next_values: Vec<ExtensionTarget<D>>,
     pub permutation_ctl_zs: Vec<ExtensionTarget<D>>,
     pub permutation_ctl_zs_next: Vec<ExtensionTarget<D>>,
-    pub ctl_zs_last: Vec<Target>,
+    pub ctl_zs_first: Vec<Target>,
     pub quotient_polys: Vec<ExtensionTarget<D>>,
 }
 
@@ -797,7 +860,7 @@ impl<const D: usize> StarkOpeningSetTarget<D> {
         buffer.write_target_ext_vec(&self.next_values)?;
         buffer.write_target_ext_vec(&self.permutation_ctl_zs)?;
         buffer.write_target_ext_vec(&self.permutation_ctl_zs_next)?;
-        buffer.write_target_vec(&self.ctl_zs_last)?;
+        buffer.write_target_vec(&self.ctl_zs_first)?;
         buffer.write_target_ext_vec(&self.quotient_polys)?;
         Ok(())
     }
@@ -807,7 +870,7 @@ impl<const D: usize> StarkOpeningSetTarget<D> {
         let next_values = buffer.read_target_ext_vec::<D>()?;
         let permutation_ctl_zs = buffer.read_target_ext_vec::<D>()?;
         let permutation_ctl_zs_next = buffer.read_target_ext_vec::<D>()?;
-        let ctl_zs_last = buffer.read_target_vec()?;
+        let ctl_zs_first = buffer.read_target_vec()?;
         let quotient_polys = buffer.read_target_ext_vec::<D>()?;
 
         Ok(Self {
@@ -815,7 +878,7 @@ impl<const D: usize> StarkOpeningSetTarget<D> {
             next_values,
             permutation_ctl_zs,
             permutation_ctl_zs_next,
-            ctl_zs_last,
+            ctl_zs_first,
             quotient_polys,
         })
     }
@@ -838,10 +901,10 @@ impl<const D: usize> StarkOpeningSetTarget<D> {
                 .copied()
                 .collect_vec(),
         };
-        debug_assert!(!self.ctl_zs_last.is_empty());
-        let ctl_last_batch = FriOpeningBatchTarget {
+        debug_assert!(!self.ctl_zs_first.is_empty());
+        let ctl_first_batch = FriOpeningBatchTarget {
             values: self
-                .ctl_zs_last
+                .ctl_zs_first
                 .iter()
                 .copied()
                 .map(|t| t.to_ext_target(zero))
@@ -849,7 +912,7 @@ impl<const D: usize> StarkOpeningSetTarget<D> {
         };
 
         FriOpeningsTarget {
-            batches: vec![zeta_batch, zeta_next_batch, ctl_last_batch],
+            batches: vec![zeta_batch, zeta_next_batch, ctl_first_batch],
         }
     }
 }

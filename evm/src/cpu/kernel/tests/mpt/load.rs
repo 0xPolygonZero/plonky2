@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use eth_trie_utils::nibbles::Nibbles;
 use eth_trie_utils::partial_trie::HashedPartialTrie;
 use ethereum_types::{BigEndianHash, H256, U256};
@@ -28,7 +28,9 @@ fn load_all_mpts_empty() -> Result<()> {
 
     let initial_stack = vec![0xDEADBEEFu32.into()];
     let mut interpreter = Interpreter::new_with_kernel(load_all_mpts, initial_stack);
-    interpreter.generation_state.mpt_prover_inputs = all_mpt_prover_inputs_reversed(&trie_inputs);
+    interpreter.generation_state.mpt_prover_inputs =
+        all_mpt_prover_inputs_reversed(&trie_inputs)
+            .map_err(|err| anyhow!("Invalid MPT data: {:?}", err))?;
     interpreter.run()?;
     assert_eq!(interpreter.stack(), vec![]);
 
@@ -67,7 +69,9 @@ fn load_all_mpts_leaf() -> Result<()> {
 
     let initial_stack = vec![0xDEADBEEFu32.into()];
     let mut interpreter = Interpreter::new_with_kernel(load_all_mpts, initial_stack);
-    interpreter.generation_state.mpt_prover_inputs = all_mpt_prover_inputs_reversed(&trie_inputs);
+    interpreter.generation_state.mpt_prover_inputs =
+        all_mpt_prover_inputs_reversed(&trie_inputs)
+            .map_err(|err| anyhow!("Invalid MPT data: {:?}", err))?;
     interpreter.run()?;
     assert_eq!(interpreter.stack(), vec![]);
 
@@ -116,7 +120,9 @@ fn load_all_mpts_hash() -> Result<()> {
 
     let initial_stack = vec![0xDEADBEEFu32.into()];
     let mut interpreter = Interpreter::new_with_kernel(load_all_mpts, initial_stack);
-    interpreter.generation_state.mpt_prover_inputs = all_mpt_prover_inputs_reversed(&trie_inputs);
+    interpreter.generation_state.mpt_prover_inputs =
+        all_mpt_prover_inputs_reversed(&trie_inputs)
+            .map_err(|err| anyhow!("Invalid MPT data: {:?}", err))?;
     interpreter.run()?;
     assert_eq!(interpreter.stack(), vec![]);
 
@@ -157,7 +163,9 @@ fn load_all_mpts_empty_branch() -> Result<()> {
 
     let initial_stack = vec![0xDEADBEEFu32.into()];
     let mut interpreter = Interpreter::new_with_kernel(load_all_mpts, initial_stack);
-    interpreter.generation_state.mpt_prover_inputs = all_mpt_prover_inputs_reversed(&trie_inputs);
+    interpreter.generation_state.mpt_prover_inputs =
+        all_mpt_prover_inputs_reversed(&trie_inputs)
+            .map_err(|err| anyhow!("Invalid MPT data: {:?}", err))?;
     interpreter.run()?;
     assert_eq!(interpreter.stack(), vec![]);
 
@@ -212,7 +220,9 @@ fn load_all_mpts_ext_to_leaf() -> Result<()> {
 
     let initial_stack = vec![0xDEADBEEFu32.into()];
     let mut interpreter = Interpreter::new_with_kernel(load_all_mpts, initial_stack);
-    interpreter.generation_state.mpt_prover_inputs = all_mpt_prover_inputs_reversed(&trie_inputs);
+    interpreter.generation_state.mpt_prover_inputs =
+        all_mpt_prover_inputs_reversed(&trie_inputs)
+            .map_err(|err| anyhow!("Invalid MPT data: {:?}", err))?;
     interpreter.run()?;
     assert_eq!(interpreter.stack(), vec![]);
 
@@ -261,7 +271,9 @@ fn load_mpt_txn_trie() -> Result<()> {
 
     let initial_stack = vec![0xDEADBEEFu32.into()];
     let mut interpreter = Interpreter::new_with_kernel(load_all_mpts, initial_stack);
-    interpreter.generation_state.mpt_prover_inputs = all_mpt_prover_inputs_reversed(&trie_inputs);
+    interpreter.generation_state.mpt_prover_inputs =
+        all_mpt_prover_inputs_reversed(&trie_inputs)
+            .map_err(|err| anyhow!("Invalid MPT data: {:?}", err))?;
     interpreter.run()?;
     assert_eq!(interpreter.stack(), vec![]);
 

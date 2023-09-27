@@ -5,20 +5,24 @@ use plonky2::field::extension::Extendable;
 use plonky2::field::packed::PackedField;
 use plonky2::field::types::{Field, PrimeField64};
 use plonky2::hash::hash_types::RichField;
+use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
-use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
+use crate::evaluation_frame::StarkEvaluationFrame;
 
-pub(crate) fn eval_lookups<F: Field, P: PackedField<Scalar = F>, const COLS: usize>(
-    vars: StarkEvaluationVars<F, P, COLS>,
+pub(crate) fn eval_lookups<F: Field, P: PackedField<Scalar = F>, E: StarkEvaluationFrame<P>>(
+    vars: &E,
     yield_constr: &mut ConstraintConsumer<P>,
     col_permuted_input: usize,
     col_permuted_table: usize,
 ) {
-    let local_perm_input = vars.local_values[col_permuted_input];
-    let next_perm_table = vars.next_values[col_permuted_table];
-    let next_perm_input = vars.next_values[col_permuted_input];
+    let local_values = vars.get_local_values();
+    let next_values = vars.get_next_values();
+
+    let local_perm_input = local_values[col_permuted_input];
+    let next_perm_table = next_values[col_permuted_table];
+    let next_perm_input = next_values[col_permuted_input];
 
     // A "vertical" diff between the local and next permuted inputs.
     let diff_input_prev = next_perm_input - local_perm_input;
@@ -35,18 +39,21 @@ pub(crate) fn eval_lookups<F: Field, P: PackedField<Scalar = F>, const COLS: usi
 
 pub(crate) fn eval_lookups_circuit<
     F: RichField + Extendable<D>,
+    E: StarkEvaluationFrame<ExtensionTarget<D>>,
     const D: usize,
-    const COLS: usize,
 >(
     builder: &mut CircuitBuilder<F, D>,
-    vars: StarkEvaluationTargets<D, COLS>,
+    vars: &E,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
     col_permuted_input: usize,
     col_permuted_table: usize,
 ) {
-    let local_perm_input = vars.local_values[col_permuted_input];
-    let next_perm_table = vars.next_values[col_permuted_table];
-    let next_perm_input = vars.next_values[col_permuted_input];
+    let local_values = vars.get_local_values();
+    let next_values = vars.get_next_values();
+
+    let local_perm_input = local_values[col_permuted_input];
+    let next_perm_table = next_values[col_permuted_table];
+    let next_perm_input = next_values[col_permuted_input];
 
     // A "vertical" diff between the local and next permuted inputs.
     let diff_input_prev = builder.sub_extension(next_perm_input, local_perm_input);

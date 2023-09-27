@@ -117,7 +117,7 @@ impl<'a> Interpreter<'a> {
         let mut result = Self {
             kernel_mode: true,
             jumpdests: find_jumpdests(code),
-            generation_state: GenerationState::new(GenerationInputs::default(), code),
+            generation_state: GenerationState::new(GenerationInputs::default(), code).unwrap(),
             prover_inputs_map: prover_inputs,
             context: 0,
             halt_offsets: vec![DEFAULT_HALT_OFFSET],
@@ -200,7 +200,7 @@ impl<'a> Interpreter<'a> {
         self.generation_state.memory.contexts[0].segments[segment as usize]
             .content
             .iter()
-            .map(|x| x.as_u32() as u8)
+            .map(|x| x.low_u32() as u8)
             .collect()
     }
 
@@ -905,7 +905,10 @@ impl<'a> Interpreter<'a> {
             .prover_inputs_map
             .get(&(self.generation_state.registers.program_counter - 1))
             .ok_or_else(|| anyhow!("Offset not in prover inputs."))?;
-        let output = self.generation_state.prover_input(prover_input_fn);
+        let output = self
+            .generation_state
+            .prover_input(prover_input_fn)
+            .map_err(|_| anyhow!("Invalid prover inputs."))?;
         self.push(output);
         Ok(())
     }
@@ -1045,7 +1048,7 @@ impl<'a> Interpreter<'a> {
                 self.generation_state
                     .memory
                     .mload_general(context, segment, offset + i)
-                    .as_u32() as u8
+                    .low_u32() as u8
             })
             .collect();
         let value = U256::from_big_endian(&bytes);

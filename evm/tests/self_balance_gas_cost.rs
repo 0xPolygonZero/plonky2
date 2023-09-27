@@ -104,6 +104,7 @@ fn self_balance_gas_cost() -> anyhow::Result<()> {
         block_gas_used: gas_used.into(),
         block_bloom: [0.into(); 8],
         block_base_fee: 0xa.into(),
+        block_random: Default::default(),
     };
 
     let mut contract_code = HashMap::new();
@@ -173,6 +174,7 @@ fn self_balance_gas_cost() -> anyhow::Result<()> {
         tries: tries_before,
         trie_roots_after,
         contract_code,
+        genesis_state_trie_root: HashedPartialTrie::from(Node::Empty).hash(),
         block_metadata,
         txn_number_before: 0.into(),
         gas_used_before: 0.into(),

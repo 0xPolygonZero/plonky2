@@ -8,7 +8,7 @@ use bytes::Bytes;
 use env_logger::{try_init_from_env, Env, DEFAULT_FILTER_ENV};
 use eth_trie_utils::nibbles::Nibbles;
 use eth_trie_utils::partial_trie::{HashedPartialTrie, PartialTrie};
-use ethereum_types::{Address, H256, U256};
+use ethereum_types::{Address, BigEndianHash, H256, U256};
 use hex_literal::hex;
 use keccak_hash::keccak;
 use plonky2::field::goldilocks_field::GoldilocksField;
@@ -17,7 +17,9 @@ use plonky2::util::timing::TimingTree;
 use plonky2_evm::all_stark::AllStark;
 use plonky2_evm::config::StarkConfig;
 use plonky2_evm::fixed_recursive_verifier::AllRecursiveCircuits;
-use plonky2_evm::generation::mpt::{AccountRlp, LegacyReceiptRlp, LegacyTransactionRlp, LogRlp};
+use plonky2_evm::generation::mpt::{
+    AccountRlp, AddressOption, LegacyReceiptRlp, LegacyTransactionRlp, LogRlp,
+};
 use plonky2_evm::generation::{GenerationInputs, TrieInputs};
 use plonky2_evm::proof::{BlockHashes, BlockMetadata, ExtraBlockData, PublicValues, TrieRoots};
 use plonky2_evm::prover::prove;
@@ -135,6 +137,7 @@ fn test_log_opcodes() -> anyhow::Result<()> {
         block_timestamp: 0x03e8.into(),
         block_number: 1.into(),
         block_difficulty: 0x020000.into(),
+        block_random: H256::from_uint(&0x020000.into()),
         block_gaslimit: 0xffffffffu32.into(),
         block_chain_id: 1.into(),
         block_base_fee: 0xa.into(),
@@ -231,6 +234,7 @@ fn test_log_opcodes() -> anyhow::Result<()> {
         tries: tries_before,
         trie_roots_after,
         contract_code,
+        genesis_state_trie_root: HashedPartialTrie::from(Node::Empty).hash(),
         block_metadata,
         txn_number_before: 0.into(),
         gas_used_before: 0.into(),
@@ -371,6 +375,7 @@ fn test_log_with_aggreg() -> anyhow::Result<()> {
             .unwrap(),
             U256::from_dec_str("2722259584404615024560450425766186844160").unwrap(),
         ],
+        block_random: Default::default(),
     };
 
     let beneficiary_account_after = AccountRlp {
@@ -435,6 +440,7 @@ fn test_log_with_aggreg() -> anyhow::Result<()> {
         tries: tries_before,
         trie_roots_after: tries_after,
         contract_code,
+        genesis_state_trie_root: HashedPartialTrie::from(Node::Empty).hash(),
         block_metadata: block_metadata.clone(),
         txn_number_before: 0.into(),
         gas_used_before: 0.into(),
@@ -578,6 +584,7 @@ fn test_log_with_aggreg() -> anyhow::Result<()> {
         tries: tries_before,
         trie_roots_after,
         contract_code,
+        genesis_state_trie_root: HashedPartialTrie::from(Node::Empty).hash(),
         block_metadata,
         txn_number_before: 1.into(),
         gas_used_before: gas_used_second,
@@ -603,6 +610,7 @@ fn test_log_with_aggreg() -> anyhow::Result<()> {
         trie_roots_before: first_public_values.trie_roots_before,
         trie_roots_after: public_values.trie_roots_after,
         extra_block_data: ExtraBlockData {
+            genesis_state_root: first_public_values.extra_block_data.genesis_state_root,
             txn_number_before: first_public_values.extra_block_data.txn_number_before,
             txn_number_after: public_values.extra_block_data.txn_number_after,
             gas_used_before: first_public_values.extra_block_data.gas_used_before,
@@ -639,7 +647,7 @@ fn test_txn_and_receipt_trie_hash() -> anyhow::Result<()> {
         nonce: 157823u64.into(),
         gas_price: 1000000000u64.into(),
         gas: 250000u64.into(),
-        to: hex!("7ef66b77759e12Caf3dDB3E4AFF524E577C59D8D").into(),
+        to: AddressOption(Some(hex!("7ef66b77759e12Caf3dDB3E4AFF524E577C59D8D").into())),
         value: 0u64.into(),
         data: hex!("e9c6c176000000000000000000000000000000000000000000000000000000000000002a0000000000000000000000000000000000000000000000000000000000bd9fe6f7af1cc94b1aef2e0fa15f1b4baefa86eb60e78fa4bd082372a0a446d197fb58")
             .to_vec()
@@ -659,7 +667,7 @@ fn test_txn_and_receipt_trie_hash() -> anyhow::Result<()> {
         nonce: 157824u64.into(),
         gas_price: 1000000000u64.into(),
         gas: 250000u64.into(),
-        to: hex!("7ef66b77759e12Caf3dDB3E4AFF524E577C59D8D").into(),
+        to: AddressOption(Some(hex!("7ef66b77759e12Caf3dDB3E4AFF524E577C59D8D").into())),
         value: 0u64.into(),
         data: hex!("e9c6c176000000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000004920eaa814f7df6a2203dc0e472e8828be95957c6b329fee8e2b1bb6f044c1eb4fc243")
             .to_vec()
@@ -805,6 +813,7 @@ fn test_two_txn() -> anyhow::Result<()> {
         block_timestamp: 0x03e8.into(),
         block_number: 1.into(),
         block_difficulty: 0x020000.into(),
+        block_random: H256::from_uint(&0x020000.into()),
         block_gaslimit: 0xffffffffu32.into(),
         block_chain_id: 1.into(),
         block_base_fee: 0xa.into(),
@@ -886,6 +895,7 @@ fn test_two_txn() -> anyhow::Result<()> {
         tries: tries_before,
         trie_roots_after,
         contract_code,
+        genesis_state_trie_root: HashedPartialTrie::from(Node::Empty).hash(),
         block_metadata,
         txn_number_before: 0.into(),
         gas_used_before: 0.into(),

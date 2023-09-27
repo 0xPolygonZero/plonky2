@@ -5,7 +5,7 @@ use std::time::Duration;
 use env_logger::{try_init_from_env, Env, DEFAULT_FILTER_ENV};
 use eth_trie_utils::nibbles::Nibbles;
 use eth_trie_utils::partial_trie::{HashedPartialTrie, PartialTrie};
-use ethereum_types::{Address, H256, U256};
+use ethereum_types::{Address, BigEndianHash, H256, U256};
 use hex_literal::hex;
 use keccak_hash::keccak;
 use plonky2::field::goldilocks_field::GoldilocksField;
@@ -72,6 +72,7 @@ fn test_simple_transfer() -> anyhow::Result<()> {
         block_timestamp: 0x03e8.into(),
         block_number: 1.into(),
         block_difficulty: 0x020000.into(),
+        block_random: H256::from_uint(&0x020000.into()),
         block_gaslimit: 0xff112233u32.into(),
         block_chain_id: 1.into(),
         block_base_fee: 0xa.into(),
@@ -141,6 +142,7 @@ fn test_simple_transfer() -> anyhow::Result<()> {
         tries: tries_before,
         trie_roots_after,
         contract_code,
+        genesis_state_trie_root: HashedPartialTrie::from(Node::Empty).hash(),
         block_metadata,
         txn_number_before: 0.into(),
         gas_used_before: 0.into(),
