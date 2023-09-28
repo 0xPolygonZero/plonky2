@@ -550,11 +550,11 @@ pub(crate) fn get_memory_extra_looking_products_circuit<
             &public_values.block_metadata.block_base_fee,
         ),
         (
-            GlobalMetadata::BlockBaseFee as usize,
+            GlobalMetadata::BlockGasLimit as usize,
             &public_values.block_metadata.block_gaslimit,
         ),
         (
-            GlobalMetadata::BlockBaseFee as usize,
+            GlobalMetadata::BlockGasUsed as usize,
             &public_values.block_metadata.block_gas_used,
         ),
         (
