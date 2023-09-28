@@ -128,14 +128,14 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 let last_lut_gate = self.num_gates();
                 let num_lut_entries = LookupTableGate::num_slots(&self.config);
                 let num_lut_rows = (self.get_luts_idx_length(lut_index) - 1) / num_lut_entries + 1;
+                let gate =
+                    LookupTableGate::new_from_table(&self.config, lut.clone(), last_lut_gate);
                 // Also for `LookupTableGate` we replace the `num_lut_entries` calls to `find_slot`
                 // with a single call to `add_gate`; note that in this case there is no need to
                 // separately handle the last chunk of LUT entries that cannot fill all the slots of
                 // a `LookupTableGate`, as the generator already handles empty slots
                 for _ in 0..num_lut_rows {
-                    let gate =
-                        LookupTableGate::new_from_table(&self.config, lut.clone(), last_lut_gate);
-                    self.add_gate(gate, vec![]);
+                    self.add_gate(gate.clone(), vec![]);
                 }
 
                 let first_lut_gate = self.num_gates() - 1;
