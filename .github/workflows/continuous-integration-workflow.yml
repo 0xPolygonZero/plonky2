@@ -114,4 +114,5 @@ jobs:
           command: clippy
           args: --all-features --all-targets -- -D warnings -A incomplete-features
         env:
-          CARGO_INCREMENTAL: 1
+          # Seems necessary until https://github.com/rust-lang/rust/pull/115819 is merged.
+          CARGO_INCREMENTAL: 0
