@@ -242,7 +242,10 @@ fn base_row<F: Field>(state: &mut GenerationState<F>) -> (CpuColumnsView<F>, u8)
     row.context = F::from_canonical_usize(state.registers.context);
     row.program_counter = F::from_canonical_usize(state.registers.program_counter);
     row.is_kernel_mode = F::from_bool(state.registers.is_kernel);
-    row.gas = F::from_canonical_u64(state.registers.gas_used);
+    row.gas = [
+        F::from_canonical_u32(state.registers.gas_used as u32),
+        F::from_canonical_u32((state.registers.gas_used >> 32) as u32),
+    ];
     row.stack_len = F::from_canonical_usize(state.registers.stack_len);
 
     let opcode = read_code_memory(state, &mut row);

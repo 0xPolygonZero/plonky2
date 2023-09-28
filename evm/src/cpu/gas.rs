@@ -70,20 +70,22 @@ fn eval_packed_accumulate<P: PackedField>(
         })
         .sum();
 
-    let constr = nv.gas - (lv.gas + gas_used);
+    let gas_diff = nv.gas[1] * P::Scalar::from_canonical_u64(1 << 32) + nv.gas[0]
+        - (lv.gas[1] * P::Scalar::from_canonical_u64(1 << 32) + lv.gas[0]);
+    let constr = gas_diff - gas_used;
     yield_constr.constraint_transition(filter * constr);
 
     for (maybe_cost, op_flag) in izip!(SIMPLE_OPCODES.into_iter(), lv.op.into_iter()) {
         if let Some(cost) = maybe_cost {
             let cost = P::Scalar::from_canonical_u32(cost);
-            yield_constr.constraint_transition(op_flag * (nv.gas - lv.gas - cost));
+            yield_constr.constraint_transition(op_flag * (gas_diff - cost));
         }
     }
 
     // For jumps.
     let jump_gas_cost = P::Scalar::from_canonical_u32(G_MID.unwrap())
         + lv.opcode_bits[0] * P::Scalar::from_canonical_u32(G_HIGH.unwrap() - G_MID.unwrap());
-    yield_constr.constraint_transition(lv.op.jumps * (nv.gas - lv.gas - jump_gas_cost));
+    yield_constr.constraint_transition(lv.op.jumps * (gas_diff - jump_gas_cost));
 
     // For binary_ops.
     // MUL, DIV and MOD are differentiated from ADD, SUB, LT, GT and BYTE by their first and fifth bits set to 0.
@@ -92,13 +94,13 @@ fn eval_packed_accumulate<P: PackedField>(
         + cost_filter
             * (P::Scalar::from_canonical_u32(G_VERYLOW.unwrap())
                 - P::Scalar::from_canonical_u32(G_LOW.unwrap()));
-    yield_constr.constraint_transition(lv.op.binary_op * (nv.gas - lv.gas - binary_op_cost));
+    yield_constr.constraint_transition(lv.op.binary_op * (gas_diff - binary_op_cost));
 
     // For ternary_ops.
     // SUBMOD is differentiated by its second bit set to 1.
     let ternary_op_cost = P::Scalar::from_canonical_u32(G_MID.unwrap())
         - lv.opcode_bits[1] * P::Scalar::from_canonical_u32(G_MID.unwrap());
-    yield_constr.constraint_transition(lv.op.ternary_op * (nv.gas - lv.gas - ternary_op_cost));
+    yield_constr.constraint_transition(lv.op.ternary_op * (gas_diff - ternary_op_cost));
 }
 
 fn eval_packed_init<P: PackedField>(
@@ -111,7 +113,8 @@ fn eval_packed_init<P: PackedField>(
     // `nv` is the first row that executes an instruction.
     let filter = (is_cpu_cycle - P::ONES) * is_cpu_cycle_next;
     // Set initial gas to zero.
-    yield_constr.constraint_transition(filter * nv.gas);
+    yield_constr.constraint_transition(filter * nv.gas[0]);
+    yield_constr.constraint_transition(filter * nv.gas[1]);
 }
 
 pub fn eval_packed<P: PackedField>(
@@ -154,16 +157,18 @@ fn eval_ext_circuit_accumulate<F: RichField + Extendable<D>, const D: usize>(
         },
     );
 
-    let constr = {
-        let t = builder.add_extension(lv.gas, gas_used);
-        builder.sub_extension(nv.gas, t)
-    };
+    let nv_gas =
+        builder.mul_const_add_extension(F::from_canonical_u64(1 << 32), nv.gas[1], nv.gas[0]);
+    let lv_gas =
+        builder.mul_const_add_extension(F::from_canonical_u64(1 << 32), lv.gas[1], lv.gas[0]);
+    let nv_lv_diff = builder.sub_extension(nv_gas, lv_gas);
+
+    let constr = builder.sub_extension(nv_lv_diff, gas_used);
     let filtered_constr = builder.mul_extension(filter, constr);
     yield_constr.constraint_transition(builder, filtered_constr);
 
     for (maybe_cost, op_flag) in izip!(SIMPLE_OPCODES.into_iter(), lv.op.into_iter()) {
         if let Some(cost) = maybe_cost {
-            let nv_lv_diff = builder.sub_extension(nv.gas, lv.gas);
             let constr = builder.arithmetic_extension(
                 F::ONE,
                 -F::from_canonical_u32(cost),
@@ -184,7 +189,6 @@ fn eval_ext_circuit_accumulate<F: RichField + Extendable<D>, const D: usize>(
     let jump_gas_cost =
         builder.add_const_extension(jump_gas_cost, F::from_canonical_u32(G_MID.unwrap()));
 
-    let nv_lv_diff = builder.sub_extension(nv.gas, lv.gas);
     let gas_diff = builder.sub_extension(nv_lv_diff, jump_gas_cost);
     let constr = builder.mul_extension(filter, gas_diff);
     yield_constr.constraint_transition(builder, constr);
@@ -204,7 +208,6 @@ fn eval_ext_circuit_accumulate<F: RichField + Extendable<D>, const D: usize>(
     let binary_op_cost =
         builder.add_const_extension(binary_op_cost, F::from_canonical_u32(G_LOW.unwrap()));
 
-    let nv_lv_diff = builder.sub_extension(nv.gas, lv.gas);
     let gas_diff = builder.sub_extension(nv_lv_diff, binary_op_cost);
     let constr = builder.mul_extension(filter, gas_diff);
     yield_constr.constraint_transition(builder, constr);
@@ -219,7 +222,6 @@ fn eval_ext_circuit_accumulate<F: RichField + Extendable<D>, const D: usize>(
     let ternary_op_cost =
         builder.add_const_extension(ternary_op_cost, F::from_canonical_u32(G_MID.unwrap()));
 
-    let nv_lv_diff = builder.sub_extension(nv.gas, lv.gas);
     let gas_diff = builder.sub_extension(nv_lv_diff, ternary_op_cost);
     let constr = builder.mul_extension(filter, gas_diff);
     yield_constr.constraint_transition(builder, constr);
@@ -236,7 +238,9 @@ fn eval_ext_circuit_init<F: RichField + Extendable<D>, const D: usize>(
     let is_cpu_cycle_next = builder.add_many_extension(COL_MAP.op.iter().map(|&col_i| nv[col_i]));
     let filter = builder.mul_sub_extension(is_cpu_cycle, is_cpu_cycle_next, is_cpu_cycle_next);
     // Set initial gas to zero.
-    let constr = builder.mul_extension(filter, nv.gas);
+    let constr = builder.mul_extension(filter, nv.gas[0]);
+    yield_constr.constraint_transition(builder, constr);
+    let constr = builder.mul_extension(filter, nv.gas[1]);
     yield_constr.constraint_transition(builder, constr);
 }
 

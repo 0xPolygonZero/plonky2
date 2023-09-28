@@ -655,15 +655,18 @@ where
         builder.connect(pvs.txn_number_before, lhs.txn_number_before);
         builder.connect(pvs.txn_number_after, rhs.txn_number_after);
 
-        // Connect lhs `txn_number_after`with rhs `txn_number_before`.
+        // Connect lhs `txn_number_after` with rhs `txn_number_before`.
         builder.connect(lhs.txn_number_after, rhs.txn_number_before);
 
         // Connect the gas used in public values to the lhs and rhs values correctly.
-        builder.connect(pvs.gas_used_before, lhs.gas_used_before);
-        builder.connect(pvs.gas_used_after, rhs.gas_used_after);
+        builder.connect(pvs.gas_used_before[0], lhs.gas_used_before[0]);
+        builder.connect(pvs.gas_used_before[1], lhs.gas_used_before[1]);
+        builder.connect(pvs.gas_used_after[0], rhs.gas_used_after[0]);
+        builder.connect(pvs.gas_used_after[1], rhs.gas_used_after[1]);
 
-        // Connect lhs `gas_used_after`with rhs `gas_used_before`.
-        builder.connect(lhs.gas_used_after, rhs.gas_used_before);
+        // Connect lhs `gas_used_after` with rhs `gas_used_before`.
+        builder.connect(lhs.gas_used_after[0], rhs.gas_used_before[0]);
+        builder.connect(lhs.gas_used_after[1], rhs.gas_used_before[1]);
 
         // Connect the `block_bloom` in public values to the lhs and rhs values correctly.
         for (&limb0, &limb1) in pvs.block_bloom_after.iter().zip(&rhs.block_bloom_after) {
@@ -672,7 +675,7 @@ where
         for (&limb0, &limb1) in pvs.block_bloom_before.iter().zip(&lhs.block_bloom_before) {
             builder.connect(limb0, limb1);
         }
-        // Connect lhs `block_bloom_after`with rhs `block_bloom_before`.
+        // Connect lhs `block_bloom_after` with rhs `block_bloom_before`.
         for (&limb0, &limb1) in lhs.block_bloom_after.iter().zip(&rhs.block_bloom_before) {
             builder.connect(limb0, limb1);
         }
@@ -846,8 +849,12 @@ where
         F: RichField + Extendable<D>,
     {
         builder.connect(
-            x.block_metadata.block_gas_used,
-            x.extra_block_data.gas_used_after,
+            x.block_metadata.block_gas_used[0],
+            x.extra_block_data.gas_used_after[0],
+        );
+        builder.connect(
+            x.block_metadata.block_gas_used[1],
+            x.extra_block_data.gas_used_after[1],
         );
 
         for (&limb0, &limb1) in x
@@ -868,7 +875,8 @@ where
         // The initial number of transactions is 0.
         builder.connect(x.extra_block_data.txn_number_before, zero);
         // The initial gas used is 0
-        builder.connect(x.extra_block_data.gas_used_before, zero);
+        builder.connect(x.extra_block_data.gas_used_before[0], zero);
+        builder.connect(x.extra_block_data.gas_used_before[1], zero);
 
         // The initial bloom filter is all zeroes.
         for t in x.extra_block_data.block_bloom_before {
