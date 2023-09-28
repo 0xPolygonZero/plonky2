@@ -92,11 +92,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 let gate = LookupGate::new_from_table(&self.config, lut.clone());
                 let num_slots = LookupGate::num_slots(&self.config);
 
-                /* Given the number of lookups and the number of slots for each gate, it is possible
-                 to compute the number of gates that will employ all their slots; for such gates,
-                 the `num_slots` calls to the `find_slot` function can be replaced with a single
-                 `add_gate` call.
-                */
+                // Given the number of lookups and the number of slots for each gate, it is possible
+                // to compute the number of gates that will employ all their slots; such gates can
+                // can be instantiated with `add_gate` rather than being instantiated slot by slot
+
                 // lookup_iter will iterate over the lookups that can be placed in fully utilized
                 // gates, splitting them in chunks that can be placed in the same `LookupGate`
                 let lookup_iter = lookups.chunks_exact(num_slots);
@@ -115,7 +114,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                     }
                 });
                 // deal with the last chunk
-                for (_, (looking_in, looking_out)) in last_chunk.iter().enumerate() {
+                for (looking_in, looking_out) in last_chunk.iter() {
                     let (gate, i) =
                         self.find_slot(gate.clone(), &[F::from_canonical_usize(lut_index)], &[]);
                     let gate_in = Target::wire(gate, LookupGate::wire_ith_looking_inp(i));
@@ -130,10 +129,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 let num_lut_rows = (self.get_luts_idx_length(lut_index) - 1) / num_lut_entries + 1;
                 let gate =
                     LookupTableGate::new_from_table(&self.config, lut.clone(), last_lut_gate);
-                // Also for `LookupTableGate` we replace the `num_lut_entries` calls to `find_slot`
-                // with a single call to `add_gate`; note that in this case there is no need to
-                // separately handle the last chunk of LUT entries that cannot fill all the slots of
-                // a `LookupTableGate`, as the generator already handles empty slots
+                // Also instances of `LookupTableGate` can be placed with the `add_gate` function
+                // rather than being instantiated slot by slot; note that in this case there is no
+                // need to separately handle the last chunk of LUT entries that cannot fill all the
+                // slots of a `LookupTableGate`, as the generator already handles empty slots
                 for _ in 0..num_lut_rows {
                     self.add_gate(gate.clone(), vec![]);
                 }
