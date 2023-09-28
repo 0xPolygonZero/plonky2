@@ -874,7 +874,7 @@ where
         let zero = builder.constant(F::ZERO);
         // The initial number of transactions is 0.
         builder.connect(x.extra_block_data.txn_number_before, zero);
-        // The initial gas used is 0
+        // The initial gas used is 0.
         builder.connect(x.extra_block_data.gas_used_before[0], zero);
         builder.connect(x.extra_block_data.gas_used_before[1], zero);
 

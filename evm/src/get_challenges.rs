@@ -112,8 +112,12 @@ fn observe_extra_block_data<
     challenger.observe_elements(&h256_limbs(extra_data.genesis_state_root));
     challenger.observe_element(u256_to_u32(extra_data.txn_number_before)?);
     challenger.observe_element(u256_to_u32(extra_data.txn_number_after)?);
-    challenger.observe_element(u256_to_u32(extra_data.gas_used_before)?);
-    challenger.observe_element(u256_to_u32(extra_data.gas_used_after)?);
+    let gas_used_before = u256_to_u64(extra_data.gas_used_before)?;
+    challenger.observe_element(gas_used_before.0);
+    challenger.observe_element(gas_used_before.1);
+    let gas_used_after = u256_to_u64(extra_data.gas_used_after)?;
+    challenger.observe_element(gas_used_after.0);
+    challenger.observe_element(gas_used_after.1);
     for i in 0..8 {
         challenger.observe_elements(&u256_limbs(extra_data.block_bloom_before[i]));
     }
