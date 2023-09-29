@@ -304,7 +304,10 @@ fn simulate_cpu<F: RichField + Extendable<D>, const D: usize>(
             row.context = F::from_canonical_usize(state.registers.context);
             row.program_counter = F::from_canonical_usize(pc);
             row.is_kernel_mode = F::ONE;
-            row.gas = F::from_canonical_u64(state.registers.gas_used);
+            row.gas = [
+                F::from_canonical_u32(state.registers.gas_used as u32),
+                F::from_canonical_u32((state.registers.gas_used >> 32) as u32),
+            ];
             row.stack_len = F::from_canonical_usize(state.registers.stack_len);
 
             loop {
