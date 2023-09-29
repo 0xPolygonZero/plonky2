@@ -569,12 +569,18 @@ mod tests {
     type C = PoseidonGoldilocksConfig;
 
     #[test]
-    fn test_get_sample_circuits_and_proof() {
-        // step1::<F, C, D>();
-        
-        // step2::<F, C, D>();
-        
-        // let (all_circuits, block_proof) = get_sample_circuits_and_proof::<F, C, D>().unwrap();
-        // all_circuits.verify_block(&block_proof).unwrap();
+    fn test_get_sample_circuits_and_proof_step1() {
+        step1::<F, C, D>();
+    }
+
+    #[test]
+    fn test_get_sample_circuits_and_proof_step2() {
+        step2::<F, C, D>();
+    }
+
+    #[test]
+    fn test_get_sample_circuits_and_proof_step3() {
+        let (all_circuits, block_proof) = get_sample_circuits_and_proof::<F, C, D>().unwrap();
+        all_circuits.verify_block(&block_proof).unwrap();
     }
 }
