@@ -89,6 +89,10 @@ pub struct BlockHashes {
     pub cur_hash: H256,
 }
 
+// TODO: Before going into production, `block_gas_used` and `block_gaslimit` here
+// as well as `gas_used_before` / `gas_used_after` in `ExtraBlockData` should be
+// updated to fit in a single 32-bit limb, as supporting 64-bit values for those
+// fields is only necessary for testing purposes.
 /// Metadata contained in a block header. Those are identical between
 /// all state transition proofs within the same block.
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]

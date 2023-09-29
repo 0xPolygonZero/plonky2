@@ -70,6 +70,10 @@ fn eval_packed_accumulate<P: PackedField>(
         })
         .sum();
 
+    // TODO: This may cause soundness issue if the recomputed gas (as u64) overflows the field size.
+    // This is fine as we are only using two-limbs for testing purposes (to support all cases from
+    // the Ethereum test suite).
+    // This should be changed back to a single 32-bit limb before going into production!
     let gas_diff = nv.gas[1] * P::Scalar::from_canonical_u64(1 << 32) + nv.gas[0]
         - (lv.gas[1] * P::Scalar::from_canonical_u64(1 << 32) + lv.gas[0]);
     let constr = gas_diff - gas_used;
@@ -157,6 +161,10 @@ fn eval_ext_circuit_accumulate<F: RichField + Extendable<D>, const D: usize>(
         },
     );
 
+    // TODO: This may cause soundness issue if the recomputed gas (as u64) overflows the field size.
+    // This is fine as we are only using two-limbs for testing purposes (to support all cases from
+    // the Ethereum test suite).
+    // This should be changed back to a single 32-bit limb before going into production!
     let nv_gas =
         builder.mul_const_add_extension(F::from_canonical_u64(1 << 32), nv.gas[1], nv.gas[0]);
     let lv_gas =
