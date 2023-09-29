@@ -95,21 +95,21 @@ pub struct BlockHashes {
 pub struct BlockMetadata {
     /// The address of this block's producer.
     pub block_beneficiary: Address,
-    /// The timestamp of this block.
+    /// The timestamp of this block. It must fit in a `u32`.
     pub block_timestamp: U256,
-    /// The index of this block.
+    /// The index of this block. It must fit in a `u32`.
     pub block_number: U256,
     /// The difficulty (before PoS transition) of this block.
     pub block_difficulty: U256,
     /// The `mix_hash` value of this block.
     pub block_random: H256,
-    /// The gas limit of this block.
+    /// The gas limit of this block. It must fit in a `u64`.
     pub block_gaslimit: U256,
-    /// The chain id of this block.
+    /// The chain id of this block. It must fit in a `u32`.
     pub block_chain_id: U256,
-    /// The base fee of this block.
+    /// The base fee of this block. It must fit in a `u64`.
     pub block_base_fee: U256,
-    /// The total gas used in this block.
+    /// The total gas used in this block. It must fit in a `u64`.
     pub block_gas_used: U256,
     /// The block bloom of this block, represented as the consecutive
     /// 32-byte chunks of a block's final bloom filter string.
