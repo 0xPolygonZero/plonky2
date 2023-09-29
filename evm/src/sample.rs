@@ -64,7 +64,7 @@ macro_rules! generate_values {
             // First transaction.
             let all_stark = AllStark::<F, D>::default();
             let config = StarkConfig::standard_fast_config();
-            
+
             let beneficiary = hex!("2adc25665018aa1fe0e6bc666dac8fc2697ff9ba");
             let sender_first = hex!("af1276cbb260bb13deddb4209ae99ae6e497f446");
             let to_first = hex!("095e7baea6a6c7c4c2dfeb977efac326af552d87");
@@ -288,7 +288,7 @@ where
     let mut timing = TimingTree::new("prove root first", log::Level::Info);
     let (root_proof_first, first_public_values) =
         all_circuits.prove_root(&all_stark, &config, inputs_first, &mut timing)?;
-    
+
     // serialize
     let root_proof_first_json = serde_json::to_string(&root_proof_first).unwrap();
     let first_public_values_json = serde_json::to_string(&first_public_values).unwrap();
@@ -334,8 +334,10 @@ where
     let first_public_values_json = std::fs::read_to_string("first_public_values.json").unwrap();
 
     // deserialize
-    let root_proof_first: ProofWithPublicInputs<F, C, D> = serde_json::from_str(&root_proof_first_json).unwrap();
-    let first_public_values: PublicValues = serde_json::from_str(&first_public_values_json).unwrap();
+    let root_proof_first: ProofWithPublicInputs<F, C, D> =
+        serde_json::from_str(&root_proof_first_json).unwrap();
+    let first_public_values: PublicValues =
+        serde_json::from_str(&first_public_values_json).unwrap();
 
     let timing = TimingTree::new("verify root first", log::Level::Info);
     timing.filter(Duration::from_millis(100)).print();
@@ -504,7 +506,7 @@ where
         &[16..17, 11..13, 17..19, 14..15, 9..11, 12..13, 19..21],
         &config,
     );
-    
+
     // read from files
     let root_proof_json = std::fs::read_to_string("root_proof.json").unwrap();
     let public_values_json = std::fs::read_to_string("public_values.json").unwrap();
@@ -512,10 +514,13 @@ where
     let first_public_values_json = std::fs::read_to_string("first_public_values.json").unwrap();
 
     // deserialize
-    let root_proof: ProofWithPublicInputs<F, C, D> = serde_json::from_str(&root_proof_json).unwrap();
+    let root_proof: ProofWithPublicInputs<F, C, D> =
+        serde_json::from_str(&root_proof_json).unwrap();
     let public_values: PublicValues = serde_json::from_str(&public_values_json).unwrap();
-    let root_proof_first: ProofWithPublicInputs<F, C, D> = serde_json::from_str(&root_proof_first_json).unwrap();
-    let first_public_values: PublicValues = serde_json::from_str(&first_public_values_json).unwrap();
+    let root_proof_first: ProofWithPublicInputs<F, C, D> =
+        serde_json::from_str(&root_proof_first_json).unwrap();
+    let first_public_values: PublicValues =
+        serde_json::from_str(&first_public_values_json).unwrap();
 
     all_circuits.verify_root(root_proof.clone())?;
 
@@ -557,7 +562,7 @@ mod tests {
     use plonky2::field::goldilocks_field::GoldilocksField;
     use plonky2::plonk::config::PoseidonGoldilocksConfig;
 
-    use super::{step1, step2, get_sample_circuits_and_proof};
+    use super::{get_sample_circuits_and_proof, step1, step2};
 
     type F = GoldilocksField;
     const D: usize = 2;
