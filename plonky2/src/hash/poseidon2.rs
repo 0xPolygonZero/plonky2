@@ -85,8 +85,6 @@ pub trait Poseidon2: PrimeField64 {
         current_state
     }
 
-    #[inline]
-    #[unroll_for_loops]
     fn constant_layer(state: &mut [Self; WIDTH], round_ctr: usize) {
         for i in 0..WIDTH {
             let round_constant = Self::RC12[round_ctr][i];
@@ -96,8 +94,6 @@ pub trait Poseidon2: PrimeField64 {
         }
     }
 
-    #[inline(always)]
-    #[unroll_for_loops]
     fn sbox_layer(state: &mut [Self; WIDTH]) {
         for i in 0..WIDTH {
             if i < WIDTH {
@@ -106,7 +102,6 @@ pub trait Poseidon2: PrimeField64 {
         }
     }
 
-    #[inline(always)]
     fn sbox_monomial<F: FieldExtension<D, BaseField = Self>, const D: usize>(x: F) -> F {
         // x |--> x^7
         let x2 = x.square();
@@ -118,7 +113,6 @@ pub trait Poseidon2: PrimeField64 {
     // M_E * x
     // M_E = circ[2*M4, M4,...,M4] * x
     //     = [M4, M4, M4] * x + circ[M4,0,0] * X
-    #[inline]
     fn matmul_external(input: &mut [Self]) {
         // Applying cheap 4x4 MDS matrix to each 4-element part of the state
         Self::matmul_m4(input);
@@ -155,7 +149,6 @@ pub trait Poseidon2: PrimeField64 {
     //      [1,1,1,1,1,1,1,1,1,1,u_10,1]
     //      [1,1,1,1,1,1,1,1,1,1,1,u_11]
     // = Sum_i (u_i - 1) * x_i + Sum(x_0 + x_1 +...+ x_11)
-    #[inline]
     fn matmul_internal(input: &mut [Self], mat_internal_diag_m_1: &[u64]) {
         //let t: usize = WIDTH;
 
@@ -178,7 +171,6 @@ pub trait Poseidon2: PrimeField64 {
         }
     }
 
-    #[inline]
     fn matmul_m4(input: &mut [Self]) {
         let t4 = WIDTH / 4;
 

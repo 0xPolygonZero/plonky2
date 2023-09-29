@@ -330,6 +330,7 @@ where
         openings,
         opening_proof,
     };
+    timing.print();
     Ok(ProofWithPublicInputs::<F, C, D> {
         proof,
         public_inputs,

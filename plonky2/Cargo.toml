@@ -68,6 +68,14 @@ name = "hashing"
 harness = false
 
 [[bench]]
+name = "poseidon_prove"
+harness = false
+
+[[bench]]
+name = "poseidon2_prove"
+harness = false
+
+[[bench]]
 name = "merkle"
 harness = false
 
@@ -78,3 +86,10 @@ harness = false
 [[bench]]
 name = "reverse_index_bits"
 harness = false
+
+
+[profile.release]
+incremental = true
+lto = "fat"
+debug = true
+opt-level=3

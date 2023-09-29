@@ -24,7 +24,7 @@ pub struct TimingTree(Level);
 #[cfg(feature = "timing")]
 impl Default for TimingTree {
     fn default() -> Self {
-        TimingTree::new("root", Level::Debug)
+        TimingTree::new("root", Level::Trace)
     }
 }
 
