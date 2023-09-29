@@ -23,7 +23,7 @@ use crate::generation::{GenerationInputs, TrieInputs};
 use crate::proof::{BlockHashes, BlockMetadata, ExtraBlockData, PublicValues, TrieRoots};
 use crate::Node;
 
-// // Taken from log_opcode test.
+// Taken from log_opcode test.
 pub fn get_sample_circuits_and_proof<F, C, const D: usize>() -> Result<(
     AllRecursiveCircuits<F, C, D>,
     ProofWithPublicInputs<F, C, D>,
