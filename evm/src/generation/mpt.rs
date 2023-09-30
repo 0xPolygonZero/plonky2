@@ -33,7 +33,7 @@ impl Default for AccountRlp {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum AccessListInner {
     List(Vec<AccessListItemRlp>),
     Item(AccessListItemRlp),
@@ -64,13 +64,13 @@ impl Decodable for AccessListInner {
     }
 }
 
-#[derive(RlpEncodable, RlpDecodable, Debug)]
+#[derive(Clone, RlpEncodable, RlpDecodable, Debug)]
 pub struct AccessListItemRlp {
     pub address: Address,
     pub storage_keys: Vec<U256>,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct AddressOption(pub Option<Address>);
 
 impl Encodable for AddressOption {
@@ -98,7 +98,7 @@ impl Decodable for AddressOption {
     }
 }
 
-#[derive(RlpEncodable, RlpDecodable, Debug)]
+#[derive(Clone, RlpEncodable, RlpDecodable, Debug)]
 pub struct LegacyTransactionRlp {
     pub nonce: U256,
     pub gas_price: U256,
@@ -111,7 +111,7 @@ pub struct LegacyTransactionRlp {
     pub s: U256,
 }
 
-#[derive(RlpEncodable, RlpDecodable, Debug)]
+#[derive(Clone, RlpEncodable, RlpDecodable, Debug)]
 pub struct AccessListTransactionRlp {
     pub chain_id: u64,
     pub nonce: U256,
@@ -126,7 +126,7 @@ pub struct AccessListTransactionRlp {
     pub s: U256,
 }
 
-#[derive(RlpEncodable, RlpDecodable, Debug)]
+#[derive(Clone, RlpEncodable, RlpDecodable, Debug)]
 pub struct FeeMarketTransactionRlp {
     pub chain_id: u64,
     pub nonce: U256,
