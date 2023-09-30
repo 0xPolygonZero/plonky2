@@ -33,6 +33,37 @@ impl Default for AccountRlp {
     }
 }
 
+#[derive(Debug)]
+pub enum AccessListInner {
+    List(Vec<AccessListItemRlp>),
+    Item(AccessListItemRlp),
+}
+
+impl Encodable for AccessListInner {
+    fn rlp_append(&self, s: &mut RlpStream) {
+        match self {
+            AccessListInner::List(list) => s.append_list(&list),
+            AccessListInner::Item(item) => s.append(item),
+        };
+    }
+}
+
+impl Decodable for AccessListInner {
+    fn decode(rlp: &Rlp) -> Result<Self, DecoderError> {
+        if rlp.is_list() {
+            let bytes = rlp.at(0)?;
+            let access_list: Vec<AccessListItemRlp> = bytes.as_list()?;
+            return Ok(AccessListInner::List(access_list));
+        }
+        if rlp.is_data() {
+            let bytes = rlp.at(0)?;
+            let access_list = bytes.as_val::<AccessListItemRlp>()?;
+            return Ok(AccessListInner::Item(access_list));
+        }
+        Err(DecoderError::RlpExpectedToBeData)
+    }
+}
+
 #[derive(RlpEncodable, RlpDecodable, Debug)]
 pub struct AccessListItemRlp {
     pub address: Address,
@@ -89,7 +120,7 @@ pub struct AccessListTransactionRlp {
     pub to: AddressOption,
     pub value: U256,
     pub data: Bytes,
-    pub access_list: Vec<AccessListItemRlp>,
+    pub access_list: Vec<AccessListInner>,
     pub y_parity: U256,
     pub r: U256,
     pub s: U256,
@@ -105,7 +136,7 @@ pub struct FeeMarketTransactionRlp {
     pub to: AddressOption,
     pub value: U256,
     pub data: Bytes,
-    pub access_list: Vec<AccessListItemRlp>,
+    pub access_list: Vec<AccessListInner>,
     pub y_parity: U256,
     pub r: U256,
     pub s: U256,
