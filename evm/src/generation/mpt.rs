@@ -42,7 +42,7 @@ pub enum AccessListInner {
 impl Encodable for AccessListInner {
     fn rlp_append(&self, s: &mut RlpStream) {
         match self {
-            AccessListInner::List(list) => s.append_list(&list),
+            AccessListInner::List(list) => s.append_list(list),
             AccessListInner::Item(item) => s.append(item),
         };
     }
