@@ -499,12 +499,6 @@ fn append_shift<F: Field>(
         channel.addr_virtual = F::from_canonical_usize(lookup_addr.virt);
     }
 
-    // Convert the shift, and log the corresponding arithmetic operation.
-    let input0 = if input0 > U256::from(255u64) {
-        U256::zero()
-    } else {
-        U256::one() << input0
-    };
     let operator = if is_shl {
         BinaryOperator::Shl
     } else {

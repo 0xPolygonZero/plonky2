@@ -45,7 +45,7 @@ pub(crate) fn generate<F: PrimeField64>(
     }
 
     match filter {
-        IS_DIV | IS_SHR => {
+        IS_DIV => {
             debug_assert!(
                 lv[OUTPUT_REGISTER]
                     .iter()
@@ -104,14 +104,11 @@ pub(crate) fn eval_packed<P: PackedField>(
     nv: &[P; NUM_ARITH_COLUMNS],
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
-    // Constrain IS_SHR independently, so that it doesn't impact the
-    // constraints when combining the flag with IS_DIV.
-    yield_constr.constraint_last_row(lv[IS_SHR]);
     eval_packed_divmod_helper(
         lv,
         nv,
         yield_constr,
-        lv[IS_DIV] + lv[IS_SHR],
+        lv[IS_DIV],
         OUTPUT_REGISTER,
         AUX_INPUT_REGISTER_0,
     );
@@ -164,8 +161,7 @@ pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     nv: &[ExtensionTarget<D>; NUM_ARITH_COLUMNS],
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
-    yield_constr.constraint_last_row(builder, lv[IS_SHR]);
-    let div_shr_flag = builder.add_extension(lv[IS_DIV], lv[IS_SHR]);
+    let div_shr_flag = lv[IS_DIV];
     eval_ext_circuit_divmod_helper(
         builder,
         lv,
@@ -214,8 +210,6 @@ mod tests {
         for op in MODULAR_OPS {
             lv[op] = F::ZERO;
         }
-        // Deactivate the SHR flag so that a DIV operation is not triggered.
-        lv[IS_SHR] = F::ZERO;
 
         let mut constraint_consumer = ConstraintConsumer::new(
             vec![GoldilocksField(2), GoldilocksField(3), GoldilocksField(5)],
@@ -247,7 +241,6 @@ mod tests {
                 for op in MODULAR_OPS {
                     lv[op] = F::ZERO;
                 }
-                lv[IS_SHR] = F::ZERO;
                 lv[op_filter] = F::ONE;
 
                 let input0 = U256::from(rng.gen::<[u8; 32]>());
@@ -308,7 +301,6 @@ mod tests {
                 for op in MODULAR_OPS {
                     lv[op] = F::ZERO;
                 }
-                lv[IS_SHR] = F::ZERO;
                 lv[op_filter] = F::ONE;
 
                 let input0 = U256::from(rng.gen::<[u8; 32]>());
