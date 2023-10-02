@@ -33,13 +33,13 @@ impl Default for AccountRlp {
     }
 }
 
-#[derive(RlpEncodable, RlpDecodable, Debug)]
+#[derive(RlpEncodable, RlpDecodable, Debug, Clone)]
 pub struct AccessListItemRlp {
     pub address: Address,
     pub storage_keys: Vec<U256>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct AddressOption(pub Option<Address>);
 
 impl Encodable for AddressOption {
@@ -67,7 +67,7 @@ impl Decodable for AddressOption {
     }
 }
 
-#[derive(RlpEncodable, RlpDecodable, Debug)]
+#[derive(RlpEncodable, RlpDecodable, Debug, Clone)]
 pub struct LegacyTransactionRlp {
     pub nonce: U256,
     pub gas_price: U256,
@@ -80,7 +80,7 @@ pub struct LegacyTransactionRlp {
     pub s: U256,
 }
 
-#[derive(RlpEncodable, RlpDecodable, Debug)]
+#[derive(RlpEncodable, RlpDecodable, Debug, Clone)]
 pub struct AccessListTransactionRlp {
     pub chain_id: u64,
     pub nonce: U256,
@@ -95,7 +95,7 @@ pub struct AccessListTransactionRlp {
     pub s: U256,
 }
 
-#[derive(RlpEncodable, RlpDecodable, Debug)]
+#[derive(RlpEncodable, RlpDecodable, Debug, Clone)]
 pub struct FeeMarketTransactionRlp {
     pub chain_id: u64,
     pub nonce: U256,
@@ -111,14 +111,14 @@ pub struct FeeMarketTransactionRlp {
     pub s: U256,
 }
 
-#[derive(RlpEncodable, RlpDecodable, Debug)]
+#[derive(RlpEncodable, RlpDecodable, Debug, Clone)]
 pub struct LogRlp {
     pub address: Address,
     pub topics: Vec<H256>,
     pub data: Bytes,
 }
 
-#[derive(RlpEncodable, RlpDecodable, Debug)]
+#[derive(RlpEncodable, RlpDecodable, Debug, Clone)]
 pub struct LegacyReceiptRlp {
     pub status: bool,
     pub cum_gas_used: U256,
