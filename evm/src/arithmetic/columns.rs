@@ -104,12 +104,9 @@ pub(crate) const MODULAR_AUX_INPUT_HI: Range<usize> = AUX_REGISTER_2;
 // Must be set to MOD_IS_ZERO for DIV operation i.e. MOD_IS_ZERO * lv[IS_DIV]
 pub(crate) const MODULAR_DIV_DENOM_IS_ZERO: usize = AUX_REGISTER_2.end;
 
-// Need one column for the table, then two columns for every value
-// that needs to be range checked in the trace, namely the permutation
-// of the column and the permutation of the range. The two
-// permutations associated to column i will be in columns RC_COLS[2i]
-// and RC_COLS[2i+1].
+/// The counter column (used for the range check) starts from 0 and increments.
 pub(crate) const RANGE_COUNTER: usize = START_SHARED_COLS + NUM_SHARED_COLS;
+/// The frequencies column used in logUp.
 pub(crate) const RC_FREQUENCIES: usize = RANGE_COUNTER + 1;
 
 pub const NUM_ARITH_COLUMNS: usize = START_SHARED_COLS + NUM_SHARED_COLS + 2;

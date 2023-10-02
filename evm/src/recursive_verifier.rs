@@ -520,24 +520,8 @@ pub(crate) fn get_memory_extra_looking_products_circuit<
             public_values.block_metadata.block_difficulty,
         ),
         (
-            GlobalMetadata::BlockGasLimit as usize,
-            public_values.block_metadata.block_gaslimit,
-        ),
-        (
             GlobalMetadata::BlockChainId as usize,
             public_values.block_metadata.block_chain_id,
-        ),
-        (
-            GlobalMetadata::BlockGasUsed as usize,
-            public_values.block_metadata.block_gas_used,
-        ),
-        (
-            GlobalMetadata::BlockGasUsedBefore as usize,
-            public_values.extra_block_data.gas_used_before,
-        ),
-        (
-            GlobalMetadata::BlockGasUsedAfter as usize,
-            public_values.extra_block_data.gas_used_after,
         ),
         (
             GlobalMetadata::TxnNumberBefore as usize,
@@ -549,7 +533,10 @@ pub(crate) fn get_memory_extra_looking_products_circuit<
         ),
     ];
 
-    let beneficiary_random_base_fee_cur_hash_fields: [(usize, &[Target]); 4] = [
+    // This contains the `block_beneficiary`, `block_random`, `block_base_fee`,
+    // `block_gaslimit`, `block_gas_used` as well as `cur_hash`, `gas_used_before`
+    // and `gas_used_after`.
+    let block_fields_arrays: [(usize, &[Target]); 8] = [
         (
             GlobalMetadata::BlockBeneficiary as usize,
             &public_values.block_metadata.block_beneficiary,
@@ -563,8 +550,24 @@ pub(crate) fn get_memory_extra_looking_products_circuit<
             &public_values.block_metadata.block_base_fee,
         ),
         (
+            GlobalMetadata::BlockGasLimit as usize,
+            &public_values.block_metadata.block_gaslimit,
+        ),
+        (
+            GlobalMetadata::BlockGasUsed as usize,
+            &public_values.block_metadata.block_gas_used,
+        ),
+        (
             GlobalMetadata::BlockCurrentHash as usize,
             &public_values.block_hashes.cur_hash,
+        ),
+        (
+            GlobalMetadata::BlockGasUsedBefore as usize,
+            &public_values.extra_block_data.gas_used_before,
+        ),
+        (
+            GlobalMetadata::BlockGasUsedAfter as usize,
+            &public_values.extra_block_data.gas_used_after,
         ),
     ];
 
@@ -581,7 +584,7 @@ pub(crate) fn get_memory_extra_looking_products_circuit<
         );
     });
 
-    beneficiary_random_base_fee_cur_hash_fields.map(|(field, targets)| {
+    block_fields_arrays.map(|(field, targets)| {
         product = add_data_write(
             builder,
             challenge,
@@ -778,10 +781,10 @@ pub(crate) fn add_virtual_block_metadata<F: RichField + Extendable<D>, const D: 
     let block_number = builder.add_virtual_public_input();
     let block_difficulty = builder.add_virtual_public_input();
     let block_random = builder.add_virtual_public_input_arr();
-    let block_gaslimit = builder.add_virtual_public_input();
+    let block_gaslimit = builder.add_virtual_public_input_arr();
     let block_chain_id = builder.add_virtual_public_input();
     let block_base_fee = builder.add_virtual_public_input_arr();
-    let block_gas_used = builder.add_virtual_public_input();
+    let block_gas_used = builder.add_virtual_public_input_arr();
     let block_bloom = builder.add_virtual_public_input_arr();
     BlockMetadataTarget {
         block_beneficiary,
@@ -813,8 +816,8 @@ pub(crate) fn add_virtual_extra_block_data<F: RichField + Extendable<D>, const D
     let genesis_state_root = builder.add_virtual_public_input_arr();
     let txn_number_before = builder.add_virtual_public_input();
     let txn_number_after = builder.add_virtual_public_input();
-    let gas_used_before = builder.add_virtual_public_input();
-    let gas_used_after = builder.add_virtual_public_input();
+    let gas_used_before = builder.add_virtual_public_input_arr();
+    let gas_used_after = builder.add_virtual_public_input_arr();
     let block_bloom_before: [Target; 64] = builder.add_virtual_public_input_arr();
     let block_bloom_after: [Target; 64] = builder.add_virtual_public_input_arr();
     ExtraBlockDataTarget {
@@ -1027,10 +1030,10 @@ where
         &block_metadata_target.block_random,
         &h256_limbs(block_metadata.block_random),
     );
-    witness.set_target(
-        block_metadata_target.block_gaslimit,
-        u256_to_u32(block_metadata.block_gaslimit)?,
-    );
+    // Gaslimit fits in 2 limbs
+    let gaslimit = u256_to_u64(block_metadata.block_gaslimit)?;
+    witness.set_target(block_metadata_target.block_gaslimit[0], gaslimit.0);
+    witness.set_target(block_metadata_target.block_gaslimit[1], gaslimit.1);
     witness.set_target(
         block_metadata_target.block_chain_id,
         u256_to_u32(block_metadata.block_chain_id)?,
@@ -1039,10 +1042,10 @@ where
     let basefee = u256_to_u64(block_metadata.block_base_fee)?;
     witness.set_target(block_metadata_target.block_base_fee[0], basefee.0);
     witness.set_target(block_metadata_target.block_base_fee[1], basefee.1);
-    witness.set_target(
-        block_metadata_target.block_gas_used,
-        u256_to_u32(block_metadata.block_gas_used)?,
-    );
+    // Gas used fits in 2 limbs
+    let gas_used = u256_to_u64(block_metadata.block_gas_used)?;
+    witness.set_target(block_metadata_target.block_gas_used[0], gas_used.0);
+    witness.set_target(block_metadata_target.block_gas_used[1], gas_used.1);
     let mut block_bloom_limbs = [F::ZERO; 64];
     for (i, limbs) in block_bloom_limbs.chunks_exact_mut(8).enumerate() {
         limbs.copy_from_slice(&u256_limbs(block_metadata.block_bloom[i]));
@@ -1092,8 +1095,13 @@ where
         ed_target.txn_number_after,
         u256_to_u32(ed.txn_number_after)?,
     );
-    witness.set_target(ed_target.gas_used_before, u256_to_u32(ed.gas_used_before)?);
-    witness.set_target(ed_target.gas_used_after, u256_to_u32(ed.gas_used_after)?);
+    // Gas used before/after fit in 2 limbs
+    let gas_used_before = u256_to_u64(ed.gas_used_before)?;
+    witness.set_target(ed_target.gas_used_before[0], gas_used_before.0);
+    witness.set_target(ed_target.gas_used_before[1], gas_used_before.1);
+    let gas_used_after = u256_to_u64(ed.gas_used_after)?;
+    witness.set_target(ed_target.gas_used_after[0], gas_used_after.0);
+    witness.set_target(ed_target.gas_used_after[1], gas_used_after.1);
 
     let block_bloom_before = ed.block_bloom_before;
     let mut block_bloom_limbs = [F::ZERO; 64];

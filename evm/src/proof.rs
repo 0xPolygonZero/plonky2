@@ -89,26 +89,31 @@ pub struct BlockHashes {
     pub cur_hash: H256,
 }
 
+// TODO: Before going into production, `block_gas_used` and `block_gaslimit` here
+// as well as `gas_used_before` / `gas_used_after` in `ExtraBlockData` should be
+// updated to fit in a single 32-bit limb, as supporting 64-bit values for those
+// fields is only necessary for testing purposes.
 /// Metadata contained in a block header. Those are identical between
 /// all state transition proofs within the same block.
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct BlockMetadata {
     /// The address of this block's producer.
     pub block_beneficiary: Address,
-    /// The timestamp of this block.
+    /// The timestamp of this block. It must fit in a `u32`.
     pub block_timestamp: U256,
-    /// The index of this block.
+    /// The index of this block. It must fit in a `u32`.
     pub block_number: U256,
     /// The difficulty (before PoS transition) of this block.
     pub block_difficulty: U256,
+    /// The `mix_hash` value of this block.
     pub block_random: H256,
-    /// The gas limit of this block. It must fit in a `u32`.
+    /// The gas limit of this block. It must fit in a `u64`.
     pub block_gaslimit: U256,
-    /// The chain id of this block.
+    /// The chain id of this block. It must fit in a `u32`.
     pub block_chain_id: U256,
-    /// The base fee of this block.
+    /// The base fee of this block. It must fit in a `u64`.
     pub block_base_fee: U256,
-    /// The total gas used in this block. It must fit in a `u32`.
+    /// The total gas used in this block. It must fit in a `u64`.
     pub block_gas_used: U256,
     /// The block bloom of this block, represented as the consecutive
     /// 32-byte chunks of a block's final bloom filter string.
@@ -191,10 +196,10 @@ impl PublicValuesTarget {
         buffer.write_target(block_number)?;
         buffer.write_target(block_difficulty)?;
         buffer.write_target_array(&block_random)?;
-        buffer.write_target(block_gaslimit)?;
+        buffer.write_target_array(&block_gaslimit)?;
         buffer.write_target(block_chain_id)?;
         buffer.write_target_array(&block_base_fee)?;
-        buffer.write_target(block_gas_used)?;
+        buffer.write_target_array(&block_gas_used)?;
         buffer.write_target_array(&block_bloom)?;
 
         let BlockHashesTarget {
@@ -216,8 +221,8 @@ impl PublicValuesTarget {
         buffer.write_target_array(&genesis_state_root)?;
         buffer.write_target(txn_number_before)?;
         buffer.write_target(txn_number_after)?;
-        buffer.write_target(gas_used_before)?;
-        buffer.write_target(gas_used_after)?;
+        buffer.write_target_array(&gas_used_before)?;
+        buffer.write_target_array(&gas_used_after)?;
         buffer.write_target_array(&block_bloom_before)?;
         buffer.write_target_array(&block_bloom_after)?;
 
@@ -243,10 +248,10 @@ impl PublicValuesTarget {
             block_number: buffer.read_target()?,
             block_difficulty: buffer.read_target()?,
             block_random: buffer.read_target_array()?,
-            block_gaslimit: buffer.read_target()?,
+            block_gaslimit: buffer.read_target_array()?,
             block_chain_id: buffer.read_target()?,
             block_base_fee: buffer.read_target_array()?,
-            block_gas_used: buffer.read_target()?,
+            block_gas_used: buffer.read_target_array()?,
             block_bloom: buffer.read_target_array()?,
         };
 
@@ -259,8 +264,8 @@ impl PublicValuesTarget {
             genesis_state_root: buffer.read_target_array()?,
             txn_number_before: buffer.read_target()?,
             txn_number_after: buffer.read_target()?,
-            gas_used_before: buffer.read_target()?,
-            gas_used_after: buffer.read_target()?,
+            gas_used_before: buffer.read_target_array()?,
+            gas_used_after: buffer.read_target_array()?,
             block_bloom_before: buffer.read_target_array()?,
             block_bloom_after: buffer.read_target_array()?,
         };
@@ -417,15 +422,15 @@ pub struct BlockMetadataTarget {
     pub block_number: Target,
     pub block_difficulty: Target,
     pub block_random: [Target; 8],
-    pub block_gaslimit: Target,
+    pub block_gaslimit: [Target; 2],
     pub block_chain_id: Target,
     pub block_base_fee: [Target; 2],
-    pub block_gas_used: Target,
+    pub block_gas_used: [Target; 2],
     pub block_bloom: [Target; 64],
 }
 
 impl BlockMetadataTarget {
-    pub const SIZE: usize = 85;
+    pub const SIZE: usize = 87;
 
     pub fn from_public_inputs(pis: &[Target]) -> Self {
         let block_beneficiary = pis[0..5].try_into().unwrap();
@@ -433,11 +438,11 @@ impl BlockMetadataTarget {
         let block_number = pis[6];
         let block_difficulty = pis[7];
         let block_random = pis[8..16].try_into().unwrap();
-        let block_gaslimit = pis[16];
-        let block_chain_id = pis[17];
-        let block_base_fee = pis[18..20].try_into().unwrap();
-        let block_gas_used = pis[20];
-        let block_bloom = pis[21..85].try_into().unwrap();
+        let block_gaslimit = pis[16..18].try_into().unwrap();
+        let block_chain_id = pis[18];
+        let block_base_fee = pis[19..21].try_into().unwrap();
+        let block_gas_used = pis[21..23].try_into().unwrap();
+        let block_bloom = pis[23..87].try_into().unwrap();
 
         Self {
             block_beneficiary,
@@ -473,12 +478,16 @@ impl BlockMetadataTarget {
             block_random: core::array::from_fn(|i| {
                 builder.select(condition, bm0.block_random[i], bm1.block_random[i])
             }),
-            block_gaslimit: builder.select(condition, bm0.block_gaslimit, bm1.block_gaslimit),
+            block_gaslimit: core::array::from_fn(|i| {
+                builder.select(condition, bm0.block_gaslimit[i], bm1.block_gaslimit[i])
+            }),
             block_chain_id: builder.select(condition, bm0.block_chain_id, bm1.block_chain_id),
             block_base_fee: core::array::from_fn(|i| {
                 builder.select(condition, bm0.block_base_fee[i], bm1.block_base_fee[i])
             }),
-            block_gas_used: builder.select(condition, bm0.block_gas_used, bm1.block_gas_used),
+            block_gas_used: core::array::from_fn(|i| {
+                builder.select(condition, bm0.block_gas_used[i], bm1.block_gas_used[i])
+            }),
             block_bloom: core::array::from_fn(|i| {
                 builder.select(condition, bm0.block_bloom[i], bm1.block_bloom[i])
             }),
@@ -499,12 +508,16 @@ impl BlockMetadataTarget {
         for i in 0..8 {
             builder.connect(bm0.block_random[i], bm1.block_random[i]);
         }
-        builder.connect(bm0.block_gaslimit, bm1.block_gaslimit);
+        for i in 0..2 {
+            builder.connect(bm0.block_gaslimit[i], bm1.block_gaslimit[i])
+        }
         builder.connect(bm0.block_chain_id, bm1.block_chain_id);
         for i in 0..2 {
             builder.connect(bm0.block_base_fee[i], bm1.block_base_fee[i])
         }
-        builder.connect(bm0.block_gas_used, bm1.block_gas_used);
+        for i in 0..2 {
+            builder.connect(bm0.block_gas_used[i], bm1.block_gas_used[i])
+        }
         for i in 0..64 {
             builder.connect(bm0.block_bloom[i], bm1.block_bloom[i])
         }
@@ -561,23 +574,23 @@ pub struct ExtraBlockDataTarget {
     pub genesis_state_root: [Target; 8],
     pub txn_number_before: Target,
     pub txn_number_after: Target,
-    pub gas_used_before: Target,
-    pub gas_used_after: Target,
+    pub gas_used_before: [Target; 2],
+    pub gas_used_after: [Target; 2],
     pub block_bloom_before: [Target; 64],
     pub block_bloom_after: [Target; 64],
 }
 
 impl ExtraBlockDataTarget {
-    const SIZE: usize = 140;
+    const SIZE: usize = 142;
 
     pub fn from_public_inputs(pis: &[Target]) -> Self {
         let genesis_state_root = pis[0..8].try_into().unwrap();
         let txn_number_before = pis[8];
         let txn_number_after = pis[9];
-        let gas_used_before = pis[10];
-        let gas_used_after = pis[11];
-        let block_bloom_before = pis[12..76].try_into().unwrap();
-        let block_bloom_after = pis[76..140].try_into().unwrap();
+        let gas_used_before = pis[10..12].try_into().unwrap();
+        let gas_used_after = pis[12..14].try_into().unwrap();
+        let block_bloom_before = pis[14..78].try_into().unwrap();
+        let block_bloom_after = pis[78..142].try_into().unwrap();
 
         Self {
             genesis_state_root,
@@ -610,8 +623,12 @@ impl ExtraBlockDataTarget {
                 ed1.txn_number_before,
             ),
             txn_number_after: builder.select(condition, ed0.txn_number_after, ed1.txn_number_after),
-            gas_used_before: builder.select(condition, ed0.gas_used_before, ed1.gas_used_before),
-            gas_used_after: builder.select(condition, ed0.gas_used_after, ed1.gas_used_after),
+            gas_used_before: core::array::from_fn(|i| {
+                builder.select(condition, ed0.gas_used_before[i], ed1.gas_used_before[i])
+            }),
+            gas_used_after: core::array::from_fn(|i| {
+                builder.select(condition, ed0.gas_used_after[i], ed1.gas_used_after[i])
+            }),
             block_bloom_before: core::array::from_fn(|i| {
                 builder.select(
                     condition,
@@ -639,8 +656,12 @@ impl ExtraBlockDataTarget {
         }
         builder.connect(ed0.txn_number_before, ed1.txn_number_before);
         builder.connect(ed0.txn_number_after, ed1.txn_number_after);
-        builder.connect(ed0.gas_used_before, ed1.gas_used_before);
-        builder.connect(ed1.gas_used_after, ed1.gas_used_after);
+        for i in 0..2 {
+            builder.connect(ed0.gas_used_before[i], ed1.gas_used_before[i]);
+        }
+        for i in 0..2 {
+            builder.connect(ed1.gas_used_after[i], ed1.gas_used_after[i]);
+        }
         for i in 0..64 {
             builder.connect(ed0.block_bloom_before[i], ed1.block_bloom_before[i]);
         }
