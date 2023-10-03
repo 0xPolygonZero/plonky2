@@ -165,9 +165,14 @@ pub(crate) fn generate_prover_input<F: Field>(
     let input_fn = &KERNEL.prover_inputs[&pc];
     let input = state.prover_input(input_fn)?;
     let write = stack_push_log_and_fill(state, &mut row, input)?;
-
-    let range_check_op =
-        arithmetic::Operation::range_check(U256::from(0), U256::from(0), U256::from(0), input);
+    let opcode = 0x49.into();
+    let range_check_op = arithmetic::Operation::range_check(
+        U256::from(0),
+        U256::from(0),
+        U256::from(0),
+        opcode,
+        input,
+    );
     state.traces.push_arithmetic(range_check_op);
     state.traces.push_memory(write);
     state.traces.push_cpu(row);
@@ -610,6 +615,7 @@ pub(crate) fn generate_syscall<F: Field>(
         handler_addr0,
         handler_addr1,
         handler_addr2,
+        U256::from(opcode),
         syscall_info,
     );
     // Set registers before pushing to the stack; in particular, we need to set kernel mode so we
@@ -855,8 +861,13 @@ pub(crate) fn generate_exception<F: Field>(
 
     let exc_info = U256::from(state.registers.program_counter) + (gas << 192);
 
-    let range_check_op =
-        arithmetic::Operation::range_check(handler_addr0, handler_addr1, handler_addr2, exc_info);
+    let range_check_op = arithmetic::Operation::range_check(
+        handler_addr0,
+        handler_addr1,
+        handler_addr2,
+        0.into(),
+        exc_info,
+    );
     // Set registers before pushing to the stack; in particular, we need to set kernel mode so we
     // can't incorrectly trigger a stack overflow. However, note that we have to do it _after_ we
     // make `exc_info`, which should contain the old values.

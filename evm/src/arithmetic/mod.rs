@@ -1,7 +1,9 @@
 use ethereum_types::U256;
 use plonky2::field::types::PrimeField64;
 
-use self::columns::{INPUT_REGISTER_0, INPUT_REGISTER_1, INPUT_REGISTER_2, OUTPUT_REGISTER};
+use self::columns::{
+    INPUT_REGISTER_0, INPUT_REGISTER_1, INPUT_REGISTER_2, OPCODE_COL, OUTPUT_REGISTER,
+};
 use self::utils::u256_to_array;
 use crate::arithmetic::columns::IS_RANGE_CHECK;
 use crate::extension_tower::BN_BASE;
@@ -135,6 +137,7 @@ pub(crate) enum Operation {
         input0: U256,
         input1: U256,
         input2: U256,
+        opcode: U256,
         result: U256,
     },
 }
@@ -181,11 +184,18 @@ impl Operation {
         }
     }
 
-    pub(crate) fn range_check(input0: U256, input1: U256, input2: U256, result: U256) -> Self {
+    pub(crate) fn range_check(
+        input0: U256,
+        input1: U256,
+        input2: U256,
+        opcode: U256,
+        result: U256,
+    ) -> Self {
         Self::RangeCheckOperation {
             input0,
             input1,
             input2,
+            opcode,
             result,
         }
     }
@@ -227,8 +237,9 @@ impl Operation {
                 input0,
                 input1,
                 input2,
+                opcode,
                 result,
-            } => range_check_to_rows(input0, input1, input2, result),
+            } => range_check_to_rows(input0, input1, input2, opcode, result),
         }
     }
 }
@@ -287,10 +298,12 @@ fn range_check_to_rows<F: PrimeField64>(
     input0: U256,
     input1: U256,
     input2: U256,
+    opcode: U256,
     result: U256,
 ) -> (Vec<F>, Option<Vec<F>>) {
     let mut row = vec![F::ZERO; columns::NUM_ARITH_COLUMNS];
     row[IS_RANGE_CHECK] = F::ONE;
+    row[OPCODE_COL] = F::from_canonical_u64(opcode.as_u64());
     u256_to_array(&mut row[INPUT_REGISTER_0], input0);
     u256_to_array(&mut row[INPUT_REGISTER_1], input1);
     u256_to_array(&mut row[INPUT_REGISTER_2], input2);

@@ -39,8 +39,9 @@ pub(crate) const IS_BYTE: usize = IS_GT + 1;
 pub(crate) const IS_SHL: usize = IS_BYTE + 1;
 pub(crate) const IS_SHR: usize = IS_SHL + 1;
 pub(crate) const IS_RANGE_CHECK: usize = IS_SHR + 1;
-
-pub(crate) const START_SHARED_COLS: usize = IS_RANGE_CHECK + 1;
+/// Column that stores the opcode if the operation is a range check.
+pub(crate) const OPCODE_COL: usize = IS_RANGE_CHECK + 1;
+pub(crate) const START_SHARED_COLS: usize = OPCODE_COL + 1;
 
 /// Within the Arithmetic Unit, there are shared columns which can be
 /// used by any arithmetic circuit, depending on which one is active

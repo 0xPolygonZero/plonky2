@@ -109,6 +109,8 @@ pub fn ctl_arithmetic_base_rows<F: Field>() -> TableWithColumns<F> {
             COL_MAP.op.binary_op,
             COL_MAP.op.fp254_op,
             COL_MAP.op.ternary_op,
+            COL_MAP.op.prover_input,
+            COL_MAP.op.syscall,
         ])),
     )
 }

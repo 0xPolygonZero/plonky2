@@ -11,7 +11,7 @@ use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::util::transpose;
 use static_assertions::const_assert;
 
-use super::columns::NUM_ARITH_COLUMNS;
+use super::columns::{NUM_ARITH_COLUMNS, OPCODE_COL};
 use crate::all_stark::Table;
 use crate::arithmetic::columns::{RANGE_COUNTER, RC_FREQUENCIES, SHARED_COLS};
 use crate::arithmetic::{addcy, byte, columns, divmod, modular, mul, Operation};
@@ -61,6 +61,12 @@ pub fn ctl_arithmetic_rows<F: Field>() -> TableWithColumns<F> {
     // If an arithmetic operation is happening on the CPU side,
     // the CTL will enforce that the reconstructed opcode value
     // from the opcode bits matches.
+    // These opcodes are missing the syscall and prover_input opcodes,
+    // since `IS_RANGE_CHECK` can be associated to multiple opcodes.
+    // For `IS_RANGE_CHECK`, the opcodes are written in OPCODE_COL,
+    // and we use that column for scaling and the CTL checks.
+    // Note that we ensure in the STARK's constraints that the
+    // value in `OPCODE_COL` is 0 if `IS_RANGE_CHECK` = 0.
     const COMBINED_OPS: [(usize, u8); 16] = [
         (columns::IS_ADD, 0x01),
         (columns::IS_MUL, 0x02),
@@ -87,8 +93,13 @@ pub fn ctl_arithmetic_rows<F: Field>() -> TableWithColumns<F> {
         columns::OUTPUT_REGISTER,
     ];
 
-    let filter_column = Some(Column::sum(COMBINED_OPS.iter().map(|(c, _v)| *c)));
+    let mut filter_cols = COMBINED_OPS.to_vec();
+    filter_cols.push((columns::IS_RANGE_CHECK, 0x01));
 
+    let filter_column = Some(Column::sum(filter_cols.iter().map(|(c, _v)| *c)));
+
+    let mut all_combined_cols = COMBINED_OPS.to_vec();
+    all_combined_cols.push((columns::OPCODE_COL, 0x01));
     // Create the Arithmetic Table whose columns are those of the
     // operations listed in `ops` whose inputs and outputs are given
     // by `regs`, where each element of `regs` is a range of columns
@@ -96,7 +107,7 @@ pub fn ctl_arithmetic_rows<F: Field>() -> TableWithColumns<F> {
     // is used as the operation filter).
     TableWithColumns::new(
         Table::Arithmetic,
-        cpu_arith_data_link(&COMBINED_OPS, &REGISTER_MAP),
+        cpu_arith_data_link(&all_combined_cols, &REGISTER_MAP),
         filter_column,
     )
 }
@@ -192,6 +203,10 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ArithmeticSta
         let lv: &[P; NUM_ARITH_COLUMNS] = vars.get_local_values().try_into().unwrap();
         let nv: &[P; NUM_ARITH_COLUMNS] = vars.get_next_values().try_into().unwrap();
 
+        // Check that `OPCODE_COL` holds 0 if the operation is not a range_check.
+        let opcode_constraint = (P::ONES - lv[columns::IS_RANGE_CHECK]) * lv[columns::OPCODE_COL];
+        yield_constr.constraint(opcode_constraint);
+
         // Check the range column: First value must be 0, last row
         // must be 2^16-1, and intermediate rows must increment by 0
         // or 1.
@@ -220,6 +235,15 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ArithmeticSta
             vars.get_local_values().try_into().unwrap();
         let nv: &[ExtensionTarget<D>; NUM_ARITH_COLUMNS] =
             vars.get_next_values().try_into().unwrap();
+
+        // Check that `OPCODE_COL` holds 0 if the operation is not a range_check.
+        builder.arithmetic_extension(
+            F::NEG_ONE,
+            F::ONE,
+            lv[columns::IS_RANGE_CHECK],
+            lv[columns::OPCODE_COL],
+            lv[OPCODE_COL],
+        );
 
         let rc1 = lv[columns::RANGE_COUNTER];
         let rc2 = nv[columns::RANGE_COUNTER];
