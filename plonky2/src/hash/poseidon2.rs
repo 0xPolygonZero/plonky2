@@ -30,7 +30,7 @@ pub const WIDTH: usize = 12; // we only have width 8 and 12, and 12 is bigger. :
 
 pub trait Poseidon2: PrimeField64 {
     const MAT_DIAG12_M_1: [u64; WIDTH];
-    const RC12: [[u64; WIDTH]; ROUND_F_END];
+    const RC12: [u64; WIDTH * ROUND_F_END];
     const RC12_MID: [u64; ROUND_P];
 
     // The more info of poseidon2 refer to the paper: https://eprint.iacr.org/2023/323.pdf
@@ -89,7 +89,7 @@ pub trait Poseidon2: PrimeField64 {
     #[unroll_for_loops]
     fn constant_layer(state: &mut [Self; WIDTH], round_ctr: usize) {
         for i in 0..WIDTH {
-            let round_constant = Self::RC12[round_ctr][i];
+            let round_constant = Self::RC12[round_ctr + i];
             unsafe {
                 state[i] = state[i].add_canonical_u64(round_constant);
             }
@@ -100,9 +100,9 @@ pub trait Poseidon2: PrimeField64 {
     #[unroll_for_loops]
     fn sbox_layer(state: &mut [Self; WIDTH]) {
         for i in 0..WIDTH {
-            if i < WIDTH {
-                state[i] = Self::sbox_monomial(state[i]);
-            }
+            // if i < WIDTH {
+            state[i] = Self::sbox_monomial(state[i]);
+            // }
         }
     }
 
@@ -159,20 +159,26 @@ pub trait Poseidon2: PrimeField64 {
     fn matmul_internal(input: &mut [Self], mat_internal_diag_m_1: &[u64]) {
         //let t: usize = WIDTH;
 
-        let mut state = [0u64; WIDTH];
-
+        let mut state = [0u128; WIDTH];
+        let mut sum = 0_u128;
         for r in 0..WIDTH {
-            state[r] = input[r].to_noncanonical_u64();
+            state[r] = input[r].to_noncanonical_u64() as u128;
+            sum += state[r];
         }
-        //Compute input Sum
-        let mut sum = state[0] as u128;
-        for i in 1..WIDTH {
-            sum += state[i] as u128;
-        }
+
+        //for r in 0..WIDTH {
+        //    state[r] = input[r].to_noncanonical_u64();
+        //}
+        ////Compute input Sum
+        //let mut sum = state[0] as u128;
+        //for i in 1..WIDTH {
+        //    sum += state[i] as u128;
+        //}
+
         // Add sum + diag entry * element to each element
         for i in 0..WIDTH {
             let mat_internal_diag = mat_internal_diag_m_1[i] - 1;
-            let mut multi = (mat_internal_diag as u128) * (state[i] as u128);
+            let mut multi = (mat_internal_diag as u128) * state[i];
             multi += sum;
             input[i] = Self::from_noncanonical_u128(multi);
         }
@@ -360,7 +366,7 @@ pub trait Poseidon2: PrimeField64 {
         round_ctr: usize,
     ) {
         for i in 0..WIDTH {
-            let round_constant = Self::RC12[round_ctr][i];
+            let round_constant = Self::RC12[round_ctr + i];
             state[i] += F::from_canonical_u64(round_constant);
         }
     }
@@ -441,7 +447,7 @@ pub trait Poseidon2: PrimeField64 {
         Self: RichField + Extendable<D>,
     {
         for i in 0..WIDTH {
-            let round_constant = Self::Extension::from_canonical_u64(Self::RC12[rc_index][i]);
+            let round_constant = Self::Extension::from_canonical_u64(Self::RC12[rc_index + i]);
             let round_constant = builder.constant_extension(round_constant);
             input[i] = builder.add_extension(input[i], round_constant);
         }
