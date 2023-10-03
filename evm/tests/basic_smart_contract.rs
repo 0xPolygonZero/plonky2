@@ -67,7 +67,7 @@ fn test_basic_smart_contract() -> anyhow::Result<()> {
         ..AccountRlp::default()
     };
 
-    let state_trie_before: HashedPartialTrie = {
+    let state_trie_before = {
         let mut children = core::array::from_fn(|_| Node::Empty.into());
         children[beneficiary_nibbles.get_nibble(0) as usize] = Node::Leaf {
             nibbles: beneficiary_nibbles.truncate_n_nibbles_front(1),
@@ -90,7 +90,6 @@ fn test_basic_smart_contract() -> anyhow::Result<()> {
         }
     }
     .into();
-    let genesis_state_trie_root = state_trie_before.hash();
 
     let tries_before = TrieInputs {
         state_trie: state_trie_before,
@@ -188,7 +187,7 @@ fn test_basic_smart_contract() -> anyhow::Result<()> {
         tries: tries_before,
         trie_roots_after,
         contract_code,
-        genesis_state_trie_root,
+        genesis_state_trie_root: HashedPartialTrie::from(Node::Empty).hash(),
         block_metadata,
         txn_number_before: 0.into(),
         gas_used_before: 0.into(),

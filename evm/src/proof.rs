@@ -584,7 +584,7 @@ impl ExtraBlockDataTarget {
     const SIZE: usize = 142;
 
     pub fn from_public_inputs(pis: &[Target]) -> Self {
-        let genesis_state_root = pis[0..8].try_into().unwrap();
+        let genesis_state_trie_root = pis[0..8].try_into().unwrap();
         let txn_number_before = pis[8];
         let txn_number_after = pis[9];
         let gas_used_before = pis[10..12].try_into().unwrap();
@@ -593,7 +593,7 @@ impl ExtraBlockDataTarget {
         let block_bloom_after = pis[78..142].try_into().unwrap();
 
         Self {
-            genesis_state_trie_root: genesis_state_root,
+            genesis_state_trie_root,
             txn_number_before,
             txn_number_after,
             gas_used_before,
