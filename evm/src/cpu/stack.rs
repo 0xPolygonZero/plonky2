@@ -78,7 +78,11 @@ const STACK_BEHAVIORS: OpsColumnsView<Option<StackBehavior>> = OpsColumnsView {
         pushes: true,
         disable_other_channels: true,
     }),
-    prover_input: None, // TODO
+    prover_input: Some(StackBehavior {
+        num_pops: 0,
+        pushes: true,
+        disable_other_channels: true,
+    }),
     pop: Some(StackBehavior {
         num_pops: 1,
         pushes: false,
