@@ -24,9 +24,9 @@ use crate::gates::selectors::SelectorsInfo;
 use crate::hash::hash_types::{HashOutTarget, MerkleCapTarget, RichField};
 use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::ext_target::ExtensionTarget;
-use crate::iop::generator::WitnessGeneratorRef;
+use crate::iop::generator::{generate_partial_witness, WitnessGeneratorRef};
 use crate::iop::target::Target;
-use crate::iop::witness::PartialWitness;
+use crate::iop::witness::{PartialWitness, PartitionWitness};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::config::{GenericConfig, Hasher};
 use crate::plonk::plonk_common::PlonkOracle;
@@ -108,6 +108,22 @@ impl CircuitConfig {
             zero_knowledge: true,
             ..Self::standard_recursion_config()
         }
+    }
+}
+
+/// Mock circuit data to only do witness generation without generating a proof.
+#[derive(Eq, PartialEq, Debug)]
+pub struct MockCircuitData<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
+{
+    pub prover_only: ProverOnlyCircuitData<F, C, D>,
+    pub common: CommonCircuitData<F, D>,
+}
+
+impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
+    MockCircuitData<F, C, D>
+{
+    pub fn generate_witness(&self, inputs: PartialWitness<F>) -> PartitionWitness<F> {
+        generate_partial_witness::<F, C, D>(inputs, &self.prover_only, &self.common)
     }
 }
 

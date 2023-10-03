@@ -58,6 +58,8 @@ impl MemoryAddress {
         if virt.bits() > 32 {
             return Err(MemoryError(VirtTooLarge { virt }));
         }
+
+        // Calling `as_usize` here is safe as those have been checked above.
         Ok(Self {
             context: context.as_usize(),
             segment: segment.as_usize(),
@@ -202,10 +204,18 @@ impl Default for MemoryState {
     }
 }
 
-#[derive(Clone, Default, Debug)]
+#[derive(Clone, Debug)]
 pub(crate) struct MemoryContextState {
     /// The content of each memory segment.
     pub(crate) segments: [MemorySegmentState; Segment::COUNT],
+}
+
+impl Default for MemoryContextState {
+    fn default() -> Self {
+        Self {
+            segments: std::array::from_fn(|_| MemorySegmentState::default()),
+        }
+    }
 }
 
 #[derive(Clone, Default, Debug)]

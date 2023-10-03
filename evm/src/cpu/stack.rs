@@ -12,7 +12,7 @@ use crate::cpu::membus::NUM_GP_CHANNELS;
 use crate::memory::segments::Segment;
 
 #[derive(Clone, Copy)]
-struct StackBehavior {
+pub(crate) struct StackBehavior {
     num_pops: usize,
     pushes: bool,
     disable_other_channels: bool,
@@ -33,6 +33,28 @@ const BASIC_TERNARY_OP: Option<StackBehavior> = Some(StackBehavior {
     pushes: true,
     disable_other_channels: true,
 });
+pub(crate) const JUMP_OP: Option<StackBehavior> = Some(StackBehavior {
+    num_pops: 1,
+    pushes: false,
+    disable_other_channels: false,
+});
+pub(crate) const JUMPI_OP: Option<StackBehavior> = Some(StackBehavior {
+    num_pops: 2,
+    pushes: false,
+    disable_other_channels: false,
+});
+
+pub(crate) const MLOAD_GENERAL_OP: Option<StackBehavior> = Some(StackBehavior {
+    num_pops: 3,
+    pushes: true,
+    disable_other_channels: false,
+});
+
+pub(crate) const MSTORE_GENERAL_OP: Option<StackBehavior> = Some(StackBehavior {
+    num_pops: 4,
+    pushes: false,
+    disable_other_channels: false,
+});
 
 // AUDITORS: If the value below is `None`, then the operation must be manually checked to ensure
 // that every general-purpose memory channel is either disabled or has its read flag and address
@@ -40,32 +62,13 @@ const BASIC_TERNARY_OP: Option<StackBehavior> = Some(StackBehavior {
 // except the first `num_pops` and the last `pushes as usize` channels have their read flag and
 // address constrained automatically in this file.
 const STACK_BEHAVIORS: OpsColumnsView<Option<StackBehavior>> = OpsColumnsView {
-    add: BASIC_BINARY_OP,
-    mul: BASIC_BINARY_OP,
-    sub: BASIC_BINARY_OP,
-    div: BASIC_BINARY_OP,
-    mod_: BASIC_BINARY_OP,
-    addmod: BASIC_TERNARY_OP,
-    mulmod: BASIC_TERNARY_OP,
-    addfp254: BASIC_BINARY_OP,
-    mulfp254: BASIC_BINARY_OP,
-    subfp254: BASIC_BINARY_OP,
-    submod: BASIC_TERNARY_OP,
-    lt: BASIC_BINARY_OP,
-    gt: BASIC_BINARY_OP,
-    eq: BASIC_BINARY_OP,
-    iszero: BASIC_UNARY_OP,
-    and: BASIC_BINARY_OP,
-    or: BASIC_BINARY_OP,
-    xor: BASIC_BINARY_OP,
+    binary_op: BASIC_BINARY_OP,
+    ternary_op: BASIC_TERNARY_OP,
+    fp254_op: BASIC_BINARY_OP,
+    eq_iszero: None, // EQ is binary, IS_ZERO is unary.
+    logic_op: BASIC_BINARY_OP,
     not: BASIC_UNARY_OP,
-    byte: BASIC_BINARY_OP,
-    shl: Some(StackBehavior {
-        num_pops: 2,
-        pushes: true,
-        disable_other_channels: false,
-    }),
-    shr: Some(StackBehavior {
+    shift: Some(StackBehavior {
         num_pops: 2,
         pushes: true,
         disable_other_channels: false,
@@ -85,16 +88,7 @@ const STACK_BEHAVIORS: OpsColumnsView<Option<StackBehavior>> = OpsColumnsView {
         pushes: false,
         disable_other_channels: true,
     }),
-    jump: Some(StackBehavior {
-        num_pops: 1,
-        pushes: false,
-        disable_other_channels: false,
-    }),
-    jumpi: Some(StackBehavior {
-        num_pops: 2,
-        pushes: false,
-        disable_other_channels: false,
-    }),
+    jumps: None, // Depends on whether it's a JUMP or a JUMPI.
     pc: Some(StackBehavior {
         num_pops: 0,
         pushes: true,
@@ -113,27 +107,23 @@ const STACK_BEHAVIORS: OpsColumnsView<Option<StackBehavior>> = OpsColumnsView {
     push: None, // TODO
     dup: None,
     swap: None,
-    get_context: Some(StackBehavior {
-        num_pops: 0,
-        pushes: true,
-        disable_other_channels: true,
+    context_op: None, // SET_CONTEXT is special since it involves the old and the new stack.
+    mstore_32bytes: Some(StackBehavior {
+        num_pops: 5,
+        pushes: false,
+        disable_other_channels: false,
     }),
-    set_context: None, // SET_CONTEXT is special since it involves the old and the new stack.
+    mload_32bytes: Some(StackBehavior {
+        num_pops: 4,
+        pushes: true,
+        disable_other_channels: false,
+    }),
     exit_kernel: Some(StackBehavior {
         num_pops: 1,
         pushes: false,
         disable_other_channels: true,
     }),
-    mload_general: Some(StackBehavior {
-        num_pops: 3,
-        pushes: true,
-        disable_other_channels: false,
-    }),
-    mstore_general: Some(StackBehavior {
-        num_pops: 4,
-        pushes: false,
-        disable_other_channels: false,
-    }),
+    m_op_general: None,
     syscall: Some(StackBehavior {
         num_pops: 0,
         pushes: true,
@@ -146,8 +136,12 @@ const STACK_BEHAVIORS: OpsColumnsView<Option<StackBehavior>> = OpsColumnsView {
     }),
 };
 
-fn eval_packed_one<P: PackedField>(
+pub(crate) const EQ_STACK_BEHAVIOR: Option<StackBehavior> = BASIC_BINARY_OP;
+pub(crate) const IS_ZERO_STACK_BEHAVIOR: Option<StackBehavior> = BASIC_UNARY_OP;
+
+pub(crate) fn eval_packed_one<P: PackedField>(
     lv: &CpuColumnsView<P>,
+    nv: &CpuColumnsView<P>,
     filter: P,
     stack_behavior: StackBehavior,
     yield_constr: &mut ConstraintConsumer<P>,
@@ -193,23 +187,29 @@ fn eval_packed_one<P: PackedField>(
             yield_constr.constraint(filter * channel.used);
         }
     }
+
+    // Constrain new stack length.
+    let num_pops = P::Scalar::from_canonical_usize(stack_behavior.num_pops);
+    let push = P::Scalar::from_canonical_usize(stack_behavior.pushes as usize);
+    yield_constr.constraint_transition(filter * (nv.stack_len - (lv.stack_len - num_pops + push)));
 }
 
 pub fn eval_packed<P: PackedField>(
     lv: &CpuColumnsView<P>,
+    nv: &CpuColumnsView<P>,
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
     for (op, stack_behavior) in izip!(lv.op.into_iter(), STACK_BEHAVIORS.into_iter()) {
         if let Some(stack_behavior) = stack_behavior {
-            let filter = lv.is_cpu_cycle * op;
-            eval_packed_one(lv, filter, stack_behavior, yield_constr);
+            eval_packed_one(lv, nv, op, stack_behavior, yield_constr);
         }
     }
 }
 
-fn eval_ext_circuit_one<F: RichField + Extendable<D>, const D: usize>(
+pub(crate) fn eval_ext_circuit_one<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
     lv: &CpuColumnsView<ExtensionTarget<D>>,
+    nv: &CpuColumnsView<ExtensionTarget<D>>,
     filter: ExtensionTarget<D>,
     stack_behavior: StackBehavior,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
@@ -307,17 +307,27 @@ fn eval_ext_circuit_one<F: RichField + Extendable<D>, const D: usize>(
             yield_constr.constraint(builder, constr);
         }
     }
+
+    // Constrain new stack length.
+    let diff = builder.constant_extension(
+        F::Extension::from_canonical_usize(stack_behavior.num_pops)
+            - F::Extension::from_canonical_usize(stack_behavior.pushes as usize),
+    );
+    let diff = builder.sub_extension(lv.stack_len, diff);
+    let diff = builder.sub_extension(nv.stack_len, diff);
+    let constr = builder.mul_extension(filter, diff);
+    yield_constr.constraint_transition(builder, constr);
 }
 
 pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
     lv: &CpuColumnsView<ExtensionTarget<D>>,
+    nv: &CpuColumnsView<ExtensionTarget<D>>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
     for (op, stack_behavior) in izip!(lv.op.into_iter(), STACK_BEHAVIORS.into_iter()) {
         if let Some(stack_behavior) = stack_behavior {
-            let filter = builder.mul_extension(lv.is_cpu_cycle, op);
-            eval_ext_circuit_one(builder, lv, filter, stack_behavior, yield_constr);
+            eval_ext_circuit_one(builder, lv, nv, op, stack_behavior, yield_constr);
         }
     }
 }

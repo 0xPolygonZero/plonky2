@@ -7,7 +7,9 @@ use plonky2::field::extension::{Extendable, FieldExtension};
 use plonky2::field::packed::PackedField;
 use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
+use plonky2::iop::ext_target::ExtensionTarget;
 
+use super::halt;
 use crate::all_stark::Table;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::{CpuColumnsView, COL_MAP, NUM_CPU_COLUMNS};
@@ -17,16 +19,10 @@ use crate::cpu::{
     modfp254, pc, push0, shift, simple_logic, stack, stack_bounds, syscalls_exceptions,
 };
 use crate::cross_table_lookup::{Column, TableWithColumns};
+use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
 use crate::memory::segments::Segment;
 use crate::memory::{NUM_CHANNELS, VALUE_LIMBS};
 use crate::stark::Stark;
-use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
-
-const EXTRA_OPS: [usize; 3] = [
-    COL_MAP.op.syscall,
-    COL_MAP.op.exception,
-    COL_MAP.op.prover_input,
-];
 
 pub fn ctl_data_keccak_sponge<F: Field>() -> Vec<Column<F>> {
     // When executing KECCAK_GENERAL, the GP memory channels are used as follows:
@@ -54,9 +50,8 @@ pub fn ctl_filter_keccak_sponge<F: Field>() -> Column<F> {
 
 /// Create the vector of Columns corresponding to the two inputs and
 /// one output of a binary operation.
-fn ctl_data_binops<F: Field>(ops: &[usize]) -> Vec<Column<F>> {
-    let mut res = Column::singles(ops).collect_vec();
-    res.extend(Column::singles(COL_MAP.mem_channels[0].value));
+fn ctl_data_binops<F: Field>() -> Vec<Column<F>> {
+    let mut res = Column::singles(COL_MAP.mem_channels[0].value).collect_vec();
     res.extend(Column::singles(COL_MAP.mem_channels[1].value));
     res.extend(Column::singles(
         COL_MAP.mem_channels[NUM_GP_CHANNELS - 1].value,
@@ -76,15 +71,9 @@ fn ctl_data_binops<F: Field>(ops: &[usize]) -> Vec<Column<F>> {
 /// case of shift operations, which will skip the first memory channel and use the
 /// next three as ternary inputs. Because both `MUL` and `DIV` are binary operations,
 /// the last memory channel used for the inputs will be safely ignored.
-fn ctl_data_ternops<F: Field>(
-    ops: &[usize],
-    extra_ops: &[usize],
-    is_shift: bool,
-) -> Vec<Column<F>> {
+fn ctl_data_ternops<F: Field>(is_shift: bool) -> Vec<Column<F>> {
     let offset = is_shift as usize;
-    let mut res = Column::singles(ops).collect_vec();
-    res.push(Column::sum(extra_ops));
-    res.extend(Column::singles(COL_MAP.mem_channels[offset].value));
+    let mut res = Column::singles(COL_MAP.mem_channels[offset].value).collect_vec();
     res.extend(Column::singles(COL_MAP.mem_channels[offset + 1].value));
     res.extend(Column::singles(COL_MAP.mem_channels[offset + 2].value));
     res.extend(Column::singles(
@@ -94,51 +83,20 @@ fn ctl_data_ternops<F: Field>(
 }
 
 pub fn ctl_data_logic<F: Field>() -> Vec<Column<F>> {
-    ctl_data_binops(&[COL_MAP.op.and, COL_MAP.op.or, COL_MAP.op.xor])
+    // Instead of taking single columns, we reconstruct the entire opcode value directly.
+    let mut res = vec![Column::le_bits(COL_MAP.opcode_bits)];
+    res.extend(ctl_data_binops());
+    res
 }
 
 pub fn ctl_filter_logic<F: Field>() -> Column<F> {
-    Column::sum([COL_MAP.op.and, COL_MAP.op.or, COL_MAP.op.xor])
+    Column::single(COL_MAP.op.logic_op)
 }
 
 pub fn ctl_arithmetic_base_rows<F: Field>() -> TableWithColumns<F> {
-    const OPS: [usize; 14] = [
-        COL_MAP.op.add,
-        COL_MAP.op.sub,
-        COL_MAP.op.mul,
-        COL_MAP.op.lt,
-        COL_MAP.op.gt,
-        COL_MAP.op.addfp254,
-        COL_MAP.op.mulfp254,
-        COL_MAP.op.subfp254,
-        COL_MAP.op.addmod,
-        COL_MAP.op.mulmod,
-        COL_MAP.op.submod,
-        COL_MAP.op.div,
-        COL_MAP.op.mod_,
-        COL_MAP.op.byte,
-    ];
-
-    const ALL_OPS: [usize; 17] = [
-        COL_MAP.op.add,
-        COL_MAP.op.sub,
-        COL_MAP.op.mul,
-        COL_MAP.op.lt,
-        COL_MAP.op.gt,
-        COL_MAP.op.addfp254,
-        COL_MAP.op.mulfp254,
-        COL_MAP.op.subfp254,
-        COL_MAP.op.addmod,
-        COL_MAP.op.mulmod,
-        COL_MAP.op.submod,
-        COL_MAP.op.div,
-        COL_MAP.op.mod_,
-        COL_MAP.op.byte,
-        COL_MAP.op.syscall,
-        COL_MAP.op.exception,
-        COL_MAP.op.prover_input,
-    ];
-
+    // Instead of taking single columns, we reconstruct the entire opcode value directly.
+    let mut columns = vec![Column::le_bits(COL_MAP.opcode_bits)];
+    columns.extend(ctl_data_ternops(false));
     // Create the CPU Table whose columns are those with the three
     // inputs and one output of the ternary operations listed in `ops`
     // (also `ops` is used as the operation filter). The list of
@@ -146,40 +104,59 @@ pub fn ctl_arithmetic_base_rows<F: Field>() -> TableWithColumns<F> {
     // the third input.
     TableWithColumns::new(
         Table::Cpu,
-        ctl_data_ternops(&OPS, &EXTRA_OPS, false),
-        Some(Column::sum(ALL_OPS)),
+        columns,
+        Some(Column::sum([
+            COL_MAP.op.binary_op,
+            COL_MAP.op.fp254_op,
+            COL_MAP.op.ternary_op,
+        ])),
     )
 }
 
 pub fn ctl_arithmetic_shift_rows<F: Field>() -> TableWithColumns<F> {
-    const OPS: [usize; 14] = [
-        COL_MAP.op.add,
-        COL_MAP.op.sub,
-        // SHL is interpreted as MUL on the arithmetic side
-        COL_MAP.op.shl,
-        COL_MAP.op.lt,
-        COL_MAP.op.gt,
-        COL_MAP.op.addfp254,
-        COL_MAP.op.mulfp254,
-        COL_MAP.op.subfp254,
-        COL_MAP.op.addmod,
-        COL_MAP.op.mulmod,
-        COL_MAP.op.submod,
-        // SHR is interpreted as DIV on the arithmetic side
-        COL_MAP.op.shr,
-        COL_MAP.op.mod_,
-        COL_MAP.op.byte,
-    ];
+    // Instead of taking single columns, we reconstruct the entire opcode value directly.
+    let mut columns = vec![Column::le_bits(COL_MAP.opcode_bits)];
+    columns.extend(ctl_data_ternops(true));
     // Create the CPU Table whose columns are those with the three
     // inputs and one output of the ternary operations listed in `ops`
     // (also `ops` is used as the operation filter). The list of
     // operations includes binary operations which will simply ignore
     // the third input.
-    TableWithColumns::new(
-        Table::Cpu,
-        ctl_data_ternops(&OPS, &EXTRA_OPS, true),
-        Some(Column::sum([COL_MAP.op.shl, COL_MAP.op.shr])),
-    )
+    TableWithColumns::new(Table::Cpu, columns, Some(Column::single(COL_MAP.op.shift)))
+}
+
+pub fn ctl_data_byte_packing<F: Field>() -> Vec<Column<F>> {
+    ctl_data_keccak_sponge()
+}
+
+pub fn ctl_filter_byte_packing<F: Field>() -> Column<F> {
+    Column::single(COL_MAP.op.mload_32bytes)
+}
+
+pub fn ctl_data_byte_unpacking<F: Field>() -> Vec<Column<F>> {
+    // When executing MSTORE_32BYTES, the GP memory channels are used as follows:
+    // GP channel 0: stack[-1] = context
+    // GP channel 1: stack[-2] = segment
+    // GP channel 2: stack[-3] = virt
+    // GP channel 3: stack[-4] = val
+    // GP channel 4: stack[-5] = len
+    let context = Column::single(COL_MAP.mem_channels[0].value[0]);
+    let segment = Column::single(COL_MAP.mem_channels[1].value[0]);
+    let virt = Column::single(COL_MAP.mem_channels[2].value[0]);
+    let val = Column::singles(COL_MAP.mem_channels[3].value);
+    let len = Column::single(COL_MAP.mem_channels[4].value[0]);
+
+    let num_channels = F::from_canonical_usize(NUM_CHANNELS);
+    let timestamp = Column::linear_combination([(COL_MAP.clock, num_channels)]);
+
+    let mut res = vec![context, segment, virt, len, timestamp];
+    res.extend(val);
+
+    res
+}
+
+pub fn ctl_filter_byte_unpacking<F: Field>() -> Column<F> {
+    Column::single(COL_MAP.op.mstore_32bytes)
 }
 
 pub const MEM_CODE_CHANNEL_IDX: usize = 0;
@@ -229,7 +206,7 @@ pub fn ctl_data_gp_memory<F: Field>(channel: usize) -> Vec<Column<F>> {
 }
 
 pub fn ctl_filter_code_memory<F: Field>() -> Column<F> {
-    Column::single(COL_MAP.is_cpu_cycle)
+    Column::sum(COL_MAP.op.iter())
 }
 
 pub fn ctl_filter_gp_memory<F: Field>(channel: usize) -> Column<F> {
@@ -251,33 +228,42 @@ impl<F: RichField, const D: usize> CpuStark<F, D> {
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D> {
-    const COLUMNS: usize = NUM_CPU_COLUMNS;
+    type EvaluationFrame<FE, P, const D2: usize> = StarkFrame<P, NUM_CPU_COLUMNS>
+    where
+        FE: FieldExtension<D2, BaseField = F>,
+        P: PackedField<Scalar = FE>;
+
+    type EvaluationFrameTarget = StarkFrame<ExtensionTarget<D>, NUM_CPU_COLUMNS>;
 
     fn eval_packed_generic<FE, P, const D2: usize>(
         &self,
-        vars: StarkEvaluationVars<FE, P, { Self::COLUMNS }>,
+        vars: &Self::EvaluationFrame<FE, P, D2>,
         yield_constr: &mut ConstraintConsumer<P>,
     ) where
         FE: FieldExtension<D2, BaseField = F>,
         P: PackedField<Scalar = FE>,
     {
-        let local_values = vars.local_values.borrow();
-        let next_values = vars.next_values.borrow();
-        bootstrap_kernel::eval_bootstrap_kernel(vars, yield_constr);
+        let local_values: &[P; NUM_CPU_COLUMNS] = vars.get_local_values().try_into().unwrap();
+        let local_values: &CpuColumnsView<P> = local_values.borrow();
+        let next_values: &[P; NUM_CPU_COLUMNS] = vars.get_next_values().try_into().unwrap();
+        let next_values: &CpuColumnsView<P> = next_values.borrow();
+
+        bootstrap_kernel::eval_bootstrap_kernel_packed(local_values, next_values, yield_constr);
         contextops::eval_packed(local_values, next_values, yield_constr);
         control_flow::eval_packed_generic(local_values, next_values, yield_constr);
         decode::eval_packed_generic(local_values, yield_constr);
         dup_swap::eval_packed(local_values, yield_constr);
         gas::eval_packed(local_values, next_values, yield_constr);
+        halt::eval_packed(local_values, next_values, yield_constr);
         jumps::eval_packed(local_values, next_values, yield_constr);
         membus::eval_packed(local_values, yield_constr);
-        memio::eval_packed(local_values, yield_constr);
+        memio::eval_packed(local_values, next_values, yield_constr);
         modfp254::eval_packed(local_values, yield_constr);
         pc::eval_packed(local_values, yield_constr);
         push0::eval_packed(local_values, yield_constr);
         shift::eval_packed(local_values, yield_constr);
-        simple_logic::eval_packed(local_values, yield_constr);
-        stack::eval_packed(local_values, yield_constr);
+        simple_logic::eval_packed(local_values, next_values, yield_constr);
+        stack::eval_packed(local_values, next_values, yield_constr);
         stack_bounds::eval_packed(local_values, yield_constr);
         syscalls_exceptions::eval_packed(local_values, next_values, yield_constr);
     }
@@ -285,26 +271,37 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
     fn eval_ext_circuit(
         &self,
         builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
-        vars: StarkEvaluationTargets<D, { Self::COLUMNS }>,
+        vars: &Self::EvaluationFrameTarget,
         yield_constr: &mut RecursiveConstraintConsumer<F, D>,
     ) {
-        let local_values = vars.local_values.borrow();
-        let next_values = vars.next_values.borrow();
-        bootstrap_kernel::eval_bootstrap_kernel_circuit(builder, vars, yield_constr);
+        let local_values: &[ExtensionTarget<D>; NUM_CPU_COLUMNS] =
+            vars.get_local_values().try_into().unwrap();
+        let local_values: &CpuColumnsView<ExtensionTarget<D>> = local_values.borrow();
+        let next_values: &[ExtensionTarget<D>; NUM_CPU_COLUMNS] =
+            vars.get_next_values().try_into().unwrap();
+        let next_values: &CpuColumnsView<ExtensionTarget<D>> = next_values.borrow();
+
+        bootstrap_kernel::eval_bootstrap_kernel_ext_circuit(
+            builder,
+            local_values,
+            next_values,
+            yield_constr,
+        );
         contextops::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         control_flow::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         decode::eval_ext_circuit(builder, local_values, yield_constr);
         dup_swap::eval_ext_circuit(builder, local_values, yield_constr);
         gas::eval_ext_circuit(builder, local_values, next_values, yield_constr);
+        halt::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         jumps::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         membus::eval_ext_circuit(builder, local_values, yield_constr);
-        memio::eval_ext_circuit(builder, local_values, yield_constr);
+        memio::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         modfp254::eval_ext_circuit(builder, local_values, yield_constr);
         pc::eval_ext_circuit(builder, local_values, yield_constr);
         push0::eval_ext_circuit(builder, local_values, yield_constr);
         shift::eval_ext_circuit(builder, local_values, yield_constr);
-        simple_logic::eval_ext_circuit(builder, local_values, yield_constr);
-        stack::eval_ext_circuit(builder, local_values, yield_constr);
+        simple_logic::eval_ext_circuit(builder, local_values, next_values, yield_constr);
+        stack::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         stack_bounds::eval_ext_circuit(builder, local_values, yield_constr);
         syscalls_exceptions::eval_ext_circuit(builder, local_values, next_values, yield_constr);
     }

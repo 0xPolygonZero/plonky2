@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use eth_trie_utils::partial_trie::{HashedPartialTrie, PartialTrie};
 use ethereum_types::{Address, BigEndianHash, H256, U256};
 use keccak_hash::keccak;
@@ -37,7 +37,9 @@ fn prepare_interpreter(
     interpreter.generation_state.registers.program_counter = load_all_mpts;
     interpreter.push(0xDEADBEEFu32.into());
 
-    interpreter.generation_state.mpt_prover_inputs = all_mpt_prover_inputs_reversed(&trie_inputs);
+    interpreter.generation_state.mpt_prover_inputs =
+        all_mpt_prover_inputs_reversed(&trie_inputs)
+            .map_err(|err| anyhow!("Invalid MPT data: {:?}", err))?;
     interpreter.run()?;
     assert_eq!(interpreter.stack(), vec![]);
 
@@ -64,7 +66,7 @@ fn prepare_interpreter(
     interpreter.set_global_metadata_field(GlobalMetadata::TrieDataSize, trie_data_len);
     interpreter.push(0xDEADBEEFu32.into());
     interpreter.push(value_ptr.into()); // value_ptr
-    interpreter.push(k.packed); // key
+    interpreter.push(k.try_into_u256().unwrap()); // key
 
     interpreter.run()?;
     assert_eq!(

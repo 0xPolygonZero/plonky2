@@ -38,10 +38,6 @@ pub struct CpuColumnsView<T: Copy> {
     /// Filter. 1 if the row is part of bootstrapping the kernel code, 0 otherwise.
     pub is_bootstrap_kernel: T,
 
-    /// Filter. 1 if the row corresponds to a cycle of execution and 0 otherwise.
-    /// Lets us re-use columns in non-cycle rows.
-    pub is_cpu_cycle: T,
-
     /// If CPU cycle: Current context.
     // TODO: this is currently unconstrained
     pub context: T,
@@ -62,8 +58,8 @@ pub struct CpuColumnsView<T: Copy> {
     /// If CPU cycle: We're in kernel (privileged) mode.
     pub is_kernel_mode: T,
 
-    /// If CPU cycle: Gas counter.
-    pub gas: T,
+    /// If CPU cycle: Gas counter, split in two 32-bit limbs in little-endian order.
+    pub gas: [T; 2],
 
     /// If CPU cycle: flags for EVM instructions (a few cannot be shared; see the comments in
     /// `OpsColumnsView`).

@@ -21,58 +21,74 @@ pub(crate) enum GlobalMetadata {
     ReceiptTrieRoot = 6,
 
     // The root digests of each Merkle trie before these transactions.
-    StateTrieRootDigestBefore = 8,
-    TransactionTrieRootDigestBefore = 9,
-    ReceiptTrieRootDigestBefore = 10,
+    StateTrieRootDigestBefore = 7,
+    TransactionTrieRootDigestBefore = 8,
+    ReceiptTrieRootDigestBefore = 9,
 
     // The root digests of each Merkle trie after these transactions.
-    StateTrieRootDigestAfter = 11,
-    TransactionTrieRootDigestAfter = 12,
-    ReceiptTrieRootDigestAfter = 13,
+    StateTrieRootDigestAfter = 10,
+    TransactionTrieRootDigestAfter = 11,
+    ReceiptTrieRootDigestAfter = 12,
 
     /// The sizes of the `TrieEncodedChild` and `TrieEncodedChildLen` buffers. In other words, the
     /// next available offset in these buffers.
-    TrieEncodedChildSize = 14,
+    TrieEncodedChildSize = 13,
 
     // Block metadata.
-    BlockBeneficiary = 15,
-    BlockTimestamp = 16,
-    BlockNumber = 17,
-    BlockDifficulty = 18,
+    BlockBeneficiary = 14,
+    BlockTimestamp = 15,
+    BlockNumber = 16,
+    BlockDifficulty = 17,
+    BlockRandom = 18,
     BlockGasLimit = 19,
     BlockChainId = 20,
     BlockBaseFee = 21,
+    BlockGasUsed = 22,
+    /// Before current transactions block values.
+    BlockGasUsedBefore = 23,
+    /// After current transactions block values.
+    BlockGasUsedAfter = 24,
+    /// Current block header hash
+    BlockCurrentHash = 25,
 
     /// Gas to refund at the end of the transaction.
-    RefundCounter = 22,
+    RefundCounter = 26,
     /// Length of the addresses access list.
-    AccessedAddressesLen = 23,
+    AccessedAddressesLen = 27,
     /// Length of the storage keys access list.
-    AccessedStorageKeysLen = 24,
+    AccessedStorageKeysLen = 28,
     /// Length of the self-destruct list.
-    SelfDestructListLen = 25,
+    SelfDestructListLen = 29,
+    /// Length of the bloom entry buffer.
+    BloomEntryLen = 30,
 
     /// Length of the journal.
-    JournalLen = 26,
+    JournalLen = 31,
     /// Length of the `JournalData` segment.
-    JournalDataLen = 27,
+    JournalDataLen = 32,
     /// Current checkpoint.
-    CurrentCheckpoint = 28,
-    TouchedAddressesLen = 29,
+    CurrentCheckpoint = 33,
+    TouchedAddressesLen = 34,
     // Gas cost for the access list in type-1 txns. See EIP-2930.
-    AccessListDataCost = 30,
+    AccessListDataCost = 35,
     // Start of the access list in the RLP for type-1 txns.
-    AccessListRlpStart = 31,
+    AccessListRlpStart = 36,
     // Length of the access list in the RLP for type-1 txns.
-    AccessListRlpLen = 32,
+    AccessListRlpLen = 37,
     // Boolean flag indicating if the txn is a contract creation txn.
-    ContractCreation = 33,
-    IsPrecompileFromEoa = 34,
-    CallStackDepth = 35,
+    ContractCreation = 38,
+    IsPrecompileFromEoa = 39,
+    CallStackDepth = 40,
+    /// Transaction logs list length
+    LogsLen = 41,
+    LogsDataLen = 42,
+    LogsPayloadLen = 43,
+    TxnNumberBefore = 44,
+    TxnNumberAfter = 45,
 }
 
 impl GlobalMetadata {
-    pub(crate) const COUNT: usize = 35;
+    pub(crate) const COUNT: usize = 46;
 
     pub(crate) fn all() -> [Self; Self::COUNT] {
         [
@@ -94,13 +110,18 @@ impl GlobalMetadata {
             Self::BlockTimestamp,
             Self::BlockNumber,
             Self::BlockDifficulty,
+            Self::BlockRandom,
             Self::BlockGasLimit,
             Self::BlockChainId,
             Self::BlockBaseFee,
+            Self::BlockGasUsed,
+            Self::BlockGasUsedBefore,
+            Self::BlockGasUsedAfter,
             Self::RefundCounter,
             Self::AccessedAddressesLen,
             Self::AccessedStorageKeysLen,
             Self::SelfDestructListLen,
+            Self::BloomEntryLen,
             Self::JournalLen,
             Self::JournalDataLen,
             Self::CurrentCheckpoint,
@@ -111,6 +132,12 @@ impl GlobalMetadata {
             Self::ContractCreation,
             Self::IsPrecompileFromEoa,
             Self::CallStackDepth,
+            Self::LogsLen,
+            Self::LogsDataLen,
+            Self::LogsPayloadLen,
+            Self::BlockCurrentHash,
+            Self::TxnNumberBefore,
+            Self::TxnNumberAfter,
         ]
     }
 
@@ -135,13 +162,19 @@ impl GlobalMetadata {
             Self::BlockTimestamp => "GLOBAL_METADATA_BLOCK_TIMESTAMP",
             Self::BlockNumber => "GLOBAL_METADATA_BLOCK_NUMBER",
             Self::BlockDifficulty => "GLOBAL_METADATA_BLOCK_DIFFICULTY",
+            Self::BlockRandom => "GLOBAL_METADATA_BLOCK_RANDOM",
             Self::BlockGasLimit => "GLOBAL_METADATA_BLOCK_GAS_LIMIT",
             Self::BlockChainId => "GLOBAL_METADATA_BLOCK_CHAIN_ID",
             Self::BlockBaseFee => "GLOBAL_METADATA_BLOCK_BASE_FEE",
+            Self::BlockGasUsed => "GLOBAL_METADATA_BLOCK_GAS_USED",
+            Self::BlockGasUsedBefore => "GLOBAL_METADATA_BLOCK_GAS_USED_BEFORE",
+            Self::BlockGasUsedAfter => "GLOBAL_METADATA_BLOCK_GAS_USED_AFTER",
+            Self::BlockCurrentHash => "GLOBAL_METADATA_BLOCK_CURRENT_HASH",
             Self::RefundCounter => "GLOBAL_METADATA_REFUND_COUNTER",
             Self::AccessedAddressesLen => "GLOBAL_METADATA_ACCESSED_ADDRESSES_LEN",
             Self::AccessedStorageKeysLen => "GLOBAL_METADATA_ACCESSED_STORAGE_KEYS_LEN",
             Self::SelfDestructListLen => "GLOBAL_METADATA_SELFDESTRUCT_LIST_LEN",
+            Self::BloomEntryLen => "GLOBAL_METADATA_BLOOM_ENTRY_LEN",
             Self::JournalLen => "GLOBAL_METADATA_JOURNAL_LEN",
             Self::JournalDataLen => "GLOBAL_METADATA_JOURNAL_DATA_LEN",
             Self::CurrentCheckpoint => "GLOBAL_METADATA_CURRENT_CHECKPOINT",
@@ -152,6 +185,11 @@ impl GlobalMetadata {
             Self::ContractCreation => "GLOBAL_METADATA_CONTRACT_CREATION",
             Self::IsPrecompileFromEoa => "GLOBAL_METADATA_IS_PRECOMPILE_FROM_EOA",
             Self::CallStackDepth => "GLOBAL_METADATA_CALL_STACK_DEPTH",
+            Self::LogsLen => "GLOBAL_METADATA_LOGS_LEN",
+            Self::LogsDataLen => "GLOBAL_METADATA_LOGS_DATA_LEN",
+            Self::LogsPayloadLen => "GLOBAL_METADATA_LOGS_PAYLOAD_LEN",
+            Self::TxnNumberBefore => "GLOBAL_METADATA_TXN_NUMBER_BEFORE",
+            Self::TxnNumberAfter => "GLOBAL_METADATA_TXN_NUMBER_AFTER",
         }
     }
 }

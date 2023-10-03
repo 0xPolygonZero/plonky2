@@ -70,8 +70,8 @@ fn decode(registers: RegistersState, opcode: u8) -> Result<Operation, ProgramErr
         (0x1a, _) => Ok(Operation::BinaryArithmetic(
             arithmetic::BinaryOperator::Byte,
         )),
-        (0x1b, _) => Ok(Operation::Shl),
-        (0x1c, _) => Ok(Operation::Shr),
+        (0x1b, _) => Ok(Operation::BinaryArithmetic(arithmetic::BinaryOperator::Shl)),
+        (0x1c, _) => Ok(Operation::BinaryArithmetic(arithmetic::BinaryOperator::Shr)),
         (0x1d, _) => Ok(Operation::Syscall(opcode, 2, false)), // SAR
         (0x20, _) => Ok(Operation::Syscall(opcode, 2, false)), // KECCAK256
         (0x21, true) => Ok(Operation::KeccakGeneral),
@@ -128,6 +128,7 @@ fn decode(registers: RegistersState, opcode: u8) -> Result<Operation, ProgramErr
             );
             Err(ProgramError::KernelPanic)
         }
+        (0xee, true) => Ok(Operation::Mstore32Bytes),
         (0xf0, _) => Ok(Operation::Syscall(opcode, 3, false)), // CREATE
         (0xf1, _) => Ok(Operation::Syscall(opcode, 7, false)), // CALL
         (0xf2, _) => Ok(Operation::Syscall(opcode, 7, false)), // CALLCODE
@@ -136,6 +137,7 @@ fn decode(registers: RegistersState, opcode: u8) -> Result<Operation, ProgramErr
         (0xf5, _) => Ok(Operation::Syscall(opcode, 4, false)), // CREATE2
         (0xf6, true) => Ok(Operation::GetContext),
         (0xf7, true) => Ok(Operation::SetContext),
+        (0xf8, true) => Ok(Operation::Mload32Bytes),
         (0xf9, true) => Ok(Operation::ExitKernel),
         (0xfa, _) => Ok(Operation::Syscall(opcode, 6, false)), // STATICCALL
         (0xfb, true) => Ok(Operation::MloadGeneral),
@@ -156,41 +158,28 @@ fn fill_op_flag<F: Field>(op: Operation, row: &mut CpuColumnsView<F>) {
         Operation::Push(1..) => &mut flags.push,
         Operation::Dup(_) => &mut flags.dup,
         Operation::Swap(_) => &mut flags.swap,
-        Operation::Iszero => &mut flags.iszero,
+        Operation::Iszero | Operation::Eq => &mut flags.eq_iszero,
         Operation::Not => &mut flags.not,
         Operation::Syscall(_, _, _) => &mut flags.syscall,
-        Operation::Eq => &mut flags.eq,
-        Operation::BinaryLogic(logic::Op::And) => &mut flags.and,
-        Operation::BinaryLogic(logic::Op::Or) => &mut flags.or,
-        Operation::BinaryLogic(logic::Op::Xor) => &mut flags.xor,
-        Operation::BinaryArithmetic(arithmetic::BinaryOperator::Add) => &mut flags.add,
-        Operation::BinaryArithmetic(arithmetic::BinaryOperator::Mul) => &mut flags.mul,
-        Operation::BinaryArithmetic(arithmetic::BinaryOperator::Sub) => &mut flags.sub,
-        Operation::BinaryArithmetic(arithmetic::BinaryOperator::Div) => &mut flags.div,
-        Operation::BinaryArithmetic(arithmetic::BinaryOperator::Mod) => &mut flags.mod_,
-        Operation::BinaryArithmetic(arithmetic::BinaryOperator::Lt) => &mut flags.lt,
-        Operation::BinaryArithmetic(arithmetic::BinaryOperator::Gt) => &mut flags.gt,
-        Operation::BinaryArithmetic(arithmetic::BinaryOperator::Byte) => &mut flags.byte,
-        Operation::Shl => &mut flags.shl,
-        Operation::Shr => &mut flags.shr,
-        Operation::BinaryArithmetic(arithmetic::BinaryOperator::AddFp254) => &mut flags.addfp254,
-        Operation::BinaryArithmetic(arithmetic::BinaryOperator::MulFp254) => &mut flags.mulfp254,
-        Operation::BinaryArithmetic(arithmetic::BinaryOperator::SubFp254) => &mut flags.subfp254,
-        Operation::TernaryArithmetic(arithmetic::TernaryOperator::AddMod) => &mut flags.addmod,
-        Operation::TernaryArithmetic(arithmetic::TernaryOperator::MulMod) => &mut flags.mulmod,
-        Operation::TernaryArithmetic(arithmetic::TernaryOperator::SubMod) => &mut flags.submod,
+        Operation::BinaryLogic(_) => &mut flags.logic_op,
+        Operation::BinaryArithmetic(arithmetic::BinaryOperator::AddFp254)
+        | Operation::BinaryArithmetic(arithmetic::BinaryOperator::MulFp254)
+        | Operation::BinaryArithmetic(arithmetic::BinaryOperator::SubFp254) => &mut flags.fp254_op,
+        Operation::BinaryArithmetic(arithmetic::BinaryOperator::Shl)
+        | Operation::BinaryArithmetic(arithmetic::BinaryOperator::Shr) => &mut flags.shift,
+        Operation::BinaryArithmetic(_) => &mut flags.binary_op,
+        Operation::TernaryArithmetic(_) => &mut flags.ternary_op,
         Operation::KeccakGeneral => &mut flags.keccak_general,
         Operation::ProverInput => &mut flags.prover_input,
         Operation::Pop => &mut flags.pop,
-        Operation::Jump => &mut flags.jump,
-        Operation::Jumpi => &mut flags.jumpi,
+        Operation::Jump | Operation::Jumpi => &mut flags.jumps,
         Operation::Pc => &mut flags.pc,
         Operation::Jumpdest => &mut flags.jumpdest,
-        Operation::GetContext => &mut flags.get_context,
-        Operation::SetContext => &mut flags.set_context,
+        Operation::GetContext | Operation::SetContext => &mut flags.context_op,
+        Operation::Mload32Bytes => &mut flags.mload_32bytes,
+        Operation::Mstore32Bytes => &mut flags.mstore_32bytes,
         Operation::ExitKernel => &mut flags.exit_kernel,
-        Operation::MloadGeneral => &mut flags.mload_general,
-        Operation::MstoreGeneral => &mut flags.mstore_general,
+        Operation::MloadGeneral | Operation::MstoreGeneral => &mut flags.m_op_general,
     } = F::ONE;
 }
 
@@ -205,8 +194,8 @@ fn perform_op<F: Field>(
         Operation::Swap(n) => generate_swap(n, state, row)?,
         Operation::Iszero => generate_iszero(state, row)?,
         Operation::Not => generate_not(state, row)?,
-        Operation::Shl => generate_shl(state, row)?,
-        Operation::Shr => generate_shr(state, row)?,
+        Operation::BinaryArithmetic(arithmetic::BinaryOperator::Shl) => generate_shl(state, row)?,
+        Operation::BinaryArithmetic(arithmetic::BinaryOperator::Shr) => generate_shr(state, row)?,
         Operation::Syscall(opcode, stack_values_read, stack_len_increased) => {
             generate_syscall(opcode, stack_values_read, stack_len_increased, state, row)?
         }
@@ -225,6 +214,8 @@ fn perform_op<F: Field>(
         Operation::Jumpdest => generate_jumpdest(state, row)?,
         Operation::GetContext => generate_get_context(state, row)?,
         Operation::SetContext => generate_set_context(state, row)?,
+        Operation::Mload32Bytes => generate_mload_32bytes(state, row)?,
+        Operation::Mstore32Bytes => generate_mstore_32bytes(state, row)?,
         Operation::ExitKernel => generate_exit_kernel(state, row)?,
         Operation::MloadGeneral => generate_mload_general(state, row)?,
         Operation::MstoreGeneral => generate_mstore_general(state, row)?,
@@ -247,12 +238,14 @@ fn perform_op<F: Field>(
 /// operation. It also returns the opcode.
 fn base_row<F: Field>(state: &mut GenerationState<F>) -> (CpuColumnsView<F>, u8) {
     let mut row: CpuColumnsView<F> = CpuColumnsView::default();
-    row.is_cpu_cycle = F::ONE;
     row.clock = F::from_canonical_usize(state.traces.clock());
     row.context = F::from_canonical_usize(state.registers.context);
     row.program_counter = F::from_canonical_usize(state.registers.program_counter);
     row.is_kernel_mode = F::from_bool(state.registers.is_kernel);
-    row.gas = F::from_canonical_u64(state.registers.gas_used);
+    row.gas = [
+        F::from_canonical_u32(state.registers.gas_used as u32),
+        F::from_canonical_u32((state.registers.gas_used >> 32) as u32),
+    ];
     row.stack_len = F::from_canonical_usize(state.registers.stack_len);
 
     let opcode = read_code_memory(state, &mut row);
@@ -287,7 +280,7 @@ fn try_perform_instruction<F: Field>(state: &mut GenerationState<F>) -> Result<(
     perform_op(state, op, row)
 }
 
-fn log_kernel_instruction<F: Field>(state: &mut GenerationState<F>, op: Operation) {
+fn log_kernel_instruction<F: Field>(state: &GenerationState<F>, op: Operation) {
     // The logic below is a bit costly, so skip it if debug logs aren't enabled.
     if !log_enabled!(log::Level::Debug) {
         return;
@@ -296,7 +289,7 @@ fn log_kernel_instruction<F: Field>(state: &mut GenerationState<F>, op: Operatio
     let pc = state.registers.program_counter;
     let is_interesting_offset = KERNEL
         .offset_label(pc)
-        .filter(|label| !label.starts_with("halt_pc"))
+        .filter(|label| !label.starts_with("halt"))
         .is_some();
     let level = if is_interesting_offset {
         log::Level::Debug
@@ -310,7 +303,7 @@ fn log_kernel_instruction<F: Field>(state: &mut GenerationState<F>, op: Operatio
         state.registers.context,
         KERNEL.offset_name(pc),
         op,
-        state.stack()
+        state.stack(),
     );
 
     assert!(pc < KERNEL.code.len(), "Kernel PC is out of range: {}", pc);

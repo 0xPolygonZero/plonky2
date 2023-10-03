@@ -8,17 +8,20 @@ use plonky2::timed;
 use plonky2::util::timing::TimingTree;
 
 use crate::all_stark::{AllStark, NUM_TABLES};
+use crate::arithmetic::{BinaryOperator, Operation};
+use crate::byte_packing::byte_packing_stark::BytePackingOp;
 use crate::config::StarkConfig;
 use crate::cpu::columns::CpuColumnsView;
 use crate::keccak_sponge::columns::KECCAK_WIDTH_BYTES;
 use crate::keccak_sponge::keccak_sponge_stark::KeccakSpongeOp;
 use crate::util::trace_rows_to_poly_values;
 use crate::witness::memory::MemoryOp;
-use crate::{arithmetic, keccak, logic};
+use crate::{arithmetic, keccak, keccak_sponge, logic};
 
 #[derive(Clone, Copy, Debug)]
 pub struct TraceCheckpoint {
     pub(self) arithmetic_len: usize,
+    pub(self) byte_packing_len: usize,
     pub(self) cpu_len: usize,
     pub(self) keccak_len: usize,
     pub(self) keccak_sponge_len: usize,
@@ -29,6 +32,7 @@ pub struct TraceCheckpoint {
 #[derive(Debug)]
 pub(crate) struct Traces<T: Copy> {
     pub(crate) arithmetic_ops: Vec<arithmetic::Operation>,
+    pub(crate) byte_packing_ops: Vec<BytePackingOp>,
     pub(crate) cpu: Vec<CpuColumnsView<T>>,
     pub(crate) logic_ops: Vec<logic::Operation>,
     pub(crate) memory_ops: Vec<MemoryOp>,
@@ -40,6 +44,7 @@ impl<T: Copy> Traces<T> {
     pub fn new() -> Self {
         Traces {
             arithmetic_ops: vec![],
+            byte_packing_ops: vec![],
             cpu: vec![],
             logic_ops: vec![],
             memory_ops: vec![],
@@ -48,9 +53,41 @@ impl<T: Copy> Traces<T> {
         }
     }
 
+    /// Returns the actual trace lengths for each STARK module.
+    //  Uses a `TraceCheckPoint` as return object for convenience.
+    pub fn get_lengths(&self) -> TraceCheckpoint {
+        TraceCheckpoint {
+            arithmetic_len: self
+                .arithmetic_ops
+                .iter()
+                .map(|op| match op {
+                    Operation::TernaryOperation { .. } => 2,
+                    Operation::BinaryOperation { operator, .. } => match operator {
+                        BinaryOperator::Div | BinaryOperator::Mod => 2,
+                        _ => 1,
+                    },
+                })
+                .sum(),
+            byte_packing_len: self.byte_packing_ops.iter().map(|op| op.bytes.len()).sum(),
+            cpu_len: self.cpu.len(),
+            keccak_len: self.keccak_inputs.len() * keccak::keccak_stark::NUM_ROUNDS,
+            keccak_sponge_len: self
+                .keccak_sponge_ops
+                .iter()
+                .map(|op| op.input.len() / keccak_sponge::columns::KECCAK_RATE_BYTES + 1)
+                .sum(),
+            logic_len: self.logic_ops.len(),
+            // This is technically a lower-bound, as we may fill gaps,
+            // but this gives a relatively good estimate.
+            memory_len: self.memory_ops.len(),
+        }
+    }
+
+    /// Returns the number of operations for each STARK module.
     pub fn checkpoint(&self) -> TraceCheckpoint {
         TraceCheckpoint {
             arithmetic_len: self.arithmetic_ops.len(),
+            byte_packing_len: self.byte_packing_ops.len(),
             cpu_len: self.cpu.len(),
             keccak_len: self.keccak_inputs.len(),
             keccak_sponge_len: self.keccak_sponge_ops.len(),
@@ -61,6 +98,7 @@ impl<T: Copy> Traces<T> {
 
     pub fn rollback(&mut self, checkpoint: TraceCheckpoint) {
         self.arithmetic_ops.truncate(checkpoint.arithmetic_len);
+        self.byte_packing_ops.truncate(checkpoint.byte_packing_len);
         self.cpu.truncate(checkpoint.cpu_len);
         self.keccak_inputs.truncate(checkpoint.keccak_len);
         self.keccak_sponge_ops
@@ -87,6 +125,10 @@ impl<T: Copy> Traces<T> {
 
     pub fn push_memory(&mut self, op: MemoryOp) {
         self.memory_ops.push(op);
+    }
+
+    pub fn push_byte_packing(&mut self, op: BytePackingOp) {
+        self.byte_packing_ops.push(op);
     }
 
     pub fn push_keccak(&mut self, input: [u64; keccak::keccak_stark::NUM_INPUTS]) {
@@ -123,6 +165,7 @@ impl<T: Copy> Traces<T> {
         let cap_elements = config.fri_config.num_cap_elements();
         let Traces {
             arithmetic_ops,
+            byte_packing_ops,
             cpu,
             logic_ops,
             memory_ops,
@@ -135,7 +178,13 @@ impl<T: Copy> Traces<T> {
             "generate arithmetic trace",
             all_stark.arithmetic_stark.generate_trace(arithmetic_ops)
         );
-
+        let byte_packing_trace = timed!(
+            timing,
+            "generate byte packing trace",
+            all_stark
+                .byte_packing_stark
+                .generate_trace(byte_packing_ops, cap_elements, timing)
+        );
         let cpu_rows = cpu.into_iter().map(|x| x.into()).collect();
         let cpu_trace = trace_rows_to_poly_values(cpu_rows);
         let keccak_trace = timed!(
@@ -167,6 +216,7 @@ impl<T: Copy> Traces<T> {
 
         [
             arithmetic_trace,
+            byte_packing_trace,
             cpu_trace,
             keccak_trace,
             keccak_sponge_trace,

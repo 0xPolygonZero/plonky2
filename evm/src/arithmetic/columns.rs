@@ -36,7 +36,9 @@ pub(crate) const IS_SUBMOD: usize = IS_SUBFP254 + 1;
 pub(crate) const IS_LT: usize = IS_SUBMOD + 1;
 pub(crate) const IS_GT: usize = IS_LT + 1;
 pub(crate) const IS_BYTE: usize = IS_GT + 1;
-pub(crate) const IS_RANGE_CHECK: usize = IS_BYTE + 1;
+pub(crate) const IS_SHL: usize = IS_BYTE + 1;
+pub(crate) const IS_SHR: usize = IS_SHL + 1;
+pub(crate) const IS_RANGE_CHECK: usize = IS_SHR + 1;
 
 pub(crate) const START_SHARED_COLS: usize = IS_RANGE_CHECK + 1;
 
@@ -103,13 +105,9 @@ pub(crate) const MODULAR_AUX_INPUT_HI: Range<usize> = AUX_REGISTER_2;
 // Must be set to MOD_IS_ZERO for DIV operation i.e. MOD_IS_ZERO * lv[IS_DIV]
 pub(crate) const MODULAR_DIV_DENOM_IS_ZERO: usize = AUX_REGISTER_2.end;
 
-// Need one column for the table, then two columns for every value
-// that needs to be range checked in the trace, namely the permutation
-// of the column and the permutation of the range. The two
-// permutations associated to column i will be in columns RC_COLS[2i]
-// and RC_COLS[2i+1].
-pub(crate) const NUM_RANGE_CHECK_COLS: usize = 1 + 2 * NUM_SHARED_COLS;
+/// The counter column (used for the range check) starts from 0 and increments.
 pub(crate) const RANGE_COUNTER: usize = START_SHARED_COLS + NUM_SHARED_COLS;
-pub(crate) const RC_COLS: Range<usize> = RANGE_COUNTER + 1..RANGE_COUNTER + 1 + 2 * NUM_SHARED_COLS;
+/// The frequencies column used in logUp.
+pub(crate) const RC_FREQUENCIES: usize = RANGE_COUNTER + 1;
 
-pub const NUM_ARITH_COLUMNS: usize = START_SHARED_COLS + NUM_SHARED_COLS + NUM_RANGE_CHECK_COLS;
+pub const NUM_ARITH_COLUMNS: usize = START_SHARED_COLS + NUM_SHARED_COLS + 2;

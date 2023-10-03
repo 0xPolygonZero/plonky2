@@ -9,8 +9,6 @@
 
 extern crate alloc;
 
-mod inversion;
-
 pub(crate) mod arch;
 
 pub mod batch_util;

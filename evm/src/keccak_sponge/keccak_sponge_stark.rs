@@ -17,18 +17,18 @@ use plonky2_util::ceil_div_usize;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::kernel::keccak_util::keccakf_u32s;
 use crate::cross_table_lookup::Column;
+use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
 use crate::keccak_sponge::columns::*;
 use crate::stark::Stark;
 use crate::util::trace_rows_to_poly_values;
-use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 use crate::witness::memory::MemoryAddress;
 
 pub(crate) fn ctl_looked_data<F: Field>() -> Vec<Column<F>> {
     let cols = KECCAK_SPONGE_COL_MAP;
-    let mut outputs = vec![];
+    let mut outputs = Vec::with_capacity(8);
     for i in (0..8).rev() {
         let cur_col = Column::linear_combination(
-            cols.updated_state_bytes[i * 4..(i + 1) * 4]
+            cols.updated_digest_state_bytes[i * 4..(i + 1) * 4]
                 .iter()
                 .enumerate()
                 .map(|(j, &c)| (c, F::from_canonical_u64(1 << (24 - 8 * j)))),
@@ -49,15 +49,30 @@ pub(crate) fn ctl_looked_data<F: Field>() -> Vec<Column<F>> {
 
 pub(crate) fn ctl_looking_keccak<F: Field>() -> Vec<Column<F>> {
     let cols = KECCAK_SPONGE_COL_MAP;
-    Column::singles(
+    let mut res: Vec<_> = Column::singles(
         [
             cols.xored_rate_u32s.as_slice(),
             &cols.original_capacity_u32s,
-            &cols.updated_state_u32s,
         ]
         .concat(),
     )
-    .collect()
+    .collect();
+
+    // We recover the 32-bit digest limbs from their corresponding bytes,
+    // and then append them to the rest of the updated state limbs.
+    let digest_u32s = cols.updated_digest_state_bytes.chunks_exact(4).map(|c| {
+        Column::linear_combination(
+            c.iter()
+                .enumerate()
+                .map(|(i, &b)| (b, F::from_canonical_usize(1 << (8 * i)))),
+        )
+    });
+
+    res.extend(digest_u32s);
+
+    res.extend(Column::singles(&cols.partial_updated_state_u32s));
+
+    res
 }
 
 pub(crate) fn ctl_looking_memory<F: Field>(i: usize) -> Vec<Column<F>> {
@@ -103,9 +118,7 @@ pub(crate) fn ctl_looking_logic<F: Field>(i: usize) -> Vec<Column<F>> {
     let cols = KECCAK_SPONGE_COL_MAP;
 
     let mut res = vec![
-        Column::zero(), // is_and
-        Column::zero(), // is_or
-        Column::one(),  // is_xor
+        Column::constant(F::from_canonical_u8(0x18)), // is_xor
     ];
 
     // Input 0 contains some of the sponge's original rate chunks. If this is the last CTL, we won't
@@ -211,7 +224,11 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakSpongeStark<F, D> {
         operations: Vec<KeccakSpongeOp>,
         min_rows: usize,
     ) -> Vec<[F; NUM_KECCAK_SPONGE_COLUMNS]> {
-        let mut rows = vec![];
+        let base_len: usize = operations
+            .iter()
+            .map(|op| op.input.len() / KECCAK_RATE_BYTES + 1)
+            .sum();
+        let mut rows = Vec::with_capacity(base_len.max(min_rows).next_power_of_two());
         for op in operations {
             rows.extend(self.generate_rows_for_op(op));
         }
@@ -223,7 +240,7 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakSpongeStark<F, D> {
     }
 
     fn generate_rows_for_op(&self, op: KeccakSpongeOp) -> Vec<[F; NUM_KECCAK_SPONGE_COLUMNS]> {
-        let mut rows = vec![];
+        let mut rows = Vec::with_capacity(op.input.len() / KECCAK_RATE_BYTES + 1);
 
         let mut sponge_state = [0u32; KECCAK_WIDTH_U32S];
 
@@ -237,7 +254,21 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakSpongeStark<F, D> {
                 block.try_into().unwrap(),
             );
 
-            sponge_state = row.updated_state_u32s.map(|f| f.to_canonical_u64() as u32);
+            sponge_state[..KECCAK_DIGEST_U32S]
+                .iter_mut()
+                .zip(row.updated_digest_state_bytes.chunks_exact(4))
+                .for_each(|(s, bs)| {
+                    *s = bs
+                        .iter()
+                        .enumerate()
+                        .map(|(i, b)| (b.to_canonical_u64() as u32) << (8 * i))
+                        .sum();
+                });
+
+            sponge_state[KECCAK_DIGEST_U32S..]
+                .iter_mut()
+                .zip(row.partial_updated_state_u32s)
+                .for_each(|(s, x)| *s = x.to_canonical_u64() as u32);
 
             rows.push(row.into());
             already_absorbed_bytes += KECCAK_RATE_BYTES;
@@ -355,26 +386,33 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakSpongeStark<F, D> {
         row.xored_rate_u32s = xored_rate_u32s.map(F::from_canonical_u32);
 
         keccakf_u32s(&mut sponge_state);
-        row.updated_state_u32s = sponge_state.map(F::from_canonical_u32);
-        let is_final_block = row.is_final_input_len.iter().copied().sum::<F>() == F::ONE;
-        if is_final_block {
-            for (l, &elt) in row.updated_state_u32s[..8].iter().enumerate() {
-                let mut cur_bytes = vec![F::ZERO; 4];
+        // Store all but the first `KECCAK_DIGEST_U32S` limbs in the updated state.
+        // Those missing limbs will be broken down into bytes and stored separately.
+        row.partial_updated_state_u32s.copy_from_slice(
+            &sponge_state[KECCAK_DIGEST_U32S..]
+                .iter()
+                .copied()
+                .map(|i| F::from_canonical_u32(i))
+                .collect::<Vec<_>>(),
+        );
+        sponge_state[..KECCAK_DIGEST_U32S]
+            .iter()
+            .enumerate()
+            .for_each(|(l, &elt)| {
                 let mut cur_elt = elt;
-                for i in 0..4 {
-                    cur_bytes[i] =
-                        F::from_canonical_u32((cur_elt.to_canonical_u64() & 0xFF) as u32);
-                    cur_elt = F::from_canonical_u64(cur_elt.to_canonical_u64() >> 8);
-                    row.updated_state_bytes[l * 4 + i] = cur_bytes[i];
-                }
+                (0..4).for_each(|i| {
+                    row.updated_digest_state_bytes[l * 4 + i] =
+                        F::from_canonical_u32(cur_elt & 0xFF);
+                    cur_elt >>= 8;
+                });
 
-                let mut s = row.updated_state_bytes[l * 4].to_canonical_u64();
+                // 32-bit limb reconstruction consistency check.
+                let mut s = row.updated_digest_state_bytes[l * 4].to_canonical_u64();
                 for i in 1..4 {
-                    s += row.updated_state_bytes[l * 4 + i].to_canonical_u64() << (8 * i);
+                    s += row.updated_digest_state_bytes[l * 4 + i].to_canonical_u64() << (8 * i);
                 }
-                assert_eq!(elt, F::from_canonical_u64(s), "not equal");
-            }
-        }
+                assert_eq!(elt as u64, s, "not equal");
+            })
     }
 
     fn generate_padding_row(&self) -> [F; NUM_KECCAK_SPONGE_COLUMNS] {
@@ -385,18 +423,27 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakSpongeStark<F, D> {
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakSpongeStark<F, D> {
-    const COLUMNS: usize = NUM_KECCAK_SPONGE_COLUMNS;
+    type EvaluationFrame<FE, P, const D2: usize> = StarkFrame<P, NUM_KECCAK_SPONGE_COLUMNS>
+    where
+        FE: FieldExtension<D2, BaseField = F>,
+        P: PackedField<Scalar = FE>;
+
+    type EvaluationFrameTarget = StarkFrame<ExtensionTarget<D>, NUM_KECCAK_SPONGE_COLUMNS>;
 
     fn eval_packed_generic<FE, P, const D2: usize>(
         &self,
-        vars: StarkEvaluationVars<FE, P, { Self::COLUMNS }>,
+        vars: &Self::EvaluationFrame<FE, P, D2>,
         yield_constr: &mut ConstraintConsumer<P>,
     ) where
         FE: FieldExtension<D2, BaseField = F>,
         P: PackedField<Scalar = FE>,
     {
-        let local_values: &KeccakSpongeColumnsView<P> = vars.local_values.borrow();
-        let next_values: &KeccakSpongeColumnsView<P> = vars.next_values.borrow();
+        let local_values: &[P; NUM_KECCAK_SPONGE_COLUMNS] =
+            vars.get_local_values().try_into().unwrap();
+        let local_values: &KeccakSpongeColumnsView<P> = local_values.borrow();
+        let next_values: &[P; NUM_KECCAK_SPONGE_COLUMNS] =
+            vars.get_next_values().try_into().unwrap();
+        let next_values: &KeccakSpongeColumnsView<P> = next_values.borrow();
 
         // Each flag (full-input block, final block or implied dummy flag) must be boolean.
         let is_full_input_block = local_values.is_full_input_block;
@@ -445,26 +492,39 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakSpongeS
         );
 
         // If this is a full-input block, the next row's "before" should match our "after" state.
+        for (current_bytes_after, next_before) in local_values
+            .updated_digest_state_bytes
+            .chunks_exact(4)
+            .zip(&next_values.original_rate_u32s[..KECCAK_DIGEST_U32S])
+        {
+            let mut current_after = current_bytes_after[0];
+            for i in 1..4 {
+                current_after +=
+                    current_bytes_after[i] * P::from(FE::from_canonical_usize(1 << (8 * i)));
+            }
+            yield_constr
+                .constraint_transition(is_full_input_block * (*next_before - current_after));
+        }
         for (&current_after, &next_before) in local_values
-            .updated_state_u32s
+            .partial_updated_state_u32s
             .iter()
-            .zip(next_values.original_rate_u32s.iter())
+            .zip(next_values.original_rate_u32s[KECCAK_DIGEST_U32S..].iter())
         {
             yield_constr.constraint_transition(is_full_input_block * (next_before - current_after));
         }
         for (&current_after, &next_before) in local_values
-            .updated_state_u32s
+            .partial_updated_state_u32s
             .iter()
-            .skip(KECCAK_RATE_U32S)
+            .skip(KECCAK_RATE_U32S - KECCAK_DIGEST_U32S)
             .zip(next_values.original_capacity_u32s.iter())
         {
             yield_constr.constraint_transition(is_full_input_block * (next_before - current_after));
         }
 
-        // If this is a full-input block, the next row's already_absorbed_bytes should be ours plus 136.
+        // If this is a full-input block, the next row's already_absorbed_bytes should be ours plus `KECCAK_RATE_BYTES`.
         yield_constr.constraint_transition(
             is_full_input_block
-                * (already_absorbed_bytes + P::from(FE::from_canonical_u64(136))
+                * (already_absorbed_bytes + P::from(FE::from_canonical_usize(KECCAK_RATE_BYTES))
                     - next_values.already_absorbed_bytes),
         );
 
@@ -481,26 +541,20 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakSpongeS
             let entry_match = offset - P::from(FE::from_canonical_usize(i));
             yield_constr.constraint(is_final_len * entry_match);
         }
-
-        // Adding constraints for byte columns.
-        for (l, &elt) in local_values.updated_state_u32s[..8].iter().enumerate() {
-            let mut s = local_values.updated_state_bytes[l * 4];
-            for i in 1..4 {
-                s += local_values.updated_state_bytes[l * 4 + i]
-                    * P::from(FE::from_canonical_usize(1 << (8 * i)));
-            }
-            yield_constr.constraint(is_final_block * (s - elt));
-        }
     }
 
     fn eval_ext_circuit(
         &self,
         builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
-        vars: StarkEvaluationTargets<D, { Self::COLUMNS }>,
+        vars: &Self::EvaluationFrameTarget,
         yield_constr: &mut RecursiveConstraintConsumer<F, D>,
     ) {
-        let local_values: &KeccakSpongeColumnsView<ExtensionTarget<D>> = vars.local_values.borrow();
-        let next_values: &KeccakSpongeColumnsView<ExtensionTarget<D>> = vars.next_values.borrow();
+        let local_values: &[ExtensionTarget<D>; NUM_KECCAK_SPONGE_COLUMNS] =
+            vars.get_local_values().try_into().unwrap();
+        let local_values: &KeccakSpongeColumnsView<ExtensionTarget<D>> = local_values.borrow();
+        let next_values: &[ExtensionTarget<D>; NUM_KECCAK_SPONGE_COLUMNS] =
+            vars.get_next_values().try_into().unwrap();
+        let next_values: &KeccakSpongeColumnsView<ExtensionTarget<D>> = next_values.borrow();
 
         let one = builder.one_extension();
 
@@ -566,19 +620,36 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakSpongeS
         yield_constr.constraint_transition(builder, constraint);
 
         // If this is a full-input block, the next row's "before" should match our "after" state.
+        for (current_bytes_after, next_before) in local_values
+            .updated_digest_state_bytes
+            .chunks_exact(4)
+            .zip(&next_values.original_rate_u32s[..KECCAK_DIGEST_U32S])
+        {
+            let mut current_after = current_bytes_after[0];
+            for i in 1..4 {
+                current_after = builder.mul_const_add_extension(
+                    F::from_canonical_usize(1 << (8 * i)),
+                    current_bytes_after[i],
+                    current_after,
+                );
+            }
+            let diff = builder.sub_extension(*next_before, current_after);
+            let constraint = builder.mul_extension(is_full_input_block, diff);
+            yield_constr.constraint_transition(builder, constraint);
+        }
         for (&current_after, &next_before) in local_values
-            .updated_state_u32s
+            .partial_updated_state_u32s
             .iter()
-            .zip(next_values.original_rate_u32s.iter())
+            .zip(next_values.original_rate_u32s[KECCAK_DIGEST_U32S..].iter())
         {
             let diff = builder.sub_extension(next_before, current_after);
             let constraint = builder.mul_extension(is_full_input_block, diff);
             yield_constr.constraint_transition(builder, constraint);
         }
         for (&current_after, &next_before) in local_values
-            .updated_state_u32s
+            .partial_updated_state_u32s
             .iter()
-            .skip(KECCAK_RATE_U32S)
+            .skip(KECCAK_RATE_U32S - KECCAK_DIGEST_U32S)
             .zip(next_values.original_capacity_u32s.iter())
         {
             let diff = builder.sub_extension(next_before, current_after);
@@ -586,9 +657,11 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakSpongeS
             yield_constr.constraint_transition(builder, constraint);
         }
 
-        // If this is a full-input block, the next row's already_absorbed_bytes should be ours plus 136.
-        let absorbed_bytes =
-            builder.add_const_extension(already_absorbed_bytes, F::from_canonical_u64(136));
+        // If this is a full-input block, the next row's already_absorbed_bytes should be ours plus `KECCAK_RATE_BYTES`.
+        let absorbed_bytes = builder.add_const_extension(
+            already_absorbed_bytes,
+            F::from_canonical_usize(KECCAK_RATE_BYTES),
+        );
         let absorbed_diff =
             builder.sub_extension(absorbed_bytes, next_values.already_absorbed_bytes);
         let constraint = builder.mul_extension(is_full_input_block, absorbed_diff);
@@ -613,21 +686,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakSpongeS
             let entry_match = builder.sub_extension(offset, index);
 
             let constraint = builder.mul_extension(is_final_len, entry_match);
-            yield_constr.constraint(builder, constraint);
-        }
-
-        // Adding constraints for byte columns.
-        for (l, &elt) in local_values.updated_state_u32s[..8].iter().enumerate() {
-            let mut s = local_values.updated_state_bytes[l * 4];
-            for i in 1..4 {
-                s = builder.mul_const_add_extension(
-                    F::from_canonical_usize(1 << (8 * i)),
-                    local_values.updated_state_bytes[l * 4 + i],
-                    s,
-                );
-            }
-            let constraint = builder.sub_extension(s, elt);
-            let constraint = builder.mul_extension(is_final_block, constraint);
             yield_constr.constraint(builder, constraint);
         }
     }
@@ -698,9 +756,10 @@ mod tests {
         let rows = stark.generate_rows_for_op(op);
         assert_eq!(rows.len(), 1);
         let last_row: &KeccakSpongeColumnsView<F> = rows.last().unwrap().borrow();
-        let output = last_row.updated_state_u32s[..8]
+        let output = last_row
+            .updated_digest_state_bytes
             .iter()
-            .flat_map(|x| (x.to_canonical_u64() as u32).to_le_bytes())
+            .map(|x| x.to_canonical_u64() as u8)
             .collect_vec();
 
         assert_eq!(output, expected_output.0);

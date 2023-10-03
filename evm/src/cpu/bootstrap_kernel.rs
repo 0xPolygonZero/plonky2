@@ -1,22 +1,20 @@
 //! The initial phase of execution, where the kernel code is hashed while being written to memory.
 //! The hash is then checked against a precomputed kernel hash.
 
-use std::borrow::Borrow;
-
 use itertools::Itertools;
 use plonky2::field::extension::Extendable;
 use plonky2::field::packed::PackedField;
 use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
+use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
-use crate::cpu::columns::{CpuColumnsView, NUM_CPU_COLUMNS};
+use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::membus::NUM_GP_CHANNELS;
 use crate::generation::state::GenerationState;
 use crate::memory::segments::Segment;
-use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 use crate::witness::memory::MemoryAddress;
 use crate::witness::util::{keccak_sponge_log, mem_write_gp_log_and_fill};
 
@@ -58,13 +56,11 @@ pub(crate) fn generate_bootstrap_kernel<F: Field>(state: &mut GenerationState<F>
     log::info!("Bootstrapping took {} cycles", state.traces.clock());
 }
 
-pub(crate) fn eval_bootstrap_kernel<F: Field, P: PackedField<Scalar = F>>(
-    vars: StarkEvaluationVars<F, P, NUM_CPU_COLUMNS>,
+pub(crate) fn eval_bootstrap_kernel_packed<F: Field, P: PackedField<Scalar = F>>(
+    local_values: &CpuColumnsView<P>,
+    next_values: &CpuColumnsView<P>,
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
-    let local_values: &CpuColumnsView<_> = vars.local_values.borrow();
-    let next_values: &CpuColumnsView<_> = vars.next_values.borrow();
-
     // IS_BOOTSTRAP_KERNEL must have an init value of 1, a final value of 0, and a delta in {0, -1}.
     let local_is_bootstrap = local_values.is_bootstrap_kernel;
     let next_is_bootstrap = next_values.is_bootstrap_kernel;
@@ -103,13 +99,12 @@ pub(crate) fn eval_bootstrap_kernel<F: Field, P: PackedField<Scalar = F>>(
     }
 }
 
-pub(crate) fn eval_bootstrap_kernel_circuit<F: RichField + Extendable<D>, const D: usize>(
+pub(crate) fn eval_bootstrap_kernel_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
-    vars: StarkEvaluationTargets<D, NUM_CPU_COLUMNS>,
+    local_values: &CpuColumnsView<ExtensionTarget<D>>,
+    next_values: &CpuColumnsView<ExtensionTarget<D>>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
-    let local_values: &CpuColumnsView<_> = vars.local_values.borrow();
-    let next_values: &CpuColumnsView<_> = vars.next_values.borrow();
     let one = builder.one_extension();
 
     // IS_BOOTSTRAP_KERNEL must have an init value of 1, a final value of 0, and a delta in {0, -1}.

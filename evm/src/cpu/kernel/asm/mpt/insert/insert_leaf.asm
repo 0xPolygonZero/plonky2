@@ -177,17 +177,16 @@ insert_key_continues:
     %jump(maybe_add_extension_for_common_key)
 
 keys_match:
-    // The keys match exactly, so we simply create a new leaf node with the new value.xs
+    // The keys match exactly, so we simply replace the leaf value with the new value.
     // stack: node_len, node_key, insert_len, insert_key, node_payload_ptr, insert_value_ptr, retdest
     %stack (node_len, node_key, insert_len, insert_key, node_payload_ptr, insert_value_ptr)
-        -> (node_len, node_key, insert_value_ptr)
-    // stack: common_len, common_key, insert_value_ptr, retdest
-    %get_trie_data_size // pointer to the leaf node we're about to create
-    // stack: updated_leaf_ptr, common_len, common_key, insert_value_ptr, retdest
-    PUSH @MPT_NODE_LEAF %append_to_trie_data
-    SWAP1 %append_to_trie_data // Append common_len to our leaf node
-    SWAP1 %append_to_trie_data // Append common_key to our leaf node
-    SWAP1 %append_to_trie_data // Append insert_value_ptr to our leaf node
-    // stack: updated_leaf_ptr, retdestx
+        -> (node_payload_ptr, node_len, node_key, insert_value_ptr)
+    // stack: node_payload_ptr, common_len, common_key, insert_value_ptr, retdest
+    DUP4 DUP2
+    %add_const(2)
+    %mstore_trie_data
+    %stack (node_payload_ptr, common_len, common_key, insert_value_ptr, retdest) -> (node_payload_ptr, retdest)
+    PUSH 1 SWAP1 SUB
+    // stack: leaf_ptr, retdest
     SWAP1
     JUMP

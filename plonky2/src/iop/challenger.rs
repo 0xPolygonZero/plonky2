@@ -191,7 +191,7 @@ impl<F: RichField + Extendable<D>, H: AlgebraicHasher<F>, const D: usize>
         }
     }
 
-    pub(crate) fn observe_element(&mut self, target: Target) {
+    pub fn observe_element(&mut self, target: Target) {
         // Any buffered outputs are now invalid, since they wouldn't reflect this input.
         self.output_buffer.clear();
 
@@ -332,8 +332,8 @@ mod tests {
 
         // These are mostly arbitrary, but we want to test some rounds with enough inputs/outputs to
         // trigger multiple absorptions/squeezes.
-        let num_inputs_per_round = vec![2, 5, 3];
-        let num_outputs_per_round = vec![1, 2, 4];
+        let num_inputs_per_round = [2, 5, 3];
+        let num_outputs_per_round = [1, 2, 4];
 
         // Generate random input messages.
         let inputs_per_round: Vec<Vec<F>> = num_inputs_per_round

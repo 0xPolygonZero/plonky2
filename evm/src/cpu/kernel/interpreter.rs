@@ -117,7 +117,7 @@ impl<'a> Interpreter<'a> {
         let mut result = Self {
             kernel_mode: true,
             jumpdests: find_jumpdests(code),
-            generation_state: GenerationState::new(GenerationInputs::default(), code),
+            generation_state: GenerationState::new(GenerationInputs::default(), code).unwrap(),
             prover_inputs_map: prover_inputs,
             context: 0,
             halt_offsets: vec![DEFAULT_HALT_OFFSET],
@@ -200,7 +200,7 @@ impl<'a> Interpreter<'a> {
         self.generation_state.memory.contexts[0].segments[segment as usize]
             .content
             .iter()
-            .map(|x| x.as_u32() as u8)
+            .map(|x| x.low_u32() as u8)
             .collect()
     }
 
@@ -223,6 +223,10 @@ impl<'a> Interpreter<'a> {
         self.generation_state.memory.contexts[self.context].segments
             [Segment::KernelGeneral as usize]
             .content = memory;
+    }
+
+    pub(crate) fn set_memory_segment(&mut self, segment: Segment, memory: Vec<U256>) {
+        self.generation_state.memory.contexts[0].segments[segment as usize].content = memory;
     }
 
     pub(crate) fn set_memory_segment_bytes(&mut self, segment: Segment, memory: Vec<u8>) {
@@ -387,6 +391,7 @@ impl<'a> Interpreter<'a> {
                 self.stack(),
                 self.get_kernel_general_memory()
             ), // "PANIC",
+            0xee => self.run_mstore_32bytes(),                          // "MSTORE_32BYTES",
             0xf0 => todo!(),                                            // "CREATE",
             0xf1 => todo!(),                                            // "CALL",
             0xf2 => todo!(),                                            // "CALLCODE",
@@ -395,6 +400,7 @@ impl<'a> Interpreter<'a> {
             0xf5 => todo!(),                                            // "CREATE2",
             0xf6 => self.run_get_context(),                             // "GET_CONTEXT",
             0xf7 => self.run_set_context(),                             // "SET_CONTEXT",
+            0xf8 => self.run_mload_32bytes(),                           // "MLOAD_32BYTES",
             0xf9 => todo!(),                                            // "EXIT_KERNEL",
             0xfa => todo!(),                                            // "STATICCALL",
             0xfb => self.run_mload_general(),                           // "MLOAD_GENERAL",
@@ -899,7 +905,10 @@ impl<'a> Interpreter<'a> {
             .prover_inputs_map
             .get(&(self.generation_state.registers.program_counter - 1))
             .ok_or_else(|| anyhow!("Offset not in prover inputs."))?;
-        let output = self.generation_state.prover_input(prover_input_fn);
+        let output = self
+            .generation_state
+            .prover_input(prover_input_fn)
+            .map_err(|_| anyhow!("Invalid prover inputs."))?;
         self.push(output);
         Ok(())
     }
@@ -1029,6 +1038,23 @@ impl<'a> Interpreter<'a> {
         self.push(value);
     }
 
+    fn run_mload_32bytes(&mut self) {
+        let context = self.pop().as_usize();
+        let segment = Segment::all()[self.pop().as_usize()];
+        let offset = self.pop().as_usize();
+        let len = self.pop().as_usize();
+        let bytes: Vec<u8> = (0..len)
+            .map(|i| {
+                self.generation_state
+                    .memory
+                    .mload_general(context, segment, offset + i)
+                    .low_u32() as u8
+            })
+            .collect();
+        let value = U256::from_big_endian(&bytes);
+        self.push(value);
+    }
+
     fn run_mstore_general(&mut self) {
         let context = self.pop().as_usize();
         let segment = Segment::all()[self.pop().as_usize()];
@@ -1037,6 +1063,25 @@ impl<'a> Interpreter<'a> {
         self.generation_state
             .memory
             .mstore_general(context, segment, offset, value);
+    }
+
+    fn run_mstore_32bytes(&mut self) {
+        let context = self.pop().as_usize();
+        let segment = Segment::all()[self.pop().as_usize()];
+        let offset = self.pop().as_usize();
+        let value = self.pop();
+        let len = self.pop().as_usize();
+
+        let mut bytes = vec![0; 32];
+        value.to_little_endian(&mut bytes);
+        bytes.resize(len, 0);
+        bytes.reverse();
+
+        for (i, &byte) in bytes.iter().enumerate() {
+            self.generation_state
+                .memory
+                .mstore_general(context, segment, offset + i, byte.into());
+        }
     }
 
     fn stack_len(&self) -> usize {
@@ -1265,6 +1310,7 @@ fn get_mnemonic(opcode: u8) -> &'static str {
         0xa3 => "LOG3",
         0xa4 => "LOG4",
         0xa5 => "PANIC",
+        0xee => "MSTORE_32BYTES",
         0xf0 => "CREATE",
         0xf1 => "CALL",
         0xf2 => "CALLCODE",
@@ -1273,6 +1319,7 @@ fn get_mnemonic(opcode: u8) -> &'static str {
         0xf5 => "CREATE2",
         0xf6 => "GET_CONTEXT",
         0xf7 => "SET_CONTEXT",
+        0xf8 => "MLOAD_32BYTES",
         0xf9 => "EXIT_KERNEL",
         0xfa => "STATICCALL",
         0xfb => "MLOAD_GENERAL",

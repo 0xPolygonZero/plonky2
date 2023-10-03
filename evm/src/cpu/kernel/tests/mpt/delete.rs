@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use eth_trie_utils::nibbles::Nibbles;
 use eth_trie_utils::partial_trie::{HashedPartialTrie, PartialTrie};
 use ethereum_types::{BigEndianHash, H256};
@@ -61,7 +61,8 @@ fn test_state_trie(
 
     let initial_stack = vec![0xDEADBEEFu32.into()];
     let mut interpreter = Interpreter::new_with_kernel(load_all_mpts, initial_stack);
-    interpreter.generation_state.mpt_prover_inputs = all_mpt_prover_inputs_reversed(&trie_inputs);
+    interpreter.generation_state.mpt_prover_inputs =
+        all_mpt_prover_inputs_reversed(&trie_inputs).map_err(|_| anyhow!("Invalid MPT data"))?;
     interpreter.run()?;
     assert_eq!(interpreter.stack(), vec![]);
 
@@ -85,7 +86,7 @@ fn test_state_trie(
     interpreter.set_global_metadata_field(GlobalMetadata::TrieDataSize, trie_data_len);
     interpreter.push(0xDEADBEEFu32.into());
     interpreter.push(value_ptr.into()); // value_ptr
-    interpreter.push(k.packed); // key
+    interpreter.push(k.try_into_u256().unwrap()); // key
     interpreter.run()?;
     assert_eq!(
         interpreter.stack().len(),
@@ -98,7 +99,7 @@ fn test_state_trie(
     let state_trie_ptr = interpreter.get_global_metadata_field(GlobalMetadata::StateTrieRoot);
     interpreter.generation_state.registers.program_counter = mpt_delete;
     interpreter.push(0xDEADBEEFu32.into());
-    interpreter.push(k.packed);
+    interpreter.push(k.try_into_u256().unwrap());
     interpreter.push(64.into());
     interpreter.push(state_trie_ptr);
     interpreter.run()?;

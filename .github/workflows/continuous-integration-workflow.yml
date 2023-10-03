@@ -24,7 +24,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: nightly-2023-06-30
+          toolchain: nightly
           override: true
 
       - name: rust-cache
@@ -95,7 +95,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: nightly-2023-06-30
+          toolchain: nightly
           override: true
           components: rustfmt, clippy
 
@@ -124,5 +124,5 @@ jobs:
           command: clippy
           args: --all-features --all-targets -- -D warnings -A incomplete-features
         env:
-          CARGO_INCREMENTAL: 1
-
+          # Seems necessary until https://github.com/rust-lang/rust/pull/115819 is merged.
+          CARGO_INCREMENTAL: 0

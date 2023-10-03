@@ -1,24 +1,25 @@
 use std::marker::PhantomData;
 use std::ops::Range;
 
-use itertools::Itertools;
 use plonky2::field::extension::{Extendable, FieldExtension};
 use plonky2::field::packed::PackedField;
 use plonky2::field::polynomial::PolynomialValues;
 use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
+use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::util::transpose;
 use static_assertions::const_assert;
 
+use super::columns::NUM_ARITH_COLUMNS;
 use crate::all_stark::Table;
+use crate::arithmetic::columns::{RANGE_COUNTER, RC_FREQUENCIES, SHARED_COLS};
 use crate::arithmetic::{addcy, byte, columns, divmod, modular, mul, Operation};
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cross_table_lookup::{Column, TableWithColumns};
-use crate::lookup::{eval_lookups, eval_lookups_circuit, permuted_cols};
-use crate::permutation::PermutationPair;
+use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
+use crate::lookup::Lookup;
 use crate::stark::Stark;
-use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 
 /// Link the 16-bit columns of the arithmetic table, split into groups
 /// of N_LIMBS at a time in `regs`, with the corresponding 32-bit
@@ -27,10 +28,17 @@ use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 /// This is done by taking pairs of columns (x, y) of the arithmetic
 /// table and combining them as x + y*2^16 to ensure they equal the
 /// corresponding 32-bit number in the CPU table.
-fn cpu_arith_data_link<F: Field>(ops: &[usize], regs: &[Range<usize>]) -> Vec<Column<F>> {
+fn cpu_arith_data_link<F: Field>(
+    combined_ops: &[(usize, u8)],
+    regs: &[Range<usize>],
+) -> Vec<Column<F>> {
     let limb_base = F::from_canonical_u64(1 << columns::LIMB_BITS);
 
-    let mut res = Column::singles(ops).collect_vec();
+    let mut res = vec![Column::linear_combination(
+        combined_ops
+            .iter()
+            .map(|&(col, code)| (col, F::from_canonical_u8(code))),
+    )];
 
     // The inner for loop below assumes N_LIMBS is even.
     const_assert!(columns::N_LIMBS % 2 == 0);
@@ -49,22 +57,27 @@ fn cpu_arith_data_link<F: Field>(ops: &[usize], regs: &[Range<usize>]) -> Vec<Co
 }
 
 pub fn ctl_arithmetic_rows<F: Field>() -> TableWithColumns<F> {
-    const ARITH_OPS: [usize; 15] = [
-        columns::IS_ADD,
-        columns::IS_SUB,
-        columns::IS_MUL,
-        columns::IS_LT,
-        columns::IS_GT,
-        columns::IS_ADDFP254,
-        columns::IS_MULFP254,
-        columns::IS_SUBFP254,
-        columns::IS_ADDMOD,
-        columns::IS_MULMOD,
-        columns::IS_SUBMOD,
-        columns::IS_DIV,
-        columns::IS_MOD,
-        columns::IS_BYTE,
-        columns::IS_RANGE_CHECK,
+    // We scale each filter flag with the associated opcode value.
+    // If an arithmetic operation is happening on the CPU side,
+    // the CTL will enforce that the reconstructed opcode value
+    // from the opcode bits matches.
+    const COMBINED_OPS: [(usize, u8); 16] = [
+        (columns::IS_ADD, 0x01),
+        (columns::IS_MUL, 0x02),
+        (columns::IS_SUB, 0x03),
+        (columns::IS_DIV, 0x04),
+        (columns::IS_MOD, 0x06),
+        (columns::IS_ADDMOD, 0x08),
+        (columns::IS_MULMOD, 0x09),
+        (columns::IS_ADDFP254, 0x0c),
+        (columns::IS_MULFP254, 0x0d),
+        (columns::IS_SUBFP254, 0x0e),
+        (columns::IS_SUBMOD, 0x0f),
+        (columns::IS_LT, 0x10),
+        (columns::IS_GT, 0x11),
+        (columns::IS_BYTE, 0x1a),
+        (columns::IS_SHL, 0x1b),
+        (columns::IS_SHR, 0x1c),
     ];
 
     const REGISTER_MAP: [Range<usize>; 4] = [
@@ -74,6 +87,8 @@ pub fn ctl_arithmetic_rows<F: Field>() -> TableWithColumns<F> {
         columns::OUTPUT_REGISTER,
     ];
 
+    let filter_column = Some(Column::sum(COMBINED_OPS.iter().map(|(c, _v)| *c)));
+
     // Create the Arithmetic Table whose columns are those of the
     // operations listed in `ops` whose inputs and outputs are given
     // by `regs`, where each element of `regs` is a range of columns
@@ -81,8 +96,8 @@ pub fn ctl_arithmetic_rows<F: Field>() -> TableWithColumns<F> {
     // is used as the operation filter).
     TableWithColumns::new(
         Table::Arithmetic,
-        cpu_arith_data_link(&ARITH_OPS, &REGISTER_MAP),
-        Some(Column::sum(ARITH_OPS)),
+        cpu_arith_data_link(&COMBINED_OPS, &REGISTER_MAP),
+        filter_column,
     )
 }
 
@@ -108,13 +123,18 @@ impl<F: RichField, const D: usize> ArithmeticStark<F, D> {
             cols[columns::RANGE_COUNTER][i] = F::from_canonical_usize(RANGE_MAX - 1);
         }
 
-        // For each column c in cols, generate the range-check
-        // permutations and put them in the corresponding range-check
-        // columns rc_c and rc_c+1.
-        for (c, rc_c) in columns::SHARED_COLS.zip(columns::RC_COLS.step_by(2)) {
-            let (col_perm, table_perm) = permuted_cols(&cols[c], &cols[columns::RANGE_COUNTER]);
-            cols[rc_c].copy_from_slice(&col_perm);
-            cols[rc_c + 1].copy_from_slice(&table_perm);
+        // Generate the frequencies column.
+        for col in SHARED_COLS {
+            for i in 0..n_rows {
+                let x = cols[col][i].to_canonical_u64() as usize;
+                assert!(
+                    x < RANGE_MAX,
+                    "column value {} exceeds the max range value {}",
+                    x,
+                    RANGE_MAX
+                );
+                cols[RC_FREQUENCIES][x] += F::ONE;
+            }
         }
     }
 
@@ -154,23 +174,23 @@ impl<F: RichField, const D: usize> ArithmeticStark<F, D> {
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ArithmeticStark<F, D> {
-    const COLUMNS: usize = columns::NUM_ARITH_COLUMNS;
+    type EvaluationFrame<FE, P, const D2: usize> = StarkFrame<P, NUM_ARITH_COLUMNS>
+    where
+        FE: FieldExtension<D2, BaseField = F>,
+        P: PackedField<Scalar = FE>;
+
+    type EvaluationFrameTarget = StarkFrame<ExtensionTarget<D>, NUM_ARITH_COLUMNS>;
 
     fn eval_packed_generic<FE, P, const D2: usize>(
         &self,
-        vars: StarkEvaluationVars<FE, P, { Self::COLUMNS }>,
+        vars: &Self::EvaluationFrame<FE, P, D2>,
         yield_constr: &mut ConstraintConsumer<P>,
     ) where
         FE: FieldExtension<D2, BaseField = F>,
         P: PackedField<Scalar = FE>,
     {
-        // Range check all the columns
-        for col in columns::RC_COLS.step_by(2) {
-            eval_lookups(vars, yield_constr, col, col + 1);
-        }
-
-        let lv = vars.local_values;
-        let nv = vars.next_values;
+        let lv: &[P; NUM_ARITH_COLUMNS] = vars.get_local_values().try_into().unwrap();
+        let nv: &[P; NUM_ARITH_COLUMNS] = vars.get_next_values().try_into().unwrap();
 
         // Check the range column: First value must be 0, last row
         // must be 2^16-1, and intermediate rows must increment by 0
@@ -193,16 +213,13 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ArithmeticSta
     fn eval_ext_circuit(
         &self,
         builder: &mut CircuitBuilder<F, D>,
-        vars: StarkEvaluationTargets<D, { Self::COLUMNS }>,
+        vars: &Self::EvaluationFrameTarget,
         yield_constr: &mut RecursiveConstraintConsumer<F, D>,
     ) {
-        // Range check all the columns
-        for col in columns::RC_COLS.step_by(2) {
-            eval_lookups_circuit(builder, vars, yield_constr, col, col + 1);
-        }
-
-        let lv = vars.local_values;
-        let nv = vars.next_values;
+        let lv: &[ExtensionTarget<D>; NUM_ARITH_COLUMNS] =
+            vars.get_local_values().try_into().unwrap();
+        let nv: &[ExtensionTarget<D>; NUM_ARITH_COLUMNS] =
+            vars.get_next_values().try_into().unwrap();
 
         let rc1 = lv[columns::RANGE_COUNTER];
         let rc2 = nv[columns::RANGE_COUNTER];
@@ -226,18 +243,12 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ArithmeticSta
         3
     }
 
-    fn permutation_pairs(&self) -> Vec<PermutationPair> {
-        const START: usize = columns::START_SHARED_COLS;
-        const END: usize = START + columns::NUM_SHARED_COLS;
-        let mut pairs = Vec::with_capacity(2 * columns::NUM_SHARED_COLS);
-        for (c, c_perm) in (START..END).zip_eq(columns::RC_COLS.step_by(2)) {
-            pairs.push(PermutationPair::singletons(c, c_perm));
-            pairs.push(PermutationPair::singletons(
-                c_perm + 1,
-                columns::RANGE_COUNTER,
-            ));
-        }
-        pairs
+    fn lookups(&self) -> Vec<Lookup> {
+        vec![Lookup {
+            columns: SHARED_COLS.collect(),
+            table_column: RANGE_COUNTER,
+            frequencies_column: RC_FREQUENCIES,
+        }]
     }
 }
 

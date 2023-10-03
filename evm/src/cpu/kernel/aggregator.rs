@@ -29,13 +29,13 @@ pub(crate) fn combined_kernel() -> Kernel {
         include_str!("asm/core/create_addresses.asm"),
         include_str!("asm/core/create_contract_account.asm"),
         include_str!("asm/core/exception.asm"),
+        include_str!("asm/core/create_receipt.asm"),
         include_str!("asm/core/gas.asm"),
         include_str!("asm/core/intrinsic_gas.asm"),
         include_str!("asm/core/jumpdest_analysis.asm"),
         include_str!("asm/core/nonce.asm"),
         include_str!("asm/core/process_txn.asm"),
         include_str!("asm/core/syscall.asm"),
-        include_str!("asm/core/syscall_stubs.asm"),
         include_str!("asm/core/terminate.asm"),
         include_str!("asm/core/transfer.asm"),
         include_str!("asm/core/util.asm"),
@@ -131,6 +131,7 @@ pub(crate) fn combined_kernel() -> Kernel {
         include_str!("asm/rlp/encode.asm"),
         include_str!("asm/rlp/encode_rlp_scalar.asm"),
         include_str!("asm/rlp/encode_rlp_string.asm"),
+        include_str!("asm/rlp/increment_bounded_rlp.asm"),
         include_str!("asm/rlp/num_bytes.asm"),
         include_str!("asm/rlp/read_to_memory.asm"),
         include_str!("asm/shift.asm"),
@@ -158,6 +159,7 @@ pub(crate) fn combined_kernel() -> Kernel {
         include_str!("asm/util/math.asm"),
         include_str!("asm/account_code.asm"),
         include_str!("asm/balance.asm"),
+        include_str!("asm/bloom_filter.asm"),
     ];
 
     let parsed_files = files.iter().map(|f| parse(f)).collect_vec();

@@ -318,8 +318,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     }
     let t = F::Extension::from(F::from_canonical_u64(32));
     let t = builder.constant_extension(t);
-    let idx0_hi = builder.mul_extension(idx_decomp[5], t);
-    let t = builder.add_extension(idx0_lo5, idx0_hi);
+    let t = builder.mul_add_extension(idx_decomp[5], t, idx0_lo5);
     let t = builder.sub_extension(idx[0], t);
     let t = builder.mul_extension(is_byte, t);
     yield_constr.constraint(builder, t);

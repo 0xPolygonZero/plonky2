@@ -1,6 +1,7 @@
 use ethereum_types::U256;
 use plonky2::field::types::Field;
 
+use crate::byte_packing::byte_packing_stark::BytePackingOp;
 use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::kernel::keccak_util::keccakf_u8s;
 use crate::cpu::membus::{NUM_CHANNELS, NUM_GP_CHANNELS};
@@ -28,11 +29,14 @@ fn to_bits_le<F: Field>(n: u8) -> [F; 8] {
 }
 
 /// Peek at the stack item `i`th from the top. If `i=0` this gives the tip.
-pub(crate) fn stack_peek<F: Field>(state: &GenerationState<F>, i: usize) -> Option<U256> {
+pub(crate) fn stack_peek<F: Field>(
+    state: &GenerationState<F>,
+    i: usize,
+) -> Result<U256, ProgramError> {
     if i >= state.registers.stack_len {
-        return None;
+        return Err(ProgramError::StackUnderflow);
     }
-    Some(state.memory.get(MemoryAddress::new(
+    Ok(state.memory.get(MemoryAddress::new(
         state.registers.context,
         Segment::Stack,
         state.registers.stack_len - 1 - i,
@@ -68,7 +72,7 @@ pub(crate) fn mem_read_with_log<F: Field>(
 pub(crate) fn mem_write_log<F: Field>(
     channel: MemoryChannel,
     address: MemoryAddress,
-    state: &mut GenerationState<F>,
+    state: &GenerationState<F>,
     val: U256,
 ) -> MemoryOp {
     MemoryOp::new(
@@ -96,7 +100,7 @@ pub(crate) fn mem_read_code_with_log_and_fill<F: Field>(
 pub(crate) fn mem_read_gp_with_log_and_fill<F: Field>(
     n: usize,
     address: MemoryAddress,
-    state: &mut GenerationState<F>,
+    state: &GenerationState<F>,
     row: &mut CpuColumnsView<F>,
 ) -> (U256, MemoryOp) {
     let (val, op) = mem_read_with_log(MemoryChannel::GeneralPurpose(n), address, state);
@@ -120,7 +124,7 @@ pub(crate) fn mem_read_gp_with_log_and_fill<F: Field>(
 pub(crate) fn mem_write_gp_log_and_fill<F: Field>(
     n: usize,
     address: MemoryAddress,
-    state: &mut GenerationState<F>,
+    state: &GenerationState<F>,
     row: &mut CpuColumnsView<F>,
     val: U256,
 ) -> MemoryOp {
@@ -256,5 +260,65 @@ pub(crate) fn keccak_sponge_log<F: Field>(
         base_address,
         timestamp: clock * NUM_CHANNELS,
         input,
+    });
+}
+
+pub(crate) fn byte_packing_log<F: Field>(
+    state: &mut GenerationState<F>,
+    base_address: MemoryAddress,
+    bytes: Vec<u8>,
+) {
+    let clock = state.traces.clock();
+
+    let mut address = base_address;
+    for &byte in &bytes {
+        state.traces.push_memory(MemoryOp::new(
+            MemoryChannel::Code,
+            clock,
+            address,
+            MemoryOpKind::Read,
+            byte.into(),
+        ));
+        address.increment();
+    }
+
+    state.traces.push_byte_packing(BytePackingOp {
+        is_read: true,
+        base_address,
+        timestamp: clock * NUM_CHANNELS,
+        bytes,
+    });
+}
+
+pub(crate) fn byte_unpacking_log<F: Field>(
+    state: &mut GenerationState<F>,
+    base_address: MemoryAddress,
+    val: U256,
+    len: usize,
+) {
+    let clock = state.traces.clock();
+
+    let mut bytes = vec![0; 32];
+    val.to_little_endian(&mut bytes);
+    bytes.resize(len, 0);
+    bytes.reverse();
+
+    let mut address = base_address;
+    for &byte in &bytes {
+        state.traces.push_memory(MemoryOp::new(
+            MemoryChannel::Code,
+            clock,
+            address,
+            MemoryOpKind::Write,
+            byte.into(),
+        ));
+        address.increment();
+    }
+
+    state.traces.push_byte_packing(BytePackingOp {
+        is_read: false,
+        base_address,
+        timestamp: clock * NUM_CHANNELS,
+        bytes,
     });
 }

@@ -275,7 +275,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D>
         let power_bits = (0..num_power_bits)
             .map(|i| get_local_wire(self.gate.wire_power_bit(i)))
             .collect::<Vec<_>>();
-        let mut intermediate_values = Vec::new();
+        let mut intermediate_values = Vec::with_capacity(num_power_bits);
 
         let mut current_intermediate_value = F::ONE;
         for i in 0..num_power_bits {

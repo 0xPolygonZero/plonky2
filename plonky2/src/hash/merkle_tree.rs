@@ -17,6 +17,12 @@ use crate::util::log2_strict;
 // TODO: Change H to GenericHashOut<F>, since this only cares about the hash, not the hasher.
 pub struct MerkleCap<F: RichField, H: Hasher<F>>(pub Vec<H::Hash>);
 
+impl<F: RichField, H: Hasher<F>> Default for MerkleCap<F, H> {
+    fn default() -> Self {
+        Self(Vec::new())
+    }
+}
+
 impl<F: RichField, H: Hasher<F>> MerkleCap<F, H> {
     pub fn len(&self) -> usize {
         self.0.len()
@@ -52,6 +58,16 @@ pub struct MerkleTree<F: RichField, H: Hasher<F>> {
 
     /// The Merkle cap.
     pub cap: MerkleCap<F, H>,
+}
+
+impl<F: RichField, H: Hasher<F>> Default for MerkleTree<F, H> {
+    fn default() -> Self {
+        Self {
+            leaves: Vec::new(),
+            digests: Vec::new(),
+            cap: MerkleCap::default(),
+        }
+    }
 }
 
 fn capacity_up_to_mut<T>(v: &mut Vec<T>, len: usize) -> &mut [MaybeUninit<T>] {
