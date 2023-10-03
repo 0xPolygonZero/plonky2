@@ -267,7 +267,7 @@ where
             let vars = S::EvaluationFrame::from_values(
                 &get_trace_values_packed(i_start),
                 &get_trace_values_packed(i_next_start),
-                &public_inputs,
+                public_inputs,
             );
             let permutation_check_data = permutation_zs_commitment_challenges.as_ref().map(
                 |(permutation_zs_commitment, permutation_challenge_sets)| PermutationCheckVars {
