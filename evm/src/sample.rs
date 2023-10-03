@@ -100,7 +100,7 @@ where
         to_second_nibbles,
         rlp::encode(&to_account_second_before).to_vec(),
     );
-    let genesis_state_trie_root =  state_trie_before.hash();
+    let genesis_state_trie_root = state_trie_before.hash();
 
     let tries_before = TrieInputs {
         state_trie: state_trie_before,
