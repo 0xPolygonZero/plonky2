@@ -85,6 +85,8 @@ pub trait Poseidon2: PrimeField64 {
         current_state
     }
 
+    #[inline]
+    #[unroll_for_loops]
     fn constant_layer(state: &mut [Self; WIDTH], round_ctr: usize) {
         for i in 0..WIDTH {
             let round_constant = Self::RC12[round_ctr][i];
@@ -94,6 +96,8 @@ pub trait Poseidon2: PrimeField64 {
         }
     }
 
+    #[inline]
+    #[unroll_for_loops]
     fn sbox_layer(state: &mut [Self; WIDTH]) {
         for i in 0..WIDTH {
             if i < WIDTH {
@@ -102,6 +106,7 @@ pub trait Poseidon2: PrimeField64 {
         }
     }
 
+    #[inline(always)]
     fn sbox_monomial<F: FieldExtension<D, BaseField = Self>, const D: usize>(x: F) -> F {
         // x |--> x^7
         let x2 = x.square();
@@ -113,6 +118,7 @@ pub trait Poseidon2: PrimeField64 {
     // M_E * x
     // M_E = circ[2*M4, M4,...,M4] * x
     //     = [M4, M4, M4] * x + circ[M4,0,0] * X
+    #[inline]
     fn matmul_external(input: &mut [Self]) {
         // Applying cheap 4x4 MDS matrix to each 4-element part of the state
         Self::matmul_m4(input);
@@ -149,6 +155,7 @@ pub trait Poseidon2: PrimeField64 {
     //      [1,1,1,1,1,1,1,1,1,1,u_10,1]
     //      [1,1,1,1,1,1,1,1,1,1,1,u_11]
     // = Sum_i (u_i - 1) * x_i + Sum(x_0 + x_1 +...+ x_11)
+    #[inline]
     fn matmul_internal(input: &mut [Self], mat_internal_diag_m_1: &[u64]) {
         //let t: usize = WIDTH;
 
@@ -171,54 +178,63 @@ pub trait Poseidon2: PrimeField64 {
         }
     }
 
+    #[inline]
     fn matmul_m4(input: &mut [Self]) {
         let t4 = WIDTH / 4;
 
         for i in 0..t4 {
             let start_index = i * 4;
             let mut t_0 = input[start_index];
-            //t_0 += input[start_index + 1];
+
             t_0 = t_0.add(input[start_index + 1]);
             let mut t_1 = input[start_index + 2];
-            //t_1 += input[start_index + 3];
+
             t_1 = t_1.add(input[start_index + 3]);
-            let mut t_2 = input[start_index + 1];
+            let mut t_2 = t_1;
+            // let mut t_2 = input[start_index + 1];
             //t_2 *= Self::from_canonical_u8(2);
-            t_2 = t_2.add(t_2);
-            t_2 = t_2.add(t_1);
+            //t_2 = t_2.add(t_2);
+            //t_2 = t_2.add(t_1);
+            t_2 = t_2.multiply_accumulate(input[start_index + 1], Self::TWO);
             //t_2 += t_1;
-            let mut t_3 = input[start_index + 3];
+            //let mut t_3 = input[start_index + 3];
+            let mut t_3 = t_0;
             //t_3 *= Self::from_canonical_u8(2);
             //t_3 += t_0;
-            t_3 = t_3.add(t_3);
-            t_3 = t_3.add(t_0);
-            let mut t_4 = t_1;
+            //t_3 = t_3.add(t_3);
+            //t_3 = t_3.add(t_0);
+            t_3 = t_3.multiply_accumulate(input[start_index + 3], Self::TWO);
+            //let mut t_4 = t_1;
+            let mut t_4 = t_3;
             //t_4 *= (F::from_canonical_u8(2));
             //t_4 *= (F::from_canonical_u8(2));
             //t_4 *= Self::from_canonical_u8(4);
-            t_4 = t_4.add(t_4);
-            t_4 = t_4.add(t_4);
-            t_4 = t_4.add(t_3);
+            //t_4 = t_4.add(t_4);
+            //t_4 = t_4.add(t_4);
+            //t_4 = t_4.add(t_3);
+            t_4 = t_4.multiply_accumulate(t_1, Self::TWO.double());
             //t_4 += t_3;
-            let mut t_5 = t_0;
+            //let mut t_5 = t_0;
+            let mut t_5 = t_2;
             //t_5 *= (F::from_canonical_u8(2));
             //t_5 *= (F::from_canonical_u8(2));
             //t_5 *= Self::from_canonical_u8(4);
             //t_5 += t_2;
-            t_5 = t_5.add(t_5);
-            t_5 = t_5.add(t_5);
-            t_5 = t_5.add(t_2);
+            //t_5 = t_5.add(t_5);
+            //t_5 = t_5.add(t_5);
+            //t_5 = t_5.add(t_2);
+            t_5 = t_5.multiply_accumulate(t_0, Self::TWO.double());
 
-            let mut t_6 = t_3;
+            //let mut t_6 = t_3;
             //t_6 += t_5;
-            t_6 = t_6.add(t_5);
-            let mut t_7 = t_2;
+            //t_6 = t_6.add(t_5);
+            //let mut t_7 = t_2;
             //t_7 += t_4;
-            t_7 = t_7.add(t_4);
+            //t_7 = t_7.add(t_4);
 
-            input[start_index] = t_6;
+            input[start_index] = t_3.add(t_5);
             input[start_index + 1] = t_5;
-            input[start_index + 2] = t_7;
+            input[start_index + 2] = t_2.add(t_4);
             input[start_index + 3] = t_4;
         }
     }
@@ -282,37 +298,59 @@ pub trait Poseidon2: PrimeField64 {
     #[inline]
     fn matmul_m4_field<F: FieldExtension<D, BaseField = Self>, const D: usize>(input: &mut [F]) {
         let t4 = WIDTH / 4;
-
         for i in 0..t4 {
             let start_index = i * 4;
             let mut t_0 = input[start_index];
-            t_0 += input[start_index + 1];
-            let mut t_1 = input[start_index + 2];
-            t_1 += input[start_index + 3];
-            let mut t_2 = input[start_index + 1];
-            t_2 *= F::from_canonical_u8(2);
-            t_2 += t_1;
-            let mut t_3 = input[start_index + 3];
-            t_3 *= F::from_canonical_u8(2);
-            t_3 += t_0;
-            let mut t_4 = t_1;
-            //t_4 *= (F::from_canonical_u8(2));
-            //t_4 *= (F::from_canonical_u8(2));
-            t_4 *= F::from_canonical_u8(4);
-            t_4 += t_3;
-            let mut t_5 = t_0;
-            //t_5 *= (F::from_canonical_u8(2));
-            //t_5 *= (F::from_canonical_u8(2));
-            t_5 *= F::from_canonical_u8(4);
-            t_5 += t_2;
-            let mut t_6 = t_3;
-            t_6 += t_5;
-            let mut t_7 = t_2;
-            t_7 += t_4;
 
-            input[start_index] = t_6;
+            t_0 = t_0.add(input[start_index + 1]);
+            let mut t_1 = input[start_index + 2];
+
+            t_1 = t_1.add(input[start_index + 3]);
+            let mut t_2 = t_1;
+            // let mut t_2 = input[start_index + 1];
+            //t_2 *= Self::from_canonical_u8(2);
+            //t_2 = t_2.add(t_2);
+            //t_2 = t_2.add(t_1);
+            t_2 = t_2.multiply_accumulate(input[start_index + 1], F::TWO);
+            //t_2 += t_1;
+            //let mut t_3 = input[start_index + 3];
+            let mut t_3 = t_0;
+            //t_3 *= Self::from_canonical_u8(2);
+            //t_3 += t_0;
+            //t_3 = t_3.add(t_3);
+            //t_3 = t_3.add(t_0);
+            t_3 = t_3.multiply_accumulate(input[start_index + 3], F::TWO);
+            //let mut t_4 = t_1;
+            let mut t_4 = t_3;
+            //t_4 *= (F::from_canonical_u8(2));
+            //t_4 *= (F::from_canonical_u8(2));
+            //t_4 *= Self::from_canonical_u8(4);
+            //t_4 = t_4.add(t_4);
+            //t_4 = t_4.add(t_4);
+            //t_4 = t_4.add(t_3);
+            t_4 = t_4.multiply_accumulate(t_1, F::TWO.double());
+            //t_4 += t_3;
+            //let mut t_5 = t_0;
+            let mut t_5 = t_2;
+            //t_5 *= (F::from_canonical_u8(2));
+            //t_5 *= (F::from_canonical_u8(2));
+            //t_5 *= Self::from_canonical_u8(4);
+            //t_5 += t_2;
+            //t_5 = t_5.add(t_5);
+            //t_5 = t_5.add(t_5);
+            //t_5 = t_5.add(t_2);
+            t_5 = t_5.multiply_accumulate(t_0, F::TWO.double());
+
+            //let mut t_6 = t_3;
+            //t_6 += t_5;
+            //t_6 = t_6.add(t_5);
+            //let mut t_7 = t_2;
+            //t_7 += t_4;
+            //t_7 = t_7.add(t_4);
+
+            input[start_index] = t_3.add(t_5);
             input[start_index + 1] = t_5;
-            input[start_index + 2] = t_7;
+            input[start_index + 2] = t_2.add(t_4);
             input[start_index + 3] = t_4;
         }
     }
