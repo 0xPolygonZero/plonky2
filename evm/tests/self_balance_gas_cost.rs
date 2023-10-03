@@ -82,6 +82,7 @@ fn self_balance_gas_cost() -> anyhow::Result<()> {
     );
     state_trie_before.insert(sender_nibbles, rlp::encode(&sender_account_before).to_vec());
     state_trie_before.insert(to_nibbles, rlp::encode(&to_account_before).to_vec());
+    let genesis_state_trie_root = state_trie_before.hash();
 
     let tries_before = TrieInputs {
         state_trie: state_trie_before,
@@ -174,7 +175,7 @@ fn self_balance_gas_cost() -> anyhow::Result<()> {
         tries: tries_before,
         trie_roots_after,
         contract_code,
-        genesis_state_trie_root: HashedPartialTrie::from(Node::Empty).hash(),
+        genesis_state_trie_root,
         block_metadata,
         txn_number_before: 0.into(),
         gas_used_before: 0.into(),

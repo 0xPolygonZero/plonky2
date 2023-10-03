@@ -68,6 +68,7 @@ fn add11_yml() -> anyhow::Result<()> {
     );
     state_trie_before.insert(sender_nibbles, rlp::encode(&sender_account_before).to_vec());
     state_trie_before.insert(to_nibbles, rlp::encode(&to_account_before).to_vec());
+    let genesis_state_trie_root = state_trie_before.hash();
 
     let tries_before = TrieInputs {
         state_trie: state_trie_before,
@@ -156,7 +157,7 @@ fn add11_yml() -> anyhow::Result<()> {
         trie_roots_after,
         contract_code,
         block_metadata,
-        genesis_state_trie_root: HashedPartialTrie::from(Node::Empty).hash(),
+        genesis_state_trie_root,
         txn_number_before: 0.into(),
         gas_used_before: 0.into(),
         gas_used_after: 0xa868u64.into(),

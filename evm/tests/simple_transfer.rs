@@ -50,11 +50,12 @@ fn test_simple_transfer() -> anyhow::Result<()> {
     };
     let to_account_before = AccountRlp::default();
 
-    let state_trie_before = Node::Leaf {
+    let state_trie_before: HashedPartialTrie = Node::Leaf {
         nibbles: sender_nibbles,
         value: rlp::encode(&sender_account_before).to_vec(),
     }
     .into();
+    let genesis_state_trie_root = state_trie_before.hash();
 
     let tries_before = TrieInputs {
         state_trie: state_trie_before,
@@ -142,7 +143,7 @@ fn test_simple_transfer() -> anyhow::Result<()> {
         tries: tries_before,
         trie_roots_after,
         contract_code,
-        genesis_state_trie_root: HashedPartialTrie::from(Node::Empty).hash(),
+        genesis_state_trie_root,
         block_metadata,
         txn_number_before: 0.into(),
         gas_used_before: 0.into(),

@@ -125,7 +125,7 @@ pub struct BlockMetadata {
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct ExtraBlockData {
     /// The state trie digest of the genesis block.
-    pub genesis_state_root: H256,
+    pub genesis_state_trie_root: H256,
     /// The transaction count prior execution of the local state transition, starting
     /// at 0 for the initial transaction of a block.
     pub txn_number_before: U256,
@@ -210,7 +210,7 @@ impl PublicValuesTarget {
         buffer.write_target_array(&cur_hash)?;
 
         let ExtraBlockDataTarget {
-            genesis_state_root,
+            genesis_state_trie_root: genesis_state_root,
             txn_number_before,
             txn_number_after,
             gas_used_before,
@@ -261,7 +261,7 @@ impl PublicValuesTarget {
         };
 
         let extra_block_data = ExtraBlockDataTarget {
-            genesis_state_root: buffer.read_target_array()?,
+            genesis_state_trie_root: buffer.read_target_array()?,
             txn_number_before: buffer.read_target()?,
             txn_number_after: buffer.read_target()?,
             gas_used_before: buffer.read_target_array()?,
@@ -571,7 +571,7 @@ impl BlockHashesTarget {
 
 #[derive(Eq, PartialEq, Debug, Copy, Clone)]
 pub struct ExtraBlockDataTarget {
-    pub genesis_state_root: [Target; 8],
+    pub genesis_state_trie_root: [Target; 8],
     pub txn_number_before: Target,
     pub txn_number_after: Target,
     pub gas_used_before: [Target; 2],
@@ -593,7 +593,7 @@ impl ExtraBlockDataTarget {
         let block_bloom_after = pis[78..142].try_into().unwrap();
 
         Self {
-            genesis_state_root,
+            genesis_state_trie_root: genesis_state_root,
             txn_number_before,
             txn_number_after,
             gas_used_before,
@@ -610,11 +610,11 @@ impl ExtraBlockDataTarget {
         ed1: Self,
     ) -> Self {
         Self {
-            genesis_state_root: core::array::from_fn(|i| {
+            genesis_state_trie_root: core::array::from_fn(|i| {
                 builder.select(
                     condition,
-                    ed0.genesis_state_root[i],
-                    ed1.genesis_state_root[i],
+                    ed0.genesis_state_trie_root[i],
+                    ed1.genesis_state_trie_root[i],
                 )
             }),
             txn_number_before: builder.select(
@@ -652,7 +652,10 @@ impl ExtraBlockDataTarget {
         ed1: Self,
     ) {
         for i in 0..8 {
-            builder.connect(ed0.genesis_state_root[i], ed1.genesis_state_root[i]);
+            builder.connect(
+                ed0.genesis_state_trie_root[i],
+                ed1.genesis_state_trie_root[i],
+            );
         }
         builder.connect(ed0.txn_number_before, ed1.txn_number_before);
         builder.connect(ed0.txn_number_after, ed1.txn_number_after);
