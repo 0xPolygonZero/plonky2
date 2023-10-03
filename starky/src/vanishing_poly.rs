@@ -22,8 +22,6 @@ pub(crate) fn eval_vanishing_poly<F, FE, P, S, const D: usize, const D2: usize>(
     FE: FieldExtension<D2, BaseField = F>,
     P: PackedField<Scalar = FE>,
     S: Stark<F, D>,
-    [(); S::COLUMNS]:,
-    [(); S::PUBLIC_INPUTS]:,
 {
     stark.eval_packed_generic(vars, consumer);
     if let Some(permutation_data) = permutation_data {
@@ -47,8 +45,6 @@ pub(crate) fn eval_vanishing_poly_circuit<F, S, const D: usize>(
 ) where
     F: RichField + Extendable<D>,
     S: Stark<F, D>,
-    [(); S::COLUMNS]:,
-    [(); S::PUBLIC_INPUTS]:,
 {
     stark.eval_ext_circuit(builder, vars, consumer);
     if let Some(permutation_data) = permutation_data {

@@ -7,7 +7,6 @@ use plonky2::field::types::Field;
 use plonky2::fri::witness_util::set_fri_proof_target;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
-use plonky2::iop::target::Target;
 use plonky2::iop::witness::Witness;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::config::{AlgebraicHasher, GenericConfig};
@@ -37,8 +36,6 @@ pub fn verify_stark_proof_circuit<
     inner_config: &StarkConfig,
 ) where
     C::Hasher: AlgebraicHasher<F>,
-    [(); S::COLUMNS]:,
-    [(); S::PUBLIC_INPUTS]:,
 {
     assert_eq!(proof_with_pis.public_inputs.len(), S::PUBLIC_INPUTS);
     let degree_bits = proof_with_pis.proof.recover_degree_bits(inner_config);
@@ -73,8 +70,6 @@ fn verify_stark_proof_with_challenges_circuit<
     degree_bits: usize,
 ) where
     C::Hasher: AlgebraicHasher<F>,
-    [(); S::COLUMNS]:,
-    [(); S::PUBLIC_INPUTS]:,
 {
     check_permutation_options(&stark, &proof_with_pis, &challenges).unwrap();
     let one = builder.one_extension();

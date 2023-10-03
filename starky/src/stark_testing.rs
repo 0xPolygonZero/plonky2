@@ -22,16 +22,12 @@ const WITNESS_SIZE: usize = 1 << 5;
 /// low-degree witness polynomials.
 pub fn test_stark_low_degree<F: RichField + Extendable<D>, S: Stark<F, D>, const D: usize>(
     stark: S,
-) -> Result<()>
-where
-    [(); S::COLUMNS]:,
-    [(); S::PUBLIC_INPUTS]:,
-{
+) -> Result<()> {
     let rate_bits = log2_ceil(stark.constraint_degree() + 1);
 
     let trace_ldes = random_low_degree_matrix::<F>(S::COLUMNS, rate_bits);
     let size = trace_ldes.len();
-    let public_inputs = F::rand_array::<{ S::PUBLIC_INPUTS }>();
+    let public_inputs = F::rand_vec(S::PUBLIC_INPUTS);
 
     let lagrange_first = PolynomialValues::selector(WITNESS_SIZE, 0).lde(rate_bits);
     let lagrange_last = PolynomialValues::selector(WITNESS_SIZE, WITNESS_SIZE - 1).lde(rate_bits);
@@ -82,16 +78,12 @@ pub fn test_stark_circuit_constraints<
     const D: usize,
 >(
     stark: S,
-) -> Result<()>
-where
-    [(); S::COLUMNS]:,
-    [(); S::PUBLIC_INPUTS]:,
-{
+) -> Result<()> {
     // Compute native constraint evaluation on random values.
     let vars = S::EvaluationFrame::from_values(
-        &F::Extension::rand_array::<{ S::COLUMNS }>(),
-        &F::Extension::rand_array::<{ S::COLUMNS }>(),
-        &F::Extension::rand_array::<{ S::PUBLIC_INPUTS }>(),
+        &F::Extension::rand_vec(S::COLUMNS),
+        &F::Extension::rand_vec(S::COLUMNS),
+        &F::Extension::rand_vec(S::PUBLIC_INPUTS),
     );
     let alphas = F::rand_vec(1);
     let z_last = F::Extension::rand();

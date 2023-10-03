@@ -27,11 +27,7 @@ pub fn verify_stark_proof<
     stark: S,
     proof_with_pis: StarkProofWithPublicInputs<F, C, D>,
     config: &StarkConfig,
-) -> Result<()>
-where
-    [(); S::COLUMNS]:,
-    [(); S::PUBLIC_INPUTS]:,
-{
+) -> Result<()> {
     ensure!(proof_with_pis.public_inputs.len() == S::PUBLIC_INPUTS);
     let degree_bits = proof_with_pis.proof.recover_degree_bits(config);
     let challenges = proof_with_pis.get_challenges(&stark, config, degree_bits);
@@ -49,11 +45,7 @@ pub(crate) fn verify_stark_proof_with_challenges<
     challenges: StarkProofChallenges<F, D>,
     degree_bits: usize,
     config: &StarkConfig,
-) -> Result<()>
-where
-    [(); S::COLUMNS]:,
-    [(); S::PUBLIC_INPUTS]:,
-{
+) -> Result<()> {
     validate_proof_shape(&stark, &proof_with_pis, config)?;
     check_permutation_options(&stark, &proof_with_pis, &challenges)?;
     let StarkProofWithPublicInputs {
@@ -152,8 +144,6 @@ where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
     S: Stark<F, D>,
-    [(); S::COLUMNS]:,
-    [(); S::PUBLIC_INPUTS]:,
 {
     let StarkProofWithPublicInputs {
         proof,

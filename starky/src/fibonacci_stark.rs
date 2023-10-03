@@ -177,7 +177,7 @@ mod tests {
             stark,
             &config,
             trace,
-            public_inputs,
+            &public_inputs,
             &mut TimingTree::default(),
         )?;
 
@@ -225,7 +225,7 @@ mod tests {
             stark,
             &config,
             trace,
-            public_inputs,
+            &public_inputs,
             &mut TimingTree::default(),
         )?;
         verify_stark_proof(stark, proof.clone(), &config)?;
@@ -247,8 +247,6 @@ mod tests {
     ) -> Result<()>
     where
         InnerC::Hasher: AlgebraicHasher<F>,
-        [(); S::COLUMNS]:,
-        [(); S::PUBLIC_INPUTS]:,
     {
         let circuit_config = CircuitConfig::standard_recursion_config();
         let mut builder = CircuitBuilder::<F, D>::new(circuit_config);

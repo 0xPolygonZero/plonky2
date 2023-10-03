@@ -33,15 +33,13 @@ pub fn prove<F, C, S, const D: usize>(
     stark: S,
     config: &StarkConfig,
     trace_poly_values: Vec<PolynomialValues<F>>,
-    public_inputs: [F; S::PUBLIC_INPUTS],
+    public_inputs: &[F],
     timing: &mut TimingTree,
 ) -> Result<StarkProofWithPublicInputs<F, C, D>>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
     S: Stark<F, D>,
-    [(); S::COLUMNS]:,
-    [(); S::PUBLIC_INPUTS]:,
 {
     let degree = trace_poly_values[0].len();
     let degree_bits = log2_strict(degree);
@@ -202,7 +200,7 @@ fn compute_quotient_polys<'a, F, P, C, S, const D: usize>(
         PolynomialBatch<F, C, D>,
         Vec<PermutationChallengeSet<F>>,
     )>,
-    public_inputs: [F; S::PUBLIC_INPUTS],
+    public_inputs: &[F],
     alphas: Vec<F>,
     degree_bits: usize,
     config: &StarkConfig,
@@ -212,8 +210,6 @@ where
     P: PackedField<Scalar = F>,
     C: GenericConfig<D, F = F>,
     S: Stark<F, D>,
-    [(); S::COLUMNS]:,
-    [(); S::PUBLIC_INPUTS]:,
 {
     let degree = 1 << degree_bits;
     let rate_bits = config.fri_config.rate_bits;
