@@ -96,7 +96,7 @@ fn verify_stark_proof_with_challenges_circuit<
         next_values,
         &public_inputs
             .into_iter()
-            .map(|pi| pi.to_ext_target(Target::default()))
+            .map(|t| builder.convert_to_ext(t))
             .collect::<Vec<_>>(),
     );
 
