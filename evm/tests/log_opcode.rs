@@ -268,7 +268,6 @@ fn test_log_opcodes() -> anyhow::Result<()> {
 
 // Tests proving two transactions, one of which with logs, and aggregating them.
 #[test]
-#[ignore] // Too slow to run on CI.
 fn test_log_with_aggreg() -> anyhow::Result<()> {
     init_logger();
 

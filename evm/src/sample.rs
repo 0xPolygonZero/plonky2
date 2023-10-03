@@ -100,6 +100,7 @@ where
         to_second_nibbles,
         rlp::encode(&to_account_second_before).to_vec(),
     );
+    let genesis_state_trie_root =  state_trie_before.hash();
 
     let tries_before = TrieInputs {
         state_trie: state_trie_before,
@@ -200,7 +201,7 @@ where
         tries: tries_before,
         trie_roots_after: tries_after,
         contract_code,
-        genesis_state_trie_root: HashedPartialTrie::from(Node::Empty).hash(),
+        genesis_state_trie_root,
         block_metadata: block_metadata.clone(),
         txn_number_before: 0.into(),
         gas_used_before: 0.into(),
@@ -345,7 +346,7 @@ where
         tries: tries_before,
         trie_roots_after,
         contract_code,
-        genesis_state_trie_root: HashedPartialTrie::from(Node::Empty).hash(),
+        genesis_state_trie_root,
         block_metadata,
         txn_number_before: 1.into(),
         gas_used_before: gas_used_second,
