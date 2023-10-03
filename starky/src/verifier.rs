@@ -71,7 +71,8 @@ where
         local_values,
         next_values,
         &public_inputs
-            .into_iter()
+            .iter()
+            .copied()
             .map(F::Extension::from_basefield)
             .collect::<Vec<_>>(),
     );

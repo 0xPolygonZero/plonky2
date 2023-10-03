@@ -82,7 +82,6 @@ pub fn test_stark_circuit_constraints<
     const D: usize,
 >(
     stark: S,
-    public_inputs: [F; S::PUBLIC_INPUTS],
 ) -> Result<()>
 where
     [(); S::COLUMNS]:,
@@ -120,14 +119,7 @@ where
     let nexts_t = builder.add_virtual_extension_targets(S::COLUMNS);
     pw.set_extension_targets(&nexts_t, vars.get_next_values());
     let pis_t = builder.add_virtual_extension_targets(S::PUBLIC_INPUTS);
-    pw.set_extension_targets(
-        &pis_t,
-        &public_inputs
-            .iter()
-            .copied()
-            .map(F::Extension::from_basefield)
-            .collect::<Vec<_>>(),
-    );
+    pw.set_extension_targets(&pis_t, vars.get_public_inputs());
     let alphas_t = builder.add_virtual_targets(1);
     pw.set_target(alphas_t[0], alphas[0]);
     let z_last_t = builder.add_virtual_extension_target();

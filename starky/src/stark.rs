@@ -27,7 +27,7 @@ pub struct LookupConfig {
 pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
     /// The total number of columns in the trace.
     const COLUMNS: usize = Self::EvaluationFrameTarget::COLUMNS;
-    const PUBLIC_INPUTS: usize = 0;
+    const PUBLIC_INPUTS: usize = Self::EvaluationFrameTarget::PUBLIC_INPUTS;
 
     /// This is used to evaluate constraints natively.
     type EvaluationFrame<FE, P, const D2: usize>: StarkEvaluationFrame<FE, P>

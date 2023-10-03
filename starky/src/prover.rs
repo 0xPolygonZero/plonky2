@@ -236,12 +236,8 @@ where
     let z_h_on_coset = ZeroPolyOnCoset::<F>::new(degree_bits, quotient_degree_bits);
 
     // Retrieve the LDE values at index `i`.
-    let get_trace_values_packed = |i_start| -> [P; S::COLUMNS] {
-        trace_commitment
-            .get_lde_values_packed(i_start, step)
-            .try_into()
-            .unwrap()
-    };
+    let get_trace_values_packed =
+        |i_start| -> Vec<P> { trace_commitment.get_lde_values_packed(i_start, step) };
 
     // Last element of the subgroup.
     let last = F::primitive_root_of_unity(degree_bits).inverse();

@@ -60,16 +60,16 @@ impl<F: RichField + Extendable<D>, const D: usize> FibonacciStark<F, D> {
     }
 }
 
+const COLUMNS: usize = 4;
+const PUBLIC_INPUTS: usize = 3;
+
 impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for FibonacciStark<F, D> {
-    type EvaluationFrame<FE, P, const D2: usize> = StarkFrame<FE, P, 3, 3>
+    type EvaluationFrame<FE, P, const D2: usize> = StarkFrame<FE, P, COLUMNS, PUBLIC_INPUTS>
     where
         FE: FieldExtension<D2, BaseField = F>,
         P: PackedField<Scalar = FE>;
 
-    type EvaluationFrameTarget = StarkFrameTarget<ExtensionTarget<D>, 3, 3>;
-
-    const COLUMNS: usize = 3;
-    const PUBLIC_INPUTS: usize = 3;
+    type EvaluationFrameTarget = StarkFrameTarget<ExtensionTarget<D>, COLUMNS, PUBLIC_INPUTS>;
 
     fn eval_packed_generic<FE, P, const D2: usize>(
         &self,
@@ -205,8 +205,7 @@ mod tests {
 
         let num_rows = 1 << 5;
         let stark = S::new(num_rows);
-        let pis = [F::ZERO, F::ONE, fibonacci(num_rows - 1, F::ZERO, F::ONE)];
-        test_stark_circuit_constraints::<F, C, S, D>(stark, pis)
+        test_stark_circuit_constraints::<F, C, S, D>(stark)
     }
 
     #[test]
