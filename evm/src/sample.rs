@@ -371,7 +371,7 @@ where
         trie_roots_before: first_public_values.trie_roots_before,
         trie_roots_after: public_values.trie_roots_after,
         extra_block_data: ExtraBlockData {
-            genesis_state_root: first_public_values.extra_block_data.genesis_state_root,
+            genesis_state_trie_root: first_public_values.extra_block_data.genesis_state_trie_root,
             txn_number_before: first_public_values.extra_block_data.txn_number_before,
             txn_number_after: public_values.extra_block_data.txn_number_after,
             gas_used_before: first_public_values.extra_block_data.gas_used_before,
