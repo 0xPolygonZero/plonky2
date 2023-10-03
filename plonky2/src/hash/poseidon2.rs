@@ -119,6 +119,7 @@ pub trait Poseidon2: PrimeField64 {
     // M_E = circ[2*M4, M4,...,M4] * x
     //     = [M4, M4, M4] * x + circ[M4,0,0] * X
     #[inline]
+    #[unroll_for_loops]
     fn matmul_external(input: &mut [Self]) {
         // Applying cheap 4x4 MDS matrix to each 4-element part of the state
         Self::matmul_m4(input);
@@ -156,6 +157,7 @@ pub trait Poseidon2: PrimeField64 {
     //      [1,1,1,1,1,1,1,1,1,1,1,u_11]
     // = Sum_i (u_i - 1) * x_i + Sum(x_0 + x_1 +...+ x_11)
     #[inline]
+    #[unroll_for_loops]
     fn matmul_internal(input: &mut [Self], mat_internal_diag_m_1: &[u64]) {
         //let t: usize = WIDTH;
 
