@@ -216,7 +216,7 @@ fn test_four_transactions() -> anyhow::Result<()> {
         trie_roots_after,
         genesis_state_trie_root: HashedPartialTrie::from(Node::Empty).hash(),
         contract_code,
-        block_metadata: block_metadata.clone(),
+        block_metadata,
         addresses: vec![],
         block_bloom_before: [0.into(); 8],
         gas_used_before: 0.into(),
