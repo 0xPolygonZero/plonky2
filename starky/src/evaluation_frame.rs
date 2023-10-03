@@ -32,8 +32,6 @@ pub struct StarkFrame<F, P, const N: usize, const N2: usize>
 where
     F: Field,
     P: PackedField<Scalar = F>,
-    [(); N]:,
-    [(); N2]:,
 {
     local_values: [P; N],
     next_values: [P; N],
