@@ -31,6 +31,6 @@ read_rlp_to_memory_loop:
 
 read_rlp_to_memory_finish:
     // stack: pos, len, retdest
-    %pop2
-    // stack: retdest
-    JUMP
+    POP
+    // stack: len, retdest
+    SWAP1 JUMP

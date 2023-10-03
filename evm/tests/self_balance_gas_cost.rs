@@ -5,7 +5,7 @@ use std::time::Duration;
 use env_logger::{try_init_from_env, Env, DEFAULT_FILTER_ENV};
 use eth_trie_utils::nibbles::Nibbles;
 use eth_trie_utils::partial_trie::{HashedPartialTrie, PartialTrie};
-use ethereum_types::Address;
+use ethereum_types::{Address, H256, U256};
 use hex_literal::hex;
 use keccak_hash::keccak;
 use plonky2::field::goldilocks_field::GoldilocksField;
@@ -15,7 +15,7 @@ use plonky2_evm::all_stark::AllStark;
 use plonky2_evm::config::StarkConfig;
 use plonky2_evm::generation::mpt::{AccountRlp, LegacyReceiptRlp};
 use plonky2_evm::generation::{GenerationInputs, TrieInputs};
-use plonky2_evm::proof::{BlockMetadata, TrieRoots};
+use plonky2_evm::proof::{BlockHashes, BlockMetadata, TrieRoots};
 use plonky2_evm::prover::prove;
 use plonky2_evm::verifier::verify_proof;
 use plonky2_evm::Node;
@@ -62,7 +62,10 @@ fn self_balance_gas_cost() -> anyhow::Result<()> {
     + 22100; // SSTORE
     let code_hash = keccak(code);
 
-    let beneficiary_account_before = AccountRlp::default();
+    let beneficiary_account_before = AccountRlp {
+        nonce: 1.into(),
+        ..AccountRlp::default()
+    };
     let sender_account_before = AccountRlp {
         balance: 0x3635c9adc5dea00000u128.into(),
         ..AccountRlp::default()
@@ -89,10 +92,19 @@ fn self_balance_gas_cost() -> anyhow::Result<()> {
 
     let txn = hex!("f861800a8405f5e10094100000000000000000000000000000000000000080801ba07e09e26678ed4fac08a249ebe8ed680bf9051a5e14ad223e4b2b9d26e0208f37a05f6e3f188e3e6eab7d7d3b6568f5eac7d687b08d307d3154ccd8c87b4630509b");
 
+    let gas_used = 21_000 + code_gas;
+
     let block_metadata = BlockMetadata {
         block_beneficiary: Address::from(beneficiary),
+        block_difficulty: 0x20000.into(),
+        block_number: 1.into(),
+        block_chain_id: 1.into(),
+        block_timestamp: 0x03e8.into(),
+        block_gaslimit: 0xff112233u32.into(),
+        block_gas_used: gas_used.into(),
+        block_bloom: [0.into(); 8],
         block_base_fee: 0xa.into(),
-        ..BlockMetadata::default()
+        block_random: Default::default(),
     };
 
     let mut contract_code = HashMap::new();
@@ -100,9 +112,12 @@ fn self_balance_gas_cost() -> anyhow::Result<()> {
     contract_code.insert(code_hash, code.to_vec());
 
     let expected_state_trie_after = {
-        let beneficiary_account_after = AccountRlp::default();
+        let beneficiary_account_after = AccountRlp {
+            nonce: 1.into(),
+            ..AccountRlp::default()
+        };
         let sender_account_after = AccountRlp {
-            balance: 999999999999999568680u128.into(),
+            balance: sender_account_before.balance - U256::from(gas_used) * U256::from(10),
             nonce: 1.into(),
             ..AccountRlp::default()
         };
@@ -132,7 +147,6 @@ fn self_balance_gas_cost() -> anyhow::Result<()> {
         expected_state_trie_after
     };
 
-    let gas_used = 21_000 + code_gas;
     let receipt_0 = LegacyReceiptRlp {
         status: true,
         cum_gas_used: gas_used.into(),
@@ -144,9 +158,15 @@ fn self_balance_gas_cost() -> anyhow::Result<()> {
         Nibbles::from_str("0x80").unwrap(),
         rlp::encode(&receipt_0).to_vec(),
     );
+    let transactions_trie: HashedPartialTrie = Node::Leaf {
+        nibbles: Nibbles::from_str("0x80").unwrap(),
+        value: txn.to_vec(),
+    }
+    .into();
+
     let trie_roots_after = TrieRoots {
         state_root: expected_state_trie_after.hash(),
-        transactions_root: tries_before.transactions_trie.hash(), // TODO: Fix this when we have transactions trie.
+        transactions_root: transactions_trie.hash(),
         receipts_root: receipts_trie.hash(),
     };
     let inputs = GenerationInputs {
@@ -154,7 +174,17 @@ fn self_balance_gas_cost() -> anyhow::Result<()> {
         tries: tries_before,
         trie_roots_after,
         contract_code,
+        genesis_state_trie_root: HashedPartialTrie::from(Node::Empty).hash(),
         block_metadata,
+        txn_number_before: 0.into(),
+        gas_used_before: 0.into(),
+        gas_used_after: gas_used.into(),
+        block_bloom_before: [0.into(); 8],
+        block_bloom_after: [0.into(); 8],
+        block_hashes: BlockHashes {
+            prev_hashes: vec![H256::default(); 256],
+            cur_hash: H256::default(),
+        },
         addresses: vec![],
     };
 

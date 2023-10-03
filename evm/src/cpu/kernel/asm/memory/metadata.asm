@@ -235,6 +235,48 @@ global sys_basefee:
     SWAP1
     EXIT_KERNEL
 
+global sys_blockhash:
+    // stack: kexit_info, block_number
+    %charge_gas_const(@GAS_BLOCKHASH)
+    SWAP1
+    // stack: block_number, kexit_info
+    %blockhash
+    EXIT_KERNEL
+
+global blockhash:
+    // stack: block_number, retdest
+    %mload_global_metadata(@GLOBAL_METADATA_BLOCK_NUMBER)
+    // stack: cur_block_number, block_number, retdest
+    // Check for an overflow, since we're incrementing `block_number` afterwards.
+    DUP2 %eq_const(@U256_MAX) %jumpi(zero_hash)
+    // stack: cur_block_number, block_number, retdest
+    DUP1 DUP3 %increment GT %jumpi(zero_hash) // if block_number >= cur_block_number
+    // stack: cur_block_number, block_number, retdest
+    DUP2 PUSH 256 ADD
+    // stack: block_number+256, cur_block_number, block_number, retdest
+    DUP2 GT %jumpi(zero_hash) // if cur_block_number > block_number + 256
+    // If we are here, the provided block number is correct
+    SUB
+    // stack: cur_block_number - block_number, retdest
+    PUSH 256 SUB
+    // stack: block_hash_number, retdest
+    %mload_kernel(@SEGMENT_BLOCK_HASHES)
+    SWAP1 JUMP
+    JUMP
+
+%macro blockhash
+    // stack: block_number
+    %stack (block_number) -> (block_number, %%after)
+    %jump(blockhash)
+%%after:
+%endmacro
+
+zero_hash:
+    // stack: cur_block_number, block_number, retdest
+    %pop2
+    PUSH 0 SWAP1
+    JUMP
+
 %macro update_mem_words
     // stack: num_words, kexit_info
     %mem_words
@@ -341,3 +383,10 @@ global sys_basefee:
     %decrement
     %mstore_global_metadata(@GLOBAL_METADATA_CALL_STACK_DEPTH)
 %endmacro
+
+global sys_prevrandao:
+    // stack: kexit_info
+    %charge_gas_const(@GAS_BASE)
+    %mload_global_metadata(@GLOBAL_METADATA_BLOCK_RANDOM)
+    %stack (random, kexit_info) -> (kexit_info, random)
+    EXIT_KERNEL

@@ -40,7 +40,7 @@ global encode_rlp_fixed:
     %increment // increment pos
     // stack: pos, len, string, retdest
     %stack (pos, len, string) -> (pos, string, len, encode_rlp_fixed_finish)
-    // stack: context, segment, pos, string, len, encode_rlp_fixed_finish, retdest
+    // stack: pos, string, len, encode_rlp_fixed_finish, retdest
     %jump(mstore_unpacking_rlp)
 encode_rlp_fixed_finish:
     // stack: pos', retdest

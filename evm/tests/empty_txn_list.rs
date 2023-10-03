@@ -4,6 +4,7 @@ use std::time::Duration;
 
 use env_logger::{try_init_from_env, Env, DEFAULT_FILTER_ENV};
 use eth_trie_utils::partial_trie::{HashedPartialTrie, PartialTrie};
+use ethereum_types::H256;
 use keccak_hash::keccak;
 use log::info;
 use plonky2::field::goldilocks_field::GoldilocksField;
@@ -14,7 +15,7 @@ use plonky2_evm::all_stark::AllStark;
 use plonky2_evm::config::StarkConfig;
 use plonky2_evm::fixed_recursive_verifier::AllRecursiveCircuits;
 use plonky2_evm::generation::{GenerationInputs, TrieInputs};
-use plonky2_evm::proof::{BlockMetadata, TrieRoots};
+use plonky2_evm::proof::{BlockHashes, BlockMetadata, TrieRoots};
 use plonky2_evm::Node;
 
 type F = GoldilocksField;
@@ -56,13 +57,23 @@ fn test_empty_txn_list() -> anyhow::Result<()> {
         },
         trie_roots_after,
         contract_code,
+        genesis_state_trie_root: HashedPartialTrie::from(Node::Empty).hash(),
         block_metadata,
+        txn_number_before: 0.into(),
+        gas_used_before: 0.into(),
+        gas_used_after: 0.into(),
+        block_bloom_before: [0.into(); 8],
+        block_bloom_after: [0.into(); 8],
+        block_hashes: BlockHashes {
+            prev_hashes: vec![H256::default(); 256],
+            cur_hash: H256::default(),
+        },
         addresses: vec![],
     };
 
     let all_circuits = AllRecursiveCircuits::<F, C, D>::new(
         &all_stark,
-        &[16..17, 15..16, 14..15, 9..10, 12..13, 18..19], // Minimal ranges to prove an empty list
+        &[16..17, 10..11, 15..16, 14..15, 9..10, 12..13, 18..19], // Minimal ranges to prove an empty list
         &config,
     );
 

@@ -6,6 +6,7 @@ pub mod cpu_stark;
 pub(crate) mod decode;
 mod dup_swap;
 mod gas;
+mod halt;
 mod jumps;
 pub mod kernel;
 pub(crate) mod membus;

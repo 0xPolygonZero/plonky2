@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use ethereum_types::{Address, U256};
 use hex_literal::hex;
 use keccak_hash::keccak;
@@ -37,7 +37,15 @@ fn test_process_receipt() -> Result<()> {
     let expected_bloom = logs_bloom_bytes_fn(test_logs_list).to_vec();
 
     // Set memory.
-    let initial_stack = vec![retdest, 0.into(), prev_cum_gas, leftover_gas, success];
+    let num_nibbles = 2.into();
+    let initial_stack: Vec<U256> = vec![
+        retdest,
+        num_nibbles,
+        0.into(),
+        prev_cum_gas,
+        leftover_gas,
+        success,
+    ];
     let mut interpreter = Interpreter::new_with_kernel(process_receipt, initial_stack);
     interpreter.set_memory_segment(
         Segment::LogsData,
@@ -119,7 +127,7 @@ fn test_receipt_encoding() -> Result<()> {
     // Get the expected RLP encoding.
     let expected_rlp = rlp::encode(&rlp::encode(&receipt_1));
 
-    let initial_stack = vec![retdest, 0.into(), 0.into()];
+    let initial_stack: Vec<U256> = vec![retdest, 0.into(), 0.into()];
     let mut interpreter = Interpreter::new_with_kernel(encode_receipt, initial_stack);
 
     // Write data to memory.
@@ -238,7 +246,7 @@ fn test_receipt_bloom_filter() -> Result<()> {
     let topic03 = 0xbd9fe6.into();
 
     // Set logs memory and initialize TxnBloom and BlockBloom segments.
-    let initial_stack = vec![retdest];
+    let initial_stack: Vec<U256> = vec![retdest];
 
     let mut interpreter = Interpreter::new_with_kernel(logs_bloom, initial_stack);
     let mut logs = vec![
@@ -410,10 +418,12 @@ fn test_mpt_insert_receipt() -> Result<()> {
     receipt.extend(logs_0.clone());
 
     // First, we load all mpts.
-    let initial_stack = vec![retdest];
+    let initial_stack: Vec<U256> = vec![retdest];
 
     let mut interpreter = Interpreter::new_with_kernel(load_all_mpts, initial_stack);
-    interpreter.generation_state.mpt_prover_inputs = all_mpt_prover_inputs_reversed(&trie_inputs);
+    interpreter.generation_state.mpt_prover_inputs =
+        all_mpt_prover_inputs_reversed(&trie_inputs)
+            .map_err(|err| anyhow!("Invalid MPT data: {:?}", err))?;
     interpreter.run()?;
 
     // If TrieData is empty, we need to push 0 because the first value is always 0.
@@ -423,7 +433,13 @@ fn test_mpt_insert_receipt() -> Result<()> {
     }
 
     // stack: transaction_nb, value_ptr, retdest
-    let initial_stack = vec![retdest, cur_trie_data.len().into(), 0.into()];
+    let num_nibbles = 2;
+    let initial_stack: Vec<U256> = vec![
+        retdest,
+        cur_trie_data.len().into(),
+        0x80.into(),
+        num_nibbles.into(),
+    ];
     for i in 0..initial_stack.len() {
         interpreter.push(initial_stack[i]);
     }
@@ -487,7 +503,13 @@ fn test_mpt_insert_receipt() -> Result<()> {
 
     // Get updated TrieData segment.
     cur_trie_data = interpreter.get_memory_segment(Segment::TrieData);
-    let initial_stack2 = vec![retdest, cur_trie_data.len().into(), 1.into()];
+    let num_nibbles = 2;
+    let initial_stack2: Vec<U256> = vec![
+        retdest,
+        cur_trie_data.len().into(),
+        0x01.into(),
+        num_nibbles.into(),
+    ];
     for i in 0..initial_stack2.len() {
         interpreter.push(initial_stack2[i]);
     }
@@ -526,7 +548,7 @@ fn test_bloom_two_logs() -> Result<()> {
     let retdest = 0xDEADBEEFu32.into();
     let logs_bloom = KERNEL.global_labels["logs_bloom"];
 
-    let initial_stack = vec![retdest];
+    let initial_stack: Vec<U256> = vec![retdest];
 
     // Set memory.
     let logs = vec![

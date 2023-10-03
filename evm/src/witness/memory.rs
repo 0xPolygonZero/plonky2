@@ -58,6 +58,8 @@ impl MemoryAddress {
         if virt.bits() > 32 {
             return Err(MemoryError(VirtTooLarge { virt }));
         }
+
+        // Calling `as_usize` here is safe as those have been checked above.
         Ok(Self {
             context: context.as_usize(),
             segment: segment.as_usize(),

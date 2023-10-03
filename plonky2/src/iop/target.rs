@@ -1,12 +1,14 @@
 use alloc::vec::Vec;
 use core::ops::Range;
 
+use serde::{Deserialize, Serialize};
+
 use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::wire::Wire;
 use crate::plonk::circuit_data::CircuitConfig;
 
 /// A location in the witness.
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize)]
 pub enum Target {
     Wire(Wire),
     /// A target that doesn't have any inherent location in the witness (but it can be copied to

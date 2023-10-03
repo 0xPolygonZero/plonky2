@@ -29,13 +29,33 @@ global mpt_load_state_trie_value:
 
 global mpt_load_txn_trie_value:
     // stack: retdest
-    PANIC // TODO
+    PROVER_INPUT(mpt)
+    // stack: rlp_len, retdest
+    // The first element is the rlp length
+    DUP1 %append_to_trie_data
+    PUSH 0
+
+mpt_load_loop:
+    // stack: i, rlp_len, retdest
+    DUP2 DUP2 EQ %jumpi(mpt_load_end)
+    PROVER_INPUT(mpt) %append_to_trie_data
+    %increment
+    %jump(mpt_load_loop)
+
+mpt_load_end:
+    // stack: i, rlp_len, retdest
+    %pop2
+    JUMP
 
 global mpt_load_receipt_trie_value:
     // stack: retdest
+    // Load first byte. It is either `payload_len` or the transaction type.
+    PROVER_INPUT(mpt) DUP1 %append_to_trie_data
+    // If the first byte is less than 3, then it is the transaction type, equal to either 1 or 2. 
+    // In that case, we still need to load the payload length.
+    %lt_const(3) %jumpi(mpt_load_payload_len)
     
-    // Load payload_len.
-    PROVER_INPUT(mpt) %append_to_trie_data
+mpt_load_after_type:
     // Load status.
     PROVER_INPUT(mpt) %append_to_trie_data
     // Load cum_gas_used.
@@ -116,6 +136,11 @@ mpt_load_receipt_trie_value_end:
     // stack: num_logs, num_logs, retdest
     %pop2
     JUMP
+
+mpt_load_payload_len:
+    // stack: retdest
+    PROVER_INPUT(mpt) %append_to_trie_data
+    %jump(mpt_load_after_type)
 
 global mpt_load_storage_trie_value:
     // stack: retdest

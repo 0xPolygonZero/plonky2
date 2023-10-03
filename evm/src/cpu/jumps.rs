@@ -23,9 +23,8 @@ pub fn eval_packed_exit_kernel<P: PackedField>(
     // but we trust the kernel to set them to zero).
     yield_constr.constraint_transition(filter * (input[0] - nv.program_counter));
     yield_constr.constraint_transition(filter * (input[1] - nv.is_kernel_mode));
-    yield_constr.constraint_transition(filter * (input[6] - nv.gas));
-    // High limb of gas must be 0 for convenient detection of overflow.
-    yield_constr.constraint(filter * input[7]);
+    yield_constr.constraint_transition(filter * (input[6] - nv.gas[0]));
+    yield_constr.constraint_transition(filter * (input[7] - nv.gas[1]));
 }
 
 pub fn eval_ext_circuit_exit_kernel<F: RichField + Extendable<D>, const D: usize>(
@@ -50,14 +49,14 @@ pub fn eval_ext_circuit_exit_kernel<F: RichField + Extendable<D>, const D: usize
     yield_constr.constraint_transition(builder, kernel_constr);
 
     {
-        let diff = builder.sub_extension(input[6], nv.gas);
+        let diff = builder.sub_extension(input[6], nv.gas[0]);
         let constr = builder.mul_extension(filter, diff);
         yield_constr.constraint_transition(builder, constr);
     }
     {
-        // High limb of gas must be 0 for convenient detection of overflow.
-        let constr = builder.mul_extension(filter, input[7]);
-        yield_constr.constraint(builder, constr);
+        let diff = builder.sub_extension(input[7], nv.gas[1]);
+        let constr = builder.mul_extension(filter, diff);
+        yield_constr.constraint_transition(builder, constr);
     }
 }
 
@@ -75,8 +74,8 @@ pub fn eval_packed_jump_jumpi<P: PackedField>(
     let is_jumpi = filter * lv.opcode_bits[0];
 
     // Stack constraints.
-    stack::eval_packed_one(lv, is_jump, stack::JUMP_OP.unwrap(), yield_constr);
-    stack::eval_packed_one(lv, is_jumpi, stack::JUMPI_OP.unwrap(), yield_constr);
+    stack::eval_packed_one(lv, nv, is_jump, stack::JUMP_OP.unwrap(), yield_constr);
+    stack::eval_packed_one(lv, nv, is_jumpi, stack::JUMPI_OP.unwrap(), yield_constr);
 
     // If `JUMP`, re-use the `JUMPI` logic, but setting the second input (the predicate) to be 1.
     // In other words, we implement `JUMP(dst)` as `JUMPI(dst, cond=1)`.
@@ -151,10 +150,18 @@ pub fn eval_ext_circuit_jump_jumpi<F: RichField + Extendable<D>, const D: usize>
     let is_jumpi = builder.mul_extension(filter, lv.opcode_bits[0]);
 
     // Stack constraints.
-    stack::eval_ext_circuit_one(builder, lv, is_jump, stack::JUMP_OP.unwrap(), yield_constr);
     stack::eval_ext_circuit_one(
         builder,
         lv,
+        nv,
+        is_jump,
+        stack::JUMP_OP.unwrap(),
+        yield_constr,
+    );
+    stack::eval_ext_circuit_one(
+        builder,
+        lv,
+        nv,
         is_jumpi,
         stack::JUMPI_OP.unwrap(),
         yield_constr,

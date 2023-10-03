@@ -188,7 +188,7 @@ fn test_add_bignum(a: BigUint, b: BigUint, expected_output: BigUint) -> Result<(
 fn test_addmul_bignum(a: BigUint, b: BigUint, c: u128, expected_output: BigUint) -> Result<()> {
     let len = bignum_len(&a).max(bignum_len(&b));
     let mut memory = pad_bignums(&[a, b], len);
-    memory.splice(len..len, vec![0.into(); 2].iter().cloned());
+    memory.splice(len..len, [0.into(); 2].iter().cloned());
 
     let a_start_loc = 0;
     let b_start_loc = len + 2;

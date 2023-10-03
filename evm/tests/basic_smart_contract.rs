@@ -5,7 +5,7 @@ use std::time::Duration;
 use env_logger::{try_init_from_env, Env, DEFAULT_FILTER_ENV};
 use eth_trie_utils::nibbles::Nibbles;
 use eth_trie_utils::partial_trie::{HashedPartialTrie, PartialTrie};
-use ethereum_types::{Address, U256};
+use ethereum_types::{Address, H256, U256};
 use hex_literal::hex;
 use keccak_hash::keccak;
 use plonky2::field::goldilocks_field::GoldilocksField;
@@ -16,7 +16,7 @@ use plonky2_evm::config::StarkConfig;
 use plonky2_evm::cpu::kernel::opcodes::{get_opcode, get_push_opcode};
 use plonky2_evm::generation::mpt::{AccountRlp, LegacyReceiptRlp};
 use plonky2_evm::generation::{GenerationInputs, TrieInputs};
-use plonky2_evm::proof::{BlockMetadata, TrieRoots};
+use plonky2_evm::proof::{BlockHashes, BlockMetadata, TrieRoots};
 use plonky2_evm::prover::prove;
 use plonky2_evm::verifier::verify_proof;
 use plonky2_evm::Node;
@@ -53,7 +53,10 @@ fn test_basic_smart_contract() -> anyhow::Result<()> {
     let code_gas = 3 + 3 + 3;
     let code_hash = keccak(code);
 
-    let beneficiary_account_before = AccountRlp::default();
+    let beneficiary_account_before = AccountRlp {
+        nonce: 1.into(),
+        ..AccountRlp::default()
+    };
     let sender_account_before = AccountRlp {
         nonce: 5.into(),
         balance: eth_to_wei(100_000.into()),
@@ -66,6 +69,11 @@ fn test_basic_smart_contract() -> anyhow::Result<()> {
 
     let state_trie_before = {
         let mut children = core::array::from_fn(|_| Node::Empty.into());
+        children[beneficiary_nibbles.get_nibble(0) as usize] = Node::Leaf {
+            nibbles: beneficiary_nibbles.truncate_n_nibbles_front(1),
+            value: rlp::encode(&beneficiary_account_before).to_vec(),
+        }
+        .into();
         children[sender_nibbles.get_nibble(0) as usize] = Node::Leaf {
             nibbles: sender_nibbles.truncate_n_nibbles_front(1),
             value: rlp::encode(&sender_account_before).to_vec(),
@@ -90,25 +98,34 @@ fn test_basic_smart_contract() -> anyhow::Result<()> {
         storage_tries: vec![],
     };
 
+    let txdata_gas = 2 * 16;
+    let gas_used = 21_000 + code_gas + txdata_gas;
+
     // Generated using a little py-evm script.
     let txn = hex!("f861050a8255f094a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0648242421ba02c89eb757d9deeb1f5b3859a9d4d679951ef610ac47ad4608dc142beb1b7e313a05af7e9fbab825455d36c36c7f4cfcafbeafa9a77bdff936b52afb36d4fe4bcdd");
     let value = U256::from(100u32);
 
     let block_metadata = BlockMetadata {
         block_beneficiary: Address::from(beneficiary),
-        ..BlockMetadata::default()
+        block_difficulty: 0x20000.into(),
+        block_number: 1.into(),
+        block_chain_id: 1.into(),
+        block_timestamp: 0x03e8.into(),
+        block_gaslimit: 0xff112233u32.into(),
+        block_gas_used: gas_used.into(),
+        block_bloom: [0.into(); 8],
+        block_base_fee: 0xa.into(),
+        block_random: Default::default(),
     };
 
     let mut contract_code = HashMap::new();
     contract_code.insert(keccak(vec![]), vec![]);
     contract_code.insert(code_hash, code.to_vec());
 
-    let txdata_gas = 2 * 16;
-    let gas_used = 21_000 + code_gas + txdata_gas;
     let expected_state_trie_after: HashedPartialTrie = {
         let beneficiary_account_after = AccountRlp {
-            balance: beneficiary_account_before.balance + gas_used * 10,
-            ..beneficiary_account_before
+            nonce: 1.into(),
+            ..AccountRlp::default()
         };
         let sender_account_after = AccountRlp {
             balance: sender_account_before.balance - value - gas_used * 10,
@@ -154,10 +171,15 @@ fn test_basic_smart_contract() -> anyhow::Result<()> {
         Nibbles::from_str("0x80").unwrap(),
         rlp::encode(&receipt_0).to_vec(),
     );
+    let transactions_trie: HashedPartialTrie = Node::Leaf {
+        nibbles: Nibbles::from_str("0x80").unwrap(),
+        value: txn.to_vec(),
+    }
+    .into();
 
     let trie_roots_after = TrieRoots {
         state_root: expected_state_trie_after.hash(),
-        transactions_root: tries_before.transactions_trie.hash(), // TODO: Fix this when we have transactions trie.
+        transactions_root: transactions_trie.hash(),
         receipts_root: receipts_trie.hash(),
     };
     let inputs = GenerationInputs {
@@ -165,7 +187,17 @@ fn test_basic_smart_contract() -> anyhow::Result<()> {
         tries: tries_before,
         trie_roots_after,
         contract_code,
+        genesis_state_trie_root: HashedPartialTrie::from(Node::Empty).hash(),
         block_metadata,
+        txn_number_before: 0.into(),
+        gas_used_before: 0.into(),
+        gas_used_after: gas_used.into(),
+        block_bloom_before: [0.into(); 8],
+        block_bloom_after: [0.into(); 8],
+        block_hashes: BlockHashes {
+            prev_hashes: vec![H256::default(); 256],
+            cur_hash: H256::default(),
+        },
         addresses: vec![],
     };
 
