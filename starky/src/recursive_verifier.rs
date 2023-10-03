@@ -1,4 +1,3 @@
-use alloc::vec::Vec;
 use core::iter::once;
 
 use anyhow::{ensure, Result};
@@ -8,6 +7,7 @@ use plonky2::field::types::Field;
 use plonky2::fri::witness_util::set_fri_proof_target;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
+use plonky2::iop::target::Target;
 use plonky2::iop::witness::Witness;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::config::{AlgebraicHasher, GenericConfig};
@@ -16,6 +16,7 @@ use plonky2::with_context;
 
 use crate::config::StarkConfig;
 use crate::constraint_consumer::RecursiveConstraintConsumer;
+use crate::evaluation_frame::StarkEvaluationFrameTarget;
 use crate::permutation::PermutationCheckDataTarget;
 use crate::proof::{
     StarkOpeningSetTarget, StarkProof, StarkProofChallengesTarget, StarkProofTarget,
@@ -23,7 +24,6 @@ use crate::proof::{
 };
 use crate::stark::Stark;
 use crate::vanishing_poly::eval_vanishing_poly_circuit;
-use crate::vars::StarkEvaluationTargets;
 
 pub fn verify_stark_proof_circuit<
     F: RichField + Extendable<D>,
@@ -90,16 +90,15 @@ fn verify_stark_proof_with_challenges_circuit<
         permutation_zs_next,
         quotient_polys,
     } = &proof.openings;
-    let vars = StarkEvaluationTargets {
-        local_values: &local_values.to_vec().try_into().unwrap(),
-        next_values: &next_values.to_vec().try_into().unwrap(),
-        public_inputs: &public_inputs
+
+    let vars = S::EvaluationFrameTarget::from_values(
+        local_values,
+        next_values,
+        &public_inputs
             .into_iter()
-            .map(|t| builder.convert_to_ext(t))
-            .collect::<Vec<_>>()
-            .try_into()
-            .unwrap(),
-    };
+            .map(|pi| pi.to_ext_target(Target::default()))
+            .collect::<Vec<_>>(),
+    );
 
     let zeta_pow_deg = builder.exp_power_of_2_extension(challenges.stark_zeta, degree_bits);
     let z_h_zeta = builder.sub_extension(zeta_pow_deg, one);
@@ -132,7 +131,7 @@ fn verify_stark_proof_with_challenges_circuit<
             builder,
             &stark,
             inner_config,
-            vars,
+            &vars,
             permutation_data,
             &mut consumer,
         )

@@ -20,6 +20,7 @@ use plonky2_maybe_rayon::*;
 
 use crate::config::StarkConfig;
 use crate::constraint_consumer::ConstraintConsumer;
+use crate::evaluation_frame::StarkEvaluationFrame;
 use crate::permutation::{
     compute_permutation_z_polys, get_n_permutation_challenge_sets, PermutationChallengeSet,
     PermutationCheckVars,
@@ -27,7 +28,6 @@ use crate::permutation::{
 use crate::proof::{StarkOpeningSet, StarkProof, StarkProofWithPublicInputs};
 use crate::stark::Stark;
 use crate::vanishing_poly::eval_vanishing_poly;
-use crate::vars::StarkEvaluationVars;
 
 pub fn prove<F, C, S, const D: usize>(
     stark: S,
@@ -272,11 +272,11 @@ where
                 lagrange_basis_first,
                 lagrange_basis_last,
             );
-            let vars = StarkEvaluationVars {
-                local_values: &get_trace_values_packed(i_start),
-                next_values: &get_trace_values_packed(i_next_start),
-                public_inputs: &public_inputs,
-            };
+            let vars = S::EvaluationFrame::from_values(
+                &get_trace_values_packed(i_start),
+                &get_trace_values_packed(i_next_start),
+                &public_inputs,
+            );
             let permutation_check_data = permutation_zs_commitment_challenges.as_ref().map(
                 |(permutation_zs_commitment, permutation_challenge_sets)| PermutationCheckVars {
                     local_zs: permutation_zs_commitment.get_lde_values_packed(i_start, step),
@@ -287,7 +287,7 @@ where
             eval_vanishing_poly::<F, F, P, S, D, 1>(
                 stark,
                 config,
-                vars,
+                &vars,
                 permutation_check_data,
                 &mut consumer,
             );

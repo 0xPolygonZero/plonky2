@@ -13,8 +13,8 @@ use plonky2::plonk::config::GenericConfig;
 use plonky2::util::{log2_ceil, log2_strict, transpose};
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
+use crate::evaluation_frame::{StarkEvaluationFrame, StarkEvaluationFrameTarget};
 use crate::stark::Stark;
-use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 
 const WITNESS_SIZE: usize = 1 << 5;
 
@@ -42,14 +42,11 @@ where
     let alpha = F::rand();
     let constraint_evals = (0..size)
         .map(|i| {
-            let vars = StarkEvaluationVars {
-                local_values: &trace_ldes[i].clone().try_into().unwrap(),
-                next_values: &trace_ldes[(i + (1 << rate_bits)) % size]
-                    .clone()
-                    .try_into()
-                    .unwrap(),
-                public_inputs: &public_inputs,
-            };
+            let vars = S::EvaluationFrame::from_values(
+                &trace_ldes[i],
+                &trace_ldes[(i + (1 << rate_bits)) % size],
+                &public_inputs,
+            );
 
             let mut consumer = ConstraintConsumer::<F>::new(
                 vec![alpha],
@@ -57,7 +54,7 @@ where
                 lagrange_first.values[i],
                 lagrange_last.values[i],
             );
-            stark.eval_packed_base(vars, &mut consumer);
+            stark.eval_packed_base(&vars, &mut consumer);
             consumer.accumulators()[0]
         })
         .collect::<Vec<_>>();
@@ -85,17 +82,18 @@ pub fn test_stark_circuit_constraints<
     const D: usize,
 >(
     stark: S,
+    public_inputs: [F; S::PUBLIC_INPUTS],
 ) -> Result<()>
 where
     [(); S::COLUMNS]:,
     [(); S::PUBLIC_INPUTS]:,
 {
     // Compute native constraint evaluation on random values.
-    let vars = StarkEvaluationVars {
-        local_values: &F::Extension::rand_array::<{ S::COLUMNS }>(),
-        next_values: &F::Extension::rand_array::<{ S::COLUMNS }>(),
-        public_inputs: &F::Extension::rand_array::<{ S::PUBLIC_INPUTS }>(),
-    };
+    let vars = S::EvaluationFrame::from_values(
+        &F::Extension::rand_array::<{ S::COLUMNS }>(),
+        &F::Extension::rand_array::<{ S::COLUMNS }>(),
+        &F::Extension::rand_array::<{ S::PUBLIC_INPUTS }>(),
+    );
     let alphas = F::rand_vec(1);
     let z_last = F::Extension::rand();
     let lagrange_first = F::Extension::rand();
@@ -110,20 +108,26 @@ where
         lagrange_first,
         lagrange_last,
     );
-    stark.eval_ext(vars, &mut consumer);
+    stark.eval_ext(&vars, &mut consumer);
     let native_eval = consumer.accumulators()[0];
-
     // Compute circuit constraint evaluation on same random values.
     let circuit_config = CircuitConfig::standard_recursion_config();
     let mut builder = CircuitBuilder::<F, D>::new(circuit_config);
     let mut pw = PartialWitness::<F>::new();
 
     let locals_t = builder.add_virtual_extension_targets(S::COLUMNS);
-    pw.set_extension_targets(&locals_t, vars.local_values);
+    pw.set_extension_targets(&locals_t, vars.get_local_values());
     let nexts_t = builder.add_virtual_extension_targets(S::COLUMNS);
-    pw.set_extension_targets(&nexts_t, vars.next_values);
+    pw.set_extension_targets(&nexts_t, vars.get_next_values());
     let pis_t = builder.add_virtual_extension_targets(S::PUBLIC_INPUTS);
-    pw.set_extension_targets(&pis_t, vars.public_inputs);
+    pw.set_extension_targets(
+        &pis_t,
+        &public_inputs
+            .iter()
+            .copied()
+            .map(F::Extension::from_basefield)
+            .collect::<Vec<_>>(),
+    );
     let alphas_t = builder.add_virtual_targets(1);
     pw.set_target(alphas_t[0], alphas[0]);
     let z_last_t = builder.add_virtual_extension_target();
@@ -133,11 +137,7 @@ where
     let lagrange_last_t = builder.add_virtual_extension_target();
     pw.set_extension_target(lagrange_last_t, lagrange_last);
 
-    let vars = StarkEvaluationTargets::<D, { S::COLUMNS }, { S::PUBLIC_INPUTS }> {
-        local_values: &locals_t.try_into().unwrap(),
-        next_values: &nexts_t.try_into().unwrap(),
-        public_inputs: &pis_t.try_into().unwrap(),
-    };
+    let vars = S::EvaluationFrameTarget::from_values(&locals_t, &nexts_t, &pis_t);
     let mut consumer = RecursiveConstraintConsumer::<F, D>::new(
         builder.zero_extension(),
         alphas_t,
@@ -145,7 +145,7 @@ where
         lagrange_first_t,
         lagrange_last_t,
     );
-    stark.eval_ext_circuit(&mut builder, vars, &mut consumer);
+    stark.eval_ext_circuit(&mut builder, &vars, &mut consumer);
     let circuit_eval = consumer.accumulators()[0];
     let native_eval_t = builder.constant_extension(native_eval);
     builder.connect_extension(circuit_eval, native_eval_t);
