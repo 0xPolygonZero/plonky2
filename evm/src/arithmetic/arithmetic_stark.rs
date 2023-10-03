@@ -11,7 +11,7 @@ use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::util::transpose;
 use static_assertions::const_assert;
 
-use super::columns::{NUM_ARITH_COLUMNS, OPCODE_COL};
+use super::columns::NUM_ARITH_COLUMNS;
 use crate::all_stark::Table;
 use crate::arithmetic::columns::{RANGE_COUNTER, RC_FREQUENCIES, SHARED_COLS};
 use crate::arithmetic::{addcy, byte, columns, divmod, modular, mul, Operation};
@@ -237,13 +237,14 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ArithmeticSta
             vars.get_next_values().try_into().unwrap();
 
         // Check that `OPCODE_COL` holds 0 if the operation is not a range_check.
-        builder.arithmetic_extension(
+        let opcode_constraint = builder.arithmetic_extension(
             F::NEG_ONE,
             F::ONE,
             lv[columns::IS_RANGE_CHECK],
             lv[columns::OPCODE_COL],
-            lv[OPCODE_COL],
+            lv[columns::OPCODE_COL],
         );
+        yield_constr.constraint(builder, opcode_constraint);
 
         let rc1 = lv[columns::RANGE_COUNTER];
         let rc2 = nv[columns::RANGE_COUNTER];

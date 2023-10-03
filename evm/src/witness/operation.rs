@@ -861,11 +861,16 @@ pub(crate) fn generate_exception<F: Field>(
 
     let exc_info = U256::from(state.registers.program_counter) + (gas << 192);
 
+    // Get the opcode so we can provide it to the range_check operation.
+    let code_context = state.registers.code_context();
+    let address = MemoryAddress::new(code_context, Segment::Code, state.registers.program_counter);
+    let opcode = state.memory.get(address);
+
     let range_check_op = arithmetic::Operation::range_check(
         handler_addr0,
         handler_addr1,
         handler_addr2,
-        0.into(),
+        opcode,
         exc_info,
     );
     // Set registers before pushing to the stack; in particular, we need to set kernel mode so we
