@@ -38,14 +38,11 @@ impl BinaryOperator {
             BinaryOperator::Add => input0.overflowing_add(input1).0,
             BinaryOperator::Mul => input0.overflowing_mul(input1).0,
             BinaryOperator::Shl => {
-                // Compute the shifted displacement, so we can turn the left
-                // left into a multiplication.
-                let shifted_input1 = if input1.bits() <= 32 {
-                    U256::one() << input1
+                if input0 < U256::from(256usize) {
+                    input1 << input0
                 } else {
                     U256::zero()
-                };
-                input0.overflowing_mul(shifted_input1).0
+                }
             }
             BinaryOperator::Sub => input0.overflowing_sub(input1).0,
             BinaryOperator::Div => {
@@ -56,17 +53,10 @@ impl BinaryOperator {
                 }
             }
             BinaryOperator::Shr => {
-                // Compute the shifted displacement, so we can turn the
-                // right shift into a multiplication.
-                let shifted_input1 = if input1.bits() <= 32 {
-                    U256::one() << input1
+                if input0 < U256::from(256usize) {
+                    input1 >> input0
                 } else {
                     U256::zero()
-                };
-                if shifted_input1.is_zero() {
-                    U256::zero()
-                } else {
-                    input0 / shifted_input1
                 }
             }
             BinaryOperator::Mod => {

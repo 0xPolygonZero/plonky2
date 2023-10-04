@@ -504,7 +504,7 @@ fn append_shift<F: Field>(
     } else {
         BinaryOperator::Shr
     };
-    let operation = arithmetic::Operation::binary(operator, input1, input0);
+    let operation = arithmetic::Operation::binary(operator, input0, input1);
 
     state.traces.push_arithmetic(operation);
     state.traces.push_memory(log_in0);
