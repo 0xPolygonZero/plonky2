@@ -278,7 +278,7 @@ pub trait Poseidon2: PrimeField64 {
         }
         // Add sum + diag entry * element to each element
         for i in 0..WIDTH {
-            input[i] = input[i] * (F::from_canonical_u64(mat_internal_diag_m_1[i] - 1));
+            input[i] *= F::from_canonical_u64(mat_internal_diag_m_1[i] - 1);
             input[i] += sum;
         }
     }
@@ -406,8 +406,7 @@ pub trait Poseidon2: PrimeField64 {
         Self: RichField + Extendable<D>,
     {
         for i in 0..3 {
-            let t_0 =
-                builder.mul_const_add_extension(Self::ONE, input[i * 4 + 0], input[i * 4 + 1]);
+            let t_0 = builder.mul_const_add_extension(Self::ONE, input[i * 4], input[i * 4 + 1]);
             let t_1 =
                 builder.mul_const_add_extension(Self::ONE, input[i * 4 + 2], input[i * 4 + 3]);
             let t_2 = builder.mul_const_add_extension(Self::TWO, input[i * 4 + 1], t_1);
@@ -420,7 +419,7 @@ pub trait Poseidon2: PrimeField64 {
             let t_6 = builder.mul_const_add_extension(Self::ONE, t_3, t_5);
             let t_7 = builder.mul_const_add_extension(Self::ONE, t_2, t_4);
 
-            input[i * 4 + 0] = t_6;
+            input[i * 4] = t_6;
             input[i * 4 + 1] = t_5;
             input[i * 4 + 2] = t_7;
             input[i * 4 + 3] = t_4;
@@ -614,31 +613,16 @@ pub(crate) mod test_helpers {
     where
         F: Poseidon2,
     {
-        for (input_, _) in test_vectors.into_iter() {
+        for (input_, expected_output_) in test_vectors.into_iter() {
             let mut input = [F::ZERO; WIDTH];
             for i in 0..WIDTH {
                 input[i] = F::from_canonical_u64(input_[i]);
             }
             let output = F::poseidon2(input);
             for i in 0..WIDTH {
-                //let ex_output = F::from_canonical_u64(expected_output_[i]);
-                assert_eq!(output[i], output[i]);
+                let ex_output = F::from_canonical_u64(expected_output_[i]);
+                assert_eq!(output[i], ex_output);
             }
-        }
-    }
-
-    pub(crate) fn check_consistency<F: Field>()
-    where
-        F: Poseidon2,
-    {
-        let mut input = [F::ZERO; WIDTH];
-        for i in 0..WIDTH {
-            input[i] = F::from_canonical_u64(i as u64);
-        }
-        let output = F::poseidon2(input);
-        //let output_naive = F::poseidon_naive(input);
-        for i in 0..WIDTH {
-            assert_eq!(output[i], output[i]);
         }
     }
 }

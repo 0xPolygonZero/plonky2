@@ -154,7 +154,7 @@ mod tests {
     use plonky2_field::goldilocks_field::GoldilocksField as F;
     use plonky2_field::types::{Field, PrimeField64};
 
-    use crate::hash::poseidon2::test_helpers::{check_consistency, check_test_vectors};
+    use crate::hash::poseidon2::test_helpers::check_test_vectors;
 
     #[test]
     fn test_vectors() {
@@ -193,11 +193,5 @@ mod tests {
         ];
 
         check_test_vectors::<F>(test_vectors12);
-    }
-
-    #[test]
-    // #[ignore]
-    fn consistency() {
-        check_consistency::<F>();
     }
 }

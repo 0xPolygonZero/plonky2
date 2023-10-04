@@ -23,7 +23,7 @@ use crate::util::serialization::{Buffer, IoResult, Read, Write};
 /// This also has some extra features to make it suitable for efficiently
 /// verifying Merkle proofs. It has a flag which can be used to swap the first
 /// four inputs with the next four, for ordering sibling digests.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Poseidon2Gate<F: RichField + Extendable<D>, const D: usize> {
     _phantom: PhantomData<F>,
 }
