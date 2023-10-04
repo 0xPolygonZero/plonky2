@@ -11,7 +11,78 @@ on:
       - "**"
 
 jobs:
-  test-arm:
+  test:
+    name: Test on GitHub Runners
+    runs-on: ubuntu-latest
+    if: "! contains(toJSON(github.event.commits.*.message), '[skip-ci]')"
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+
+      - name: Install nightly toolchain
+        id: rustc-toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly
+          override: true
+
+      - name: rust-cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: rustc-test-${{ steps.rustc-toolchain.outputs.rustc_hash }}-cargo-${{ hashFiles('**/Cargo.toml') }}
+
+      - name: Check in plonky2 subdirectory
+        uses: actions-rs/cargo@v1
+        with:
+          command: check
+          args: --manifest-path plonky2/Cargo.toml
+        env:
+          RUSTFLAGS: -Copt-level=3 -Cdebug-assertions -Coverflow-checks=y -Cdebuginfo=0
+          RUST_LOG: 1
+          CARGO_INCREMENTAL: 1
+          RUST_BACKTRACE: 1
+
+      - name: Check in starky subdirectory
+        uses: actions-rs/cargo@v1
+        with:
+          command: check
+          args: --manifest-path starky/Cargo.toml
+        env:
+          RUSTFLAGS: -Copt-level=3 -Cdebug-assertions -Coverflow-checks=y -Cdebuginfo=0
+          RUST_LOG: 1
+          CARGO_INCREMENTAL: 1
+          RUST_BACKTRACE: 1
+
+      - name: Check in evm subdirectory
+        uses: actions-rs/cargo@v1
+        with:
+          command: check
+          args: --manifest-path evm/Cargo.toml
+        env:
+          RUSTFLAGS: -Copt-level=3 -Cdebug-assertions -Coverflow-checks=y -Cdebuginfo=0
+          RUST_LOG: 1
+          CARGO_INCREMENTAL: 1
+          RUST_BACKTRACE: 1
+
+      - name: Run cargo test
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --workspace
+        env:
+          RUSTFLAGS: -Copt-level=3 -Cdebug-assertions -Coverflow-checks=y -Cdebuginfo=0
+          RUST_LOG: 1
+          CARGO_INCREMENTAL: 1
+          RUST_BACKTRACE: 1
+
+  test-aarch64:
     name: Test Suite ARM
     runs-on: [self-hosted, ARM64]
     if: "! contains(toJSON(github.event.commits.*.message), '[skip-ci]')"
