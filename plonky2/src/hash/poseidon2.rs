@@ -173,6 +173,7 @@ pub trait Poseidon2: PrimeField64 {
     }
 
     #[inline]
+    #[unroll_for_loops]
     fn matmul_m4(input: &mut [Self]) {
         let t4 = WIDTH / 4;
 
