@@ -596,14 +596,12 @@ mod tests {
     }
 
     #[test]
-    fn proof() {
+    fn test_proof() {
         use plonky2_field::types::Sample;
 
         use crate::gates::gate::Gate;
         use crate::hash::hash_types::HashOut;
         use crate::plonk::vars::{EvaluationTargets, EvaluationVars};
-        let res = env_logger::builder().format_timestamp(None).try_init();
-        assert!(res.is_ok());
         const D: usize = 2;
         type C = Poseidon2GoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
