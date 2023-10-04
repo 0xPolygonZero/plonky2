@@ -229,6 +229,8 @@ mod tests {
             lv[IS_SHL] = F::ONE;
             lv[IS_SHR] = F::ZERO;
         } else {
+            // Set `IS_DIV` to 0 in this case, since we're using the logic of DIV for SHR.
+            lv[IS_DIV] = F::ZERO;
             lv[IS_SHL] = F::ZERO;
             lv[IS_SHR] = F::ONE;
         }
@@ -273,5 +275,64 @@ mod tests {
     #[test]
     fn generate_eval_consistency_shr() {
         generate_eval_consistency_shift(false);
+    }
+
+    fn generate_eval_consistency_shift_over_256(is_shl: bool) {
+        type F = GoldilocksField;
+
+        let mut rng = ChaCha8Rng::seed_from_u64(0x6feb51b7ec230f25);
+        let mut lv = [F::default(); NUM_ARITH_COLUMNS].map(|_| F::sample(&mut rng));
+        let mut nv = [F::default(); NUM_ARITH_COLUMNS].map(|_| F::sample(&mut rng));
+
+        // set `IS_SHL == 1` or `IS_SHR == 1` and ensure all constraints are satisfied.
+        if is_shl {
+            lv[IS_SHL] = F::ONE;
+            lv[IS_SHR] = F::ZERO;
+        } else {
+            // Set `IS_DIV` to 0 in this case, since we're using the logic of DIV for SHR.
+            lv[IS_DIV] = F::ZERO;
+            lv[IS_SHL] = F::ZERO;
+            lv[IS_SHR] = F::ONE;
+        }
+
+        for _i in 0..N_RND_TESTS {
+            let mut shift = U256::from(rng.gen::<usize>());
+            while shift > U256::MAX - 256 {
+                shift = U256::from(rng.gen::<usize>());
+            }
+            shift += U256::from(256);
+
+            let mut full_input = U256::from(0);
+            // set inputs to random values
+            for ai in INPUT_REGISTER_1 {
+                lv[ai] = F::from_canonical_u16(rng.gen());
+                full_input =
+                    U256::from(lv[ai].to_canonical_u64()) + full_input * U256::from(1 << 16);
+            }
+
+            let output = 0.into();
+            generate(&mut lv, &mut nv, is_shl, shift, full_input, output);
+
+            let mut constraint_consumer = ConstraintConsumer::new(
+                vec![GoldilocksField(2), GoldilocksField(3), GoldilocksField(5)],
+                GoldilocksField::ONE,
+                GoldilocksField::ONE,
+                GoldilocksField::ZERO,
+            );
+            eval_packed_generic(&lv, &nv, &mut constraint_consumer);
+            for &acc in &constraint_consumer.constraint_accs {
+                assert_eq!(acc, GoldilocksField::ZERO);
+            }
+        }
+    }
+
+    #[test]
+    fn generate_eval_consistency_shl_over_256() {
+        generate_eval_consistency_shift_over_256(true);
+    }
+
+    #[test]
+    fn generate_eval_consistency_shr_over_256() {
+        generate_eval_consistency_shift_over_256(false);
     }
 }

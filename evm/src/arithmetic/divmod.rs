@@ -57,7 +57,7 @@ pub(crate) fn generate_divmod<F: PrimeField64>(
             );
             lv[AUX_INPUT_REGISTER_0].copy_from_slice(&quo_input[..N_LIMBS]);
         }
-        _ => panic!("expected filter to be IS_DIV or IS_MOD but it was {filter}"),
+        _ => panic!("expected filter to be IS_DIV, IS_SHR or IS_MOD but it was {filter}"),
     };
 }
 /// Generate the output and auxiliary values for modular operations.
@@ -233,6 +233,8 @@ mod tests {
         for op in MODULAR_OPS {
             lv[op] = F::ZERO;
         }
+        // Since SHR uses the logic for DIV, `IS_SHR` should also be set to 0 here.
+        lv[IS_SHR] = F::ZERO;
 
         let mut constraint_consumer = ConstraintConsumer::new(
             vec![GoldilocksField(2), GoldilocksField(3), GoldilocksField(5)],
@@ -264,6 +266,8 @@ mod tests {
                 for op in MODULAR_OPS {
                     lv[op] = F::ZERO;
                 }
+                // Since SHR uses the logic for DIV, `IS_SHR` should also be set to 0 here.
+                lv[IS_SHR] = F::ZERO;
                 lv[op_filter] = F::ONE;
 
                 let input0 = U256::from(rng.gen::<[u8; 32]>());
@@ -324,6 +328,8 @@ mod tests {
                 for op in MODULAR_OPS {
                     lv[op] = F::ZERO;
                 }
+                // Since SHR uses the logic for DIV, `IS_SHR` should also be set to 0 here.
+                lv[IS_SHR] = F::ZERO;
                 lv[op_filter] = F::ONE;
 
                 let input0 = U256::from(rng.gen::<[u8; 32]>());
