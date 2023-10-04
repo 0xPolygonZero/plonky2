@@ -644,10 +644,18 @@ where
         rhs: &ExtraBlockDataTarget,
     ) {
         // Connect genesis state root values.
-        for (&limb0, &limb1) in pvs.genesis_state_root.iter().zip(&rhs.genesis_state_root) {
+        for (&limb0, &limb1) in pvs
+            .genesis_state_trie_root
+            .iter()
+            .zip(&rhs.genesis_state_trie_root)
+        {
             builder.connect(limb0, limb1);
         }
-        for (&limb0, &limb1) in pvs.genesis_state_root.iter().zip(&lhs.genesis_state_root) {
+        for (&limb0, &limb1) in pvs
+            .genesis_state_trie_root
+            .iter()
+            .zip(&lhs.genesis_state_trie_root)
+        {
             builder.connect(limb0, limb1);
         }
 
@@ -793,9 +801,9 @@ where
         // Between blocks, the genesis state trie remains unchanged.
         for (&limb0, limb1) in lhs
             .extra_block_data
-            .genesis_state_root
+            .genesis_state_trie_root
             .iter()
-            .zip(rhs.extra_block_data.genesis_state_root)
+            .zip(rhs.extra_block_data.genesis_state_trie_root)
         {
             builder.connect(limb0, limb1);
         }
@@ -834,7 +842,7 @@ where
             .trie_roots_before
             .state_root
             .iter()
-            .zip(x.extra_block_data.genesis_state_root)
+            .zip(x.extra_block_data.genesis_state_trie_root)
         {
             let mut constr = builder.sub(limb0, limb1);
             constr = builder.mul(has_not_parent_block, constr);
@@ -1037,7 +1045,7 @@ where
                     + BlockHashesTarget::BLOCK_HASHES_SIZE
                     + 8;
             for (key, &value) in genesis_state_trie_keys.zip_eq(&h256_limbs::<F>(
-                public_values.extra_block_data.genesis_state_root,
+                public_values.extra_block_data.genesis_state_trie_root,
             )) {
                 nonzero_pis.insert(key, value);
             }

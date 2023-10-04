@@ -261,7 +261,7 @@ pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
     let txn_number_after = read_metadata(GlobalMetadata::TxnNumberAfter);
 
     let extra_block_data = ExtraBlockData {
-        genesis_state_root: inputs.genesis_state_trie_root,
+        genesis_state_trie_root: inputs.genesis_state_trie_root,
         txn_number_before: inputs.txn_number_before,
         txn_number_after,
         gas_used_before: inputs.gas_used_before,

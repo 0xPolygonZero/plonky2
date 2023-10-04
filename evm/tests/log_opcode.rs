@@ -339,6 +339,7 @@ fn test_log_with_aggreg() -> anyhow::Result<()> {
         to_second_nibbles,
         rlp::encode(&to_account_second_before).to_vec(),
     );
+    let genesis_state_trie_root = state_trie_before.hash();
 
     let tries_before = TrieInputs {
         state_trie: state_trie_before,
@@ -439,7 +440,7 @@ fn test_log_with_aggreg() -> anyhow::Result<()> {
         tries: tries_before,
         trie_roots_after: tries_after,
         contract_code,
-        genesis_state_trie_root: HashedPartialTrie::from(Node::Empty).hash(),
+        genesis_state_trie_root,
         block_metadata: block_metadata.clone(),
         txn_number_before: 0.into(),
         gas_used_before: 0.into(),
@@ -583,7 +584,7 @@ fn test_log_with_aggreg() -> anyhow::Result<()> {
         tries: tries_before,
         trie_roots_after,
         contract_code,
-        genesis_state_trie_root: HashedPartialTrie::from(Node::Empty).hash(),
+        genesis_state_trie_root,
         block_metadata,
         txn_number_before: 1.into(),
         gas_used_before: gas_used_second,
@@ -609,7 +610,7 @@ fn test_log_with_aggreg() -> anyhow::Result<()> {
         trie_roots_before: first_public_values.trie_roots_before,
         trie_roots_after: public_values.trie_roots_after,
         extra_block_data: ExtraBlockData {
-            genesis_state_root: first_public_values.extra_block_data.genesis_state_root,
+            genesis_state_trie_root,
             txn_number_before: first_public_values.extra_block_data.txn_number_before,
             txn_number_after: public_values.extra_block_data.txn_number_after,
             gas_used_before: first_public_values.extra_block_data.gas_used_before,
