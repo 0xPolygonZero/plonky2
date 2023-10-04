@@ -100,9 +100,7 @@ pub trait Poseidon2: PrimeField64 {
     #[unroll_for_loops]
     fn sbox_layer(state: &mut [Self; WIDTH]) {
         for i in 0..WIDTH {
-            // if i < WIDTH {
             state[i] = Self::sbox_monomial(state[i]);
-            // }
         }
     }
 
@@ -131,13 +129,11 @@ pub trait Poseidon2: PrimeField64 {
         for l in 0..4 {
             stored[l] = input[l];
             for j in 1..t4 {
-                //stored[l] += input[4 * j + l];
                 stored[l] = stored[l].add(input[4 * j + l]);
             }
         }
         // Compute store + circ[M4,0,0] * X
         for i in 0..input.len() {
-            //input[i] += stored[i % 4];
             input[i] = input[i].add(stored[i % 4]);
         }
     }
@@ -159,23 +155,13 @@ pub trait Poseidon2: PrimeField64 {
     #[inline]
     #[unroll_for_loops]
     fn matmul_internal(input: &mut [Self], mat_internal_diag_m_1: &[u64]) {
-        //let t: usize = WIDTH;
-
+        ////Compute input Sum
         let mut state = [0u128; WIDTH];
         let mut sum = 0_u128;
         for r in 0..WIDTH {
             state[r] = input[r].to_noncanonical_u64() as u128;
             sum += state[r];
         }
-
-        //for r in 0..WIDTH {
-        //    state[r] = input[r].to_noncanonical_u64();
-        //}
-        ////Compute input Sum
-        //let mut sum = state[0] as u128;
-        //for i in 1..WIDTH {
-        //    sum += state[i] as u128;
-        //}
 
         // Add sum + diag entry * element to each element
         for i in 0..WIDTH {
