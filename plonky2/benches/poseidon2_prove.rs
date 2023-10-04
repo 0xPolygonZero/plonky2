@@ -1,18 +1,17 @@
 #![allow(incomplete_features)]
 #![feature(generic_const_exprs)]
 
-//use plonky2::plonk::verifier::verify;
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use plonky2::gates::gate::Gate;
 use plonky2::gates::poseidon2::Poseidon2Gate;
 use plonky2::hash::hash_types::{HashOut, RichField};
-use plonky2::iop::witness::{PartialWitness, Witness, WitnessWrite};
+use plonky2::iop::witness::{PartialWitness, WitnessWrite};
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::circuit_data::CircuitConfig;
 use plonky2::plonk::config::{GenericConfig, Hasher, Poseidon2GoldilocksConfig};
 use plonky2::plonk::vars::{EvaluationTargets, EvaluationVars};
 use plonky2_field::extension::Extendable;
-use plonky2_field::types::{Field, Sample};
+use plonky2_field::types::Sample;
 
 pub fn bench_poseidon2<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
     c: &mut Criterion,
@@ -59,12 +58,7 @@ pub fn bench_poseidon2<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>,
                 pw.set_extension_targets(&evals_t, &evals);
 
                 let data = builder.build::<C>();
-                //let start = Instant::now();
                 let _proof = data.prove(pw);
-
-                //println!("poseidon prover time = {:?}",
-                // start.elapsed().as_micros()); verify(proof,
-                // &data.verifier_only, &data.common)
             });
         });
     }
@@ -118,13 +112,7 @@ pub fn bench_poseidon2_remove_prove<
                 let evals_t = gate.eval_unfiltered_circuit(&mut builder, vars_t);
                 pw.set_extension_targets(&evals_t, &evals);
 
-                let data = builder.build::<C>();
-                //let start = Instant::now();
-                //let _proof = data.prove(pw);
-
-                //println!("poseidon prover time = {:?}",
-                // start.elapsed().as_micros()); verify(proof,
-                // &data.verifier_only, &data.common)
+                let _data = builder.build::<C>();
             });
         });
     }
@@ -133,7 +121,7 @@ pub fn bench_poseidon2_remove_prove<
 fn criterion_benchmark(c: &mut Criterion) {
     const D: usize = 2;
     type C = Poseidon2GoldilocksConfig;
-    type F = <C as GenericConfig<D>>::F;;
+    type F = <C as GenericConfig<D>>::F;
     bench_poseidon2::<F, C, D>(c);
     bench_poseidon2_remove_prove::<F, C, D>(c);
 }
