@@ -16,7 +16,9 @@ use crate::generation::prover_input::FieldOp::{Inverse, Sqrt};
 use crate::generation::state::GenerationState;
 use crate::memory::segments::Segment;
 use crate::memory::segments::Segment::BnPairing;
-use crate::util::{biguint_to_mem_vec, mem_vec_to_biguint};
+use crate::util::{biguint_to_mem_vec, mem_vec_to_biguint, u256_to_usize};
+use crate::witness::errors::ProgramError;
+use crate::witness::errors::ProverInputError::*;
 use crate::witness::util::{current_context_peek, stack_peek};
 
 /// Prover input function represented as a scoped function name.
@@ -31,7 +33,7 @@ impl From<Vec<String>> for ProverInputFn {
 }
 
 impl<F: Field> GenerationState<F> {
-    pub(crate) fn prover_input(&mut self, input_fn: &ProverInputFn) -> U256 {
+    pub(crate) fn prover_input(&mut self, input_fn: &ProverInputFn) -> Result<U256, ProgramError> {
         match input_fn.0[0].as_str() {
             "end_of_txns" => self.run_end_of_txns(),
             "ff" => self.run_ff(input_fn),
@@ -42,51 +44,59 @@ impl<F: Field> GenerationState<F> {
             "current_hash" => self.run_current_hash(),
             "account_code" => self.run_account_code(input_fn),
             "bignum_modmul" => self.run_bignum_modmul(),
-            _ => panic!("Unrecognized prover input function."),
+            _ => Err(ProgramError::ProverInputError(InvalidFunction)),
         }
     }
 
-    fn run_end_of_txns(&mut self) -> U256 {
+    fn run_end_of_txns(&mut self) -> Result<U256, ProgramError> {
         let end = self.next_txn_index == self.inputs.signed_txns.len();
         if end {
-            U256::one()
+            Ok(U256::one())
         } else {
             self.next_txn_index += 1;
-            U256::zero()
+            Ok(U256::zero())
         }
     }
 
     /// Finite field operations.
-    fn run_ff(&self, input_fn: &ProverInputFn) -> U256 {
-        let field = EvmField::from_str(input_fn.0[1].as_str()).unwrap();
-        let op = FieldOp::from_str(input_fn.0[2].as_str()).unwrap();
-        let x = stack_peek(self, 0).expect("Empty stack");
+    fn run_ff(&self, input_fn: &ProverInputFn) -> Result<U256, ProgramError> {
+        let field = EvmField::from_str(input_fn.0[1].as_str())
+            .map_err(|_| ProgramError::ProverInputError(InvalidFunction))?;
+        let op = FieldOp::from_str(input_fn.0[2].as_str())
+            .map_err(|_| ProgramError::ProverInputError(InvalidFunction))?;
+        let x = stack_peek(self, 0)?;
         field.op(op, x)
     }
 
     /// Special finite field operations.
-    fn run_sf(&self, input_fn: &ProverInputFn) -> U256 {
-        let field = EvmField::from_str(input_fn.0[1].as_str()).unwrap();
+    fn run_sf(&self, input_fn: &ProverInputFn) -> Result<U256, ProgramError> {
+        let field = EvmField::from_str(input_fn.0[1].as_str())
+            .map_err(|_| ProgramError::ProverInputError(InvalidFunction))?;
         let inputs: [U256; 4] = match field {
-            Bls381Base => std::array::from_fn(|i| {
-                stack_peek(self, i).expect("Insufficient number of items on stack")
-            }),
+            Bls381Base => (0..4)
+                .map(|i| stack_peek(self, i))
+                .collect::<Result<Vec<U256>, _>>()?
+                .try_into()
+                .unwrap(),
             _ => todo!(),
         };
-        match input_fn.0[2].as_str() {
+        let res = match input_fn.0[2].as_str() {
             "add_lo" => field.add_lo(inputs),
             "add_hi" => field.add_hi(inputs),
             "mul_lo" => field.mul_lo(inputs),
             "mul_hi" => field.mul_hi(inputs),
             "sub_lo" => field.sub_lo(inputs),
             "sub_hi" => field.sub_hi(inputs),
-            _ => todo!(),
-        }
+            _ => return Err(ProgramError::ProverInputError(InvalidFunction)),
+        };
+
+        Ok(res)
     }
 
     /// Finite field extension operations.
-    fn run_ffe(&self, input_fn: &ProverInputFn) -> U256 {
-        let field = EvmField::from_str(input_fn.0[1].as_str()).unwrap();
+    fn run_ffe(&self, input_fn: &ProverInputFn) -> Result<U256, ProgramError> {
+        let field = EvmField::from_str(input_fn.0[1].as_str())
+            .map_err(|_| ProgramError::ProverInputError(InvalidFunction))?;
         let n = input_fn.0[2]
             .as_str()
             .split('_')
@@ -94,61 +104,61 @@ impl<F: Field> GenerationState<F> {
             .unwrap()
             .parse::<usize>()
             .unwrap();
-        let ptr = stack_peek(self, 11 - n)
-            .expect("Insufficient number of items on stack")
-            .as_usize();
+        let ptr = stack_peek(self, 11 - n).map(u256_to_usize)??;
 
         let f: [U256; 12] = match field {
             Bn254Base => std::array::from_fn(|i| current_context_peek(self, BnPairing, ptr + i)),
             _ => todo!(),
         };
-        field.field_extension_inverse(n, f)
+        Ok(field.field_extension_inverse(n, f))
     }
 
     /// MPT data.
-    fn run_mpt(&mut self) -> U256 {
+    fn run_mpt(&mut self) -> Result<U256, ProgramError> {
         self.mpt_prover_inputs
             .pop()
-            .unwrap_or_else(|| panic!("Out of MPT data"))
+            .ok_or(ProgramError::ProverInputError(OutOfMptData))
     }
 
     /// RLP data.
-    fn run_rlp(&mut self) -> U256 {
+    fn run_rlp(&mut self) -> Result<U256, ProgramError> {
         self.rlp_prover_inputs
             .pop()
-            .unwrap_or_else(|| panic!("Out of RLP data"))
+            .ok_or(ProgramError::ProverInputError(OutOfRlpData))
     }
 
-    fn run_current_hash(&mut self) -> U256 {
-        U256::from_big_endian(&self.inputs.block_hashes.cur_hash.0)
+    fn run_current_hash(&mut self) -> Result<U256, ProgramError> {
+        Ok(U256::from_big_endian(&self.inputs.block_hashes.cur_hash.0))
     }
 
     /// Account code.
-    fn run_account_code(&mut self, input_fn: &ProverInputFn) -> U256 {
+    fn run_account_code(&mut self, input_fn: &ProverInputFn) -> Result<U256, ProgramError> {
         match input_fn.0[1].as_str() {
             "length" => {
                 // Return length of code.
                 // stack: codehash, ...
-                let codehash = stack_peek(self, 0).expect("Empty stack");
-                self.inputs
+                let codehash = stack_peek(self, 0)?;
+                Ok(self
+                    .inputs
                     .contract_code
                     .get(&H256::from_uint(&codehash))
-                    .unwrap_or_else(|| panic!("No code found with hash {codehash}"))
+                    .ok_or(ProgramError::ProverInputError(CodeHashNotFound))?
                     .len()
-                    .into()
+                    .into())
             }
             "get" => {
                 // Return `code[i]`.
                 // stack: i, code_length, codehash, ...
-                let i = stack_peek(self, 0).expect("Unexpected stack").as_usize();
-                let codehash = stack_peek(self, 2).expect("Unexpected stack");
-                self.inputs
+                let i = stack_peek(self, 0).map(u256_to_usize)??;
+                let codehash = stack_peek(self, 2)?;
+                Ok(self
+                    .inputs
                     .contract_code
                     .get(&H256::from_uint(&codehash))
-                    .unwrap_or_else(|| panic!("No code found with hash {codehash}"))[i]
-                    .into()
+                    .ok_or(ProgramError::ProverInputError(CodeHashNotFound))?[i]
+                    .into())
             }
-            _ => panic!("Invalid prover input function."),
+            _ => Err(ProgramError::ProverInputError(InvalidInput)),
         }
     }
 
@@ -156,24 +166,12 @@ impl<F: Field> GenerationState<F> {
     // On the first call, calculates the remainder and quotient of the given inputs.
     // These are stored, as limbs, in self.bignum_modmul_result_limbs.
     // Subsequent calls return one limb at a time, in order (first remainder and then quotient).
-    fn run_bignum_modmul(&mut self) -> U256 {
+    fn run_bignum_modmul(&mut self) -> Result<U256, ProgramError> {
         if self.bignum_modmul_result_limbs.is_empty() {
-            let len = stack_peek(self, 1)
-                .expect("Stack does not have enough items")
-                .try_into()
-                .unwrap();
-            let a_start_loc = stack_peek(self, 2)
-                .expect("Stack does not have enough items")
-                .try_into()
-                .unwrap();
-            let b_start_loc = stack_peek(self, 3)
-                .expect("Stack does not have enough items")
-                .try_into()
-                .unwrap();
-            let m_start_loc = stack_peek(self, 4)
-                .expect("Stack does not have enough items")
-                .try_into()
-                .unwrap();
+            let len = stack_peek(self, 1).map(u256_to_usize)??;
+            let a_start_loc = stack_peek(self, 2).map(u256_to_usize)??;
+            let b_start_loc = stack_peek(self, 3).map(u256_to_usize)??;
+            let m_start_loc = stack_peek(self, 4).map(u256_to_usize)??;
 
             let (remainder, quotient) =
                 self.bignum_modmul(len, a_start_loc, b_start_loc, m_start_loc);
@@ -187,7 +185,9 @@ impl<F: Field> GenerationState<F> {
             self.bignum_modmul_result_limbs.reverse();
         }
 
-        self.bignum_modmul_result_limbs.pop().unwrap()
+        self.bignum_modmul_result_limbs
+            .pop()
+            .ok_or(ProgramError::ProverInputError(InvalidInput))
     }
 
     fn bignum_modmul(
@@ -284,27 +284,33 @@ impl EvmField {
         }
     }
 
-    fn op(&self, op: FieldOp, x: U256) -> U256 {
+    fn op(&self, op: FieldOp, x: U256) -> Result<U256, ProgramError> {
         match op {
             FieldOp::Inverse => self.inverse(x),
             FieldOp::Sqrt => self.sqrt(x),
         }
     }
 
-    fn inverse(&self, x: U256) -> U256 {
+    fn inverse(&self, x: U256) -> Result<U256, ProgramError> {
         let n = self.order();
-        assert!(x < n);
+        if x >= n {
+            return Err(ProgramError::ProverInputError(InvalidInput));
+        };
         modexp(x, n - 2, n)
     }
 
-    fn sqrt(&self, x: U256) -> U256 {
+    fn sqrt(&self, x: U256) -> Result<U256, ProgramError> {
         let n = self.order();
-        assert!(x < n);
+        if x >= n {
+            return Err(ProgramError::ProverInputError(InvalidInput));
+        };
         let (q, r) = (n + 1).div_mod(4.into());
-        assert!(
-            r.is_zero(),
-            "Only naive sqrt implementation for now. If needed implement Tonelli-Shanks."
-        );
+
+        if !r.is_zero() {
+            return Err(ProgramError::ProverInputError(InvalidInput));
+        };
+
+        // Only naive sqrt implementation for now. If needed implement Tonelli-Shanks
         modexp(x, q, n)
     }
 
@@ -363,15 +369,18 @@ impl EvmField {
     }
 }
 
-fn modexp(x: U256, e: U256, n: U256) -> U256 {
+fn modexp(x: U256, e: U256, n: U256) -> Result<U256, ProgramError> {
     let mut current = x;
     let mut product = U256::one();
 
     for j in 0..256 {
         if e.bit(j) {
-            product = U256::try_from(product.full_mul(current) % n).unwrap();
+            product = U256::try_from(product.full_mul(current) % n)
+                .map_err(|_| ProgramError::ProverInputError(InvalidInput))?;
         }
-        current = U256::try_from(current.full_mul(current) % n).unwrap();
+        current = U256::try_from(current.full_mul(current) % n)
+            .map_err(|_| ProgramError::ProverInputError(InvalidInput))?;
     }
-    product
+
+    Ok(product)
 }

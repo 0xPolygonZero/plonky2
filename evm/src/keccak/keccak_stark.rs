@@ -652,10 +652,11 @@ mod tests {
     use tiny_keccak::keccakf;
 
     use crate::config::StarkConfig;
-    use crate::cross_table_lookup::{CtlData, CtlZData};
+    use crate::cross_table_lookup::{
+        CtlData, CtlZData, GrandProductChallenge, GrandProductChallengeSet,
+    };
     use crate::keccak::columns::reg_output_limb;
     use crate::keccak::keccak_stark::{KeccakStark, NUM_INPUTS, NUM_ROUNDS};
-    use crate::permutation::GrandProductChallenge;
     use crate::prover::prove_single_table;
     use crate::stark_testing::{test_stark_circuit_constraints, test_stark_low_degree};
 
@@ -769,7 +770,7 @@ mod tests {
             filter_column: None,
         };
         let ctl_data = CtlData {
-            zs_columns: vec![ctl_z_data; config.num_challenges],
+            zs_columns: vec![ctl_z_data.clone(); config.num_challenges],
         };
 
         prove_single_table(
@@ -778,6 +779,9 @@ mod tests {
             &trace_poly_values,
             &trace_commitments,
             &ctl_data,
+            &GrandProductChallengeSet {
+                challenges: vec![ctl_z_data.challenge; config.num_challenges],
+            },
             &mut Challenger::new(),
             &mut timing,
         )?;

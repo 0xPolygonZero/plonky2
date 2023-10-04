@@ -29,10 +29,12 @@ use plonky2_util::log2_ceil;
 
 use crate::all_stark::{all_cross_table_lookups, AllStark, Table, NUM_TABLES};
 use crate::config::StarkConfig;
-use crate::cross_table_lookup::{verify_cross_table_lookups_circuit, CrossTableLookup};
+use crate::cross_table_lookup::{
+    get_grand_product_challenge_set_target, verify_cross_table_lookups_circuit, CrossTableLookup,
+    GrandProductChallengeSet,
+};
 use crate::generation::GenerationInputs;
 use crate::get_challenges::observe_public_values_target;
-use crate::permutation::{get_grand_product_challenge_set_target, GrandProductChallengeSet};
 use crate::proof::{
     BlockHashesTarget, BlockMetadataTarget, ExtraBlockDataTarget, PublicValues, PublicValuesTarget,
     StarkProofWithMetadata, TrieRootsTarget,
@@ -641,19 +643,30 @@ where
         lhs: &ExtraBlockDataTarget,
         rhs: &ExtraBlockDataTarget,
     ) {
+        // Connect genesis state root values.
+        for (&limb0, &limb1) in pvs.genesis_state_root.iter().zip(&rhs.genesis_state_root) {
+            builder.connect(limb0, limb1);
+        }
+        for (&limb0, &limb1) in pvs.genesis_state_root.iter().zip(&lhs.genesis_state_root) {
+            builder.connect(limb0, limb1);
+        }
+
         // Connect the transaction number in public values to the lhs and rhs values correctly.
         builder.connect(pvs.txn_number_before, lhs.txn_number_before);
         builder.connect(pvs.txn_number_after, rhs.txn_number_after);
 
-        // Connect lhs `txn_number_after`with rhs `txn_number_before`.
+        // Connect lhs `txn_number_after` with rhs `txn_number_before`.
         builder.connect(lhs.txn_number_after, rhs.txn_number_before);
 
         // Connect the gas used in public values to the lhs and rhs values correctly.
-        builder.connect(pvs.gas_used_before, lhs.gas_used_before);
-        builder.connect(pvs.gas_used_after, rhs.gas_used_after);
+        builder.connect(pvs.gas_used_before[0], lhs.gas_used_before[0]);
+        builder.connect(pvs.gas_used_before[1], lhs.gas_used_before[1]);
+        builder.connect(pvs.gas_used_after[0], rhs.gas_used_after[0]);
+        builder.connect(pvs.gas_used_after[1], rhs.gas_used_after[1]);
 
-        // Connect lhs `gas_used_after`with rhs `gas_used_before`.
-        builder.connect(lhs.gas_used_after, rhs.gas_used_before);
+        // Connect lhs `gas_used_after` with rhs `gas_used_before`.
+        builder.connect(lhs.gas_used_after[0], rhs.gas_used_before[0]);
+        builder.connect(lhs.gas_used_after[1], rhs.gas_used_before[1]);
 
         // Connect the `block_bloom` in public values to the lhs and rhs values correctly.
         for (&limb0, &limb1) in pvs.block_bloom_after.iter().zip(&rhs.block_bloom_after) {
@@ -662,7 +675,7 @@ where
         for (&limb0, &limb1) in pvs.block_bloom_before.iter().zip(&lhs.block_bloom_before) {
             builder.connect(limb0, limb1);
         }
-        // Connect lhs `block_bloom_after`with rhs `block_bloom_before`.
+        // Connect lhs `block_bloom_after` with rhs `block_bloom_before`.
         for (&limb0, &limb1) in lhs.block_bloom_after.iter().zip(&rhs.block_bloom_before) {
             builder.connect(limb0, limb1);
         }
@@ -777,6 +790,16 @@ where
             builder.connect(limb0, limb1);
         }
 
+        // Between blocks, the genesis state trie remains unchanged.
+        for (&limb0, limb1) in lhs
+            .extra_block_data
+            .genesis_state_root
+            .iter()
+            .zip(rhs.extra_block_data.genesis_state_root)
+        {
+            builder.connect(limb0, limb1);
+        }
+
         // Connect block numbers.
         let one = builder.one();
         let prev_block_nb = builder.sub(rhs.block_metadata.block_number, one);
@@ -788,13 +811,35 @@ where
         // Connect intermediary values for gas_used and bloom filters to the block's final values. We only plug on the right, so there is no need to check the left-handside block.
         Self::connect_final_block_values_to_intermediary(builder, rhs);
 
-        // Chack that the genesis block number is 0.
         let zero = builder.zero();
         let has_not_parent_block = builder.sub(one, has_parent_block.target);
+
+        // Check that the genesis block number is 0.
         let gen_block_constr = builder.mul(has_not_parent_block, rhs.block_metadata.block_number);
         builder.connect(gen_block_constr, zero);
 
-        // TODO: Check that the genesis block has a predetermined state trie root.
+        // Check that the genesis block has the predetermined state trie root in `ExtraBlockData`.
+        Self::connect_genesis_block(builder, rhs, has_not_parent_block);
+    }
+
+    fn connect_genesis_block(
+        builder: &mut CircuitBuilder<F, D>,
+        x: &PublicValuesTarget,
+        has_not_parent_block: Target,
+    ) where
+        F: RichField + Extendable<D>,
+    {
+        let zero = builder.zero();
+        for (&limb0, limb1) in x
+            .trie_roots_before
+            .state_root
+            .iter()
+            .zip(x.extra_block_data.genesis_state_root)
+        {
+            let mut constr = builder.sub(limb0, limb1);
+            constr = builder.mul(has_not_parent_block, constr);
+            builder.connect(constr, zero);
+        }
     }
 
     fn connect_final_block_values_to_intermediary(
@@ -804,8 +849,12 @@ where
         F: RichField + Extendable<D>,
     {
         builder.connect(
-            x.block_metadata.block_gas_used,
-            x.extra_block_data.gas_used_after,
+            x.block_metadata.block_gas_used[0],
+            x.extra_block_data.gas_used_after[0],
+        );
+        builder.connect(
+            x.block_metadata.block_gas_used[1],
+            x.extra_block_data.gas_used_after[1],
         );
 
         for (&limb0, &limb1) in x
@@ -825,8 +874,9 @@ where
         let zero = builder.constant(F::ZERO);
         // The initial number of transactions is 0.
         builder.connect(x.extra_block_data.txn_number_before, zero);
-        // The initial gas used is 0
-        builder.connect(x.extra_block_data.gas_used_before, zero);
+        // The initial gas used is 0.
+        builder.connect(x.extra_block_data.gas_used_before[0], zero);
+        builder.connect(x.extra_block_data.gas_used_before[1], zero);
 
         // The initial bloom filter is all zeroes.
         for t in x.extra_block_data.block_bloom_before {
@@ -968,16 +1018,34 @@ where
             block_inputs
                 .set_proof_with_pis_target(&self.block.parent_block_proof, parent_block_proof);
         } else {
-            // Initialize state_root_after and the block number for correct connection between blocks.
-            let state_trie_root_keys = 24..32;
-            let block_number_key = TrieRootsTarget::SIZE * 2 + 6;
+            // Initialize genesis_state_trie, state_root_after and the block number for correct connection between blocks.
+            // Initialize `state_root_after`.
+            let state_trie_root_after_keys = 24..32;
             let mut nonzero_pis = HashMap::new();
-            for (key, &value) in state_trie_root_keys
+            for (key, &value) in state_trie_root_after_keys
                 .zip_eq(&h256_limbs::<F>(public_values.trie_roots_before.state_root))
             {
                 nonzero_pis.insert(key, value);
             }
+
+            // Initialize the genesis state trie digest.
+            let genesis_state_trie_keys = TrieRootsTarget::SIZE * 2
+                + BlockMetadataTarget::SIZE
+                + BlockHashesTarget::BLOCK_HASHES_SIZE
+                ..TrieRootsTarget::SIZE * 2
+                    + BlockMetadataTarget::SIZE
+                    + BlockHashesTarget::BLOCK_HASHES_SIZE
+                    + 8;
+            for (key, &value) in genesis_state_trie_keys.zip_eq(&h256_limbs::<F>(
+                public_values.extra_block_data.genesis_state_root,
+            )) {
+                nonzero_pis.insert(key, value);
+            }
+
+            // Initialize the block number.
+            let block_number_key = TrieRootsTarget::SIZE * 2 + 6;
             nonzero_pis.insert(block_number_key, F::NEG_ONE);
+
             block_inputs.set_proof_with_pis_target(
                 &self.block.parent_block_proof,
                 &cyclic_base_proof(

@@ -30,14 +30,18 @@ fn to_bits_le<F: Field>(n: u8) -> [F; 8] {
 }
 
 /// Peek at the stack item `i`th from the top. If `i=0` this gives the tip.
-pub(crate) fn stack_peek<F: Field>(state: &GenerationState<F>, i: usize) -> Option<U256> {
+pub(crate) fn stack_peek<F: Field>(
+    state: &GenerationState<F>,
+    i: usize,
+) -> Result<U256, ProgramError> {
     if i >= state.registers.stack_len {
-        return None;
+        return Err(ProgramError::StackUnderflow);
     }
     if i == 0 {
-        return Some(state.registers.stack_top);
+        return Ok(state.registers.stack_top);
     }
-    Some(state.memory.get(MemoryAddress::new(
+
+    Ok(state.memory.get(MemoryAddress::new(
         state.registers.context,
         Segment::Stack,
         state.registers.stack_len - 1 - i,
@@ -232,7 +236,7 @@ pub(crate) fn stack_pop_with_log_and_fill<const N: usize, F: Field>(
     let new_stack_top = if state.registers.stack_len == N {
         None
     } else {
-        stack_peek(state, N)
+        Some(stack_peek(state, N)?)
     };
 
     let result = core::array::from_fn(|i| {

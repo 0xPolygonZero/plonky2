@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use anyhow::anyhow;
 use eth_trie_utils::partial_trie::{HashedPartialTrie, PartialTrie};
 use ethereum_types::{Address, BigEndianHash, H256, U256};
 use plonky2::field::extension::Extendable;
@@ -49,6 +50,8 @@ pub struct GenerationInputs {
     pub tries: TrieInputs,
     /// Expected trie roots after the transactions are executed.
     pub trie_roots_after: TrieRoots,
+    /// State trie root of the genesis block.
+    pub genesis_state_trie_root: H256,
 
     /// Mapping between smart contract code hashes and the contract byte code.
     /// All account smart contracts that are invoked will have an entry present.
@@ -100,6 +103,10 @@ fn apply_metadata_and_tries_memops<F: RichField + Extendable<D>, const D: usize>
         (GlobalMetadata::BlockTimestamp, metadata.block_timestamp),
         (GlobalMetadata::BlockNumber, metadata.block_number),
         (GlobalMetadata::BlockDifficulty, metadata.block_difficulty),
+        (
+            GlobalMetadata::BlockRandom,
+            metadata.block_random.into_uint(),
+        ),
         (GlobalMetadata::BlockGasLimit, metadata.block_gaslimit),
         (GlobalMetadata::BlockChainId, metadata.block_chain_id),
         (GlobalMetadata::BlockBaseFee, metadata.block_base_fee),
@@ -216,7 +223,8 @@ pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
     PublicValues,
     GenerationOutputs,
 )> {
-    let mut state = GenerationState::<F>::new(inputs.clone(), &KERNEL.code);
+    let mut state = GenerationState::<F>::new(inputs.clone(), &KERNEL.code)
+        .map_err(|err| anyhow!("Failed to parse all the initial prover inputs: {:?}", err))?;
 
     apply_metadata_and_tries_memops(&mut state, &inputs);
 
@@ -234,7 +242,8 @@ pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
         state.traces.get_lengths()
     );
 
-    let outputs = get_outputs(&mut state);
+    let outputs = get_outputs(&mut state)
+        .map_err(|err| anyhow!("Failed to generate post-state info: {:?}", err))?;
 
     let read_metadata = |field| state.memory.read_global_metadata(field);
     let trie_roots_before = TrieRoots {
@@ -252,6 +261,7 @@ pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
     let txn_number_after = read_metadata(GlobalMetadata::TxnNumberAfter);
 
     let extra_block_data = ExtraBlockData {
+        genesis_state_root: inputs.genesis_state_trie_root,
         txn_number_before: inputs.txn_number_before,
         txn_number_after,
         gas_used_before: inputs.gas_used_before,
@@ -294,7 +304,10 @@ fn simulate_cpu<F: RichField + Extendable<D>, const D: usize>(
             row.context = F::from_canonical_usize(state.registers.context);
             row.program_counter = F::from_canonical_usize(pc);
             row.is_kernel_mode = F::ONE;
-            row.gas = F::from_canonical_u64(state.registers.gas_used);
+            row.gas = [
+                F::from_canonical_u32(state.registers.gas_used as u32),
+                F::from_canonical_u32((state.registers.gas_used >> 32) as u32),
+            ];
             row.stack_len = F::from_canonical_usize(state.registers.stack_len);
 
             loop {

@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use eth_trie_utils::partial_trie::PartialTrie;
 use ethereum_types::{BigEndianHash, H256};
 
@@ -113,7 +113,8 @@ fn test_state_trie(trie_inputs: TrieInputs) -> Result<()> {
 
     let initial_stack = vec![0xDEADBEEFu32.into()];
     let mut interpreter = Interpreter::new_with_kernel(load_all_mpts, initial_stack);
-    interpreter.generation_state.mpt_prover_inputs = all_mpt_prover_inputs_reversed(&trie_inputs);
+    interpreter.generation_state.mpt_prover_inputs =
+        all_mpt_prover_inputs_reversed(&trie_inputs).map_err(|_| anyhow!("Invalid MPT data"))?;
     interpreter.run()?;
     assert_eq!(interpreter.stack(), vec![]);
 

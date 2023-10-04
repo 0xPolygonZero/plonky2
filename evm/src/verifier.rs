@@ -1,7 +1,7 @@
 use std::any::type_name;
 
 use anyhow::{ensure, Result};
-use ethereum_types::U256;
+use ethereum_types::{BigEndianHash, U256};
 use itertools::Itertools;
 use plonky2::field::extension::{Extendable, FieldExtension};
 use plonky2::field::types::Field;
@@ -14,11 +14,13 @@ use crate::all_stark::{AllStark, Table, NUM_TABLES};
 use crate::config::StarkConfig;
 use crate::constraint_consumer::ConstraintConsumer;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
-use crate::cross_table_lookup::{verify_cross_table_lookups, CtlCheckVars};
+use crate::cross_table_lookup::{
+    verify_cross_table_lookups, CtlCheckVars, GrandProductChallenge, GrandProductChallengeSet,
+};
 use crate::evaluation_frame::StarkEvaluationFrame;
+use crate::lookup::LookupCheckVars;
 use crate::memory::segments::Segment;
 use crate::memory::VALUE_LIMBS;
-use crate::permutation::{GrandProductChallenge, PermutationCheckVars};
 use crate::proof::{
     AllProof, AllProofChallenges, PublicValues, StarkOpeningSet, StarkProof, StarkProofChallenges,
 };
@@ -37,10 +39,10 @@ where
         stark_challenges,
         ctl_challenges,
     } = all_proof
-        .get_challenges(all_stark, config)
+        .get_challenges(config)
         .map_err(|_| anyhow::Error::msg("Invalid sampling of proof challenges."))?;
 
-    let nums_permutation_zs = all_stark.nums_permutation_zs(config);
+    let num_lookup_columns = all_stark.num_lookups_helper_columns(config);
 
     let AllStark {
         arithmetic_stark,
@@ -57,7 +59,7 @@ where
         &all_proof.stark_proofs,
         cross_table_lookups,
         &ctl_challenges,
-        &nums_permutation_zs,
+        &num_lookup_columns,
     );
 
     verify_stark_proof_with_challenges(
@@ -65,6 +67,7 @@ where
         &all_proof.stark_proofs[Table::Arithmetic as usize].proof,
         &stark_challenges[Table::Arithmetic as usize],
         &ctl_vars_per_table[Table::Arithmetic as usize],
+        &ctl_challenges,
         config,
     )?;
     verify_stark_proof_with_challenges(
@@ -72,6 +75,7 @@ where
         &all_proof.stark_proofs[Table::BytePacking as usize].proof,
         &stark_challenges[Table::BytePacking as usize],
         &ctl_vars_per_table[Table::BytePacking as usize],
+        &ctl_challenges,
         config,
     )?;
     verify_stark_proof_with_challenges(
@@ -79,6 +83,7 @@ where
         &all_proof.stark_proofs[Table::Cpu as usize].proof,
         &stark_challenges[Table::Cpu as usize],
         &ctl_vars_per_table[Table::Cpu as usize],
+        &ctl_challenges,
         config,
     )?;
     verify_stark_proof_with_challenges(
@@ -86,6 +91,7 @@ where
         &all_proof.stark_proofs[Table::Keccak as usize].proof,
         &stark_challenges[Table::Keccak as usize],
         &ctl_vars_per_table[Table::Keccak as usize],
+        &ctl_challenges,
         config,
     )?;
     verify_stark_proof_with_challenges(
@@ -93,6 +99,7 @@ where
         &all_proof.stark_proofs[Table::KeccakSponge as usize].proof,
         &stark_challenges[Table::KeccakSponge as usize],
         &ctl_vars_per_table[Table::KeccakSponge as usize],
+        &ctl_challenges,
         config,
     )?;
     verify_stark_proof_with_challenges(
@@ -100,6 +107,7 @@ where
         &all_proof.stark_proofs[Table::Logic as usize].proof,
         &stark_challenges[Table::Logic as usize],
         &ctl_vars_per_table[Table::Logic as usize],
+        &ctl_challenges,
         config,
     )?;
     verify_stark_proof_with_challenges(
@@ -107,6 +115,7 @@ where
         &all_proof.stark_proofs[Table::Memory as usize].proof,
         &stark_challenges[Table::Memory as usize],
         &ctl_vars_per_table[Table::Memory as usize],
+        &ctl_challenges,
         config,
     )?;
 
@@ -156,6 +165,10 @@ where
         (
             GlobalMetadata::BlockNumber,
             public_values.block_metadata.block_number,
+        ),
+        (
+            GlobalMetadata::BlockRandom,
+            public_values.block_metadata.block_random.into_uint(),
         ),
         (
             GlobalMetadata::BlockDifficulty,
@@ -286,6 +299,7 @@ pub(crate) fn verify_stark_proof_with_challenges<
     proof: &StarkProof<F, C, D>,
     challenges: &StarkProofChallenges<F, D>,
     ctl_vars: &[CtlCheckVars<F, F::Extension, F::Extension, D>],
+    ctl_challenges: &GrandProductChallengeSet<F>,
     config: &StarkConfig,
 ) -> Result<()> {
     log::debug!("Checking proof: {}", type_name::<S>());
@@ -293,8 +307,8 @@ pub(crate) fn verify_stark_proof_with_challenges<
     let StarkOpeningSet {
         local_values,
         next_values,
-        permutation_ctl_zs,
-        permutation_ctl_zs_next,
+        auxiliary_polys,
+        auxiliary_polys_next,
         ctl_zs_first,
         quotient_polys,
     } = &proof.openings;
@@ -314,17 +328,26 @@ pub(crate) fn verify_stark_proof_with_challenges<
         l_0,
         l_last,
     );
-    let num_permutation_zs = stark.num_permutation_batches(config);
-    let permutation_data = stark.uses_permutation_args().then(|| PermutationCheckVars {
-        local_zs: permutation_ctl_zs[..num_permutation_zs].to_vec(),
-        next_zs: permutation_ctl_zs_next[..num_permutation_zs].to_vec(),
-        permutation_challenge_sets: challenges.permutation_challenge_sets.clone().unwrap(),
+    let num_lookup_columns = stark.num_lookup_helper_columns(config);
+    let lookup_challenges = (num_lookup_columns > 0).then(|| {
+        ctl_challenges
+            .challenges
+            .iter()
+            .map(|ch| ch.beta)
+            .collect::<Vec<_>>()
     });
+
+    let lookup_vars = stark.uses_lookups().then(|| LookupCheckVars {
+        local_values: auxiliary_polys[..num_lookup_columns].to_vec(),
+        next_values: auxiliary_polys_next[..num_lookup_columns].to_vec(),
+        challenges: lookup_challenges.unwrap(),
+    });
+    let lookups = stark.lookups();
     eval_vanishing_poly::<F, F::Extension, F::Extension, S, D, D>(
         stark,
-        config,
         &vars,
-        permutation_data,
+        &lookups,
+        lookup_vars,
         ctl_vars,
         &mut consumer,
     );
@@ -350,7 +373,7 @@ pub(crate) fn verify_stark_proof_with_challenges<
 
     let merkle_caps = vec![
         proof.trace_cap.clone(),
-        proof.permutation_ctl_zs_cap.clone(),
+        proof.auxiliary_polys_cap.clone(),
         proof.quotient_polys_cap.clone(),
     ];
 
@@ -384,7 +407,7 @@ where
 {
     let StarkProof {
         trace_cap,
-        permutation_ctl_zs_cap,
+        auxiliary_polys_cap,
         quotient_polys_cap,
         openings,
         // The shape of the opening proof will be checked in the FRI verifier (see
@@ -395,8 +418,8 @@ where
     let StarkOpeningSet {
         local_values,
         next_values,
-        permutation_ctl_zs,
-        permutation_ctl_zs_next,
+        auxiliary_polys,
+        auxiliary_polys_next,
         ctl_zs_first,
         quotient_polys,
     } = openings;
@@ -404,16 +427,16 @@ where
     let degree_bits = proof.recover_degree_bits(config);
     let fri_params = config.fri_params(degree_bits);
     let cap_height = fri_params.config.cap_height;
-    let num_zs = num_ctl_zs + stark.num_permutation_batches(config);
+    let num_auxiliary = num_ctl_zs + stark.num_lookup_helper_columns(config);
 
     ensure!(trace_cap.height() == cap_height);
-    ensure!(permutation_ctl_zs_cap.height() == cap_height);
+    ensure!(auxiliary_polys_cap.height() == cap_height);
     ensure!(quotient_polys_cap.height() == cap_height);
 
     ensure!(local_values.len() == S::COLUMNS);
     ensure!(next_values.len() == S::COLUMNS);
-    ensure!(permutation_ctl_zs.len() == num_zs);
-    ensure!(permutation_ctl_zs_next.len() == num_zs);
+    ensure!(auxiliary_polys.len() == num_auxiliary);
+    ensure!(auxiliary_polys_next.len() == num_auxiliary);
     ensure!(ctl_zs_first.len() == num_ctl_zs);
     ensure!(quotient_polys.len() == stark.num_quotient_polys(config));
 

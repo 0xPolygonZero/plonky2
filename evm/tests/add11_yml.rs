@@ -5,7 +5,7 @@ use std::time::Duration;
 use env_logger::{try_init_from_env, Env, DEFAULT_FILTER_ENV};
 use eth_trie_utils::nibbles::Nibbles;
 use eth_trie_utils::partial_trie::{HashedPartialTrie, PartialTrie};
-use ethereum_types::{Address, H256};
+use ethereum_types::{Address, BigEndianHash, H256};
 use hex_literal::hex;
 use keccak_hash::keccak;
 use plonky2::field::goldilocks_field::GoldilocksField;
@@ -83,6 +83,7 @@ fn add11_yml() -> anyhow::Result<()> {
         block_timestamp: 0x03e8.into(),
         block_number: 1.into(),
         block_difficulty: 0x020000.into(),
+        block_random: H256::from_uint(&0x020000.into()),
         block_gaslimit: 0xff112233u32.into(),
         block_chain_id: 1.into(),
         block_base_fee: 0xa.into(),
@@ -138,9 +139,15 @@ fn add11_yml() -> anyhow::Result<()> {
         Nibbles::from_str("0x80").unwrap(),
         rlp::encode(&receipt_0).to_vec(),
     );
+    let transactions_trie: HashedPartialTrie = Node::Leaf {
+        nibbles: Nibbles::from_str("0x80").unwrap(),
+        value: txn.to_vec(),
+    }
+    .into();
+
     let trie_roots_after = TrieRoots {
         state_root: expected_state_trie_after.hash(),
-        transactions_root: tries_before.transactions_trie.hash(), // TODO: Fix this when we have transactions trie.
+        transactions_root: transactions_trie.hash(),
         receipts_root: receipts_trie.hash(),
     };
     let inputs = GenerationInputs {
@@ -149,6 +156,7 @@ fn add11_yml() -> anyhow::Result<()> {
         trie_roots_after,
         contract_code,
         block_metadata,
+        genesis_state_trie_root: HashedPartialTrie::from(Node::Empty).hash(),
         txn_number_before: 0.into(),
         gas_used_before: 0.into(),
         gas_used_after: 0xa868u64.into(),
