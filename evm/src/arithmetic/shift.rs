@@ -81,7 +81,7 @@ pub fn generate<F: PrimeField64>(
 /// The logic is the same as the one for MUL. The only difference is that
 /// the inputs are in `INPUT_REGISTER_1`  and `INPUT_REGISTER_2` instead of
 /// `INPUT_REGISTER_0` and `INPUT_REGISTER_1`.
-pub fn eval_packed_shl<P: PackedField>(
+fn eval_packed_shl<P: PackedField>(
     lv: &[P; NUM_ARITH_COLUMNS],
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
@@ -126,7 +126,7 @@ pub fn eval_packed_generic<P: PackedField>(
     eval_packed_shr(lv, nv, yield_constr);
 }
 
-pub fn eval_ext_circuit_shl<F: RichField + Extendable<D>, const D: usize>(
+fn eval_ext_circuit_shl<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     lv: &[ExtensionTarget<D>; NUM_ARITH_COLUMNS],
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
@@ -145,7 +145,7 @@ pub fn eval_ext_circuit_shl<F: RichField + Extendable<D>, const D: usize>(
     );
 }
 
-pub fn eval_ext_circuit_shr<F: RichField + Extendable<D>, const D: usize>(
+fn eval_ext_circuit_shr<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     lv: &[ExtensionTarget<D>; NUM_ARITH_COLUMNS],
     nv: &[ExtensionTarget<D>; NUM_ARITH_COLUMNS],

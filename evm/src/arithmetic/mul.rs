@@ -68,7 +68,7 @@ use crate::arithmetic::utils::*;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 
 /// Given the two limbs of `left_in` and `right_in`, computes `left_in * right_in`.
-pub fn generate_mul<F: PrimeField64>(lv: &mut [F], left_in: [i64; 16], right_in: [i64; 16]) {
+pub(crate) fn generate_mul<F: PrimeField64>(lv: &mut [F], left_in: [i64; 16], right_in: [i64; 16]) {
     const MASK: i64 = (1i64 << LIMB_BITS) - 1i64;
 
     // Input and output have 16-bit limbs
@@ -120,7 +120,7 @@ pub fn generate<F: PrimeField64>(lv: &mut [F], left_in: U256, right_in: U256) {
     generate_mul(lv, input0, input1);
 }
 
-pub fn eval_packed_generic_mul<P: PackedField>(
+pub(crate) fn eval_packed_generic_mul<P: PackedField>(
     lv: &[P; NUM_ARITH_COLUMNS],
     filter: P,
     left_in_limbs: [P; 16],
@@ -184,7 +184,7 @@ pub fn eval_packed_generic<P: PackedField>(
     eval_packed_generic_mul(lv, is_mul, input0_limbs, input1_limbs, yield_constr);
 }
 
-pub fn eval_ext_mul_circuit<F: RichField + Extendable<D>, const D: usize>(
+pub(crate) fn eval_ext_mul_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     lv: &[ExtensionTarget<D>; NUM_ARITH_COLUMNS],
     filter: ExtensionTarget<D>,

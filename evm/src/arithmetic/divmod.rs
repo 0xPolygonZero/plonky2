@@ -79,7 +79,7 @@ pub(crate) fn generate<F: PrimeField64>(
 }
 
 /// Verify that num = quo * den + rem and 0 <= rem < den.
-pub fn eval_packed_divmod_helper<P: PackedField>(
+pub(crate) fn eval_packed_divmod_helper<P: PackedField>(
     lv: &[P; NUM_ARITH_COLUMNS],
     nv: &[P; NUM_ARITH_COLUMNS],
     yield_constr: &mut ConstraintConsumer<P>,
