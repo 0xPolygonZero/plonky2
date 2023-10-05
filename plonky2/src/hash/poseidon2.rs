@@ -621,6 +621,7 @@ pub(crate) mod test_helpers {
             let output = F::poseidon2(input);
             for i in 0..WIDTH {
                 let ex_output = F::from_canonical_u64(expected_output_[i]);
+                // println!("{:#x}", output[i].to_canonical_u64());
                 assert_eq!(output[i], ex_output);
             }
         }
