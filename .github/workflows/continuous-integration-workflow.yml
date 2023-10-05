@@ -100,7 +100,7 @@ jobs:
           profile: minimal
           toolchain: nightly
           override: true
-          target: armv7-unknown-linux-gnueabihf
+          target: aarch64-unknown-linux-gnu
 
       - name: rust-cache
         uses: actions/cache@v3
