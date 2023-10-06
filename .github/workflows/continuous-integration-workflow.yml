@@ -150,7 +150,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: test_recursive_verifier --workspace --test-threads=1
+          args: test_recursive_verifier --workspace -- --test-threads=1
         env:
           RUSTFLAGS: -Copt-level=3 -Cdebug-assertions -Coverflow-checks=y -Cdebuginfo=0 -Ctarget-feature=${{ matrix.feature }}
           RUST_LOG: 1
