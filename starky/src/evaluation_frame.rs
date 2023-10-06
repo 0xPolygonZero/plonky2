@@ -64,4 +64,3 @@ impl<T: Copy + Clone + Default, U: Copy + Clone + Default, const N: usize, const
         }
     }
 }
-
