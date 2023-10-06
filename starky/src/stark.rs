@@ -15,7 +15,7 @@ use plonky2::util::ceil_div_usize;
 
 use crate::config::StarkConfig;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
-use crate::evaluation_frame::{StarkEvaluationFrame, StarkEvaluationFrameTarget};
+use crate::evaluation_frame::StarkEvaluationFrame;
 use crate::permutation::PermutationPair;
 
 pub struct LookupConfig {
@@ -30,13 +30,13 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
     const PUBLIC_INPUTS: usize = Self::EvaluationFrameTarget::PUBLIC_INPUTS;
 
     /// This is used to evaluate constraints natively.
-    type EvaluationFrame<FE, P, const D2: usize>: StarkEvaluationFrame<FE, P>
+    type EvaluationFrame<FE, P, const D2: usize>: StarkEvaluationFrame<P, FE>
     where
         FE: FieldExtension<D2, BaseField = F>,
         P: PackedField<Scalar = FE>;
 
     /// The `Target` version of `Self::EvaluationFrame`, used to evaluate constraints recursively.
-    type EvaluationFrameTarget: StarkEvaluationFrameTarget<ExtensionTarget<D>>;
+    type EvaluationFrameTarget: StarkEvaluationFrame<ExtensionTarget<D>, ExtensionTarget<D>>;
 
     /// Evaluate constraints at a vector of points.
     ///

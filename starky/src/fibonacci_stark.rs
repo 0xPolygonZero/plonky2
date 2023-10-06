@@ -10,9 +10,7 @@ use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
-use crate::evaluation_frame::{
-    StarkEvaluationFrame, StarkEvaluationFrameTarget, StarkFrame, StarkFrameTarget,
-};
+use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
 use crate::permutation::PermutationPair;
 use crate::stark::Stark;
 use crate::util::trace_rows_to_poly_values;
@@ -64,12 +62,13 @@ const COLUMNS: usize = 4;
 const PUBLIC_INPUTS: usize = 3;
 
 impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for FibonacciStark<F, D> {
-    type EvaluationFrame<FE, P, const D2: usize> = StarkFrame<FE, P, COLUMNS, PUBLIC_INPUTS>
+    type EvaluationFrame<FE, P, const D2: usize> = StarkFrame<P, P::Scalar, COLUMNS, PUBLIC_INPUTS>
     where
         FE: FieldExtension<D2, BaseField = F>,
         P: PackedField<Scalar = FE>;
 
-    type EvaluationFrameTarget = StarkFrameTarget<ExtensionTarget<D>, COLUMNS, PUBLIC_INPUTS>;
+    type EvaluationFrameTarget =
+        StarkFrame<ExtensionTarget<D>, ExtensionTarget<D>, COLUMNS, PUBLIC_INPUTS>;
 
     fn eval_packed_generic<FE, P, const D2: usize>(
         &self,

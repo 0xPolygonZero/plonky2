@@ -20,7 +20,7 @@ use plonky2_maybe_rayon::*;
 
 use crate::config::StarkConfig;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
-use crate::evaluation_frame::{StarkEvaluationFrame, StarkEvaluationFrameTarget};
+use crate::evaluation_frame::StarkEvaluationFrame;
 use crate::stark::Stark;
 
 /// A pair of lists of columns, `lhs` and `rhs`, that should be permutations of one another.

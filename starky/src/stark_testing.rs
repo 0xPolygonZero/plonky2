@@ -13,7 +13,7 @@ use plonky2::plonk::config::GenericConfig;
 use plonky2::util::{log2_ceil, log2_strict, transpose};
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
-use crate::evaluation_frame::{StarkEvaluationFrame, StarkEvaluationFrameTarget};
+use crate::evaluation_frame::StarkEvaluationFrame;
 use crate::stark::Stark;
 
 const WITNESS_SIZE: usize = 1 << 5;

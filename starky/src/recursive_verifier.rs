@@ -15,7 +15,7 @@ use plonky2::with_context;
 
 use crate::config::StarkConfig;
 use crate::constraint_consumer::RecursiveConstraintConsumer;
-use crate::evaluation_frame::StarkEvaluationFrameTarget;
+use crate::evaluation_frame::StarkEvaluationFrame;
 use crate::permutation::PermutationCheckDataTarget;
 use crate::proof::{
     StarkOpeningSetTarget, StarkProof, StarkProofChallengesTarget, StarkProofTarget,
