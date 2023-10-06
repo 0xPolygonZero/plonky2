@@ -28,8 +28,7 @@ pub(crate) fn eval_packed<P: PackedField>(
     // two_exp.used is true (1) if the high limbs of the displacement are
     // zero and false (0) otherwise.
     let high_limbs_are_zero = two_exp.used;
-    yield_constr
-        .constraint(is_shift * (high_limbs_are_zero - P::ONES) * (two_exp.is_read - P::ONES));
+    yield_constr.constraint(is_shift * high_limbs_are_zero * (two_exp.is_read - P::ONES));
 
     let high_limbs_sum: P = displacement.value[1..].iter().copied().sum();
     let high_limbs_sum_inv = lv.general.shift().high_limb_sum_inv;
@@ -42,13 +41,9 @@ pub(crate) fn eval_packed<P: PackedField>(
     // When the shift displacement is < 2^32, constrain the two_exp
     // mem_channel to be the entry corresponding to `displacement` in
     // the shift table lookup (will be zero if displacement >= 256).
-    yield_constr.constraint(is_shift * (high_limbs_are_zero - P::ONES) * two_exp.addr_context); // read from kernel memory
-    yield_constr.constraint(
-        is_shift * (high_limbs_are_zero - P::ONES) * (two_exp.addr_segment - shift_table_segment),
-    );
-    yield_constr.constraint(
-        is_shift * (high_limbs_are_zero - P::ONES) * (two_exp.addr_virtual - displacement.value[0]),
-    );
+    yield_constr.constraint(is_shift * two_exp.addr_context); // read from kernel memory
+    yield_constr.constraint(is_shift * (two_exp.addr_segment - shift_table_segment));
+    yield_constr.constraint(is_shift * (two_exp.addr_virtual - displacement.value[0]));
 
     // Other channels must be unused
     for chan in &lv.mem_channels[3..NUM_GP_CHANNELS - 1] {
@@ -81,7 +76,7 @@ pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let high_limbs_are_zero = two_exp.used;
     let one = builder.one_extension();
     let t = builder.sub_extension(two_exp.is_read, one);
-    let t = builder.mul_sub_extension(t, high_limbs_are_zero, t);
+    let t = builder.mul_extension(high_limbs_are_zero, t);
     let t = builder.mul_extension(is_shift, t);
     yield_constr.constraint(builder, t);
 
@@ -102,7 +97,6 @@ pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     // mem_channel to be the entry corresponding to `displacement` in
     // the shift table lookup (will be zero if displacement >= 256).
     let t = builder.mul_extension(is_shift, two_exp.addr_context);
-    let t = builder.mul_sub_extension(t, high_limbs_are_zero, t);
     yield_constr.constraint(builder, t);
     let t = builder.arithmetic_extension(
         F::ONE,
@@ -111,11 +105,9 @@ pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
         two_exp.addr_segment,
         is_shift,
     );
-    let t = builder.mul_sub_extension(t, high_limbs_are_zero, t);
     yield_constr.constraint(builder, t);
     let t = builder.sub_extension(two_exp.addr_virtual, displacement.value[0]);
     let t = builder.mul_extension(is_shift, t);
-    let t = builder.mul_sub_extension(t, high_limbs_are_zero, t);
     yield_constr.constraint(builder, t);
 
     // Other channels must be unused
