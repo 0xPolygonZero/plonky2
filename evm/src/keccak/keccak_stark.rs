@@ -33,24 +33,24 @@ pub(crate) const NUM_ROUNDS: usize = 24;
 /// Number of 64-bit elements in the Keccak permutation input.
 pub(crate) const NUM_INPUTS: usize = 25;
 
-pub fn ctl_data_output<F: Field>() -> Vec<Column<F>> {
-    let mut res: Vec<_> = Column::singles((0..2 * NUM_INPUTS).map(reg_output_limb)).collect();
-    res.push(Column::single(TIMESTAMP));
-    res
-}
-
-pub fn ctl_data_input<F: Field>() -> Vec<Column<F>> {
+pub fn ctl_data_inputs<F: Field>() -> Vec<Column<F>> {
     let mut res: Vec<_> = (0..2 * NUM_INPUTS).map(reg_input_limb).collect();
     res.push(Column::single(TIMESTAMP));
     res
 }
 
-pub fn ctl_filter_output<F: Field>() -> Column<F> {
-    Column::single(reg_step(NUM_ROUNDS - 1))
+pub fn ctl_data_outputs<F: Field>() -> Vec<Column<F>> {
+    let mut res: Vec<_> = Column::singles((0..2 * NUM_INPUTS).map(reg_output_limb)).collect();
+    res.push(Column::single(TIMESTAMP));
+    res
 }
 
-pub fn ctl_filter_input<F: Field>() -> Column<F> {
+pub fn ctl_filter_inputs<F: Field>() -> Column<F> {
     Column::single(reg_step(0))
+}
+
+pub fn ctl_filter_outputs<F: Field>() -> Column<F> {
+    Column::single(reg_step(NUM_ROUNDS - 1))
 }
 
 #[derive(Copy, Clone, Default)]
@@ -63,15 +63,15 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakStark<F, D> {
     /// in our lookup arguments, as those are computed after transposing to column-wise form.
     fn generate_trace_rows(
         &self,
-        inputs: Vec<([u64; NUM_INPUTS], usize)>,
+        inputs_and_timestamps: Vec<([u64; NUM_INPUTS], usize)>,
         min_rows: usize,
     ) -> Vec<[F; NUM_COLUMNS]> {
-        let num_rows = (inputs.len() * NUM_ROUNDS)
+        let num_rows = (inputs_and_timestamps.len() * NUM_ROUNDS)
             .max(min_rows)
             .next_power_of_two();
 
         let mut rows = Vec::with_capacity(num_rows);
-        for input in inputs.iter() {
+        for input in inputs_and_timestamps.iter() {
             let rows_for_perm = self.generate_trace_rows_for_perm(*input);
             rows.extend(rows_for_perm);
         }

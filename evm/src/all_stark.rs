@@ -138,13 +138,13 @@ fn ctl_byte_packing<F: Field>() -> CrossTableLookup<F> {
 fn ctl_keccak_inputs<F: Field>() -> CrossTableLookup<F> {
     let keccak_sponge_looking = TableWithColumns::new(
         Table::KeccakSponge,
-        keccak_sponge_stark::ctl_looking_keccak_input(),
+        keccak_sponge_stark::ctl_looking_keccak_inputs(),
         Some(keccak_sponge_stark::ctl_looking_keccak_filter()),
     );
     let keccak_looked = TableWithColumns::new(
         Table::Keccak,
-        keccak_stark::ctl_data_input(),
-        Some(keccak_stark::ctl_filter_input()),
+        keccak_stark::ctl_data_inputs(),
+        Some(keccak_stark::ctl_filter_inputs()),
     );
     CrossTableLookup::new(vec![keccak_sponge_looking], keccak_looked)
 }
@@ -152,13 +152,13 @@ fn ctl_keccak_inputs<F: Field>() -> CrossTableLookup<F> {
 fn ctl_keccak_outputs<F: Field>() -> CrossTableLookup<F> {
     let keccak_sponge_looking = TableWithColumns::new(
         Table::KeccakSponge,
-        keccak_sponge_stark::ctl_looking_keccak_output(),
+        keccak_sponge_stark::ctl_looking_keccak_outputs(),
         Some(keccak_sponge_stark::ctl_looking_keccak_filter()),
     );
     let keccak_looked = TableWithColumns::new(
         Table::Keccak,
-        keccak_stark::ctl_data_output(),
-        Some(keccak_stark::ctl_filter_output()),
+        keccak_stark::ctl_data_outputs(),
+        Some(keccak_stark::ctl_filter_outputs()),
     );
     CrossTableLookup::new(vec![keccak_sponge_looking], keccak_looked)
 }

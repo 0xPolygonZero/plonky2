@@ -47,7 +47,7 @@ pub(crate) fn ctl_looked_data<F: Field>() -> Vec<Column<F>> {
     .collect()
 }
 
-pub(crate) fn ctl_looking_keccak_input<F: Field>() -> Vec<Column<F>> {
+pub(crate) fn ctl_looking_keccak_inputs<F: Field>() -> Vec<Column<F>> {
     let cols = KECCAK_SPONGE_COL_MAP;
     let mut res: Vec<_> = Column::singles(
         [
@@ -62,7 +62,7 @@ pub(crate) fn ctl_looking_keccak_input<F: Field>() -> Vec<Column<F>> {
     res
 }
 
-pub(crate) fn ctl_looking_keccak_output<F: Field>() -> Vec<Column<F>> {
+pub(crate) fn ctl_looking_keccak_outputs<F: Field>() -> Vec<Column<F>> {
     let cols = KECCAK_SPONGE_COL_MAP;
 
     // We recover the 32-bit digest limbs from their corresponding bytes,
