@@ -71,8 +71,8 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakStark<F, D> {
             .next_power_of_two();
 
         let mut rows = Vec::with_capacity(num_rows);
-        for input in inputs_and_timestamps.iter() {
-            let rows_for_perm = self.generate_trace_rows_for_perm(*input);
+        for input_and_timestamp in inputs_and_timestamps.iter() {
+            let rows_for_perm = self.generate_trace_rows_for_perm(*input_and_timestamp);
             rows.extend(rows_for_perm);
         }
 
