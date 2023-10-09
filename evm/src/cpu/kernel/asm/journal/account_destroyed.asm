@@ -17,12 +17,13 @@ revert_account_destroyed_contd:
     // Remove `prev_balance` from `target`'s balance.
     // stack: target, address, prev_balance, retdest
     %mpt_read_state_trie
-    %add_const(1)
+    // Only remove `prev_balance` if `target` exists.
     // stack: target_balance_ptr, address, prev_balance, retdest
-    DUP3
-    DUP2 %mload_trie_data
-    // stack: target_balance, prev_balance, target_balance_ptr, address, prev_balance, retdest
-    SUB SWAP1 %mstore_trie_data
+    DUP1 ISZERO ISZERO %jumpi(remove_target_balance)
+recreate_account:
+    // Undo the account destruction.
+    // stack: target_balance_ptr, address, prev_balance, retdest
+    POP
     // Set `address`'s balance to `prev_balance`.
     // stack: address, prev_balance, retdest
     %mpt_read_state_trie
@@ -30,3 +31,12 @@ revert_account_destroyed_contd:
     %mstore_trie_data
     JUMP
 
+remove_target_balance:
+    %add_const(1)
+    // stack: target_balance_ptr, address, prev_balance, retdest
+    DUP3
+    DUP2 %mload_trie_data
+    // stack: target_balance, prev_balance, target_balance_ptr, address, prev_balance, retdest
+    SUB DUP2 %mstore_trie_data
+    // stack: target_balance_ptr, address, prev_balance, retdest
+    %jump(recreate_account)
