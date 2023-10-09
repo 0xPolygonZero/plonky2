@@ -1,10 +1,8 @@
 use plonky2::field::extension::Extendable;
 use plonky2::field::packed::PackedField;
-use plonky2::field::types::PrimeField64;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 
-use super::columns::COL_MAP;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::CpuColumnsView;
 
@@ -32,18 +30,6 @@ pub mod channel_indices {
 ///    found in `opcode_bits`.
 /// These limitations save us numerous columns in the CPU table.
 pub const NUM_CHANNELS: usize = channel_indices::GP.end;
-
-/// Calculates `lv.stack_len_bounds_aux`. Note that this must be run after decode.
-pub fn generate<F: PrimeField64>(lv: &CpuColumnsView<F>) {
-    let cycle_filter: F = COL_MAP.op.iter().map(|&col_i| lv[col_i]).sum();
-    if cycle_filter != F::ZERO {
-        assert!(lv.is_kernel_mode.to_canonical_u64() <= 1);
-    }
-
-    for channel in lv.mem_channels {
-        assert!(channel.used.to_canonical_u64() <= 1);
-    }
-}
 
 pub fn eval_packed<P: PackedField>(
     lv: &CpuColumnsView<P>,
