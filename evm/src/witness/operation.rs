@@ -497,6 +497,10 @@ fn append_shift<F: Field>(
         channel.addr_context = F::from_canonical_usize(lookup_addr.context);
         channel.addr_segment = F::from_canonical_usize(lookup_addr.segment);
         channel.addr_virtual = F::from_canonical_usize(lookup_addr.virt);
+
+        // Extra field required by the constraints for large shifts.
+        let high_limb_sum = row.mem_channels[0].value[1..].iter().copied().sum::<F>();
+        row.general.shift_mut().high_limb_sum_inv = high_limb_sum.inverse();
     }
 
     let operator = if is_shl {
