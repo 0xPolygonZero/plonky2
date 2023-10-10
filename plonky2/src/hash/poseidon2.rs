@@ -1,6 +1,9 @@
 //! Implementation of the Poseidon2 hash function, as described in
 //! https://eprint.iacr.org/2023/323.pdf
 //!
+//! NOTE: This and related work like Poseidon2Gate and benchmarks are based on OlaVM's work
+//! at https://github.com/Sin7Y/olavm/blob/main/plonky2/plonky2/src/hash/poseidon2.rs
+//!
 use std::fmt::Debug;
 
 use plonky2_field::extension::{Extendable, FieldExtension};
