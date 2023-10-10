@@ -97,20 +97,11 @@ global sys_selfdestruct:
     // If the recipient is the same as the address, then we're done.
     // Otherwise, send the balance to the recipient.
     // stack: address, recipient, address, recipient, balance, kexit_info
-    EQ %jumpi(sys_selfdestruct_same_addr)
+    EQ %jumpi(sys_selfdestruct_journal_add)
     %stack (address, recipient, balance, kexit_info) -> (recipient, balance, address, recipient, balance, kexit_info)
     %add_eth
 
-    // stack: address, recipient, balance, kexit_info
-    %journal_add_account_destroyed
-
-    // stack: kexit_info
-    %leftover_gas
-    // stack: leftover_gas
-    PUSH 1 // success
-    %jump(terminate_common)
-
-sys_selfdestruct_same_addr:
+sys_selfdestruct_journal_add:
     // stack: address, recipient, balance, kexit_info
     %journal_add_account_destroyed
 
