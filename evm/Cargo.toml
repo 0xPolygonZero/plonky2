@@ -37,6 +37,8 @@ static_assertions = "1.1.0"
 hashbrown = { version = "0.14.0" }
 tiny-keccak = "2.0.2"
 serde_json = "1.0"
+plonky2x = { git = "https://github.com/succinctlabs/succinctx.git" }
+ethers = "2.0.10"
 
 [target.'cfg(not(target_env = "msvc"))'.dependencies]
 jemallocator = "0.5.0"
@@ -55,6 +57,9 @@ parallel = ["plonky2/parallel", "plonky2_maybe_rayon/parallel"]
 [[bin]]
 name = "assemble"
 required-features = ["asmtools"]
+
+[[bin]]
+name = "wrap"
 
 [[bench]]
 name = "stack_manipulation"

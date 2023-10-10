@@ -1,0 +1,11 @@
+{
+    "entrypoints": [
+        {
+            "name": "wrapper",
+            "framework": "plonky2",
+            "baseDir": "evm",
+            "buildCommand": "RUST_LOG=debug cargo run --package plonky2_evm --bin wrap --release build && mv ./target/release/wrap ./build/wrap",
+            "proveCommand": "RUST_LOG=info ./build/step prove-wrapped --input-json input.json --wrapper-path /verifier-build"
+        }
+    ]
+}
