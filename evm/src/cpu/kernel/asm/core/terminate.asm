@@ -92,15 +92,17 @@ global sys_selfdestruct:
     %mstore_trie_data
 
     %stack (balance, address, recipient, kexit_info) ->
-        (address, recipient, balance, address, recipient, recipient, balance, kexit_info)
-    %journal_add_account_destroyed
+        (address, recipient, address, recipient, balance, kexit_info)
 
     // If the recipient is the same as the address, then we're done.
     // Otherwise, send the balance to the recipient.
-    // stack: address, recipient, recipient, balance, kexit_info
+    // stack: address, recipient, address, recipient, balance, kexit_info
     EQ %jumpi(sys_selfdestruct_same_addr)
-    // stack: recipient, balance, kexit_info
+    %stack (address, recipient, balance, kexit_info) -> (recipient, balance, address, recipient, balance, kexit_info)
     %add_eth
+
+    // stack: address, recipient, balance, kexit_info
+    %journal_add_account_destroyed
 
     // stack: kexit_info
     %leftover_gas
@@ -109,8 +111,10 @@ global sys_selfdestruct:
     %jump(terminate_common)
 
 sys_selfdestruct_same_addr:
-    // stack: recipient, balance, kexit_info
-    %pop2
+    // stack: address, recipient, balance, kexit_info
+    %journal_add_account_destroyed
+
+    // stack: kexit_info
     %leftover_gas
     // stack: leftover_gas
     PUSH 1 // success
