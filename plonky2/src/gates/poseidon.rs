@@ -634,4 +634,48 @@ mod tests {
         let gate = PoseidonGate::<F, 2>::new();
         test_eval_fns::<F, C, _, D>(gate)
     }
+    #[test]
+    fn test_proof() {
+        use plonky2_field::types::Sample;
+
+        use crate::gates::gate::Gate;
+        use crate::hash::hash_types::HashOut;
+        use crate::plonk::vars::{EvaluationTargets, EvaluationVars};
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+        let gate = PoseidonGate::<F, 2>::new();
+        let wires = <<PoseidonGoldilocksConfig as GenericConfig<D>>::F as plonky2_field::extension::Extendable<D>>::Extension::rand_vec(gate.num_wires());
+        let constants = <<PoseidonGoldilocksConfig as GenericConfig<D>>::F as plonky2_field::extension::Extendable<D>>::Extension::rand_vec(gate.num_constants());
+        let public_inputs_hash = HashOut::rand();
+
+        let config = CircuitConfig::standard_recursion_config();
+        let mut pw = PartialWitness::new();
+        let mut builder = CircuitBuilder::<F, D>::new(config);
+
+        let wires_t = builder.add_virtual_extension_targets(wires.len());
+        let constants_t = builder.add_virtual_extension_targets(constants.len());
+        pw.set_extension_targets(&wires_t, &wires);
+        pw.set_extension_targets(&constants_t, &constants);
+        let public_inputs_hash_t = builder.add_virtual_hash();
+        pw.set_hash_target(public_inputs_hash_t, public_inputs_hash);
+
+        let vars = EvaluationVars {
+            local_constants: &constants,
+            local_wires: &wires,
+            public_inputs_hash: &public_inputs_hash,
+        };
+        let evals = gate.eval_unfiltered(vars);
+
+        let vars_t = EvaluationTargets {
+            local_constants: &constants_t,
+            local_wires: &wires_t,
+            public_inputs_hash: &public_inputs_hash_t,
+        };
+        let evals_t = gate.eval_unfiltered_circuit(&mut builder, vars_t);
+        pw.set_extension_targets(&evals_t, &evals);
+        let data = builder.build::<C>();
+        let proof = data.prove(pw);
+        assert!(proof.is_ok());
+    }
 }
