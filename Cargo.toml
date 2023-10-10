@@ -10,3 +10,6 @@ incremental = true
 
 [profile.bench]
 opt-level = 3
+
+[patch."https://github.com/mir-protocol/plonky2"]
+plonky2 = { path = "plonky2" }
