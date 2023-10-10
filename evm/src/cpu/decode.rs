@@ -61,51 +61,6 @@ const COMBINED_OPCODES: [usize; 6] = [
     COL_MAP.op.m_op_general,
 ];
 
-pub fn generate<F: RichField>(lv: &mut CpuColumnsView<F>) {
-    let cycle_filter: F = COL_MAP.op.iter().map(|&col_i| lv[col_i]).sum();
-
-    // This assert is not _strictly_ necessary, but I include it as a sanity check.
-    assert_eq!(cycle_filter, F::ONE, "cycle_filter should be 0 or 1");
-
-    // Validate all opcode bits.
-    for bit in lv.opcode_bits.into_iter() {
-        assert!(bit.to_canonical_u64() <= 1);
-    }
-    let opcode = lv
-        .opcode_bits
-        .into_iter()
-        .enumerate()
-        .map(|(i, bit)| bit.to_canonical_u64() << i)
-        .sum::<u64>() as u8;
-
-    let top_bits: [u8; 9] = [
-        0,
-        opcode & 0x80,
-        opcode & 0xc0,
-        opcode & 0xe0,
-        opcode & 0xf0,
-        opcode & 0xf8,
-        opcode & 0xfc,
-        opcode & 0xfe,
-        opcode,
-    ];
-
-    let kernel = lv.is_kernel_mode.to_canonical_u64();
-    assert!(kernel <= 1);
-    let kernel = kernel != 0;
-
-    for (oc, block_length, kernel_only, col) in OPCODES {
-        let available = !kernel_only || kernel;
-        let opcode_match = top_bits[8 - block_length] == oc;
-        let flag = available && opcode_match;
-        lv[col] = F::from_bool(flag);
-    }
-
-    if opcode == 0xfb || opcode == 0xfc {
-        lv.op.m_op_general = F::from_bool(kernel);
-    }
-}
-
 /// Break up an opcode (which is 8 bits long) into its eight bits.
 const fn bits_from_opcode(opcode: u8) -> [bool; 8] {
     [

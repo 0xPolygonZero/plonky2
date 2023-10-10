@@ -497,20 +497,18 @@ fn append_shift<F: Field>(
         channel.addr_context = F::from_canonical_usize(lookup_addr.context);
         channel.addr_segment = F::from_canonical_usize(lookup_addr.segment);
         channel.addr_virtual = F::from_canonical_usize(lookup_addr.virt);
+
+        // Extra field required by the constraints for large shifts.
+        let high_limb_sum = row.mem_channels[0].value[1..].iter().copied().sum::<F>();
+        row.general.shift_mut().high_limb_sum_inv = high_limb_sum.inverse();
     }
 
-    // Convert the shift, and log the corresponding arithmetic operation.
-    let input0 = if input0 > U256::from(255u64) {
-        U256::zero()
-    } else {
-        U256::one() << input0
-    };
     let operator = if is_shl {
         BinaryOperator::Shl
     } else {
         BinaryOperator::Shr
     };
-    let operation = arithmetic::Operation::binary(operator, input1, input0);
+    let operation = arithmetic::Operation::binary(operator, input0, input1);
 
     state.traces.push_arithmetic(operation);
     state.traces.push_memory(log_in0);
