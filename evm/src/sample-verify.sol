@@ -9,6 +9,11 @@ contract Plonky2Verification {
         H256 transactionsRoot;
         H256 receiptsRoot;
     }
+
+    function serializeTrieRoots(trieRoots: trieRoots) -> bytes memory {
+        abi.encodePacked(trieRoots.stateRoot, trieRoots.transactionsRoot, trieRoots.receiptsRoot);
+    }
+
     struct BlockMetadata {
         address blockBeneficiary;
         uint256 blockTimestamp;
@@ -20,10 +25,30 @@ contract Plonky2Verification {
         uint256 blockGasUsed;
         uint256[8] blockBloom;
     }
+
+    function serializeBlockMetadata(blockMetadata: BlockMetadata) -> bytes memory {
+        abi.encodePacked(
+            blockMetadata.blockBeneficiary,
+            blockMetadata.blockTimestamp,
+            blockMetadata.blockNumber,
+            blockMetadata.blockDifficulty,
+            blockMetadata.blockGaslimit,
+            blockMetadata.blockChainId,
+            blockMetadata.blockBaseFee,
+            blockMetadata.blockGasUsed,
+            blockMetadata.blockBloom,
+        );
+    }
+
     struct BlockHashes {
         H256[] prevHashes;
         H256 curHash;
     }
+
+    function serializeBlockHashes(blockHashes: BlockHashes) -> bytes memory {
+        abi.encodePacked(blockHashes.prevHashes, blockHashes.curHash);
+    }
+
     struct ExtraBlockData {
         H256 genesisStateTrieRoot;
         uint256 txnNumberBefore;
@@ -33,12 +58,33 @@ contract Plonky2Verification {
         uint256[8] blockBloomBefore;
         uint256[8] blockBloomAfter;
     }
+
+    function serializeExtraBlockData(extraBlockData: ExtraBlockData) -> bytes memory {
+        abi.encodePacked(
+            extraBlockData.genesisStateTrieRoot,
+            extraBlockData.txnNumberBefore,
+            extraBlockData.txnNumber_After,
+            extraBlockData.gasUsedBefore,
+            extraBlockData.gasUsed_After,
+            extraBlockData.blockBloomBefore,
+            extraBlockData.blockBloomAfter,
+        );
+    }
+
     struct PublicValues {
         TrieRoots trieRootsBefore;
         TrieRoots trieRootsAfter;
         BlockMetadata blockMetadata;
         BlockHashes blockHashes;
         ExtraBlockData extraBlockData;
+    }
+
+    function serializePublicValues(publicValues: PublicValues) -> bytes memory {
+        serializeTrieRoots(publicValues.trieRootsBefore);
+        serializeTrieRoots(publicValues.trieRootsAfter);
+        serializeBlockMetadata(publicValues.blockMetadata);
+        serializeBlockHashes(publicValues.blockHashes);
+        serializeExtraBlockData(publicValues.extraBlockData);
     }
 
     constructor() {
