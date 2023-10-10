@@ -188,6 +188,8 @@ log_after_topics:
     %rlp_list_len
     // stack: rlp_log_len, data_len_ptr, num_topics, data_len, data_offset, retdest
     %mload_global_metadata(@GLOBAL_METADATA_LOGS_PAYLOAD_LEN)
+    // Add payload length and logs_data_len to journal.
+    DUP1 %mload_global_metadata(@GLOBAL_METADATA_LOGS_DATA_LEN) %journal_add_log
     ADD
     %mstore_global_metadata(@GLOBAL_METADATA_LOGS_PAYLOAD_LEN)
     // stack: data_len_ptr, num_topics, data_len, data_offset, retdest
@@ -263,3 +265,22 @@ one_byte_data:
     %jump(rlp_data_len)
 %%after:
 %endmacro
+
+%macro journal_add_log
+    %journal_add_2(@JOURNAL_ENTRY_LOG)
+%endmacro
+
+global revert_log:
+    // stack: entry_type, ptr, retdest
+    POP
+    // First, reduce the number of logs.
+    %mload_global_metadata(@GLOBAL_METADATA_LOGS_LEN)
+    %decrement
+    %mstore_global_metadata(@GLOBAL_METADATA_LOGS_LEN)
+    // stack: ptr, retdest
+    // Second, restore payload length.
+    %journal_load_2
+    // stack: prev_logs_data_len, prev_payload_len, retdest
+    %mstore_global_metadata(@GLOBAL_METADATA_LOGS_DATA_LEN)
+    %mstore_global_metadata(@GLOBAL_METADATA_LOGS_PAYLOAD_LEN)
+    JUMP

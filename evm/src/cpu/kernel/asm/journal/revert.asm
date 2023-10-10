@@ -16,6 +16,7 @@
     DUP1 %eq_const(@JOURNAL_ENTRY_CODE_CHANGE)       %jumpi(revert_code_change)
     DUP1 %eq_const(@JOURNAL_ENTRY_REFUND)            %jumpi(revert_refund)
     DUP1 %eq_const(@JOURNAL_ENTRY_ACCOUNT_CREATED)   %jumpi(revert_account_created)
+    DUP1 %eq_const(@JOURNAL_ENTRY_LOG)               %jumpi(revert_log)
     PANIC // This should never happen.
 %%after:
     // stack: journal_size-1
