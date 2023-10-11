@@ -9,6 +9,7 @@ use crate::cpu::kernel::interpreter::Interpreter;
 use crate::cpu::kernel::tests::mpt::{nibbles_64, test_account_1_rlp, test_account_2};
 use crate::generation::mpt::{all_mpt_prover_inputs_reversed, AccountRlp};
 use crate::generation::TrieInputs;
+use crate::memory::segments::Segment;
 use crate::Node;
 
 #[test]
@@ -31,6 +32,17 @@ fn mpt_delete_leaf_overlapping_keys() -> Result<()> {
     let state_trie = Node::Leaf {
         nibbles: nibbles_64(0xABC),
         value: test_account_1_rlp(),
+    }
+    .into();
+    test_state_trie(state_trie, nibbles_64(0xADE), test_account_2())
+}
+
+#[test]
+fn mpt_delete_branch_into_hash() -> Result<()> {
+    let hash = Node::Hash(H256::random());
+    let state_trie = Node::Extension {
+        nibbles: nibbles_64(0xFFF),
+        child: hash.into(),
     }
     .into();
     test_state_trie(state_trie, nibbles_64(0xADE), test_account_2())
@@ -66,6 +78,8 @@ fn test_state_trie(
     interpreter.run()?;
     assert_eq!(interpreter.stack(), vec![]);
 
+    dbg!(&interpreter.generation_state.memory.contexts[0].segments[Segment::TrieData as usize]);
+
     // Next, execute mpt_insert_state_trie.
     interpreter.generation_state.registers.program_counter = mpt_insert_state_trie;
     let trie_data = interpreter.get_trie_data_mut();
@@ -95,6 +109,8 @@ fn test_state_trie(
         interpreter.stack()
     );
 
+    dbg!(&interpreter.generation_state.memory.contexts[0].segments[Segment::TrieData as usize]);
+
     // Next, execute mpt_delete, deleting the account we just inserted.
     let state_trie_ptr = interpreter.get_global_metadata_field(GlobalMetadata::StateTrieRoot);
     interpreter.generation_state.registers.program_counter = mpt_delete;
@@ -105,6 +121,8 @@ fn test_state_trie(
     interpreter.run()?;
     let state_trie_ptr = interpreter.pop();
     interpreter.set_global_metadata_field(GlobalMetadata::StateTrieRoot, state_trie_ptr);
+
+    dbg!(&interpreter.generation_state.memory.contexts[0].segments[Segment::TrieData as usize]);
 
     // Now, execute mpt_hash_state_trie.
     interpreter.generation_state.registers.program_counter = mpt_hash_state_trie;
