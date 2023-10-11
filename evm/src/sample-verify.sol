@@ -19,6 +19,7 @@ contract Plonky2Verification {
         uint256 blockTimestamp;
         uint256 blockNumber;
         uint256 blockDifficulty;
+        H256 blockRandom;
         uint256 blockGaslimit;
         uint256 blockChainId;
         uint256 blockBaseFee;
@@ -32,6 +33,7 @@ contract Plonky2Verification {
             blockMetadata.blockTimestamp,
             blockMetadata.blockNumber,
             blockMetadata.blockDifficulty,
+            blockMetadata.blockRandom,
             blockMetadata.blockGaslimit,
             blockMetadata.blockChainId,
             blockMetadata.blockBaseFee,

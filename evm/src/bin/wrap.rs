@@ -1,24 +1,25 @@
 use std::marker::PhantomData;
 
-use plonky2::hash::hash_types::RichField;
 use plonky2::iop::generator::{GeneratedValues, SimpleGenerator};
 use plonky2::iop::target::Target;
 use plonky2::iop::witness::{PartialWitness, PartitionWitness, WitnessWrite};
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::circuit_data::{
-    CircuitConfig, CircuitData, CommonCircuitData, VerifierOnlyCircuitData,
+    CircuitConfig, CircuitData, CommonCircuitData,
 };
 use plonky2::plonk::config::{AlgebraicHasher, GenericConfig};
 use plonky2::plonk::proof::{
-    Proof, ProofTarget, ProofWithPublicInputs, ProofWithPublicInputsTarget,
+    ProofWithPublicInputs, ProofWithPublicInputsTarget,
 };
 use plonky2::util::serialization::{Buffer, DefaultGateSerializer, IoResult, Read, Write};
+use plonky2_evm::sample::get_sample_circuits_and_proof;
 use plonky2x::backend::circuit::Circuit;
 use plonky2x::backend::function::VerifiableFunction;
 use plonky2x::frontend::uint::uint256::U256Variable;
+use plonky2x::frontend::eth::vars::AddressVariable;
 use plonky2x::prelude::{
-    ArrayVariable, BoolVariable, Bytes32Variable, CircuitBuilder as CircuitBuilderX,
-    CircuitVariable, Extendable, Field, PlonkParameters, Variable,
+    CircuitBuilder as CircuitBuilderX,
+    CircuitVariable, Field, PlonkParameters, Variable, U32Variable, U64Variable,
 };
 use serde::{Deserialize, Serialize};
 
@@ -155,15 +156,105 @@ impl Circuit for WrapCircuit {
         <<L as PlonkParameters<D>>::Config as GenericConfig<D>>::Hasher:
             AlgebraicHasher<<L as PlonkParameters<D>>::Field>,
     {
-        let u256_a = builder.evm_read::<U256Variable>();
-        let u256_b = builder.evm_read::<U256Variable>();
+        let state_root_before = builder.evm_read::<U256Variable>();
+        let transactions_root_before = builder.evm_read::<U256Variable>();
+        let receipts_root_before = builder.evm_read::<U256Variable>();
+
+        let state_root_after = builder.evm_read::<U256Variable>();
+        let transactions_root_after = builder.evm_read::<U256Variable>();
+        let receipts_root_after = builder.evm_read::<U256Variable>();
+
+        let block_beneficiary = builder.evm_read::<AddressVariable>();
+        let block_timestamp = builder.evm_read::<U256Variable>();
+        let block_number = builder.evm_read::<U256Variable>();
+        let block_difficulty = builder.evm_read::<U256Variable>();
+        let block_random = builder.evm_read::<U256Variable>();
+        let block_gaslimit = builder.evm_read::<U256Variable>();
+        let block_chain_id = builder.evm_read::<U256Variable>();
+        let block_base_fee = builder.evm_read::<U256Variable>();
+        let block_gas_used = builder.evm_read::<U256Variable>();
+        let block_bloom = (0..8).map(|_| builder.evm_read::<U256Variable>()).collect::<Vec<_>>();
+
+        let prev_hashes = (0..256)
+            .map(|_| builder.evm_read::<U256Variable>())
+            .collect::<Vec<_>>();
+        let cur_hash = builder.evm_read::<U256Variable>();
+
+        let genesis_state_trie_root = builder.evm_read::<U256Variable>();
+        let txn_number_before = builder.evm_read::<U256Variable>();
+        let txn_number_after = builder.evm_read::<U256Variable>();
+        let gas_used_before = builder.evm_read::<U256Variable>();
+        let gas_used_after = builder.evm_read::<U256Variable>();
+        let block_boom_before = (0..8)
+            .map(|_| builder.evm_read::<U256Variable>())
+            .collect::<Vec<_>>();
+        let block_boom_after = (0..8)
+            .map(|_| builder.evm_read::<U256Variable>())
+            .collect::<Vec<_>>();
 
         let mut input_target_vec = vec![];
-        input_target_vec.extend(u256_a.targets());
-        input_target_vec.extend(u256_b.targets());
-        assert_eq!(input_target_vec.len(), 16);
+        
+        input_target_vec.extend(state_root_before.targets());
+        input_target_vec.extend(transactions_root_before.targets());
+        input_target_vec.extend(receipts_root_before.targets());
+        
+        input_target_vec.extend(state_root_after.targets());
+        input_target_vec.extend(transactions_root_after.targets());
+        input_target_vec.extend(receipts_root_after.targets());
+        
+        input_target_vec.extend(block_beneficiary.targets());
 
-        let (data, proof) = dummy_proof::<L, D>();
+        let zero = builder.zero::<Variable>();
+
+        // for block_timestamp, we'll read just the first u32 from the on-chain u256
+        input_target_vec.push(block_timestamp.targets()[0]);
+        let _ = (1..8).map(|i| builder.assert_is_equal(block_timestamp.variables()[i], zero));
+
+        input_target_vec.push(block_number.targets()[0]);
+        let _ = (1..8).map(|i| builder.assert_is_equal(block_number.variables()[i], zero));
+
+        input_target_vec.push(block_difficulty.targets()[0]);
+        let _ = (1..8).map(|i| builder.assert_is_equal(block_difficulty.variables()[i], zero));
+        
+        input_target_vec.extend(block_random.targets());
+
+        input_target_vec.extend(block_gaslimit.targets().iter().take(2));
+        let _ = (2..8).map(|i| builder.assert_is_equal(block_gaslimit.variables()[i], zero));
+
+        input_target_vec.push(block_chain_id.targets()[0]);
+        let _ = (1..8).map(|i| builder.assert_is_equal(block_chain_id.variables()[i], zero));
+
+        input_target_vec.extend(block_base_fee.targets().iter().take(2));
+        let _ = (2..8).map(|i| builder.assert_is_equal(block_base_fee.variables()[i], zero));
+        
+        input_target_vec.extend(block_gas_used.targets().iter().take(2));
+        let _ = (2..8).map(|i| builder.assert_is_equal(block_gas_used.variables()[i], zero));
+
+        input_target_vec.extend(block_bloom.iter().flat_map(|b| b.targets()));
+        
+        input_target_vec.extend(prev_hashes.iter().flat_map(|b| b.targets()));
+        input_target_vec.extend(cur_hash.targets());
+        
+        input_target_vec.extend(genesis_state_trie_root.targets());
+
+        input_target_vec.push(txn_number_before.targets()[0]);
+        let _ = (1..8).map(|i| builder.assert_is_equal(txn_number_before.variables()[i], zero));
+        
+        input_target_vec.push(txn_number_after.targets()[0]);
+        let _ = (1..8).map(|i| builder.assert_is_equal(txn_number_after.variables()[i], zero));
+
+        input_target_vec.extend(gas_used_before.targets().iter().take(2));
+        let _ = (2..8).map(|i| builder.assert_is_equal(gas_used_before.variables()[i], zero));
+        
+        input_target_vec.extend(gas_used_after.targets().iter().take(2));
+        let _ = (2..8).map(|i| builder.assert_is_equal(gas_used_after.variables()[i], zero));
+
+        input_target_vec.extend(block_boom_before.iter().flat_map(|b| b.targets()));
+        input_target_vec.extend(block_boom_after.iter().flat_map(|b| b.targets()));
+
+        let (all_circuits, proof) =
+            get_sample_circuits_and_proof::<L::Field, L::Config, D>().unwrap();
+        let data = all_circuits.block.circuit;
 
         // This would use the block circuit data
         let proof_targets = builder.api.add_virtual_proof_with_pis(&data.common);
@@ -208,9 +299,6 @@ impl Circuit for WrapCircuit {
         builder
             .api
             .verify_proof::<L::Config>(&proof_targets, &verifier_targets, &data.common);
-
-        let sum = builder.add(u256_a, u256_b);
-        builder.evm_write(sum);
     }
 
     fn register_generators<L: PlonkParameters<D>, const D: usize>(
