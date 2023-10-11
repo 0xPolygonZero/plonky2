@@ -41,7 +41,7 @@ fn mpt_delete_leaf_overlapping_keys() -> Result<()> {
 fn mpt_delete_branch_into_hash() -> Result<()> {
     let hash = Node::Hash(H256::random());
     let state_trie = Node::Extension {
-        nibbles: nibbles_64(0xFFF),
+        nibbles: nibbles_64(0xADF),
         child: hash.into(),
     }
     .into();
@@ -78,8 +78,6 @@ fn test_state_trie(
     interpreter.run()?;
     assert_eq!(interpreter.stack(), vec![]);
 
-    dbg!(&interpreter.generation_state.memory.contexts[0].segments[Segment::TrieData as usize]);
-
     // Next, execute mpt_insert_state_trie.
     interpreter.generation_state.registers.program_counter = mpt_insert_state_trie;
     let trie_data = interpreter.get_trie_data_mut();
@@ -109,8 +107,6 @@ fn test_state_trie(
         interpreter.stack()
     );
 
-    dbg!(&interpreter.generation_state.memory.contexts[0].segments[Segment::TrieData as usize]);
-
     // Next, execute mpt_delete, deleting the account we just inserted.
     let state_trie_ptr = interpreter.get_global_metadata_field(GlobalMetadata::StateTrieRoot);
     interpreter.generation_state.registers.program_counter = mpt_delete;
@@ -121,8 +117,6 @@ fn test_state_trie(
     interpreter.run()?;
     let state_trie_ptr = interpreter.pop();
     interpreter.set_global_metadata_field(GlobalMetadata::StateTrieRoot, state_trie_ptr);
-
-    dbg!(&interpreter.generation_state.memory.contexts[0].segments[Segment::TrieData as usize]);
 
     // Now, execute mpt_hash_state_trie.
     interpreter.generation_state.registers.program_counter = mpt_hash_state_trie;
