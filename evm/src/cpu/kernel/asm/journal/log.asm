@@ -1,4 +1,4 @@
-// struct Log {logs_data_len, logs_payload_len}
+// struct Log { logs_data_len, logs_payload_len }
 
 %macro journal_add_log
     %journal_add_2(@JOURNAL_ENTRY_LOG)
