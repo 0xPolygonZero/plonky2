@@ -887,6 +887,11 @@ pub(crate) fn generate_exception<F: Field>(
         return Err(ProgramError::InterpreterError);
     }
 
+    if let Some(inv) = row.stack_len.try_inverse() {
+        row.general.stack_mut().stack_inv = inv;
+        row.general.stack_mut().stack_inv_aux = F::ONE;
+    }
+
     row.general.exception_mut().exc_code_bits = [
         F::from_bool(exc_code & 1 != 0),
         F::from_bool(exc_code & 2 != 0),
@@ -898,19 +903,19 @@ pub(crate) fn generate_exception<F: Field>(
         handler_jumptable_addr + (exc_code as usize) * (BYTES_PER_OFFSET as usize);
     assert_eq!(BYTES_PER_OFFSET, 3, "Code below assumes 3 bytes per offset");
     let (handler_addr0, log_in0) = mem_read_gp_with_log_and_fill(
-        0,
+        1,
         MemoryAddress::new(0, Segment::Code, handler_addr_addr),
         state,
         &mut row,
     );
     let (handler_addr1, log_in1) = mem_read_gp_with_log_and_fill(
-        1,
+        2,
         MemoryAddress::new(0, Segment::Code, handler_addr_addr + 1),
         state,
         &mut row,
     );
     let (handler_addr2, log_in2) = mem_read_gp_with_log_and_fill(
-        2,
+        3,
         MemoryAddress::new(0, Segment::Code, handler_addr_addr + 2),
         state,
         &mut row,
