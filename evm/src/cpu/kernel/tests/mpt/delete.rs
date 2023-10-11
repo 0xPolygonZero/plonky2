@@ -9,7 +9,6 @@ use crate::cpu::kernel::interpreter::Interpreter;
 use crate::cpu::kernel::tests::mpt::{nibbles_64, test_account_1_rlp, test_account_2};
 use crate::generation::mpt::{all_mpt_prover_inputs_reversed, AccountRlp};
 use crate::generation::TrieInputs;
-use crate::memory::segments::Segment;
 use crate::Node;
 
 #[test]
