@@ -4,22 +4,17 @@ use plonky2::iop::generator::{GeneratedValues, SimpleGenerator};
 use plonky2::iop::target::Target;
 use plonky2::iop::witness::{PartialWitness, PartitionWitness, WitnessWrite};
 use plonky2::plonk::circuit_builder::CircuitBuilder;
-use plonky2::plonk::circuit_data::{
-    CircuitConfig, CircuitData, CommonCircuitData,
-};
+use plonky2::plonk::circuit_data::{CircuitConfig, CircuitData, CommonCircuitData};
 use plonky2::plonk::config::{AlgebraicHasher, GenericConfig};
-use plonky2::plonk::proof::{
-    ProofWithPublicInputs, ProofWithPublicInputsTarget,
-};
+use plonky2::plonk::proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget};
 use plonky2::util::serialization::{Buffer, DefaultGateSerializer, IoResult, Read, Write};
 use plonky2_evm::sample::get_sample_circuits_and_proof;
 use plonky2x::backend::circuit::Circuit;
 use plonky2x::backend::function::VerifiableFunction;
-use plonky2x::frontend::uint::uint256::U256Variable;
 use plonky2x::frontend::eth::vars::AddressVariable;
+use plonky2x::frontend::uint::uint256::U256Variable;
 use plonky2x::prelude::{
-    CircuitBuilder as CircuitBuilderX,
-    CircuitVariable, Field, PlonkParameters, Variable, U32Variable, U64Variable,
+    CircuitBuilder as CircuitBuilderX, CircuitVariable, Field, PlonkParameters, Variable,
 };
 use serde::{Deserialize, Serialize};
 
@@ -137,7 +132,7 @@ where
 
     fn run_once(
         &self,
-        witness: &PartitionWitness<L::Field>,
+        _witness: &PartitionWitness<L::Field>,
         out_buffer: &mut GeneratedValues<L::Field>,
     ) {
         out_buffer.set_proof_with_pis_target(
@@ -173,7 +168,9 @@ impl Circuit for WrapCircuit {
         let block_chain_id = builder.evm_read::<U256Variable>();
         let block_base_fee = builder.evm_read::<U256Variable>();
         let block_gas_used = builder.evm_read::<U256Variable>();
-        let block_bloom = (0..8).map(|_| builder.evm_read::<U256Variable>()).collect::<Vec<_>>();
+        let block_bloom = (0..8)
+            .map(|_| builder.evm_read::<U256Variable>())
+            .collect::<Vec<_>>();
 
         let prev_hashes = (0..256)
             .map(|_| builder.evm_read::<U256Variable>())
@@ -193,15 +190,15 @@ impl Circuit for WrapCircuit {
             .collect::<Vec<_>>();
 
         let mut input_target_vec = vec![];
-        
+
         input_target_vec.extend(state_root_before.targets());
         input_target_vec.extend(transactions_root_before.targets());
         input_target_vec.extend(receipts_root_before.targets());
-        
+
         input_target_vec.extend(state_root_after.targets());
         input_target_vec.extend(transactions_root_after.targets());
         input_target_vec.extend(receipts_root_after.targets());
-        
+
         input_target_vec.extend(block_beneficiary.targets());
 
         let zero = builder.zero::<Variable>();
@@ -215,7 +212,7 @@ impl Circuit for WrapCircuit {
 
         input_target_vec.push(block_difficulty.targets()[0]);
         let _ = (1..8).map(|i| builder.assert_is_equal(block_difficulty.variables()[i], zero));
-        
+
         input_target_vec.extend(block_random.targets());
 
         input_target_vec.extend(block_gaslimit.targets().iter().take(2));
@@ -226,26 +223,26 @@ impl Circuit for WrapCircuit {
 
         input_target_vec.extend(block_base_fee.targets().iter().take(2));
         let _ = (2..8).map(|i| builder.assert_is_equal(block_base_fee.variables()[i], zero));
-        
+
         input_target_vec.extend(block_gas_used.targets().iter().take(2));
         let _ = (2..8).map(|i| builder.assert_is_equal(block_gas_used.variables()[i], zero));
 
         input_target_vec.extend(block_bloom.iter().flat_map(|b| b.targets()));
-        
+
         input_target_vec.extend(prev_hashes.iter().flat_map(|b| b.targets()));
         input_target_vec.extend(cur_hash.targets());
-        
+
         input_target_vec.extend(genesis_state_trie_root.targets());
 
         input_target_vec.push(txn_number_before.targets()[0]);
         let _ = (1..8).map(|i| builder.assert_is_equal(txn_number_before.variables()[i], zero));
-        
+
         input_target_vec.push(txn_number_after.targets()[0]);
         let _ = (1..8).map(|i| builder.assert_is_equal(txn_number_after.variables()[i], zero));
 
         input_target_vec.extend(gas_used_before.targets().iter().take(2));
         let _ = (2..8).map(|i| builder.assert_is_equal(gas_used_before.variables()[i], zero));
-        
+
         input_target_vec.extend(gas_used_after.targets().iter().take(2));
         let _ = (2..8).map(|i| builder.assert_is_equal(gas_used_after.variables()[i], zero));
 
@@ -318,7 +315,6 @@ fn main() {
 mod tests {
     use std::env;
 
-    use ethers::types::H256;
     use ethers::utils::hex;
     use plonky2x::backend::circuit::PublicInput;
     use plonky2x::prelude::{DefaultBuilder, GateRegistry, HintRegistry};
