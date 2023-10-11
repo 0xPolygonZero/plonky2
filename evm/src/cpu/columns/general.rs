@@ -124,7 +124,7 @@ pub(crate) struct CpuShiftView<T: Copy> {
 #[derive(Copy, Clone)]
 pub(crate) struct CpuStackView<T: Copy> {
     // Used for conditionally enabling and disabling channels when reading the next `stack_top`.
-    unused: [T; 5],
+    _unused: [T; 5],
     pub(crate) stack_inv: T,
     pub(crate) stack_inv_aux: T,
     pub(crate) stack_inv_aux_2: T,

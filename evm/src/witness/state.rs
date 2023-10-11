@@ -10,6 +10,7 @@ pub struct RegistersState {
     pub is_kernel: bool,
     pub stack_len: usize,
     pub stack_top: U256,
+    // Indicates if you read the new stack_top from memory to set the channel accordingly.
     pub is_stack_top_read: bool,
     pub context: usize,
     pub gas_used: u64,
