@@ -265,22 +265,3 @@ one_byte_data:
     %jump(rlp_data_len)
 %%after:
 %endmacro
-
-%macro journal_add_log
-    %journal_add_2(@JOURNAL_ENTRY_LOG)
-%endmacro
-
-global revert_log:
-    // stack: entry_type, ptr, retdest
-    POP
-    // First, reduce the number of logs.
-    %mload_global_metadata(@GLOBAL_METADATA_LOGS_LEN)
-    %decrement
-    %mstore_global_metadata(@GLOBAL_METADATA_LOGS_LEN)
-    // stack: ptr, retdest
-    // Second, restore payload length.
-    %journal_load_2
-    // stack: prev_logs_data_len, prev_payload_len, retdest
-    %mstore_global_metadata(@GLOBAL_METADATA_LOGS_DATA_LEN)
-    %mstore_global_metadata(@GLOBAL_METADATA_LOGS_PAYLOAD_LEN)
-    JUMP
