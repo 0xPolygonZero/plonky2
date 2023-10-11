@@ -2,7 +2,7 @@ use std::borrow::{Borrow, BorrowMut};
 use std::mem::{size_of, transmute};
 use std::ops::{Deref, DerefMut};
 
-use crate::util::{indices_arr, transmute_no_compile_time_size_checks};
+use crate::util::transmute_no_compile_time_size_checks;
 
 #[repr(C)]
 #[derive(Clone, Copy, Eq, PartialEq, Debug)]
@@ -74,10 +74,3 @@ impl<T: Copy> DerefMut for OpsColumnsView<T> {
         unsafe { transmute(self) }
     }
 }
-
-const fn make_col_map() -> OpsColumnsView<usize> {
-    let indices_arr = indices_arr::<NUM_OPS_COLUMNS>();
-    unsafe { transmute::<[usize; NUM_OPS_COLUMNS], OpsColumnsView<usize>>(indices_arr) }
-}
-
-pub const COL_MAP: OpsColumnsView<usize> = make_col_map();

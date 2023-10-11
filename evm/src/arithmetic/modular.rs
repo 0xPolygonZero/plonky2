@@ -239,7 +239,7 @@ pub(crate) fn generate_modular_op<F: PrimeField64>(
 
     let mut mod_is_zero = F::ZERO;
     if modulus.is_zero() {
-        if filter == columns::IS_DIV {
+        if filter == columns::IS_DIV || filter == columns::IS_SHR {
             // set modulus = 2^256; the condition above means we know
             // it's zero at this point, so we can just set bit 256.
             modulus.set_bit(256, true);
@@ -330,7 +330,7 @@ pub(crate) fn generate_modular_op<F: PrimeField64>(
 
     nv[MODULAR_MOD_IS_ZERO] = mod_is_zero;
     nv[MODULAR_OUT_AUX_RED].copy_from_slice(&out_aux_red.map(F::from_canonical_i64));
-    nv[MODULAR_DIV_DENOM_IS_ZERO] = mod_is_zero * lv[IS_DIV];
+    nv[MODULAR_DIV_DENOM_IS_ZERO] = mod_is_zero * (lv[IS_DIV] + lv[IS_SHR]);
 
     (
         output_limbs.map(F::from_canonical_i64),
@@ -392,14 +392,14 @@ pub(crate) fn check_reduced<P: PackedField>(
     // Verify that the output is reduced, i.e. output < modulus.
     let out_aux_red = &nv[MODULAR_OUT_AUX_RED];
     // This sets is_less_than to 1 unless we get mod_is_zero when
-    // doing a DIV; in that case, we need is_less_than=0, since
+    // doing a DIV or SHR; in that case, we need is_less_than=0, since
     // eval_packed_generic_addcy checks
     //
     //   modulus + out_aux_red == output + is_less_than*2^256
     //
     // and we are given output = out_aux_red when modulus is zero.
     let mut is_less_than = [P::ZEROS; N_LIMBS];
-    is_less_than[0] = P::ONES - mod_is_zero * lv[IS_DIV];
+    is_less_than[0] = P::ONES - mod_is_zero * (lv[IS_DIV] + lv[IS_SHR]);
     // NB: output and modulus in lv while out_aux_red and
     // is_less_than (via mod_is_zero) depend on nv, hence the
     // 'is_two_row_op' argument is set to 'true'.
@@ -448,13 +448,15 @@ pub(crate) fn modular_constr_poly<P: PackedField>(
     // modulus = 0.
     modulus[0] += mod_is_zero;
 
-    // Is 1 iff the operation is DIV and the denominator is zero.
+    // Is 1 iff the operation is DIV or SHR and the denominator is zero.
     let div_denom_is_zero = nv[MODULAR_DIV_DENOM_IS_ZERO];
-    yield_constr.constraint_transition(filter * (mod_is_zero * lv[IS_DIV] - div_denom_is_zero));
+    yield_constr.constraint_transition(
+        filter * (mod_is_zero * (lv[IS_DIV] + lv[IS_SHR]) - div_denom_is_zero),
+    );
 
     // Needed to compensate for adding mod_is_zero to modulus above,
     // since the call eval_packed_generic_addcy() below subtracts modulus
-    // to verify in the case of a DIV.
+    // to verify in the case of a DIV or SHR.
     output[0] += div_denom_is_zero;
 
     check_reduced(lv, nv, yield_constr, filter, output, modulus, mod_is_zero);
@@ -635,7 +637,8 @@ pub(crate) fn modular_constr_poly_ext_circuit<F: RichField + Extendable<D>, cons
     modulus[0] = builder.add_extension(modulus[0], mod_is_zero);
 
     let div_denom_is_zero = nv[MODULAR_DIV_DENOM_IS_ZERO];
-    let t = builder.mul_sub_extension(mod_is_zero, lv[IS_DIV], div_denom_is_zero);
+    let div_shr_filter = builder.add_extension(lv[IS_DIV], lv[IS_SHR]);
+    let t = builder.mul_sub_extension(mod_is_zero, div_shr_filter, div_denom_is_zero);
     let t = builder.mul_extension(filter, t);
     yield_constr.constraint_transition(builder, t);
     output[0] = builder.add_extension(output[0], div_denom_is_zero);
@@ -645,7 +648,7 @@ pub(crate) fn modular_constr_poly_ext_circuit<F: RichField + Extendable<D>, cons
     let zero = builder.zero_extension();
     let mut is_less_than = [zero; N_LIMBS];
     is_less_than[0] =
-        builder.arithmetic_extension(F::NEG_ONE, F::ONE, mod_is_zero, lv[IS_DIV], one);
+        builder.arithmetic_extension(F::NEG_ONE, F::ONE, mod_is_zero, div_shr_filter, one);
 
     eval_ext_circuit_addcy(
         builder,
@@ -834,6 +837,7 @@ mod tests {
         for op in MODULAR_OPS {
             lv[op] = F::ZERO;
         }
+        lv[IS_SHR] = F::ZERO;
         lv[IS_DIV] = F::ZERO;
         lv[IS_MOD] = F::ZERO;
 
@@ -867,6 +871,7 @@ mod tests {
                 for op in MODULAR_OPS {
                     lv[op] = F::ZERO;
                 }
+                lv[IS_SHR] = F::ZERO;
                 lv[IS_DIV] = F::ZERO;
                 lv[IS_MOD] = F::ZERO;
                 lv[op_filter] = F::ONE;
@@ -926,6 +931,7 @@ mod tests {
                 for op in MODULAR_OPS {
                     lv[op] = F::ZERO;
                 }
+                lv[IS_SHR] = F::ZERO;
                 lv[IS_DIV] = F::ZERO;
                 lv[IS_MOD] = F::ZERO;
                 lv[op_filter] = F::ONE;

@@ -302,7 +302,9 @@ pub(crate) fn keccak_sponge_log<F: Field>(
             address.increment();
         }
         xor_into_sponge(state, &mut sponge_state, block.try_into().unwrap());
-        state.traces.push_keccak_bytes(sponge_state);
+        state
+            .traces
+            .push_keccak_bytes(sponge_state, clock * NUM_CHANNELS);
         keccakf_u8s(&mut sponge_state);
     }
 
@@ -327,7 +329,9 @@ pub(crate) fn keccak_sponge_log<F: Field>(
         final_block[KECCAK_RATE_BYTES - 1] = 0b10000000;
     }
     xor_into_sponge(state, &mut sponge_state, &final_block);
-    state.traces.push_keccak_bytes(sponge_state);
+    state
+        .traces
+        .push_keccak_bytes(sponge_state, clock * NUM_CHANNELS);
 
     state.traces.push_keccak_sponge(KeccakSpongeOp {
         base_address,
