@@ -325,6 +325,11 @@ pub fn eval_packed<P: PackedField>(
         lv.op.not_pop * (lv.general.stack().stack_inv_aux - P::ONES) * top_read_channel.used,
     );
     yield_constr.constraint(lv.op.not_pop * lv.opcode_bits[0] * top_read_channel.used);
+
+    // Disable remaining memory channels.
+    for &channel in &lv.mem_channels[1..] {
+        yield_constr.constraint(lv.op.not_pop * (lv.opcode_bits[0] - P::ONES) * channel.used);
+    }
 }
 
 pub(crate) fn eval_ext_circuit_one<F: RichField + Extendable<D>, const D: usize>(
@@ -623,6 +628,13 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     {
         let mul = builder.mul_extension(lv.op.not_pop, lv.opcode_bits[0]);
         let constr = builder.mul_extension(mul, top_read_channel.used);
+        yield_constr.constraint(builder, constr);
+    }
+
+    // Disable remaining memory channels.
+    let filter = builder.mul_sub_extension(lv.op.not_pop, lv.opcode_bits[0], lv.op.not_pop);
+    for &channel in &lv.mem_channels[1..] {
+        let constr = builder.mul_extension(filter, channel.used);
         yield_constr.constraint(builder, constr);
     }
 }
