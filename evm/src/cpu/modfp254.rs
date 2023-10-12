@@ -22,7 +22,7 @@ pub fn eval_packed<P: PackedField>(
     let filter = lv.op.fp254_op;
 
     // We want to use all the same logic as the usual mod operations, but without needing to read
-    // the modulus from the stack. We simply constrain `mem_channels[2]` to be our prime (that's
+    // the modulus from the stack. We simply constrain `mem_channels[1]` to be our prime (that's
     // where the modulus goes in the generalized operations).
     let channel_val = lv.mem_channels[2].value;
     for (channel_limb, p_limb) in izip!(channel_val, P_LIMBS) {
@@ -39,7 +39,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let filter = lv.op.fp254_op;
 
     // We want to use all the same logic as the usual mod operations, but without needing to read
-    // the modulus from the stack. We simply constrain `mem_channels[2]` to be our prime (that's
+    // the modulus from the stack. We simply constrain `mem_channels[1]` to be our prime (that's
     // where the modulus goes in the generalized operations).
     let channel_val = lv.mem_channels[2].value;
     for (channel_limb, p_limb) in izip!(channel_val, P_LIMBS) {

@@ -39,14 +39,6 @@ pub(crate) struct AllProofChallenges<F: RichField + Extendable<D>, const D: usiz
     pub ctl_challenges: GrandProductChallengeSet<F>,
 }
 
-#[allow(unused)] // TODO: should be used soon
-pub(crate) struct AllChallengerState<F: RichField + Extendable<D>, H: Hasher<F>, const D: usize> {
-    /// Sponge state of the challenger before starting each proof,
-    /// along with the final state after all proofs are done. This final state isn't strictly needed.
-    pub states: [H::Permutation; NUM_TABLES + 1],
-    pub ctl_challenges: GrandProductChallengeSet<F>,
-}
-
 /// Memory values which are public.
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct PublicValues {
@@ -125,7 +117,7 @@ pub struct BlockMetadata {
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct ExtraBlockData {
     /// The state trie digest of the genesis block.
-    pub genesis_state_root: H256,
+    pub genesis_state_trie_root: H256,
     /// The transaction count prior execution of the local state transition, starting
     /// at 0 for the initial transaction of a block.
     pub txn_number_before: U256,
@@ -210,7 +202,7 @@ impl PublicValuesTarget {
         buffer.write_target_array(&cur_hash)?;
 
         let ExtraBlockDataTarget {
-            genesis_state_root,
+            genesis_state_trie_root: genesis_state_root,
             txn_number_before,
             txn_number_after,
             gas_used_before,
@@ -261,7 +253,7 @@ impl PublicValuesTarget {
         };
 
         let extra_block_data = ExtraBlockDataTarget {
-            genesis_state_root: buffer.read_target_array()?,
+            genesis_state_trie_root: buffer.read_target_array()?,
             txn_number_before: buffer.read_target()?,
             txn_number_after: buffer.read_target()?,
             gas_used_before: buffer.read_target_array()?,
@@ -571,7 +563,7 @@ impl BlockHashesTarget {
 
 #[derive(Eq, PartialEq, Debug, Copy, Clone)]
 pub struct ExtraBlockDataTarget {
-    pub genesis_state_root: [Target; 8],
+    pub genesis_state_trie_root: [Target; 8],
     pub txn_number_before: Target,
     pub txn_number_after: Target,
     pub gas_used_before: [Target; 2],
@@ -584,7 +576,7 @@ impl ExtraBlockDataTarget {
     const SIZE: usize = 142;
 
     pub fn from_public_inputs(pis: &[Target]) -> Self {
-        let genesis_state_root = pis[0..8].try_into().unwrap();
+        let genesis_state_trie_root = pis[0..8].try_into().unwrap();
         let txn_number_before = pis[8];
         let txn_number_after = pis[9];
         let gas_used_before = pis[10..12].try_into().unwrap();
@@ -593,7 +585,7 @@ impl ExtraBlockDataTarget {
         let block_bloom_after = pis[78..142].try_into().unwrap();
 
         Self {
-            genesis_state_root,
+            genesis_state_trie_root,
             txn_number_before,
             txn_number_after,
             gas_used_before,
@@ -610,11 +602,11 @@ impl ExtraBlockDataTarget {
         ed1: Self,
     ) -> Self {
         Self {
-            genesis_state_root: core::array::from_fn(|i| {
+            genesis_state_trie_root: core::array::from_fn(|i| {
                 builder.select(
                     condition,
-                    ed0.genesis_state_root[i],
-                    ed1.genesis_state_root[i],
+                    ed0.genesis_state_trie_root[i],
+                    ed1.genesis_state_trie_root[i],
                 )
             }),
             txn_number_before: builder.select(
@@ -652,7 +644,10 @@ impl ExtraBlockDataTarget {
         ed1: Self,
     ) {
         for i in 0..8 {
-            builder.connect(ed0.genesis_state_root[i], ed1.genesis_state_root[i]);
+            builder.connect(
+                ed0.genesis_state_trie_root[i],
+                ed1.genesis_state_trie_root[i],
+            );
         }
         builder.connect(ed0.txn_number_before, ed1.txn_number_before);
         builder.connect(ed0.txn_number_after, ed1.txn_number_after);
@@ -694,8 +689,7 @@ where
     C: GenericConfig<D, F = F>,
 {
     pub(crate) init_challenger_state: <C::Hasher as Hasher<F>>::Permutation,
-    // TODO: set it back to pub(crate) when cpu trace len is a public input
-    pub proof: StarkProof<F, C, D>,
+    pub(crate) proof: StarkProof<F, C, D>,
 }
 
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> StarkProof<F, C, D> {

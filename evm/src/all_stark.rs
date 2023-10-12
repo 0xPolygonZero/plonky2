@@ -96,7 +96,8 @@ pub(crate) fn all_cross_table_lookups<F: Field>() -> Vec<CrossTableLookup<F>> {
         ctl_arithmetic(),
         ctl_byte_packing(),
         ctl_keccak_sponge(),
-        ctl_keccak(),
+        ctl_keccak_inputs(),
+        ctl_keccak_outputs(),
         ctl_logic(),
         ctl_memory(),
     ]
@@ -104,10 +105,7 @@ pub(crate) fn all_cross_table_lookups<F: Field>() -> Vec<CrossTableLookup<F>> {
 
 fn ctl_arithmetic<F: Field>() -> CrossTableLookup<F> {
     CrossTableLookup::new(
-        vec![
-            cpu_stark::ctl_arithmetic_base_rows(),
-            cpu_stark::ctl_arithmetic_shift_rows(),
-        ],
+        vec![cpu_stark::ctl_arithmetic_base_rows()],
         arithmetic_stark::ctl_arithmetic_rows(),
     )
 }
@@ -134,16 +132,33 @@ fn ctl_byte_packing<F: Field>() -> CrossTableLookup<F> {
     )
 }
 
-fn ctl_keccak<F: Field>() -> CrossTableLookup<F> {
+// We now need two different looked tables for `KeccakStark`:
+// one for the inputs and one for the outputs.
+// They are linked with the timestamp.
+fn ctl_keccak_inputs<F: Field>() -> CrossTableLookup<F> {
     let keccak_sponge_looking = TableWithColumns::new(
         Table::KeccakSponge,
-        keccak_sponge_stark::ctl_looking_keccak(),
+        keccak_sponge_stark::ctl_looking_keccak_inputs(),
         Some(keccak_sponge_stark::ctl_looking_keccak_filter()),
     );
     let keccak_looked = TableWithColumns::new(
         Table::Keccak,
-        keccak_stark::ctl_data(),
-        Some(keccak_stark::ctl_filter()),
+        keccak_stark::ctl_data_inputs(),
+        Some(keccak_stark::ctl_filter_inputs()),
+    );
+    CrossTableLookup::new(vec![keccak_sponge_looking], keccak_looked)
+}
+
+fn ctl_keccak_outputs<F: Field>() -> CrossTableLookup<F> {
+    let keccak_sponge_looking = TableWithColumns::new(
+        Table::KeccakSponge,
+        keccak_sponge_stark::ctl_looking_keccak_outputs(),
+        Some(keccak_sponge_stark::ctl_looking_keccak_filter()),
+    );
+    let keccak_looked = TableWithColumns::new(
+        Table::Keccak,
+        keccak_stark::ctl_data_outputs(),
+        Some(keccak_stark::ctl_filter_outputs()),
     );
     CrossTableLookup::new(vec![keccak_sponge_looking], keccak_looked)
 }

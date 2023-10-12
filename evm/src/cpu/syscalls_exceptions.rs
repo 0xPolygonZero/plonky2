@@ -64,7 +64,7 @@ pub fn eval_packed<P: PackedField>(
     let exc_handler_addr_start =
         exc_jumptable_start + exc_code * P::Scalar::from_canonical_usize(BYTES_PER_OFFSET);
 
-    for (i, channel) in lv.mem_channels[0..BYTES_PER_OFFSET].iter().enumerate() {
+    for (i, channel) in lv.mem_channels[1..BYTES_PER_OFFSET + 1].iter().enumerate() {
         yield_constr.constraint(total_filter * (channel.used - P::ONES));
         yield_constr.constraint(total_filter * (channel.is_read - P::ONES));
 
@@ -81,13 +81,13 @@ pub fn eval_packed<P: PackedField>(
     }
 
     // Disable unused channels (the last channel is used to push to the stack)
-    for channel in &lv.mem_channels[BYTES_PER_OFFSET..NUM_GP_CHANNELS - 1] {
+    for channel in &lv.mem_channels[BYTES_PER_OFFSET + 1..NUM_GP_CHANNELS - 1] {
         yield_constr.constraint(total_filter * channel.used);
     }
 
     // Set program counter to the handler address
     // The addresses are big-endian in memory
-    let target = lv.mem_channels[0..BYTES_PER_OFFSET]
+    let target = lv.mem_channels[1..BYTES_PER_OFFSET + 1]
         .iter()
         .map(|channel| channel.value[0])
         .fold(P::ZEROS, |cumul, limb| {
@@ -102,9 +102,8 @@ pub fn eval_packed<P: PackedField>(
     yield_constr.constraint_transition(total_filter * nv.gas[0]);
     yield_constr.constraint_transition(total_filter * nv.gas[1]);
 
-    // This memory channel is constrained in `stack.rs`.
-    let output = lv.mem_channels[NUM_GP_CHANNELS - 1].value;
-    // Push to stack: current PC + 1 (limb 0), kernel flag (limb 1), gas counter (limbs 6 and 7).
+    let output = nv.mem_channels[0].value;
+    // New top of the stack: current PC + 1 (limb 0), kernel flag (limb 1), gas counter (limbs 6 and 7).
     yield_constr.constraint(filter_syscall * (output[0] - (lv.program_counter + P::ONES)));
     yield_constr.constraint(filter_exception * (output[0] - lv.program_counter));
     // Check the kernel mode, for syscalls only
@@ -182,7 +181,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
         exc_jumptable_start,
     );
 
-    for (i, channel) in lv.mem_channels[0..BYTES_PER_OFFSET].iter().enumerate() {
+    for (i, channel) in lv.mem_channels[1..BYTES_PER_OFFSET + 1].iter().enumerate() {
         {
             let constr = builder.mul_sub_extension(total_filter, channel.used, total_filter);
             yield_constr.constraint(builder, constr);
@@ -235,7 +234,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     }
 
     // Disable unused channels (the last channel is used to push to the stack)
-    for channel in &lv.mem_channels[BYTES_PER_OFFSET..NUM_GP_CHANNELS - 1] {
+    for channel in &lv.mem_channels[BYTES_PER_OFFSET + 1..NUM_GP_CHANNELS - 1] {
         let constr = builder.mul_extension(total_filter, channel.used);
         yield_constr.constraint(builder, constr);
     }
@@ -243,7 +242,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     // Set program counter to the handler address
     // The addresses are big-endian in memory
     {
-        let target = lv.mem_channels[0..BYTES_PER_OFFSET]
+        let target = lv.mem_channels[1..BYTES_PER_OFFSET + 1]
             .iter()
             .map(|channel| channel.value[0])
             .fold(builder.zero_extension(), |cumul, limb| {
@@ -272,8 +271,8 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
         yield_constr.constraint_transition(builder, constr);
     }
 
-    // This memory channel is constrained in `stack.rs`.
-    let output = lv.mem_channels[NUM_GP_CHANNELS - 1].value;
+    // New top of the stack.
+    let output = nv.mem_channels[0].value;
     // Push to stack (syscall): current PC + 1 (limb 0), kernel flag (limb 1), gas counter (limbs 6 and 7).
     {
         let pc_plus_1 = builder.add_const_extension(lv.program_counter, F::ONE);

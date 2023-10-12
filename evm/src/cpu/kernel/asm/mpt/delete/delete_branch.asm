@@ -77,14 +77,16 @@ loop_end:
     // stack: i, updated_child_ptr, first_nibble, node_payload_ptr, retdest
     DUP4 ADD %mload_trie_data
     // stack: only_child_ptr, updated_child_ptr, first_nibble, node_payload_ptr, retdest
-    DUP1 %mload_trie_data %eq_const(@MPT_NODE_BRANCH)     %jumpi(maybe_normalize_branch_branch)
+    DUP1 %mload_trie_data %eq_const(@MPT_NODE_BRANCH)     %jumpi(maybe_normalize_branch_branchhash)
+    DUP1 %mload_trie_data %eq_const(@MPT_NODE_HASH)       %jumpi(maybe_normalize_branch_branchhash)
     DUP1 %mload_trie_data %eq_const(@MPT_NODE_EXTENSION)  %jumpi(maybe_normalize_branch_leafext)
     DUP1 %mload_trie_data %eq_const(@MPT_NODE_LEAF)       %jumpi(maybe_normalize_branch_leafext)
     PANIC // This should never happen.
 
-// The only child of the branch node is a branch node.
+// The only child of the branch node is a branch node or a hash node.
 // Transform the branch node into an extension node of length 1.
-maybe_normalize_branch_branch:
+// This assumes that the hash node does not contain a leaf or an extension node (in which case this implementation is incorrect).
+maybe_normalize_branch_branchhash:
     // stack: only_child_ptr, updated_child_ptr, first_nibble, node_payload_ptr, retdest
     %get_trie_data_size // pointer to the extension node we're about to create
     // stack: extension_ptr, only_child_ptr, updated_child_ptr, first_nibble, node_payload_ptr, retdest

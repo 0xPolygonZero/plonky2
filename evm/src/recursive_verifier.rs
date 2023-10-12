@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use anyhow::{ensure, Result};
+use anyhow::Result;
 use ethereum_types::{BigEndianHash, U256};
 use plonky2::field::extension::Extendable;
 use plonky2::field::types::Field;
@@ -10,13 +10,13 @@ use plonky2::gates::gate::GateRef;
 use plonky2::gates::noop::NoopGate;
 use plonky2::hash::hash_types::RichField;
 use plonky2::hash::hashing::PlonkyPermutation;
-use plonky2::iop::challenger::{Challenger, RecursiveChallenger};
+use plonky2::iop::challenger::RecursiveChallenger;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::iop::target::Target;
 use plonky2::iop::witness::{PartialWitness, Witness, WitnessWrite};
 use plonky2::plonk::circuit_builder::CircuitBuilder;
-use plonky2::plonk::circuit_data::{CircuitConfig, CircuitData, VerifierCircuitData};
-use plonky2::plonk::config::{AlgebraicHasher, GenericConfig, Hasher};
+use plonky2::plonk::circuit_data::{CircuitConfig, CircuitData};
+use plonky2::plonk::config::{AlgebraicHasher, GenericConfig};
 use plonky2::plonk::proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget};
 use plonky2::util::reducing::ReducingFactorTarget;
 use plonky2::util::serialization::{
@@ -25,13 +25,12 @@ use plonky2::util::serialization::{
 use plonky2::with_context;
 use plonky2_util::log2_ceil;
 
-use crate::all_stark::{Table, NUM_TABLES};
+use crate::all_stark::Table;
 use crate::config::StarkConfig;
 use crate::constraint_consumer::RecursiveConstraintConsumer;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
 use crate::cross_table_lookup::{
-    get_grand_product_challenge_set, verify_cross_table_lookups, CrossTableLookup,
-    CtlCheckVarsTarget, GrandProductChallenge, GrandProductChallengeSet,
+    CrossTableLookup, CtlCheckVarsTarget, GrandProductChallenge, GrandProductChallengeSet,
 };
 use crate::evaluation_frame::StarkEvaluationFrame;
 use crate::lookup::LookupCheckVarsTarget;
@@ -47,15 +46,6 @@ use crate::stark::Stark;
 use crate::util::{h256_limbs, u256_limbs, u256_to_u32, u256_to_u64};
 use crate::vanishing_poly::eval_vanishing_poly_circuit;
 use crate::witness::errors::ProgramError;
-
-/// Table-wise recursive proofs of an `AllProof`.
-pub struct RecursiveAllProof<
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
-    const D: usize,
-> {
-    pub recursive_proofs: [ProofWithPublicInputs<F, C, D>; NUM_TABLES],
-}
 
 pub(crate) struct PublicInputs<T: Copy + Default + Eq + PartialEq + Debug, P: PlonkyPermutation<T>>
 {
@@ -95,72 +85,6 @@ impl<T: Copy + Debug + Default + Eq + PartialEq, P: PlonkyPermutation<T>> Public
             challenger_state_before,
             challenger_state_after,
         }
-    }
-}
-
-impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
-    RecursiveAllProof<F, C, D>
-{
-    /// Verify every recursive proof.
-    pub fn verify(
-        self,
-        verifier_data: &[VerifierCircuitData<F, C, D>; NUM_TABLES],
-        cross_table_lookups: Vec<CrossTableLookup<F>>,
-        inner_config: &StarkConfig,
-    ) -> Result<()> {
-        let pis: [_; NUM_TABLES] = core::array::from_fn(|i| {
-            PublicInputs::<F, <C::Hasher as Hasher<F>>::Permutation>::from_vec(
-                &self.recursive_proofs[i].public_inputs,
-                inner_config,
-            )
-        });
-
-        let mut challenger = Challenger::<F, C::Hasher>::new();
-        for pi in &pis {
-            for h in &pi.trace_cap {
-                challenger.observe_elements(h);
-            }
-        }
-
-        // TODO: Observe public values if the code isn't deprecated.
-
-        let ctl_challenges =
-            get_grand_product_challenge_set(&mut challenger, inner_config.num_challenges);
-        // Check that the correct CTL challenges are used in every proof.
-        for pi in &pis {
-            ensure!(ctl_challenges == pi.ctl_challenges);
-        }
-
-        let state = challenger.compact();
-        ensure!(state == pis[0].challenger_state_before);
-        // Check that the challenger state is consistent between proofs.
-        for i in 1..NUM_TABLES {
-            ensure!(pis[i].challenger_state_before == pis[i - 1].challenger_state_after);
-        }
-
-        // Dummy values which will make the check fail.
-        // TODO: Fix this if the code isn't deprecated.
-        let mut extra_looking_products = Vec::new();
-        for i in 0..NUM_TABLES {
-            extra_looking_products.push(Vec::new());
-            for _ in 0..inner_config.num_challenges {
-                extra_looking_products[i].push(F::ONE);
-            }
-        }
-
-        // Verify the CTL checks.
-        verify_cross_table_lookups::<F, D>(
-            &cross_table_lookups,
-            pis.map(|p| p.ctl_zs_first),
-            extra_looking_products,
-            inner_config,
-        )?;
-
-        // Verify the proofs.
-        for (proof, verifier_data) in self.recursive_proofs.into_iter().zip(verifier_data) {
-            verifier_data.verify(proof)?;
-        }
-        Ok(())
     }
 }
 
@@ -813,7 +737,7 @@ pub(crate) fn add_virtual_block_hashes<F: RichField + Extendable<D>, const D: us
 pub(crate) fn add_virtual_extra_block_data<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
 ) -> ExtraBlockDataTarget {
-    let genesis_state_root = builder.add_virtual_public_input_arr();
+    let genesis_state_trie_root = builder.add_virtual_public_input_arr();
     let txn_number_before = builder.add_virtual_public_input();
     let txn_number_after = builder.add_virtual_public_input();
     let gas_used_before = builder.add_virtual_public_input_arr();
@@ -821,7 +745,7 @@ pub(crate) fn add_virtual_extra_block_data<F: RichField + Extendable<D>, const D
     let block_bloom_before: [Target; 64] = builder.add_virtual_public_input_arr();
     let block_bloom_after: [Target; 64] = builder.add_virtual_public_input_arr();
     ExtraBlockDataTarget {
-        genesis_state_root,
+        genesis_state_trie_root,
         txn_number_before,
         txn_number_after,
         gas_used_before,
@@ -1084,8 +1008,8 @@ where
     W: Witness<F>,
 {
     witness.set_target_arr(
-        &ed_target.genesis_state_root,
-        &h256_limbs::<F>(ed.genesis_state_root),
+        &ed_target.genesis_state_trie_root,
+        &h256_limbs::<F>(ed.genesis_state_trie_root),
     );
     witness.set_target(
         ed_target.txn_number_before,

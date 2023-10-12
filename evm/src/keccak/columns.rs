@@ -20,7 +20,7 @@ pub fn reg_input_limb<F: Field>(i: usize) -> Column<F> {
     let y = i_u64 / 5;
     let x = i_u64 % 5;
 
-    let reg_low_limb = reg_preimage(x, y);
+    let reg_low_limb = reg_a(x, y);
     let is_high_limb = i % 2;
     Column::single(reg_low_limb + is_high_limb)
 }
@@ -48,15 +48,11 @@ const R: [[u8; 5]; 5] = [
     [27, 20, 39, 8, 14],
 ];
 
-const START_PREIMAGE: usize = NUM_ROUNDS;
-/// Registers to hold the original input to a permutation, i.e. the input to the first round.
-pub(crate) const fn reg_preimage(x: usize, y: usize) -> usize {
-    debug_assert!(x < 5);
-    debug_assert!(y < 5);
-    START_PREIMAGE + (x * 5 + y) * 2
-}
+/// Column holding the timestamp, used to link inputs and outputs
+/// in the `KeccakSpongeStark`.
+pub(crate) const TIMESTAMP: usize = NUM_ROUNDS;
 
-const START_A: usize = START_PREIMAGE + 5 * 5 * 2;
+const START_A: usize = TIMESTAMP + 1;
 pub(crate) const fn reg_a(x: usize, y: usize) -> usize {
     debug_assert!(x < 5);
     debug_assert!(y < 5);

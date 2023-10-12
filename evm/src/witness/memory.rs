@@ -88,6 +88,18 @@ pub struct MemoryOp {
     pub value: U256,
 }
 
+pub static DUMMY_MEMOP: MemoryOp = MemoryOp {
+    filter: false,
+    timestamp: 0,
+    address: MemoryAddress {
+        context: 0,
+        segment: 0,
+        virt: 0,
+    },
+    kind: MemoryOpKind::Read,
+    value: U256::zero(),
+};
+
 impl MemoryOp {
     pub fn new(
         channel: MemoryChannel,

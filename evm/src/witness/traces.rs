@@ -36,7 +36,7 @@ pub(crate) struct Traces<T: Copy> {
     pub(crate) cpu: Vec<CpuColumnsView<T>>,
     pub(crate) logic_ops: Vec<logic::Operation>,
     pub(crate) memory_ops: Vec<MemoryOp>,
-    pub(crate) keccak_inputs: Vec<[u64; keccak::keccak_stark::NUM_INPUTS]>,
+    pub(crate) keccak_inputs: Vec<([u64; keccak::keccak_stark::NUM_INPUTS], usize)>,
     pub(crate) keccak_sponge_ops: Vec<KeccakSpongeOp>,
 }
 
@@ -131,18 +131,18 @@ impl<T: Copy> Traces<T> {
         self.byte_packing_ops.push(op);
     }
 
-    pub fn push_keccak(&mut self, input: [u64; keccak::keccak_stark::NUM_INPUTS]) {
-        self.keccak_inputs.push(input);
+    pub fn push_keccak(&mut self, input: [u64; keccak::keccak_stark::NUM_INPUTS], clock: usize) {
+        self.keccak_inputs.push((input, clock));
     }
 
-    pub fn push_keccak_bytes(&mut self, input: [u8; KECCAK_WIDTH_BYTES]) {
+    pub fn push_keccak_bytes(&mut self, input: [u8; KECCAK_WIDTH_BYTES], clock: usize) {
         let chunks = input
             .chunks(size_of::<u64>())
             .map(|chunk| u64::from_le_bytes(chunk.try_into().unwrap()))
             .collect_vec()
             .try_into()
             .unwrap();
-        self.push_keccak(chunks);
+        self.push_keccak(chunks, clock);
     }
 
     pub fn push_keccak_sponge(&mut self, op: KeccakSpongeOp) {

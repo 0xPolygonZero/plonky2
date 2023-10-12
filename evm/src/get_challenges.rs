@@ -6,7 +6,6 @@ use plonky2::iop::challenger::{Challenger, RecursiveChallenger};
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::config::{AlgebraicHasher, GenericConfig};
 
-use crate::all_stark::{AllStark, NUM_TABLES};
 use crate::config::StarkConfig;
 use crate::cross_table_lookup::get_grand_product_challenge_set;
 use crate::proof::*;
@@ -109,7 +108,7 @@ fn observe_extra_block_data<
     challenger: &mut Challenger<F, C::Hasher>,
     extra_data: &ExtraBlockData,
 ) -> Result<(), ProgramError> {
-    challenger.observe_elements(&h256_limbs(extra_data.genesis_state_root));
+    challenger.observe_elements(&h256_limbs(extra_data.genesis_state_trie_root));
     challenger.observe_element(u256_to_u32(extra_data.txn_number_before)?);
     challenger.observe_element(u256_to_u32(extra_data.txn_number_after)?);
     let gas_used_before = u256_to_u64(extra_data.gas_used_before)?;
@@ -138,7 +137,7 @@ fn observe_extra_block_data_target<
 ) where
     C::Hasher: AlgebraicHasher<F>,
 {
-    challenger.observe_elements(&extra_data.genesis_state_root);
+    challenger.observe_elements(&extra_data.genesis_state_trie_root);
     challenger.observe_element(extra_data.txn_number_before);
     challenger.observe_element(extra_data.txn_number_after);
     challenger.observe_elements(&extra_data.gas_used_before);
@@ -233,39 +232,6 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> A
             }),
             ctl_challenges,
         })
-    }
-
-    #[allow(unused)] // TODO: should be used soon
-    pub(crate) fn get_challenger_states(
-        &self,
-        all_stark: &AllStark<F, D>,
-        config: &StarkConfig,
-    ) -> AllChallengerState<F, C::Hasher, D> {
-        let mut challenger = Challenger::<F, C::Hasher>::new();
-
-        for proof in &self.stark_proofs {
-            challenger.observe_cap(&proof.proof.trace_cap);
-        }
-
-        observe_public_values::<F, C, D>(&mut challenger, &self.public_values);
-
-        let ctl_challenges =
-            get_grand_product_challenge_set(&mut challenger, config.num_challenges);
-
-        let lookups = all_stark.num_lookups_helper_columns(config);
-
-        let mut challenger_states = vec![challenger.compact()];
-        for i in 0..NUM_TABLES {
-            self.stark_proofs[i]
-                .proof
-                .get_challenges(&mut challenger, config);
-            challenger_states.push(challenger.compact());
-        }
-
-        AllChallengerState {
-            states: challenger_states.try_into().unwrap(),
-            ctl_challenges,
-        }
     }
 }
 
