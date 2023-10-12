@@ -17,9 +17,8 @@ use plonky2::util::timing::TimingTree;
 use plonky2_evm::all_stark::AllStark;
 use plonky2_evm::config::StarkConfig;
 use plonky2_evm::fixed_recursive_verifier::AllRecursiveCircuits;
-use plonky2_evm::generation::mpt::{
-    AccountRlp, AddressOption, LegacyReceiptRlp, LegacyTransactionRlp, LogRlp,
-};
+use plonky2_evm::generation::mpt::transaction_testing::{AddressOption, LegacyTransactionRlp};
+use plonky2_evm::generation::mpt::{AccountRlp, LegacyReceiptRlp, LogRlp};
 use plonky2_evm::generation::{GenerationInputs, TrieInputs};
 use plonky2_evm::proof::{BlockHashes, BlockMetadata, ExtraBlockData, PublicValues, TrieRoots};
 use plonky2_evm::prover::prove;
@@ -204,9 +203,15 @@ fn test_log_opcodes() -> anyhow::Result<()> {
     expected_state_trie_after.insert(sender_nibbles, rlp::encode(&sender_account_after).to_vec());
     expected_state_trie_after.insert(to_nibbles, rlp::encode(&to_account_after).to_vec());
 
+    let transactions_trie: HashedPartialTrie = Node::Leaf {
+        nibbles: Nibbles::from_str("0x80").unwrap(),
+        value: txn.to_vec(),
+    }
+    .into();
+
     let trie_roots_after = TrieRoots {
         state_root: expected_state_trie_after.hash(),
-        transactions_root: HashedPartialTrie::from(Node::Empty).hash(),
+        transactions_root: transactions_trie.hash(),
         receipts_root: receipts_trie.hash(),
     };
     let block_bloom_after = [
@@ -334,6 +339,7 @@ fn test_log_with_aggreg() -> anyhow::Result<()> {
         to_second_nibbles,
         rlp::encode(&to_account_second_before).to_vec(),
     );
+    let genesis_state_trie_root = state_trie_before.hash();
 
     let tries_before = TrieInputs {
         state_trie: state_trie_before,
@@ -417,9 +423,15 @@ fn test_log_with_aggreg() -> anyhow::Result<()> {
         rlp::encode(&receipt_0).to_vec(),
     );
 
+    let mut transactions_trie: HashedPartialTrie = Node::Leaf {
+        nibbles: Nibbles::from_str("0x80").unwrap(),
+        value: txn.to_vec(),
+    }
+    .into();
+
     let tries_after = TrieRoots {
         state_root: expected_state_trie_after.hash(),
-        transactions_root: HashedPartialTrie::from(Node::Empty).hash(),
+        transactions_root: transactions_trie.hash(),
         receipts_root: receipts_trie.clone().hash(),
     };
 
@@ -428,7 +440,7 @@ fn test_log_with_aggreg() -> anyhow::Result<()> {
         tries: tries_before,
         trie_roots_after: tries_after,
         contract_code,
-        genesis_state_trie_root: HashedPartialTrie::from(Node::Empty).hash(),
+        genesis_state_trie_root,
         block_metadata: block_metadata.clone(),
         txn_number_before: 0.into(),
         gas_used_before: 0.into(),
@@ -466,7 +478,7 @@ fn test_log_with_aggreg() -> anyhow::Result<()> {
 
     let tries_before = TrieInputs {
         state_trie: state_trie_before,
-        transactions_trie: Node::Empty.into(),
+        transactions_trie: transactions_trie.clone(),
         receipts_trie: receipts_trie.clone(),
         storage_tries: vec![],
     };
@@ -543,9 +555,11 @@ fn test_log_with_aggreg() -> anyhow::Result<()> {
         rlp::encode(&to_account_second_after).to_vec(),
     );
 
+    transactions_trie.insert(Nibbles::from_str("0x01").unwrap(), txn_2.to_vec());
+
     let trie_roots_after = TrieRoots {
         state_root: expected_state_trie_after.hash(),
-        transactions_root: HashedPartialTrie::from(Node::Empty).hash(),
+        transactions_root: transactions_trie.hash(),
         receipts_root: receipts_trie.hash(),
     };
 
@@ -570,7 +584,7 @@ fn test_log_with_aggreg() -> anyhow::Result<()> {
         tries: tries_before,
         trie_roots_after,
         contract_code,
-        genesis_state_trie_root: HashedPartialTrie::from(Node::Empty).hash(),
+        genesis_state_trie_root,
         block_metadata,
         txn_number_before: 1.into(),
         gas_used_before: gas_used_second,
@@ -596,7 +610,7 @@ fn test_log_with_aggreg() -> anyhow::Result<()> {
         trie_roots_before: first_public_values.trie_roots_before,
         trie_roots_after: public_values.trie_roots_after,
         extra_block_data: ExtraBlockData {
-            genesis_state_root: first_public_values.extra_block_data.genesis_state_root,
+            genesis_state_trie_root,
             txn_number_before: first_public_values.extra_block_data.txn_number_before,
             txn_number_after: public_values.extra_block_data.txn_number_after,
             gas_used_before: first_public_values.extra_block_data.gas_used_before,
@@ -863,9 +877,17 @@ fn test_two_txn() -> anyhow::Result<()> {
         rlp::encode(&receipt_1).to_vec(),
     );
 
+    let mut transactions_trie: HashedPartialTrie = Node::Leaf {
+        nibbles: Nibbles::from_str("0x80").unwrap(),
+        value: txn_0.to_vec(),
+    }
+    .into();
+
+    transactions_trie.insert(Nibbles::from_str("0x01").unwrap(), txn_1.to_vec());
+
     let trie_roots_after = TrieRoots {
         state_root: expected_state_trie_after.hash(),
-        transactions_root: HashedPartialTrie::from(Node::Empty).hash(),
+        transactions_root: transactions_trie.hash(),
         receipts_root: receipts_trie.hash(),
     };
     let inputs = GenerationInputs {

@@ -29,10 +29,12 @@ use plonky2_util::log2_ceil;
 
 use crate::all_stark::{all_cross_table_lookups, AllStark, Table, NUM_TABLES};
 use crate::config::StarkConfig;
-use crate::cross_table_lookup::{verify_cross_table_lookups_circuit, CrossTableLookup};
+use crate::cross_table_lookup::{
+    get_grand_product_challenge_set_target, verify_cross_table_lookups_circuit, CrossTableLookup,
+    GrandProductChallengeSet,
+};
 use crate::generation::GenerationInputs;
 use crate::get_challenges::observe_public_values_target;
-use crate::permutation::{get_grand_product_challenge_set_target, GrandProductChallengeSet};
 use crate::proof::{
     BlockHashesTarget, BlockMetadataTarget, ExtraBlockDataTarget, PublicValues, PublicValuesTarget,
     StarkProofWithMetadata, TrieRootsTarget,
@@ -642,10 +644,18 @@ where
         rhs: &ExtraBlockDataTarget,
     ) {
         // Connect genesis state root values.
-        for (&limb0, &limb1) in pvs.genesis_state_root.iter().zip(&rhs.genesis_state_root) {
+        for (&limb0, &limb1) in pvs
+            .genesis_state_trie_root
+            .iter()
+            .zip(&rhs.genesis_state_trie_root)
+        {
             builder.connect(limb0, limb1);
         }
-        for (&limb0, &limb1) in pvs.genesis_state_root.iter().zip(&lhs.genesis_state_root) {
+        for (&limb0, &limb1) in pvs
+            .genesis_state_trie_root
+            .iter()
+            .zip(&lhs.genesis_state_trie_root)
+        {
             builder.connect(limb0, limb1);
         }
 
@@ -653,15 +663,18 @@ where
         builder.connect(pvs.txn_number_before, lhs.txn_number_before);
         builder.connect(pvs.txn_number_after, rhs.txn_number_after);
 
-        // Connect lhs `txn_number_after`with rhs `txn_number_before`.
+        // Connect lhs `txn_number_after` with rhs `txn_number_before`.
         builder.connect(lhs.txn_number_after, rhs.txn_number_before);
 
         // Connect the gas used in public values to the lhs and rhs values correctly.
-        builder.connect(pvs.gas_used_before, lhs.gas_used_before);
-        builder.connect(pvs.gas_used_after, rhs.gas_used_after);
+        builder.connect(pvs.gas_used_before[0], lhs.gas_used_before[0]);
+        builder.connect(pvs.gas_used_before[1], lhs.gas_used_before[1]);
+        builder.connect(pvs.gas_used_after[0], rhs.gas_used_after[0]);
+        builder.connect(pvs.gas_used_after[1], rhs.gas_used_after[1]);
 
-        // Connect lhs `gas_used_after`with rhs `gas_used_before`.
-        builder.connect(lhs.gas_used_after, rhs.gas_used_before);
+        // Connect lhs `gas_used_after` with rhs `gas_used_before`.
+        builder.connect(lhs.gas_used_after[0], rhs.gas_used_before[0]);
+        builder.connect(lhs.gas_used_after[1], rhs.gas_used_before[1]);
 
         // Connect the `block_bloom` in public values to the lhs and rhs values correctly.
         for (&limb0, &limb1) in pvs.block_bloom_after.iter().zip(&rhs.block_bloom_after) {
@@ -670,7 +683,7 @@ where
         for (&limb0, &limb1) in pvs.block_bloom_before.iter().zip(&lhs.block_bloom_before) {
             builder.connect(limb0, limb1);
         }
-        // Connect lhs `block_bloom_after`with rhs `block_bloom_before`.
+        // Connect lhs `block_bloom_after` with rhs `block_bloom_before`.
         for (&limb0, &limb1) in lhs.block_bloom_after.iter().zip(&rhs.block_bloom_before) {
             builder.connect(limb0, limb1);
         }
@@ -788,9 +801,9 @@ where
         // Between blocks, the genesis state trie remains unchanged.
         for (&limb0, limb1) in lhs
             .extra_block_data
-            .genesis_state_root
+            .genesis_state_trie_root
             .iter()
-            .zip(rhs.extra_block_data.genesis_state_root)
+            .zip(rhs.extra_block_data.genesis_state_trie_root)
         {
             builder.connect(limb0, limb1);
         }
@@ -829,7 +842,7 @@ where
             .trie_roots_before
             .state_root
             .iter()
-            .zip(x.extra_block_data.genesis_state_root)
+            .zip(x.extra_block_data.genesis_state_trie_root)
         {
             let mut constr = builder.sub(limb0, limb1);
             constr = builder.mul(has_not_parent_block, constr);
@@ -844,8 +857,12 @@ where
         F: RichField + Extendable<D>,
     {
         builder.connect(
-            x.block_metadata.block_gas_used,
-            x.extra_block_data.gas_used_after,
+            x.block_metadata.block_gas_used[0],
+            x.extra_block_data.gas_used_after[0],
+        );
+        builder.connect(
+            x.block_metadata.block_gas_used[1],
+            x.extra_block_data.gas_used_after[1],
         );
 
         for (&limb0, &limb1) in x
@@ -865,8 +882,9 @@ where
         let zero = builder.constant(F::ZERO);
         // The initial number of transactions is 0.
         builder.connect(x.extra_block_data.txn_number_before, zero);
-        // The initial gas used is 0
-        builder.connect(x.extra_block_data.gas_used_before, zero);
+        // The initial gas used is 0.
+        builder.connect(x.extra_block_data.gas_used_before[0], zero);
+        builder.connect(x.extra_block_data.gas_used_before[1], zero);
 
         // The initial bloom filter is all zeroes.
         for t in x.extra_block_data.block_bloom_before {
@@ -1027,7 +1045,7 @@ where
                     + BlockHashesTarget::BLOCK_HASHES_SIZE
                     + 8;
             for (key, &value) in genesis_state_trie_keys.zip_eq(&h256_limbs::<F>(
-                public_values.extra_block_data.genesis_state_root,
+                public_values.extra_block_data.genesis_state_trie_root,
             )) {
                 nonzero_pis.insert(key, value);
             }

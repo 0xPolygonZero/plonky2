@@ -33,13 +33,9 @@ pub(crate) const fn value_bytes(i: usize) -> usize {
     BYTES_VALUES_START + i
 }
 
-// We need one column for the table, then two columns for every value
-// that needs to be range checked in the trace (all written bytes),
-// namely the permutation of the column and the permutation of the range.
-// The two permutations associated to the byte in column i will be in
-// columns RC_COLS[2i] and RC_COLS[2i+1].
+/// The counter column (used for the range check) starts from 0 and increments.
 pub(crate) const RANGE_COUNTER: usize = BYTES_VALUES_START + NUM_BYTES;
-pub(crate) const NUM_RANGE_CHECK_COLS: usize = 1 + 2 * NUM_BYTES;
-pub(crate) const RC_COLS: Range<usize> = RANGE_COUNTER + 1..RANGE_COUNTER + NUM_RANGE_CHECK_COLS;
+/// The frequencies column used in logUp.
+pub(crate) const RC_FREQUENCIES: usize = RANGE_COUNTER + 1;
 
-pub(crate) const NUM_COLUMNS: usize = RANGE_COUNTER + NUM_RANGE_CHECK_COLS;
+pub(crate) const NUM_COLUMNS: usize = RANGE_COUNTER + 2;

@@ -5,16 +5,15 @@ use plonky2::iop::ext_target::ExtensionTarget;
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::CpuColumnsView;
-use crate::cpu::membus::NUM_GP_CHANNELS;
 
 pub fn eval_packed<P: PackedField>(
     lv: &CpuColumnsView<P>,
+    nv: &CpuColumnsView<P>,
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
     // `PUSH0`'s opcode is odd, while `PC`'s opcode is even.
     let filter = lv.op.pc_push0 * lv.opcode_bits[0];
-    let push_value = lv.mem_channels[NUM_GP_CHANNELS - 1].value;
-    for limb in push_value {
+    for limb in nv.mem_channels[0].value {
         yield_constr.constraint(filter * limb);
     }
 }
@@ -22,12 +21,12 @@ pub fn eval_packed<P: PackedField>(
 pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
     lv: &CpuColumnsView<ExtensionTarget<D>>,
+    nv: &CpuColumnsView<ExtensionTarget<D>>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
     // `PUSH0`'s opcode is odd, while `PC`'s opcode is even.
     let filter = builder.mul_extension(lv.op.pc_push0, lv.opcode_bits[0]);
-    let push_value = lv.mem_channels[NUM_GP_CHANNELS - 1].value;
-    for limb in push_value {
+    for limb in nv.mem_channels[0].value {
         let constr = builder.mul_extension(filter, limb);
         yield_constr.constraint(builder, constr);
     }

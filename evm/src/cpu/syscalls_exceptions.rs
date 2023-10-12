@@ -64,7 +64,7 @@ pub fn eval_packed<P: PackedField>(
     let exc_handler_addr_start =
         exc_jumptable_start + exc_code * P::Scalar::from_canonical_usize(BYTES_PER_OFFSET);
 
-    for (i, channel) in lv.mem_channels[0..BYTES_PER_OFFSET].iter().enumerate() {
+    for (i, channel) in lv.mem_channels[1..BYTES_PER_OFFSET + 1].iter().enumerate() {
         yield_constr.constraint(total_filter * (channel.used - P::ONES));
         yield_constr.constraint(total_filter * (channel.is_read - P::ONES));
 
@@ -81,13 +81,13 @@ pub fn eval_packed<P: PackedField>(
     }
 
     // Disable unused channels (the last channel is used to push to the stack)
-    for channel in &lv.mem_channels[BYTES_PER_OFFSET..NUM_GP_CHANNELS - 1] {
+    for channel in &lv.mem_channels[BYTES_PER_OFFSET + 1..NUM_GP_CHANNELS - 1] {
         yield_constr.constraint(total_filter * channel.used);
     }
 
     // Set program counter to the handler address
     // The addresses are big-endian in memory
-    let target = lv.mem_channels[0..BYTES_PER_OFFSET]
+    let target = lv.mem_channels[1..BYTES_PER_OFFSET + 1]
         .iter()
         .map(|channel| channel.value[0])
         .fold(P::ZEROS, |cumul, limb| {
@@ -99,18 +99,18 @@ pub fn eval_packed<P: PackedField>(
     // Maintain current context
     yield_constr.constraint_transition(total_filter * (nv.context - lv.context));
     // Reset gas counter to zero.
-    yield_constr.constraint_transition(total_filter * nv.gas);
+    yield_constr.constraint_transition(total_filter * nv.gas[0]);
+    yield_constr.constraint_transition(total_filter * nv.gas[1]);
 
-    // This memory channel is constrained in `stack.rs`.
-    let output = lv.mem_channels[NUM_GP_CHANNELS - 1].value;
-    // Push to stack: current PC + 1 (limb 0), kernel flag (limb 1), gas counter (limbs 6 and 7).
+    let output = nv.mem_channels[0].value;
+    // New top of the stack: current PC + 1 (limb 0), kernel flag (limb 1), gas counter (limbs 6 and 7).
     yield_constr.constraint(filter_syscall * (output[0] - (lv.program_counter + P::ONES)));
     yield_constr.constraint(filter_exception * (output[0] - lv.program_counter));
     // Check the kernel mode, for syscalls only
     yield_constr.constraint(filter_syscall * (output[1] - lv.is_kernel_mode));
-    yield_constr.constraint(total_filter * (output[6] - lv.gas));
-    // TODO: Range check `output[6]`.
-    yield_constr.constraint(total_filter * output[7]); // High limb of gas is zero.
+    // TODO: Range check `output[6] and output[7]`.
+    yield_constr.constraint(total_filter * (output[6] - lv.gas[0]));
+    yield_constr.constraint(total_filter * (output[7] - lv.gas[1]));
 
     // Zero the rest of that register
     // output[1] is 0 for exceptions, but not for syscalls
@@ -181,7 +181,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
         exc_jumptable_start,
     );
 
-    for (i, channel) in lv.mem_channels[0..BYTES_PER_OFFSET].iter().enumerate() {
+    for (i, channel) in lv.mem_channels[1..BYTES_PER_OFFSET + 1].iter().enumerate() {
         {
             let constr = builder.mul_sub_extension(total_filter, channel.used, total_filter);
             yield_constr.constraint(builder, constr);
@@ -234,7 +234,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     }
 
     // Disable unused channels (the last channel is used to push to the stack)
-    for channel in &lv.mem_channels[BYTES_PER_OFFSET..NUM_GP_CHANNELS - 1] {
+    for channel in &lv.mem_channels[BYTES_PER_OFFSET + 1..NUM_GP_CHANNELS - 1] {
         let constr = builder.mul_extension(total_filter, channel.used);
         yield_constr.constraint(builder, constr);
     }
@@ -242,7 +242,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     // Set program counter to the handler address
     // The addresses are big-endian in memory
     {
-        let target = lv.mem_channels[0..BYTES_PER_OFFSET]
+        let target = lv.mem_channels[1..BYTES_PER_OFFSET + 1]
             .iter()
             .map(|channel| channel.value[0])
             .fold(builder.zero_extension(), |cumul, limb| {
@@ -265,12 +265,14 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     }
     // Reset gas counter to zero.
     {
-        let constr = builder.mul_extension(total_filter, nv.gas);
+        let constr = builder.mul_extension(total_filter, nv.gas[0]);
+        yield_constr.constraint_transition(builder, constr);
+        let constr = builder.mul_extension(total_filter, nv.gas[1]);
         yield_constr.constraint_transition(builder, constr);
     }
 
-    // This memory channel is constrained in `stack.rs`.
-    let output = lv.mem_channels[NUM_GP_CHANNELS - 1].value;
+    // New top of the stack.
+    let output = nv.mem_channels[0].value;
     // Push to stack (syscall): current PC + 1 (limb 0), kernel flag (limb 1), gas counter (limbs 6 and 7).
     {
         let pc_plus_1 = builder.add_const_extension(lv.program_counter, F::ONE);
@@ -290,15 +292,15 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
         let constr = builder.mul_extension(filter_syscall, diff);
         yield_constr.constraint(builder, constr);
     }
+    // TODO: Range check `output[6]` and `output[7].
     {
-        let diff = builder.sub_extension(output[6], lv.gas);
+        let diff = builder.sub_extension(output[6], lv.gas[0]);
         let constr = builder.mul_extension(total_filter, diff);
         yield_constr.constraint(builder, constr);
     }
-    // TODO: Range check `output[6]`.
     {
-        // High limb of gas is zero.
-        let constr = builder.mul_extension(total_filter, output[7]);
+        let diff = builder.sub_extension(output[7], lv.gas[1]);
+        let constr = builder.mul_extension(total_filter, diff);
         yield_constr.constraint(builder, constr);
     }
 

@@ -11,13 +11,13 @@ use plonky2::plonk::plonk_common::reduce_with_powers_ext_circuit;
 use plonky2::timed;
 use plonky2::util::timing::TimingTree;
 
+use super::columns::reg_input_limb;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cross_table_lookup::Column;
 use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
 use crate::keccak::columns::{
     reg_a, reg_a_prime, reg_a_prime_prime, reg_a_prime_prime_0_0_bit, reg_a_prime_prime_prime,
-    reg_b, reg_c, reg_c_prime, reg_input_limb, reg_output_limb, reg_preimage, reg_step,
-    NUM_COLUMNS,
+    reg_b, reg_c, reg_c_prime, reg_output_limb, reg_step, NUM_COLUMNS, TIMESTAMP,
 };
 use crate::keccak::constants::{rc_value, rc_value_bit};
 use crate::keccak::logic::{
@@ -33,13 +33,23 @@ pub(crate) const NUM_ROUNDS: usize = 24;
 /// Number of 64-bit elements in the Keccak permutation input.
 pub(crate) const NUM_INPUTS: usize = 25;
 
-pub fn ctl_data<F: Field>() -> Vec<Column<F>> {
+pub fn ctl_data_inputs<F: Field>() -> Vec<Column<F>> {
     let mut res: Vec<_> = (0..2 * NUM_INPUTS).map(reg_input_limb).collect();
-    res.extend(Column::singles((0..2 * NUM_INPUTS).map(reg_output_limb)));
+    res.push(Column::single(TIMESTAMP));
     res
 }
 
-pub fn ctl_filter<F: Field>() -> Column<F> {
+pub fn ctl_data_outputs<F: Field>() -> Vec<Column<F>> {
+    let mut res: Vec<_> = Column::singles((0..2 * NUM_INPUTS).map(reg_output_limb)).collect();
+    res.push(Column::single(TIMESTAMP));
+    res
+}
+
+pub fn ctl_filter_inputs<F: Field>() -> Column<F> {
+    Column::single(reg_step(0))
+}
+
+pub fn ctl_filter_outputs<F: Field>() -> Column<F> {
     Column::single(reg_step(NUM_ROUNDS - 1))
 }
 
@@ -53,16 +63,16 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakStark<F, D> {
     /// in our lookup arguments, as those are computed after transposing to column-wise form.
     fn generate_trace_rows(
         &self,
-        inputs: Vec<[u64; NUM_INPUTS]>,
+        inputs_and_timestamps: Vec<([u64; NUM_INPUTS], usize)>,
         min_rows: usize,
     ) -> Vec<[F; NUM_COLUMNS]> {
-        let num_rows = (inputs.len() * NUM_ROUNDS)
+        let num_rows = (inputs_and_timestamps.len() * NUM_ROUNDS)
             .max(min_rows)
             .next_power_of_two();
 
         let mut rows = Vec::with_capacity(num_rows);
-        for input in inputs.iter() {
-            let rows_for_perm = self.generate_trace_rows_for_perm(*input);
+        for input_and_timestamp in inputs_and_timestamps.iter() {
+            let rows_for_perm = self.generate_trace_rows_for_perm(*input_and_timestamp);
             rows.extend(rows_for_perm);
         }
 
@@ -72,20 +82,19 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakStark<F, D> {
         rows
     }
 
-    fn generate_trace_rows_for_perm(&self, input: [u64; NUM_INPUTS]) -> Vec<[F; NUM_COLUMNS]> {
+    fn generate_trace_rows_for_perm(
+        &self,
+        input_and_timestamp: ([u64; NUM_INPUTS], usize),
+    ) -> Vec<[F; NUM_COLUMNS]> {
         let mut rows = vec![[F::ZERO; NUM_COLUMNS]; NUM_ROUNDS];
-
-        // Populate the preimage for each row.
+        let input = input_and_timestamp.0;
+        let timestamp = input_and_timestamp.1;
+        // Set the timestamp of the current input.
+        // It will be checked against the value in `KeccakSponge`.
+        // The timestamp is used to link the input and output of
+        // the same permutation together.
         for round in 0..24 {
-            for x in 0..5 {
-                for y in 0..5 {
-                    let input_xy = input[y * 5 + x];
-                    let reg_preimage_lo = reg_preimage(x, y);
-                    let reg_preimage_hi = reg_preimage_lo + 1;
-                    rows[round][reg_preimage_lo] = F::from_canonical_u64(input_xy & 0xFFFFFFFF);
-                    rows[round][reg_preimage_hi] = F::from_canonical_u64(input_xy >> 32);
-                }
-            }
+            rows[round][TIMESTAMP] = F::from_canonical_usize(timestamp);
         }
 
         // Populate the round input for the first round.
@@ -220,7 +229,7 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakStark<F, D> {
 
     pub fn generate_trace(
         &self,
-        inputs: Vec<[u64; NUM_INPUTS]>,
+        inputs: Vec<([u64; NUM_INPUTS], usize)>,
         min_rows: usize,
         timing: &mut TimingTree,
     ) -> Vec<PolynomialValues<F>> {
@@ -269,26 +278,14 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakStark<F
         let not_final_step = P::ONES - final_step;
         yield_constr.constraint(not_final_step * filter);
 
-        // If this is not the final step, the local and next preimages must match.
-        // Also, if this is the first step, the preimage must match A.
-        let is_first_step = local_values[reg_step(0)];
-        for x in 0..5 {
-            for y in 0..5 {
-                let reg_preimage_lo = reg_preimage(x, y);
-                let reg_preimage_hi = reg_preimage_lo + 1;
-                let diff_lo = local_values[reg_preimage_lo] - next_values[reg_preimage_lo];
-                let diff_hi = local_values[reg_preimage_hi] - next_values[reg_preimage_hi];
-                yield_constr.constraint_transition(not_final_step * diff_lo);
-                yield_constr.constraint_transition(not_final_step * diff_hi);
-
-                let reg_a_lo = reg_a(x, y);
-                let reg_a_hi = reg_a_lo + 1;
-                let diff_lo = local_values[reg_preimage_lo] - local_values[reg_a_lo];
-                let diff_hi = local_values[reg_preimage_hi] - local_values[reg_a_hi];
-                yield_constr.constraint(is_first_step * diff_lo);
-                yield_constr.constraint(is_first_step * diff_hi);
-            }
-        }
+        // If this is not the final step or a padding row,
+        // the local and next timestamps must match.
+        let sum_round_flags = (0..NUM_ROUNDS)
+            .map(|i| local_values[reg_step(i)])
+            .sum::<P>();
+        yield_constr.constraint(
+            sum_round_flags * not_final_step * (next_values[TIMESTAMP] - local_values[TIMESTAMP]),
+        );
 
         // C'[x, z] = xor(C[x, z], C[x - 1, z], C[x + 1, z - 1]).
         for x in 0..5 {
@@ -454,34 +451,13 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakStark<F
         let constraint = builder.mul_extension(not_final_step, filter);
         yield_constr.constraint(builder, constraint);
 
-        // If this is not the final step, the local and next preimages must match.
-        // Also, if this is the first step, the preimage must match A.
-        let is_first_step = local_values[reg_step(0)];
-        for x in 0..5 {
-            for y in 0..5 {
-                let reg_preimage_lo = reg_preimage(x, y);
-                let reg_preimage_hi = reg_preimage_lo + 1;
-                let diff = builder
-                    .sub_extension(local_values[reg_preimage_lo], next_values[reg_preimage_lo]);
-                let constraint = builder.mul_extension(not_final_step, diff);
-                yield_constr.constraint_transition(builder, constraint);
-                let diff = builder
-                    .sub_extension(local_values[reg_preimage_hi], next_values[reg_preimage_hi]);
-                let constraint = builder.mul_extension(not_final_step, diff);
-                yield_constr.constraint_transition(builder, constraint);
-
-                let reg_a_lo = reg_a(x, y);
-                let reg_a_hi = reg_a_lo + 1;
-                let diff_lo =
-                    builder.sub_extension(local_values[reg_preimage_lo], local_values[reg_a_lo]);
-                let constraint = builder.mul_extension(is_first_step, diff_lo);
-                yield_constr.constraint(builder, constraint);
-                let diff_hi =
-                    builder.sub_extension(local_values[reg_preimage_hi], local_values[reg_a_hi]);
-                let constraint = builder.mul_extension(is_first_step, diff_hi);
-                yield_constr.constraint(builder, constraint);
-            }
-        }
+        // If this is not the final step or a padding row,
+        // the local and next timestamps must match.
+        let sum_round_flags =
+            builder.add_many_extension((0..NUM_ROUNDS).map(|i| local_values[reg_step(i)]));
+        let diff = builder.sub_extension(next_values[TIMESTAMP], local_values[TIMESTAMP]);
+        let constr = builder.mul_many_extension([sum_round_flags, not_final_step, diff]);
+        yield_constr.constraint(builder, constr);
 
         // C'[x, z] = xor(C[x, z], C[x - 1, z], C[x + 1, z - 1]).
         for x in 0..5 {
@@ -652,10 +628,11 @@ mod tests {
     use tiny_keccak::keccakf;
 
     use crate::config::StarkConfig;
-    use crate::cross_table_lookup::{CtlData, CtlZData};
+    use crate::cross_table_lookup::{
+        CtlData, CtlZData, GrandProductChallenge, GrandProductChallengeSet,
+    };
     use crate::keccak::columns::reg_output_limb;
     use crate::keccak::keccak_stark::{KeccakStark, NUM_INPUTS, NUM_ROUNDS};
-    use crate::permutation::GrandProductChallenge;
     use crate::prover::prove_single_table;
     use crate::stark_testing::{test_stark_circuit_constraints, test_stark_low_degree};
 
@@ -698,7 +675,7 @@ mod tests {
             f: Default::default(),
         };
 
-        let rows = stark.generate_trace_rows(vec![input], 8);
+        let rows = stark.generate_trace_rows(vec![(input, 0)], 8);
         let last_row = rows[NUM_ROUNDS - 1];
         let output = (0..NUM_INPUTS)
             .map(|i| {
@@ -731,7 +708,8 @@ mod tests {
 
         init_logger();
 
-        let input: Vec<[u64; NUM_INPUTS]> = (0..NUM_PERMS).map(|_| rand::random()).collect();
+        let input: Vec<([u64; NUM_INPUTS], usize)> =
+            (0..NUM_PERMS).map(|_| (rand::random(), 0)).collect();
 
         let mut timing = TimingTree::new("prove", log::Level::Debug);
         let trace_poly_values = timed!(
@@ -769,7 +747,7 @@ mod tests {
             filter_column: None,
         };
         let ctl_data = CtlData {
-            zs_columns: vec![ctl_z_data; config.num_challenges],
+            zs_columns: vec![ctl_z_data.clone(); config.num_challenges],
         };
 
         prove_single_table(
@@ -778,6 +756,9 @@ mod tests {
             &trace_poly_values,
             &trace_commitments,
             &ctl_data,
+            &GrandProductChallengeSet {
+                challenges: vec![ctl_z_data.challenge; config.num_challenges],
+            },
             &mut Challenger::new(),
             &mut timing,
         )?;

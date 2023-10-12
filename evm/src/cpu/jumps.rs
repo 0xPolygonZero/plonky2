@@ -7,7 +7,6 @@ use plonky2::iop::ext_target::ExtensionTarget;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::membus::NUM_GP_CHANNELS;
-use crate::cpu::stack;
 use crate::memory::segments::Segment;
 
 pub fn eval_packed_exit_kernel<P: PackedField>(
@@ -23,9 +22,8 @@ pub fn eval_packed_exit_kernel<P: PackedField>(
     // but we trust the kernel to set them to zero).
     yield_constr.constraint_transition(filter * (input[0] - nv.program_counter));
     yield_constr.constraint_transition(filter * (input[1] - nv.is_kernel_mode));
-    yield_constr.constraint_transition(filter * (input[6] - nv.gas));
-    // High limb of gas must be 0 for convenient detection of overflow.
-    yield_constr.constraint(filter * input[7]);
+    yield_constr.constraint_transition(filter * (input[6] - nv.gas[0]));
+    yield_constr.constraint_transition(filter * (input[7] - nv.gas[1]));
 }
 
 pub fn eval_ext_circuit_exit_kernel<F: RichField + Extendable<D>, const D: usize>(
@@ -50,14 +48,14 @@ pub fn eval_ext_circuit_exit_kernel<F: RichField + Extendable<D>, const D: usize
     yield_constr.constraint_transition(builder, kernel_constr);
 
     {
-        let diff = builder.sub_extension(input[6], nv.gas);
+        let diff = builder.sub_extension(input[6], nv.gas[0]);
         let constr = builder.mul_extension(filter, diff);
         yield_constr.constraint_transition(builder, constr);
     }
     {
-        // High limb of gas must be 0 for convenient detection of overflow.
-        let constr = builder.mul_extension(filter, input[7]);
-        yield_constr.constraint(builder, constr);
+        let diff = builder.sub_extension(input[7], nv.gas[1]);
+        let constr = builder.mul_extension(filter, diff);
+        yield_constr.constraint_transition(builder, constr);
     }
 }
 
@@ -75,8 +73,26 @@ pub fn eval_packed_jump_jumpi<P: PackedField>(
     let is_jumpi = filter * lv.opcode_bits[0];
 
     // Stack constraints.
-    stack::eval_packed_one(lv, nv, is_jump, stack::JUMP_OP.unwrap(), yield_constr);
-    stack::eval_packed_one(lv, nv, is_jumpi, stack::JUMPI_OP.unwrap(), yield_constr);
+    // If (JUMP and stack_len != 1) or (JUMPI and stack_len != 2)...
+    let len_diff = lv.stack_len - P::ONES - lv.opcode_bits[0];
+    let new_filter = len_diff * filter;
+    // Read an extra element.
+    let channel = nv.mem_channels[0];
+    yield_constr.constraint_transition(new_filter * (channel.used - P::ONES));
+    yield_constr.constraint_transition(new_filter * (channel.is_read - P::ONES));
+    yield_constr.constraint_transition(new_filter * (channel.addr_context - nv.context));
+    yield_constr.constraint_transition(
+        new_filter * (channel.addr_segment - P::Scalar::from_canonical_u64(Segment::Stack as u64)),
+    );
+    let addr_virtual = nv.stack_len - P::ONES;
+    yield_constr.constraint_transition(new_filter * (channel.addr_virtual - addr_virtual));
+    // Constrain `stack_inv_aux`.
+    yield_constr.constraint(
+        filter * (len_diff * lv.general.stack().stack_inv - lv.general.stack().stack_inv_aux),
+    );
+    // Disable channel if stack_len == N.
+    let empty_stack_filter = filter * (lv.general.stack().stack_inv_aux - P::ONES);
+    yield_constr.constraint_transition(empty_stack_filter * channel.used);
 
     // If `JUMP`, re-use the `JUMPI` logic, but setting the second input (the predicate) to be 1.
     // In other words, we implement `JUMP(dst)` as `JUMPI(dst, cond=1)`.
@@ -124,6 +140,12 @@ pub fn eval_packed_jump_jumpi<P: PackedField>(
     // Channel 1 is unused by the `JUMP` instruction.
     yield_constr.constraint(is_jump * lv.mem_channels[1].used);
 
+    // Update stack length.
+    yield_constr.constraint_transition(is_jump * (nv.stack_len - lv.stack_len + P::ONES));
+    yield_constr.constraint_transition(
+        is_jumpi * (nv.stack_len - lv.stack_len + P::Scalar::from_canonical_u64(2)),
+    );
+
     // Finally, set the next program counter.
     let fallthrough_dst = lv.program_counter + P::ONES;
     let jump_dest = dst[0];
@@ -151,22 +173,55 @@ pub fn eval_ext_circuit_jump_jumpi<F: RichField + Extendable<D>, const D: usize>
     let is_jumpi = builder.mul_extension(filter, lv.opcode_bits[0]);
 
     // Stack constraints.
-    stack::eval_ext_circuit_one(
-        builder,
-        lv,
-        nv,
-        is_jump,
-        stack::JUMP_OP.unwrap(),
-        yield_constr,
-    );
-    stack::eval_ext_circuit_one(
-        builder,
-        lv,
-        nv,
-        is_jumpi,
-        stack::JUMPI_OP.unwrap(),
-        yield_constr,
-    );
+    // If (JUMP and stack_len != 1) or (JUMPI and stack_len != 2)...
+    let len_diff = builder.sub_extension(lv.stack_len, one_extension);
+    let len_diff = builder.sub_extension(len_diff, lv.opcode_bits[0]);
+    let new_filter = builder.mul_extension(len_diff, filter);
+    // Read an extra element.
+    let channel = nv.mem_channels[0];
+
+    {
+        let constr = builder.mul_sub_extension(new_filter, channel.used, new_filter);
+        yield_constr.constraint_transition(builder, constr);
+    }
+    {
+        let constr = builder.mul_sub_extension(new_filter, channel.is_read, new_filter);
+        yield_constr.constraint_transition(builder, constr);
+    }
+    {
+        let diff = builder.sub_extension(channel.addr_context, nv.context);
+        let constr = builder.mul_extension(new_filter, diff);
+        yield_constr.constraint_transition(builder, constr);
+    }
+    {
+        let constr = builder.arithmetic_extension(
+            F::ONE,
+            -F::from_canonical_u64(Segment::Stack as u64),
+            new_filter,
+            channel.addr_segment,
+            new_filter,
+        );
+        yield_constr.constraint_transition(builder, constr);
+    }
+    {
+        let diff = builder.sub_extension(channel.addr_virtual, nv.stack_len);
+        let constr = builder.arithmetic_extension(F::ONE, F::ONE, new_filter, diff, new_filter);
+        yield_constr.constraint_transition(builder, constr);
+    }
+    // Constrain `stack_inv_aux`.
+    {
+        let prod = builder.mul_extension(len_diff, lv.general.stack().stack_inv);
+        let diff = builder.sub_extension(prod, lv.general.stack().stack_inv_aux);
+        let constr = builder.mul_extension(filter, diff);
+        yield_constr.constraint(builder, constr);
+    }
+    // Disable channel if stack_len == N.
+    {
+        let empty_stack_filter =
+            builder.mul_sub_extension(filter, lv.general.stack().stack_inv_aux, filter);
+        let constr = builder.mul_extension(empty_stack_filter, channel.used);
+        yield_constr.constraint_transition(builder, constr);
+    }
 
     // If `JUMP`, re-use the `JUMPI` logic, but setting the second input (the predicate) to be 1.
     // In other words, we implement `JUMP(dst)` as `JUMPI(dst, cond=1)`.
@@ -266,6 +321,19 @@ pub fn eval_ext_circuit_jump_jumpi<F: RichField + Extendable<D>, const D: usize>
     {
         let constr = builder.mul_extension(is_jump, lv.mem_channels[1].used);
         yield_constr.constraint(builder, constr);
+    }
+
+    // Update stack length.
+    {
+        let diff = builder.sub_extension(nv.stack_len, lv.stack_len);
+        let constr = builder.mul_add_extension(is_jump, diff, is_jump);
+        yield_constr.constraint_transition(builder, constr);
+    }
+    {
+        let diff = builder.sub_extension(nv.stack_len, lv.stack_len);
+        let diff = builder.add_const_extension(diff, F::TWO);
+        let constr = builder.mul_extension(is_jumpi, diff);
+        yield_constr.constraint_transition(builder, constr);
     }
 
     // Finally, set the next program counter.

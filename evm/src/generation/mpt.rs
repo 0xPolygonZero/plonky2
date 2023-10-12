@@ -33,92 +33,14 @@ impl Default for AccountRlp {
     }
 }
 
-#[derive(RlpEncodable, RlpDecodable, Debug)]
-pub struct AccessListItemRlp {
-    pub address: Address,
-    pub storage_keys: Vec<U256>,
-}
-
-#[derive(Debug)]
-pub struct AddressOption(pub Option<Address>);
-
-impl Encodable for AddressOption {
-    fn rlp_append(&self, s: &mut RlpStream) {
-        match self.0 {
-            None => {
-                s.append_empty_data();
-            }
-            Some(value) => {
-                s.encoder().encode_value(&value.to_fixed_bytes());
-            }
-        }
-    }
-}
-
-impl Decodable for AddressOption {
-    fn decode(rlp: &Rlp) -> Result<Self, DecoderError> {
-        if rlp.is_int() && rlp.is_empty() {
-            return Ok(AddressOption(None));
-        }
-        if rlp.is_data() && rlp.size() == 20 {
-            return Ok(AddressOption(Some(Address::decode(rlp)?)));
-        }
-        Err(DecoderError::RlpExpectedToBeData)
-    }
-}
-
-#[derive(RlpEncodable, RlpDecodable, Debug)]
-pub struct LegacyTransactionRlp {
-    pub nonce: U256,
-    pub gas_price: U256,
-    pub gas: U256,
-    pub to: AddressOption,
-    pub value: U256,
-    pub data: Bytes,
-    pub v: U256,
-    pub r: U256,
-    pub s: U256,
-}
-
-#[derive(RlpEncodable, RlpDecodable, Debug)]
-pub struct AccessListTransactionRlp {
-    pub chain_id: u64,
-    pub nonce: U256,
-    pub gas_price: U256,
-    pub gas: U256,
-    pub to: AddressOption,
-    pub value: U256,
-    pub data: Bytes,
-    pub access_list: Vec<AccessListItemRlp>,
-    pub y_parity: U256,
-    pub r: U256,
-    pub s: U256,
-}
-
-#[derive(RlpEncodable, RlpDecodable, Debug)]
-pub struct FeeMarketTransactionRlp {
-    pub chain_id: u64,
-    pub nonce: U256,
-    pub max_priority_fee_per_gas: U256,
-    pub max_fee_per_gas: U256,
-    pub gas: U256,
-    pub to: AddressOption,
-    pub value: U256,
-    pub data: Bytes,
-    pub access_list: Vec<AccessListItemRlp>,
-    pub y_parity: U256,
-    pub r: U256,
-    pub s: U256,
-}
-
-#[derive(RlpEncodable, RlpDecodable, Debug)]
+#[derive(RlpEncodable, RlpDecodable, Debug, Clone)]
 pub struct LogRlp {
     pub address: Address,
     pub topics: Vec<H256>,
     pub data: Bytes,
 }
 
-#[derive(RlpEncodable, RlpDecodable, Debug)]
+#[derive(RlpEncodable, RlpDecodable, Debug, Clone)]
 pub struct LegacyReceiptRlp {
     pub status: bool,
     pub cum_gas_used: U256,
@@ -185,7 +107,9 @@ pub(crate) fn all_mpt_prover_inputs(trie_inputs: &TrieInputs) -> Result<Vec<U256
     )?;
 
     mpt_prover_inputs(&trie_inputs.transactions_trie, &mut prover_inputs, &|rlp| {
-        Ok(rlp::decode_list(rlp))
+        let mut parsed_txn = vec![U256::from(rlp.len())];
+        parsed_txn.extend(rlp.iter().copied().map(U256::from));
+        Ok(parsed_txn)
     })?;
 
     mpt_prover_inputs(
@@ -352,5 +276,85 @@ fn empty_nibbles() -> Nibbles {
     Nibbles {
         count: 0,
         packed: U512::zero(),
+    }
+}
+
+pub mod transaction_testing {
+    use super::*;
+
+    #[derive(RlpEncodable, RlpDecodable, Debug, Clone, PartialEq, Eq)]
+    pub struct AccessListItemRlp {
+        pub address: Address,
+        pub storage_keys: Vec<U256>,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Eq)]
+    pub struct AddressOption(pub Option<Address>);
+
+    impl Encodable for AddressOption {
+        fn rlp_append(&self, s: &mut RlpStream) {
+            match self.0 {
+                None => s.encoder().encode_value(&[]),
+                Some(value) => {
+                    s.encoder().encode_value(&value.to_fixed_bytes());
+                }
+            }
+        }
+    }
+
+    impl Decodable for AddressOption {
+        fn decode(rlp: &Rlp) -> Result<Self, DecoderError> {
+            if rlp.is_int() && rlp.is_empty() {
+                return Ok(AddressOption(None));
+            }
+            if rlp.is_data() && rlp.size() == 20 {
+                return Ok(AddressOption(Some(Address::decode(rlp)?)));
+            }
+            Err(DecoderError::RlpExpectedToBeData)
+        }
+    }
+
+    #[derive(RlpEncodable, RlpDecodable, Debug, Clone, PartialEq, Eq)]
+    pub struct LegacyTransactionRlp {
+        pub nonce: U256,
+        pub gas_price: U256,
+        pub gas: U256,
+        pub to: AddressOption,
+        pub value: U256,
+        pub data: Bytes,
+        pub v: U256,
+        pub r: U256,
+        pub s: U256,
+    }
+
+    #[derive(RlpEncodable, RlpDecodable, Debug, Clone, PartialEq, Eq)]
+    pub struct AccessListTransactionRlp {
+        pub chain_id: u64,
+        pub nonce: U256,
+        pub gas_price: U256,
+        pub gas: U256,
+        pub to: AddressOption,
+        pub value: U256,
+        pub data: Bytes,
+        pub access_list: Vec<AccessListItemRlp>,
+        pub y_parity: U256,
+        pub r: U256,
+        pub s: U256,
+    }
+
+    #[derive(RlpEncodable, RlpDecodable, Debug, Clone, PartialEq, Eq)]
+    pub struct FeeMarketTransactionRlp {
+        pub chain_id: u64,
+        pub nonce: U256,
+        pub max_priority_fee_per_gas: U256,
+        pub max_fee_per_gas: U256,
+        pub gas: U256,
+        pub to: AddressOption,
+        pub value: U256,
+        pub data: Bytes,
+        pub access_list: Vec<AccessListItemRlp>,
+        pub y_parity: U256,
+        pub r: U256,
+        pub s: U256,
     }
 }

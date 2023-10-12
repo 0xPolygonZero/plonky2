@@ -2,14 +2,20 @@ use anyhow::bail;
 use log::log_enabled;
 use plonky2::field::types::Field;
 
+use super::memory::{MemoryOp, MemoryOpKind};
+use super::util::fill_channel_with_value;
 use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::kernel::aggregator::KERNEL;
+use crate::cpu::stack::{
+    EQ_STACK_BEHAVIOR, IS_ZERO_STACK_BEHAVIOR, JUMPI_OP, JUMP_OP, STACK_BEHAVIORS,
+};
 use crate::cpu::stack_bounds::MAX_USER_STACK_SIZE;
 use crate::generation::state::GenerationState;
 use crate::memory::segments::Segment;
 use crate::witness::errors::ProgramError;
 use crate::witness::gas::gas_to_charge;
 use crate::witness::memory::MemoryAddress;
+use crate::witness::memory::MemoryChannel::GeneralPurpose;
 use crate::witness::operation::*;
 use crate::witness::state::RegistersState;
 use crate::witness::util::mem_read_code_with_log_and_fill;
@@ -174,12 +180,58 @@ fn fill_op_flag<F: Field>(op: Operation, row: &mut CpuColumnsView<F>) {
         Operation::Jump | Operation::Jumpi => &mut flags.jumps,
         Operation::Pc | Operation::Push(0) => &mut flags.pc_push0,
         Operation::Jumpdest => &mut flags.jumpdest,
-        Operation::GetContext | Operation::SetContext => &mut flags.context_op,
+        Operation::GetContext => &mut flags.get_context,
+        Operation::SetContext => &mut flags.set_context,
         Operation::Mload32Bytes => &mut flags.mload_32bytes,
         Operation::Mstore32Bytes => &mut flags.mstore_32bytes,
         Operation::ExitKernel => &mut flags.exit_kernel,
         Operation::MloadGeneral | Operation::MstoreGeneral => &mut flags.m_op_general,
     } = F::ONE;
+}
+
+// Equal to the number of pops if an operation pops without pushing, and `None` otherwise.
+fn get_op_special_length(op: Operation) -> Option<usize> {
+    let behavior_opt = match op {
+        Operation::Push(0) | Operation::Pc => STACK_BEHAVIORS.pc_push0,
+        Operation::Push(1..) => STACK_BEHAVIORS.push,
+        Operation::Dup(_) => STACK_BEHAVIORS.dup,
+        Operation::Swap(_) => STACK_BEHAVIORS.swap,
+        Operation::Iszero => IS_ZERO_STACK_BEHAVIOR,
+        Operation::Not => STACK_BEHAVIORS.not,
+        Operation::Syscall(_, _, _) => STACK_BEHAVIORS.syscall,
+        Operation::Eq => EQ_STACK_BEHAVIOR,
+        Operation::BinaryLogic(_) => STACK_BEHAVIORS.logic_op,
+        Operation::BinaryArithmetic(arithmetic::BinaryOperator::AddFp254)
+        | Operation::BinaryArithmetic(arithmetic::BinaryOperator::MulFp254)
+        | Operation::BinaryArithmetic(arithmetic::BinaryOperator::SubFp254) => {
+            STACK_BEHAVIORS.fp254_op
+        }
+        Operation::BinaryArithmetic(arithmetic::BinaryOperator::Shl)
+        | Operation::BinaryArithmetic(arithmetic::BinaryOperator::Shr) => STACK_BEHAVIORS.shift,
+        Operation::BinaryArithmetic(_) => STACK_BEHAVIORS.binary_op,
+        Operation::TernaryArithmetic(_) => STACK_BEHAVIORS.ternary_op,
+        Operation::KeccakGeneral => STACK_BEHAVIORS.keccak_general,
+        Operation::ProverInput => STACK_BEHAVIORS.prover_input,
+        Operation::Pop => STACK_BEHAVIORS.pop,
+        Operation::Jump => JUMP_OP,
+        Operation::Jumpi => JUMPI_OP,
+        Operation::Jumpdest => STACK_BEHAVIORS.jumpdest,
+        Operation::GetContext => STACK_BEHAVIORS.get_context,
+        Operation::SetContext => None,
+        Operation::Mload32Bytes => STACK_BEHAVIORS.mload_32bytes,
+        Operation::Mstore32Bytes => STACK_BEHAVIORS.mstore_32bytes,
+        Operation::ExitKernel => STACK_BEHAVIORS.exit_kernel,
+        Operation::MloadGeneral | Operation::MstoreGeneral => STACK_BEHAVIORS.m_op_general,
+    };
+    if let Some(behavior) = behavior_opt {
+        if behavior.num_pops > 0 && !behavior.pushes {
+            Some(behavior.num_pops)
+        } else {
+            None
+        }
+    } else {
+        None
+    }
 }
 
 fn perform_op<F: Field>(
@@ -241,8 +293,12 @@ fn base_row<F: Field>(state: &mut GenerationState<F>) -> (CpuColumnsView<F>, u8)
     row.context = F::from_canonical_usize(state.registers.context);
     row.program_counter = F::from_canonical_usize(state.registers.program_counter);
     row.is_kernel_mode = F::from_bool(state.registers.is_kernel);
-    row.gas = F::from_canonical_u64(state.registers.gas_used);
+    row.gas = [
+        F::from_canonical_u32(state.registers.gas_used as u32),
+        F::from_canonical_u32((state.registers.gas_used >> 32) as u32),
+    ];
     row.stack_len = F::from_canonical_usize(state.registers.stack_len);
+    fill_channel_with_value(&mut row, 0, state.registers.stack_top);
 
     let opcode = read_code_memory(state, &mut row);
     (row, opcode)
@@ -260,6 +316,31 @@ fn try_perform_instruction<F: Field>(state: &mut GenerationState<F>) -> Result<(
 
     fill_op_flag(op, &mut row);
 
+    if state.registers.is_stack_top_read {
+        let channel = &mut row.mem_channels[0];
+        channel.used = F::ONE;
+        channel.is_read = F::ONE;
+        channel.addr_context = F::from_canonical_usize(state.registers.context);
+        channel.addr_segment = F::from_canonical_usize(Segment::Stack as usize);
+        channel.addr_virtual = F::from_canonical_usize(state.registers.stack_len - 1);
+
+        let address = MemoryAddress {
+            context: state.registers.context,
+            segment: Segment::Stack as usize,
+            virt: state.registers.stack_len - 1,
+        };
+
+        let mem_op = MemoryOp::new(
+            GeneralPurpose(0),
+            state.traces.clock(),
+            address,
+            MemoryOpKind::Read,
+            state.registers.stack_top,
+        );
+        state.traces.push_memory(mem_op);
+        state.registers.is_stack_top_read = false;
+    }
+
     if state.registers.is_kernel {
         row.stack_len_bounds_aux = F::ZERO;
     } else {
@@ -271,6 +352,21 @@ fn try_perform_instruction<F: Field>(state: &mut GenerationState<F>) -> Result<(
             // This is a stack overflow that should have been caught earlier.
             return Err(ProgramError::InterpreterError);
         }
+    }
+
+    // Might write in general CPU columns when it shouldn't, but the correct values will
+    // overwrite these ones during the op generation.
+    if let Some(special_len) = get_op_special_length(op) {
+        let special_len = F::from_canonical_usize(special_len);
+        let diff = row.stack_len - special_len;
+        if let Some(inv) = diff.try_inverse() {
+            row.general.stack_mut().stack_inv = inv;
+            row.general.stack_mut().stack_inv_aux = F::ONE;
+            state.registers.is_stack_top_read = true;
+        }
+    } else if let Some(inv) = row.stack_len.try_inverse() {
+        row.general.stack_mut().stack_inv = inv;
+        row.general.stack_mut().stack_inv_aux = F::ONE;
     }
 
     perform_op(state, op, row)
@@ -299,7 +395,7 @@ fn log_kernel_instruction<F: Field>(state: &GenerationState<F>, op: Operation) {
         state.registers.context,
         KERNEL.offset_name(pc),
         op,
-        state.stack()
+        state.stack(),
     );
 
     assert!(pc < KERNEL.code.len(), "Kernel PC is out of range: {}", pc);
