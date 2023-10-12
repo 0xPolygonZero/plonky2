@@ -23,7 +23,7 @@ use crate::cpu::columns::{CpuColumnsView, COL_MAP};
 /// behavior.
 /// Note: invalid opcodes are not represented here. _Any_ opcode is permitted to decode to
 /// `is_invalid`. The kernel then verifies that the opcode was _actually_ invalid.
-const OPCODES: [(u8, usize, bool, usize); 14] = [
+const OPCODES: [(u8, usize, bool, usize); 15] = [
     // (start index of block, number of top bits to check (log2), kernel-only, flag column)
     // ADD, MUL, SUB, DIV, MOD, LT, GT and BYTE flags are handled partly manually here, and partly through the Arithmetic table CTL.
     // ADDMOD, MULMOD and SUBMOD flags are handled partly manually here, and partly through the Arithmetic table CTL.
@@ -42,7 +42,8 @@ const OPCODES: [(u8, usize, bool, usize); 14] = [
     (0x80, 4, false, COL_MAP.op.dup),  // 0x80-0x8f
     (0x90, 4, false, COL_MAP.op.swap), // 0x90-0x9f
     (0xee, 0, true, COL_MAP.op.mstore_32bytes),
-    (0xf6, 1, true, COL_MAP.op.context_op), // 0xf6-0xf7
+    (0xf6, 0, true, COL_MAP.op.get_context),
+    (0xf7, 0, true, COL_MAP.op.set_context),
     (0xf8, 0, true, COL_MAP.op.mload_32bytes),
     (0xf9, 0, true, COL_MAP.op.exit_kernel),
     // MLOAD_GENERAL and MSTORE_GENERAL flags are handled manually here.
@@ -60,56 +61,6 @@ const COMBINED_OPCODES: [usize; 7] = [
     COL_MAP.op.m_op_general,
     COL_MAP.op.not_pop,
 ];
-
-pub fn generate<F: RichField>(lv: &mut CpuColumnsView<F>) {
-    let cycle_filter: F = COL_MAP.op.iter().map(|&col_i| lv[col_i]).sum();
-
-    // This assert is not _strictly_ necessary, but I include it as a sanity check.
-    assert_eq!(cycle_filter, F::ONE, "cycle_filter should be 0 or 1");
-
-    // Validate all opcode bits.
-    for bit in lv.opcode_bits.into_iter() {
-        assert!(bit.to_canonical_u64() <= 1);
-    }
-    let opcode = lv
-        .opcode_bits
-        .into_iter()
-        .enumerate()
-        .map(|(i, bit)| bit.to_canonical_u64() << i)
-        .sum::<u64>() as u8;
-
-    let top_bits: [u8; 9] = [
-        0,
-        opcode & 0x80,
-        opcode & 0xc0,
-        opcode & 0xe0,
-        opcode & 0xf0,
-        opcode & 0xf8,
-        opcode & 0xfc,
-        opcode & 0xfe,
-        opcode,
-    ];
-
-    let kernel = lv.is_kernel_mode.to_canonical_u64();
-    assert!(kernel <= 1);
-    let kernel = kernel != 0;
-
-    for (oc, block_length, kernel_only, col) in OPCODES {
-        let available = !kernel_only || kernel;
-        let opcode_match = top_bits[8 - block_length] == oc;
-        let flag = available && opcode_match;
-        lv[col] = F::from_bool(flag);
-    }
-
-    if opcode == 0xfb || opcode == 0xfc {
-        lv.op.m_op_general = F::from_bool(kernel);
-    }
-
-    // NOT and POP are not kernel-only instructions.
-    if opcode == 0x50 || opcode == 0x19 {
-        lv.op.not_pop = F::ONE;
-    }
-}
 
 /// Break up an opcode (which is 8 bits long) into its eight bits.
 const fn bits_from_opcode(opcode: u8) -> [bool; 8] {

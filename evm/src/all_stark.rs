@@ -51,27 +51,15 @@ impl<F: RichField + Extendable<D>, const D: usize> Default for AllStark<F, D> {
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> AllStark<F, D> {
-    pub(crate) fn nums_permutation_zs(&self, config: &StarkConfig) -> [usize; NUM_TABLES] {
+    pub(crate) fn num_lookups_helper_columns(&self, config: &StarkConfig) -> [usize; NUM_TABLES] {
         [
-            self.arithmetic_stark.num_permutation_batches(config),
-            self.byte_packing_stark.num_permutation_batches(config),
-            self.cpu_stark.num_permutation_batches(config),
-            self.keccak_stark.num_permutation_batches(config),
-            self.keccak_sponge_stark.num_permutation_batches(config),
-            self.logic_stark.num_permutation_batches(config),
-            self.memory_stark.num_permutation_batches(config),
-        ]
-    }
-
-    pub(crate) fn permutation_batch_sizes(&self) -> [usize; NUM_TABLES] {
-        [
-            self.arithmetic_stark.permutation_batch_size(),
-            self.byte_packing_stark.permutation_batch_size(),
-            self.cpu_stark.permutation_batch_size(),
-            self.keccak_stark.permutation_batch_size(),
-            self.keccak_sponge_stark.permutation_batch_size(),
-            self.logic_stark.permutation_batch_size(),
-            self.memory_stark.permutation_batch_size(),
+            self.arithmetic_stark.num_lookup_helper_columns(config),
+            self.byte_packing_stark.num_lookup_helper_columns(config),
+            self.cpu_stark.num_lookup_helper_columns(config),
+            self.keccak_stark.num_lookup_helper_columns(config),
+            self.keccak_sponge_stark.num_lookup_helper_columns(config),
+            self.logic_stark.num_lookup_helper_columns(config),
+            self.memory_stark.num_lookup_helper_columns(config),
         ]
     }
 }
@@ -108,7 +96,8 @@ pub(crate) fn all_cross_table_lookups<F: Field>() -> Vec<CrossTableLookup<F>> {
         ctl_arithmetic(),
         ctl_byte_packing(),
         ctl_keccak_sponge(),
-        ctl_keccak(),
+        ctl_keccak_inputs(),
+        ctl_keccak_outputs(),
         ctl_logic(),
         ctl_memory(),
     ]
@@ -116,10 +105,7 @@ pub(crate) fn all_cross_table_lookups<F: Field>() -> Vec<CrossTableLookup<F>> {
 
 fn ctl_arithmetic<F: Field>() -> CrossTableLookup<F> {
     CrossTableLookup::new(
-        vec![
-            cpu_stark::ctl_arithmetic_base_rows(),
-            cpu_stark::ctl_arithmetic_shift_rows(),
-        ],
+        vec![cpu_stark::ctl_arithmetic_base_rows()],
         arithmetic_stark::ctl_arithmetic_rows(),
     )
 }
@@ -146,16 +132,33 @@ fn ctl_byte_packing<F: Field>() -> CrossTableLookup<F> {
     )
 }
 
-fn ctl_keccak<F: Field>() -> CrossTableLookup<F> {
+// We now need two different looked tables for `KeccakStark`:
+// one for the inputs and one for the outputs.
+// They are linked with the timestamp.
+fn ctl_keccak_inputs<F: Field>() -> CrossTableLookup<F> {
     let keccak_sponge_looking = TableWithColumns::new(
         Table::KeccakSponge,
-        keccak_sponge_stark::ctl_looking_keccak(),
+        keccak_sponge_stark::ctl_looking_keccak_inputs(),
         Some(keccak_sponge_stark::ctl_looking_keccak_filter()),
     );
     let keccak_looked = TableWithColumns::new(
         Table::Keccak,
-        keccak_stark::ctl_data(),
-        Some(keccak_stark::ctl_filter()),
+        keccak_stark::ctl_data_inputs(),
+        Some(keccak_stark::ctl_filter_inputs()),
+    );
+    CrossTableLookup::new(vec![keccak_sponge_looking], keccak_looked)
+}
+
+fn ctl_keccak_outputs<F: Field>() -> CrossTableLookup<F> {
+    let keccak_sponge_looking = TableWithColumns::new(
+        Table::KeccakSponge,
+        keccak_sponge_stark::ctl_looking_keccak_outputs(),
+        Some(keccak_sponge_stark::ctl_looking_keccak_filter()),
+    );
+    let keccak_looked = TableWithColumns::new(
+        Table::Keccak,
+        keccak_stark::ctl_data_outputs(),
+        Some(keccak_stark::ctl_filter_outputs()),
     );
     CrossTableLookup::new(vec![keccak_sponge_looking], keccak_looked)
 }
