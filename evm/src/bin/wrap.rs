@@ -11,7 +11,7 @@ use plonky2::util::serialization::{Buffer, DefaultGateSerializer, IoResult, Read
 use plonky2_evm::sample::get_sample_circuits_and_proof_from_serialized;
 use plonky2x::backend::circuit::Circuit;
 use plonky2x::backend::function::Plonky2xFunction;
-use plonky2x::frontend::uint::uint160::U160Variable;
+// use plonky2x::frontend::uint::uint160::U160Variable;
 use plonky2x::frontend::uint::uint256::U256Variable;
 use plonky2x::prelude::{
     CircuitBuilder as CircuitBuilderX, CircuitVariable, Field, PlonkParameters, Variable,
@@ -160,35 +160,35 @@ impl Circuit for WrapCircuit {
         let transactions_root_after = builder.evm_read::<U256Variable>();
         let receipts_root_after = builder.evm_read::<U256Variable>();
 
-        let block_beneficiary = builder.evm_read::<U160Variable>();
-        let block_timestamp = builder.evm_read::<U256Variable>();
-        let block_number = builder.evm_read::<U256Variable>();
-        let block_difficulty = builder.evm_read::<U256Variable>();
-        let block_random = builder.evm_read::<U256Variable>();
-        let block_gaslimit = builder.evm_read::<U256Variable>();
-        let block_chain_id = builder.evm_read::<U256Variable>();
-        let block_base_fee = builder.evm_read::<U256Variable>();
-        let block_gas_used = builder.evm_read::<U256Variable>();
-        let block_bloom = (0..8)
-            .map(|_| builder.evm_read::<U256Variable>())
-            .collect::<Vec<_>>();
+        // let block_beneficiary = builder.evm_read::<U160Variable>();
+        // let block_timestamp = builder.evm_read::<U256Variable>();
+        // let block_number = builder.evm_read::<U256Variable>();
+        // let block_difficulty = builder.evm_read::<U256Variable>();
+        // let block_random = builder.evm_read::<U256Variable>();
+        // let block_gaslimit = builder.evm_read::<U256Variable>();
+        // let block_chain_id = builder.evm_read::<U256Variable>();
+        // let block_base_fee = builder.evm_read::<U256Variable>();
+        // let block_gas_used = builder.evm_read::<U256Variable>();
+        // let block_bloom = (0..8)
+        //     .map(|_| builder.evm_read::<U256Variable>())
+        //     .collect::<Vec<_>>();
 
-        let prev_hashes = (0..256)
-            .map(|_| builder.evm_read::<U256Variable>())
-            .collect::<Vec<_>>();
-        let cur_hash = builder.evm_read::<U256Variable>();
+        // let prev_hashes = (0..256)
+        //     .map(|_| builder.evm_read::<U256Variable>())
+        //     .collect::<Vec<_>>();
+        // let cur_hash = builder.evm_read::<U256Variable>();
 
-        let genesis_state_trie_root = builder.evm_read::<U256Variable>();
-        let txn_number_before = builder.evm_read::<U256Variable>();
-        let txn_number_after = builder.evm_read::<U256Variable>();
-        let gas_used_before = builder.evm_read::<U256Variable>();
-        let gas_used_after = builder.evm_read::<U256Variable>();
-        let block_boom_before = (0..8)
-            .map(|_| builder.evm_read::<U256Variable>())
-            .collect::<Vec<_>>();
-        let block_boom_after = (0..8)
-            .map(|_| builder.evm_read::<U256Variable>())
-            .collect::<Vec<_>>();
+        // let genesis_state_trie_root = builder.evm_read::<U256Variable>();
+        // let txn_number_before = builder.evm_read::<U256Variable>();
+        // let txn_number_after = builder.evm_read::<U256Variable>();
+        // let gas_used_before = builder.evm_read::<U256Variable>();
+        // let gas_used_after = builder.evm_read::<U256Variable>();
+        // let block_boom_before = (0..8)
+        //     .map(|_| builder.evm_read::<U256Variable>())
+        //     .collect::<Vec<_>>();
+        // let block_boom_after = (0..8)
+        //     .map(|_| builder.evm_read::<U256Variable>())
+        //     .collect::<Vec<_>>();
 
         let mut input_target_vec = vec![];
 
@@ -200,56 +200,65 @@ impl Circuit for WrapCircuit {
         input_target_vec.extend(transactions_root_after.targets());
         input_target_vec.extend(receipts_root_after.targets());
 
-        input_target_vec.extend(block_beneficiary.targets());
+        // input_target_vec.extend(block_beneficiary.targets());
 
-        let zero = builder.zero::<Variable>();
+        // let zero = builder.zero::<Variable>();
 
-        // for block_timestamp, we'll read just the first u32 from the on-chain u256
-        input_target_vec.push(block_timestamp.targets()[0]);
-        let _ = (1..8).map(|i| builder.assert_is_equal(block_timestamp.variables()[i], zero));
+        // // for block_timestamp, we'll read just the first u32 from the on-chain u256
+        // input_target_vec.push(block_timestamp.targets()[0]);
+        // let _ = (1..8).map(|i| builder.assert_is_equal(block_timestamp.variables()[i], zero));
 
-        input_target_vec.push(block_number.targets()[0]);
-        let _ = (1..8).map(|i| builder.assert_is_equal(block_number.variables()[i], zero));
+        // input_target_vec.push(block_number.targets()[0]);
+        // let _ = (1..8).map(|i| builder.assert_is_equal(block_number.variables()[i], zero));
 
-        input_target_vec.push(block_difficulty.targets()[0]);
-        let _ = (1..8).map(|i| builder.assert_is_equal(block_difficulty.variables()[i], zero));
+        // input_target_vec.push(block_difficulty.targets()[0]);
+        // let _ = (1..8).map(|i| builder.assert_is_equal(block_difficulty.variables()[i], zero));
 
-        input_target_vec.extend(block_random.targets());
+        // input_target_vec.extend(block_random.targets());
 
-        input_target_vec.extend(block_gaslimit.targets().iter().take(2));
-        let _ = (2..8).map(|i| builder.assert_is_equal(block_gaslimit.variables()[i], zero));
+        // input_target_vec.extend(block_gaslimit.targets().iter().take(2));
+        // let _ = (2..8).map(|i| builder.assert_is_equal(block_gaslimit.variables()[i], zero));
 
-        input_target_vec.push(block_chain_id.targets()[0]);
-        let _ = (1..8).map(|i| builder.assert_is_equal(block_chain_id.variables()[i], zero));
+        // input_target_vec.push(block_chain_id.targets()[0]);
+        // let _ = (1..8).map(|i| builder.assert_is_equal(block_chain_id.variables()[i], zero));
 
-        input_target_vec.extend(block_base_fee.targets().iter().take(2));
-        let _ = (2..8).map(|i| builder.assert_is_equal(block_base_fee.variables()[i], zero));
+        // input_target_vec.extend(block_base_fee.targets().iter().take(2));
+        // let _ = (2..8).map(|i| builder.assert_is_equal(block_base_fee.variables()[i], zero));
 
-        input_target_vec.extend(block_gas_used.targets().iter().take(2));
-        let _ = (2..8).map(|i| builder.assert_is_equal(block_gas_used.variables()[i], zero));
+        // input_target_vec.extend(block_gas_used.targets().iter().take(2));
+        // let _ = (2..8).map(|i| builder.assert_is_equal(block_gas_used.variables()[i], zero));
 
-        input_target_vec.extend(block_bloom.iter().flat_map(|b| b.targets()));
+        // input_target_vec.extend(block_bloom.iter().flat_map(|b| b.targets()));
 
-        input_target_vec.extend(prev_hashes.iter().flat_map(|b| b.targets()));
-        input_target_vec.extend(cur_hash.targets());
+        // input_target_vec.extend(prev_hashes.iter().flat_map(|b| b.targets()));
+        // input_target_vec.extend(cur_hash.targets());
 
-        input_target_vec.extend(genesis_state_trie_root.targets());
+        // input_target_vec.extend(genesis_state_trie_root.targets());
 
-        input_target_vec.push(txn_number_before.targets()[0]);
-        let _ = (1..8).map(|i| builder.assert_is_equal(txn_number_before.variables()[i], zero));
+        // input_target_vec.push(txn_number_before.targets()[0]);
+        // let _ = (1..8).map(|i| builder.assert_is_equal(txn_number_before.variables()[i], zero));
 
-        input_target_vec.push(txn_number_after.targets()[0]);
-        let _ = (1..8).map(|i| builder.assert_is_equal(txn_number_after.variables()[i], zero));
+        // input_target_vec.push(txn_number_after.targets()[0]);
+        // let _ = (1..8).map(|i| builder.assert_is_equal(txn_number_after.variables()[i], zero));
 
-        input_target_vec.extend(gas_used_before.targets().iter().take(2));
-        let _ = (2..8).map(|i| builder.assert_is_equal(gas_used_before.variables()[i], zero));
+        // input_target_vec.extend(gas_used_before.targets().iter().take(2));
+        // let _ = (2..8).map(|i| builder.assert_is_equal(gas_used_before.variables()[i], zero));
 
-        input_target_vec.extend(gas_used_after.targets().iter().take(2));
-        let _ = (2..8).map(|i| builder.assert_is_equal(gas_used_after.variables()[i], zero));
+        // input_target_vec.extend(gas_used_after.targets().iter().take(2));
+        // let _ = (2..8).map(|i| builder.assert_is_equal(gas_used_after.variables()[i], zero));
 
-        input_target_vec.extend(block_boom_before.iter().flat_map(|b| b.targets()));
-        input_target_vec.extend(block_boom_after.iter().flat_map(|b| b.targets()));
+        // input_target_vec.extend(block_boom_before.iter().flat_map(|b| b.targets()));
+        // input_target_vec.extend(block_boom_after.iter().flat_map(|b| b.targets()));
 
+        builder.watch_slice(
+            &input_target_vec
+                .iter()
+                .map(|t| Variable(*t))
+                .collect::<Vec<Variable>>(),
+            "input_target_vec",
+        );
+
+        /*
         let (all_circuits, block_proof, _block_public_values) =
             get_sample_circuits_and_proof_from_serialized::<L::Field, L::Config, D>().unwrap();
         let data = all_circuits.block.circuit;
@@ -270,13 +279,7 @@ impl Circuit for WrapCircuit {
         };
         builder.add_simple_generator(generator);
 
-        builder.watch_slice(
-            &input_target_vec
-                .iter()
-                .map(|t| Variable(*t))
-                .collect::<Vec<Variable>>(),
-            "input_target_vec",
-        );
+
         builder.watch_slice(
             &proof_targets
                 .public_inputs
@@ -297,6 +300,7 @@ impl Circuit for WrapCircuit {
         builder
             .api
             .verify_proof::<L::Config>(&proof_targets, &verifier_targets, &data.common);
+         */
     }
 
     fn register_generators<L: PlonkParameters<D>, const D: usize>(
@@ -316,6 +320,7 @@ fn main() {
 mod tests {
     use std::env;
 
+    use ethers::types::U256;
     use ethers::utils::hex;
     use plonky2x::backend::circuit::PublicInput;
     use plonky2x::prelude::{DefaultBuilder, GateRegistry, HintRegistry};
@@ -366,6 +371,14 @@ mod tests {
         println!("sum: {}", sum);
     }
 
+    fn to_u256() -> U256 {
+        let bytes_representation =
+            "0x92648889955b1d41b36ea681a16ef94852e34e6011d029f278439adb4e9e30b4";
+        let value = U256::from_str_radix(&bytes_representation[2..], 16)
+            .expect("Failed to convert to U256");
+        value
+    }
+
     #[test]
     #[cfg_attr(feature = "ci", ignore)]
     fn test_wrapper_circuit_io() {
@@ -382,8 +395,13 @@ mod tests {
         log::debug!("Done building circuit");
 
         let mut input = circuit.input();
-        input.evm_write::<U256Variable>(0.into());
-        input.evm_write::<U256Variable>(1.into());
+        input.evm_write::<U256Variable>(to_u256());
+        input.evm_write::<U256Variable>(to_u256());
+        input.evm_write::<U256Variable>(to_u256());
+
+        input.evm_write::<U256Variable>(to_u256());
+        input.evm_write::<U256Variable>(to_u256());
+        input.evm_write::<U256Variable>(to_u256());
 
         log::debug!("Generating proof");
         let (proof, mut output) = circuit.prove(&input);
