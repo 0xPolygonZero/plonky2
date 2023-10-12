@@ -8,10 +8,10 @@ use plonky2::plonk::circuit_data::{CircuitConfig, CircuitData, CommonCircuitData
 use plonky2::plonk::config::{AlgebraicHasher, GenericConfig};
 use plonky2::plonk::proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget};
 use plonky2::util::serialization::{Buffer, DefaultGateSerializer, IoResult, Read, Write};
-use plonky2_evm::sample::get_sample_circuits_and_proof;
+use plonky2_evm::sample::get_sample_circuits_and_proof_from_serialized;
 use plonky2x::backend::circuit::Circuit;
-use plonky2x::backend::function::VerifiableFunction;
-use plonky2x::frontend::eth::vars::AddressVariable;
+use plonky2x::backend::function::Plonky2xFunction;
+use plonky2x::frontend::uint::uint160::U160Variable;
 use plonky2x::frontend::uint::uint256::U256Variable;
 use plonky2x::prelude::{
     CircuitBuilder as CircuitBuilderX, CircuitVariable, Field, PlonkParameters, Variable,
@@ -69,6 +69,7 @@ fn connect_public_inputs<L: PlonkParameters<D>, const D: usize>(
     public_input_targets: &Vec<Target>,
     input_target_vec: &Vec<Target>,
 ) {
+    // FAILS: 2401 != 2488
     assert_eq!(public_input_targets.len(), input_target_vec.len());
     for (i, target) in input_target_vec.iter().enumerate() {
         builder.api.connect(*target, public_input_targets[i]);
@@ -159,7 +160,7 @@ impl Circuit for WrapCircuit {
         let transactions_root_after = builder.evm_read::<U256Variable>();
         let receipts_root_after = builder.evm_read::<U256Variable>();
 
-        let block_beneficiary = builder.evm_read::<AddressVariable>();
+        let block_beneficiary = builder.evm_read::<U160Variable>();
         let block_timestamp = builder.evm_read::<U256Variable>();
         let block_number = builder.evm_read::<U256Variable>();
         let block_difficulty = builder.evm_read::<U256Variable>();
@@ -249,8 +250,8 @@ impl Circuit for WrapCircuit {
         input_target_vec.extend(block_boom_before.iter().flat_map(|b| b.targets()));
         input_target_vec.extend(block_boom_after.iter().flat_map(|b| b.targets()));
 
-        let (all_circuits, proof) =
-            get_sample_circuits_and_proof::<L::Field, L::Config, D>().unwrap();
+        let (all_circuits, block_proof, _block_public_values) =
+            get_sample_circuits_and_proof_from_serialized::<L::Field, L::Config, D>().unwrap();
         let data = all_circuits.block.circuit;
 
         // This would use the block circuit data
@@ -263,7 +264,7 @@ impl Circuit for WrapCircuit {
         // In a production setting, the constant proof should be fetched from an API endpoint based on the public inputs using a `Hint` (i.e. generator)
         let generator = ProofGenerator {
             proof_with_public_inputs_target: proof_targets.clone(),
-            proof_with_public_inputs: proof,
+            proof_with_public_inputs: block_proof,
             common_data: data.common.clone(),
             _marker: PhantomData::<L>,
         };
@@ -308,7 +309,7 @@ impl Circuit for WrapCircuit {
 }
 
 fn main() {
-    VerifiableFunction::<WrapCircuit>::entrypoint();
+    WrapCircuit::entrypoint();
 }
 
 #[cfg(test)]

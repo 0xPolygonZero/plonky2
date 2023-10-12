@@ -27,6 +27,7 @@ use crate::Node;
 pub fn get_sample_circuits_and_proof<F, C, const D: usize>() -> Result<(
     AllRecursiveCircuits<F, C, D>,
     ProofWithPublicInputs<F, C, D>,
+    PublicValues,
 )>
 where
     F: RichField + Extendable<D>,
@@ -393,11 +394,59 @@ where
         agg_public_values,
     )?;
     all_circuits.verify_aggregation(&agg_proof)?;
-    let (block_proof, _block_public_values) =
+    let (block_proof, block_public_values) =
         all_circuits.prove_block(None, &agg_proof, updated_agg_public_values)?;
     all_circuits.verify_block(&block_proof)?;
 
-    Ok((all_circuits, block_proof))
+    Ok((all_circuits, block_proof, block_public_values))
+}
+
+fn get_sample_circuits<F, C, const D: usize>() -> Result<AllRecursiveCircuits<F, C, D>>
+where
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F> + 'static,
+    C::Hasher: AlgebraicHasher<F>,
+{
+    // First transaction.
+    let all_stark = AllStark::<F, D>::default();
+    let config = StarkConfig::standard_fast_config();
+
+    // Preprocess all circuits.
+    Ok(AllRecursiveCircuits::<F, C, D>::new(
+        &all_stark,
+        &[16..17, 11..13, 17..19, 14..15, 9..11, 12..13, 19..21],
+        &config,
+    ))
+}
+
+pub fn get_sample_circuits_and_proof_from_serialized<F, C, const D: usize>() -> Result<(
+    AllRecursiveCircuits<F, C, D>,
+    ProofWithPublicInputs<F, C, D>,
+    PublicValues,
+)>
+where
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F> + 'static,
+    C::Hasher: AlgebraicHasher<F>,
+{
+    let all_stark = AllStark::<F, D>::default();
+    let config = StarkConfig::standard_fast_config();
+
+    let all_circuits = AllRecursiveCircuits::<F, C, D>::new(
+        &all_stark,
+        &[16..17, 11..13, 17..19, 14..15, 9..11, 12..13, 19..21],
+        &config,
+    );
+
+    // read from files
+    let block_proof_json = std::fs::read_to_string("block_proof.json").unwrap();
+    let block_public_values_json = std::fs::read_to_string("block_public_values.json").unwrap();
+
+    // deserialize
+    let block_proof: ProofWithPublicInputs<F, C, D> = serde_json::from_str(&block_proof_json).unwrap();
+    let block_public_values: PublicValues = serde_json::from_str(&block_public_values_json).unwrap();
+
+    Ok((all_circuits, block_proof, block_public_values))
 }
 
 #[cfg(test)]
@@ -413,7 +462,21 @@ mod tests {
 
     #[test]
     fn test_get_sample_circuits_and_proof() {
-        let (all_circuits, block_proof) = get_sample_circuits_and_proof::<F, C, D>().unwrap();
+        let (all_circuits, block_proof, _block_public_values) = get_sample_circuits_and_proof::<F, C, D>().unwrap();
         all_circuits.verify_block(&block_proof).unwrap();
+    }
+
+    #[test]
+    fn get_sample_circuits_and_proof_and_serialize() {
+        let (all_circuits, block_proof, block_public_values) = get_sample_circuits_and_proof::<F, C, D>().unwrap();
+        all_circuits.verify_block(&block_proof).unwrap();
+
+        // serialize
+        let block_proof_json = serde_json::to_string_pretty(&block_proof).unwrap();
+        let block_public_values_json = serde_json::to_string_pretty(&block_public_values).unwrap();
+
+        // write to files
+        std::fs::write("block_proof.json", block_proof_json).unwrap();
+        std::fs::write("block_public_values.json", block_public_values_json).unwrap();
     }
 }
