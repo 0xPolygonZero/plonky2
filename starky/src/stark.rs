@@ -171,33 +171,44 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
         zeta: ExtensionTarget<D>,
         g: F,
         config: &StarkConfig,
+        lookup_cfg: Option<&LookupConfig>,
     ) -> FriInstanceInfoTarget<D> {
         let mut oracles = vec![];
 
         let trace_info = FriPolynomialInfo::from_range(oracles.len(), 0..Self::COLUMNS);
-        oracles.push(FriOracleInfo {
+        let trace_oracle = FriOracleInfo {
             num_polys: Self::COLUMNS,
             blinding: false,
-        });
-
-        let permutation_zs_info = if self.uses_permutation_args() {
-            let num_z_polys = self.num_permutation_batches(config);
-            let polys = FriPolynomialInfo::from_range(oracles.len(), 0..num_z_polys);
-            oracles.push(FriOracleInfo {
-                num_polys: num_z_polys,
-                blinding: false,
-            });
-            polys
-        } else {
-            vec![]
         };
+        oracles.push(trace_oracle);
+
+        let num_ctl_zs = lookup_cfg.map(|n| n.num_zs).unwrap_or_default();
+        let num_permutation_batches = self.num_permutation_batches(config);
+        let num_z_polys = num_permutation_batches + num_ctl_zs;
+
+        let permutation_zs_info = FriPolynomialInfo::from_range(oracles.len(), 0..num_z_polys);
+
+        let ctl_zs_info = FriPolynomialInfo::from_range(
+            oracles.len(),
+            num_permutation_batches..num_permutation_batches + num_ctl_zs,
+        );
+
+        let permutation_oracle = FriOracleInfo {
+            num_polys: num_z_polys,
+            blinding: false,
+        };
+
+        if self.uses_permutation_args() || lookup_cfg.is_some() {
+            oracles.push(permutation_oracle);
+        }
 
         let num_quotient_polys = self.quotient_degree_factor() * config.num_challenges;
         let quotient_info = FriPolynomialInfo::from_range(oracles.len(), 0..num_quotient_polys);
-        oracles.push(FriOracleInfo {
+        let quotient_oracle = FriOracleInfo {
             num_polys: num_quotient_polys,
             blinding: false,
-        });
+        };
+        oracles.push(quotient_oracle);
 
         let zeta_batch = FriBatchInfoTarget {
             point: zeta,
@@ -213,7 +224,18 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
             point: zeta_next,
             polynomials: [trace_info, permutation_zs_info].concat(),
         };
-        let batches = vec![zeta_batch, zeta_next_batch];
+        let mut batches = vec![zeta_batch, zeta_next_batch];
+
+        if let Some(lookup_cfg) = lookup_cfg {
+            let ctl_last_batch = FriBatchInfoTarget {
+                point: builder.constant_extension(
+                    F::Extension::primitive_root_of_unity(lookup_cfg.degree_bits).inverse(),
+                ),
+                polynomials: ctl_zs_info,
+            };
+
+            batches.push(ctl_last_batch);
+        }
 
         FriInstanceInfoTarget { oracles, batches }
     }
