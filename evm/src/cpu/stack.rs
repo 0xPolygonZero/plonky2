@@ -293,6 +293,9 @@ pub fn eval_packed<P: PackedField>(
     }
 
     // Stack constraints for POP.
+    // The only constraints POP has are stack constraints.
+    // Since POP and NOT are combined into one flag and they have
+    // different stack behaviors, POP needs special stack constraints.
     // Constrain `stack_inv_aux`.
     let len_diff = lv.stack_len - P::Scalar::ONES;
     yield_constr.constraint(
@@ -555,6 +558,9 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     }
 
     // Stack constraints for POP.
+    // The only constraints POP has are stack constraints.
+    // Since POP and NOT are combined into one flag and they have
+    // different stack behaviors, POP needs special stack constraints.
     // Constrain `stack_inv_aux`.
     {
         let len_diff = builder.add_const_extension(lv.stack_len, F::NEG_ONE);

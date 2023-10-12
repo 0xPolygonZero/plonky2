@@ -542,7 +542,8 @@ pub(crate) fn generate_not<F: Field>(
     let result = !x;
     push_no_write(state, &mut row, result, Some(NUM_GP_CHANNELS - 1));
 
-    // This is necessary for the stack constraints for POP.
+    // This is necessary for the stack constraints for POP,
+    // since the two flags are combined.
     let diff = row.stack_len - F::from_canonical_usize(1);
     if let Some(inv) = diff.try_inverse() {
         row.general.stack_mut().stack_inv = inv;
