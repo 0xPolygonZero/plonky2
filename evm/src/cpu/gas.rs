@@ -122,6 +122,7 @@ fn eval_packed_init<P: PackedField>(
     yield_constr.constraint_transition(filter * nv.gas[1]);
 }
 
+/// Evaluate the gas constraints for the opcodes that cost a constant gas.
 pub fn eval_packed<P: PackedField>(
     lv: &CpuColumnsView<P>,
     nv: &CpuColumnsView<P>,
@@ -253,12 +254,16 @@ fn eval_ext_circuit_init<F: RichField + Extendable<D>, const D: usize>(
     yield_constr.constraint_transition(builder, constr);
 }
 
+/// Circuit version of `eval_packed`.
+/// Evaluate the gas constraints for the opcodes that cost a constant gas.
 pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
     lv: &CpuColumnsView<ExtensionTarget<D>>,
     nv: &CpuColumnsView<ExtensionTarget<D>>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
+    // Evaluates the transition gas constraints.
     eval_ext_circuit_accumulate(builder, lv, nv, yield_constr);
+    // Evaluates the initial gas constraints.
     eval_ext_circuit_init(builder, lv, nv, yield_constr);
 }

@@ -34,17 +34,20 @@ const NATIVE_INSTRUCTIONS: [usize; 18] = [
     // not exceptions (also jump)
 ];
 
+/// Returns `halt`'s program counter.
 pub(crate) fn get_halt_pc<F: Field>() -> F {
     let halt_pc = KERNEL.global_labels["halt"];
     F::from_canonical_usize(halt_pc)
 }
 
+/// Returns `main`'s program counter.
 pub(crate) fn get_start_pc<F: Field>() -> F {
     let start_pc = KERNEL.global_labels["main"];
 
     F::from_canonical_usize(start_pc)
 }
 
+/// Evaluates the constraints related to the flow of instructions.
 pub fn eval_packed_generic<P: PackedField>(
     lv: &CpuColumnsView<P>,
     nv: &CpuColumnsView<P>,
@@ -83,6 +86,8 @@ pub fn eval_packed_generic<P: PackedField>(
     yield_constr.constraint_transition(is_last_noncpu_cycle * nv.stack_len);
 }
 
+/// Circuit version of `eval_packed`.
+/// Evaluates the constraints related to the flow of instructions.
 pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
     lv: &CpuColumnsView<ExtensionTarget<D>>,

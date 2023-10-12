@@ -6,6 +6,7 @@ use plonky2::iop::ext_target::ExtensionTarget;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::CpuColumnsView;
 
+/// Evaluates constraints to check that we are not pushing anything.
 pub fn eval_packed<P: PackedField>(
     lv: &CpuColumnsView<P>,
     nv: &CpuColumnsView<P>,
@@ -17,6 +18,8 @@ pub fn eval_packed<P: PackedField>(
     }
 }
 
+/// Circuit version of `eval_packed`.
+/// Evaluates constraints to check that we are not pushing anything.
 pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
     lv: &CpuColumnsView<ExtensionTarget<D>>,

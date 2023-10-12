@@ -10,12 +10,15 @@ use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::kernel::constants::context_metadata::ContextMetadata;
 use crate::memory::segments::Segment;
 
+/// Evaluates constraints for GET_CONTEXT.
 fn eval_packed_get<P: PackedField>(
     lv: &CpuColumnsView<P>,
     nv: &CpuColumnsView<P>,
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
     let filter = lv.op.get_context;
+
+    // Ensure that we are pushing the current context.
     let new_stack_top = nv.mem_channels[0].value;
     yield_constr.constraint(filter * (new_stack_top[0] - lv.context));
     for &limb in &new_stack_top[1..] {
@@ -23,6 +26,8 @@ fn eval_packed_get<P: PackedField>(
     }
 }
 
+/// Circuit version of `eval_packed_get`.
+/// Evalutes constraints for GET_CONTEXT.
 fn eval_ext_circuit_get<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     lv: &CpuColumnsView<ExtensionTarget<D>>,
@@ -30,6 +35,8 @@ fn eval_ext_circuit_get<F: RichField + Extendable<D>, const D: usize>(
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
     let filter = lv.op.get_context;
+
+    // Ensure that we are pushing the current context.
     let new_stack_top = nv.mem_channels[0].value;
     {
         let diff = builder.sub_extension(new_stack_top[0], lv.context);
@@ -42,6 +49,7 @@ fn eval_ext_circuit_get<F: RichField + Extendable<D>, const D: usize>(
     }
 }
 
+/// Evaluates constraints for `SET_CONTEXT`.
 fn eval_packed_set<P: PackedField>(
     lv: &CpuColumnsView<P>,
     nv: &CpuColumnsView<P>,
@@ -107,6 +115,8 @@ fn eval_packed_set<P: PackedField>(
     yield_constr.constraint(empty_stack_filter * read_new_stack_top_channel.used);
 }
 
+/// Circuit version of `eval_packed_set`.
+/// Evaluates constraints for SET_CONTEXT.
 fn eval_ext_circuit_set<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     lv: &CpuColumnsView<ExtensionTarget<D>>,
@@ -261,6 +271,7 @@ fn eval_ext_circuit_set<F: RichField + Extendable<D>, const D: usize>(
     }
 }
 
+/// Evaluates the constraints for the GET and SET opcodes.
 pub fn eval_packed<P: PackedField>(
     lv: &CpuColumnsView<P>,
     nv: &CpuColumnsView<P>,
@@ -270,6 +281,8 @@ pub fn eval_packed<P: PackedField>(
     eval_packed_set(lv, nv, yield_constr);
 }
 
+/// Circuit version of èval_packed`.
+/// Evaluates the constraints for the GET and SET opcodes.
 pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     lv: &CpuColumnsView<ExtensionTarget<D>>,

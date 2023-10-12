@@ -18,16 +18,18 @@ fn get_addr<T: Copy>(lv: &CpuColumnsView<T>) -> (T, T, T) {
     (addr_context, addr_segment, addr_virtual)
 }
 
+/// Evaluates constraints for MLOAD_GENERAL.
 fn eval_packed_load<P: PackedField>(
     lv: &CpuColumnsView<P>,
     nv: &CpuColumnsView<P>,
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
-    // The opcode for MLOAD_GENERAL is 0xfb. If the operation is MLOAD_GENERAL, lv.opcode_bits[0] = 1
+    // The opcode for MLOAD_GENERAL is 0xfb. If the operation is MLOAD_GENERAL, lv.opcode_bits[0] = 1.
     let filter = lv.op.m_op_general * lv.opcode_bits[0];
 
     let (addr_context, addr_segment, addr_virtual) = get_addr(lv);
 
+    // Check that we are loading the correct value from the correct address.
     let load_channel = lv.mem_channels[3];
     yield_constr.constraint(filter * (load_channel.used - P::ONES));
     yield_constr.constraint(filter * (load_channel.is_read - P::ONES));
@@ -50,17 +52,21 @@ fn eval_packed_load<P: PackedField>(
     );
 }
 
+/// Circuit version for `eval_packed_load`.
+/// Evaluates constraints for MLOAD_GENERAL.
 fn eval_ext_circuit_load<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
     lv: &CpuColumnsView<ExtensionTarget<D>>,
     nv: &CpuColumnsView<ExtensionTarget<D>>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
+    // The opcode for MLOAD_GENERAL is 0xfb. If the operation is MLOAD_GENERAL, lv.opcode_bits[0] = 1.
     let mut filter = lv.op.m_op_general;
     filter = builder.mul_extension(filter, lv.opcode_bits[0]);
 
     let (addr_context, addr_segment, addr_virtual) = get_addr(lv);
 
+    // Check that we are loading the correct value from the correct channel.
     let load_channel = lv.mem_channels[3];
     {
         let constr = builder.mul_sub_extension(filter, load_channel.used, filter);
@@ -100,6 +106,7 @@ fn eval_ext_circuit_load<F: RichField + Extendable<D>, const D: usize>(
     );
 }
 
+/// Evaluates constraints for MSTORE_GENERAL.
 fn eval_packed_store<P: PackedField>(
     lv: &CpuColumnsView<P>,
     nv: &CpuColumnsView<P>,
@@ -109,6 +116,7 @@ fn eval_packed_store<P: PackedField>(
 
     let (addr_context, addr_segment, addr_virtual) = get_addr(lv);
 
+    // Check that we are storing the correct value at the correct address.
     let value_channel = lv.mem_channels[3];
     let store_channel = lv.mem_channels[4];
     yield_constr.constraint(filter * (store_channel.used - P::ONES));
@@ -171,6 +179,8 @@ fn eval_packed_store<P: PackedField>(
     yield_constr.constraint(lv.op.m_op_general * lv.opcode_bits[0] * top_read_channel.used);
 }
 
+/// Circuit version of `eval_packed_store`.
+/// /// Evaluates constraints for MSTORE_GENERAL.
 fn eval_ext_circuit_store<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
     lv: &CpuColumnsView<ExtensionTarget<D>>,
@@ -182,6 +192,7 @@ fn eval_ext_circuit_store<F: RichField + Extendable<D>, const D: usize>(
 
     let (addr_context, addr_segment, addr_virtual) = get_addr(lv);
 
+    // Check that we are storing the correct value at the correct address.
     let value_channel = lv.mem_channels[3];
     let store_channel = lv.mem_channels[4];
     {
@@ -315,6 +326,7 @@ fn eval_ext_circuit_store<F: RichField + Extendable<D>, const D: usize>(
     }
 }
 
+/// Evaluates constraints for MLOAD_GENERAL and MSTORE_GENERAL.
 pub fn eval_packed<P: PackedField>(
     lv: &CpuColumnsView<P>,
     nv: &CpuColumnsView<P>,
@@ -324,6 +336,8 @@ pub fn eval_packed<P: PackedField>(
     eval_packed_store(lv, nv, yield_constr);
 }
 
+/// Circuit version of `eval_packed`.
+/// Evaluates constraints for MLOAD_GENERAL and MSTORE_GENERAL.
 pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
     lv: &CpuColumnsView<ExtensionTarget<D>>,

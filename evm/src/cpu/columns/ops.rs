@@ -4,38 +4,64 @@ use std::ops::{Deref, DerefMut};
 
 use crate::util::transmute_no_compile_time_size_checks;
 
+/// Structure representing the flags for the various opcodes.
 #[repr(C)]
 #[derive(Clone, Copy, Eq, PartialEq, Debug)]
 pub struct OpsColumnsView<T: Copy> {
-    pub binary_op: T,  // Combines ADD, MUL, SUB, DIV, MOD, LT, GT and BYTE flags.
-    pub ternary_op: T, // Combines ADDMOD, MULMOD and SUBMOD flags.
-    pub fp254_op: T,   // Combines ADD_FP254, MUL_FP254 and SUB_FP254 flags.
-    pub eq_iszero: T,  // Combines EQ and ISZERO flags.
-    pub logic_op: T,   // Combines AND, OR and XOR flags.
+    /// Combines ADD, MUL, SUB, DIV, MOD, LT, GT and BYTE flags.
+    pub binary_op: T,
+    /// Combines ADDMOD, MULMOD and SUBMOD flags.
+    pub ternary_op: T,
+    /// Combines ADD_FP254, MUL_FP254 and SUB_FP254 flags.
+    pub fp254_op: T,
+    /// Combines EQ and ISZERO flags.
+    pub eq_iszero: T,
+    /// Combines AND, OR and XOR flags.
+    pub logic_op: T,
+    /// Flag for NOT.
     pub not: T,
-    pub shift: T, // Combines SHL and SHR flags.
+    /// Combines SHL and SHR flags.
+    pub shift: T,
+    /// Flag for KECCAK_GENERAL.
     pub keccak_general: T,
+    /// Flag for PROVER_INPUT.
     pub prover_input: T,
+    /// Flag for POP.
     pub pop: T,
-    pub jumps: T, // Combines JUMP and JUMPI flags.
+    /// Combines JUMP and JUMPI flags.
+    pub jumps: T,
+    /// Flag for PC.
     pub pc: T,
+    /// Flag for JUMPDEST.
     pub jumpdest: T,
+    /// Flag for PUSH0.
     pub push0: T,
+    /// Flag for PUSH.
     pub push: T,
+    /// Flag for DUP.
     pub dup: T,
+    /// Flag for SWAP.
     pub swap: T,
+    /// Flag for GET_CONTEXT
     pub get_context: T,
+    /// Flag for SET_CONTEXT
     pub set_context: T,
     pub mstore_32bytes: T,
+    /// Flag for MLOAD_32BYTES.
     pub mload_32bytes: T,
+    /// Flag for EXIT_KERNEL.
     pub exit_kernel: T,
+    /// Combines MSTORE_GENERAL and MLOAD_GENERAL flags.
     pub m_op_general: T,
 
+    /// Flag for syscalls.
     pub syscall: T,
+    /// Flag for exceptions.
     pub exception: T,
 }
 
-// `u8` is guaranteed to have a `size_of` of 1.
+/// Number of columns in Cpu Stark.
+/// `u8` is guaranteed to have a `size_of` of 1.
 pub const NUM_OPS_COLUMNS: usize = size_of::<OpsColumnsView<u8>>();
 
 impl<T: Copy> From<[T; NUM_OPS_COLUMNS]> for OpsColumnsView<T> {

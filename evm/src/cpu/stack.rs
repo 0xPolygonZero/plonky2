@@ -13,6 +13,10 @@ use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::membus::NUM_GP_CHANNELS;
 use crate::memory::segments::Segment;
 
+/// Structure to represent opcodes stack behaviours:
+/// - number of pops
+/// - whether the opcode(s) push
+/// - whether unused channels should be disabled.
 #[derive(Clone, Copy)]
 pub(crate) struct StackBehavior {
     pub(crate) num_pops: usize,
@@ -20,32 +24,35 @@ pub(crate) struct StackBehavior {
     new_top_stack_channel: Option<usize>,
     disable_other_channels: bool,
 }
-
+/// `StackBehavior` for binary operations.
 const BASIC_BINARY_OP: Option<StackBehavior> = Some(StackBehavior {
     num_pops: 2,
     pushes: true,
     new_top_stack_channel: Some(NUM_GP_CHANNELS - 1),
     disable_other_channels: true,
 });
+/// `StackBehavior` for ternary operations.
 const BASIC_TERNARY_OP: Option<StackBehavior> = Some(StackBehavior {
     num_pops: 3,
     pushes: true,
     new_top_stack_channel: Some(NUM_GP_CHANNELS - 1),
     disable_other_channels: true,
 });
+/// `StackBehavior` for JUMP.
 pub(crate) const JUMP_OP: Option<StackBehavior> = Some(StackBehavior {
     num_pops: 1,
     pushes: false,
     new_top_stack_channel: None,
     disable_other_channels: false,
 });
+/// `StackBehavior` for JUMPI.
 pub(crate) const JUMPI_OP: Option<StackBehavior> = Some(StackBehavior {
     num_pops: 2,
     pushes: false,
     new_top_stack_channel: None,
     disable_other_channels: false,
 });
-
+/// `StackBehavior` for MLOAD_GENERAL.
 pub(crate) const MLOAD_GENERAL_OP: Option<StackBehavior> = Some(StackBehavior {
     num_pops: 3,
     pushes: true,
@@ -151,12 +158,14 @@ pub(crate) const STACK_BEHAVIORS: OpsColumnsView<Option<StackBehavior>> = OpsCol
     }),
 };
 
+/// Stack behavior for EQ.
 pub(crate) const EQ_STACK_BEHAVIOR: Option<StackBehavior> = Some(StackBehavior {
     num_pops: 2,
     pushes: true,
     new_top_stack_channel: Some(2),
     disable_other_channels: true,
 });
+/// Stack behavior for ISZERO.
 pub(crate) const IS_ZERO_STACK_BEHAVIOR: Option<StackBehavior> = Some(StackBehavior {
     num_pops: 1,
     pushes: true,
@@ -164,6 +173,7 @@ pub(crate) const IS_ZERO_STACK_BEHAVIOR: Option<StackBehavior> = Some(StackBehav
     disable_other_channels: true,
 });
 
+/// Evaluates constraints for one `StackBehavior`.
 pub(crate) fn eval_packed_one<P: PackedField>(
     lv: &CpuColumnsView<P>,
     nv: &CpuColumnsView<P>,
@@ -285,6 +295,7 @@ pub(crate) fn eval_packed_one<P: PackedField>(
     yield_constr.constraint_transition(filter * (nv.stack_len - (lv.stack_len - num_pops + push)));
 }
 
+/// Evaluates constraints for all opcodes' `StackBehavior`s.
 pub fn eval_packed<P: PackedField>(
     lv: &CpuColumnsView<P>,
     nv: &CpuColumnsView<P>,
@@ -297,6 +308,8 @@ pub fn eval_packed<P: PackedField>(
     }
 }
 
+/// Circuit version of `eval_packed_one`.
+/// Evaluates constraints for one `StackBehavior`.
 pub(crate) fn eval_ext_circuit_one<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
     lv: &CpuColumnsView<ExtensionTarget<D>>,
@@ -515,6 +528,8 @@ pub(crate) fn eval_ext_circuit_one<F: RichField + Extendable<D>, const D: usize>
     yield_constr.constraint_transition(builder, constr);
 }
 
+/// Circuti version of `eval_packed`.
+/// Evaluates constraints for all opcodes' `StackBehavior`s.
 pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
     lv: &CpuColumnsView<ExtensionTarget<D>>,
