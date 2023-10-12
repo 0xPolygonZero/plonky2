@@ -15,24 +15,19 @@ use crate::arithmetic::modular::{
 use crate::arithmetic::utils::*;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 
-/// Generate the output and auxiliary values for modular operations.
-pub(crate) fn generate<F: PrimeField64>(
+/// Generates the output and auxiliary values for modular operations,
+/// assuming the input, modular and output limbs are already set.
+pub(crate) fn generate_divmod<F: PrimeField64>(
     lv: &mut [F],
     nv: &mut [F],
     filter: usize,
-    input0: U256,
-    input1: U256,
-    result: U256,
+    input_limbs_range: Range<usize>,
+    modulus_range: Range<usize>,
 ) {
-    debug_assert!(lv.len() == NUM_ARITH_COLUMNS);
-
-    u256_to_array(&mut lv[INPUT_REGISTER_0], input0);
-    u256_to_array(&mut lv[INPUT_REGISTER_1], input1);
-    u256_to_array(&mut lv[OUTPUT_REGISTER], result);
-
-    let input_limbs = read_value_i64_limbs::<N_LIMBS, _>(lv, INPUT_REGISTER_0);
+    let input_limbs = read_value_i64_limbs::<N_LIMBS, _>(lv, input_limbs_range);
     let pol_input = pol_extend(input_limbs);
-    let (out, quo_input) = generate_modular_op(lv, nv, filter, pol_input, INPUT_REGISTER_1);
+    let (out, quo_input) = generate_modular_op(lv, nv, filter, pol_input, modulus_range);
+
     debug_assert!(
         &quo_input[N_LIMBS..].iter().all(|&x| x == F::ZERO),
         "expected top half of quo_input to be zero"
@@ -62,16 +57,35 @@ pub(crate) fn generate<F: PrimeField64>(
             );
             lv[AUX_INPUT_REGISTER_0].copy_from_slice(&quo_input[..N_LIMBS]);
         }
-        _ => panic!("expected filter to be IS_DIV or IS_MOD but it was {filter}"),
+        _ => panic!("expected filter to be IS_DIV, IS_SHR or IS_MOD but it was {filter}"),
     };
+}
+/// Generate the output and auxiliary values for modular operations.
+pub(crate) fn generate<F: PrimeField64>(
+    lv: &mut [F],
+    nv: &mut [F],
+    filter: usize,
+    input0: U256,
+    input1: U256,
+    result: U256,
+) {
+    debug_assert!(lv.len() == NUM_ARITH_COLUMNS);
+
+    u256_to_array(&mut lv[INPUT_REGISTER_0], input0);
+    u256_to_array(&mut lv[INPUT_REGISTER_1], input1);
+    u256_to_array(&mut lv[OUTPUT_REGISTER], result);
+
+    generate_divmod(lv, nv, filter, INPUT_REGISTER_0, INPUT_REGISTER_1);
 }
 
 /// Verify that num = quo * den + rem and 0 <= rem < den.
-fn eval_packed_divmod_helper<P: PackedField>(
+pub(crate) fn eval_packed_divmod_helper<P: PackedField>(
     lv: &[P; NUM_ARITH_COLUMNS],
     nv: &[P; NUM_ARITH_COLUMNS],
     yield_constr: &mut ConstraintConsumer<P>,
     filter: P,
+    num_range: Range<usize>,
+    den_range: Range<usize>,
     quo_range: Range<usize>,
     rem_range: Range<usize>,
 ) {
@@ -80,8 +94,8 @@ fn eval_packed_divmod_helper<P: PackedField>(
 
     yield_constr.constraint_last_row(filter);
 
-    let num = &lv[INPUT_REGISTER_0];
-    let den = read_value(lv, INPUT_REGISTER_1);
+    let num = &lv[num_range];
+    let den = read_value(lv, den_range);
     let quo = {
         let mut quo = [P::ZEROS; 2 * N_LIMBS];
         quo[..N_LIMBS].copy_from_slice(&lv[quo_range]);
@@ -104,14 +118,13 @@ pub(crate) fn eval_packed<P: PackedField>(
     nv: &[P; NUM_ARITH_COLUMNS],
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
-    // Constrain IS_SHR independently, so that it doesn't impact the
-    // constraints when combining the flag with IS_DIV.
-    yield_constr.constraint_last_row(lv[IS_SHR]);
     eval_packed_divmod_helper(
         lv,
         nv,
         yield_constr,
-        lv[IS_DIV] + lv[IS_SHR],
+        lv[IS_DIV],
+        INPUT_REGISTER_0,
+        INPUT_REGISTER_1,
         OUTPUT_REGISTER,
         AUX_INPUT_REGISTER_0,
     );
@@ -120,24 +133,28 @@ pub(crate) fn eval_packed<P: PackedField>(
         nv,
         yield_constr,
         lv[IS_MOD],
+        INPUT_REGISTER_0,
+        INPUT_REGISTER_1,
         AUX_INPUT_REGISTER_0,
         OUTPUT_REGISTER,
     );
 }
 
-fn eval_ext_circuit_divmod_helper<F: RichField + Extendable<D>, const D: usize>(
+pub(crate) fn eval_ext_circuit_divmod_helper<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     lv: &[ExtensionTarget<D>; NUM_ARITH_COLUMNS],
     nv: &[ExtensionTarget<D>; NUM_ARITH_COLUMNS],
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
     filter: ExtensionTarget<D>,
+    num_range: Range<usize>,
+    den_range: Range<usize>,
     quo_range: Range<usize>,
     rem_range: Range<usize>,
 ) {
     yield_constr.constraint_last_row(builder, filter);
 
-    let num = &lv[INPUT_REGISTER_0];
-    let den = read_value(lv, INPUT_REGISTER_1);
+    let num = &lv[num_range];
+    let den = read_value(lv, den_range);
     let quo = {
         let zero = builder.zero_extension();
         let mut quo = [zero; 2 * N_LIMBS];
@@ -164,14 +181,14 @@ pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     nv: &[ExtensionTarget<D>; NUM_ARITH_COLUMNS],
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
-    yield_constr.constraint_last_row(builder, lv[IS_SHR]);
-    let div_shr_flag = builder.add_extension(lv[IS_DIV], lv[IS_SHR]);
     eval_ext_circuit_divmod_helper(
         builder,
         lv,
         nv,
         yield_constr,
-        div_shr_flag,
+        lv[IS_DIV],
+        INPUT_REGISTER_0,
+        INPUT_REGISTER_1,
         OUTPUT_REGISTER,
         AUX_INPUT_REGISTER_0,
     );
@@ -181,6 +198,8 @@ pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
         nv,
         yield_constr,
         lv[IS_MOD],
+        INPUT_REGISTER_0,
+        INPUT_REGISTER_1,
         AUX_INPUT_REGISTER_0,
         OUTPUT_REGISTER,
     );
@@ -214,7 +233,7 @@ mod tests {
         for op in MODULAR_OPS {
             lv[op] = F::ZERO;
         }
-        // Deactivate the SHR flag so that a DIV operation is not triggered.
+        // Since SHR uses the logic for DIV, `IS_SHR` should also be set to 0 here.
         lv[IS_SHR] = F::ZERO;
 
         let mut constraint_consumer = ConstraintConsumer::new(
@@ -247,6 +266,7 @@ mod tests {
                 for op in MODULAR_OPS {
                     lv[op] = F::ZERO;
                 }
+                // Since SHR uses the logic for DIV, `IS_SHR` should also be set to 0 here.
                 lv[IS_SHR] = F::ZERO;
                 lv[op_filter] = F::ONE;
 
@@ -308,6 +328,7 @@ mod tests {
                 for op in MODULAR_OPS {
                     lv[op] = F::ZERO;
                 }
+                // Since SHR uses the logic for DIV, `IS_SHR` should also be set to 0 here.
                 lv[IS_SHR] = F::ZERO;
                 lv[op_filter] = F::ONE;
 

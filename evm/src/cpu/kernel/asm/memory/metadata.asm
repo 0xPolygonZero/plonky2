@@ -241,6 +241,8 @@ global sys_blockhash:
     SWAP1
     // stack: block_number, kexit_info
     %blockhash
+    // stack: blockhash, kexit_info
+    SWAP1
     EXIT_KERNEL
 
 global blockhash:
@@ -262,7 +264,6 @@ global blockhash:
     // stack: block_hash_number, retdest
     %mload_kernel(@SEGMENT_BLOCK_HASHES)
     SWAP1 JUMP
-    JUMP
 
 %macro blockhash
     // stack: block_number
