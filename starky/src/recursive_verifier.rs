@@ -154,6 +154,7 @@ fn verify_stark_proof_with_challenges_circuit<
         challenges.stark_zeta,
         F::primitive_root_of_unity(degree_bits),
         inner_config,
+        None,
     );
     builder.verify_fri_proof::<C>(
         &fri_instance,
