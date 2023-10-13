@@ -6,6 +6,7 @@ use hex_literal::hex;
 use crate::cpu::kernel::constants::context_metadata::ContextMetadata;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
 use crate::cpu::kernel::constants::journal_entry::JournalEntry;
+use crate::cpu::kernel::constants::smt_type::PartialSmtType;
 use crate::cpu::kernel::constants::trie_type::PartialTrieType;
 use crate::cpu::kernel::constants::txn_fields::NormalizedTxnField;
 use crate::memory::segments::Segment;
@@ -14,6 +15,7 @@ pub(crate) mod context_metadata;
 mod exc_bitfields;
 pub(crate) mod global_metadata;
 pub(crate) mod journal_entry;
+pub(crate) mod smt_type;
 pub(crate) mod trie_type;
 pub(crate) mod txn_fields;
 
@@ -70,6 +72,9 @@ pub fn evm_constants() -> HashMap<String, U256> {
         c.insert(txn_field.var_name().into(), (txn_field as u32).into());
     }
     for trie_type in PartialTrieType::all() {
+        c.insert(trie_type.var_name().into(), (trie_type as u32).into());
+    }
+    for trie_type in PartialSmtType::all() {
         c.insert(trie_type.var_name().into(), (trie_type as u32).into());
     }
     for entry in JournalEntry::all() {
