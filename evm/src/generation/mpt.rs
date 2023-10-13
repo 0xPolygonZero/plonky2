@@ -282,21 +282,19 @@ fn empty_nibbles() -> Nibbles {
 pub mod transaction_testing {
     use super::*;
 
-    #[derive(RlpEncodable, RlpDecodable, Debug, Clone)]
+    #[derive(RlpEncodable, RlpDecodable, Debug, Clone, PartialEq, Eq)]
     pub struct AccessListItemRlp {
         pub address: Address,
         pub storage_keys: Vec<U256>,
     }
 
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, PartialEq, Eq)]
     pub struct AddressOption(pub Option<Address>);
 
     impl Encodable for AddressOption {
         fn rlp_append(&self, s: &mut RlpStream) {
             match self.0 {
-                None => {
-                    s.append_empty_data();
-                }
+                None => s.encoder().encode_value(&[]),
                 Some(value) => {
                     s.encoder().encode_value(&value.to_fixed_bytes());
                 }
@@ -316,7 +314,7 @@ pub mod transaction_testing {
         }
     }
 
-    #[derive(RlpEncodable, RlpDecodable, Debug, Clone)]
+    #[derive(RlpEncodable, RlpDecodable, Debug, Clone, PartialEq, Eq)]
     pub struct LegacyTransactionRlp {
         pub nonce: U256,
         pub gas_price: U256,
@@ -329,7 +327,7 @@ pub mod transaction_testing {
         pub s: U256,
     }
 
-    #[derive(RlpEncodable, RlpDecodable, Debug, Clone)]
+    #[derive(RlpEncodable, RlpDecodable, Debug, Clone, PartialEq, Eq)]
     pub struct AccessListTransactionRlp {
         pub chain_id: u64,
         pub nonce: U256,
@@ -344,7 +342,7 @@ pub mod transaction_testing {
         pub s: U256,
     }
 
-    #[derive(RlpEncodable, RlpDecodable, Debug, Clone)]
+    #[derive(RlpEncodable, RlpDecodable, Debug, Clone, PartialEq, Eq)]
     pub struct FeeMarketTransactionRlp {
         pub chain_id: u64,
         pub nonce: U256,

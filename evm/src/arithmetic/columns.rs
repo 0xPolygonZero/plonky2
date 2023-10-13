@@ -103,7 +103,7 @@ pub(crate) const MODULAR_OUT_AUX_RED: Range<usize> = AUX_REGISTER_0;
 pub(crate) const MODULAR_MOD_IS_ZERO: usize = AUX_REGISTER_1.start;
 pub(crate) const MODULAR_AUX_INPUT_LO: Range<usize> = AUX_REGISTER_1.start + 1..AUX_REGISTER_1.end;
 pub(crate) const MODULAR_AUX_INPUT_HI: Range<usize> = AUX_REGISTER_2;
-// Must be set to MOD_IS_ZERO for DIV operation i.e. MOD_IS_ZERO * lv[IS_DIV]
+// Must be set to MOD_IS_ZERO for DIV and SHR operations i.e. MOD_IS_ZERO * (lv[IS_DIV] + lv[IS_SHR]).
 pub(crate) const MODULAR_DIV_DENOM_IS_ZERO: usize = AUX_REGISTER_2.end;
 
 /// The counter column (used for the range check) starts from 0 and increments.

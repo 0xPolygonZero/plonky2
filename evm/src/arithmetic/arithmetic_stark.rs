@@ -12,6 +12,7 @@ use plonky2::util::transpose;
 use static_assertions::const_assert;
 
 use super::columns::NUM_ARITH_COLUMNS;
+use super::shift;
 use crate::all_stark::Table;
 use crate::arithmetic::columns::{RANGE_COUNTER, RC_FREQUENCIES, SHARED_COLS};
 use crate::arithmetic::{addcy, byte, columns, divmod, modular, mul, Operation};
@@ -223,6 +224,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ArithmeticSta
         divmod::eval_packed(lv, nv, yield_constr);
         modular::eval_packed(lv, nv, yield_constr);
         byte::eval_packed(lv, yield_constr);
+        shift::eval_packed_generic(lv, nv, yield_constr);
     }
 
     fn eval_ext_circuit(
@@ -262,6 +264,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ArithmeticSta
         divmod::eval_ext_circuit(builder, lv, nv, yield_constr);
         modular::eval_ext_circuit(builder, lv, nv, yield_constr);
         byte::eval_ext_circuit(builder, lv, yield_constr);
+        shift::eval_ext_circuit(builder, lv, nv, yield_constr);
     }
 
     fn constraint_degree(&self) -> usize {

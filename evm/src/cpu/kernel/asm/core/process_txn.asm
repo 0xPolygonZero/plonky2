@@ -420,7 +420,7 @@ contract_creation_fault_3:
     // stack: leftover_gas', retdest, success
     %delete_all_touched_addresses
     %delete_all_selfdestructed_addresses
-    %stack (leftover_gas, retdest, success) -> (retdest, success, leftover_gas)
+    %stack (leftover_gas, retdest, success) -> (retdest, 0, leftover_gas)
     JUMP
 
 contract_creation_fault_3_zero_leftover:
@@ -432,7 +432,7 @@ contract_creation_fault_3_zero_leftover:
     %pay_coinbase_and_refund_sender
     %delete_all_touched_addresses
     %delete_all_selfdestructed_addresses
-    %stack (leftover_gas, retdest, success) -> (retdest, success, leftover_gas)
+    %stack (leftover_gas, retdest, success) -> (retdest, 0, leftover_gas)
     JUMP
 
 contract_creation_fault_4:
@@ -444,7 +444,7 @@ contract_creation_fault_4:
     %pay_coinbase_and_refund_sender
     %delete_all_touched_addresses
     %delete_all_selfdestructed_addresses
-    %stack (leftover_gas, retdest, success) -> (retdest, success, leftover_gas)
+    %stack (leftover_gas, retdest, success) -> (retdest, 0, leftover_gas)
     JUMP
 
 

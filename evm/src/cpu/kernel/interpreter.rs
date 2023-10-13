@@ -126,8 +126,14 @@ impl<'a> Interpreter<'a> {
             opcode_count: [0; 0x100],
         };
         result.generation_state.registers.program_counter = initial_offset;
-        result.generation_state.registers.stack_len = initial_stack.len();
-        *result.stack_mut() = initial_stack;
+        let initial_stack_len = initial_stack.len();
+        result.generation_state.registers.stack_len = initial_stack_len;
+        if !initial_stack.is_empty() {
+            result.generation_state.registers.stack_top = initial_stack[initial_stack_len - 1];
+            *result.stack_segment_mut() = initial_stack;
+            result.stack_segment_mut().truncate(initial_stack_len - 1);
+        }
+
         result
     }
 
@@ -262,12 +268,18 @@ impl<'a> Interpreter<'a> {
         self.generation_state.registers.program_counter += n;
     }
 
-    pub(crate) fn stack(&self) -> &[U256] {
-        &self.generation_state.memory.contexts[self.context].segments[Segment::Stack as usize]
+    pub(crate) fn stack(&self) -> Vec<U256> {
+        let mut stack = self.generation_state.memory.contexts[self.context].segments
+            [Segment::Stack as usize]
             .content
+            .clone();
+        if self.stack_len() > 0 {
+            stack.push(self.stack_top());
+        }
+        stack
     }
 
-    fn stack_mut(&mut self) -> &mut Vec<U256> {
+    fn stack_segment_mut(&mut self) -> &mut Vec<U256> {
         &mut self.generation_state.memory.contexts[self.context].segments[Segment::Stack as usize]
             .content
     }
@@ -285,7 +297,11 @@ impl<'a> Interpreter<'a> {
     }
 
     pub(crate) fn push(&mut self, x: U256) {
-        self.stack_mut().push(x);
+        if self.stack_len() > 0 {
+            let top = self.stack_top();
+            self.stack_segment_mut().push(top);
+        }
+        self.generation_state.registers.stack_top = x;
         self.generation_state.registers.stack_len += 1;
     }
 
@@ -295,9 +311,17 @@ impl<'a> Interpreter<'a> {
 
     pub(crate) fn pop(&mut self) -> U256 {
         let result = stack_peek(&self.generation_state, 0);
+        if self.stack_len() > 1 {
+            let top = stack_peek(&self.generation_state, 1).unwrap();
+            self.generation_state.registers.stack_top = top;
+        }
         self.generation_state.registers.stack_len -= 1;
         let new_len = self.stack_len();
-        self.stack_mut().truncate(new_len);
+        if new_len > 0 {
+            self.stack_segment_mut().truncate(new_len - 1);
+        } else {
+            self.stack_segment_mut().truncate(0);
+        }
         result.expect("Empty stack")
     }
 
@@ -1007,13 +1031,19 @@ impl<'a> Interpreter<'a> {
     }
 
     fn run_dup(&mut self, n: u8) {
-        self.push(self.stack()[self.stack_len() - n as usize]);
+        if n == 0 {
+            self.push(self.stack_top());
+        } else {
+            self.push(stack_peek(&self.generation_state, n as usize - 1).unwrap());
+        }
     }
 
     fn run_swap(&mut self, n: u8) -> anyhow::Result<()> {
         let len = self.stack_len();
         ensure!(len > n as usize);
-        self.stack_mut().swap(len - 1, len - n as usize - 1);
+        let to_swap = stack_peek(&self.generation_state, n as usize).unwrap();
+        self.stack_segment_mut()[len - n as usize - 1] = self.stack_top();
+        self.generation_state.registers.stack_top = to_swap;
         Ok(())
     }
 
@@ -1084,8 +1114,12 @@ impl<'a> Interpreter<'a> {
         }
     }
 
-    fn stack_len(&self) -> usize {
+    pub(crate) fn stack_len(&self) -> usize {
         self.generation_state.registers.stack_len
+    }
+
+    pub(crate) fn stack_top(&self) -> U256 {
+        self.generation_state.registers.stack_top
     }
 }
 

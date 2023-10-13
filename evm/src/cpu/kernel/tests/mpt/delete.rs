@@ -36,6 +36,17 @@ fn mpt_delete_leaf_overlapping_keys() -> Result<()> {
     test_state_trie(state_trie, nibbles_64(0xADE), test_account_2())
 }
 
+#[test]
+fn mpt_delete_branch_into_hash() -> Result<()> {
+    let hash = Node::Hash(H256::random());
+    let state_trie = Node::Extension {
+        nibbles: nibbles_64(0xADF),
+        child: hash.into(),
+    }
+    .into();
+    test_state_trie(state_trie, nibbles_64(0xADE), test_account_2())
+}
+
 /// Note: The account's storage_root is ignored, as we can't insert a new storage_root without the
 /// accompanying trie data. An empty trie's storage_root is used instead.
 fn test_state_trie(
