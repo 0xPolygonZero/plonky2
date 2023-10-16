@@ -69,7 +69,6 @@ fn connect_public_inputs<L: PlonkParameters<D>, const D: usize>(
     public_input_targets: &Vec<Target>,
     input_target_vec: &Vec<Target>,
 ) {
-    // FAILS: 2401 != 2333
     assert_eq!(public_input_targets.len(), input_target_vec.len());
     for (i, target) in input_target_vec.iter().enumerate() {
         builder.api.connect(*target, public_input_targets[i]);
