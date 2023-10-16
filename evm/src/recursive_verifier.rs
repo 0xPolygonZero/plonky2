@@ -619,14 +619,11 @@ fn add_data_write<F: RichField + Extendable<D>, const D: usize>(
     debug_assert!(val.len() <= VALUE_LIMBS);
     let len = core::cmp::min(val.len(), VALUE_LIMBS);
 
-    let zero = builder.zero();
-    let one = builder.one();
-
     let row = builder.add_virtual_targets(13);
-    // is_read
-    builder.connect(row[0], zero);
-    // context
-    builder.connect(row[1], zero);
+    // is_read = false
+    builder.assert_zero(row[0]);
+    // context = 0
+    builder.assert_zero(row[1]);
     // segment
     builder.connect(row[2], segment);
     // virtual
@@ -635,14 +632,16 @@ fn add_data_write<F: RichField + Extendable<D>, const D: usize>(
 
     // values
     for j in 0..len {
+        // connect the actual value limbs
         builder.connect(row[4 + j], val[j]);
     }
     for j in len..VALUE_LIMBS {
-        builder.connect(row[4 + j], zero);
+        // assert that the remaining limbs are 0
+        builder.assert_zero(row[4 + j]);
     }
 
-    // timestamp
-    builder.connect(row[12], one);
+    // timestamp = 1
+    builder.assert_one(row[12]);
 
     let combined = challenge.combine_base_circuit(builder, &row);
     builder.mul(running_product, combined)

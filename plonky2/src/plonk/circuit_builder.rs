@@ -906,7 +906,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// In PLONK's permutation argument, there's a slight chance of division by zero. We can
     /// mitigate this by randomizing some unused witness elements, so if proving fails with
     /// division by zero, the next attempt will have an (almost) independent chance of success.
-    /// See https://github.com/mir-protocol/plonky2/issues/456
+    /// See https://github.com/0xPolygonZero/plonky2/issues/456
     fn randomize_unused_pi_wires(&mut self, pi_gate: usize) {
         for wire in PublicInputGate::wires_public_inputs_hash().end..self.config.num_wires {
             self.add_simple_generator(RandomValueGenerator {
