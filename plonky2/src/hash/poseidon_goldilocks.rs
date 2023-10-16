@@ -1,7 +1,7 @@
 //! Implementations for Poseidon over Goldilocks field of widths 8 and 12.
 //!
 //! These contents of the implementations *must* be generated using the
-//! `poseidon_constants.sage` script in the `mir-protocol/hash-constants`
+//! `poseidon_constants.sage` script in the `0xPolygonZero/hash-constants`
 //! repository.
 
 #[cfg(not(all(target_arch = "aarch64", target_feature = "neon")))]
