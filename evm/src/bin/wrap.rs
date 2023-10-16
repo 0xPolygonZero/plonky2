@@ -11,7 +11,7 @@ use plonky2::util::serialization::{Buffer, DefaultGateSerializer, IoResult, Read
 use plonky2_evm::sample::get_sample_circuits_and_proof_from_serialized;
 use plonky2x::backend::circuit::Circuit;
 use plonky2x::backend::function::Plonky2xFunction;
-// use plonky2x::frontend::uint::uint160::U160Variable;
+use plonky2x::frontend::uint::uint160::U160Variable;
 use plonky2x::frontend::uint::uint256::U256Variable;
 use plonky2x::prelude::{
     CircuitBuilder as CircuitBuilderX, CircuitVariable, Field, PlonkParameters, Variable,
@@ -69,7 +69,7 @@ fn connect_public_inputs<L: PlonkParameters<D>, const D: usize>(
     public_input_targets: &Vec<Target>,
     input_target_vec: &Vec<Target>,
 ) {
-    // FAILS: 2401 != 2488
+    // FAILS: 2401 != 2333
     assert_eq!(public_input_targets.len(), input_target_vec.len());
     for (i, target) in input_target_vec.iter().enumerate() {
         builder.api.connect(*target, public_input_targets[i]);
@@ -160,35 +160,36 @@ impl Circuit for WrapCircuit {
         let transactions_root_after = builder.evm_read::<U256Variable>();
         let receipts_root_after = builder.evm_read::<U256Variable>();
 
-        // let block_beneficiary = builder.evm_read::<U160Variable>();
-        // let block_timestamp = builder.evm_read::<U256Variable>();
-        // let block_number = builder.evm_read::<U256Variable>();
-        // let block_difficulty = builder.evm_read::<U256Variable>();
-        // let block_random = builder.evm_read::<U256Variable>();
-        // let block_gaslimit = builder.evm_read::<U256Variable>();
-        // let block_chain_id = builder.evm_read::<U256Variable>();
-        // let block_base_fee = builder.evm_read::<U256Variable>();
-        // let block_gas_used = builder.evm_read::<U256Variable>();
-        // let block_bloom = (0..8)
-        //     .map(|_| builder.evm_read::<U256Variable>())
-        //     .collect::<Vec<_>>();
+        let block_beneficiary = builder.evm_read::<U160Variable>();
+        let block_timestamp = builder.evm_read::<U256Variable>();
+        let block_number = builder.evm_read::<U256Variable>();
+        let block_difficulty = builder.evm_read::<U256Variable>();
+        let block_random = builder.evm_read::<U256Variable>();
+        let block_gaslimit = builder.evm_read::<U256Variable>();
+        let block_chain_id = builder.evm_read::<U256Variable>();
+        let block_base_fee = builder.evm_read::<U256Variable>();
+        let block_gas_used = builder.evm_read::<U256Variable>();
 
-        // let prev_hashes = (0..256)
-        //     .map(|_| builder.evm_read::<U256Variable>())
-        //     .collect::<Vec<_>>();
-        // let cur_hash = builder.evm_read::<U256Variable>();
+        let block_bloom = (0..8)
+            .map(|_| builder.evm_read::<U256Variable>())
+            .collect::<Vec<_>>();
 
-        // let genesis_state_trie_root = builder.evm_read::<U256Variable>();
-        // let txn_number_before = builder.evm_read::<U256Variable>();
-        // let txn_number_after = builder.evm_read::<U256Variable>();
-        // let gas_used_before = builder.evm_read::<U256Variable>();
-        // let gas_used_after = builder.evm_read::<U256Variable>();
-        // let block_boom_before = (0..8)
-        //     .map(|_| builder.evm_read::<U256Variable>())
-        //     .collect::<Vec<_>>();
-        // let block_boom_after = (0..8)
-        //     .map(|_| builder.evm_read::<U256Variable>())
-        //     .collect::<Vec<_>>();
+        let prev_hashes = (0..256)
+            .map(|_| builder.evm_read::<U256Variable>())
+            .collect::<Vec<_>>();
+        let cur_hash = builder.evm_read::<U256Variable>();
+
+        let genesis_state_trie_root = builder.evm_read::<U256Variable>();
+        let txn_number_before = builder.evm_read::<U256Variable>();
+        let txn_number_after = builder.evm_read::<U256Variable>();
+        let gas_used_before = builder.evm_read::<U256Variable>();
+        let gas_used_after = builder.evm_read::<U256Variable>();
+        let block_boom_before = (0..8)
+            .map(|_| builder.evm_read::<U256Variable>())
+            .collect::<Vec<_>>();
+        let block_boom_after = (0..8)
+            .map(|_| builder.evm_read::<U256Variable>())
+            .collect::<Vec<_>>();
 
         let mut input_target_vec = vec![];
 
@@ -200,67 +201,65 @@ impl Circuit for WrapCircuit {
         input_target_vec.extend(transactions_root_after.targets());
         input_target_vec.extend(receipts_root_after.targets());
 
-        // input_target_vec.extend(block_beneficiary.targets());
+        input_target_vec.extend(block_beneficiary.targets());
 
-        // let zero = builder.zero::<Variable>();
+        let zero = builder.zero::<Variable>();
 
-        // // for block_timestamp, we'll read just the first u32 from the on-chain u256
-        // input_target_vec.push(block_timestamp.targets()[0]);
-        // let _ = (1..8).map(|i| builder.assert_is_equal(block_timestamp.variables()[i], zero));
+        // for block_timestamp, we'll read just the first u32 from the on-chain u256
+        input_target_vec.push(block_timestamp.targets()[0]);
+        let _ = (1..8).map(|i| builder.assert_is_equal(block_timestamp.variables()[i], zero));
 
-        // input_target_vec.push(block_number.targets()[0]);
-        // let _ = (1..8).map(|i| builder.assert_is_equal(block_number.variables()[i], zero));
+        input_target_vec.push(block_number.targets()[0]);
+        let _ = (1..8).map(|i| builder.assert_is_equal(block_number.variables()[i], zero));
 
-        // input_target_vec.push(block_difficulty.targets()[0]);
-        // let _ = (1..8).map(|i| builder.assert_is_equal(block_difficulty.variables()[i], zero));
+        input_target_vec.push(block_difficulty.targets()[0]);
+        let _ = (1..8).map(|i| builder.assert_is_equal(block_difficulty.variables()[i], zero));
 
-        // input_target_vec.extend(block_random.targets());
+        input_target_vec.extend(block_random.targets());
 
-        // input_target_vec.extend(block_gaslimit.targets().iter().take(2));
-        // let _ = (2..8).map(|i| builder.assert_is_equal(block_gaslimit.variables()[i], zero));
+        input_target_vec.extend(block_gaslimit.targets().iter().take(2));
+        let _ = (2..8).map(|i| builder.assert_is_equal(block_gaslimit.variables()[i], zero));
 
-        // input_target_vec.push(block_chain_id.targets()[0]);
-        // let _ = (1..8).map(|i| builder.assert_is_equal(block_chain_id.variables()[i], zero));
+        input_target_vec.push(block_chain_id.targets()[0]);
+        let _ = (1..8).map(|i| builder.assert_is_equal(block_chain_id.variables()[i], zero));
 
-        // input_target_vec.extend(block_base_fee.targets().iter().take(2));
-        // let _ = (2..8).map(|i| builder.assert_is_equal(block_base_fee.variables()[i], zero));
+        input_target_vec.extend(block_base_fee.targets().iter().take(2));
+        let _ = (2..8).map(|i| builder.assert_is_equal(block_base_fee.variables()[i], zero));
 
-        // input_target_vec.extend(block_gas_used.targets().iter().take(2));
-        // let _ = (2..8).map(|i| builder.assert_is_equal(block_gas_used.variables()[i], zero));
+        input_target_vec.extend(block_gas_used.targets().iter().take(2));
+        let _ = (2..8).map(|i| builder.assert_is_equal(block_gas_used.variables()[i], zero));
 
-        // input_target_vec.extend(block_bloom.iter().flat_map(|b| b.targets()));
+        input_target_vec.extend(block_bloom.iter().flat_map(|b| b.targets()));
 
-        // input_target_vec.extend(prev_hashes.iter().flat_map(|b| b.targets()));
-        // input_target_vec.extend(cur_hash.targets());
+        input_target_vec.extend(prev_hashes.iter().flat_map(|b| b.targets()));
+        input_target_vec.extend(cur_hash.targets());
 
-        // input_target_vec.extend(genesis_state_trie_root.targets());
+        input_target_vec.extend(genesis_state_trie_root.targets());
 
-        // input_target_vec.push(txn_number_before.targets()[0]);
-        // let _ = (1..8).map(|i| builder.assert_is_equal(txn_number_before.variables()[i], zero));
+        input_target_vec.push(txn_number_before.targets()[0]);
+        let _ = (1..8).map(|i| builder.assert_is_equal(txn_number_before.variables()[i], zero));
 
-        // input_target_vec.push(txn_number_after.targets()[0]);
-        // let _ = (1..8).map(|i| builder.assert_is_equal(txn_number_after.variables()[i], zero));
+        input_target_vec.push(txn_number_after.targets()[0]);
+        let _ = (1..8).map(|i| builder.assert_is_equal(txn_number_after.variables()[i], zero));
 
-        // input_target_vec.extend(gas_used_before.targets().iter().take(2));
-        // let _ = (2..8).map(|i| builder.assert_is_equal(gas_used_before.variables()[i], zero));
+        input_target_vec.extend(gas_used_before.targets().iter().take(2));
+        let _ = (2..8).map(|i| builder.assert_is_equal(gas_used_before.variables()[i], zero));
 
-        // input_target_vec.extend(gas_used_after.targets().iter().take(2));
-        // let _ = (2..8).map(|i| builder.assert_is_equal(gas_used_after.variables()[i], zero));
+        input_target_vec.extend(gas_used_after.targets().iter().take(2));
+        let _ = (2..8).map(|i| builder.assert_is_equal(gas_used_after.variables()[i], zero));
 
-        // input_target_vec.extend(block_boom_before.iter().flat_map(|b| b.targets()));
-        // input_target_vec.extend(block_boom_after.iter().flat_map(|b| b.targets()));
+        input_target_vec.extend(block_boom_before.iter().flat_map(|b| b.targets()));
+        input_target_vec.extend(block_boom_after.iter().flat_map(|b| b.targets()));
 
-        builder.watch_slice(
-            &input_target_vec
-                .iter()
-                .map(|t| Variable(*t))
-                .collect::<Vec<Variable>>(),
-            "input_target_vec",
-        );
-
-        /*
         let (all_circuits, block_proof, _block_public_values) =
             get_sample_circuits_and_proof_from_serialized::<L::Field, L::Config, D>().unwrap();
+
+        // Copy over the remaining public input targets
+        // (these correspond to verifier data public inputs, which are constant).
+        input_target_vec.extend_from_slice(
+            &all_circuits.block.circuit.prover_only.public_inputs[input_target_vec.len()..],
+        );
+
         let data = all_circuits.block.circuit;
 
         // This would use the block circuit data
@@ -279,7 +278,13 @@ impl Circuit for WrapCircuit {
         };
         builder.add_simple_generator(generator);
 
-
+        builder.watch_slice(
+            &input_target_vec
+                .iter()
+                .map(|t| Variable(*t))
+                .collect::<Vec<Variable>>(),
+            "input_target_vec",
+        );
         builder.watch_slice(
             &proof_targets
                 .public_inputs
@@ -300,7 +305,6 @@ impl Circuit for WrapCircuit {
         builder
             .api
             .verify_proof::<L::Config>(&proof_targets, &verifier_targets, &data.common);
-         */
     }
 
     fn register_generators<L: PlonkParameters<D>, const D: usize>(
@@ -320,9 +324,10 @@ fn main() {
 mod tests {
     use std::env;
 
-    use ethers::types::U256;
+    use ethereum_types::U256;
     use ethers::utils::hex;
     use plonky2x::backend::circuit::PublicInput;
+    use plonky2x::frontend::uint::uint160::U160;
     use plonky2x::prelude::{DefaultBuilder, GateRegistry, HintRegistry};
 
     use super::*;
@@ -371,12 +376,19 @@ mod tests {
         println!("sum: {}", sum);
     }
 
-    fn to_u256() -> U256 {
-        let bytes_representation =
-            "0x92648889955b1d41b36ea681a16ef94852e34e6011d029f278439adb4e9e30b4";
-        let value = U256::from_str_radix(&bytes_representation[2..], 16)
-            .expect("Failed to convert to U256");
+    fn hex_str_to_u256(hex: &str) -> U256 {
+        let value = U256::from_str_radix(&hex[2..], 16).expect("Failed to convert to U256");
         value
+    }
+
+    fn hex_str_to_u160(hex: &str) -> U160 {
+        U160::from_u32_limbs([
+            u32::from_str_radix(&hex[34..42], 16).expect("Failed to convert to u32"),
+            u32::from_str_radix(&hex[26..34], 16).expect("Failed to convert to u32"),
+            u32::from_str_radix(&hex[18..26], 16).expect("Failed to convert to u32"),
+            u32::from_str_radix(&hex[10..18], 16).expect("Failed to convert to u32"),
+            u32::from_str_radix(&hex[2..10], 16).expect("Failed to convert to u32"),
+        ])
     }
 
     #[test]
@@ -395,13 +407,116 @@ mod tests {
         log::debug!("Done building circuit");
 
         let mut input = circuit.input();
-        input.evm_write::<U256Variable>(to_u256());
-        input.evm_write::<U256Variable>(to_u256());
-        input.evm_write::<U256Variable>(to_u256());
 
-        input.evm_write::<U256Variable>(to_u256());
-        input.evm_write::<U256Variable>(to_u256());
-        input.evm_write::<U256Variable>(to_u256());
+        // trie_roots_before
+        // state_root
+        input.evm_write::<U256Variable>(hex_str_to_u256(
+            "0x92648889955b1d41b36ea681a16ef94852e34e6011d029f278439adb4e9e30b4",
+        ));
+        // transactions_root
+        input.evm_write::<U256Variable>(hex_str_to_u256(
+            "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+        ));
+        // receipts_root
+        input.evm_write::<U256Variable>(hex_str_to_u256(
+            "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+        ));
+
+        // trie_roots_after
+        // state_root
+        input.evm_write::<U256Variable>(hex_str_to_u256(
+            "0x049e45aef8dac161e0cec0edacd8af5b3399700affad6ede63b33c5d0ec796f5",
+        ));
+        // transactions_root
+        input.evm_write::<U256Variable>(hex_str_to_u256(
+            "0xc523d7b87c0e49a24dae53b3e3be716e5a6808c1e05216497655c0ad84b12236",
+        ));
+        // receipts_root
+        input.evm_write::<U256Variable>(hex_str_to_u256(
+            "0xfc047c9c96ea3d317bf5b0896e85c242ecc625efd3f7da721c439aff8331b2ab",
+        ));
+
+        // block_metadata
+        // block_beneficiary
+        input.evm_write::<U160Variable>(hex_str_to_u160(
+            "0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+        ));
+        // block_timestamp
+        input.evm_write::<U256Variable>(U256::from(1000));
+        // block_number
+        input.evm_write::<U256Variable>(U256::from(0));
+        // block_difficulty
+        input.evm_write::<U256Variable>(U256::from(131072));
+        // block_random
+        input.evm_write::<U256Variable>(U256::from(0));
+        // block_gaslimit
+        input.evm_write::<U256Variable>(U256::from(4478310));
+        // block_chain_id
+        input.evm_write::<U256Variable>(U256::from(1));
+        // block_base_fee
+        input.evm_write::<U256Variable>(U256::from(10));
+        // block_gas_used
+        input.evm_write::<U256Variable>(U256::from(43570));
+        // block_bloom
+        input.evm_write::<U256Variable>(U256::from(0));
+        input.evm_write::<U256Variable>(U256::from(0));
+        input.evm_write::<U256Variable>(U256::from_dec_str(
+            "55213970774324510299479508399853534522527075462195808724319849722937344",
+        ));
+        input.evm_write::<U256Variable>(U256::from_dec_str(
+            "1361129467683753853853498429727072845824",
+        ));
+        input.evm_write::<U256Variable>(U256::from(33554432));
+        input.evm_write::<U256Variable>(U256::from(9223372036854775808));
+        input.evm_write::<U256Variable>(U256::from_dec_str(
+            "3618502788666131106986593281521497120414687020801267626233049500247285563392",
+        ));
+        input.evm_write::<U256Variable>(U256::from_dec_str(
+            "2722259584404615024560450425766186844160",
+        ));
+
+        // block_hashes
+        // prev_hashes
+        for _ in 0..256 {
+            input.evm_write::<U256Variable>(U256::from(0));
+        }
+        // cur_hash
+        input.evm_write::<U256Variable>(U256::from(0));
+
+        // extra_block_data
+        // genesis_state_trie_root
+        input.evm_write::<U256Variable>(hex_str_to_u256(
+            "0x92648889955b1d41b36ea681a16ef94852e34e6011d029f278439adb4e9e30b4",
+        ));
+        // txn_number_before
+        input.evm_write::<U256Variable>(U256::from(0));
+        // txn_number_after
+        input.evm_write::<U256Variable>(U256::from(2));
+        // gas_used_before
+        input.evm_write::<U256Variable>(U256::from(0));
+        // gas_used_after
+        input.evm_write::<U256Variable>(U256::from(43570));
+        // block_boom_before
+        for _ in 0..8 {
+            input.evm_write::<U256Variable>(U256::from(0));
+        }
+        // block_boom_after
+        input.evm_write::<U256Variable>(U256::from(0));
+        input.evm_write::<U256Variable>(U256::from(0));
+        input.evm_write::<U256Variable>(U256::from_dec_str(
+            "55213970774324510299479508399853534522527075462195808724319849722937344",
+        ));
+        input.evm_write::<U256Variable>(U256::from_dec_str(
+            "1361129467683753853853498429727072845824",
+        ));
+        input.evm_write::<U256Variable>(U256::from(33554432));
+        input.evm_write::<U256Variable>(U256::from(9223372036854775808));
+        input.evm_write::<U256Variable>(U256::from_dec_str(
+            "3618502788666131106986593281521497120414687020801267626233049500247285563392",
+        ));
+        input.evm_write::<U256Variable>(U256::from_dec_str(
+            "2722259584404615024560450425766186844160",
+        ));
 
         log::debug!("Generating proof");
         let (proof, mut output) = circuit.prove(&input);

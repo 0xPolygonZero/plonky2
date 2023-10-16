@@ -443,8 +443,10 @@ where
     let block_public_values_json = std::fs::read_to_string("block_public_values.json").unwrap();
 
     // deserialize
-    let block_proof: ProofWithPublicInputs<F, C, D> = serde_json::from_str(&block_proof_json).unwrap();
-    let block_public_values: PublicValues = serde_json::from_str(&block_public_values_json).unwrap();
+    let block_proof: ProofWithPublicInputs<F, C, D> =
+        serde_json::from_str(&block_proof_json).unwrap();
+    let block_public_values: PublicValues =
+        serde_json::from_str(&block_public_values_json).unwrap();
 
     Ok((all_circuits, block_proof, block_public_values))
 }
@@ -462,13 +464,15 @@ mod tests {
 
     #[test]
     fn test_get_sample_circuits_and_proof() {
-        let (all_circuits, block_proof, _block_public_values) = get_sample_circuits_and_proof::<F, C, D>().unwrap();
+        let (all_circuits, block_proof, _block_public_values) =
+            get_sample_circuits_and_proof::<F, C, D>().unwrap();
         all_circuits.verify_block(&block_proof).unwrap();
     }
 
     #[test]
     fn get_sample_circuits_and_proof_and_serialize() {
-        let (all_circuits, block_proof, block_public_values) = get_sample_circuits_and_proof::<F, C, D>().unwrap();
+        let (all_circuits, block_proof, block_public_values) =
+            get_sample_circuits_and_proof::<F, C, D>().unwrap();
         all_circuits.verify_block(&block_proof).unwrap();
 
         // serialize

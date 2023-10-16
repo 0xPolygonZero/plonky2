@@ -735,8 +735,10 @@ where
 
         // Make connections between block proofs, and check initial and final block values.
         Self::connect_block_proof(&mut builder, has_parent_block, &parent_pv, &agg_pv);
+        println!("before {}", builder.num_public_inputs());
 
         let cyclic_vk = builder.add_verifier_data_public_inputs();
+        println!("middle {}", builder.num_public_inputs());
         builder
             .conditionally_verify_cyclic_proof_or_dummy::<C>(
                 has_parent_block,
@@ -744,6 +746,8 @@ where
                 &expected_common_data,
             )
             .expect("Failed to build cyclic recursion circuit");
+
+        println!("after {}", builder.num_public_inputs());
 
         let agg_verifier_data = builder.constant_verifier_data(&agg.circuit.verifier_only);
         builder.verify_proof::<C>(&agg_root_proof, &agg_verifier_data, &agg.circuit.common);
