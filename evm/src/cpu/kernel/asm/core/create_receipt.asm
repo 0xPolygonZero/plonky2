@@ -228,6 +228,7 @@ failed_receipt:
     // It is the receipt of a failed transaction, so set num_logs to 0. This will also lead to Bloom filter = 0.
     PUSH 0
     %mstore_global_metadata(@GLOBAL_METADATA_LOGS_LEN)
+    PUSH 0 %mstore_global_metadata(@GLOBAL_METADATA_LOGS_PAYLOAD_LEN)
     // stack: status, new_cum_gas, num_nibbles, txn_nb
     %jump(process_receipt_after_status)
 

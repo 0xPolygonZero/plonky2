@@ -1,5 +1,3 @@
-use std::any::type_name;
-
 use anyhow::{ensure, Result};
 use itertools::Itertools;
 use once_cell::sync::Lazy;
@@ -35,6 +33,10 @@ use crate::lookup::{lookup_helper_columns, Lookup, LookupCheckVars};
 use crate::proof::{AllProof, PublicValues, StarkOpeningSet, StarkProof, StarkProofWithMetadata};
 use crate::stark::Stark;
 use crate::vanishing_poly::eval_vanishing_poly;
+#[cfg(test)]
+use crate::{
+    cross_table_lookup::testutils::check_ctls, verifier::testutils::get_memory_extra_looking_values,
+};
 
 /// Generate traces, then create all STARK proofs.
 pub fn prove<F, C, const D: usize>(
@@ -142,7 +144,7 @@ where
         prove_with_commitments(
             all_stark,
             config,
-            trace_poly_values,
+            &trace_poly_values,
             trace_commitments,
             ctl_data_per_table,
             &mut challenger,
@@ -150,6 +152,15 @@ where
             timing
         )?
     );
+
+    #[cfg(test)]
+    {
+        check_ctls(
+            &trace_poly_values,
+            &all_stark.cross_table_lookups,
+            &get_memory_extra_looking_values(&public_values),
+        );
+    }
 
     Ok(AllProof {
         stark_proofs,
@@ -161,7 +172,7 @@ where
 fn prove_with_commitments<F, C, const D: usize>(
     all_stark: &AllStark<F, D>,
     config: &StarkConfig,
-    trace_poly_values: [Vec<PolynomialValues<F>>; NUM_TABLES],
+    trace_poly_values: &[Vec<PolynomialValues<F>>; NUM_TABLES],
     trace_commitments: Vec<PolynomialBatch<F, C, D>>,
     ctl_data_per_table: [CtlData<F>; NUM_TABLES],
     challenger: &mut Challenger<F, C::Hasher>,
@@ -365,7 +376,9 @@ where
     challenger.observe_cap(&auxiliary_polys_cap);
 
     let alphas = challenger.get_n_challenges(config.num_challenges);
-    if cfg!(test) {
+
+    #[cfg(test)]
+    {
         check_constraints(
             stark,
             trace_commitment,
@@ -378,6 +391,7 @@ where
             num_lookup_columns,
         );
     }
+
     let quotient_polys = timed!(
         timing,
         "compute quotient polys",
@@ -606,6 +620,7 @@ where
         .collect()
 }
 
+#[cfg(test)]
 /// Check that all constraints evaluate to zero on `H`.
 /// Can also be used to check the degree of the constraints by evaluating on a larger subgroup.
 fn check_constraints<'a, F, C, S, const D: usize>(
@@ -705,7 +720,7 @@ fn check_constraints<'a, F, C, S, const D: usize>(
         assert!(
             v.iter().all(|x| x.is_zero()),
             "Constraint failed in {}",
-            type_name::<S>()
+            std::any::type_name::<S>()
         );
     }
 }

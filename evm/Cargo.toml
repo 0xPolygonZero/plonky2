@@ -4,7 +4,7 @@ description = "Implementation of STARKs for the Ethereum Virtual Machine"
 version = "0.1.1"
 authors = ["Daniel Lubarov <daniel@lubarov.com>", "William Borgeaud <williamborgeaud@gmail.com>"]
 readme = "README.md"
-repository = "https://github.com/mir-protocol/plonky2"
+repository = "https://github.com/0xPolygonZero/plonky2"
 keywords = ["EVM", "STARK", "Ethereum"]
 categories = ["cryptography"]
 edition = "2021"
@@ -13,7 +13,7 @@ edition = "2021"
 anyhow = "1.0.40"
 bytes = "1.4.0"
 env_logger = "0.10.0"
-eth_trie_utils = { git = "https://github.com/mir-protocol/eth_trie_utils.git", rev = "e9ec4ec2aa2ae976b7c699ef40c1ffc716d87ed5" }
+eth_trie_utils = { git = "https://github.com/0xPolygonZero/eth_trie_utils.git", rev = "e9ec4ec2aa2ae976b7c699ef40c1ffc716d87ed5" }
 ethereum-types = "0.14.0"
 hex = { version = "0.4.3", optional = true }
 hex-literal = "0.4.1"
