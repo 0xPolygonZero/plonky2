@@ -62,15 +62,13 @@ fn ctl_data_binops<F: Field>() -> Vec<Column<F>> {
 
 /// Create the vector of Columns corresponding to the three inputs and
 /// one output of a ternary operation. By default, ternary operations use
-/// the first three memory channels, and the last one for the result (binary
-/// operations do not use the third inputs).
+/// the first three memory channels, and the next top of the stack for the
+/// result (binary operations do not use the third inputs).
 fn ctl_data_ternops<F: Field>() -> Vec<Column<F>> {
     let mut res = Column::singles(COL_MAP.mem_channels[0].value).collect_vec();
     res.extend(Column::singles(COL_MAP.mem_channels[1].value));
     res.extend(Column::singles(COL_MAP.mem_channels[2].value));
-    res.extend(Column::singles(
-        COL_MAP.mem_channels[NUM_GP_CHANNELS - 1].value,
-    ));
+    res.extend(Column::singles_next_row(COL_MAP.mem_channels[0].value).collect_vec());
     res
 }
 

@@ -85,6 +85,7 @@ pub(crate) const STACK_BEHAVIORS: OpsColumnsView<Option<StackBehavior>> = OpsCol
     prover_input: Some(StackBehavior {
         num_pops: 0,
         pushes: true,
+        new_top_stack_channel: None,
         disable_other_channels: true,
     }),
     pop: Some(StackBehavior {
