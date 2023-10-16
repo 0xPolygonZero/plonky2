@@ -9,6 +9,7 @@ mod byte;
 mod divmod;
 mod modular;
 mod mul;
+mod shift;
 mod utils;
 
 pub mod arithmetic_stark;
@@ -35,13 +36,27 @@ impl BinaryOperator {
     pub(crate) fn result(&self, input0: U256, input1: U256) -> U256 {
         match self {
             BinaryOperator::Add => input0.overflowing_add(input1).0,
-            BinaryOperator::Mul | BinaryOperator::Shl => input0.overflowing_mul(input1).0,
+            BinaryOperator::Mul => input0.overflowing_mul(input1).0,
+            BinaryOperator::Shl => {
+                if input0 < U256::from(256usize) {
+                    input1 << input0
+                } else {
+                    U256::zero()
+                }
+            }
             BinaryOperator::Sub => input0.overflowing_sub(input1).0,
-            BinaryOperator::Div | BinaryOperator::Shr => {
+            BinaryOperator::Div => {
                 if input1.is_zero() {
                     U256::zero()
                 } else {
                     input0 / input1
+                }
+            }
+            BinaryOperator::Shr => {
+                if input0 < U256::from(256usize) {
+                    input1 >> input0
+                } else {
+                    U256::zero()
                 }
             }
             BinaryOperator::Mod => {
@@ -238,13 +253,23 @@ fn binary_op_to_rows<F: PrimeField64>(
             addcy::generate(&mut row, op.row_filter(), input0, input1);
             (row, None)
         }
-        BinaryOperator::Mul | BinaryOperator::Shl => {
+        BinaryOperator::Mul => {
             mul::generate(&mut row, input0, input1);
             (row, None)
         }
-        BinaryOperator::Div | BinaryOperator::Mod | BinaryOperator::Shr => {
+        BinaryOperator::Shl => {
+            let mut nv = vec![F::ZERO; columns::NUM_ARITH_COLUMNS];
+            shift::generate(&mut row, &mut nv, true, input0, input1, result);
+            (row, None)
+        }
+        BinaryOperator::Div | BinaryOperator::Mod => {
             let mut nv = vec![F::ZERO; columns::NUM_ARITH_COLUMNS];
             divmod::generate(&mut row, &mut nv, op.row_filter(), input0, input1, result);
+            (row, Some(nv))
+        }
+        BinaryOperator::Shr => {
+            let mut nv = vec![F::ZERO; columns::NUM_ARITH_COLUMNS];
+            shift::generate(&mut row, &mut nv, false, input0, input1, result);
             (row, Some(nv))
         }
         BinaryOperator::AddFp254 | BinaryOperator::MulFp254 | BinaryOperator::SubFp254 => {

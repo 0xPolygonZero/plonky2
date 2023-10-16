@@ -644,10 +644,18 @@ where
         rhs: &ExtraBlockDataTarget,
     ) {
         // Connect genesis state root values.
-        for (&limb0, &limb1) in pvs.genesis_state_root.iter().zip(&rhs.genesis_state_root) {
+        for (&limb0, &limb1) in pvs
+            .genesis_state_trie_root
+            .iter()
+            .zip(&rhs.genesis_state_trie_root)
+        {
             builder.connect(limb0, limb1);
         }
-        for (&limb0, &limb1) in pvs.genesis_state_root.iter().zip(&lhs.genesis_state_root) {
+        for (&limb0, &limb1) in pvs
+            .genesis_state_trie_root
+            .iter()
+            .zip(&lhs.genesis_state_trie_root)
+        {
             builder.connect(limb0, limb1);
         }
 
@@ -655,15 +663,18 @@ where
         builder.connect(pvs.txn_number_before, lhs.txn_number_before);
         builder.connect(pvs.txn_number_after, rhs.txn_number_after);
 
-        // Connect lhs `txn_number_after`with rhs `txn_number_before`.
+        // Connect lhs `txn_number_after` with rhs `txn_number_before`.
         builder.connect(lhs.txn_number_after, rhs.txn_number_before);
 
         // Connect the gas used in public values to the lhs and rhs values correctly.
-        builder.connect(pvs.gas_used_before, lhs.gas_used_before);
-        builder.connect(pvs.gas_used_after, rhs.gas_used_after);
+        builder.connect(pvs.gas_used_before[0], lhs.gas_used_before[0]);
+        builder.connect(pvs.gas_used_before[1], lhs.gas_used_before[1]);
+        builder.connect(pvs.gas_used_after[0], rhs.gas_used_after[0]);
+        builder.connect(pvs.gas_used_after[1], rhs.gas_used_after[1]);
 
-        // Connect lhs `gas_used_after`with rhs `gas_used_before`.
-        builder.connect(lhs.gas_used_after, rhs.gas_used_before);
+        // Connect lhs `gas_used_after` with rhs `gas_used_before`.
+        builder.connect(lhs.gas_used_after[0], rhs.gas_used_before[0]);
+        builder.connect(lhs.gas_used_after[1], rhs.gas_used_before[1]);
 
         // Connect the `block_bloom` in public values to the lhs and rhs values correctly.
         for (&limb0, &limb1) in pvs.block_bloom_after.iter().zip(&rhs.block_bloom_after) {
@@ -672,7 +683,7 @@ where
         for (&limb0, &limb1) in pvs.block_bloom_before.iter().zip(&lhs.block_bloom_before) {
             builder.connect(limb0, limb1);
         }
-        // Connect lhs `block_bloom_after`with rhs `block_bloom_before`.
+        // Connect lhs `block_bloom_after` with rhs `block_bloom_before`.
         for (&limb0, &limb1) in lhs.block_bloom_after.iter().zip(&rhs.block_bloom_before) {
             builder.connect(limb0, limb1);
         }
@@ -790,9 +801,9 @@ where
         // Between blocks, the genesis state trie remains unchanged.
         for (&limb0, limb1) in lhs
             .extra_block_data
-            .genesis_state_root
+            .genesis_state_trie_root
             .iter()
-            .zip(rhs.extra_block_data.genesis_state_root)
+            .zip(rhs.extra_block_data.genesis_state_trie_root)
         {
             builder.connect(limb0, limb1);
         }
@@ -808,12 +819,11 @@ where
         // Connect intermediary values for gas_used and bloom filters to the block's final values. We only plug on the right, so there is no need to check the left-handside block.
         Self::connect_final_block_values_to_intermediary(builder, rhs);
 
-        let zero = builder.zero();
         let has_not_parent_block = builder.sub(one, has_parent_block.target);
 
         // Check that the genesis block number is 0.
         let gen_block_constr = builder.mul(has_not_parent_block, rhs.block_metadata.block_number);
-        builder.connect(gen_block_constr, zero);
+        builder.assert_zero(gen_block_constr);
 
         // Check that the genesis block has the predetermined state trie root in `ExtraBlockData`.
         Self::connect_genesis_block(builder, rhs, has_not_parent_block);
@@ -826,16 +836,15 @@ where
     ) where
         F: RichField + Extendable<D>,
     {
-        let zero = builder.zero();
         for (&limb0, limb1) in x
             .trie_roots_before
             .state_root
             .iter()
-            .zip(x.extra_block_data.genesis_state_root)
+            .zip(x.extra_block_data.genesis_state_trie_root)
         {
             let mut constr = builder.sub(limb0, limb1);
             constr = builder.mul(has_not_parent_block, constr);
-            builder.connect(constr, zero);
+            builder.assert_zero(constr);
         }
     }
 
@@ -846,8 +855,12 @@ where
         F: RichField + Extendable<D>,
     {
         builder.connect(
-            x.block_metadata.block_gas_used,
-            x.extra_block_data.gas_used_after,
+            x.block_metadata.block_gas_used[0],
+            x.extra_block_data.gas_used_after[0],
+        );
+        builder.connect(
+            x.block_metadata.block_gas_used[1],
+            x.extra_block_data.gas_used_after[1],
         );
 
         for (&limb0, &limb1) in x
@@ -864,15 +877,15 @@ where
     where
         F: RichField + Extendable<D>,
     {
-        let zero = builder.constant(F::ZERO);
         // The initial number of transactions is 0.
-        builder.connect(x.extra_block_data.txn_number_before, zero);
-        // The initial gas used is 0
-        builder.connect(x.extra_block_data.gas_used_before, zero);
+        builder.assert_zero(x.extra_block_data.txn_number_before);
+        // The initial gas used is 0.
+        builder.assert_zero(x.extra_block_data.gas_used_before[0]);
+        builder.assert_zero(x.extra_block_data.gas_used_before[1]);
 
         // The initial bloom filter is all zeroes.
         for t in x.extra_block_data.block_bloom_before {
-            builder.connect(t, zero);
+            builder.assert_zero(t);
         }
 
         // The transactions and receipts tries are empty at the beginning of the block.
@@ -1029,7 +1042,7 @@ where
                     + BlockHashesTarget::BLOCK_HASHES_SIZE
                     + 8;
             for (key, &value) in genesis_state_trie_keys.zip_eq(&h256_limbs::<F>(
-                public_values.extra_block_data.genesis_state_root,
+                public_values.extra_block_data.genesis_state_trie_root,
             )) {
                 nonzero_pis.insert(key, value);
             }

@@ -1,4 +1,4 @@
-use std::borrow::{Borrow, BorrowMut};
+use std::borrow::Borrow;
 use std::iter::repeat;
 use std::marker::PhantomData;
 
@@ -9,10 +9,11 @@ use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 
+use super::columns::CpuColumnsView;
 use super::halt;
 use crate::all_stark::Table;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
-use crate::cpu::columns::{CpuColumnsView, COL_MAP, NUM_CPU_COLUMNS};
+use crate::cpu::columns::{COL_MAP, NUM_CPU_COLUMNS};
 use crate::cpu::membus::NUM_GP_CHANNELS;
 use crate::cpu::{
     bootstrap_kernel, contextops, control_flow, decode, dup_swap, gas, jumps, membus, memio,
@@ -63,19 +64,10 @@ fn ctl_data_binops<F: Field>() -> Vec<Column<F>> {
 /// one output of a ternary operation. By default, ternary operations use
 /// the first three memory channels, and the last one for the result (binary
 /// operations do not use the third inputs).
-///
-/// Shift operations are different, as they are simulated with `MUL` or `DIV`
-/// on the arithmetic side. We first convert the shift into the multiplicand
-/// (in case of `SHL`) or the divisor (in case of `SHR`), making the first memory
-/// channel not directly usable. We overcome this by adding an offset of 1 in
-/// case of shift operations, which will skip the first memory channel and use the
-/// next three as ternary inputs. Because both `MUL` and `DIV` are binary operations,
-/// the last memory channel used for the inputs will be safely ignored.
-fn ctl_data_ternops<F: Field>(is_shift: bool) -> Vec<Column<F>> {
-    let offset = is_shift as usize;
-    let mut res = Column::singles(COL_MAP.mem_channels[offset].value).collect_vec();
-    res.extend(Column::singles(COL_MAP.mem_channels[offset + 1].value));
-    res.extend(Column::singles(COL_MAP.mem_channels[offset + 2].value));
+fn ctl_data_ternops<F: Field>() -> Vec<Column<F>> {
+    let mut res = Column::singles(COL_MAP.mem_channels[0].value).collect_vec();
+    res.extend(Column::singles(COL_MAP.mem_channels[1].value));
+    res.extend(Column::singles(COL_MAP.mem_channels[2].value));
     res.extend(Column::singles(
         COL_MAP.mem_channels[NUM_GP_CHANNELS - 1].value,
     ));
@@ -96,7 +88,7 @@ pub fn ctl_filter_logic<F: Field>() -> Column<F> {
 pub fn ctl_arithmetic_base_rows<F: Field>() -> TableWithColumns<F> {
     // Instead of taking single columns, we reconstruct the entire opcode value directly.
     let mut columns = vec![Column::le_bits(COL_MAP.opcode_bits)];
-    columns.extend(ctl_data_ternops(false));
+    columns.extend(ctl_data_ternops());
     // Create the CPU Table whose columns are those with the three
     // inputs and one output of the ternary operations listed in `ops`
     // (also `ops` is used as the operation filter). The list of
@@ -109,20 +101,9 @@ pub fn ctl_arithmetic_base_rows<F: Field>() -> TableWithColumns<F> {
             COL_MAP.op.binary_op,
             COL_MAP.op.fp254_op,
             COL_MAP.op.ternary_op,
+            COL_MAP.op.shift,
         ])),
     )
-}
-
-pub fn ctl_arithmetic_shift_rows<F: Field>() -> TableWithColumns<F> {
-    // Instead of taking single columns, we reconstruct the entire opcode value directly.
-    let mut columns = vec![Column::le_bits(COL_MAP.opcode_bits)];
-    columns.extend(ctl_data_ternops(true));
-    // Create the CPU Table whose columns are those with the three
-    // inputs and one output of the ternary operations listed in `ops`
-    // (also `ops` is used as the operation filter). The list of
-    // operations includes binary operations which will simply ignore
-    // the third input.
-    TableWithColumns::new(Table::Cpu, columns, Some(Column::single(COL_MAP.op.shift)))
 }
 
 pub fn ctl_data_byte_packing<F: Field>() -> Vec<Column<F>> {
@@ -218,15 +199,6 @@ pub struct CpuStark<F, const D: usize> {
     pub f: PhantomData<F>,
 }
 
-impl<F: RichField, const D: usize> CpuStark<F, D> {
-    // TODO: Remove?
-    pub fn generate(&self, local_values: &mut [F; NUM_CPU_COLUMNS]) {
-        let local_values: &mut CpuColumnsView<_> = local_values.borrow_mut();
-        decode::generate(local_values);
-        membus::generate(local_values);
-    }
-}
-
 impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D> {
     type EvaluationFrame<FE, P, const D2: usize> = StarkFrame<P, NUM_CPU_COLUMNS>
     where
@@ -252,15 +224,15 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
         contextops::eval_packed(local_values, next_values, yield_constr);
         control_flow::eval_packed_generic(local_values, next_values, yield_constr);
         decode::eval_packed_generic(local_values, yield_constr);
-        dup_swap::eval_packed(local_values, yield_constr);
+        dup_swap::eval_packed(local_values, next_values, yield_constr);
         gas::eval_packed(local_values, next_values, yield_constr);
         halt::eval_packed(local_values, next_values, yield_constr);
         jumps::eval_packed(local_values, next_values, yield_constr);
         membus::eval_packed(local_values, yield_constr);
         memio::eval_packed(local_values, next_values, yield_constr);
         modfp254::eval_packed(local_values, yield_constr);
-        pc::eval_packed(local_values, yield_constr);
-        push0::eval_packed(local_values, yield_constr);
+        pc::eval_packed(local_values, next_values, yield_constr);
+        push0::eval_packed(local_values, next_values, yield_constr);
         shift::eval_packed(local_values, yield_constr);
         simple_logic::eval_packed(local_values, next_values, yield_constr);
         stack::eval_packed(local_values, next_values, yield_constr);
@@ -290,15 +262,15 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
         contextops::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         control_flow::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         decode::eval_ext_circuit(builder, local_values, yield_constr);
-        dup_swap::eval_ext_circuit(builder, local_values, yield_constr);
+        dup_swap::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         gas::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         halt::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         jumps::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         membus::eval_ext_circuit(builder, local_values, yield_constr);
         memio::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         modfp254::eval_ext_circuit(builder, local_values, yield_constr);
-        pc::eval_ext_circuit(builder, local_values, yield_constr);
-        push0::eval_ext_circuit(builder, local_values, yield_constr);
+        pc::eval_ext_circuit(builder, local_values, next_values, yield_constr);
+        push0::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         shift::eval_ext_circuit(builder, local_values, yield_constr);
         simple_logic::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         stack::eval_ext_circuit(builder, local_values, next_values, yield_constr);

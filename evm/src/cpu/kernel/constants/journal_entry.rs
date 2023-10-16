@@ -11,10 +11,11 @@ pub(crate) enum JournalEntry {
     CodeChange = 7,
     Refund = 8,
     AccountCreated = 9,
+    Log = 10,
 }
 
 impl JournalEntry {
-    pub(crate) const COUNT: usize = 10;
+    pub(crate) const COUNT: usize = 11;
 
     pub(crate) fn all() -> [Self; Self::COUNT] {
         [
@@ -28,6 +29,7 @@ impl JournalEntry {
             Self::CodeChange,
             Self::Refund,
             Self::AccountCreated,
+            Self::Log,
         ]
     }
 
@@ -44,6 +46,7 @@ impl JournalEntry {
             Self::CodeChange => "JOURNAL_ENTRY_CODE_CHANGE",
             Self::Refund => "JOURNAL_ENTRY_REFUND",
             Self::AccountCreated => "JOURNAL_ENTRY_ACCOUNT_CREATED",
+            Self::Log => "JOURNAL_ENTRY_LOG",
         }
     }
 }

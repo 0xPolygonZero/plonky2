@@ -188,6 +188,8 @@ log_after_topics:
     %rlp_list_len
     // stack: rlp_log_len, data_len_ptr, num_topics, data_len, data_offset, retdest
     %mload_global_metadata(@GLOBAL_METADATA_LOGS_PAYLOAD_LEN)
+    // Add payload length and logs_data_len to journal.
+    DUP1 %mload_global_metadata(@GLOBAL_METADATA_LOGS_DATA_LEN) %journal_add_log
     ADD
     %mstore_global_metadata(@GLOBAL_METADATA_LOGS_PAYLOAD_LEN)
     // stack: data_len_ptr, num_topics, data_len, data_offset, retdest
