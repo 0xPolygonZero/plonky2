@@ -402,10 +402,10 @@ mod tests {
         WrapCircuit::define(&mut builder);
 
         log::debug!("Building circuit");
-        let circuit = builder.build();
+        let circuit = Box::new(builder.build());
         log::debug!("Done building circuit");
 
-        let mut input = circuit.input();
+        let mut input = Box::new(circuit.input());
         
         // trie_roots_before
         // state_root
@@ -436,16 +436,20 @@ mod tests {
         ));
 
         log::debug!("C");
-
+        
         // block_metadata
         // block_beneficiary
-        input.evm_write::<U160Variable>(hex_str_to_u160(
+        let val = hex_str_to_u160(
             "0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
-        ));
+        );
+        log::debug!("C");
+        input.evm_write::<U160Variable>(val);
+        log::debug!("CC");
         // block_timestamp
         input.evm_write::<U256Variable>(U256::from(1000));
         // block_number
         input.evm_write::<U256Variable>(U256::from(0));
+        log::debug!("CC");
         // block_difficulty
         input.evm_write::<U256Variable>(U256::from(131072));
         // block_random
@@ -453,6 +457,7 @@ mod tests {
         // block_gaslimit
         input.evm_write::<U256Variable>(U256::from(4478310));
         // block_chain_id
+        log::debug!("CCC");
         input.evm_write::<U256Variable>(U256::from(1));
         // block_base_fee
         input.evm_write::<U256Variable>(U256::from(10));
@@ -460,6 +465,7 @@ mod tests {
         input.evm_write::<U256Variable>(U256::from(43570));
         // block_bloom
         input.evm_write::<U256Variable>(U256::from(0));
+        log::debug!("CCCC");
         input.evm_write::<U256Variable>(U256::from(0));
         input.evm_write::<U256Variable>(U256::from_dec_str(
             "55213970774324510299479508399853534522527075462195808724319849722937344",
@@ -468,6 +474,7 @@ mod tests {
             "1361129467683753853853498429727072845824",
         ).unwrap());
         input.evm_write::<U256Variable>(U256::from(33554432));
+        log::debug!("CCCCC");
         input.evm_write::<U256Variable>(U256::from_dec_str("9223372036854775808").unwrap());
         input.evm_write::<U256Variable>(U256::from_dec_str(
             "3618502788666131106986593281521497120414687020801267626233049500247285563392",
