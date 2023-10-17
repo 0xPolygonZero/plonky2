@@ -406,7 +406,7 @@ mod tests {
         log::debug!("Done building circuit");
 
         let mut input = circuit.input();
-
+        
         // trie_roots_before
         // state_root
         input.evm_write::<U256Variable>(hex_str_to_u256(
@@ -434,6 +434,8 @@ mod tests {
         input.evm_write::<U256Variable>(hex_str_to_u256(
             "0xfc047c9c96ea3d317bf5b0896e85c242ecc625efd3f7da721c439aff8331b2ab",
         ));
+
+        log::debug!("C");
 
         // block_metadata
         // block_beneficiary
@@ -474,6 +476,8 @@ mod tests {
             "2722259584404615024560450425766186844160",
         ).unwrap());
 
+        log::debug!("D");
+
         // block_hashes
         // prev_hashes
         for _ in 0..256 {
@@ -509,13 +513,15 @@ mod tests {
             "1361129467683753853853498429727072845824",
         ).unwrap());
         input.evm_write::<U256Variable>(U256::from(33554432));
-        input.evm_write::<U256Variable>(U256::from(9223372036854775808));
+        input.evm_write::<U256Variable>(U256::from_dec_str("9223372036854775808").unwrap());
         input.evm_write::<U256Variable>(U256::from_dec_str(
             "3618502788666131106986593281521497120414687020801267626233049500247285563392",
         ).unwrap());
         input.evm_write::<U256Variable>(U256::from_dec_str(
             "2722259584404615024560450425766186844160",
         ).unwrap());
+
+        log::debug!("E");
 
         log::debug!("Generating proof");
         let (proof, mut output) = circuit.prove(&input);
