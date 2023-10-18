@@ -325,7 +325,7 @@ impl Circuit for WrapCircuit {
             1336410145739173134,
         ];
 
-        input_target_vec.extend_from_slice(
+        input_target_vec.extend(
             &verifier_key.iter().map(|val| builder.constant::<Variable>(GoldilocksField::from_canonical_usize(val)))
         );
 
