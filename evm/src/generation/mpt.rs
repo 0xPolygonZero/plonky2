@@ -48,6 +48,12 @@ pub struct LegacyReceiptRlp {
     pub logs: Vec<LogRlp>,
 }
 
+pub(crate) fn state_smt_prover_inputs_reversed(trie_inputs: &TrieInputs) -> Vec<U256> {
+    let mut inputs = state_smt_prover_inputs(trie_inputs);
+    inputs.reverse();
+    inputs
+}
+
 pub(crate) fn all_mpt_prover_inputs_reversed(
     trie_inputs: &TrieInputs,
 ) -> Result<Vec<U256>, ProgramError> {
@@ -86,11 +92,17 @@ pub(crate) fn parse_receipts(rlp: &[u8]) -> Result<Vec<U256>, ProgramError> {
 
     Ok(parsed_receipt)
 }
+
+pub(crate) fn state_smt_prover_inputs(trie_inputs: &TrieInputs) -> Vec<U256> {
+    let len = trie_inputs.state_trie.len();
+    let mut v = vec![len.into()];
+    v.extend(trie_inputs.state_trie.iter());
+    v
+}
+
 /// Generate prover inputs for the initial MPT data, in the format expected by `mpt/load.asm`.
 pub(crate) fn all_mpt_prover_inputs(trie_inputs: &TrieInputs) -> Result<Vec<U256>, ProgramError> {
     let mut prover_inputs = vec![];
-
-    prover_inputs_state_smt(&trie_inputs.state_trie, &mut prover_inputs);
 
     mpt_prover_inputs(&trie_inputs.transactions_trie, &mut prover_inputs, &|rlp| {
         let mut parsed_txn = vec![U256::from(rlp.len())];

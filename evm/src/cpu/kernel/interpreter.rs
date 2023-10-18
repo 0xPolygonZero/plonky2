@@ -441,7 +441,7 @@ impl<'a> Interpreter<'a> {
         {
             println!("At {}, stack={:?}", self.offset_name(), self.stack());
         } else if let Some(label) = self.offset_label() {
-            println!("At {label}");
+            println!("At {}, stack={:?}", label, self.stack());
         }
 
         Ok(())

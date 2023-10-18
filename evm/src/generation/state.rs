@@ -6,7 +6,7 @@ use plonky2::field::types::Field;
 
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::constants::context_metadata::ContextMetadata;
-use crate::generation::mpt::all_mpt_prover_inputs_reversed;
+use crate::generation::mpt::{all_mpt_prover_inputs_reversed, state_smt_prover_inputs_reversed};
 use crate::generation::rlp::all_rlp_prover_inputs_reversed;
 use crate::generation::GenerationInputs;
 use crate::memory::segments::Segment;
@@ -35,6 +35,10 @@ pub(crate) struct GenerationState<F: Field> {
     /// via `pop()`.
     pub(crate) mpt_prover_inputs: Vec<U256>,
 
+    /// Prover inputs containing SMT data, in reverse order so that the next input can be obtained
+    /// via `pop()`.
+    pub(crate) state_smt_prover_inputs: Vec<U256>,
+
     /// Prover inputs containing RLP data, in reverse order so that the next input can be obtained
     /// via `pop()`.
     pub(crate) rlp_prover_inputs: Vec<U256>,
@@ -61,6 +65,7 @@ impl<F: Field> GenerationState<F> {
         log::debug!("Input receipts_trie: {:?}", &inputs.tries.receipts_trie);
         log::debug!("Input storage_tries: {:?}", &inputs.tries.storage_tries);
         log::debug!("Input contract_code: {:?}", &inputs.contract_code);
+        let state_smt_prover_inputs = state_smt_prover_inputs_reversed(&inputs.tries);
         let mpt_prover_inputs = all_mpt_prover_inputs_reversed(&inputs.tries)?;
         let rlp_prover_inputs = all_rlp_prover_inputs_reversed(&inputs.signed_txns);
         let bignum_modmul_result_limbs = Vec::new();
@@ -72,6 +77,7 @@ impl<F: Field> GenerationState<F> {
             traces: Traces::default(),
             next_txn_index: 0,
             mpt_prover_inputs,
+            state_smt_prover_inputs,
             rlp_prover_inputs,
             state_key_to_address: HashMap::new(),
             bignum_modmul_result_limbs,

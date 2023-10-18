@@ -16,7 +16,7 @@ impl PartialSmtType {
     pub(crate) fn var_name(&self) -> &'static str {
         match self {
             Self::Hash => "SMT_NODE_HASH",
-            Self::Internal => "SMT_NODE_BRANCH",
+            Self::Internal => "SMT_NODE_INTERNAL",
             Self::Leaf => "SMT_NODE_LEAF",
         }
     }

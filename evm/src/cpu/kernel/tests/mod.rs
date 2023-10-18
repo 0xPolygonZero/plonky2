@@ -15,6 +15,7 @@ mod packing;
 mod receipt;
 mod rlp;
 mod signed_syscalls;
+mod smt;
 mod transaction_parsing;
 
 use std::str::FromStr;
