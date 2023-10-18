@@ -838,13 +838,13 @@ pub(crate) mod testutils {
     type MultiSet<F> = HashMap<Vec<F>, Vec<(Table, usize)>>;
 
     /// Check that the provided traces and cross-table lookups are consistent.
-    #[allow(unused)] // TODO: used later?
     pub(crate) fn check_ctls<F: Field>(
         trace_poly_values: &[Vec<PolynomialValues<F>>],
         cross_table_lookups: &[CrossTableLookup<F>],
+        extra_memory_looking_values: &[Vec<F>],
     ) {
         for (i, ctl) in cross_table_lookups.iter().enumerate() {
-            check_ctl(trace_poly_values, ctl, i);
+            check_ctl(trace_poly_values, ctl, i, extra_memory_looking_values);
         }
     }
 
@@ -852,6 +852,7 @@ pub(crate) mod testutils {
         trace_poly_values: &[Vec<PolynomialValues<F>>],
         ctl: &CrossTableLookup<F>,
         ctl_index: usize,
+        extra_memory_looking_values: &[Vec<F>],
     ) {
         let CrossTableLookup {
             looking_tables,
@@ -867,6 +868,18 @@ pub(crate) mod testutils {
             process_table(trace_poly_values, table, &mut looking_multiset);
         }
         process_table(trace_poly_values, looked_table, &mut looked_multiset);
+
+        // Extra looking values for memory
+        if ctl_index == Table::Memory as usize {
+            for row in extra_memory_looking_values.iter() {
+                // The table and the row index don't matter here, as we just want to enforce
+                // that the special extra values do appear when looking against the Memory table.
+                looking_multiset
+                    .entry(row.to_vec())
+                    .or_default()
+                    .push((Table::Cpu, 0));
+            }
+        }
 
         let empty = &vec![];
         // Check that every row in the looking tables appears in the looked table the same number of times.

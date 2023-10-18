@@ -819,12 +819,11 @@ where
         // Connect intermediary values for gas_used and bloom filters to the block's final values. We only plug on the right, so there is no need to check the left-handside block.
         Self::connect_final_block_values_to_intermediary(builder, rhs);
 
-        let zero = builder.zero();
         let has_not_parent_block = builder.sub(one, has_parent_block.target);
 
         // Check that the genesis block number is 0.
         let gen_block_constr = builder.mul(has_not_parent_block, rhs.block_metadata.block_number);
-        builder.connect(gen_block_constr, zero);
+        builder.assert_zero(gen_block_constr);
 
         // Check that the genesis block has the predetermined state trie root in `ExtraBlockData`.
         Self::connect_genesis_block(builder, rhs, has_not_parent_block);
@@ -837,7 +836,6 @@ where
     ) where
         F: RichField + Extendable<D>,
     {
-        let zero = builder.zero();
         for (&limb0, limb1) in x
             .trie_roots_before
             .state_root
@@ -846,7 +844,7 @@ where
         {
             let mut constr = builder.sub(limb0, limb1);
             constr = builder.mul(has_not_parent_block, constr);
-            builder.connect(constr, zero);
+            builder.assert_zero(constr);
         }
     }
 
@@ -879,16 +877,15 @@ where
     where
         F: RichField + Extendable<D>,
     {
-        let zero = builder.constant(F::ZERO);
         // The initial number of transactions is 0.
-        builder.connect(x.extra_block_data.txn_number_before, zero);
+        builder.assert_zero(x.extra_block_data.txn_number_before);
         // The initial gas used is 0.
-        builder.connect(x.extra_block_data.gas_used_before[0], zero);
-        builder.connect(x.extra_block_data.gas_used_before[1], zero);
+        builder.assert_zero(x.extra_block_data.gas_used_before[0]);
+        builder.assert_zero(x.extra_block_data.gas_used_before[1]);
 
         // The initial bloom filter is all zeroes.
         for t in x.extra_block_data.block_bloom_before {
-            builder.connect(t, zero);
+            builder.assert_zero(t);
         }
 
         // The transactions and receipts tries are empty at the beginning of the block.
