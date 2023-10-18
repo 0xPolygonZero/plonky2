@@ -325,9 +325,11 @@ impl Circuit for WrapCircuit {
             1336410145739173134,
         ];
 
-        input_target_vec.extend(
-            &verifier_key.iter().map(|val| builder.constant::<Variable>(GoldilocksField::from_canonical_usize(val)))
-        );
+        input_target_vec.extend(verifier_key.iter().map(|&val| {
+            builder
+                .constant::<Variable>(<L as PlonkParameters<D>>::Field::from_canonical_usize(val))
+                .0
+        }));
 
         let data = all_circuits.block.circuit;
 
@@ -397,7 +399,7 @@ mod tests {
     use ethers::utils::hex;
     use plonky2x::backend::circuit::PublicInput;
     use plonky2x::frontend::uint::uint160::U160;
-    use plonky2x::prelude::{DefaultBuilder, GateRegistry, HintRegistry, GoldilocksField};
+    use plonky2x::prelude::{DefaultBuilder, GateRegistry, HintRegistry};
 
     use super::*;
 
@@ -476,7 +478,7 @@ mod tests {
         log::debug!("Done building circuit");
 
         let mut input = Box::new(circuit.input());
-        
+
         // trie_roots_before
         // state_root
         input.evm_write::<U256Variable>(hex_str_to_u256(
@@ -507,9 +509,7 @@ mod tests {
 
         // block_metadata
         // block_beneficiary
-        let val = hex_str_to_u160(
-            "0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
-        );
+        let val = hex_str_to_u160("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba");
         input.evm_write::<U160Variable>(val);
         // block_timestamp
         input.evm_write::<U256Variable>(U256::from(1000));
@@ -530,20 +530,26 @@ mod tests {
         // block_bloom
         input.evm_write::<U256Variable>(U256::from(0));
         input.evm_write::<U256Variable>(U256::from(0));
-        input.evm_write::<U256Variable>(U256::from_dec_str(
-            "55213970774324510299479508399853534522527075462195808724319849722937344",
-        ).unwrap());
-        input.evm_write::<U256Variable>(U256::from_dec_str(
-            "1361129467683753853853498429727072845824",
-        ).unwrap());
+        input.evm_write::<U256Variable>(
+            U256::from_dec_str(
+                "55213970774324510299479508399853534522527075462195808724319849722937344",
+            )
+            .unwrap(),
+        );
+        input.evm_write::<U256Variable>(
+            U256::from_dec_str("1361129467683753853853498429727072845824").unwrap(),
+        );
         input.evm_write::<U256Variable>(U256::from(33554432));
         input.evm_write::<U256Variable>(U256::from_dec_str("9223372036854775808").unwrap());
-        input.evm_write::<U256Variable>(U256::from_dec_str(
-            "3618502788666131106986593281521497120414687020801267626233049500247285563392",
-        ).unwrap());
-        input.evm_write::<U256Variable>(U256::from_dec_str(
-            "2722259584404615024560450425766186844160",
-        ).unwrap());
+        input.evm_write::<U256Variable>(
+            U256::from_dec_str(
+                "3618502788666131106986593281521497120414687020801267626233049500247285563392",
+            )
+            .unwrap(),
+        );
+        input.evm_write::<U256Variable>(
+            U256::from_dec_str("2722259584404615024560450425766186844160").unwrap(),
+        );
 
         // block_hashes
         // prev_hashes
@@ -573,20 +579,26 @@ mod tests {
         // block_boom_after
         input.evm_write::<U256Variable>(U256::from(0));
         input.evm_write::<U256Variable>(U256::from(0));
-        input.evm_write::<U256Variable>(U256::from_dec_str(
-            "55213970774324510299479508399853534522527075462195808724319849722937344",
-        ).unwrap());
-        input.evm_write::<U256Variable>(U256::from_dec_str(
-            "1361129467683753853853498429727072845824",
-        ).unwrap());
+        input.evm_write::<U256Variable>(
+            U256::from_dec_str(
+                "55213970774324510299479508399853534522527075462195808724319849722937344",
+            )
+            .unwrap(),
+        );
+        input.evm_write::<U256Variable>(
+            U256::from_dec_str("1361129467683753853853498429727072845824").unwrap(),
+        );
         input.evm_write::<U256Variable>(U256::from(33554432));
         input.evm_write::<U256Variable>(U256::from_dec_str("9223372036854775808").unwrap());
-        input.evm_write::<U256Variable>(U256::from_dec_str(
-            "3618502788666131106986593281521497120414687020801267626233049500247285563392",
-        ).unwrap());
-        input.evm_write::<U256Variable>(U256::from_dec_str(
-            "2722259584404615024560450425766186844160",
-        ).unwrap());
+        input.evm_write::<U256Variable>(
+            U256::from_dec_str(
+                "3618502788666131106986593281521497120414687020801267626233049500247285563392",
+            )
+            .unwrap(),
+        );
+        input.evm_write::<U256Variable>(
+            U256::from_dec_str("2722259584404615024560450425766186844160").unwrap(),
+        );
 
         log::debug!("Generating proof");
         let (proof, mut output) = circuit.prove(&input);
