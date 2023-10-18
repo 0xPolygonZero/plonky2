@@ -161,8 +161,7 @@ fn fill_op_flag<F: Field>(op: Operation, row: &mut CpuColumnsView<F>) {
     let flags = &mut row.op;
     *match op {
         Operation::Push(1..) => &mut flags.push,
-        Operation::Dup(_) => &mut flags.dup,
-        Operation::Swap(_) => &mut flags.swap,
+        Operation::Dup(_) | Operation::Swap(_) => &mut flags.dup_swap,
         Operation::Iszero | Operation::Eq => &mut flags.eq_iszero,
         Operation::Not => &mut flags.not,
         Operation::Syscall(_, _, _) => &mut flags.syscall,
@@ -194,8 +193,7 @@ fn get_op_special_length(op: Operation) -> Option<usize> {
     let behavior_opt = match op {
         Operation::Push(0) | Operation::Pc => STACK_BEHAVIORS.pc_push0,
         Operation::Push(1..) => STACK_BEHAVIORS.push,
-        Operation::Dup(_) => STACK_BEHAVIORS.dup,
-        Operation::Swap(_) => STACK_BEHAVIORS.swap,
+        Operation::Dup(_) | Operation::Swap(_) => STACK_BEHAVIORS.dup_swap,
         Operation::Iszero => IS_ZERO_STACK_BEHAVIOR,
         Operation::Not => STACK_BEHAVIORS.not,
         Operation::Syscall(_, _, _) => STACK_BEHAVIORS.syscall,

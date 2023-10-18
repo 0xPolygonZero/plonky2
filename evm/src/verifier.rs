@@ -456,6 +456,152 @@ fn eval_l_0_and_l_last<F: Field>(log_n: usize, x: F) -> (F, F) {
 }
 
 #[cfg(test)]
+pub(crate) mod testutils {
+    use super::*;
+
+    /// Output all the extra memory rows that don't appear in the CPU trace but are
+    /// necessary to correctly check the MemoryStark CTL.
+    pub(crate) fn get_memory_extra_looking_values<F, const D: usize>(
+        public_values: &PublicValues,
+    ) -> Vec<Vec<F>>
+    where
+        F: RichField + Extendable<D>,
+    {
+        // Add metadata and tries writes.
+        let fields = [
+            (
+                GlobalMetadata::BlockBeneficiary,
+                U256::from_big_endian(&public_values.block_metadata.block_beneficiary.0),
+            ),
+            (
+                GlobalMetadata::BlockTimestamp,
+                public_values.block_metadata.block_timestamp,
+            ),
+            (
+                GlobalMetadata::BlockNumber,
+                public_values.block_metadata.block_number,
+            ),
+            (
+                GlobalMetadata::BlockRandom,
+                public_values.block_metadata.block_random.into_uint(),
+            ),
+            (
+                GlobalMetadata::BlockDifficulty,
+                public_values.block_metadata.block_difficulty,
+            ),
+            (
+                GlobalMetadata::BlockGasLimit,
+                public_values.block_metadata.block_gaslimit,
+            ),
+            (
+                GlobalMetadata::BlockChainId,
+                public_values.block_metadata.block_chain_id,
+            ),
+            (
+                GlobalMetadata::BlockBaseFee,
+                public_values.block_metadata.block_base_fee,
+            ),
+            (
+                GlobalMetadata::BlockCurrentHash,
+                h2u(public_values.block_hashes.cur_hash),
+            ),
+            (
+                GlobalMetadata::BlockGasUsed,
+                public_values.block_metadata.block_gas_used,
+            ),
+            (
+                GlobalMetadata::TxnNumberBefore,
+                public_values.extra_block_data.txn_number_before,
+            ),
+            (
+                GlobalMetadata::TxnNumberAfter,
+                public_values.extra_block_data.txn_number_after,
+            ),
+            (
+                GlobalMetadata::BlockGasUsedBefore,
+                public_values.extra_block_data.gas_used_before,
+            ),
+            (
+                GlobalMetadata::BlockGasUsedAfter,
+                public_values.extra_block_data.gas_used_after,
+            ),
+            (
+                GlobalMetadata::StateTrieRootDigestBefore,
+                h2u(public_values.trie_roots_before.state_root),
+            ),
+            (
+                GlobalMetadata::TransactionTrieRootDigestBefore,
+                h2u(public_values.trie_roots_before.transactions_root),
+            ),
+            (
+                GlobalMetadata::ReceiptTrieRootDigestBefore,
+                h2u(public_values.trie_roots_before.receipts_root),
+            ),
+            (
+                GlobalMetadata::StateTrieRootDigestAfter,
+                h2u(public_values.trie_roots_after.state_root),
+            ),
+            (
+                GlobalMetadata::TransactionTrieRootDigestAfter,
+                h2u(public_values.trie_roots_after.transactions_root),
+            ),
+            (
+                GlobalMetadata::ReceiptTrieRootDigestAfter,
+                h2u(public_values.trie_roots_after.receipts_root),
+            ),
+        ];
+
+        let segment = F::from_canonical_u32(Segment::GlobalMetadata as u32);
+        let mut extra_looking_rows = Vec::new();
+
+        fields.map(|(field, val)| {
+            extra_looking_rows.push(add_extra_looking_row(segment, field as usize, val))
+        });
+
+        // Add block bloom writes.
+        let bloom_segment = F::from_canonical_u32(Segment::GlobalBlockBloom as u32);
+        for index in 0..8 {
+            let val = public_values.block_metadata.block_bloom[index];
+            extra_looking_rows.push(add_extra_looking_row(bloom_segment, index, val));
+        }
+
+        for index in 0..8 {
+            let val = public_values.extra_block_data.block_bloom_before[index];
+            extra_looking_rows.push(add_extra_looking_row(bloom_segment, index + 8, val));
+        }
+        for index in 0..8 {
+            let val = public_values.extra_block_data.block_bloom_after[index];
+            extra_looking_rows.push(add_extra_looking_row(bloom_segment, index + 16, val));
+        }
+
+        // Add Blockhashes writes.
+        let block_hashes_segment = F::from_canonical_u32(Segment::BlockHashes as u32);
+        for index in 0..256 {
+            let val = h2u(public_values.block_hashes.prev_hashes[index]);
+            extra_looking_rows.push(add_extra_looking_row(block_hashes_segment, index, val));
+        }
+
+        extra_looking_rows
+    }
+
+    fn add_extra_looking_row<F, const D: usize>(segment: F, index: usize, val: U256) -> Vec<F>
+    where
+        F: RichField + Extendable<D>,
+    {
+        let mut row = vec![F::ZERO; 13];
+        row[0] = F::ZERO; // is_read
+        row[1] = F::ZERO; // context
+        row[2] = segment;
+        row[3] = F::from_canonical_usize(index);
+
+        for j in 0..VALUE_LIMBS {
+            row[j + 4] = F::from_canonical_u32((val >> (j * 32)).low_u32());
+        }
+        row[12] = F::ONE; // timestamp
+        row
+    }
+}
+#[cfg(test)]
 mod tests {
     use plonky2::field::goldilocks_field::GoldilocksField;
     use plonky2::field::polynomial::PolynomialValues;
