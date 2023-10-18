@@ -7,14 +7,13 @@ use crate::Node;
 
 #[derive(Copy, Clone, Debug)]
 pub(crate) enum PartialSmtType {
-    Default = 0,
-    Hash = 1,
-    Internal = 2,
-    Leaf = 3,
+    Hash = 0,
+    Internal = 1,
+    Leaf = 2,
 }
 
 impl PartialSmtType {
-    pub(crate) const COUNT: usize = 4;
+    pub(crate) const COUNT: usize = 3;
 
     pub(crate) fn of(trie: &HashedPartialTrie) -> Self {
         todo!()
@@ -28,13 +27,12 @@ impl PartialSmtType {
     }
 
     pub(crate) fn all() -> [Self; Self::COUNT] {
-        [Self::Default, Self::Hash, Self::Internal, Self::Leaf]
+        [Self::Hash, Self::Internal, Self::Leaf]
     }
 
     /// The variable name that gets passed into kernel assembly code.
     pub(crate) fn var_name(&self) -> &'static str {
         match self {
-            Self::Default => "SMT_NODE_EMPTY",
             Self::Hash => "SMT_NODE_HASH",
             Self::Internal => "SMT_NODE_BRANCH",
             Self::Leaf => "SMT_NODE_LEAF",

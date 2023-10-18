@@ -9,6 +9,7 @@ use plonky2::hash::hash_types::RichField;
 use plonky2::timed;
 use plonky2::util::timing::TimingTree;
 use serde::{Deserialize, Serialize};
+use smt_utils::smt::{hash_serialize, Smt};
 use GlobalMetadata::{
     ReceiptTrieRootDigestAfter, ReceiptTrieRootDigestBefore, StateTrieRootDigestAfter,
     StateTrieRootDigestBefore, TransactionTrieRootDigestAfter, TransactionTrieRootDigestBefore,
@@ -73,7 +74,7 @@ pub struct GenerationInputs {
 pub struct TrieInputs {
     /// A partial version of the state trie prior to these transactions. It should include all nodes
     /// that will be accessed by these transactions.
-    pub state_trie: HashedPartialTrie,
+    pub state_trie: Vec<U256>,
 
     /// A partial version of the transaction trie prior to these transactions. It should include all
     /// nodes that will be accessed by these transactions.
@@ -124,7 +125,7 @@ fn apply_metadata_and_tries_memops<F: RichField + Extendable<D>, const D: usize>
         ),
         (
             GlobalMetadata::StateTrieRootDigestBefore,
-            h2u(tries.state_trie.hash()),
+            h2u(hash_serialize(&tries.state_trie)),
         ),
         (
             GlobalMetadata::TransactionTrieRootDigestBefore,
