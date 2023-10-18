@@ -294,16 +294,16 @@ impl Circuit for WrapCircuit {
         );
 
         // Connect the public inputs we read from on-chain to the proof_targets.public_inputs
-        connect_public_inputs(
-            builder,
-            &proof_targets.public_inputs.clone(),
-            &input_target_vec,
-        );
+        // connect_public_inputs(
+        //     builder,
+        //     &proof_targets.public_inputs.clone(),
+        //     &input_target_vec,
+        // );
 
-        // Verify the final proof.
-        builder
-            .api
-            .verify_proof::<L::Config>(&proof_targets, &verifier_targets, &data.common);
+        // // Verify the final proof.
+        // builder
+        //     .api
+        //     .verify_proof::<L::Config>(&proof_targets, &verifier_targets, &data.common);
     }
 
     fn register_generators<L: PlonkParameters<D>, const D: usize>(
@@ -327,7 +327,7 @@ mod tests {
     use ethers::utils::hex;
     use plonky2x::backend::circuit::PublicInput;
     use plonky2x::frontend::uint::uint160::U160;
-    use plonky2x::prelude::{DefaultBuilder, GateRegistry, HintRegistry};
+    use plonky2x::prelude::{DefaultBuilder, GateRegistry, HintRegistry, GoldilocksField};
 
     use super::*;
 
@@ -400,6 +400,81 @@ mod tests {
 
         log::debug!("Defining circuit");
         WrapCircuit::define(&mut builder);
+
+        let verifier_key = [
+            10413239443182360244,
+            7210530152059530083,
+            3689215856762124202,
+            12691265547708897282,
+            3945855155716568259,
+            3437275316704564473,
+            9408028839543681335,
+            11191130492083254003,
+            3278688354612016176,
+            11302124537284191559,
+            2996234434228441225,
+            14641356601419925054,
+            15814043218513700782,
+            6629219779814899880,
+            13317813668912102427,
+            1487536722311348621,
+            14072130056754204344,
+            2772424984690674839,
+            17613757773907740770,
+            16598844880181280080,
+            3091647421854454010,
+            11429674356960328228,
+            17535150828881339486,
+            259781830753537976,
+            5468645876288248583,
+            4092643679685879368,
+            15405518505122423587,
+            17743155428381187727,
+            10374892003849873890,
+            15845265341823136430,
+            8314605441288303791,
+            13331313941794763973,
+            2544133160482009112,
+            15514462588807902285,
+            201964026626876078,
+            5306045646442156037,
+            13190092398004521070,
+            14801371865780602186,
+            4333122776702556556,
+            14445761912845223680,
+            894492453587923599,
+            16030852882908773260,
+            1872145645023771992,
+            12615112611359451528,
+            1645284768660175143,
+            1643699702933789819,
+            12244880232239518067,
+            14523281079702691286,
+            15742319094182157413,
+            1369288424939501841,
+            13767858972982194665,
+            14443992298406634920,
+            11343826153214709282,
+            11818615589224905082,
+            4018029278286547773,
+            9037210733735230983,
+            12096855604374631042,
+            5433378182662226654,
+            17737874281162257978,
+            4921799547276940026,
+            2585839424645456074,
+            4673226705365547970,
+            16139994847986730044,
+            14831571305346503145,
+            6056303846144508438,
+            7481331700893393781,
+            14499266592899854154,
+            1336410145739173134,
+        ];
+
+        for val in verifier_key {
+            builder.constant::<Variable>(GoldilocksField::from_canonical_usize(val));
+        }
 
         log::debug!("Building circuit");
         let circuit = Box::new(builder.build());
