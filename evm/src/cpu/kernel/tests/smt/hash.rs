@@ -1,6 +1,8 @@
 use anyhow::{anyhow, Result};
 use eth_trie_utils::partial_trie::PartialTrie;
 use ethereum_types::{BigEndianHash, H256, U256};
+use rand::{thread_rng, Rng};
+use smt_utils::smt::{AccountOrValue, Smt, ValOrHash};
 
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::interpreter::Interpreter;
@@ -223,13 +225,22 @@ fn smt_hash() -> Result<()> {
     .iter()
     .map(|s| U256::from_dec_str(s).unwrap())
     .collect::<Vec<_>>();
+    let n = 100;
+    let mut rng = thread_rng();
+    let rand_node = |_| {
+        (
+            U256(rng.gen()).into(),
+            ValOrHash::Val(AccountOrValue::Account(rng.gen())),
+        )
+    };
+    let smt = Smt::new((0..n).map(rand_node)).unwrap();
 
-    test_state_smt(state_smt)
+    test_state_smt(smt)
 }
 
-fn test_state_smt(state_smt: Vec<U256>) -> Result<()> {
+fn test_state_smt(state_smt: Smt) -> Result<()> {
     let trie_inputs = TrieInputs {
-        state_trie: state_smt,
+        state_trie: state_smt.serialize(),
         transactions_trie: Default::default(),
         receipts_trie: Default::default(),
         storage_tries: vec![],
@@ -258,9 +269,8 @@ fn test_state_smt(state_smt: Vec<U256>) -> Result<()> {
         interpreter.stack()
     );
     let hash = H256::from_uint(&interpreter.stack()[0]);
-    dbg!(hash);
-    // let expected_state_trie_hash = trie_inputs.state_trie.hash();
-    // assert_eq!(hash, expected_state_trie_hash);
+    let expected_state_trie_hash = state_smt.root;
+    assert_eq!(hash, expected_state_trie_hash);
 
     Ok(())
 }

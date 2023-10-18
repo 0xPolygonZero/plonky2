@@ -12,13 +12,10 @@ smt_hash:
     DUP1
     %mload_trie_data
     // stack: node, node_ptr, retdest
-global smt_hash_node:
     DUP1 %eq_const(@SMT_NODE_HASH) %jumpi(smt_hash_hash)
     DUP1 %eq_const(@SMT_NODE_INTERNAL) %jumpi(smt_hash_internal)
     DUP1 %eq_const(@SMT_NODE_LEAF) %jumpi(smt_hash_leaf)
-global wtf:
-    // stack: node, node_ptr, retdest
-    %pop2 JUMP
+    PANIC
 
 smt_hash_hash:
     // stack: node, node_ptr, retdest
@@ -28,7 +25,6 @@ smt_hash_hash:
     // stack: node_ptr+1, retdest
     %mload_trie_data
     // stack: hash, retdest
-global smt_hash_hash_yo:
     SWAP1 JUMP
 
 smt_hash_internal:
@@ -59,7 +55,6 @@ smt_hash_internal_after_right:
     %stack () -> (0, @SEGMENT_KERNEL_GENERAL, 0, 65)
     KECCAK_GENERAL
     // stack: hash, retdest
-global smt_hash_internal_yo:
     SWAP1 JUMP
 
 smt_hash_leaf:
@@ -141,7 +136,6 @@ smt_hash_leaf_account_after_storage:
     %stack () -> (0, @SEGMENT_KERNEL_GENERAL, 0, 65)
     KECCAK_GENERAL
 
-global smt_hash_leaf_account_yo:
     SWAP1 JUMP
 
 smt_hash_leaf_value:
@@ -162,5 +156,4 @@ smt_hash_leaf_value:
     %stack () -> (0, @SEGMENT_KERNEL_GENERAL, 0, 65)
     KECCAK_GENERAL
     // stack: hash, retdest
-global smt_hash_leaf_value_yo:
     SWAP1 JUMP
