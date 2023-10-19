@@ -5,6 +5,7 @@ use alloc::vec;
 use alloc::vec::Vec;
 use std::fmt::Debug;
 
+use plonky2_field::packed::PackedField;
 use unroll::unroll_for_loops;
 
 use crate::field::extension::{Extendable, FieldExtension};
@@ -213,6 +214,32 @@ pub trait Poseidon: PrimeField64 {
         res
     }
 
+    fn mds_row_shf_packed_field<
+        F: RichField + Extendable<D>,
+        const D: usize,
+        FE,
+        P,
+        const D2: usize,
+    >(
+        r: usize,
+        v: &[P; SPONGE_WIDTH],
+    ) -> P
+    where
+        FE: FieldExtension<D2, BaseField = F>,
+        P: PackedField<Scalar = FE>,
+    {
+        debug_assert!(r < SPONGE_WIDTH);
+        let mut res = P::ZEROS;
+
+        for i in 0..SPONGE_WIDTH {
+            res +=
+                v[(i + r) % SPONGE_WIDTH] * P::Scalar::from_canonical_u64(Self::MDS_MATRIX_CIRC[i]);
+        }
+        res += v[r] * P::Scalar::from_canonical_u64(Self::MDS_MATRIX_DIAG[r]);
+
+        res
+    }
+
     /// Recursive version of `mds_row_shf`.
     fn mds_row_shf_circuit<const D: usize>(
         builder: &mut CircuitBuilder<Self, D>,
@@ -273,6 +300,29 @@ pub trait Poseidon: PrimeField64 {
         result
     }
 
+    /// Same as `mds_layer` for `PackedField`.
+    fn mds_layer_packed_field<
+        F: RichField + Extendable<D>,
+        const D: usize,
+        FE,
+        P,
+        const D2: usize,
+    >(
+        state: &[P; SPONGE_WIDTH],
+    ) -> [P; SPONGE_WIDTH]
+    where
+        FE: FieldExtension<D2, BaseField = F>,
+        P: PackedField<Scalar = FE>,
+    {
+        let mut result = [P::ZEROS; SPONGE_WIDTH];
+
+        for r in 0..SPONGE_WIDTH {
+            result[r] = Self::mds_row_shf_packed_field(r, state);
+        }
+
+        result
+    }
+
     /// Recursive version of `mds_layer`.
     fn mds_layer_circuit<const D: usize>(
         builder: &mut CircuitBuilder<Self, D>,
@@ -316,6 +366,28 @@ pub trait Poseidon: PrimeField64 {
         for i in 0..12 {
             if i < SPONGE_WIDTH {
                 state[i] += F::from_canonical_u64(Self::FAST_PARTIAL_FIRST_ROUND_CONSTANT[i]);
+            }
+        }
+    }
+
+    #[inline(always)]
+    #[unroll_for_loops]
+    fn partial_first_constant_layer_packed<
+        F: RichField + Extendable<D>,
+        const D: usize,
+        FE,
+        P,
+        const D2: usize,
+    >(
+        state: &mut [P; SPONGE_WIDTH],
+    ) where
+        FE: FieldExtension<D2, BaseField = F>,
+        P: PackedField<Scalar = FE>,
+    {
+        for i in 0..12 {
+            if i < SPONGE_WIDTH {
+                state[i] +=
+                    P::Scalar::from_canonical_u64(Self::FAST_PARTIAL_FIRST_ROUND_CONSTANT[i]);
             }
         }
     }
@@ -365,6 +437,45 @@ pub trait Poseidon: PrimeField64 {
         result
     }
 
+    #[inline(always)]
+    #[unroll_for_loops]
+    fn mds_partial_layer_packed_init<
+        F: RichField + Extendable<D>,
+        const D: usize,
+        FE,
+        P,
+        const D2: usize,
+    >(
+        state: &[P; SPONGE_WIDTH],
+    ) -> [P; SPONGE_WIDTH]
+    where
+        FE: FieldExtension<D2, BaseField = F>,
+        P: PackedField<Scalar = FE>,
+    {
+        let mut result = [P::ZEROS; SPONGE_WIDTH];
+
+        // Initial matrix has first row/column = [1, 0, ..., 0];
+
+        // c = 0
+        result[0] = state[0];
+
+        for r in 1..12 {
+            if r < SPONGE_WIDTH {
+                for c in 1..12 {
+                    if c < SPONGE_WIDTH {
+                        // NB: FAST_PARTIAL_ROUND_INITIAL_MATRIX is stored in
+                        // row-major order so that this dot product is cache
+                        // friendly.
+                        let t = P::Scalar::from_canonical_u64(
+                            Self::FAST_PARTIAL_ROUND_INITIAL_MATRIX[r - 1][c - 1],
+                        );
+                        result[c] += state[r] * t;
+                    }
+                }
+            }
+        }
+        result
+    }
     /// Recursive version of `mds_partial_layer_init`.
     fn mds_partial_layer_init_circuit<const D: usize>(
         builder: &mut CircuitBuilder<Self, D>,
@@ -449,6 +560,39 @@ pub trait Poseidon: PrimeField64 {
         result
     }
 
+    /// Same as `mds_partial_layer_fast` for `PackedField.
+    fn mds_partial_layer_fast_packed_field<
+        F: RichField + Extendable<D>,
+        const D: usize,
+        FE,
+        P,
+        const D2: usize,
+    >(
+        state: &[P; SPONGE_WIDTH],
+        r: usize,
+    ) -> [P; SPONGE_WIDTH]
+    where
+        FE: FieldExtension<D2, BaseField = F>,
+        P: PackedField<Scalar = FE>,
+    {
+        let s0 = state[0];
+        let mds0to0 = Self::MDS_MATRIX_CIRC[0] + Self::MDS_MATRIX_DIAG[0];
+        let mut d = s0 * P::Scalar::from_canonical_u64(mds0to0);
+        for i in 1..SPONGE_WIDTH {
+            let t = P::Scalar::from_canonical_u64(Self::FAST_PARTIAL_ROUND_W_HATS[r][i - 1]);
+            d += state[i] * t;
+        }
+
+        // result = [d] concat [state[0] * v + state[shift up by 1]]
+        let mut result = [P::ZEROS; SPONGE_WIDTH];
+        result[0] = d;
+        for i in 1..SPONGE_WIDTH {
+            let t = P::Scalar::from_canonical_u64(Self::FAST_PARTIAL_ROUND_VS[r][i - 1]);
+            result[i] = state[0] * t + state[i];
+        }
+        result
+    }
+
     /// Recursive version of `mds_partial_layer_fast`.
     fn mds_partial_layer_fast_circuit<const D: usize>(
         builder: &mut CircuitBuilder<Self, D>,
@@ -499,6 +643,26 @@ pub trait Poseidon: PrimeField64 {
     ) {
         for i in 0..SPONGE_WIDTH {
             state[i] += F::from_canonical_u64(ALL_ROUND_CONSTANTS[i + SPONGE_WIDTH * round_ctr]);
+        }
+    }
+
+    /// Same as `constant_layer` for PackedFields.
+    fn constant_layer_packed_field<
+        F: RichField + Extendable<D>,
+        const D: usize,
+        FE,
+        P,
+        const D2: usize,
+    >(
+        state: &mut [P; SPONGE_WIDTH],
+        round_ctr: usize,
+    ) where
+        FE: FieldExtension<D2, BaseField = F>,
+        P: PackedField<Scalar = FE>,
+    {
+        for i in 0..SPONGE_WIDTH {
+            state[i] +=
+                P::Scalar::from_canonical_u64(ALL_ROUND_CONSTANTS[i + SPONGE_WIDTH * round_ctr]);
         }
     }
 

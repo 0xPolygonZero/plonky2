@@ -27,6 +27,7 @@ const SIMPLE_OPCODES: OpsColumnsView<Option<u32>> = OpsColumnsView {
     not: G_VERYLOW,
     shift: G_VERYLOW,
     keccak_general: KERNEL_ONLY_INSTR,
+    poseidon_general: KERNEL_ONLY_INSTR,
     prover_input: KERNEL_ONLY_INSTR,
     pop: G_BASE,
     jumps: None, // Combined flag handled separately.

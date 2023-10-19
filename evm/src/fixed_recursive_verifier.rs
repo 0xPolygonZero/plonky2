@@ -395,6 +395,20 @@ where
             &all_stark.cross_table_lookups,
             stark_config,
         );
+        let poseidon = RecursiveCircuitsForTable::new(
+            Table::Poseidon,
+            &all_stark.poseidon_stark,
+            degree_bits_ranges[Table::Poseidon as usize].clone(),
+            &all_stark.cross_table_lookups,
+            stark_config,
+        );
+        let poseidon_sponge = RecursiveCircuitsForTable::new(
+            Table::PoseidonSponge,
+            &all_stark.poseidon_sponge_stark,
+            degree_bits_ranges[Table::PoseidonSponge as usize].clone(),
+            &all_stark.cross_table_lookups,
+            stark_config,
+        );
         let logic = RecursiveCircuitsForTable::new(
             Table::Logic,
             &all_stark.logic_stark,
@@ -416,6 +430,8 @@ where
             cpu,
             keccak,
             keccak_sponge,
+            poseidon,
+            poseidon_sponge,
             logic,
             memory,
         ];

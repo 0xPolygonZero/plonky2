@@ -82,6 +82,12 @@ pub(crate) const STACK_BEHAVIORS: OpsColumnsView<Option<StackBehavior>> = OpsCol
         new_top_stack_channel: Some(NUM_GP_CHANNELS - 1),
         disable_other_channels: true,
     }),
+    poseidon_general: Some(StackBehavior {
+        num_pops: 4,
+        pushes: true,
+        new_top_stack_channel: Some(NUM_GP_CHANNELS - 1),
+        disable_other_channels: true,
+    }),
     prover_input: None, // TODO
     pop: Some(StackBehavior {
         num_pops: 1,

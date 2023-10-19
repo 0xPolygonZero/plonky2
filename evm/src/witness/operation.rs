@@ -2,6 +2,7 @@ use ethereum_types::{BigEndianHash, U256};
 use itertools::Itertools;
 use keccak_hash::keccak;
 use plonky2::field::types::Field;
+use plonky2::hash::hash_types::RichField;
 
 use super::util::{byte_packing_log, byte_unpacking_log, push_no_write, push_with_write};
 use crate::arithmetic::BinaryOperator;
@@ -15,6 +16,7 @@ use crate::cpu::stack_bounds::MAX_USER_STACK_SIZE;
 use crate::extension_tower::BN_BASE;
 use crate::generation::state::GenerationState;
 use crate::memory::segments::Segment;
+use crate::poseidon::columns::POSEIDON_SPONGE_RATE;
 use crate::util::u256_to_usize;
 use crate::witness::errors::MemoryError::{ContextTooLarge, SegmentTooLarge, VirtTooLarge};
 use crate::witness::errors::ProgramError;
@@ -22,8 +24,8 @@ use crate::witness::errors::ProgramError::MemoryError;
 use crate::witness::memory::{MemoryAddress, MemoryChannel, MemoryOp, MemoryOpKind};
 use crate::witness::operation::MemoryChannel::GeneralPurpose;
 use crate::witness::util::{
-    keccak_sponge_log, mem_read_gp_with_log_and_fill, mem_write_gp_log_and_fill,
-    stack_pop_with_log_and_fill,
+    compute_poseidon, keccak_sponge_log, mem_read_gp_with_log_and_fill, mem_write_gp_log_and_fill,
+    poseidon_sponge_log, stack_pop_with_log_and_fill,
 };
 use crate::{arithmetic, logic};
 
@@ -37,6 +39,7 @@ pub(crate) enum Operation {
     BinaryArithmetic(arithmetic::BinaryOperator),
     TernaryArithmetic(arithmetic::TernaryOperator),
     KeccakGeneral,
+    PoseidonGeneral,
     ProverInput,
     Pop,
     Jump,
@@ -154,6 +157,61 @@ pub(crate) fn generate_keccak_general<F: Field>(
     push_no_write(state, &mut row, hash.into_uint(), Some(NUM_GP_CHANNELS - 1));
 
     keccak_sponge_log(state, base_address, input);
+
+    state.traces.push_memory(log_in1);
+    state.traces.push_memory(log_in2);
+    state.traces.push_memory(log_in3);
+    state.traces.push_cpu(row);
+    Ok(())
+}
+
+pub(crate) fn generate_poseidon_general<F: RichField>(
+    state: &mut GenerationState<F>,
+    mut row: CpuColumnsView<F>,
+) -> Result<(), ProgramError> {
+    row.op.poseidon_general = F::ONE;
+    let [(context, _), (segment, log_in1), (base_virt, log_in2), (len, log_in3)] =
+        stack_pop_with_log_and_fill::<4, _>(state, &mut row)?;
+    let len = u256_to_usize(len)?;
+
+    let base_address = MemoryAddress::new_u256s(context, segment, base_virt)?;
+    let input = (0..len)
+        .map(|i| {
+            let address = MemoryAddress {
+                virt: base_address.virt.saturating_add(i),
+                ..base_address
+            };
+            let val = state.memory.get(address);
+
+            val.0[0]
+        })
+        .collect_vec();
+    log::debug!("Hashing {:?}", input);
+
+    let mut padded_input = input.clone();
+    if padded_input.len() % POSEIDON_SPONGE_RATE == POSEIDON_SPONGE_RATE - 1 {
+        padded_input.push(1);
+    } else {
+        padded_input.push(1);
+        while (padded_input.len() + 1) % plonky2::hash::poseidon::SPONGE_RATE != 0 {
+            padded_input.push(0);
+        }
+        padded_input.push(1);
+    }
+
+    poseidon_sponge_log(state, base_address, input.clone(), padded_input.clone());
+
+    let padded_input = padded_input
+        .iter()
+        .map(|&elt| F::from_canonical_u64(elt))
+        .collect::<Vec<F>>();
+    let hash: [u64; 4] = compute_poseidon(padded_input)
+        .iter()
+        .map(|&elt| elt.to_canonical_u64())
+        .collect::<Vec<u64>>()
+        .try_into()
+        .unwrap();
+    push_no_write(state, &mut row, U256(hash), Some(NUM_GP_CHANNELS - 1));
 
     state.traces.push_memory(log_in1);
     state.traces.push_memory(log_in2);

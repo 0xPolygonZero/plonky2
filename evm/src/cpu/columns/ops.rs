@@ -15,6 +15,7 @@ pub struct OpsColumnsView<T: Copy> {
     pub not: T,
     pub shift: T, // Combines SHL and SHR flags.
     pub keccak_general: T,
+    pub poseidon_general: T,
     pub prover_input: T,
     pub pop: T,
     pub jumps: T, // Combines JUMP and JUMPI flags.

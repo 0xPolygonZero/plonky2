@@ -1,5 +1,7 @@
 use ethereum_types::U256;
 use plonky2::field::types::Field;
+use plonky2::hash::hash_types::RichField;
+use plonky2::hash::poseidon::{self};
 
 use super::memory::DUMMY_MEMOP;
 use crate::byte_packing::byte_packing_stark::BytePackingOp;
@@ -12,6 +14,8 @@ use crate::keccak_sponge::columns::{KECCAK_RATE_BYTES, KECCAK_WIDTH_BYTES};
 use crate::keccak_sponge::keccak_sponge_stark::KeccakSpongeOp;
 use crate::logic;
 use crate::memory::segments::Segment;
+use crate::poseidon::columns::{POSEIDON_SPONGE_RATE, POSEIDON_SPONGE_WIDTH};
+use crate::poseidon_sponge::poseidon_sponge_stark::PoseidonSpongeOp;
 use crate::witness::errors::ProgramError;
 use crate::witness::memory::{MemoryAddress, MemoryChannel, MemoryOp, MemoryOpKind};
 
@@ -334,6 +338,114 @@ pub(crate) fn keccak_sponge_log<F: Field>(
         .push_keccak_bytes(sponge_state, clock * NUM_CHANNELS);
 
     state.traces.push_keccak_sponge(KeccakSpongeOp {
+        base_address,
+        timestamp: clock * NUM_CHANNELS,
+        input,
+    });
+}
+
+pub(crate) fn compute_poseidon<F: RichField>(input: Vec<F>) -> [F; 4] {
+    let mut state = [F::ZERO; POSEIDON_SPONGE_WIDTH];
+    assert_eq!(input.len() % POSEIDON_SPONGE_RATE, 0);
+    let input_blocks = input.chunks_exact(POSEIDON_SPONGE_RATE);
+    for block in input_blocks {
+        for i in 0..POSEIDON_SPONGE_RATE {
+            state[i] =
+                F::from_canonical_u64(state[i].to_canonical_u64() ^ block[i].to_canonical_u64());
+        }
+        state = <F as poseidon::Poseidon>::poseidon(state);
+    }
+    state[0..4].try_into().unwrap()
+}
+
+pub(crate) fn poseidon_sponge_log<F: RichField>(
+    state: &mut GenerationState<F>,
+    base_address: MemoryAddress,
+    input: Vec<u64>,
+    padded_input: Vec<u64>,
+) {
+    let clock = state.traces.clock();
+    let mut address = base_address;
+    let unpadded_len = input.len();
+    let mut input_blocks = padded_input.chunks_exact(POSEIDON_SPONGE_RATE);
+    let mut sponge_state = [0u64; POSEIDON_SPONGE_WIDTH];
+    let mut counter = 0;
+
+    // We start by making the computation for the first block,
+    // as we don't add a XOR i, the LogicStark for this case.
+    let first_block = input_blocks.next().unwrap();
+    for &block_elt in first_block {
+        // We only read non-padding elements from memory.
+        if counter < unpadded_len {
+            state.traces.push_memory(MemoryOp::new(
+                MemoryChannel::Code,
+                clock,
+                address,
+                MemoryOpKind::Read,
+                block_elt.into(),
+            ));
+            address.increment();
+        }
+        counter += 1;
+    }
+    // We don't add a XOR operation to the Logic STARK,
+    // but we still compute the Xor: the first row is checked
+    // manually in PoseidonSpongeStark.
+    for i in 0..POSEIDON_SPONGE_RATE {
+        sponge_state[i] ^= first_block[i];
+    }
+
+    let mut updated_state = sponge_state
+        .iter()
+        .map(|&elt| F::from_canonical_u64(elt))
+        .collect::<Vec<F>>()
+        .try_into()
+        .unwrap();
+    state.traces.push_poseidon_elts(sponge_state);
+
+    updated_state = <F as poseidon::Poseidon>::poseidon(updated_state);
+    for i in 0..POSEIDON_SPONGE_WIDTH {
+        sponge_state[i] = updated_state[i].to_canonical_u64();
+    }
+    for block in input_blocks.by_ref() {
+        for &block_elt in block {
+            // We only read non-padding elements from memory.
+            if counter < unpadded_len {
+                state.traces.push_memory(MemoryOp::new(
+                    MemoryChannel::Code,
+                    clock,
+                    address,
+                    MemoryOpKind::Read,
+                    block_elt.into(),
+                ));
+                address.increment();
+            }
+            counter += 1;
+        }
+
+        for i in 0..POSEIDON_SPONGE_RATE {
+            let xor_op =
+                logic::Operation::new(logic::Op::Xor, block[i].into(), sponge_state[i].into());
+            state.traces.push_logic(xor_op);
+
+            sponge_state[i] ^= block[i];
+        }
+
+        let mut updated_state = sponge_state
+            .iter()
+            .map(|&elt| F::from_canonical_u64(elt))
+            .collect::<Vec<F>>()
+            .try_into()
+            .unwrap();
+        state.traces.push_poseidon_elts(sponge_state);
+
+        updated_state = <F as poseidon::Poseidon>::poseidon(updated_state);
+        for i in 0..POSEIDON_SPONGE_WIDTH {
+            sponge_state[i] = updated_state[i].to_canonical_u64();
+        }
+    }
+
+    state.traces.push_poseidon_sponge(PoseidonSpongeOp {
         base_address,
         timestamp: clock * NUM_CHANNELS,
         input,

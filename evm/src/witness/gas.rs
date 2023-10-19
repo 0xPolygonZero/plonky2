@@ -35,6 +35,7 @@ pub(crate) fn gas_to_charge(op: Operation) -> u64 {
         TernaryArithmetic(MulMod) => G_MID,
         TernaryArithmetic(SubMod) => KERNEL_ONLY_INSTR,
         KeccakGeneral => KERNEL_ONLY_INSTR,
+        PoseidonGeneral => KERNEL_ONLY_INSTR,
         ProverInput => KERNEL_ONLY_INSTR,
         Pop => G_BASE,
         Jump => G_MID,
