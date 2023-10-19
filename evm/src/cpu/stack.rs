@@ -109,8 +109,7 @@ pub(crate) const STACK_BEHAVIORS: OpsColumnsView<Option<StackBehavior>> = OpsCol
         disable_other_channels: true,
     }),
     push: None, // TODO
-    dup: None,
-    swap: None,
+    dup_swap: None,
     get_context: Some(StackBehavior {
         num_pops: 0,
         pushes: true,
