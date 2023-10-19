@@ -27,6 +27,9 @@ impl Default for Target {
 
 impl Target {
     pub fn wire(row: usize, column: usize) -> Self {
+        // if row == 7093 && column == 50 {
+        //     panic!();
+        // }
         Self::Wire(Wire { row, column })
     }
 

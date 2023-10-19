@@ -2,9 +2,8 @@ use std::marker::PhantomData;
 
 use plonky2::iop::generator::{GeneratedValues, SimpleGenerator};
 use plonky2::iop::target::Target;
-use plonky2::iop::witness::{PartialWitness, PartitionWitness, WitnessWrite};
-use plonky2::plonk::circuit_builder::CircuitBuilder;
-use plonky2::plonk::circuit_data::{CircuitConfig, CircuitData, CommonCircuitData};
+use plonky2::iop::witness::{PartitionWitness, WitnessWrite};
+use plonky2::plonk::circuit_data::CommonCircuitData;
 use plonky2::plonk::config::{AlgebraicHasher, GenericConfig};
 use plonky2::plonk::proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget};
 use plonky2::util::serialization::{Buffer, DefaultGateSerializer, IoResult, Read, Write};
@@ -17,52 +16,6 @@ use plonky2x::prelude::{
     CircuitBuilder as CircuitBuilderX, CircuitVariable, Field, PlonkParameters, Variable,
 };
 use serde::{Deserialize, Serialize};
-
-fn dummy_proof<L: PlonkParameters<D>, const D: usize>() -> (
-    CircuitData<L::Field, L::Config, D>,
-    ProofWithPublicInputs<L::Field, L::Config, D>,
-)
-where
-    <L as PlonkParameters<D>>::Field: plonky2::hash::hash_types::RichField,
-    <L as PlonkParameters<D>>::Field: plonky2::field::extension::Extendable<D>,
-    <L as PlonkParameters<D>>::Config: GenericConfig<D, F = L::Field>,
-    <<L as PlonkParameters<D>>::Config as GenericConfig<D>>::Hasher:
-        AlgebraicHasher<<L as PlonkParameters<D>>::Field>,
-{
-    let config = CircuitConfig::standard_recursion_config();
-    let mut builder = CircuitBuilder::<L::Field, D>::new(config);
-
-    let mut public_input_targets = vec![];
-    // The arithmetic circuit.
-    for _ in 0..8 {
-        let uint256_a_target = builder.add_virtual_target();
-        public_input_targets.push(uint256_a_target);
-        builder.register_public_input(uint256_a_target);
-    }
-    for _ in 0..8 {
-        let uint256_b_target = builder.add_virtual_target();
-        public_input_targets.push(uint256_b_target);
-        builder.register_public_input(uint256_b_target);
-    }
-
-    // Provide initial values.
-    let mut pw = PartialWitness::new();
-    // Sets uint256_a = 0
-    for offset in 0..8 {
-        pw.set_target(public_input_targets[offset], L::Field::ZERO);
-    }
-    // Sets uint256_b = 1, it is little endian, so we store 1 at the "first" byte
-    // Set the last public input to 1 to make uint256_b = 1
-    pw.set_target(public_input_targets[8], L::Field::ONE);
-    for offset in 9..16 {
-        pw.set_target(public_input_targets[offset], L::Field::ZERO);
-    }
-
-    let data = builder.build();
-    let proof = data.prove(pw).unwrap();
-
-    (data, proof)
-}
 
 fn connect_public_inputs<L: PlonkParameters<D>, const D: usize>(
     builder: &mut CircuitBuilderX<L, D>,
@@ -442,9 +395,7 @@ mod tests {
         log::debug!("Done building circuit");
 
         let input = PublicInput::Bytes(input_bytes);
-        let (_proof, mut output) = circuit.prove(&input);
-        let sum = output.evm_read::<U256Variable>();
-        println!("sum: {}", sum);
+        let (_proof, _output) = circuit.prove(&input);
     }
 
     fn hex_str_to_u256(hex: &str) -> U256 {
@@ -601,11 +552,9 @@ mod tests {
         );
 
         log::debug!("Generating proof");
-        let (proof, mut output) = circuit.prove(&input);
+        let (proof, output) = circuit.prove(&input);
         log::debug!("Done generating proof");
 
         circuit.verify(&proof, &input, &output);
-        let sum = output.evm_read::<U256Variable>();
-        println!("sum: {}", sum);
     }
 }
