@@ -319,13 +319,13 @@ impl Circuit for WrapCircuit {
         );
 
         // Connect the public inputs we read from on-chain to the proof_targets.public_inputs
-        // connect_public_inputs(
-        //     builder,
-        //     &proof_targets.public_inputs.clone(),
-        //     &input_target_vec,
-        // );
+        connect_public_inputs(
+            builder,
+            &proof_targets.public_inputs.clone(),
+            &input_target_vec,
+        );
 
-        // // Verify the final proof.
+        // Verify the final proof.
         // builder
         //     .api
         //     .verify_proof::<L::Config>(&proof_targets, &verifier_targets, &data.common);
