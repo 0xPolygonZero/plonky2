@@ -203,6 +203,8 @@ impl Circuit for WrapCircuit {
         input_target_vec.extend(block_boom_before.iter().flat_map(|b| b.targets()));
         input_target_vec.extend(block_boom_after.iter().flat_map(|b| b.targets()));
 
+        // TODO: replace this with reading in block_proof from block_proof.json
+        // TODO: replace reading in verifier_data and common_data from serialized bytes
         let (all_circuits, block_proof, _block_public_values) =
             get_sample_circuits_and_proof_from_serialized::<L::Field, L::Config, D>().unwrap();
 
@@ -285,6 +287,12 @@ impl Circuit for WrapCircuit {
         }));
 
         let data = all_circuits.block.circuit;
+
+        // This checks that the block_proof verifies against the data.common & data.verifier_only
+        data.verify(block_proof.clone()).unwrap();
+
+        // TODO: Next would be to check that data.verifier_only is the same as the verifier_key that you provided above
+        // TODO: I'm not sure exactly how to compare that they match perfectly, but I suspect that they are different
 
         // This would use the block circuit data
         let proof_targets = builder.api.add_virtual_proof_with_pis(&data.common);

@@ -475,6 +475,18 @@ mod tests {
             get_sample_circuits_and_proof::<F, C, D>().unwrap();
         all_circuits.verify_block(&block_proof).unwrap();
 
+        // Check that block_proof_data verifies the proof.
+        let block_proof_data = all_circuits.block.circuit;
+        block_proof_data.verify(block_proof.clone()).unwrap();
+
+        // TODO: serialize the block_proof_data.common
+        // TODO: serialize the block_proof_data.verifier_only
+        // let serialized_common_data = block_proof_data.common.to_bytes(DefaultGateSerializer {});
+        // let serialized_verifier_only_data = block_proof_data
+        //     .verifier_only
+        //     .to_bytes(DefaultGateSerializer {});
+        // TODO: save these bytes to a file
+
         // serialize
         let block_proof_json = serde_json::to_string_pretty(&block_proof).unwrap();
         let block_public_values_json = serde_json::to_string_pretty(&block_public_values).unwrap();
