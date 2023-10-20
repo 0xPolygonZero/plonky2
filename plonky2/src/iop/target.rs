@@ -1,6 +1,5 @@
 use alloc::vec::Vec;
 use core::ops::Range;
-use backtrace::Backtrace;
 
 use serde::{Deserialize, Serialize};
 

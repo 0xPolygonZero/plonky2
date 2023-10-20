@@ -266,9 +266,9 @@ impl Circuit for WrapCircuit {
         );
 
         // Verify the final proof.
-        // builder
-        //     .api
-        //     .verify_proof::<L::Config>(&proof_targets, &verifier_targets, &data.common);
+        builder
+            .api
+            .verify_proof::<L::Config>(&proof_targets, &verifier_targets, &data.common);
     }
 
     fn register_generators<L: PlonkParameters<D>, const D: usize>(
