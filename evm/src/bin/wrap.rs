@@ -7,13 +7,12 @@ use plonky2::plonk::circuit_data::{CommonCircuitData, VerifierOnlyCircuitData};
 use plonky2::plonk::config::{AlgebraicHasher, GenericConfig, GenericHashOut};
 use plonky2::plonk::proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget};
 use plonky2::util::serialization::{Buffer, DefaultGateSerializer, IoResult, Read, Write};
-use plonky2_evm::sample::get_sample_circuits;
 use plonky2x::backend::circuit::Circuit;
 use plonky2x::backend::function::Plonky2xFunction;
 use plonky2x::frontend::uint::uint160::U160Variable;
 use plonky2x::frontend::uint::uint256::U256Variable;
 use plonky2x::prelude::{
-    CircuitBuilder as CircuitBuilderX, CircuitVariable, Field, PlonkParameters, Variable,
+    CircuitBuilder as CircuitBuilderX, CircuitVariable, PlonkParameters, Variable,
 };
 use serde::{Deserialize, Serialize};
 
@@ -237,7 +236,7 @@ impl Circuit for WrapCircuit {
         let generator = ProofGenerator {
             proof_with_public_inputs_target: proof_targets.clone(),
             proof_with_public_inputs: block_proof,
-            common_data,
+            common_data: common_data.clone(),
             _marker: PhantomData::<L>,
         };
         builder.add_simple_generator(generator);
@@ -268,7 +267,7 @@ impl Circuit for WrapCircuit {
         // Verify the final proof.
         builder
             .api
-            .verify_proof::<L::Config>(&proof_targets, &verifier_targets, &data.common);
+            .verify_proof::<L::Config>(&proof_targets, &verifier_targets, &common_data);
     }
 
     fn register_generators<L: PlonkParameters<D>, const D: usize>(
