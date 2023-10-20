@@ -3,11 +3,11 @@ use std::marker::PhantomData;
 use plonky2::iop::generator::{GeneratedValues, SimpleGenerator};
 use plonky2::iop::target::Target;
 use plonky2::iop::witness::{PartitionWitness, WitnessWrite};
-use plonky2::plonk::circuit_data::CommonCircuitData;
-use plonky2::plonk::config::{AlgebraicHasher, GenericConfig};
+use plonky2::plonk::circuit_data::{CommonCircuitData, VerifierOnlyCircuitData};
+use plonky2::plonk::config::{AlgebraicHasher, GenericConfig, GenericHashOut};
 use plonky2::plonk::proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget};
 use plonky2::util::serialization::{Buffer, DefaultGateSerializer, IoResult, Read, Write};
-use plonky2_evm::sample::get_sample_circuits_and_proof_from_serialized;
+use plonky2_evm::sample::get_sample_circuits;
 use plonky2x::backend::circuit::Circuit;
 use plonky2x::backend::function::Plonky2xFunction;
 use plonky2x::frontend::uint::uint160::U160Variable;
@@ -203,109 +203,133 @@ impl Circuit for WrapCircuit {
         input_target_vec.extend(block_boom_before.iter().flat_map(|b| b.targets()));
         input_target_vec.extend(block_boom_after.iter().flat_map(|b| b.targets()));
 
-        // TODO: replace this with reading in block_proof from block_proof.json
-        // TODO: replace reading in verifier_data and common_data from serialized bytes
-        let (all_circuits, block_proof, _block_public_values) =
-            get_sample_circuits_and_proof_from_serialized::<L::Field, L::Config, D>().unwrap();
+        // read in block_proof from block_proof.json
+        // read from file
+        let block_proof_json = std::fs::read_to_string("block_proof.json").unwrap();
+        //deserialize
+        let block_proof: ProofWithPublicInputs<L::Field, L::Config, D> =
+            serde_json::from_str(&block_proof_json).unwrap();
+
+        // read verifier_data and common_data
+        // read from files
+        let verifier_data_json = std::fs::read("serialized_verifier_only_data").unwrap();
+        let common_data_json = std::fs::read("serialized_common_data").unwrap();
+        // deserialize
+        let verifier_data =
+            VerifierOnlyCircuitData::<L::Config, D>::from_bytes(verifier_data_json).unwrap();
+        let common_data = CommonCircuitData::<L::Field, D>::from_bytes(
+            common_data_json,
+            &DefaultGateSerializer {},
+        )
+        .unwrap();
 
         // Copy over the public input targets for the verifier key
-        let verifier_key = [
-            10413239443182360244,
-            7210530152059530083,
-            3689215856762124202,
-            12691265547708897282,
-            3945855155716568259,
-            3437275316704564473,
-            9408028839543681335,
-            11191130492083254003,
-            3278688354612016176,
-            11302124537284191559,
-            2996234434228441225,
-            14641356601419925054,
-            15814043218513700782,
-            6629219779814899880,
-            13317813668912102427,
-            1487536722311348621,
-            14072130056754204344,
-            2772424984690674839,
-            17613757773907740770,
-            16598844880181280080,
-            3091647421854454010,
-            11429674356960328228,
-            17535150828881339486,
-            259781830753537976,
-            5468645876288248583,
-            4092643679685879368,
-            15405518505122423587,
-            17743155428381187727,
-            10374892003849873890,
-            15845265341823136430,
-            8314605441288303791,
-            13331313941794763973,
-            2544133160482009112,
-            15514462588807902285,
-            201964026626876078,
-            5306045646442156037,
-            13190092398004521070,
-            14801371865780602186,
-            4333122776702556556,
-            14445761912845223680,
-            894492453587923599,
-            16030852882908773260,
-            1872145645023771992,
-            12615112611359451528,
-            1645284768660175143,
-            1643699702933789819,
-            12244880232239518067,
-            14523281079702691286,
-            15742319094182157413,
-            1369288424939501841,
-            13767858972982194665,
-            14443992298406634920,
-            11343826153214709282,
-            11818615589224905082,
-            4018029278286547773,
-            9037210733735230983,
-            12096855604374631042,
-            5433378182662226654,
-            17737874281162257978,
-            4921799547276940026,
-            2585839424645456074,
-            4673226705365547970,
-            16139994847986730044,
-            14831571305346503145,
-            6056303846144508438,
-            7481331700893393781,
-            14499266592899854154,
-            1336410145739173134,
-        ];
+        // let verifier_key = [
+        //     10413239443182360244,
+        //     7210530152059530083,
+        //     3689215856762124202,
+        //     12691265547708897282,
+        //     3945855155716568259,
+        //     3437275316704564473,
+        //     9408028839543681335,
+        //     11191130492083254003,
+        //     3278688354612016176,
+        //     11302124537284191559,
+        //     2996234434228441225,
+        //     14641356601419925054,
+        //     15814043218513700782,
+        //     6629219779814899880,
+        //     13317813668912102427,
+        //     1487536722311348621,
+        //     14072130056754204344,
+        //     2772424984690674839,
+        //     17613757773907740770,
+        //     16598844880181280080,
+        //     3091647421854454010,
+        //     11429674356960328228,
+        //     17535150828881339486,
+        //     259781830753537976,
+        //     5468645876288248583,
+        //     4092643679685879368,
+        //     15405518505122423587,
+        //     17743155428381187727,
+        //     10374892003849873890,
+        //     15845265341823136430,
+        //     8314605441288303791,
+        //     13331313941794763973,
+        //     2544133160482009112,
+        //     15514462588807902285,
+        //     201964026626876078,
+        //     5306045646442156037,
+        //     13190092398004521070,
+        //     14801371865780602186,
+        //     4333122776702556556,
+        //     14445761912845223680,
+        //     894492453587923599,
+        //     16030852882908773260,
+        //     1872145645023771992,
+        //     12615112611359451528,
+        //     1645284768660175143,
+        //     1643699702933789819,
+        //     12244880232239518067,
+        //     14523281079702691286,
+        //     15742319094182157413,
+        //     1369288424939501841,
+        //     13767858972982194665,
+        //     14443992298406634920,
+        //     11343826153214709282,
+        //     11818615589224905082,
+        //     4018029278286547773,
+        //     9037210733735230983,
+        //     12096855604374631042,
+        //     5433378182662226654,
+        //     17737874281162257978,
+        //     4921799547276940026,
+        //     2585839424645456074,
+        //     4673226705365547970,
+        //     16139994847986730044,
+        //     14831571305346503145,
+        //     6056303846144508438,
+        //     7481331700893393781,
+        //     14499266592899854154,
+        //     1336410145739173134,
+        // ];
 
-        input_target_vec.extend(verifier_key.iter().map(|&val| {
-            builder
-                .constant::<Variable>(<L as PlonkParameters<D>>::Field::from_canonical_usize(val))
-                .0
-        }));
-
-        let data = all_circuits.block.circuit;
+        // input_target_vec.extend(verifier_key.iter().map(|&val| {
+        //     builder
+        //         .constant::<Variable>(<L as PlonkParameters<D>>::Field::from_canonical_usize(val))
+        //         .0
+        // }));
 
         // This checks that the block_proof verifies against the data.common & data.verifier_only
-        data.verify(block_proof.clone()).unwrap();
+        // data.verify(block_proof.clone()).unwrap();
 
-        // TODO: Next would be to check that data.verifier_only is the same as the verifier_key that you provided above
+        // TODO: Next would be to check that verifier_data is the same as the verifier_key that you provided above
         // TODO: I'm not sure exactly how to compare that they match perfectly, but I suspect that they are different
 
+        dbg!(verifier_data.constants_sigmas_cap.0[0]);
+
+        for cap in verifier_data.constants_sigmas_cap.0.iter() {
+            for elem in cap.to_vec() {
+                input_target_vec.push(builder.constant::<Variable>(elem).0);
+            }
+        }
+        for elem in verifier_data.circuit_digest.to_vec() {
+            input_target_vec.push(builder.constant::<Variable>(elem).0);
+        }
+
         // This would use the block circuit data
-        let proof_targets = builder.api.add_virtual_proof_with_pis(&data.common);
+        let proof_targets = builder.api.add_virtual_proof_with_pis(&common_data);
         let verifier_targets = builder
             .api
-            .constant_verifier_data::<L::Config>(&data.verifier_only);
+            .constant_verifier_data::<L::Config>(&verifier_data);
 
         // Sets proof_targets to a constant proof
         // In a production setting, the constant proof should be fetched from an API endpoint based on the public inputs using a `Hint` (i.e. generator)
         let generator = ProofGenerator {
             proof_with_public_inputs_target: proof_targets.clone(),
             proof_with_public_inputs: block_proof,
-            common_data: data.common.clone(),
+            common_data,
             _marker: PhantomData::<L>,
         };
         builder.add_simple_generator(generator);

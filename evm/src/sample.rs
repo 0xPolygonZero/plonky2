@@ -401,7 +401,7 @@ where
     Ok((all_circuits, block_proof, block_public_values))
 }
 
-fn get_sample_circuits<F, C, const D: usize>() -> Result<AllRecursiveCircuits<F, C, D>>
+pub fn get_sample_circuits<F, C, const D: usize>() -> Result<AllRecursiveCircuits<F, C, D>>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F> + 'static,
@@ -455,6 +455,7 @@ where
 mod tests {
     use plonky2::field::goldilocks_field::GoldilocksField;
     use plonky2::plonk::config::PoseidonGoldilocksConfig;
+    use plonky2::util::serialization::DefaultGateSerializer;
 
     use super::get_sample_circuits_and_proof;
 
@@ -471,7 +472,6 @@ mod tests {
 
     #[test]
     fn get_sample_circuits_and_proof_and_serialize() {
-        println!("HI");
         let (all_circuits, block_proof, block_public_values) =
             get_sample_circuits_and_proof::<F, C, D>().unwrap();
         all_circuits.verify_block(&block_proof).unwrap();
@@ -492,20 +492,24 @@ mod tests {
 
         println!("{:?}", block_proof_data.verifier_only.circuit_digest);
 
-        // TODO: serialize the block_proof_data.common
-        // TODO: serialize the block_proof_data.verifier_only
-        // let serialized_common_data = block_proof_data.common.to_bytes(DefaultGateSerializer {});
-        // let serialized_verifier_only_data = block_proof_data
-        //     .verifier_only
-        //     .to_bytes(DefaultGateSerializer {});
-        // TODO: save these bytes to a file
-
         // serialize
+        let serialized_common_data = block_proof_data
+            .common
+            .to_bytes(&DefaultGateSerializer {})
+            .unwrap();
+        let serialized_verifier_only_data = block_proof_data.verifier_only.to_bytes().unwrap();
+
         let block_proof_json = serde_json::to_string_pretty(&block_proof).unwrap();
         let block_public_values_json = serde_json::to_string_pretty(&block_public_values).unwrap();
 
         // write to files
         std::fs::write("block_proof.json", block_proof_json).unwrap();
         std::fs::write("block_public_values.json", block_public_values_json).unwrap();
+        std::fs::write("serialized_common_data", serialized_common_data).unwrap();
+        std::fs::write(
+            "serialized_verifier_only_data",
+            serialized_verifier_only_data,
+        )
+        .unwrap();
     }
 }
