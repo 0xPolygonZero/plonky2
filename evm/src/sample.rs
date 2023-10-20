@@ -471,6 +471,7 @@ mod tests {
 
     #[test]
     fn get_sample_circuits_and_proof_and_serialize() {
+        println!("HI");
         let (all_circuits, block_proof, block_public_values) =
             get_sample_circuits_and_proof::<F, C, D>().unwrap();
         all_circuits.verify_block(&block_proof).unwrap();
@@ -478,6 +479,18 @@ mod tests {
         // Check that block_proof_data verifies the proof.
         let block_proof_data = all_circuits.block.circuit;
         block_proof_data.verify(block_proof.clone()).unwrap();
+
+        println!("Printing block proof data");
+        let _ = block_proof_data
+            .verifier_only
+            .constants_sigmas_cap
+            .0
+            .iter()
+            .map(|x| {
+                println!("{:?}", x);
+            });
+
+        println!("{:?}", block_proof_data.verifier_only.circuit_digest);
 
         // TODO: serialize the block_proof_data.common
         // TODO: serialize the block_proof_data.verifier_only
