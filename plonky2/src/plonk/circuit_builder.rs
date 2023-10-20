@@ -348,7 +348,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         // The verifier data are public inputs.
         self.register_public_inputs(&verifier_data.circuit_digest.elements);
         for i in 0..self.config.fri_config.num_cap_elements() {
-        self.register_public_inputs(&verifier_data.constants_sigmas_cap.0[i].elements);
+            self.register_public_inputs(&verifier_data.constants_sigmas_cap.0[i].elements);
         }
 
         self.verifier_data_public_input = Some(verifier_data.clone());
