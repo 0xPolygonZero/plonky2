@@ -37,17 +37,19 @@ global secp_add_valid_points:
 global secp_add_valid_points_no_edge_case:
     // stack: x0, y0, x1, y1, retdest
     // Compute lambda = (y0 - y1)/(x0 - x1)
+    %secp_base
+    // stack: N, x0, y0, x1, y1, retdest
+    DUP5
     DUP4
-    // stack: y1, x0, y0, x1, y1, retdest
-    DUP3
-    // stack: y0, y1, x0, y0, x1, y1, retdest
-    %submod_secp_base
+    // stack: y0, y1, N, x0, y0, x1, y1, retdest
+    SUBMOD
     // stack: y0 - y1, x0, y0, x1, y1, retdest
+    %secp_base
+    // stack: N, y0 - y1, x0, y0, x1, y1, retdest
+    DUP5
     DUP4
-    // stack: x1, y0 - y1, x0, y0, x1, y1, retdest
-    DUP3
-    // stack: x0, x1, y0 - y1, x0, y0, x1, y1, retdest
-    %submod_secp_base
+    // stack: x0, x1, N, y0 - y1, x0, y0, x1, y1, retdest
+    SUBMOD
     // stack: x0 - x1, y0 - y1, x0, y0, x1, y1, retdest
     %moddiv_secp_base
     // stack: lambda, x0, y0, x1, y1, retdest
@@ -93,41 +95,45 @@ secp_add_valid_points_with_lambda:
     // stack: lambda, x0, y0, x1, y1, retdest
 
     // Compute x2 = lambda^2 - x1 - x0
-    DUP2
-    // stack: x0, lambda, x0, y0, x1, y1, retdest
-    DUP5
-    // stack: x1, x0, lambda, x0, y0, x1, y1, retdest
     %secp_base
-    // stack: N, x1, x0, lambda, x0, y0, x1, y1, retdest
-    DUP4
-    // stack: lambda, N, x1, x0, lambda, x0, y0, x1, y1, retdest
+    // stack: N, lambda, x0, y0, x1, y1, retdest
+    DUP3
+    // stack: x0, N, lambda, x0, y0, x1, y1, retdest
+    %secp_base
+    // stack: N, x0, N, lambda, x0, y0, x1, y1, retdest
+    DUP7
+    // stack: x1, N, x0, N, lambda, x0, y0, x1, y1, retdest
+    %secp_base
+    // stack: N, x1, N, x0, N, lambda, x0, y0, x1, y1, retdest
+    DUP6
+    // stack: lambda, N, x1, N, x0, N, lambda, x0, y0, x1, y1, retdest
     DUP1
-    // stack: lambda, lambda, N, x1, x0, lambda, x0, y0, x1, y1, retdest
+    // stack: lambda, lambda, N, x1, N, x0, N, lambda, x0, y0, x1, y1, retdest
     MULMOD
-    // stack: lambda^2, x1, x0, lambda, x0, y0, x1, y1, retdest
-    %submod_secp_base
-    // stack: lambda^2 - x1, x0, lambda, x0, y0, x1, y1, retdest
-    %submod_secp_base
+    // stack: lambda^2, x1, N, x0, N, lambda, x0, y0, x1, y1, retdest
+    SUBMOD
+    // stack: lambda^2 - x1, x0, N, lambda, x0, y0, x1, y1, retdest
+    SUBMOD
     // stack: x2, lambda, x0, y0, x1, y1, retdest
 
     // Compute y2 = lambda*(x1 - x2) - y1
-    %secp_base
-    // stack: N, x2, lambda, x0, y0, x1, y1, retdest
-    DUP2
-    // stack: x2, N, x2, lambda, x0, y0, x1, y1, retdest
-    DUP7
-    // stack: x1, x2, N, x2, lambda, x0, y0, x1, y1, retdest
-    %submod_secp_base
-    // stack: x1 - x2, N, x2, lambda, x0, y0, x1, y1, retdest
+    %secp_base %secp_base %secp_base // Pre-load moduli for incoming SUBMODs
+    // stack: N, N, N, x2, lambda, x0, y0, x1, y1, retdest
     DUP4
-    // stack: lambda, x1 - x2, N, x2, lambda, x0, y0, x1, y1, retdest
+    // stack: x2, N, N, N, x2, lambda, x0, y0, x1, y1, retdest
+    DUP9
+    // stack: x1, x2, N, N, N, x2, lambda, x0, y0, x1, y1, retdest
+    SUBMOD
+    // stack: x1 - x2, N, N, x2, lambda, x0, y0, x1, y1, retdest
+    DUP5
+    // stack: lambda, x1 - x2, N, N, x2, lambda, x0, y0, x1, y1, retdest
     MULMOD
-    // stack: lambda * (x1 - x2), x2, lambda, x0, y0, x1, y1, retdest
-    DUP7
-    // stack: y1, lambda * (x1 - x2), x2, lambda, x0, y0, x1, y1, retdest
+    // stack: lambda * (x1 - x2), N, x2, lambda, x0, y0, x1, y1, retdest
+    DUP8
+    // stack: y1, lambda * (x1 - x2), N, x2, lambda, x0, y0, x1, y1, retdest
     SWAP1
-    // stack: lambda * (x1 - x2), y1, x2, lambda, x0, y0, x1, y1, retdest
-    %submod_secp_base
+    // stack: lambda * (x1 - x2), y1, N, x2, lambda, x0, y0, x1, y1, retdest
+    SUBMOD
     // stack: y2, x2, lambda, x0, y0, x1, y1, retdest
 
     // Return x2,y2
