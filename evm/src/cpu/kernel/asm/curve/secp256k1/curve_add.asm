@@ -208,11 +208,10 @@ global secp_double:
 %endmacro
 
 // Modular subtraction.
-// TODO: Use SUBMOD when it's ready
 %macro submod_secp_base
     // stack: x, y
-    %stack (x, y) -> (@SECP_BASE, y, x, @SECP_BASE)
-    SUB ADDMOD
+    %stack (x, y) -> (x, y, @SECP_BASE)
+    SUBMOD
 %endmacro
 
 // Check if (x,y) is a valid curve point.
