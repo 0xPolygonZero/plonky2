@@ -199,13 +199,13 @@ global secp_double:
     %jumpi(ec_double_retself)
 
     // Compute lambda = 3/2 * x0^2 / y0
-    %stack (x, y, retdest) -> (x, x, @SECP_BASE, @SECP_BASE, x, y, retdest)
+    %stack (x, y, retdest) -> (x, x, @SECP_BASE, @SECP_BASE, x, y, x, y, retdest)
     MULMOD
     PUSH 0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffff7ffffe19 // 3/2 in the base field
     MULMOD
     DUP3
     %moddiv_secp_base
-    %stack (lambda, x, y, retdest) -> (lambda, x, y, x, y, retdest)
+    // stack: lambda, x, y, x, y, retdest
     %jump(secp_add_valid_points_with_lambda)
 
 // Push the order of the Secp256k1 scalar field.
