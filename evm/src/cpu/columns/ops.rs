@@ -38,14 +38,13 @@ pub struct OpsColumnsView<T: Copy> {
     pub push0: T,
     /// Flag for PUSH.
     pub push: T,
-    /// Flag for DUP.
-    pub dup: T,
-    /// Flag for SWAP.
-    pub swap: T,
+    /// Combines DUP and SWAP flags.
+    pub dup_swap: T,
     /// Flag for GET_CONTEXT
     pub get_context: T,
     /// Flag for SET_CONTEXT
     pub set_context: T,
+    /// Flag for MSTORE_32BYTES.
     pub mstore_32bytes: T,
     /// Flag for MLOAD_32BYTES.
     pub mload_32bytes: T,
