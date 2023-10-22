@@ -1,4 +1,3 @@
-#![allow(incomplete_features)]
 #![allow(clippy::too_many_arguments)]
 #![allow(clippy::type_complexity)]
 #![cfg_attr(not(feature = "std"), no_std)]
