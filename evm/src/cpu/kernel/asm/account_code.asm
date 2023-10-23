@@ -190,7 +190,7 @@ extcodecopy_large_offset:
     // offset is larger than the code size. So we just have to write zeros.
     // stack: code_size, size, offset, dest_offset, retdest
     GET_CONTEXT
-    %stack (context, code_size, size, offset, dest_offset, retdest) -> (context, @SEGMENT_MAIN_MEMORY, dest_offset, 0, size, retdest)
+    %stack (context, code_size, size, offset, dest_offset, retdest) -> (context, @SEGMENT_MAIN_MEMORY, dest_offset, size, retdest)
     %jump(memset)
 
 // Loads the code at `address` into memory, at the given context and segment, starting at offset 0.

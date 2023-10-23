@@ -109,7 +109,7 @@ wcopy_large_offset:
     // stack: kexit_info, dest_offset, offset, size
     GET_CONTEXT
     %stack (context, kexit_info, dest_offset, offset, size) ->
-        (context, @SEGMENT_MAIN_MEMORY, dest_offset, 0, size, wcopy_after, kexit_info)
+        (context, @SEGMENT_MAIN_MEMORY, dest_offset, size, wcopy_after, kexit_info)
     %jump(memset)
 
 wcopy_after:
