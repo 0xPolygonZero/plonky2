@@ -152,7 +152,7 @@ global sys_returndatacopy:
     GET_CONTEXT
     %stack (context, kexit_info, dest_offset, offset, size) ->
         (context, @SEGMENT_MAIN_MEMORY, dest_offset, context, @SEGMENT_RETURNDATA, offset, size, wcopy_after, kexit_info)
-    %jump(memcpy_bytes)
+    %jump(memcpy)
 
 returndatacopy_empty:
     %stack (kexit_info, dest_offset, offset, size) -> (kexit_info)
