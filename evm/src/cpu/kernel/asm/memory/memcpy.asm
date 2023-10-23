@@ -54,7 +54,7 @@ memcpy_finish:
 %%after:
 %endmacro
 
-// Similar logic than memcpy, but optimized for copying sequences of bytes.
+// Similar logic to memcpy, but optimized for copying sequences of bytes.
 global memcpy_bytes:
     // stack: DST, SRC, count, retdest
     DUP7

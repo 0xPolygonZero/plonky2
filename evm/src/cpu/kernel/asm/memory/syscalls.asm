@@ -95,7 +95,7 @@ calldataload_large_offset:
     GET_CONTEXT
     %stack (context, kexit_info, dest_offset, offset, size) ->
         (context, @SEGMENT_MAIN_MEMORY, dest_offset, context, $segment, offset, size, wcopy_after, kexit_info)
-    %jump(memcpy)
+    %jump(memcpy_bytes)
 %endmacro
 
 wcopy_empty:
@@ -152,7 +152,7 @@ global sys_returndatacopy:
     GET_CONTEXT
     %stack (context, kexit_info, dest_offset, offset, size) ->
         (context, @SEGMENT_MAIN_MEMORY, dest_offset, context, @SEGMENT_RETURNDATA, offset, size, wcopy_after, kexit_info)
-    %jump(memcpy)
+    %jump(memcpy_bytes)
 
 returndatacopy_empty:
     %stack (kexit_info, dest_offset, offset, size) -> (kexit_info)
