@@ -9,8 +9,6 @@ global memset:
     // stack: count < 32, DST, count, retdest
     %jumpi(memset_finish)
     // stack: DST, count, retdest
-    
-    // stack: DST, count, retdest
     PUSH 32
     PUSH 0
     DUP5
