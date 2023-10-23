@@ -131,7 +131,7 @@ memcpy_bytes_finish:
     JUMP
 
 memcpy_bytes_empty:
-    // stack: DST, SRC, count, retdest
+    // stack: DST, SRC, 0, retdest
     %pop7
     // stack: retdest
     JUMP
