@@ -57,6 +57,17 @@ memcpy_finish:
 // Similar logic to memcpy, but optimized for copying sequences of bytes.
 global memcpy_bytes:
     // stack: DST, SRC, count, retdest
+
+    // Handle empty case
+    DUP7
+    // stack: count, DST, SRC, count, retdest
+    ISZERO
+    // stack: count == 0, DST, SRC, count, retdest
+    %jumpi(memcpy_bytes_empty)
+
+    // stack: DST, SRC, count, retdest
+
+    // Handle small case
     DUP7
     // stack: count, DST, SRC, count, retdest
     %lt_const(0x20)
@@ -115,6 +126,12 @@ memcpy_bytes_finish:
     MSTORE_32BYTES
     // stack: DST, SRC, count, retdest
 
+    %pop7
+    // stack: retdest
+    JUMP
+
+memcpy_bytes_empty:
+    // stack: DST, SRC, count, retdest
     %pop7
     // stack: retdest
     JUMP
