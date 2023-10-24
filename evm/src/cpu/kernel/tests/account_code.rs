@@ -175,7 +175,7 @@ fn test_extcodecopy() -> Result<()> {
         let copied_code_length = if offset >= code.len() {
             0
         } else {
-            core::cmp::min(size, code.len() - offset - 1)
+            core::cmp::min(size, code.len() - offset)
         };
         let memory_untouched_after_code = interpreter.generation_state.memory.contexts
             [interpreter.context]

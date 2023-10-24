@@ -137,17 +137,16 @@ global sys_codecopy:
 
     %mload_context_metadata(@CTX_METADATA_CODE_SIZE)
     // stack: total_size, kexit_info, dest_offset, offset, size
-    DUP4
-    // stack: offset, total_size, kexit_info, dest_offset, offset, size
+    DUP4 %add_const(1)
+    // stack: offset + 1, total_size, kexit_info, dest_offset, offset, size
     GT %jumpi(codecopy_exit)
 
     // Do not copy past the length of the SRC segment
-    PUSH 1
-    DUP4
+    DUP3
     %mload_context_metadata(@CTX_METADATA_CODE_SIZE)
-    // stack: total_size, offset, 1, kexit_info, dest_offset, offset, size
-    SUB SUB
-    // stack: total_size - offset - 1, kexit_info, dest_offset, offset, size
+    // stack: total_size, offset, kexit_info, dest_offset, offset, size
+    SUB
+    // stack: total_size - offset, kexit_info, dest_offset, offset, size
     DUP5
     %min
     // stack: max_size, kexit_info, dest_offset, offset, size
