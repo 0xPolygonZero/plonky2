@@ -195,11 +195,11 @@ extcodecopy_end:
     JUMP
 
 extcodecopy_large_offset:
-    // offset is larger than the code size. So we just have to write zeros.
+    // offset is larger than the code size.
+    // The YP specifies we should not do anything outside of the code's bounds. 
     // stack: code_size, size, offset, dest_offset, retdest
-    GET_CONTEXT
-    %stack (context, code_size, size, offset, dest_offset, retdest) -> (context, @SEGMENT_MAIN_MEMORY, dest_offset, size, retdest)
-    %jump(memset)
+    %pop4
+    JUMP
 
 // Loads the code at `address` into memory, at the given context and segment, starting at offset 0.
 // Checks that the hash of the loaded code corresponds to the `codehash` in the state trie.

@@ -139,7 +139,7 @@ global sys_codecopy:
     // stack: total_size, kexit_info, dest_offset, offset, size
     DUP4
     // stack: offset, total_size, kexit_info, dest_offset, offset, size
-    GT %jumpi(wcopy_large_offset)
+    GT %jumpi(codecopy_exit)
 
     // Do not copy past the length of the SRC segment
     DUP3
@@ -157,6 +157,12 @@ global sys_codecopy:
     %stack (context, kexit_info, dest_offset, offset, size) ->
         (context, @SEGMENT_MAIN_MEMORY, dest_offset, context, @SEGMENT_CODE, offset, size, wcopy_after, kexit_info)
     %jump(memcpy_bytes)
+
+codecopy_exit:
+    // offset is larger than the code size.
+    // The YP specifies we should not do anything outside of the code's bounds.
+    %stack (kexit_info, dest_offset, offset, size) -> (kexit_info)
+    EXIT_KERNEL
 
 // Same as %wcopy but with overflow checks.
 global sys_returndatacopy:
