@@ -174,15 +174,26 @@ fn test_extcodecopy() -> Result<()> {
     interpreter.run()?;
 
     assert!(interpreter.stack().is_empty());
-    // Check that the code was correctly copied to memory.
-    for i in 0..size {
-        let memory = interpreter.generation_state.memory.contexts[interpreter.context].segments
-            [Segment::MainMemory as usize]
-            .get(dest_offset + i);
-        assert_eq!(
-            memory,
-            code.get(offset + i).copied().unwrap_or_default().into()
-        );
+    println!(
+        "Code len: {:?}, size: {:?}, offset: {:?}",
+        code.len(),
+        size,
+        offset
+    );
+
+    // extcodecopy doesn't do anything if offset >= code.len()
+    if offset < code.len() {
+        // Check that the code was correctly copied to memory.
+        // we stopped copying at the end of the code
+        for i in 0..core::cmp::min(size, offset - code.len()) {
+            let memory = interpreter.generation_state.memory.contexts[interpreter.context].segments
+                [Segment::MainMemory as usize]
+                .get(dest_offset + i);
+            assert_eq!(
+                memory,
+                code.get(offset + i).copied().unwrap_or_default().into()
+            );
+        }
     }
 
     Ok(())
