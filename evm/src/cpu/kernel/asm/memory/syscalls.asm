@@ -142,20 +142,19 @@ global sys_codecopy:
     GT %jumpi(codecopy_exit)
 
     // Do not copy past the length of the SRC segment
-    DUP3
+    PUSH 1
+    DUP4
     %mload_context_metadata(@CTX_METADATA_CODE_SIZE)
-    // stack: total_size, kexit_info, dest_offset, offset, size
-    SUB
-    // stack: total_size - offset, kexit_info, dest_offset, offset, size
+    // stack: total_size, offset, 1, kexit_info, dest_offset, offset, size
+    SUB SUB
+    // stack: total_size - offset - 1, kexit_info, dest_offset, offset, size
     DUP5
     %min
     // stack: max_size, kexit_info, dest_offset, offset, size
-    SWAP4 POP
-    // stack: kexit_info, dest_offset, offset, max_size
 
     GET_CONTEXT
-    %stack (context, kexit_info, dest_offset, offset, size) ->
-        (context, @SEGMENT_MAIN_MEMORY, dest_offset, context, @SEGMENT_CODE, offset, size, wcopy_after, kexit_info)
+    %stack (context, max_size, kexit_info, dest_offset, offset, size) ->
+        (context, @SEGMENT_MAIN_MEMORY, dest_offset, context, @SEGMENT_CODE, offset, max_size, wcopy_after, kexit_info)
     %jump(memcpy_bytes)
 
 codecopy_exit:

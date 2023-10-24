@@ -177,15 +177,22 @@ fn test_extcodecopy() -> Result<()> {
 
     // extcodecopy doesn't do anything if offset >= code.len()
     if offset < code.len() {
+        println!(
+            "code of size: {:?}, copying {:?} from {:?}",
+            code.len(),
+            size,
+            offset
+        );
         // Check that the code was correctly copied to memory.
         // we stopped copying at the end of the code
-        for i in 0..core::cmp::min(size, offset - code.len()) {
+        for i in 0..core::cmp::min(size, offset - code.len() - 1) {
             let memory = interpreter.generation_state.memory.contexts[interpreter.context].segments
                 [Segment::MainMemory as usize]
                 .get(dest_offset + i);
             assert_eq!(
                 memory,
-                code.get(offset + i).copied().unwrap_or_default().into()
+                code.get(offset + i).copied().unwrap_or_default().into(),
+                "failed at idx {i} to access {offset} + {i}",
             );
         }
     }
