@@ -134,66 +134,62 @@ fn test_extcodesize() -> Result<()> {
 
 #[test]
 fn test_extcodecopy() -> Result<()> {
-    let code = random_code();
-    let account = test_account(&code);
+    for _ in 0..10 {
+        let code = random_code();
+        let account = test_account(&code);
 
-    let mut interpreter = Interpreter::new_with_kernel(0, vec![]);
-    let address: Address = thread_rng().gen();
-    // Prepare the interpreter by inserting the account in the state trie.
-    prepare_interpreter(&mut interpreter, address, &account)?;
+        let mut interpreter = Interpreter::new_with_kernel(0, vec![]);
+        let address: Address = thread_rng().gen();
+        // Prepare the interpreter by inserting the account in the state trie.
+        prepare_interpreter(&mut interpreter, address, &account)?;
 
-    let extcodecopy = KERNEL.global_labels["extcodecopy"];
+        let extcodecopy = KERNEL.global_labels["extcodecopy"];
 
-    // Put random data in main memory and the `KernelAccountCode` segment for realism.
-    let mut rng = thread_rng();
-    for i in 0..2000 {
-        interpreter.generation_state.memory.contexts[interpreter.context].segments
-            [Segment::MainMemory as usize]
-            .set(i, U256::from(rng.gen::<u8>()));
-        interpreter.generation_state.memory.contexts[interpreter.context].segments
-            [Segment::KernelAccountCode as usize]
-            .set(i, U256::from(rng.gen::<u8>()));
-    }
-
-    // Random inputs
-    let dest_offset = rng.gen_range(0..3000);
-    let offset = rng.gen_range(0..1500);
-    let size = rng.gen_range(0..1500);
-
-    // Test `extcodecopy`
-    interpreter.generation_state.registers.program_counter = extcodecopy;
-    interpreter.pop();
-    assert!(interpreter.stack().is_empty());
-    interpreter.push(0xDEADBEEFu32.into());
-    interpreter.push(size.into());
-    interpreter.push(offset.into());
-    interpreter.push(dest_offset.into());
-    interpreter.push(U256::from_big_endian(address.as_bytes()));
-    interpreter.generation_state.inputs.contract_code =
-        HashMap::from([(keccak(&code), code.clone())]);
-    interpreter.run()?;
-
-    assert!(interpreter.stack().is_empty());
-
-    // extcodecopy doesn't do anything if offset >= code.len()
-    if offset < code.len() {
-        println!(
-            "code of size: {:?}, copying {:?} from {:?}",
-            code.len(),
-            size,
-            offset
-        );
-        // Check that the code was correctly copied to memory.
-        // we stopped copying at the end of the code
-        for i in 0..core::cmp::min(size, offset - code.len() - 1) {
-            let memory = interpreter.generation_state.memory.contexts[interpreter.context].segments
+        // Put random data in main memory and the `KernelAccountCode` segment for realism.
+        let mut rng = thread_rng();
+        for i in 0..200 {
+            interpreter.generation_state.memory.contexts[interpreter.context].segments
                 [Segment::MainMemory as usize]
-                .get(dest_offset + i);
-            assert_eq!(
-                memory,
-                code.get(offset + i).copied().unwrap_or_default().into(),
-                "failed at idx {i} to access {offset} + {i}",
-            );
+                .set(i, U256::from(rng.gen::<u8>()));
+            interpreter.generation_state.memory.contexts[interpreter.context].segments
+                [Segment::KernelAccountCode as usize]
+                .set(i, U256::from(rng.gen::<u8>()));
+        }
+
+        // Random inputs
+        let dest_offset = rng.gen_range(0..300);
+        let offset = rng.gen_range(0..150);
+        let size = rng.gen_range(0..150);
+
+        // Test `extcodecopy`
+        interpreter.generation_state.registers.program_counter = extcodecopy;
+        interpreter.pop();
+        assert!(interpreter.stack().is_empty());
+        interpreter.push(0xDEADBEEFu32.into());
+        interpreter.push(size.into());
+        interpreter.push(offset.into());
+        interpreter.push(dest_offset.into());
+        interpreter.push(U256::from_big_endian(address.as_bytes()));
+        interpreter.generation_state.inputs.contract_code =
+            HashMap::from([(keccak(&code), code.clone())]);
+        interpreter.run()?;
+
+        assert!(interpreter.stack().is_empty());
+
+        // extcodecopy doesn't do anything if offset >= code.len()
+        if offset < code.len() {
+            // Check that the code was correctly copied to memory.
+            // we stopped copying at the end of the code
+            for i in 0..core::cmp::min(size, code.len() - offset - 1) {
+                let memory = interpreter.generation_state.memory.contexts[interpreter.context]
+                    .segments[Segment::MainMemory as usize]
+                    .get(dest_offset + i);
+                assert_eq!(
+                    memory,
+                    code.get(offset + i).copied().unwrap_or_default().into(),
+                    "failed at idx {i} to access {offset} + {i}",
+                );
+            }
         }
     }
 
