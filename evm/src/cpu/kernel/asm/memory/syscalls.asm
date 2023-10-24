@@ -92,11 +92,47 @@ calldataload_large_offset:
     // stack: offset, total_size, kexit_info, dest_offset, offset, size
     GT %jumpi(wcopy_large_offset)
 
+    PUSH $segment
+    %mload_context_metadata($context_metadata_size)
+    // stack: total_size, segment, kexit_info, dest_offset, offset, size
+    DUP6 DUP6 ADD
+    // stack: offset + size, total_size, segment, kexit_info, dest_offset, offset, size
+    LT %jumpi(wcopy_within_bounds)
+
+    %mload_context_metadata($context_metadata_size)
+    // stack: total_size, segment, kexit_info, dest_offset, offset, size
+    DUP6 DUP6 ADD
+    // stack: offset + size, total_size, segment, kexit_info, dest_offset, offset, size
+    SUB // extra_size = offset + size - total_size
+    // stack: extra_size, segment, kexit_info, dest_offset, offset, size
+    DUP1 DUP7 SUB
+    // stack: copy_size = size - extra_size, extra_size, segment, kexit_info, dest_offset, offset, size
+
+    // Compute the new dest_offset after actual copies, at which we will start padding with zeroes.
+    DUP1 DUP6 ADD
+    // stack: new_dest_offset, copy_size, extra_size, segment, kexit_info, dest_offset, offset, size
+
     GET_CONTEXT
-    %stack (context, kexit_info, dest_offset, offset, size) ->
-        (context, @SEGMENT_MAIN_MEMORY, dest_offset, context, $segment, offset, size, wcopy_after, kexit_info)
+    %stack (context, new_dest_offset, copy_size, extra_size, segment, kexit_info, dest_offset, offset, size) ->
+        (context, @SEGMENT_MAIN_MEMORY, dest_offset, context, segment, offset, copy_size, wcopy_over_range, new_dest_offset, extra_size, kexit_info)
     %jump(memcpy_bytes)
 %endmacro
+
+wcopy_within_bounds:
+    // stack: segment, kexit_info, dest_offset, offset, size
+    GET_CONTEXT
+    %stack (context, segment, kexit_info, dest_offset, offset, size) ->
+        (context, @SEGMENT_MAIN_MEMORY, dest_offset, context, segment, offset, size, wcopy_after, kexit_info)
+    %jump(memcpy_bytes)
+
+
+// Same as wcopy_large_offset, but without `offset` in the stack.
+wcopy_over_range:
+    // stack: dest_offset, size, kexit_info
+    GET_CONTEXT
+    %stack (context, dest_offset, size, kexit_info) ->
+        (context, @SEGMENT_MAIN_MEMORY, dest_offset, size, wcopy_after, kexit_info)
+    %jump(memset)
 
 wcopy_empty:
     // stack: Gverylow, kexit_info, dest_offset, offset, size
@@ -149,10 +185,30 @@ global sys_returndatacopy:
     // stack: offset, total_size, kexit_info, dest_offset, offset, size
     GT %jumpi(wcopy_large_offset)
 
+    PUSH @SEGMENT_RETURNDATA
+    %mload_context_metadata(@CTX_METADATA_RETURNDATA_SIZE)
+    // stack: total_size, returndata_segment, kexit_info, dest_offset, offset, size
+    DUP6 DUP6 ADD
+    // stack: offset + size, total_size, returndata_segment, kexit_info, dest_offset, offset, size
+    LT %jumpi(wcopy_within_bounds)
+
+    %mload_context_metadata(@CTX_METADATA_RETURNDATA_SIZE)
+    // stack: total_size, returndata_segment, kexit_info, dest_offset, offset, size
+    DUP6 DUP6 ADD
+    // stack: offset + size, total_size, returndata_segment, kexit_info, dest_offset, offset, size
+    SUB // extra_size = offset + size - total_size
+    // stack: extra_size, returndata_segment, kexit_info, dest_offset, offset, size
+    DUP1 DUP7 SUB
+    // stack: copy_size = size - extra_size, extra_size, returndata_segment, kexit_info, dest_offset, offset, size
+
+    // Compute the new dest_offset after actual copies, at which we will start padding with zeroes.
+    DUP1 DUP6 ADD
+    // stack: new_dest_offset, copy_size, extra_size, returndata_segment, kexit_info, dest_offset, offset, size
+
     GET_CONTEXT
-    %stack (context, kexit_info, dest_offset, offset, size) ->
-        (context, @SEGMENT_MAIN_MEMORY, dest_offset, context, @SEGMENT_RETURNDATA, offset, size, wcopy_after, kexit_info)
-    %jump(memcpy)
+    %stack (context, new_dest_offset, copy_size, extra_size, returndata_segment, kexit_info, dest_offset, offset, size) ->
+        (context, @SEGMENT_MAIN_MEMORY, dest_offset, context, returndata_segment, offset, copy_size, wcopy_over_range, new_dest_offset, extra_size, kexit_info)
+    %jump(memcpy_bytes)
 
 returndatacopy_empty:
     %stack (kexit_info, dest_offset, offset, size) -> (kexit_info)
