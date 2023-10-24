@@ -139,6 +139,14 @@ extcodecopy_contd:
     DUP1 DUP4
     // stack: offset, code_size, code_size, size, offset, dest_offset, retdest
     GT %jumpi(extcodecopy_large_offset)
+
+    // Do not copy past the length of the SRC segment
+    DUP3 DUP2 SUB
+    // stack: code_size - offset, code_size, size, offset, dest_offset, retdest
+    DUP3
+    %min
+    // stack: max_size, code_size, size, offset, dest_offset, retdest
+    SWAP2 POP
     // stack: code_size, size, offset, dest_offset, retdest
     SWAP1
     // stack: size, code_size, offset, dest_offset, retdest

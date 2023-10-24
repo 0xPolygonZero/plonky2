@@ -119,8 +119,44 @@ wcopy_after:
 global sys_calldatacopy:
     %wcopy(@SEGMENT_CALLDATA, @CTX_METADATA_CALLDATA_SIZE)
 
+// Same as %wcopy but with bounded size on SRC.
 global sys_codecopy:
-    %wcopy(@SEGMENT_CODE, @CTX_METADATA_CODE_SIZE)
+    // stack: kexit_info, dest_offset, offset, size
+    PUSH @GAS_VERYLOW
+    DUP5
+    // stack: size, Gverylow, kexit_info, dest_offset, offset, size
+    ISZERO %jumpi(wcopy_empty)
+    // stack: Gverylow, kexit_info, dest_offset, offset, size
+    DUP5 %num_bytes_to_num_words %mul_const(@GAS_COPY) ADD %charge_gas
+
+    %stack (kexit_info, dest_offset, offset, size) -> (dest_offset, size, kexit_info, dest_offset, offset, size)
+    %add_or_fault
+    // stack: expanded_num_bytes, kexit_info, dest_offset, offset, size, kexit_info
+    DUP1 %ensure_reasonable_offset
+    %update_mem_bytes
+
+    %mload_context_metadata(@CTX_METADATA_CODE_SIZE)
+    // stack: total_size, kexit_info, dest_offset, offset, size
+    DUP4
+    // stack: offset, total_size, kexit_info, dest_offset, offset, size
+    GT %jumpi(wcopy_large_offset)
+
+    // Do not copy past the length of the SRC segment
+    DUP3
+    %mload_context_metadata(@CTX_METADATA_CODE_SIZE)
+    // stack: total_size, kexit_info, dest_offset, offset, size
+    SUB
+    // stack: total_size - offset, kexit_info, dest_offset, offset, size
+    DUP5
+    %min
+    // stack: max_size, kexit_info, dest_offset, offset, size
+    SWAP4 POP
+    // stack: kexit_info, dest_offset, offset, max_size
+
+    GET_CONTEXT
+    %stack (context, kexit_info, dest_offset, offset, size) ->
+        (context, @SEGMENT_MAIN_MEMORY, dest_offset, context, @SEGMENT_CODE, offset, size, wcopy_after, kexit_info)
+    %jump(memcpy_bytes)
 
 // Same as %wcopy but with overflow checks.
 global sys_returndatacopy:
