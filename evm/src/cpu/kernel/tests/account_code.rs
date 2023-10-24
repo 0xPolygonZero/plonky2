@@ -209,7 +209,6 @@ fn test_extcodecopy() -> Result<()> {
                 assert_eq!(
                     memory,
                     code.get(offset + i).copied().unwrap_or_default().into(),
-                    "failed at idx {i} to access {offset} + {i}",
                 );
             }
 
