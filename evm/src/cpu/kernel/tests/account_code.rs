@@ -26,7 +26,7 @@ fn test_account(code: &[u8]) -> AccountRlp {
 
 fn random_code() -> Vec<u8> {
     let mut rng = thread_rng();
-    let num_bytes = rng.gen_range(0..1000);
+    let num_bytes = rng.gen_range(0..100);
     (0..num_bytes).map(|_| rng.gen()).collect()
 }
 
@@ -161,6 +161,28 @@ fn test_extcodecopy() -> Result<()> {
         let offset = rng.gen_range(0..150);
         let size = rng.gen_range(0..150);
 
+        interpreter.generation_state.memory.contexts[interpreter.context].segments
+            [Segment::MainMemory as usize]
+            .content
+            .resize(500, U256::zero());
+
+        let memory_untouched_before_code = interpreter.generation_state.memory.contexts
+            [interpreter.context]
+            .segments[Segment::MainMemory as usize]
+            .content[..dest_offset]
+            .to_vec();
+
+        let copied_code_length = if offset >= code.len() {
+            0
+        } else {
+            core::cmp::min(size, code.len() - offset - 1)
+        };
+        let memory_untouched_after_code = interpreter.generation_state.memory.contexts
+            [interpreter.context]
+            .segments[Segment::MainMemory as usize]
+            .content[dest_offset + copied_code_length..]
+            .to_vec();
+
         // Test `extcodecopy`
         interpreter.generation_state.registers.program_counter = extcodecopy;
         interpreter.pop();
@@ -180,7 +202,7 @@ fn test_extcodecopy() -> Result<()> {
         if offset < code.len() {
             // Check that the code was correctly copied to memory.
             // we stopped copying at the end of the code
-            for i in 0..core::cmp::min(size, code.len() - offset - 1) {
+            for i in 0..copied_code_length {
                 let memory = interpreter.generation_state.memory.contexts[interpreter.context]
                     .segments[Segment::MainMemory as usize]
                     .get(dest_offset + i);
@@ -190,6 +212,21 @@ fn test_extcodecopy() -> Result<()> {
                     "failed at idx {i} to access {offset} + {i}",
                 );
             }
+
+            // check untouched parts of memory
+            assert_eq!(
+                &interpreter.generation_state.memory.contexts[interpreter.context].segments
+                    [Segment::MainMemory as usize]
+                    .content[..dest_offset],
+                &memory_untouched_before_code
+            );
+
+            assert_eq!(
+                &interpreter.generation_state.memory.contexts[interpreter.context].segments
+                    [Segment::MainMemory as usize]
+                    .content[dest_offset + copied_code_length..],
+                &memory_untouched_after_code
+            );
         }
     }
 
