@@ -202,12 +202,22 @@ impl Circuit for WrapCircuit {
         input_target_vec.extend(block_boom_before.iter().flat_map(|b| b.targets()));
         input_target_vec.extend(block_boom_after.iter().flat_map(|b| b.targets()));
 
-        let block_proof_json = std::fs::read_to_string("block_proof.json").unwrap();
+        let block_proof_json =
+            std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/block_proof.json"))
+                .unwrap();
         let block_proof: ProofWithPublicInputs<L::Field, L::Config, D> =
             serde_json::from_str(&block_proof_json).unwrap();
 
-        let verifier_data_json = std::fs::read("serialized_verifier_only_data").unwrap();
-        let common_data_json = std::fs::read("serialized_common_data").unwrap();
+        let verifier_data_json = std::fs::read(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/serialized_verifier_only_data"
+        ))
+        .unwrap();
+        let common_data_json = std::fs::read(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/serialized_common_data"
+        ))
+        .unwrap();
         let verifier_data =
             VerifierOnlyCircuitData::<L::Config, D>::from_bytes(verifier_data_json).unwrap();
         let common_data = CommonCircuitData::<L::Field, D>::from_bytes(
