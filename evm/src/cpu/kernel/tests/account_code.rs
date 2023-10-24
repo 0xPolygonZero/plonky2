@@ -174,12 +174,6 @@ fn test_extcodecopy() -> Result<()> {
     interpreter.run()?;
 
     assert!(interpreter.stack().is_empty());
-    println!(
-        "Code len: {:?}, size: {:?}, offset: {:?}",
-        code.len(),
-        size,
-        offset
-    );
 
     // extcodecopy doesn't do anything if offset >= code.len()
     if offset < code.len() {
