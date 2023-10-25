@@ -139,52 +139,43 @@ extcodecopy_contd:
     DUP1 DUP4
     // stack: offset, code_size, code_size, size, offset, dest_offset, retdest
     GT %jumpi(extcodecopy_large_offset)
+
     // stack: code_size, size, offset, dest_offset, retdest
-    SWAP1
-    // stack: size, code_size, offset, dest_offset, retdest
-    PUSH 0
+    DUP3 DUP3 ADD
+    // stack: offset + size, code_size, size, offset, dest_offset, retdest
+    DUP2 GT %jumpi(extcodecopy_within_bounds)
 
-// Loop copying the `code[offset]` to `memory[dest_offset]` until `i==size`.
-// Each iteration increments `offset, dest_offset, i`.
-// TODO: Consider implementing this with memcpy.
-extcodecopy_loop:
-    // stack: i, size, code_size, offset, dest_offset, retdest
-    DUP2 DUP2 EQ
-    // stack: i == size, i, size, code_size, offset, dest_offset, retdest
-    %jumpi(extcodecopy_end)
-    %stack (i, size, code_size, offset, dest_offset, retdest)
-        -> (offset, code_size, offset, code_size, dest_offset, i, size, retdest)
-    LT
-    // stack: offset < code_size, offset, code_size, dest_offset, i, size, retdest
-    DUP2
-    // stack: offset, offset < code_size, offset, code_size, dest_offset, i, size, retdest
-    %mload_kernel(@SEGMENT_KERNEL_ACCOUNT_CODE)
-    // stack: opcode, offset < code_size, offset, code_size, dest_offset, i, size, retdest
-    %stack (opcode, offset_lt_code_size, offset, code_size, dest_offset, i, size, retdest)
-        -> (offset_lt_code_size, 0, opcode, offset, code_size, dest_offset, i, size, retdest)
-    // If `offset >= code_size`, use `opcode=0`. Necessary since `SEGMENT_KERNEL_ACCOUNT_CODE` might be clobbered from previous calls.
-    %select_bool
-    // stack: opcode, offset, code_size, dest_offset, i, size, retdest
-    DUP4
-    // stack: dest_offset, opcode, offset, code_size, dest_offset, i, size, retdest
-    %mstore_current(@SEGMENT_MAIN_MEMORY)
-    // stack: offset, code_size, dest_offset, i, size, retdest
-    %increment
-    // stack: offset+1, code_size, dest_offset, i, size, retdest
-    SWAP2
-    // stack: dest_offset, code_size, offset+1, i, size, retdest
-    %increment
-    // stack: dest_offset+1, code_size, offset+1, i, size, retdest
-    SWAP3
-    // stack: i, code_size, offset+1, dest_offset+1, size, retdest
-    %increment
-    // stack: i+1, code_size, offset+1, dest_offset+1, size, retdest
-    %stack (i, code_size, offset, dest_offset, size, retdest) -> (i, size, code_size, offset, dest_offset, retdest)
-    %jump(extcodecopy_loop)
+    // stack: code_size, size, offset, dest_offset, retdest
+    DUP3 DUP3 ADD
+    // stack: offset + size, code_size, size, offset, dest_offset, retdest
+    SUB
+    // stack: extra_size = offset + size - code_size, size, offset, dest_offset, retdest
+    DUP1 DUP3 SUB
+    // stack: copy_size = size - extra_size, extra_size, size, offset, dest_offset, retdest
 
+    // Compute the new dest_offset after actual copies, at which we will start padding with zeroes.
+    DUP1 DUP6 ADD
+    // stack: new_dest_offset, copy_size, extra_size, size, offset, dest_offset, retdest
+
+    GET_CONTEXT
+    %stack (context, new_dest_offset, copy_size, extra_size, size, offset, dest_offset, retdest) ->
+        (context, @SEGMENT_MAIN_MEMORY, dest_offset, 0, @SEGMENT_KERNEL_ACCOUNT_CODE, offset, copy_size, extcodecopy_end, new_dest_offset, extra_size, retdest)
+    %jump(memcpy_bytes)
+
+extcodecopy_within_bounds:
+    // stack: code_size, size, offset, dest_offset, retdest
+    GET_CONTEXT
+    %stack (context, code_size, size, offset, dest_offset, retdest) ->
+        (context, @SEGMENT_MAIN_MEMORY, dest_offset, 0, @SEGMENT_KERNEL_ACCOUNT_CODE, offset, size, retdest)
+    %jump(memcpy_bytes)
+
+// Same as extcodecopy_large_offset, but without `offset` in the stack.
 extcodecopy_end:
-    %stack (i, size, code_size, offset, dest_offset, retdest) -> (retdest)
-    JUMP
+    // stack: dest_offset, size, retdest
+    GET_CONTEXT
+    %stack (context, dest_offset, size, retdest) ->
+        (context, @SEGMENT_MAIN_MEMORY, dest_offset, size, retdest)
+    %jump(memset)
 
 extcodecopy_large_offset:
     // offset is larger than the code size. So we just have to write zeros.

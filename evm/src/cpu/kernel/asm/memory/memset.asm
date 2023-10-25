@@ -2,8 +2,10 @@
 //     DST = (dst_ctx, dst_segment, dst_addr).
 // This tuple definition is used for brevity in the stack comments below.
 global memset:
+    // stack: DST, count, retdest
+
     // Handle empty case
-    DUP7
+    DUP4
     // stack: count, DST, count, retdest
     ISZERO
     // stack: count == 0, DST, count, retdest
@@ -33,9 +35,9 @@ global memset:
     %add_const(0x20)
     SWAP2
     // Decrement count.
-    SWAP4
+    SWAP3
     %sub_const(0x20)
-    SWAP4
+    SWAP3
 
     // Continue the loop.
     %jump(memset)
