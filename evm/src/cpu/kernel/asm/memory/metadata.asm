@@ -226,12 +226,25 @@ global sys_chainid:
     %mload_global_metadata(@GLOBAL_METADATA_BLOCK_BASE_FEE)
 %endmacro
 
+%macro blobbasefee
+    %mload_global_metadata(@GLOBAL_METADATA_BLOCK_BLOB_BASE_FEE)
+%endmacro
+
 global sys_basefee:
     // stack: kexit_info
     %charge_gas_const(@GAS_BASE)
     // stack: kexit_info
     %basefee
     // stack: basefee, kexit_info
+    SWAP1
+    EXIT_KERNEL
+
+global sys_blobbasefee:
+    // stack: kexit_info
+    %charge_gas_const(@GAS_BASE)
+    // stack: kexit_info
+    %blobbasefee
+    // stack: blobbasefee, kexit_info
     SWAP1
     EXIT_KERNEL
 

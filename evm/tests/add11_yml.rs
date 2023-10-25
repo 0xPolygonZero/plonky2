@@ -88,6 +88,7 @@ fn add11_yml() -> anyhow::Result<()> {
         block_chain_id: 1.into(),
         block_base_fee: 0xa.into(),
         block_gas_used: 0xa868u64.into(),
+        block_blob_base_fee: 0x2.into(),
         block_bloom: [0.into(); 8],
     };
 

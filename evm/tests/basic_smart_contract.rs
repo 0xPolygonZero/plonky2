@@ -115,6 +115,7 @@ fn test_basic_smart_contract() -> anyhow::Result<()> {
         block_gas_used: gas_used.into(),
         block_bloom: [0.into(); 8],
         block_base_fee: 0xa.into(),
+        block_blob_base_fee: 0x2.into(),
         block_random: Default::default(),
     };
 
