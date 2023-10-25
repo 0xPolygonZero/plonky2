@@ -334,10 +334,10 @@ impl<F: RichField + Extendable<D>, const D: usize> PoseidonSpongeStark<F, D> {
         }
 
         // Set the remaining elements of the sponge state and the output.
-        for i in 0..POSEIDON_SPONGE_WIDTH - POSEIDON_SPONGE_RATE {
-            row.state_capacity[i] = input[POSEIDON_SPONGE_RATE + i];
-            row.output_capacity[i] = output[POSEIDON_SPONGE_RATE + i]
-        }
+        row.state_capacity
+            .copy_from_slice(&input[POSEIDON_SPONGE_RATE..POSEIDON_SPONGE_WIDTH]);
+        row.output_capacity
+            .copy_from_slice(&output[POSEIDON_SPONGE_RATE..POSEIDON_SPONGE_WIDTH]);
     }
 
     fn generate_padding_row(&self) -> [F; NUM_POSEIDON_SPONGE_COLUMNS] {
