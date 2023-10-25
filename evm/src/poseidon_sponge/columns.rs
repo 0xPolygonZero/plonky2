@@ -4,7 +4,7 @@ use std::mem::{size_of, transmute};
 use crate::poseidon::columns::{POSEIDON_SPONGE_RATE, POSEIDON_SPONGE_WIDTH};
 use crate::util::{indices_arr, transmute_no_compile_time_size_checks};
 
-pub(crate) const NUM_OUTPUTS: usize = 4;
+pub(crate) const NUM_DIGEST_ELEMENTS: usize = 4;
 #[repr(C)]
 #[derive(Eq, PartialEq, Debug)]
 pub(crate) struct PoseidonSpongeColumnsView<T: Copy> {
@@ -17,7 +17,7 @@ pub(crate) struct PoseidonSpongeColumnsView<T: Copy> {
     pub segment: T,
     pub virt: T,
 
-    /// The tiùestamp at which inputs should be read from memory.
+    /// The timestamp at which inputs should be read from memory.
     pub timestamp: T,
 
     /// The length of the original input.
@@ -37,10 +37,14 @@ pub(crate) struct PoseidonSpongeColumnsView<T: Copy> {
     /// we assume that all our input elements are at most 32-bits long.
     pub block: [T; POSEIDON_SPONGE_RATE],
 
-    /// The current state, taken as input of the current permutation.
-    pub input_state: [T; POSEIDON_SPONGE_RATE + POSEIDON_SPONGE_WIDTH],
-    /// The output of the permutation on `input_state`.
-    pub updated_digest: [T; POSEIDON_SPONGE_WIDTH + POSEIDON_SPONGE_RATE],
+    /// The first `POSEIDON_SPONGE_RATE` elements of the current state, divided into two 32-bit limbs.
+    pub state_rate: [T; 2 * POSEIDON_SPONGE_RATE],
+    /// The capacity elements of the sponge state.
+    pub state_capacity: [T; POSEIDON_SPONGE_WIDTH - POSEIDON_SPONGE_RATE],
+    /// The rate of the output of the permutation, divided into two 32-bit limbs.
+    pub output_rate: [T; 2 * POSEIDON_SPONGE_RATE],
+    /// The capacity of the output of the permutation..
+    pub output_capacity: [T; POSEIDON_SPONGE_WIDTH - POSEIDON_SPONGE_RATE],
 }
 
 pub(crate) const NUM_POSEIDON_SPONGE_COLUMNS: usize = size_of::<PoseidonSpongeColumnsView<u8>>();
