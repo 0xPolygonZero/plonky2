@@ -28,7 +28,8 @@ use crate::witness::memory::MemoryAddress;
 pub(crate) fn ctl_looked_data<F: Field>() -> Vec<Column<F>> {
     let cols = POSEIDON_SPONGE_COL_MAP;
     // We only take the first NUM_DIGEST_ELEMENTS, divided into two 32-bits limb elements, for the digest.
-    let outputs: Vec<_> = Column::singles(&cols.output_rate[0..2 * NUM_DIGEST_ELEMENTS]).collect();
+    let outputs: Vec<_> =
+        Column::singles(&cols.output_rate_limbs[0..2 * NUM_DIGEST_ELEMENTS]).collect();
     Column::singles([
         cols.context,
         cols.segment,
@@ -45,8 +46,11 @@ pub(crate) fn ctl_looking<F: Field>() -> Vec<Column<F>> {
     let mut inputs: Vec<_> = (0..POSEIDON_SPONGE_RATE)
         .map(|i| {
             Column::linear_combination([
-                (cols.state_rate[2 * i], F::ONE),
-                (cols.state_rate[2 * i + 1], F::from_canonical_u64(1 << 32)),
+                (cols.state_rate_limbs[2 * i], F::ONE),
+                (
+                    cols.state_rate_limbs[2 * i + 1],
+                    F::from_canonical_u64(1 << 32),
+                ),
             ])
         })
         .collect();
@@ -55,8 +59,11 @@ pub(crate) fn ctl_looking<F: Field>() -> Vec<Column<F>> {
     let mut outputs: Vec<_> = (0..POSEIDON_SPONGE_RATE)
         .map(|i| {
             Column::linear_combination([
-                (cols.output_rate[2 * i], F::ONE),
-                (cols.output_rate[2 * i + 1], F::from_canonical_u64(1 << 32)),
+                (cols.output_rate_limbs[2 * i], F::ONE),
+                (
+                    cols.output_rate_limbs[2 * i + 1],
+                    F::from_canonical_u64(1 << 32),
+                ),
             ])
         })
         .collect();
@@ -80,12 +87,18 @@ pub(crate) fn ctl_looking_logic<F: Field>(i: usize) -> Vec<Column<F>> {
     let mut input = vec![Column::single_next_row(cols.block[i])];
     input.extend((0..7).map(|_| Column::zero()).collect::<Vec<Column<F>>>());
 
-    let mut cur_state: Vec<Column<F>> =
-        Column::singles([cols.output_rate[2 * i], cols.output_rate[2 * i + 1]]).collect();
+    let mut cur_state: Vec<Column<F>> = Column::singles([
+        cols.output_rate_limbs[2 * i],
+        cols.output_rate_limbs[2 * i + 1],
+    ])
+    .collect();
     cur_state.extend((0..6).map(|_| Column::zero()).collect::<Vec<Column<F>>>());
 
-    let mut xor_res: Vec<Column<F>> =
-        Column::singles_next_row([cols.state_rate[2 * i], cols.state_rate[2 * i + 1]]).collect();
+    let mut xor_res: Vec<Column<F>> = Column::singles_next_row([
+        cols.state_rate_limbs[2 * i],
+        cols.state_rate_limbs[2 * i + 1],
+    ])
+    .collect();
     xor_res.extend((0..6).map(|_| Column::zero()).collect::<Vec<Column<F>>>());
     let mut res = vec![Column::constant(F::from_canonical_usize(0x18))];
     res.extend(input);
@@ -258,8 +271,10 @@ impl<F: RichField + Extendable<D>, const D: usize> PoseidonSpongeStark<F, D> {
 
             // Update the state with the output of the permutation.
             for i in 0..POSEIDON_SPONGE_RATE {
-                state[i] = row.output_rate[2 * i]
-                    + F::from_canonical_u64(row.output_rate[2 * i + 1].to_canonical_u64() << 32);
+                state[i] = row.output_rate_limbs[2 * i]
+                    + F::from_canonical_u64(
+                        row.output_rate_limbs[2 * i + 1].to_canonical_u64() << 32,
+                    );
             }
             state[POSEIDON_SPONGE_RATE..POSEIDON_SPONGE_WIDTH]
                 .iter_mut()
@@ -323,13 +338,14 @@ impl<F: RichField + Extendable<D>, const D: usize> PoseidonSpongeStark<F, D> {
             row.block[i] = F::from_canonical_u32(block[i] as u32);
 
             // Update the sponge state.
-            row.state_rate[2 * i] = F::from_canonical_u32(input[i].to_canonical_u64() as u32);
-            row.state_rate[2 * i + 1] =
+            row.state_rate_limbs[2 * i] = F::from_canonical_u32(input[i].to_canonical_u64() as u32);
+            row.state_rate_limbs[2 * i + 1] =
                 F::from_canonical_u32((input[i].to_canonical_u64() >> 32) as u32);
 
             // Update the first `POSEIDON_SPONGE_RATE` elements of the output.
-            row.output_rate[2 * i] = F::from_canonical_u32(output[i].to_canonical_u64() as u32);
-            row.output_rate[2 * i + 1] =
+            row.output_rate_limbs[2 * i] =
+                F::from_canonical_u32(output[i].to_canonical_u64() as u32);
+            row.output_rate_limbs[2 * i + 1] =
                 F::from_canonical_u32((output[i].to_canonical_u64() >> 32) as u32);
         }
 
@@ -392,7 +408,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for PoseidonSpong
         let already_absorbed_elements = lv.already_absorbed_elements;
         yield_constr.constraint_first_row(already_absorbed_elements);
         for i in 0..POSEIDON_SPONGE_RATE {
-            yield_constr.constraint_first_row(lv.state_rate[2 * i] - lv.block[i]);
+            yield_constr.constraint_first_row(lv.state_rate_limbs[2 * i] - lv.block[i]);
         }
         for i in 0..POSEIDON_SPONGE_WIDTH - POSEIDON_SPONGE_RATE {
             yield_constr.constraint_first_row(lv.state_capacity[i]);
@@ -404,7 +420,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for PoseidonSpong
         yield_constr.constraint_transition(is_final_block * nv.already_absorbed_elements);
         for i in 0..POSEIDON_SPONGE_RATE {
             yield_constr
-                .constraint_transition(is_final_block * (nv.state_rate[2 * i] - nv.block[i]));
+                .constraint_transition(is_final_block * (nv.state_rate_limbs[2 * i] - nv.block[i]));
         }
         for i in 0..POSEIDON_SPONGE_WIDTH - POSEIDON_SPONGE_RATE {
             yield_constr.constraint_transition(is_final_block * (nv.state_capacity[i]));
@@ -483,7 +499,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for PoseidonSpong
         let already_absorbed_elements = lv.already_absorbed_elements;
         yield_constr.constraint_first_row(builder, already_absorbed_elements);
         for i in 0..POSEIDON_SPONGE_RATE {
-            let constr = builder.sub_extension(lv.state_rate[2 * i], lv.block[i]);
+            let constr = builder.sub_extension(lv.state_rate_limbs[2 * i], lv.block[i]);
             yield_constr.constraint_first_row(builder, constr);
         }
         for i in 0..POSEIDON_SPONGE_WIDTH - POSEIDON_SPONGE_RATE {
@@ -496,7 +512,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for PoseidonSpong
         let constr = builder.mul_extension(is_final_block, nv.already_absorbed_elements);
         yield_constr.constraint_transition(builder, constr);
         for i in 0..POSEIDON_SPONGE_RATE {
-            let mut constr = builder.sub_extension(nv.state_rate[2 * i], nv.block[i]);
+            let mut constr = builder.sub_extension(nv.state_rate_limbs[2 * i], nv.block[i]);
             constr = builder.mul_extension(is_final_block, constr);
             yield_constr.constraint_transition(builder, constr);
         }
@@ -631,8 +647,8 @@ mod tests {
         let last_row: &PoseidonSpongeColumnsView<F> = rows.last().unwrap().borrow();
         let mut output = [F::ZERO; NUM_DIGEST_ELEMENTS];
         for i in 0..NUM_DIGEST_ELEMENTS {
-            output[i] = last_row.output_rate[2 * i]
-                + last_row.output_rate[2 * i + 1] * F::from_canonical_u64(1 << 32);
+            output[i] = last_row.output_rate_limbs[2 * i]
+                + last_row.output_rate_limbs[2 * i + 1] * F::from_canonical_u64(1 << 32);
         }
 
         assert_eq!(output, expected_output[0..NUM_DIGEST_ELEMENTS]);

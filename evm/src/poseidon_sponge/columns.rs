@@ -38,11 +38,11 @@ pub(crate) struct PoseidonSpongeColumnsView<T: Copy> {
     pub block: [T; POSEIDON_SPONGE_RATE],
 
     /// The first `POSEIDON_SPONGE_RATE` elements of the current state, divided into two 32-bit limbs.
-    pub state_rate: [T; 2 * POSEIDON_SPONGE_RATE],
+    pub state_rate_limbs: [T; 2 * POSEIDON_SPONGE_RATE],
     /// The capacity elements of the sponge state.
     pub state_capacity: [T; POSEIDON_SPONGE_WIDTH - POSEIDON_SPONGE_RATE],
     /// The rate of the output of the permutation, divided into two 32-bit limbs.
-    pub output_rate: [T; 2 * POSEIDON_SPONGE_RATE],
+    pub output_rate_limbs: [T; 2 * POSEIDON_SPONGE_RATE],
     /// The capacity of the output of the permutation..
     pub output_capacity: [T; POSEIDON_SPONGE_WIDTH - POSEIDON_SPONGE_RATE],
 }
