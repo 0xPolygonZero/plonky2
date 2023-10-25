@@ -5,7 +5,7 @@
 
 global smt_hash_state:
     // stack: retdest
-    PUSH 0 %mstore_kernel_general(13371337)
+    PUSH 0 %mstore_kernel_general(13371337) // is_storage flag. TODO: Use a constant instead.
     %mload_global_metadata(@GLOBAL_METADATA_STATE_TRIE_ROOT)
 smt_hash:
     // stack: ptr, retdest
@@ -63,41 +63,41 @@ smt_hash_leaf:
     // stack: node_ptr, retdest
     %increment
     // stack: node_ptr+1, retdest
-    DUP1 %mload_trie_data
-    // stack: key, node_ptr+1, retdest
+    %mload_trie_data
+    // stack: payload_ptr, retdest
     %mload_kernel_general(13371337)
-    // stack: is_value, key, node_ptr+1, retdest
+    // stack: is_value, payload_ptr, retdest
     %jumpi(smt_hash_leaf_value)
 smt_hash_leaf_account:
-    // stack: key, node_ptr+1, retdest
-    SWAP1
-    // stack: node_ptr+1, key, retdest
-    %increment
-    // stack: node_ptr+2, key, retdest
+    // stack: payload_ptr, retdest
     DUP1 %mload_trie_data
-    // stack: nonce, node_ptr+2, key, retdest
-    SWAP1
-    // stack: node_ptr+2, nonce, key, retdest
-    %increment
-    // stack: node_ptr+3, nonce, key, retdest
+    // stack: key, payload_ptr, retdest
+    SWAP1 %increment
+    // stack: payload_ptr+1, key, retdest
     DUP1 %mload_trie_data
-    // stack: balance, node_ptr+3, nonce, key, retdest
+    // stack: nonce, payload_ptr+1, key, retdest
     SWAP1
-    // stack: node_ptr+3, balance, nonce, key, retdest
+    // stack: payload_ptr+1, nonce, key, retdest
     %increment
-    // stack: node_ptr+4, balance, nonce, key, retdest
+    // stack: payload_ptr+2, nonce, key, retdest
     DUP1 %mload_trie_data
-    // stack: storage_root, node_ptr+4, balance, nonce, key, retdest
+    // stack: balance, payload_ptr+2, nonce, key, retdest
+    SWAP1
+    // stack: payload_ptr+2, balance, nonce, key, retdest
+    %increment
+    // stack: payload_ptr+3, balance, nonce, key, retdest
+    DUP1 %mload_trie_data
+    // stack: storage_root, payload_ptr+3, balance, nonce, key, retdest
     PUSH 1 %mstore_kernel_general(13371337)
     %stack (storage_root) -> (storage_root, smt_hash_leaf_account_after_storage)
     %jump(smt_hash)
 smt_hash_leaf_account_after_storage:
     PUSH 0 %mstore_kernel_general(13371337)
-    // stack: storage_root_hash, node_ptr+4, balance, nonce, key, retdest
+    // stack: storage_root_hash, payload_ptr+3, balance, nonce, key, retdest
     SWAP1
-    // stack: node_ptr+4, storage_root_hash, balance, nonce, key, retdest
+    // stack: payload_ptr+3, storage_root_hash, balance, nonce, key, retdest
     %increment
-    // stack: node_ptr+5, storage_root_hash, balance, nonce, key, retdest
+    // stack: payload_ptr+4, storage_root_hash, balance, nonce, key, retdest
     %mload_trie_data
     // stack: code_hash, storage_root_hash, balance, nonce, key, retdest
 
@@ -139,11 +139,13 @@ smt_hash_leaf_account_after_storage:
     SWAP1 JUMP
 
 smt_hash_leaf_value:
-    // stack: key, node_ptr+1, retdest
+    // stack: payload_ptr, retdest
+    DUP1 %mload_trie_data
+    // stack: key, payload_ptr, retdest
     SWAP1
-    // stack: node_ptr+1, key, retdest
+    // stack: payload_ptr, key, retdest
     %increment
-    // stack: node_ptr+2, key, retdest
+    // stack: payload_ptr+1, key, retdest
     %mload_trie_data
     // stack: value, key, retdest
     PUSH 0 %mstore_kernel_general(0)
