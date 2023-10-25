@@ -18,7 +18,7 @@ use crate::keccak_sponge::keccak_sponge_stark::KeccakSpongeOp;
 use crate::poseidon_sponge::poseidon_sponge_stark::PoseidonSpongeOp;
 use crate::util::trace_rows_to_poly_values;
 use crate::witness::memory::MemoryOp;
-use crate::{arithmetic, keccak, keccak_sponge, logic};
+use crate::{arithmetic, keccak, keccak_sponge, logic, poseidon};
 
 #[derive(Clone, Copy, Debug)]
 pub struct TraceCheckpoint {
@@ -27,6 +27,8 @@ pub struct TraceCheckpoint {
     pub(self) cpu_len: usize,
     pub(self) keccak_len: usize,
     pub(self) keccak_sponge_len: usize,
+    pub(self) poseidon_len: usize,
+    pub(self) poseidon_sponge_len: usize,
     pub(self) logic_len: usize,
     pub(self) memory_len: usize,
 }
@@ -82,6 +84,12 @@ impl<T: Copy> Traces<T> {
                 .iter()
                 .map(|op| op.input.len() / keccak_sponge::columns::KECCAK_RATE_BYTES + 1)
                 .sum(),
+            poseidon_len: self.poseidon_inputs.len(),
+            poseidon_sponge_len: self
+                .poseidon_sponge_ops
+                .iter()
+                .map(|op| op.input.len() / poseidon::columns::POSEIDON_SPONGE_RATE + 1)
+                .sum(),
             logic_len: self.logic_ops.len(),
             // This is technically a lower-bound, as we may fill gaps,
             // but this gives a relatively good estimate.
@@ -97,6 +105,8 @@ impl<T: Copy> Traces<T> {
             cpu_len: self.cpu.len(),
             keccak_len: self.keccak_inputs.len(),
             keccak_sponge_len: self.keccak_sponge_ops.len(),
+            poseidon_len: self.poseidon_inputs.len(),
+            poseidon_sponge_len: self.poseidon_sponge_ops.len(),
             logic_len: self.logic_ops.len(),
             memory_len: self.memory_ops.len(),
         }
@@ -109,6 +119,9 @@ impl<T: Copy> Traces<T> {
         self.keccak_inputs.truncate(checkpoint.keccak_len);
         self.keccak_sponge_ops
             .truncate(checkpoint.keccak_sponge_len);
+        self.poseidon_inputs.truncate(checkpoint.poseidon_len);
+        self.poseidon_sponge_ops
+            .truncate(checkpoint.poseidon_sponge_len);
         self.logic_ops.truncate(checkpoint.logic_len);
         self.memory_ops.truncate(checkpoint.memory_len);
     }
