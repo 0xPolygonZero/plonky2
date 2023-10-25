@@ -227,9 +227,9 @@ min_stack_len_for_opcode:
     BYTES 0  // 0x59, MSIZE
     BYTES 0  // 0x5a, GAS
     BYTES 0  // 0x5b, JUMPDEST
-    %rep 3  // 0x5c-0x5e, invalid
-        BYTES 0
-    %endrep
+    BYTES 0  // 0x5c, invalid
+    BYTES 0  // 0x5d, invalid
+    BYTES 3  // 0x5e, MCOPY
 
     %rep 33 // 0x5f-0x7f, PUSH0-PUSH32
         BYTES 0

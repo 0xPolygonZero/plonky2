@@ -119,6 +119,7 @@ fn decode(registers: RegistersState, opcode: u8) -> Result<Operation, ProgramErr
         (0x59, _) => Ok(Operation::Syscall(opcode, 0, true)), // MSIZE
         (0x5a, _) => Ok(Operation::Syscall(opcode, 0, true)), // GAS
         (0x5b, _) => Ok(Operation::Jumpdest),
+        (0x5e, _) => Ok(Operation::Syscall(opcode, 3, false)), // MCOPY
         (0x5f..=0x7f, _) => Ok(Operation::Push(opcode - 0x5f)),
         (0x80..=0x8f, _) => Ok(Operation::Dup(opcode & 0xf)),
         (0x90..=0x9f, _) => Ok(Operation::Swap(opcode & 0xf)),
