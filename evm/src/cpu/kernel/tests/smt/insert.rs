@@ -53,8 +53,6 @@ fn test_state_smt(mut state_smt: Smt, new_key: U256, new_account: Account) -> Re
 
     let state_root = interpreter.get_global_metadata_field(GlobalMetadata::StateTrieRoot);
     let trie_data_size = interpreter.get_global_metadata_field(GlobalMetadata::TrieDataSize);
-    dbg!(trie_data_size);
-    println!("{:?}", interpreter.generation_state.memory.contexts[0].segments[Segment::TrieData as usize] .content);
     let trie_data = &mut interpreter.generation_state.memory.contexts[0].segments[Segment::TrieData as usize]
             .content;
     trie_data.push(U256::zero()); // For key
@@ -88,17 +86,15 @@ fn test_state_smt(mut state_smt: Smt, new_key: U256, new_account: Account) -> Re
     let smt_hash = KERNEL.global_labels["smt_hash"];
     interpreter.generation_state.registers.program_counter = smt_hash;
     let ptr=interpreter.stack()[0];
-    dbg!(&state_smt);
-    state_smt.insert(new_key.into(), ValOrHash::Val(AccountOrValue::Account(new_account))).unwrap();
-    dbg!(&state_smt);
-    dbg!(ptr);
-    println!("{:?}", interpreter.generation_state.memory.contexts[0].segments[Segment::TrieData as usize] .content);
     interpreter.pop();
     interpreter.push(0xDEADBEEFu32.into());
     interpreter.push(ptr);
     interpreter.run()?;
     let hash = interpreter.pop();
+
+    state_smt.insert(new_key.into(), ValOrHash::Val(AccountOrValue::Account(new_account))).unwrap();
     let expected_hash =  state_smt.root;
+
     assert_eq!(hash, expected_hash.into_uint());
 
     Ok(())
