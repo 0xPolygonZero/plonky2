@@ -91,7 +91,9 @@ calldataload_large_offset:
     GT %jumpi(wcopy_large_offset)
 
     // stack: kexit_info, dest_offset, offset, size
+    GET_CONTEXT
     PUSH $segment
+    // stack: segment, context, kexit_info, dest_offset, offset, size
     PUSH wcopy_within_bounds
     JUMP
 %endmacro
@@ -108,13 +110,13 @@ calldataload_large_offset:
 
 
 codecopy_within_bounds:
-    // stack: total_size, segment, kexit_info, dest_offset, offset, size
+    // stack: total_size, segment, src_ctx, kexit_info, dest_offset, offset, size
     POP
 wcopy_within_bounds:
-    // stack: segment, kexit_info, dest_offset, offset, size
+    // stack: segment, src_ctx, kexit_info, dest_offset, offset, size
     GET_CONTEXT
-    %stack (context, segment, kexit_info, dest_offset, offset, size) ->
-        (context, @SEGMENT_MAIN_MEMORY, dest_offset, context, segment, offset, size, wcopy_after, kexit_info)
+    %stack (context, segment, src_ctx, kexit_info, dest_offset, offset, size) ->
+        (context, @SEGMENT_MAIN_MEMORY, dest_offset, src_ctx, segment, offset, size, wcopy_after, kexit_info)
     %jump(memcpy_bytes)
 
 wcopy_empty:
@@ -125,8 +127,8 @@ wcopy_empty:
 
 
 codecopy_large_offset:
-    // stack: total_size, kexit_info, dest_offset, offset, size
-    POP
+    // stack: total_size, src_ctx, kexit_info, dest_offset, offset, size
+    %pop2
 wcopy_large_offset:
     // offset is larger than the size of the {CALLDATA,CODE,RETURNDATA}. So we just have to write zeros.
     // stack: kexit_info, dest_offset, offset, size
@@ -161,8 +163,9 @@ global sys_codecopy:
     DUP1 %ensure_reasonable_offset
     %update_mem_bytes
 
+    GET_CONTEXT
     %mload_context_metadata(@CTX_METADATA_CODE_SIZE)
-    // stack: code_size, kexit_info, dest_offset, offset, size, 
+    // stack: code_size, ctx, kexit_info, dest_offset, offset, size
     %codecopy_after_checks(@SEGMENT_CODE)
 
 
@@ -195,7 +198,7 @@ global sys_extcodecopy:
     %update_mem_bytes
 
     %stack (kexit_info, address, dest_offset, offset, size) ->
-        (address, 0, @SEGMENT_KERNEL_ACCOUNT_CODE, extcodecopy_contd, kexit_info, dest_offset, offset, size)
+        (address, 0, @SEGMENT_KERNEL_ACCOUNT_CODE, extcodecopy_contd, 0, kexit_info, dest_offset, offset, size)
     %jump(load_code)
 
 sys_extcodecopy_empty:
@@ -204,38 +207,38 @@ sys_extcodecopy_empty:
     EXIT_KERNEL
 
 extcodecopy_contd:
-    // stack: code_size, kexit_info, dest_offset, offset, size
+    // stack: code_size, src_ctx, kexit_info, dest_offset, offset, size
     %codecopy_after_checks(@SEGMENT_KERNEL_ACCOUNT_CODE)
 
 
 // The internal logic is similar to wcopy, but handles range overflow differently.
 // It is used for both CODECOPY and EXTCODECOPY.
 %macro codecopy_after_checks(segment)
-    // stack: total_size, kexit_info, dest_offset, offset, size
-    DUP1 DUP5
-    // stack: offset, total_size, total_size, kexit_info, dest_offset, offset, size
+    // stack: total_size, src_ctx, kexit_info, dest_offset, offset, size
+    DUP1 DUP6
+    // stack: offset, total_size, total_size, src_ctx, kexit_info, dest_offset, offset, size
     GT %jumpi(codecopy_large_offset)
 
     PUSH $segment SWAP1
-    // stack: total_size, segment, kexit_info, dest_offset, offset, size
-    DUP1 DUP7 DUP7 ADD
-    // stack: offset + size, total_size, total_size, segment, kexit_info, dest_offset, offset, size
+    // stack: total_size, segment, src_ctx, kexit_info, dest_offset, offset, size
+    DUP1 DUP8 DUP8 ADD
+    // stack: offset + size, total_size, total_size, segment, src_ctx, kexit_info, dest_offset, offset, size
     LT %jumpi(codecopy_within_bounds)
 
-    // stack: total_size, segment, kexit_info, dest_offset, offset, size
-    DUP6 DUP6 ADD
-    // stack: offset + size, total_size, segment, kexit_info, dest_offset, offset, size
+    // stack: total_size, segment, src_ctx, kexit_info, dest_offset, offset, size
+    DUP7 DUP7 ADD
+    // stack: offset + size, total_size, segment, src_ctx, kexit_info, dest_offset, offset, size
     SUB // extra_size = offset + size - total_size
-    // stack: extra_size, segment, kexit_info, dest_offset, offset, size
-    DUP1 DUP7 SUB
-    // stack: copy_size = size - extra_size, extra_size, segment, kexit_info, dest_offset, offset, size
+    // stack: extra_size, segment, src_ctx, kexit_info, dest_offset, offset, size
+    DUP1 DUP8 SUB
+    // stack: copy_size = size - extra_size, extra_size, segment, src_ctx, kexit_info, dest_offset, offset, size
 
     // Compute the new dest_offset after actual copies, at which we will start padding with zeroes.
-    DUP1 DUP6 ADD
-    // stack: new_dest_offset, copy_size, extra_size, segment, kexit_info, dest_offset, offset, size
+    DUP1 DUP7 ADD
+    // stack: new_dest_offset, copy_size, extra_size, segment, src_ctx, kexit_info, dest_offset, offset, size
 
     GET_CONTEXT
-    %stack (context, new_dest_offset, copy_size, extra_size, segment, kexit_info, dest_offset, offset, size) ->
-        (context, @SEGMENT_MAIN_MEMORY, dest_offset, context, segment, offset, copy_size, wcopy_large_offset, kexit_info, new_dest_offset, offset, extra_size)
+    %stack (context, new_dest_offset, copy_size, extra_size, segment, src_ctx, kexit_info, dest_offset, offset, size) ->
+        (context, @SEGMENT_MAIN_MEMORY, dest_offset, src_ctx, segment, offset, copy_size, wcopy_large_offset, kexit_info, new_dest_offset, offset, extra_size)
     %jump(memcpy_bytes)
 %endmacro
