@@ -80,9 +80,6 @@ calldataload_large_offset:
     // stack: expanded_num_bytes, kexit_info, dest_offset, offset, size, kexit_info
     DUP1 %ensure_reasonable_offset
     %update_mem_bytes
-    // stack: kexit_info, dest_offset, offset, size, kexit_info
-    DUP4 DUP4 %add_or_fault // Overflow check
-    %mload_context_metadata($context_metadata_size) LT %jumpi(fault_exception) // Data len check
 
     %mload_context_metadata($context_metadata_size)
     // stack: total_size, kexit_info, dest_offset, offset, size
@@ -149,6 +146,9 @@ global sys_calldatacopy:
 // Pre stack: kexit_info, dest_offset, offset, size
 // Post stack: (empty)
 global sys_returndatacopy:
+    DUP4 DUP4 %add_or_fault // Overflow check
+    %mload_context_metadata(@CTX_METADATA_RETURNDATA_SIZE) LT %jumpi(fault_exception) // Data len check
+
     %wcopy(@SEGMENT_RETURNDATA, @CTX_METADATA_RETURNDATA_SIZE)
 
 // Pre stack: kexit_info, dest_offset, offset, size
