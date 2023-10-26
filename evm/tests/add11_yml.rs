@@ -5,9 +5,11 @@ use std::time::Duration;
 use env_logger::{try_init_from_env, Env, DEFAULT_FILTER_ENV};
 use eth_trie_utils::nibbles::Nibbles;
 use eth_trie_utils::partial_trie::{HashedPartialTrie, PartialTrie};
-use ethereum_types::{Address, BigEndianHash, H256};
+use ethereum_types::{Address, BigEndianHash, H256, U256};
 use hex_literal::hex;
 use keccak_hash::keccak;
+use smt_utils::account::Account;
+use smt_utils::smt::Smt;
 use plonky2::field::goldilocks_field::GoldilocksField;
 use plonky2::plonk::config::KeccakGoldilocksConfig;
 use plonky2::util::timing::TimingTree;
@@ -40,37 +42,43 @@ fn add11_yml() -> anyhow::Result<()> {
     let sender_state_key = keccak(sender);
     let to_hashed = keccak(to);
 
-    let beneficiary_nibbles = Nibbles::from_bytes_be(beneficiary_state_key.as_bytes()).unwrap();
-    let sender_nibbles = Nibbles::from_bytes_be(sender_state_key.as_bytes()).unwrap();
-    let to_nibbles = Nibbles::from_bytes_be(to_hashed.as_bytes()).unwrap();
+    let beneficiary_bits = beneficiary_state_key.into_uint().into();
+    let sender_bits = sender_state_key.into_uint().into();
+    let to_bits = to_hashed.into_uint().into();
 
     let code = [0x60, 0x01, 0x60, 0x01, 0x01, 0x60, 0x00, 0x55, 0x00];
     let code_hash = keccak(code);
 
-    let beneficiary_account_before = AccountRlp {
-        nonce: 1.into(),
-        ..AccountRlp::default()
+    let beneficiary_account_before = Account {
+        nonce: 1,
+        ..Account::default()
     };
-    let sender_account_before = AccountRlp {
+    let sender_account_before = Account{
         balance: 0x0de0b6b3a7640000u64.into(),
-        ..AccountRlp::default()
+        ..Account::default()
     };
-    let to_account_before = AccountRlp {
+    let to_account_before = Account {
         balance: 0x0de0b6b3a7640000u64.into(),
         code_hash,
-        ..AccountRlp::default()
+        ..Account::default()
     };
 
-    let mut state_trie_before = HashedPartialTrie::from(Node::Empty);
-    state_trie_before.insert(
-        beneficiary_nibbles,
-        rlp::encode(&beneficiary_account_before).to_vec(),
-    );
-    state_trie_before.insert(sender_nibbles, rlp::encode(&sender_account_before).to_vec());
-    state_trie_before.insert(to_nibbles, rlp::encode(&to_account_before).to_vec());
+    let mut state_smt_before = Smt::empty();
+    state_smt_before.insert(
+        beneficiary_bits,
+        beneficiary_account_before.into()
+    ).unwrap();
+    state_smt_before.insert(
+        sender_bits,
+        sender_account_before.into()
+    ).unwrap();
+    state_smt_before.insert(
+        to_bits,
+        to_account_before.into()
+    ).unwrap();
 
     let tries_before = TrieInputs {
-        state_trie: state_trie_before,
+        state_trie: state_smt_before.serialize(),
         transactions_trie: Node::Empty.into(),
         receipts_trie: Node::Empty.into(),
         storage_tries: vec![(to_hashed, Node::Empty.into())],
@@ -96,36 +104,40 @@ fn add11_yml() -> anyhow::Result<()> {
     contract_code.insert(code_hash, code.to_vec());
 
     let expected_state_trie_after = {
-        let beneficiary_account_after = AccountRlp {
-            nonce: 1.into(),
-            ..AccountRlp::default()
+        let beneficiary_account_after = Account{
+            nonce: 1,
+            ..Account::default()
         };
-        let sender_account_after = AccountRlp {
+        let sender_account_after = Account{
             balance: 0xde0b6b3a75be550u64.into(),
-            nonce: 1.into(),
-            ..AccountRlp::default()
+            nonce: 1,
+            ..Account::default()
         };
-        let to_account_after = AccountRlp {
+        let to_account_after = Account{
             balance: 0xde0b6b3a76586a0u64.into(),
             code_hash,
             // Storage map: { 0 => 2 }
-            storage_root: HashedPartialTrie::from(Node::Leaf {
-                nibbles: Nibbles::from_h256_be(keccak([0u8; 32])),
-                value: vec![2],
-            })
-            .hash(),
-            ..AccountRlp::default()
+            storage_smt: Smt::new([
+                (keccak([0u8; 32]).into_uint().into(),
+                2.into())
+            ]).unwrap(),
+            ..Account::default()
         };
 
-        let mut expected_state_trie_after = HashedPartialTrie::from(Node::Empty);
-        expected_state_trie_after.insert(
-            beneficiary_nibbles,
-            rlp::encode(&beneficiary_account_after).to_vec(),
-        );
-        expected_state_trie_after
-            .insert(sender_nibbles, rlp::encode(&sender_account_after).to_vec());
-        expected_state_trie_after.insert(to_nibbles, rlp::encode(&to_account_after).to_vec());
-        expected_state_trie_after
+        let mut expected_state_smt_after = Smt::empty();
+        expected_state_smt_after.insert(
+            beneficiary_bits,
+            beneficiary_account_after.into()
+        ).unwrap();
+        expected_state_smt_after.insert(
+            sender_bits,
+            sender_account_after.into()
+        ).unwrap();
+        expected_state_smt_after.insert(
+            to_bits,
+            to_account_after.into()
+        ).unwrap();
+        expected_state_smt_after
     };
 
     let receipt_0 = LegacyReceiptRlp {
@@ -146,7 +158,7 @@ fn add11_yml() -> anyhow::Result<()> {
     .into();
 
     let trie_roots_after = TrieRoots {
-        state_root: expected_state_trie_after.hash(),
+        state_root: expected_state_trie_after.root,
         transactions_root: transactions_trie.hash(),
         receipts_root: receipts_trie.hash(),
     };
