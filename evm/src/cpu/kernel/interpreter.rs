@@ -1029,7 +1029,7 @@ impl<'a> Interpreter<'a> {
         let offset = self.pop().as_usize();
         let size = self.pop().as_usize();
 
-        let intermediary_memory = (0..size)
+        let intermediary_memory: Vec<U256> = (0..size)
             .map(|i| {
                 self.generation_state.memory.mload_general(
                     self.context,
