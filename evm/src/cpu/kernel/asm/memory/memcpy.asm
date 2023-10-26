@@ -42,12 +42,6 @@ global memcpy:
     // Continue the loop.
     %jump(memcpy)
 
-memcpy_finish:
-    // stack: DST, SRC, count, retdest
-    %pop7
-    // stack: retdest
-    JUMP
-
 %macro memcpy
     %stack (dst: 3, src: 3, count) -> (dst, src, count, %%after)
     %jump(memcpy)
@@ -63,7 +57,7 @@ global memcpy_bytes:
     // stack: count, DST, SRC, count, retdest
     ISZERO
     // stack: count == 0, DST, SRC, count, retdest
-    %jumpi(memcpy_bytes_empty)
+    %jumpi(memcpy_finish)
 
     // stack: DST, SRC, count, retdest
 
@@ -126,12 +120,8 @@ memcpy_bytes_finish:
     MSTORE_32BYTES
     // stack: DST, SRC, count, retdest
 
-    %pop7
-    // stack: retdest
-    JUMP
-
-memcpy_bytes_empty:
-    // stack: DST, SRC, 0, retdest
+memcpy_finish:
+    // stack: DST, SRC, count, retdest
     %pop7
     // stack: retdest
     JUMP
