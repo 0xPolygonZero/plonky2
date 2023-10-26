@@ -403,6 +403,7 @@ impl<'a> Interpreter<'a> {
             0x59 => self.run_msize(),                                   // "MSIZE",
             0x5a => todo!(),                                            // "GAS",
             0x5b => self.run_jumpdest(),                                // "JUMPDEST",
+            0x5e => self.run_mcopy(),                                   // "MCOPY",
             x if (0x5f..0x80).contains(&x) => self.run_push(x - 0x5f),  // "PUSH"
             x if (0x80..0x90).contains(&x) => self.run_dup(x - 0x7f),   // "DUP"
             x if (0x90..0xa0).contains(&x) => self.run_swap(x - 0x8f)?, // "SWAP"
@@ -1021,6 +1022,31 @@ impl<'a> Interpreter<'a> {
 
     fn run_jumpdest(&mut self) {
         assert!(!self.kernel_mode, "JUMPDEST is not needed in kernel code");
+    }
+
+    fn run_mcopy(&mut self) {
+        let dest_offset = self.pop().as_usize();
+        let offset = self.pop().as_usize();
+        let size = self.pop().as_usize();
+
+        let intermediary_memory: Vec<U256> = (0..size)
+            .map(|i| {
+                self.generation_state.memory.mload_general(
+                    self.context,
+                    Segment::MainMemory,
+                    offset + i,
+                )
+            })
+            .collect();
+
+        for i in 0..size {
+            self.generation_state.memory.mstore_general(
+                self.context,
+                Segment::MainMemory,
+                dest_offset + i,
+                intermediary_memory[i],
+            );
+        }
     }
 
     fn jump_to(&mut self, offset: usize) {
