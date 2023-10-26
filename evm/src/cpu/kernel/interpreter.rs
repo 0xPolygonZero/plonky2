@@ -391,6 +391,7 @@ impl<'a> Interpreter<'a> {
             0x46 => self.run_chainid(),                                 // "CHAINID",
             0x48 => self.run_basefee(),                                 // "BASEFEE",
             0x49 => self.run_prover_input()?,                           // "PROVER_INPUT",
+            0x4a => self.run_blobbasefee(),                             // "BLOBBASEFEE",
             0x50 => self.run_pop(),                                     // "POP",
             0x51 => self.run_mload(),                                   // "MLOAD",
             0x52 => self.run_mstore(),                                  // "MSTORE",
@@ -950,6 +951,10 @@ impl<'a> Interpreter<'a> {
         Ok(())
     }
 
+    fn run_blobbasefee(&mut self) {
+        self.push(self.get_global_metadata_field(GlobalMetadata::BlockBlobBaseFee))
+    }
+
     fn run_pop(&mut self) {
         self.pop();
     }
@@ -1300,6 +1305,7 @@ fn get_mnemonic(opcode: u8) -> &'static str {
         0x46 => "CHAINID",
         0x48 => "BASEFEE",
         0x49 => "PROVER_INPUT",
+        0x4a => "BLOBBASEFEE",
         0x50 => "POP",
         0x51 => "MLOAD",
         0x52 => "MSTORE",

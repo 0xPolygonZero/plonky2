@@ -64,6 +64,7 @@ pub fn get_opcode(mnemonic: &str) -> u8 {
         "CHAINID" => 0x46,
         "BASEFEE" => 0x48,
         "PROVER_INPUT" => 0x49,
+        "BLOBBASEFEE" => 0x4a,
         "POP" => 0x50,
         "MLOAD" => 0x51,
         "MSTORE" => 0x52,

@@ -211,7 +211,9 @@ min_stack_len_for_opcode:
     BYTES 0  // 0x46, CHAINID
     BYTES 0  // 0x47, SELFBALANCE
     BYTES 0  // 0x48, BASEFEE
-    %rep 7  // 0x49-0x4f, invalid
+    BYTES 0  // 0x49, invalid
+    BYTES 0  // 0x4a, BLOBBASEFEE 
+    %rep 5  // 0x4b-0x4f, invalid
         BYTES 0
     %endrep
 

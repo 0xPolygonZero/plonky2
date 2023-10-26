@@ -85,10 +85,11 @@ pub(crate) enum GlobalMetadata {
     LogsPayloadLen = 43,
     TxnNumberBefore = 44,
     TxnNumberAfter = 45,
+    BlockBlobBaseFee = 46,
 }
 
 impl GlobalMetadata {
-    pub(crate) const COUNT: usize = 46;
+    pub(crate) const COUNT: usize = 47;
 
     pub(crate) fn all() -> [Self; Self::COUNT] {
         [
@@ -138,6 +139,7 @@ impl GlobalMetadata {
             Self::BlockCurrentHash,
             Self::TxnNumberBefore,
             Self::TxnNumberAfter,
+            Self::BlockBlobBaseFee,
         ]
     }
 
@@ -190,6 +192,7 @@ impl GlobalMetadata {
             Self::LogsPayloadLen => "GLOBAL_METADATA_LOGS_PAYLOAD_LEN",
             Self::TxnNumberBefore => "GLOBAL_METADATA_TXN_NUMBER_BEFORE",
             Self::TxnNumberAfter => "GLOBAL_METADATA_TXN_NUMBER_AFTER",
+            Self::BlockBlobBaseFee => "GLOBAL_METADATA_BLOCK_BLOB_BASE_FEE",
         }
     }
 }

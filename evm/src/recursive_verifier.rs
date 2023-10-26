@@ -458,9 +458,9 @@ pub(crate) fn get_memory_extra_looking_products_circuit<
     ];
 
     // This contains the `block_beneficiary`, `block_random`, `block_base_fee`,
-    // `block_gaslimit`, `block_gas_used` as well as `cur_hash`, `gas_used_before`
-    // and `gas_used_after`.
-    let block_fields_arrays: [(usize, &[Target]); 8] = [
+    // `block_gaslimit`, `block_gas_used`, `block_blob_base_fee` as well as `cur_hash`,
+    // `gas_used_before` and `gas_used_after`.
+    let block_fields_arrays: [(usize, &[Target]); 9] = [
         (
             GlobalMetadata::BlockBeneficiary as usize,
             &public_values.block_metadata.block_beneficiary,
@@ -480,6 +480,10 @@ pub(crate) fn get_memory_extra_looking_products_circuit<
         (
             GlobalMetadata::BlockGasUsed as usize,
             &public_values.block_metadata.block_gas_used,
+        ),
+        (
+            GlobalMetadata::BlockBlobBaseFee as usize,
+            &public_values.block_metadata.block_blob_base_fee,
         ),
         (
             GlobalMetadata::BlockCurrentHash as usize,
@@ -708,6 +712,7 @@ pub(crate) fn add_virtual_block_metadata<F: RichField + Extendable<D>, const D: 
     let block_chain_id = builder.add_virtual_public_input();
     let block_base_fee = builder.add_virtual_public_input_arr();
     let block_gas_used = builder.add_virtual_public_input_arr();
+    let block_blob_base_fee = builder.add_virtual_public_input_arr();
     let block_bloom = builder.add_virtual_public_input_arr();
     BlockMetadataTarget {
         block_beneficiary,
@@ -719,6 +724,7 @@ pub(crate) fn add_virtual_block_metadata<F: RichField + Extendable<D>, const D: 
         block_chain_id,
         block_base_fee,
         block_gas_used,
+        block_blob_base_fee,
         block_bloom,
     }
 }
@@ -969,6 +975,10 @@ where
     let gas_used = u256_to_u64(block_metadata.block_gas_used)?;
     witness.set_target(block_metadata_target.block_gas_used[0], gas_used.0);
     witness.set_target(block_metadata_target.block_gas_used[1], gas_used.1);
+    // Blobbasefee fits in 2 limbs
+    let blob_basefee = u256_to_u64(block_metadata.block_blob_base_fee)?;
+    witness.set_target(block_metadata_target.block_blob_base_fee[0], blob_basefee.0);
+    witness.set_target(block_metadata_target.block_blob_base_fee[1], blob_basefee.1);
     let mut block_bloom_limbs = [F::ZERO; 64];
     for (i, limbs) in block_bloom_limbs.chunks_exact_mut(8).enumerate() {
         limbs.copy_from_slice(&u256_limbs(block_metadata.block_bloom[i]));

@@ -195,6 +195,10 @@ where
             public_values.block_metadata.block_gas_used,
         ),
         (
+            GlobalMetadata::BlockBlobBaseFee,
+            public_values.block_metadata.block_blob_base_fee,
+        ),
+        (
             GlobalMetadata::TxnNumberBefore,
             public_values.extra_block_data.txn_number_before,
         ),
@@ -508,6 +512,10 @@ pub(crate) mod testutils {
             (
                 GlobalMetadata::BlockGasUsed,
                 public_values.block_metadata.block_gas_used,
+            ),
+            (
+                GlobalMetadata::BlockBlobBaseFee,
+                public_values.block_metadata.block_blob_base_fee,
             ),
             (
                 GlobalMetadata::TxnNumberBefore,
