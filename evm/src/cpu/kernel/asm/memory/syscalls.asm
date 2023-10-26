@@ -106,6 +106,10 @@ calldataload_large_offset:
     DUP5 %num_bytes_to_num_words %mul_const(@GAS_COPY) ADD %charge_gas
 %endmacro
 
+
+codecopy_within_bounds:
+    // stack: total_size, segment, kexit_info, dest_offset, offset, size
+    POP
 wcopy_within_bounds:
     // stack: segment, kexit_info, dest_offset, offset, size
     GET_CONTEXT
@@ -119,6 +123,10 @@ wcopy_empty:
     %stack (kexit_info, dest_offset, offset, size) -> (kexit_info)
     EXIT_KERNEL
 
+
+codecopy_large_offset:
+    // stack: total_size, kexit_info, dest_offset, offset, size
+    POP
 wcopy_large_offset:
     // offset is larger than the size of the {CALLDATA,CODE,RETURNDATA}. So we just have to write zeros.
     // stack: kexit_info, dest_offset, offset, size
@@ -131,16 +139,19 @@ wcopy_after:
     // stack: kexit_info
     EXIT_KERNEL
 
+// Pre stack: kexit_info, dest_offset, offset, size
+// Post stack: (empty)
 global sys_calldatacopy:
     %wcopy(@SEGMENT_CALLDATA, @CTX_METADATA_CALLDATA_SIZE)
 
-global sys_codecopy:
-    %codecopy(@SEGMENT_CODE, @CTX_METADATA_CODE_SIZE)
-
+// Pre stack: kexit_info, dest_offset, offset, size
+// Post stack: (empty)
 global sys_returndatacopy:
     %wcopy(@SEGMENT_RETURNDATA, @CTX_METADATA_RETURNDATA_SIZE)
 
-%macro codecopy(segment, context_metadata_size)
+// Pre stack: kexit_info, dest_offset, offset, size
+// Post stack: (empty)
+global sys_codecopy:
     // stack: kexit_info, dest_offset, offset, size
     %wcopy_charge_gas
 
@@ -150,20 +161,67 @@ global sys_returndatacopy:
     DUP1 %ensure_reasonable_offset
     %update_mem_bytes
 
-    %mload_context_metadata($context_metadata_size)
+    %mload_context_metadata(@CTX_METADATA_CODE_SIZE)
+    // stack: code_size, kexit_info, dest_offset, offset, size, 
+    %codecopy_after_checks(@SEGMENT_CODE)
+
+
+// Pre stack: kexit_info, address, dest_offset, offset, size
+// Post stack: (empty)
+global sys_extcodecopy:
+    %stack (kexit_info, address, dest_offset, offset, size)
+        -> (address, dest_offset, offset, size, kexit_info)
+    %u256_to_addr DUP1 %insert_accessed_addresses
+    // stack: cold_access, address, dest_offset, offset, size, kexit_info
+    PUSH @GAS_COLDACCOUNTACCESS_MINUS_WARMACCESS
+    MUL
+    PUSH @GAS_WARMACCESS
+    ADD
+    // stack: Gaccess, address, dest_offset, offset, size, kexit_info
+
+    DUP5
+    // stack: size, Gaccess, address, dest_offset, offset, size, kexit_info
+    ISZERO %jumpi(sys_extcodecopy_empty)
+
+    // stack: Gaccess, address, dest_offset, offset, size, kexit_info
+    DUP5 %num_bytes_to_num_words %mul_const(@GAS_COPY) ADD
+    %stack (gas, address, dest_offset, offset, size, kexit_info) -> (gas, kexit_info, address, dest_offset, offset, size)
+    %charge_gas
+
+    %stack (kexit_info, address, dest_offset, offset, size) -> (dest_offset, size, kexit_info, address, dest_offset, offset, size)
+    %add_or_fault
+    // stack: expanded_num_bytes, kexit_info, address, dest_offset, offset, size
+    DUP1 %ensure_reasonable_offset
+    %update_mem_bytes
+
+    %stack (kexit_info, address, dest_offset, offset, size) ->
+        (address, 0, @SEGMENT_KERNEL_ACCOUNT_CODE, extcodecopy_contd, kexit_info, dest_offset, offset, size)
+    %jump(load_code)
+
+sys_extcodecopy_empty:
+    %stack (Gaccess, address, dest_offset, offset, size, kexit_info) -> (Gaccess, kexit_info)
+    %charge_gas
+    EXIT_KERNEL
+
+extcodecopy_contd:
+    // stack: code_size, kexit_info, dest_offset, offset, size
+    %codecopy_after_checks(@SEGMENT_KERNEL_ACCOUNT_CODE)
+
+
+// The internal logic is similar to wcopy, but handles range overflow differently.
+// It is used for both CODECOPY and EXTCODECOPY.
+%macro codecopy_after_checks(segment)
     // stack: total_size, kexit_info, dest_offset, offset, size
-    DUP4
-    // stack: offset, total_size, kexit_info, dest_offset, offset, size
-    GT %jumpi(wcopy_large_offset)
+    DUP1 DUP5
+    // stack: offset, total_size, total_size, kexit_info, dest_offset, offset, size
+    GT %jumpi(codecopy_large_offset)
 
-    PUSH $segment
-    %mload_context_metadata($context_metadata_size)
+    PUSH $segment SWAP1
     // stack: total_size, segment, kexit_info, dest_offset, offset, size
-    DUP6 DUP6 ADD
-    // stack: offset + size, total_size, segment, kexit_info, dest_offset, offset, size
-    LT %jumpi(wcopy_within_bounds)
+    DUP1 DUP7 DUP7 ADD
+    // stack: offset + size, total_size, total_size, segment, kexit_info, dest_offset, offset, size
+    LT %jumpi(codecopy_within_bounds)
 
-    %mload_context_metadata($context_metadata_size)
     // stack: total_size, segment, kexit_info, dest_offset, offset, size
     DUP6 DUP6 ADD
     // stack: offset + size, total_size, segment, kexit_info, dest_offset, offset, size
