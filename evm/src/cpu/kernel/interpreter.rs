@@ -426,7 +426,7 @@ impl<'a> Interpreter<'a> {
             0xf6 => self.run_get_context(),                             // "GET_CONTEXT",
             0xf7 => self.run_set_context(),                             // "SET_CONTEXT",
             0xf8 => self.run_mload_32bytes(),                           // "MLOAD_32BYTES",
-            0xf9 => todo!(),                                            // "EXIT_KERNEL",
+            0xf9 => self.run_exit_kernel(),                             // "EXIT_KERNEL",
             0xfa => todo!(),                                            // "STATICCALL",
             0xfb => self.run_mload_general(),                           // "MLOAD_GENERAL",
             0xfc => self.run_mstore_general(),                          // "MSTORE_GENERAL",
@@ -1124,6 +1124,25 @@ impl<'a> Interpreter<'a> {
                 .memory
                 .mstore_general(context, segment, offset + i, byte.into());
         }
+    }
+
+    fn run_exit_kernel(&mut self) {
+        let _dummy = self.pop(); // not sure why we need this extra pop on the interpreter
+        let kexit_info = self.pop();
+
+        let kexit_info_u64 = kexit_info.0[0];
+        let program_counter = kexit_info_u64 as u32 as usize;
+        let is_kernel_mode_val = (kexit_info_u64 >> 32) as u32;
+        assert!(is_kernel_mode_val == 0 || is_kernel_mode_val == 1);
+        let is_kernel_mode = is_kernel_mode_val != 0;
+        let gas_used_val = kexit_info.0[3];
+        if TryInto::<u64>::try_into(gas_used_val).is_err() {
+            panic!("Gas overflow");
+        }
+
+        self.generation_state.registers.program_counter = program_counter;
+        self.generation_state.registers.is_kernel = is_kernel_mode;
+        self.generation_state.registers.gas_used = gas_used_val;
     }
 
     pub(crate) fn stack_len(&self) -> usize {

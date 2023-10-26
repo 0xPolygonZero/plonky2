@@ -7,6 +7,7 @@ use keccak_hash::keccak;
 use rand::{thread_rng, Rng};
 
 use crate::cpu::kernel::aggregator::KERNEL;
+use crate::cpu::kernel::constants::context_metadata::ContextMetadata::GasLimit;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
 use crate::cpu::kernel::interpreter::Interpreter;
 use crate::cpu::kernel::tests::mpt::nibbles_64;
@@ -142,7 +143,11 @@ fn test_extcodecopy() -> Result<()> {
     // Prepare the interpreter by inserting the account in the state trie.
     prepare_interpreter(&mut interpreter, address, &account)?;
 
-    let extcodecopy = KERNEL.global_labels["extcodecopy"];
+    interpreter.generation_state.memory.contexts[interpreter.context].segments
+        [Segment::ContextMetadata as usize]
+        .set(GasLimit as usize, U256::from(1000000000000u64) << 192);
+
+    let extcodecopy = KERNEL.global_labels["sys_extcodecopy"];
 
     // Put random data in main memory and the `KernelAccountCode` segment for realism.
     let mut rng = thread_rng();
@@ -169,6 +174,7 @@ fn test_extcodecopy() -> Result<()> {
     interpreter.push(offset.into());
     interpreter.push(dest_offset.into());
     interpreter.push(U256::from_big_endian(address.as_bytes()));
+    interpreter.push(0.into()); // kexit_info
     interpreter.generation_state.inputs.contract_code =
         HashMap::from([(keccak(&code), code.clone())]);
     interpreter.run()?;
