@@ -27,13 +27,6 @@ pub fn generate_pinv_diff<F: Field>(val0: U256, val1: U256, lv: &mut CpuColumnsV
     let num_unequal_limbs = izip!(val0_limbs, val1_limbs)
         .map(|(limb0, limb1)| (limb0 != limb1) as usize)
         .sum();
-    let equal = num_unequal_limbs == 0;
-
-    let output = &mut lv.mem_channels[2].value;
-    output[0] = F::from_bool(equal);
-    for limb in &mut output[1..] {
-        *limb = F::ZERO;
-    }
 
     // Form `diff_pinv`.
     // Let `diff = val0 - val1`. Consider `x[i] = diff[i]^-1` if `diff[i] != 0` and 0 otherwise.
@@ -57,7 +50,7 @@ pub fn eval_packed<P: PackedField>(
     let logic = lv.general.logic();
     let input0 = lv.mem_channels[0].value;
     let input1 = lv.mem_channels[1].value;
-    let output = lv.mem_channels[2].value;
+    let output = nv.mem_channels[0].value;
 
     // EQ (0x14) and ISZERO (0x15) are differentiated by their first opcode bit.
     let eq_filter = lv.op.eq_iszero * (P::ONES - lv.opcode_bits[0]);
@@ -117,7 +110,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let logic = lv.general.logic();
     let input0 = lv.mem_channels[0].value;
     let input1 = lv.mem_channels[1].value;
-    let output = lv.mem_channels[2].value;
+    let output = nv.mem_channels[0].value;
 
     // EQ (0x14) and ISZERO (0x15) are differentiated by their first opcode bit.
     let eq_filter = builder.mul_extension(lv.op.eq_iszero, lv.opcode_bits[0]);
