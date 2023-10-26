@@ -1,3 +1,8 @@
+global smt_insert_state:
+    // stack: key, new_account_ptr, retdest
+    %mload_global_metadata(@GLOBAL_METADATA_STATE_TRIE_ROOT)
+    // stack: root_ptr, key, new_account_ptr, retdest
+
 // value_ptr should point to a an empty slot reserved for `rem_key`, followed by the actual value.
 global smt_insert:
     // stack: node_ptr, key, value_ptr, retdest

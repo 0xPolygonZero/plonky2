@@ -40,7 +40,7 @@
 // Returns 1 if the account is empty, 0 otherwise.
 %macro is_empty
     // stack: addr
-    %mpt_read_state_trie
+    %smt_read_state
     // stack: account_ptr
     DUP1 ISZERO %jumpi(%%false)
     // stack: account_ptr
