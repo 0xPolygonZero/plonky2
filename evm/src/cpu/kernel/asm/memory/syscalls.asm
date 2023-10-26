@@ -221,20 +221,20 @@ global sys_mcopy:
     // stack: Gverylow, kexit_info, dest_offset, offset, size
     DUP5 %num_bytes_to_num_words %mul_const(@GAS_COPY) ADD %charge_gas
 
+    // stack: kexit_info, dest_offset, offset, size
+    DUP4
+    // stack: size, kexit_info, dest_offset, offset, size
+    ISZERO %jumpi(returndatacopy_empty) // If size is empty, just pop the stack and exit the kernel
+
     %stack (kexit_info, dest_offset, offset, size) -> (dest_offset, size, kexit_info, dest_offset, offset, size)
     %add_or_fault
     // stack: expanded_num_bytes, kexit_info, dest_offset, offset, size, kexit_info
     DUP1 %ensure_reasonable_offset
     %update_mem_bytes
 
-    // stack:  kexit_info, dest_offset, offset, size
-    DUP4
-    // stack:  size, kexit_info, dest_offset, offset, size
-    ISZERO %jumpi(returndatacopy_empty) // If size is empty, just pop the stack and exit the kernel
-
-    // stack:  kexit_info, dest_offset, offset, size
+    // stack: kexit_info, dest_offset, offset, size
     DUP3 DUP3 EQ
-    // stack:  dest_offset = offset, kexit_info, dest_offset, offset, size
+    // stack: dest_offset = offset, kexit_info, dest_offset, offset, size
     %jumpi(returndatacopy_empty) // If SRC == DST, just pop the stack and exit the kernel
 
     // stack: kexit_info, dest_offset, offset, size
