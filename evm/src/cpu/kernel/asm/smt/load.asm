@@ -8,7 +8,9 @@ global load_state_smt:
     PROVER_INPUT(smt::state)
     // stack: len, retdest
     %get_trie_data_size
-    DUP1 %mstore_global_metadata(@GLOBAL_METADATA_STATE_TRIE_ROOT)
+    DUP2 %mstore_global_metadata(@GLOBAL_METADATA_TRIE_DATA_SIZE)
+    DUP1 %add_const(2) // First two entries are [0,0] for an empty hash node.
+    %mstore_global_metadata(@GLOBAL_METADATA_STATE_TRIE_ROOT)
     // stack: i, len, retdest
     %stack (i, len) -> (len, i, i)
     ADD SWAP1

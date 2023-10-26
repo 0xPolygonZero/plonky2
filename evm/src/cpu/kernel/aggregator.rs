@@ -112,6 +112,8 @@ pub(crate) fn combined_kernel() -> Kernel {
         include_str!("asm/memory/txn_fields.asm"),
         include_str!("asm/smt/load.asm"),
         include_str!("asm/smt/hash.asm"),
+        include_str!("asm/smt/insert.asm"),
+        include_str!("asm/smt/utils.asm"),
         include_str!("asm/mpt/accounts.asm"),
         include_str!("asm/mpt/delete/delete.asm"),
         include_str!("asm/mpt/delete/delete_branch.asm"),
