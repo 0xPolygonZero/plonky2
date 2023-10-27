@@ -24,6 +24,9 @@ fn eval_packed_get<P: PackedField>(
         yield_constr.constraint(filter * limb);
     }
 
+    // Constrain new stack length.
+    yield_constr.constraint(filter * (nv.stack_len - (lv.stack_len + P::ONES)));
+
     // Unused channels.
     for i in 1..NUM_GP_CHANNELS {
         if i != 3 {
@@ -51,6 +54,14 @@ fn eval_ext_circuit_get<F: RichField + Extendable<D>, const D: usize>(
     }
     for &limb in &new_stack_top[1..] {
         let constr = builder.mul_extension(filter, limb);
+        yield_constr.constraint(builder, constr);
+    }
+
+    // Constrain new stack length.
+    {
+        let new_len = builder.add_const_extension(lv.stack_len, F::ONE);
+        let diff = builder.sub_extension(nv.stack_len, new_len);
+        let constr = builder.mul_extension(filter, diff);
         yield_constr.constraint(builder, constr);
     }
 
@@ -103,7 +114,6 @@ fn eval_packed_set<P: PackedField>(
     yield_constr.constraint(filter * (read_new_sp_channel.addr_segment - ctx_metadata_segment));
     yield_constr.constraint(filter * (read_new_sp_channel.addr_virtual - stack_size_field));
 
-    // The new top is loaded is in memory channel 3, if the stack isn't empty (see eval_packed).
     // Constrain stack_inv_aux_2.
     let new_top_channel = nv.mem_channels[0];
     yield_constr.constraint(
@@ -111,6 +121,7 @@ fn eval_packed_set<P: PackedField>(
             * (lv.general.stack().stack_inv_aux * lv.opcode_bits[0]
                 - lv.general.stack().stack_inv_aux_2),
     );
+    // The new top is loaded in memory channel 3, if the stack isn't empty (see eval_packed).
     yield_constr.constraint(
         lv.op.context_op
             * lv.general.stack().stack_inv_aux_2
@@ -218,7 +229,6 @@ fn eval_ext_circuit_set<F: RichField + Extendable<D>, const D: usize>(
         yield_constr.constraint(builder, constr);
     }
 
-    // The new top is loaded is in memory channel 3, if the stack isn't empty (see eval_packed).
     // Constrain stack_inv_aux_2.
     let new_top_channel = nv.mem_channels[0];
     {
@@ -230,6 +240,7 @@ fn eval_ext_circuit_set<F: RichField + Extendable<D>, const D: usize>(
         let constr = builder.mul_extension(lv.op.context_op, diff);
         yield_constr.constraint(builder, constr);
     }
+    // The new top is loaded in memory channel 3, if the stack isn't empty (see eval_packed).
     {
         let diff = builder.sub_extension(lv.mem_channels[3].value[0], new_top_channel.value[0]);
         let prod = builder.mul_extension(lv.general.stack().stack_inv_aux_2, diff);
