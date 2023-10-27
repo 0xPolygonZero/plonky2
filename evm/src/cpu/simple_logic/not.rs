@@ -6,7 +6,6 @@ use plonky2::iop::ext_target::ExtensionTarget;
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::CpuColumnsView;
-use crate::cpu::membus::NUM_GP_CHANNELS;
 use crate::cpu::stack;
 
 const LIMB_SIZE: usize = 32;
@@ -19,7 +18,7 @@ pub fn eval_packed<P: PackedField>(
 ) {
     // This is simple: just do output = 0xffffffff - input.
     let input = lv.mem_channels[0].value;
-    let output = lv.mem_channels[NUM_GP_CHANNELS - 1].value;
+    let output = nv.mem_channels[0].value;
     let filter = lv.op.not_pop * lv.opcode_bits[0];
     for (input_limb, output_limb) in input.into_iter().zip(output) {
         yield_constr.constraint(
@@ -38,7 +37,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
     let input = lv.mem_channels[0].value;
-    let output = lv.mem_channels[NUM_GP_CHANNELS - 1].value;
+    let output = nv.mem_channels[0].value;
     let filter = builder.mul_extension(lv.op.not_pop, lv.opcode_bits[0]);
     for (input_limb, output_limb) in input.into_iter().zip(output) {
         let constr = builder.add_extension(output_limb, input_limb);

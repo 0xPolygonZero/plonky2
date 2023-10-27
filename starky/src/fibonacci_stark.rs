@@ -6,13 +6,14 @@ use plonky2::field::extension::{Extendable, FieldExtension};
 use plonky2::field::packed::PackedField;
 use plonky2::field::polynomial::PolynomialValues;
 use plonky2::hash::hash_types::RichField;
+use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
+use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
 use crate::permutation::PermutationPair;
 use crate::stark::Stark;
 use crate::util::trace_rows_to_poly_values;
-use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 
 /// Toy STARK system used for testing.
 /// Computes a Fibonacci sequence with state `[x0, x1, i, j]` using the state transition
@@ -57,57 +58,67 @@ impl<F: RichField + Extendable<D>, const D: usize> FibonacciStark<F, D> {
     }
 }
 
+const COLUMNS: usize = 4;
+const PUBLIC_INPUTS: usize = 3;
+
 impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for FibonacciStark<F, D> {
-    const COLUMNS: usize = 4;
-    const PUBLIC_INPUTS: usize = 3;
+    type EvaluationFrame<FE, P, const D2: usize> = StarkFrame<P, P::Scalar, COLUMNS, PUBLIC_INPUTS>
+    where
+        FE: FieldExtension<D2, BaseField = F>,
+        P: PackedField<Scalar = FE>;
+
+    type EvaluationFrameTarget =
+        StarkFrame<ExtensionTarget<D>, ExtensionTarget<D>, COLUMNS, PUBLIC_INPUTS>;
 
     fn eval_packed_generic<FE, P, const D2: usize>(
         &self,
-        vars: StarkEvaluationVars<FE, P, { Self::COLUMNS }, { Self::PUBLIC_INPUTS }>,
+        vars: &Self::EvaluationFrame<FE, P, D2>,
         yield_constr: &mut ConstraintConsumer<P>,
     ) where
         FE: FieldExtension<D2, BaseField = F>,
         P: PackedField<Scalar = FE>,
     {
+        let local_values = vars.get_local_values();
+        let next_values = vars.get_next_values();
+        let public_inputs = vars.get_public_inputs();
+
         // Check public inputs.
-        yield_constr
-            .constraint_first_row(vars.local_values[0] - vars.public_inputs[Self::PI_INDEX_X0]);
-        yield_constr
-            .constraint_first_row(vars.local_values[1] - vars.public_inputs[Self::PI_INDEX_X1]);
-        yield_constr
-            .constraint_last_row(vars.local_values[1] - vars.public_inputs[Self::PI_INDEX_RES]);
+        yield_constr.constraint_first_row(local_values[0] - public_inputs[Self::PI_INDEX_X0]);
+        yield_constr.constraint_first_row(local_values[1] - public_inputs[Self::PI_INDEX_X1]);
+        yield_constr.constraint_last_row(local_values[1] - public_inputs[Self::PI_INDEX_RES]);
 
         // x0' <- x1
-        yield_constr.constraint_transition(vars.next_values[0] - vars.local_values[1]);
+        yield_constr.constraint_transition(next_values[0] - local_values[1]);
         // x1' <- x0 + x1
-        yield_constr.constraint_transition(
-            vars.next_values[1] - vars.local_values[0] - vars.local_values[1],
-        );
+        yield_constr.constraint_transition(next_values[1] - local_values[0] - local_values[1]);
     }
 
     fn eval_ext_circuit(
         &self,
         builder: &mut CircuitBuilder<F, D>,
-        vars: StarkEvaluationTargets<D, { Self::COLUMNS }, { Self::PUBLIC_INPUTS }>,
+        vars: &Self::EvaluationFrameTarget,
         yield_constr: &mut RecursiveConstraintConsumer<F, D>,
     ) {
+        let local_values = vars.get_local_values();
+        let next_values = vars.get_next_values();
+        let public_inputs = vars.get_public_inputs();
         // Check public inputs.
         let pis_constraints = [
-            builder.sub_extension(vars.local_values[0], vars.public_inputs[Self::PI_INDEX_X0]),
-            builder.sub_extension(vars.local_values[1], vars.public_inputs[Self::PI_INDEX_X1]),
-            builder.sub_extension(vars.local_values[1], vars.public_inputs[Self::PI_INDEX_RES]),
+            builder.sub_extension(local_values[0], public_inputs[Self::PI_INDEX_X0]),
+            builder.sub_extension(local_values[1], public_inputs[Self::PI_INDEX_X1]),
+            builder.sub_extension(local_values[1], public_inputs[Self::PI_INDEX_RES]),
         ];
         yield_constr.constraint_first_row(builder, pis_constraints[0]);
         yield_constr.constraint_first_row(builder, pis_constraints[1]);
         yield_constr.constraint_last_row(builder, pis_constraints[2]);
 
         // x0' <- x1
-        let first_col_constraint = builder.sub_extension(vars.next_values[0], vars.local_values[1]);
+        let first_col_constraint = builder.sub_extension(next_values[0], local_values[1]);
         yield_constr.constraint_transition(builder, first_col_constraint);
         // x1' <- x0 + x1
         let second_col_constraint = {
-            let tmp = builder.sub_extension(vars.next_values[1], vars.local_values[0]);
-            builder.sub_extension(tmp, vars.local_values[1])
+            let tmp = builder.sub_extension(next_values[1], local_values[0]);
+            builder.sub_extension(tmp, local_values[1])
         };
         yield_constr.constraint_transition(builder, second_col_constraint);
     }
@@ -165,7 +176,7 @@ mod tests {
             stark,
             &config,
             trace,
-            public_inputs,
+            &public_inputs,
             &mut TimingTree::default(),
         )?;
 
@@ -213,7 +224,7 @@ mod tests {
             stark,
             &config,
             trace,
-            public_inputs,
+            &public_inputs,
             &mut TimingTree::default(),
         )?;
         verify_stark_proof(stark, proof.clone(), &config)?;
@@ -235,8 +246,6 @@ mod tests {
     ) -> Result<()>
     where
         InnerC::Hasher: AlgebraicHasher<F>,
-        [(); S::COLUMNS]:,
-        [(); S::PUBLIC_INPUTS]:,
     {
         let circuit_config = CircuitConfig::standard_recursion_config();
         let mut builder = CircuitBuilder::<F, D>::new(circuit_config);
