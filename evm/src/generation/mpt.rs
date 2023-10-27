@@ -92,9 +92,9 @@ pub(crate) fn parse_receipts(rlp: &[u8]) -> Result<Vec<U256>, ProgramError> {
 }
 
 pub(crate) fn state_smt_prover_inputs(trie_inputs: &TrieInputs) -> Vec<U256> {
-    let len = trie_inputs.state_trie.len();
+    let len = trie_inputs.state_smt.len();
     let mut v = vec![len.into()];
-    v.extend(trie_inputs.state_trie.iter());
+    v.extend(trie_inputs.state_smt.iter());
     v
 }
 

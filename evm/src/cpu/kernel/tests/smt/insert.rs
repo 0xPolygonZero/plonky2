@@ -5,6 +5,7 @@ use smt_utils::account::Account;
 use smt_utils::smt::{AccountOrValue, Smt, ValOrHash};
 
 use crate::cpu::kernel::aggregator::KERNEL;
+use crate::cpu::kernel::constants::evm_constants;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
 use crate::cpu::kernel::interpreter::Interpreter;
 use crate::generation::mpt::{all_mpt_prover_inputs_reversed, state_smt_prover_inputs_reversed};
@@ -30,7 +31,7 @@ fn smt_insert_state() -> Result<()> {
 
 fn test_state_smt(mut state_smt: Smt, new_key: U256, new_account: Account) -> Result<()> {
     let trie_inputs = TrieInputs {
-        state_trie: state_smt.serialize(),
+        state_smt: state_smt.serialize(),
         transactions_trie: Default::default(),
         receipts_trie: Default::default(),
         storage_tries: vec![],
@@ -158,7 +159,7 @@ fn test_storage_smt(mut storage_smt: Smt, new_key: U256, new_val: U256) -> Resul
         .content
         .resize(13371338, U256::zero());
     interpreter.generation_state.memory.contexts[0].segments[Segment::KernelGeneral as usize]
-        .content[13371337] = U256::one(); // To hash storage trie.
+        .content[evm_constants()["SMT_IS_STORAGE"].as_usize()] = U256::one(); // To hash storage trie.
     let ptr = interpreter.stack()[0];
     interpreter.pop();
     interpreter.push(0xDEADBEEFu32.into());

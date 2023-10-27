@@ -12,6 +12,12 @@ use crate::generation::TrieInputs;
 // TODO: Test with short leaf. Might need to be a storage trie.
 
 #[test]
+fn smt_hash_empty() -> Result<()> {
+    let smt = Smt::empty();
+    test_state_smt(smt)
+}
+
+#[test]
 fn smt_hash() -> Result<()> {
     let n = 100;
     let mut rng = thread_rng();
@@ -23,7 +29,7 @@ fn smt_hash() -> Result<()> {
 
 fn test_state_smt(state_smt: Smt) -> Result<()> {
     let trie_inputs = TrieInputs {
-        state_trie: state_smt.serialize(),
+        state_smt: state_smt.serialize(),
         transactions_trie: Default::default(),
         receipts_trie: Default::default(),
         storage_tries: vec![],
@@ -57,128 +63,3 @@ fn test_state_smt(state_smt: Smt) -> Result<()> {
 
     Ok(())
 }
-
-// #[test]
-// fn smt_hash_empty() -> Result<()> {
-//     let trie_inputs = TrieInputs {
-//         state_trie: Default::default(),
-//         transactions_trie: Default::default(),
-//         receipts_trie: Default::default(),
-//         storage_tries: vec![],
-//     };
-//
-//     test_state_trie(trie_inputs)
-// }
-//
-// #[test]
-// fn mpt_hash_empty_branch() -> Result<()> {
-//     let children = core::array::from_fn(|_| Node::Empty.into());
-//     let state_trie = Node::Branch {
-//         children,
-//         value: vec![],
-//     }
-//     .into();
-//     let trie_inputs = TrieInputs {
-//         state_trie,
-//         transactions_trie: Default::default(),
-//         receipts_trie: Default::default(),
-//         storage_tries: vec![],
-//     };
-//     test_state_trie(trie_inputs)
-// }
-//
-// #[test]
-// fn mpt_hash_hash() -> Result<()> {
-//     let hash = H256::random();
-//     let trie_inputs = TrieInputs {
-//         state_trie: Node::Hash(hash).into(),
-//         transactions_trie: Default::default(),
-//         receipts_trie: Default::default(),
-//         storage_tries: vec![],
-//     };
-//
-//     test_state_trie(trie_inputs)
-// }
-//
-// #[test]
-// fn mpt_hash_leaf() -> Result<()> {
-//     let state_trie = Node::Leaf {
-//         nibbles: 0xABC_u64.into(),
-//         value: test_account_1_rlp(),
-//     }
-//     .into();
-//     let trie_inputs = TrieInputs {
-//         state_trie,
-//         transactions_trie: Default::default(),
-//         receipts_trie: Default::default(),
-//         storage_tries: vec![],
-//     };
-//     test_state_trie(trie_inputs)
-// }
-//
-// #[test]
-// fn mpt_hash_extension_to_leaf() -> Result<()> {
-//     let state_trie = extension_to_leaf(test_account_1_rlp());
-//     let trie_inputs = TrieInputs {
-//         state_trie,
-//         transactions_trie: Default::default(),
-//         receipts_trie: Default::default(),
-//         storage_tries: vec![],
-//     };
-//     test_state_trie(trie_inputs)
-// }
-//
-// #[test]
-// fn mpt_hash_branch_to_leaf() -> Result<()> {
-//     let leaf = Node::Leaf {
-//         nibbles: 0xABC_u64.into(),
-//         value: test_account_2_rlp(),
-//     }
-//     .into();
-//
-//     let mut children = core::array::from_fn(|_| Node::Empty.into());
-//     children[3] = leaf;
-//     let state_trie = Node::Branch {
-//         children,
-//         value: vec![],
-//     }
-//     .into();
-//
-//     let trie_inputs = TrieInputs {
-//         state_trie,
-//         transactions_trie: Default::default(),
-//         receipts_trie: Default::default(),
-//         storage_tries: vec![],
-//     };
-//
-//     test_state_trie(trie_inputs)
-// }
-//
-// fn test_state_trie(trie_inputs: TrieInputs) -> Result<()> {
-//     let load_all_mpts = KERNEL.global_labels["load_all_mpts"];
-//     let mpt_hash_state_trie = KERNEL.global_labels["mpt_hash_state_trie"];
-//
-//     let initial_stack = vec![0xDEADBEEFu32.into()];
-//     let mut interpreter = Interpreter::new_with_kernel(load_all_mpts, initial_stack);
-//     interpreter.generation_state.mpt_prover_inputs =
-//         all_mpt_prover_inputs_reversed(&trie_inputs).map_err(|_| anyhow!("Invalid MPT data"))?;
-//     interpreter.run()?;
-//     assert_eq!(interpreter.stack(), vec![]);
-//
-//     // Now, execute mpt_hash_state_trie.
-//     interpreter.generation_state.registers.program_counter = mpt_hash_state_trie;
-//     interpreter.push(0xDEADBEEFu32.into());
-//     interpreter.run()?;
-//
-//     assert_eq!(
-//         interpreter.stack().len(),
-//         1,
-//         "Expected 1 item on stack, found {:?}",
-//         interpreter.stack()
-//     );
-//     let hash = H256::from_uint(&interpreter.stack()[0]);
-//     let expected_state_trie_hash = trie_inputs.state_trie.hash();
-//     assert_eq!(hash, expected_state_trie_hash);
-//
-//     Ok(())
-// }

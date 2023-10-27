@@ -3,12 +3,16 @@
 %%after:
 %endmacro
 
+// Simply copy the serialized state SMT to `TrieData`.
+// First entry is the length of the serialized data.
 global load_state_smt:
     // stack: retdest
     PROVER_INPUT(smt::state)
     // stack: len, retdest
     %get_trie_data_size
+    // stack: i, len, retdest
     DUP2 %mstore_global_metadata(@GLOBAL_METADATA_TRIE_DATA_SIZE)
+    // stack: i, len, retdest
     DUP1 %add_const(2) // First two entries are [0,0] for an empty hash node.
     %mstore_global_metadata(@GLOBAL_METADATA_STATE_TRIE_ROOT)
     // stack: i, len, retdest

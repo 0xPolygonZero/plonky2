@@ -57,7 +57,7 @@ pub(crate) struct GenerationState<F: Field> {
 impl<F: Field> GenerationState<F> {
     pub(crate) fn new(inputs: GenerationInputs, kernel_code: &[u8]) -> Result<Self, ProgramError> {
         log::debug!("Input signed_txns: {:?}", &inputs.signed_txns);
-        log::debug!("Input state_trie: {:?}", &inputs.tries.state_trie);
+        log::debug!("Input state_trie: {:?}", &inputs.tries.state_smt);
         log::debug!(
             "Input transactions_trie: {:?}",
             &inputs.tries.transactions_trie

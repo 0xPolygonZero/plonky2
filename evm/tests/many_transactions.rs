@@ -75,7 +75,7 @@ fn test_four_transactions() -> anyhow::Result<()> {
     .unwrap();
 
     let tries_before = TrieInputs {
-        state_trie: state_smt_before.serialize(),
+        state_smt: state_smt_before.serialize(),
         transactions_trie: Node::Empty.into(),
         receipts_trie: Node::Empty.into(),
         storage_tries: vec![],

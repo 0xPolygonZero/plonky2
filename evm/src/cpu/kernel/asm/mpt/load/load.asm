@@ -1,10 +1,6 @@
 // Load all partial trie data from prover inputs.
 global load_all_mpts:
     // stack: retdest
-    // First set @GLOBAL_METADATA_TRIE_DATA_SIZE = 1.
-    // We don't want it to start at 0, as we use 0 as a null pointer.
-    // PUSH 1
-    // %set_trie_data_size
 
     %load_state_smt
     %load_mpt(mpt_load_txn_trie_value)     %mstore_global_metadata(@GLOBAL_METADATA_TXN_TRIE_ROOT)

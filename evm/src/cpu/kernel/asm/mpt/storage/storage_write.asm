@@ -1,4 +1,4 @@
-// Write a word to the current account's storage trie.
+// Write a word to the current account's storage SMT.
 //
 // Pre stack: kexit_info, slot, value
 // Post stack: (empty)
@@ -92,7 +92,7 @@ sstore_after_refund:
     DUP2 %address %journal_add_storage_change
     // stack: slot, value, kexit_info
 
-    // If the value is zero, delete the slot from the storage trie.
+    // If the value is zero, delete the slot from the storage SMT.
     // stack: slot, value, kexit_info
     DUP2 ISZERO %jumpi(sstore_delete)
 
@@ -110,7 +110,7 @@ sstore_after_refund:
     %stack (slot, value_ptr) -> (slot, value_ptr, after_storage_insert)
     %slot_to_storage_key
     // stack: storage_key, value_ptr, after_storage_insert, kexit_info
-    %current_storage_trie
+    %current_storage_smt
     // stack: storage_root_ptr, storage_key, value_ptr, after_storage_insert, kexit_info
     %jump(smt_insert)
 
@@ -131,7 +131,7 @@ sstore_noop:
     %pop3
     EXIT_KERNEL
 
-// Delete the slot from the storage trie.
+// Delete the slot from the storage SMT.
 sstore_delete:
     PANIC // TODO: Not implemented for SMT.
     // stack: slot, value, kexit_info
@@ -141,6 +141,6 @@ sstore_delete:
     %slot_to_storage_key
     // stack: storage_key, after_storage_insert, kexit_info
     PUSH 64 // storage_key has 64 nibbles
-    %current_storage_trie
+    %current_storage_smt
     // stack: storage_root_ptr, 64, storage_key, after_storage_insert, kexit_info
     %jump(mpt_delete)

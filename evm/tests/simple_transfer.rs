@@ -59,7 +59,7 @@ fn test_simple_transfer() -> anyhow::Result<()> {
     .unwrap();
 
     let tries_before = TrieInputs {
-        state_trie: state_smt_before.serialize(),
+        state_smt: state_smt_before.serialize(),
         transactions_trie: HashedPartialTrie::from(Node::Empty),
         receipts_trie: HashedPartialTrie::from(Node::Empty),
         storage_tries: vec![],

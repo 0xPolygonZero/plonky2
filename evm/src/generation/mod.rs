@@ -72,9 +72,9 @@ pub struct GenerationInputs {
 
 #[derive(Clone, Debug, Deserialize, Serialize, Default)]
 pub struct TrieInputs {
-    /// A partial version of the state trie prior to these transactions. It should include all nodes
+    /// A serialized partial version of the state SMT prior to these transactions. It should include all nodes
     /// that will be accessed by these transactions.
-    pub state_trie: Vec<U256>,
+    pub state_smt: Vec<U256>,
 
     /// A partial version of the transaction trie prior to these transactions. It should include all
     /// nodes that will be accessed by these transactions.
@@ -125,7 +125,7 @@ fn apply_metadata_and_tries_memops<F: RichField + Extendable<D>, const D: usize>
         ),
         (
             GlobalMetadata::StateTrieRootDigestBefore,
-            h2u(hash_serialize_state(&tries.state_trie)),
+            h2u(hash_serialize_state(&tries.state_smt)),
         ),
         (
             GlobalMetadata::TransactionTrieRootDigestBefore,

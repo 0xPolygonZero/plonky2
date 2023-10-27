@@ -122,7 +122,7 @@ fn test_log_opcodes() -> anyhow::Result<()> {
     );
 
     let tries_before = TrieInputs {
-        state_trie: state_smt_before.serialize(),
+        state_smt: state_smt_before.serialize(),
         transactions_trie: Node::Empty.into(),
         receipts_trie: receipts_trie.clone(),
         storage_tries: vec![(to_hashed, Node::Empty.into())],
@@ -338,7 +338,7 @@ fn test_log_with_aggreg() -> anyhow::Result<()> {
     let genesis_state_trie_root = state_smt_before.root;
 
     let tries_before = TrieInputs {
-        state_trie: state_smt_before.serialize(),
+        state_smt: state_smt_before.serialize(),
         transactions_trie: Node::Empty.into(),
         receipts_trie: Node::Empty.into(),
         storage_tries: vec![],
@@ -469,7 +469,7 @@ fn test_log_with_aggreg() -> anyhow::Result<()> {
     let state_trie_before = expected_state_smt_after;
 
     let tries_before = TrieInputs {
-        state_trie: state_trie_before.serialize(),
+        state_smt: state_trie_before.serialize(),
         transactions_trie: transactions_trie.clone(),
         receipts_trie: receipts_trie.clone(),
         storage_tries: vec![],
@@ -783,7 +783,7 @@ fn test_two_txn() -> anyhow::Result<()> {
     .unwrap();
 
     let tries_before = TrieInputs {
-        state_trie: state_smt_before.serialize(),
+        state_smt: state_smt_before.serialize(),
         transactions_trie: Node::Empty.into(),
         receipts_trie: Node::Empty.into(),
         storage_tries: vec![(to_hashed, Node::Empty.into())],

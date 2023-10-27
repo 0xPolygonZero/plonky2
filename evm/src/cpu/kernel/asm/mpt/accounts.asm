@@ -10,7 +10,7 @@
 %endmacro
 
 // Returns a pointer to the root of the storage trie associated with the current account.
-%macro current_storage_trie
+%macro current_storage_smt
     // stack: (empty)
     %current_account_data
     // stack: account_ptr
