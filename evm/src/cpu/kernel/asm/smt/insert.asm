@@ -1,7 +1,15 @@
 global smt_insert_state:
     // stack: key, new_account_ptr, retdest
+    %stack (key, new_account_ptr) -> (key, new_account_ptr, smt_insert_state_set_root)
     %mload_global_metadata(@GLOBAL_METADATA_STATE_TRIE_ROOT)
-    // stack: root_ptr, key, new_account_ptr, retdest
+    // stack: root_ptr, key, new_account_ptr, smt_insert_state_set_root, retdest
+    %jump(smt_insert)
+
+global smt_insert_state_set_root:
+    // stack: root_ptr, retdest
+    %mstore_global_metadata(@GLOBAL_METADATA_STATE_TRIE_ROOT)
+    // stack: retdest
+    JUMP
 
 // value_ptr should point to a an empty slot reserved for `rem_key`, followed by the actual value.
 global smt_insert:
