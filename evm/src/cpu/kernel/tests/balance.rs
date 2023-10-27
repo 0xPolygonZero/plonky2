@@ -46,7 +46,7 @@ fn prepare_interpreter(
     assert_eq!(interpreter.stack(), vec![]);
 
     let k = keccak(address.to_fixed_bytes());
-    // Next, execute mpt_insert_state_trie.
+    // Next, execute smt_insert_state.
     interpreter.generation_state.registers.program_counter = smt_insert_state;
     let trie_data = interpreter.get_trie_data_mut();
     if trie_data.is_empty() {
