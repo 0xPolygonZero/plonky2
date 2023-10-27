@@ -349,6 +349,7 @@ impl<'a> Interpreter<'a> {
             0x0c => self.run_addfp254(),                                // "ADDFP254",
             0x0d => self.run_mulfp254(),                                // "MULFP254",
             0x0e => self.run_subfp254(),                                // "SUBFP254",
+            0x0f => self.run_submod(),                                  // "SUBMOD",
             0x10 => self.run_lt(),                                      // "LT",
             0x11 => self.run_gt(),                                      // "GT",
             0x12 => self.run_slt(),                                     // "SLT",
@@ -580,6 +581,17 @@ impl<'a> Interpreter<'a> {
             U256::zero()
         } else {
             U256::try_from((x + y) % z).unwrap()
+        });
+    }
+
+    fn run_submod(&mut self) {
+        let x = U512::from(self.pop());
+        let y = U512::from(self.pop());
+        let z = U512::from(self.pop());
+        self.push(if z.is_zero() {
+            U256::zero()
+        } else {
+            U256::try_from((z + x - y) % z).unwrap()
         });
     }
 
@@ -1220,6 +1232,7 @@ fn get_mnemonic(opcode: u8) -> &'static str {
         0x0c => "ADDFP254",
         0x0d => "MULFP254",
         0x0e => "SUBFP254",
+        0x0f => "SUBMOD",
         0x10 => "LT",
         0x11 => "GT",
         0x12 => "SLT",

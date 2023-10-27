@@ -17,39 +17,33 @@ use crate::memory::segments::Segment;
 pub(crate) struct StackBehavior {
     pub(crate) num_pops: usize,
     pub(crate) pushes: bool,
-    new_top_stack_channel: Option<usize>,
     disable_other_channels: bool,
 }
 
 const BASIC_BINARY_OP: Option<StackBehavior> = Some(StackBehavior {
     num_pops: 2,
     pushes: true,
-    new_top_stack_channel: Some(NUM_GP_CHANNELS - 1),
     disable_other_channels: true,
 });
 const BASIC_TERNARY_OP: Option<StackBehavior> = Some(StackBehavior {
     num_pops: 3,
     pushes: true,
-    new_top_stack_channel: Some(NUM_GP_CHANNELS - 1),
     disable_other_channels: true,
 });
 pub(crate) const JUMP_OP: Option<StackBehavior> = Some(StackBehavior {
     num_pops: 1,
     pushes: false,
-    new_top_stack_channel: None,
     disable_other_channels: false,
 });
 pub(crate) const JUMPI_OP: Option<StackBehavior> = Some(StackBehavior {
     num_pops: 2,
     pushes: false,
-    new_top_stack_channel: None,
     disable_other_channels: false,
 });
 
 pub(crate) const MLOAD_GENERAL_OP: Option<StackBehavior> = Some(StackBehavior {
     num_pops: 3,
     pushes: true,
-    new_top_stack_channel: None,
     disable_other_channels: false,
 });
 
@@ -67,80 +61,67 @@ pub(crate) const STACK_BEHAVIORS: OpsColumnsView<Option<StackBehavior>> = OpsCol
     not: Some(StackBehavior {
         num_pops: 1,
         pushes: true,
-        new_top_stack_channel: Some(NUM_GP_CHANNELS - 1),
         disable_other_channels: true,
     }),
     shift: Some(StackBehavior {
         num_pops: 2,
         pushes: true,
-        new_top_stack_channel: Some(NUM_GP_CHANNELS - 1),
         disable_other_channels: false,
     }),
     keccak_general: Some(StackBehavior {
         num_pops: 4,
         pushes: true,
-        new_top_stack_channel: Some(NUM_GP_CHANNELS - 1),
         disable_other_channels: true,
     }),
     prover_input: None, // TODO
     pop: Some(StackBehavior {
         num_pops: 1,
         pushes: false,
-        new_top_stack_channel: None,
         disable_other_channels: true,
     }),
     jumps: None, // Depends on whether it's a JUMP or a JUMPI.
     pc: Some(StackBehavior {
         num_pops: 0,
         pushes: true,
-        new_top_stack_channel: None,
         disable_other_channels: true,
     }),
     jumpdest: Some(StackBehavior {
         num_pops: 0,
         pushes: false,
-        new_top_stack_channel: None,
         disable_other_channels: true,
     }),
     push0: Some(StackBehavior {
         num_pops: 0,
         pushes: true,
-        new_top_stack_channel: None,
         disable_other_channels: true,
     }),
     push: None, // TODO
-    dup: None,
-    swap: None,
+    dup_swap: None,
     context_op: None,
     mload_32bytes: Some(StackBehavior {
         num_pops: 4,
         pushes: true,
-        new_top_stack_channel: Some(4),
         disable_other_channels: false,
     }),
     mstore_32bytes: Some(StackBehavior {
         num_pops: 5,
         pushes: false,
-        new_top_stack_channel: None,
         disable_other_channels: false,
     }),
     exit_kernel: Some(StackBehavior {
         num_pops: 1,
         pushes: false,
-        new_top_stack_channel: None,
         disable_other_channels: true,
     }),
     m_op_general: None,
     syscall: Some(StackBehavior {
         num_pops: 0,
         pushes: true,
-        new_top_stack_channel: None,
         disable_other_channels: false,
     }),
     exception: Some(StackBehavior {
         num_pops: 0,
         pushes: true,
-        new_top_stack_channel: None,
         disable_other_channels: false,
     }),
 };
@@ -148,13 +129,11 @@ pub(crate) const STACK_BEHAVIORS: OpsColumnsView<Option<StackBehavior>> = OpsCol
 pub(crate) const EQ_STACK_BEHAVIOR: Option<StackBehavior> = Some(StackBehavior {
     num_pops: 2,
     pushes: true,
-    new_top_stack_channel: Some(2),
     disable_other_channels: true,
 });
 pub(crate) const IS_ZERO_STACK_BEHAVIOR: Option<StackBehavior> = Some(StackBehavior {
     num_pops: 1,
     pushes: true,
-    new_top_stack_channel: Some(2),
     disable_other_channels: true,
 });
 
@@ -248,18 +227,6 @@ pub(crate) fn eval_packed_one<P: PackedField>(
             .zip(nv.mem_channels[0].value.iter())
         {
             yield_constr.constraint(filter * (*limb_old - *limb_new));
-        }
-    }
-
-    // Maybe constrain next stack_top.
-    // These are transition constraints: they don't apply to the last row.
-    if let Some(next_top_ch) = stack_behavior.new_top_stack_channel {
-        for (limb_ch, limb_top) in lv.mem_channels[next_top_ch]
-            .value
-            .iter()
-            .zip(nv.mem_channels[0].value.iter())
-        {
-            yield_constr.constraint_transition(filter * (*limb_ch - *limb_top));
         }
     }
 
@@ -470,20 +437,6 @@ pub(crate) fn eval_ext_circuit_one<F: RichField + Extendable<D>, const D: usize>
                 let constr = builder.mul_extension(filter, diff);
                 yield_constr.constraint(builder, constr);
             }
-        }
-    }
-
-    // Maybe constrain next stack_top.
-    // These are transition constraints: they don't apply to the last row.
-    if let Some(next_top_ch) = stack_behavior.new_top_stack_channel {
-        for (limb_ch, limb_top) in lv.mem_channels[next_top_ch]
-            .value
-            .iter()
-            .zip(nv.mem_channels[0].value.iter())
-        {
-            let diff = builder.sub_extension(*limb_ch, *limb_top);
-            let constr = builder.mul_extension(filter, diff);
-            yield_constr.constraint_transition(builder, constr);
         }
     }
 

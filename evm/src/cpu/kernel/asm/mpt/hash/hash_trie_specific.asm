@@ -116,7 +116,7 @@ global encode_txn:
         0, @SEGMENT_TRIE_DATA, txn_rlp_ptr, // src addr. Kernel has context 0
         txn_rlp_len, // mcpy len
         txn_rlp_len, rlp_pos)
-    %memcpy
+    %memcpy_bytes
     ADD
     // stack new_rlp_pos, retdest
     SWAP1
