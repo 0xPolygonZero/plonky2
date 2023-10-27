@@ -58,7 +58,7 @@ fn test_empty_txn_list() -> anyhow::Result<()> {
         },
         trie_roots_after,
         contract_code,
-        genesis_state_trie_root: HashedPartialTrie::from(Node::Empty).hash(),
+        genesis_state_trie_root: Smt::empty().root,
         block_metadata,
         txn_number_before: 0.into(),
         gas_used_before: 0.into(),
