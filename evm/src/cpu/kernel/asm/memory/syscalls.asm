@@ -91,8 +91,7 @@ calldataload_large_offset:
     GET_CONTEXT
     PUSH $segment
     // stack: segment, context, kexit_info, dest_offset, offset, size
-    PUSH wcopy_within_bounds
-    JUMP
+    %jump(wcopy_within_bounds)
 %endmacro
 
 %macro wcopy_charge_gas
