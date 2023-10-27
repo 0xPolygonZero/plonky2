@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::ops::Deref;
 
 use bytes::Bytes;
@@ -11,7 +10,7 @@ use rlp_derive::{RlpDecodable, RlpEncodable};
 
 use crate::cpu::kernel::constants::trie_type::PartialTrieType;
 use crate::generation::TrieInputs;
-use crate::witness::errors::{ProgramError, ProverInputError};
+use crate::witness::errors::ProgramError;
 use crate::Node;
 
 #[derive(RlpEncodable, RlpDecodable, Debug)]

@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use anyhow::{anyhow, Result};
-use eth_trie_utils::partial_trie::{HashedPartialTrie, PartialTrie};
+use eth_trie_utils::partial_trie::PartialTrie;
 use ethereum_types::{Address, BigEndianHash, H256, U256};
 use keccak_hash::keccak;
 use rand::{thread_rng, Rng};
@@ -11,10 +11,8 @@ use smt_utils::smt::Smt;
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
 use crate::cpu::kernel::interpreter::Interpreter;
-use crate::cpu::kernel::tests::mpt::nibbles_64;
-use crate::generation::mpt::{all_mpt_prover_inputs_reversed, AccountRlp};
+use crate::generation::mpt::all_mpt_prover_inputs_reversed;
 use crate::memory::segments::Segment;
-use crate::Node;
 
 // Test account with a given code hash.
 fn test_account(code: &[u8]) -> Account {
