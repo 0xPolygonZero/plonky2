@@ -1127,7 +1127,6 @@ impl<'a> Interpreter<'a> {
     }
 
     fn run_exit_kernel(&mut self) {
-        let _dummy = self.pop(); // not sure why we need this extra pop on the interpreter
         let kexit_info = self.pop();
 
         let kexit_info_u64 = kexit_info.0[0];

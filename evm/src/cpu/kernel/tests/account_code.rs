@@ -169,12 +169,11 @@ fn test_extcodecopy() -> Result<()> {
     interpreter.generation_state.registers.program_counter = extcodecopy;
     interpreter.pop();
     assert!(interpreter.stack().is_empty());
-    interpreter.push(0xDEADBEEFu32.into());
     interpreter.push(size.into());
     interpreter.push(offset.into());
     interpreter.push(dest_offset.into());
     interpreter.push(U256::from_big_endian(address.as_bytes()));
-    interpreter.push(0.into()); // kexit_info
+    interpreter.push(0xDEADBEEFu32.into()); // kexit_info
     interpreter.generation_state.inputs.contract_code =
         HashMap::from([(keccak(&code), code.clone())]);
     interpreter.run()?;
