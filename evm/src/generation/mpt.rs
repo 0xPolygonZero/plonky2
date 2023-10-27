@@ -1,9 +1,8 @@
 use std::ops::Deref;
 
 use bytes::Bytes;
-use eth_trie_utils::nibbles::Nibbles;
 use eth_trie_utils::partial_trie::{HashedPartialTrie, PartialTrie};
-use ethereum_types::{Address, BigEndianHash, H256, U256, U512};
+use ethereum_types::{Address, H256, U256};
 use keccak_hash::keccak;
 use rlp::{Decodable, DecoderError, Encodable, PayloadInfo, Rlp, RlpStream};
 use rlp_derive::{RlpDecodable, RlpEncodable};
@@ -173,22 +172,6 @@ where
 
             Ok(())
         }
-    }
-}
-
-pub(crate) fn prover_inputs_state_smt(smt: &[U256], prover_inputs: &mut Vec<U256>) {
-    prover_inputs.extend(smt);
-}
-
-fn parse_storage_value(value_rlp: &[u8]) -> Result<Vec<U256>, ProgramError> {
-    let value: U256 = rlp::decode(value_rlp).map_err(|_| ProgramError::InvalidRlp)?;
-    Ok(vec![value])
-}
-
-fn empty_nibbles() -> Nibbles {
-    Nibbles {
-        count: 0,
-        packed: U512::zero(),
     }
 }
 

@@ -1,17 +1,13 @@
 use anyhow::{anyhow, Result};
-use eth_trie_utils::partial_trie::PartialTrie;
 use ethereum_types::{BigEndianHash, H256, U256};
 use rand::{thread_rng, Rng};
-use smt_utils::smt::{AccountOrValue, Smt, ValOrHash};
+use smt_utils::account::Account;
+use smt_utils::smt::Smt;
 
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::interpreter::Interpreter;
-use crate::cpu::kernel::tests::mpt::{extension_to_leaf, test_account_1_rlp, test_account_2_rlp};
-use crate::generation::mpt::{
-    all_mpt_prover_inputs_reversed, state_smt_prover_inputs, state_smt_prover_inputs_reversed,
-};
+use crate::generation::mpt::{all_mpt_prover_inputs_reversed, state_smt_prover_inputs_reversed};
 use crate::generation::TrieInputs;
-use crate::Node;
 
 // TODO: Test with short leaf. Might need to be a storage trie.
 
@@ -19,12 +15,7 @@ use crate::Node;
 fn smt_hash() -> Result<()> {
     let n = 100;
     let mut rng = thread_rng();
-    let rand_node = |_| {
-        (
-            U256(rng.gen()).into(),
-            ValOrHash::Val(AccountOrValue::Account(rng.gen())),
-        )
-    };
+    let rand_node = |_| (U256(rng.gen()).into(), Account::rand(10).into());
     let smt = Smt::new((0..n).map(rand_node)).unwrap();
 
     test_state_smt(smt)

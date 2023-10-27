@@ -1,6 +1,5 @@
 use anyhow::{anyhow, Result};
-use eth_trie_utils::partial_trie::PartialTrie;
-use ethereum_types::{BigEndianHash, H256, U256};
+use ethereum_types::{BigEndianHash, U256};
 use rand::{thread_rng, Rng};
 use smt_utils::account::Account;
 use smt_utils::smt::{AccountOrValue, Smt, ValOrHash};
@@ -8,13 +7,9 @@ use smt_utils::smt::{AccountOrValue, Smt, ValOrHash};
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
 use crate::cpu::kernel::interpreter::Interpreter;
-use crate::cpu::kernel::tests::mpt::{extension_to_leaf, test_account_1_rlp, test_account_2_rlp};
-use crate::generation::mpt::{
-    all_mpt_prover_inputs_reversed, state_smt_prover_inputs, state_smt_prover_inputs_reversed,
-};
+use crate::generation::mpt::{all_mpt_prover_inputs_reversed, state_smt_prover_inputs_reversed};
 use crate::generation::TrieInputs;
 use crate::memory::segments::Segment;
-use crate::Node;
 
 #[test]
 fn smt_insert_state() -> Result<()> {

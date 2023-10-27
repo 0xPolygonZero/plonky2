@@ -188,6 +188,7 @@ impl<'a> Interpreter<'a> {
             .set(field as usize, value)
     }
 
+    #[allow(unused)]
     pub(crate) fn get_trie_data(&self) -> &[U256] {
         &self.generation_state.memory.contexts[0].segments[Segment::TrieData as usize].content
     }

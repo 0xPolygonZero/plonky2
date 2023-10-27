@@ -24,7 +24,6 @@ use plonky2_evm::proof::{BlockHashes, BlockMetadata, ExtraBlockData, PublicValue
 use plonky2_evm::prover::prove;
 use plonky2_evm::verifier::verify_proof;
 use plonky2_evm::Node;
-use serde::Serialize;
 use smt_utils::account::Account;
 use smt_utils::smt::Smt;
 
@@ -535,8 +534,8 @@ fn test_log_with_aggreg() -> anyhow::Result<()> {
 
     receipts_trie.insert(receipt_nibbles, rlp::encode(&receipt).to_vec());
 
-    // Update the state trie.
-    let mut expected_state_trie_after = Smt::new([
+    // Update the state SMT.
+    let expected_state_trie_after = Smt::new([
         (beneficiary_bits, beneficiary_account_after.into()),
         (sender_bits, sender_account_after.into()),
         (to_bits, to_account_after.into()),

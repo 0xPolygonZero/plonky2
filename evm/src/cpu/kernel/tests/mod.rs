@@ -10,7 +10,6 @@ mod ecc;
 mod exp;
 mod hash;
 mod log;
-mod mpt;
 mod packing;
 mod receipt;
 mod rlp;

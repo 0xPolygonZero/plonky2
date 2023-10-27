@@ -33,7 +33,6 @@ pub enum ProverInputError {
     OutOfSmtData,
     OutOfRlpData,
     CodeHashNotFound,
-    InvalidMptInput,
     InvalidInput,
     InvalidFunction,
 }
