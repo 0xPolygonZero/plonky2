@@ -43,9 +43,9 @@ fn self_balance_gas_cost() -> anyhow::Result<()> {
     let sender_state_key = keccak(sender);
     let to_hashed = keccak(to);
 
-    let beneficiary_bits = beneficiary_state_key.into_uint().into();
-    let sender_bits = sender_state_key.into_uint().into();
-    let to_bits = to_hashed.into_uint().into();
+    let beneficiary_bits = beneficiary_state_key.into();
+    let sender_bits = sender_state_key.into();
+    let to_bits = to_hashed.into();
 
     let code = [
         0x5a, 0x47, 0x5a, 0x90, 0x50, 0x90, 0x03, 0x60, 0x02, 0x90, 0x03, 0x60, 0x01, 0x55, 0x00,

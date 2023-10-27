@@ -45,9 +45,9 @@ fn test_four_transactions() -> anyhow::Result<()> {
     let sender_state_key = keccak(sender);
     let to_state_key = keccak(to);
 
-    let beneficiary_bits = beneficiary_state_key.into_uint().into();
-    let sender_bits = sender_state_key.into_uint().into();
-    let to_bits = to_state_key.into_uint().into();
+    let beneficiary_bits = beneficiary_state_key.into();
+    let sender_bits = sender_state_key.into();
+    let to_bits = to_state_key.into();
 
     let push1 = get_push_opcode(1);
     let add = get_opcode("ADD");

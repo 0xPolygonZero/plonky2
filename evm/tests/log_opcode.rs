@@ -50,9 +50,9 @@ fn test_log_opcodes() -> anyhow::Result<()> {
     let sender_state_key = keccak(sender);
     let to_hashed = keccak(to);
 
-    let beneficiary_bits = beneficiary_state_key.into_uint().into();
-    let sender_bits = sender_state_key.into_uint().into();
-    let to_bits = to_hashed.into_uint().into();
+    let beneficiary_bits = beneficiary_state_key.into();
+    let sender_bits = sender_state_key.into();
+    let to_bits = to_hashed.into();
 
     // For the first code transaction code, we consider two LOG opcodes. The first deals with 0 topics and empty data. The second deals with two topics, and data of length 5, stored in memory.
     let code = [
@@ -304,10 +304,10 @@ fn test_log_with_aggreg() -> anyhow::Result<()> {
     let to_hashed = keccak(to_first);
     let to_hashed_2 = keccak(to);
 
-    let beneficiary_bits = beneficiary_state_key.into_uint().into();
-    let sender_bits = sender_state_key.into_uint().into();
-    let to_bits = to_hashed.into_uint().into();
-    let to_second_bits = to_hashed_2.into_uint().into();
+    let beneficiary_bits = beneficiary_state_key.into();
+    let sender_bits = sender_state_key.into();
+    let to_bits = to_hashed.into();
+    let to_second_bits = to_hashed_2.into();
 
     let beneficiary_account_before = Account {
         nonce: 1,
@@ -756,9 +756,9 @@ fn test_two_txn() -> anyhow::Result<()> {
     let sender_state_key = keccak(sender);
     let to_hashed = keccak(to);
 
-    let beneficiary_bits = beneficiary_state_key.into_uint().into();
-    let sender_bits = sender_state_key.into_uint().into();
-    let to_bits = to_hashed.into_uint().into();
+    let beneficiary_bits = beneficiary_state_key.into();
+    let sender_bits = sender_state_key.into();
+    let to_bits = to_hashed.into();
 
     // Set accounts before the transaction.
     let beneficiary_account_before = Account {

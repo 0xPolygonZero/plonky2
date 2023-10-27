@@ -8,8 +8,6 @@ use eth_trie_utils::partial_trie::{HashedPartialTrie, PartialTrie};
 use ethereum_types::{Address, BigEndianHash, H256, U256};
 use hex_literal::hex;
 use keccak_hash::keccak;
-use smt_utils::account::Account;
-use smt_utils::smt::Smt;
 use plonky2::field::goldilocks_field::GoldilocksField;
 use plonky2::plonk::config::KeccakGoldilocksConfig;
 use plonky2::util::timing::TimingTree;
@@ -21,6 +19,8 @@ use plonky2_evm::proof::{BlockHashes, BlockMetadata, TrieRoots};
 use plonky2_evm::prover::prove;
 use plonky2_evm::verifier::verify_proof;
 use plonky2_evm::Node;
+use smt_utils::account::Account;
+use smt_utils::smt::Smt;
 
 type F = GoldilocksField;
 const D: usize = 2;
@@ -42,9 +42,9 @@ fn add11_yml() -> anyhow::Result<()> {
     let sender_state_key = keccak(sender);
     let to_hashed = keccak(to);
 
-    let beneficiary_bits = beneficiary_state_key.into_uint().into();
-    let sender_bits = sender_state_key.into_uint().into();
-    let to_bits = to_hashed.into_uint().into();
+    let beneficiary_bits = beneficiary_state_key.into();
+    let sender_bits = sender_state_key.into();
+    let to_bits = to_hashed.into();
 
     let code = [0x60, 0x01, 0x60, 0x01, 0x01, 0x60, 0x00, 0x55, 0x00];
     let code_hash = keccak(code);
@@ -53,7 +53,7 @@ fn add11_yml() -> anyhow::Result<()> {
         nonce: 1,
         ..Account::default()
     };
-    let sender_account_before = Account{
+    let sender_account_before = Account {
         balance: 0x0de0b6b3a7640000u64.into(),
         ..Account::default()
     };
@@ -64,18 +64,15 @@ fn add11_yml() -> anyhow::Result<()> {
     };
 
     let mut state_smt_before = Smt::empty();
-    state_smt_before.insert(
-        beneficiary_bits,
-        beneficiary_account_before.into()
-    ).unwrap();
-    state_smt_before.insert(
-        sender_bits,
-        sender_account_before.into()
-    ).unwrap();
-    state_smt_before.insert(
-        to_bits,
-        to_account_before.into()
-    ).unwrap();
+    state_smt_before
+        .insert(beneficiary_bits, beneficiary_account_before.into())
+        .unwrap();
+    state_smt_before
+        .insert(sender_bits, sender_account_before.into())
+        .unwrap();
+    state_smt_before
+        .insert(to_bits, to_account_before.into())
+        .unwrap();
 
     let tries_before = TrieInputs {
         state_trie: state_smt_before.serialize(),
@@ -104,39 +101,33 @@ fn add11_yml() -> anyhow::Result<()> {
     contract_code.insert(code_hash, code.to_vec());
 
     let expected_state_trie_after = {
-        let beneficiary_account_after = Account{
+        let beneficiary_account_after = Account {
             nonce: 1,
             ..Account::default()
         };
-        let sender_account_after = Account{
+        let sender_account_after = Account {
             balance: 0xde0b6b3a75be550u64.into(),
             nonce: 1,
             ..Account::default()
         };
-        let to_account_after = Account{
+        let to_account_after = Account {
             balance: 0xde0b6b3a76586a0u64.into(),
             code_hash,
             // Storage map: { 0 => 2 }
-            storage_smt: Smt::new([
-                (keccak([0u8; 32]).into_uint().into(),
-                2.into())
-            ]).unwrap(),
+            storage_smt: Smt::new([(keccak([0u8; 32]).into(), 2.into())]).unwrap(),
             ..Account::default()
         };
 
         let mut expected_state_smt_after = Smt::empty();
-        expected_state_smt_after.insert(
-            beneficiary_bits,
-            beneficiary_account_after.into()
-        ).unwrap();
-        expected_state_smt_after.insert(
-            sender_bits,
-            sender_account_after.into()
-        ).unwrap();
-        expected_state_smt_after.insert(
-            to_bits,
-            to_account_after.into()
-        ).unwrap();
+        expected_state_smt_after
+            .insert(beneficiary_bits, beneficiary_account_after.into())
+            .unwrap();
+        expected_state_smt_after
+            .insert(sender_bits, sender_account_after.into())
+            .unwrap();
+        expected_state_smt_after
+            .insert(to_bits, to_account_after.into())
+            .unwrap();
         expected_state_smt_after
     };
 

@@ -8,8 +8,6 @@ use eth_trie_utils::partial_trie::{HashedPartialTrie, PartialTrie};
 use ethereum_types::{Address, BigEndianHash, H256, U256};
 use hex_literal::hex;
 use keccak_hash::keccak;
-use smt_utils::account::Account;
-use smt_utils::smt::Smt;
 use plonky2::field::goldilocks_field::GoldilocksField;
 use plonky2::plonk::config::KeccakGoldilocksConfig;
 use plonky2::util::timing::TimingTree;
@@ -21,6 +19,8 @@ use plonky2_evm::proof::{BlockHashes, BlockMetadata, TrieRoots};
 use plonky2_evm::prover::prove;
 use plonky2_evm::verifier::verify_proof;
 use plonky2_evm::Node;
+use smt_utils::account::Account;
+use smt_utils::smt::Smt;
 
 type F = GoldilocksField;
 const D: usize = 2;
@@ -41,9 +41,8 @@ fn test_simple_transfer() -> anyhow::Result<()> {
     let sender_state_key = keccak(sender);
     let to_state_key = keccak(to);
 
-    let sender_bits = sender_state_key.into_uint().into();
-    dbg!(sender_bits);
-    let to_bits = to_state_key.into_uint().into();
+    let sender_bits = sender_state_key.into();
+    let to_bits = to_state_key.into();
 
     let sender_account_before = Account {
         nonce: 5,
@@ -56,7 +55,8 @@ fn test_simple_transfer() -> anyhow::Result<()> {
     let state_smt_before = Smt::new([
         (sender_bits, sender_account_before.clone().into()),
         (to_bits, to_account_before.clone().into()),
-    ]).unwrap();
+    ])
+    .unwrap();
 
     let tries_before = TrieInputs {
         state_trie: state_smt_before.serialize(),
@@ -102,8 +102,8 @@ fn test_simple_transfer() -> anyhow::Result<()> {
         Smt::new([
             (sender_bits, sender_account_after.clone().into()),
             (to_bits, to_account_after.clone().into()),
-        ]).unwrap()
-
+        ])
+        .unwrap()
     };
 
     let receipt_0 = LegacyReceiptRlp {
