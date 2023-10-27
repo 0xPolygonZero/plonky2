@@ -23,7 +23,6 @@ pub(crate) struct StackBehavior {
 pub(crate) const BASIC_UNARY_OP: Option<StackBehavior> = Some(StackBehavior {
     num_pops: 1,
     pushes: true,
-    new_top_stack_channel: Some(NUM_GP_CHANNELS - 1),
     disable_other_channels: true,
 });
 const BASIC_BINARY_OP: Option<StackBehavior> = Some(StackBehavior {
