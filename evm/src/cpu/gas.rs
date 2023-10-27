@@ -24,7 +24,7 @@ const SIMPLE_OPCODES: OpsColumnsView<Option<u32>> = OpsColumnsView {
     fp254_op: KERNEL_ONLY_INSTR,
     eq_iszero: G_VERYLOW,
     logic_op: G_VERYLOW,
-    not_pop: None, // This is handled manually below //G_VERYLOW pop: g_base,
+    not_pop: None, // This is handled manually below
     shift: G_VERYLOW,
     keccak_general: KERNEL_ONLY_INSTR,
     prover_input: KERNEL_ONLY_INSTR,

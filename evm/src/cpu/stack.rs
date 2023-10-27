@@ -306,7 +306,7 @@ pub fn eval_packed<P: PackedField>(
     let top_read_channel = nv.mem_channels[0];
     let is_top_read = lv.general.stack().stack_inv_aux * (P::ONES - lv.opcode_bits[0]);
 
-    // Constrain `stack_inv_aux_2`. It contains `stack_inv_aux * opcode_bits[0]`.
+    // Constrain `stack_inv_aux_2`. It contains `stack_inv_aux * (1 - opcode_bits[0])`.
     yield_constr.constraint(lv.op.not_pop * (lv.general.stack().stack_inv_aux_2 - is_top_read));
     let new_filter = lv.op.not_pop * lv.general.stack().stack_inv_aux_2;
     yield_constr.constraint_transition(new_filter * (top_read_channel.used - P::ONES));
@@ -320,15 +320,20 @@ pub fn eval_packed<P: PackedField>(
     let addr_virtual = nv.stack_len - P::ONES;
     yield_constr.constraint_transition(new_filter * (top_read_channel.addr_virtual - addr_virtual));
     // If stack_len == 1 or NOT, disable the channel.
+    // If NOT or (len==1 and POP), then `stack_inv_aux_2` = 0.
     yield_constr.constraint(
-        lv.op.not_pop * (lv.general.stack().stack_inv_aux - P::ONES) * top_read_channel.used,
+        lv.op.not_pop * (lv.general.stack().stack_inv_aux_2 - P::ONES) * top_read_channel.used,
     );
-    yield_constr.constraint(lv.op.not_pop * lv.opcode_bits[0] * top_read_channel.used);
 
     // Disable remaining memory channels.
     for &channel in &lv.mem_channels[1..] {
         yield_constr.constraint(lv.op.not_pop * (lv.opcode_bits[0] - P::ONES) * channel.used);
     }
+
+    // Constrain the new stack length for POP.
+    yield_constr.constraint_transition(
+        lv.op.not_pop * (lv.opcode_bits[0] - P::ONES) * (nv.stack_len - lv.stack_len + P::ONES),
+    );
 }
 
 pub(crate) fn eval_ext_circuit_one<F: RichField + Extendable<D>, const D: usize>(
@@ -618,15 +623,10 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     {
         let diff = builder.mul_sub_extension(
             lv.op.not_pop,
-            lv.general.stack().stack_inv_aux,
+            lv.general.stack().stack_inv_aux_2,
             lv.op.not_pop,
         );
         let constr = builder.mul_extension(diff, top_read_channel.used);
-        yield_constr.constraint(builder, constr);
-    }
-    {
-        let mul = builder.mul_extension(lv.op.not_pop, lv.opcode_bits[0]);
-        let constr = builder.mul_extension(mul, top_read_channel.used);
         yield_constr.constraint(builder, constr);
     }
 
@@ -636,4 +636,10 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
         let constr = builder.mul_extension(filter, channel.used);
         yield_constr.constraint(builder, constr);
     }
+
+    // Constrain the new stack length for POP.
+    let diff = builder.sub_extension(nv.stack_len, lv.stack_len);
+    let mut constr = builder.add_const_extension(diff, F::ONES);
+    constr = builder.mul_extension(filter, constr);
+    yield_constr.constraint_transition(builder, constr);
 }
