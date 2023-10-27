@@ -96,22 +96,23 @@ sstore_after_refund:
     // stack: slot, value, kexit_info
     DUP2 ISZERO %jumpi(sstore_delete)
 
-    // First we write the value to MPT data, and get a pointer to it.
+    // First we write the value to SMT data, and get a pointer to it.
     %get_trie_data_size
+    // stack: value_ptr, slot, value, kexit_info
+    PUSH 0 %append_to_trie_data // For the key.
     // stack: value_ptr, slot, value, kexit_info
     SWAP2
     // stack: value, slot, value_ptr, kexit_info
     %append_to_trie_data
     // stack: slot, value_ptr, kexit_info
 
-    // Next, call mpt_insert on the current account's storage root.
+    // Next, call smt_insert on the current account's storage root.
     %stack (slot, value_ptr) -> (slot, value_ptr, after_storage_insert)
     %slot_to_storage_key
     // stack: storage_key, value_ptr, after_storage_insert, kexit_info
-    PUSH 64 // storage_key has 64 nibbles
     %current_storage_trie
-    // stack: storage_root_ptr, 64, storage_key, value_ptr, after_storage_insert, kexit_info
-    %jump(mpt_insert)
+    // stack: storage_root_ptr, storage_key, value_ptr, after_storage_insert, kexit_info
+    %jump(smt_insert)
 
 after_storage_insert:
     // stack: new_storage_root_ptr, kexit_info
@@ -132,6 +133,7 @@ sstore_noop:
 
 // Delete the slot from the storage trie.
 sstore_delete:
+    PANIC // TODO: Not implemented for SMT.
     // stack: slot, value, kexit_info
     SWAP1 POP
     PUSH after_storage_insert SWAP1

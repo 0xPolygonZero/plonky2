@@ -15,6 +15,7 @@ global smt_hash:
     DUP1 %eq_const(@SMT_NODE_HASH) %jumpi(smt_hash_hash)
     DUP1 %eq_const(@SMT_NODE_INTERNAL) %jumpi(smt_hash_internal)
     DUP1 %eq_const(@SMT_NODE_LEAF) %jumpi(smt_hash_leaf)
+global smt_hash_unknown_node_type:
     PANIC
 
 global smt_hash_hash:
