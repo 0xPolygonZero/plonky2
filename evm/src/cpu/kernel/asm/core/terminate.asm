@@ -81,9 +81,10 @@ global sys_selfdestruct:
     %charge_gas
     %stack (kexit_info, balance, address, recipient) -> (balance, address, recipient, kexit_info)
 
-    // Insert address into the selfdestruct set.
+    // EIP-6780: insert address into the selfdestruct set if contact has been created
+    // during the current transaction.
     // stack: balance, address, recipient, kexit_info
-    DUP2 %insert_selfdestruct_list
+    DUP2 %maybe_insert_selfdestruct_list
 
     // Set the balance of the address to 0.
     // stack: balance, address, recipient, kexit_info
@@ -95,14 +96,9 @@ global sys_selfdestruct:
     // stack: balance_ptr, 0, balance, address, recipient, kexit_info
     %mstore_trie_data
 
+    // Send the balance to the recipient. 
     %stack (balance, address, recipient, kexit_info) ->
-        (address, recipient, address, recipient, balance, kexit_info)
-
-    // If the recipient is the same as the address, then we're done.
-    // Otherwise, send the balance to the recipient.
-    // stack: address, recipient, address, recipient, balance, kexit_info
-    EQ %jumpi(sys_selfdestruct_journal_add)
-    %stack (address, recipient, balance, kexit_info) -> (recipient, balance, address, recipient, balance, kexit_info)
+        (recipient, balance, address, recipient, balance, kexit_info)
     %add_eth
 
 sys_selfdestruct_journal_add:

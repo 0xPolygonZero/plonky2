@@ -79,17 +79,19 @@ pub(crate) enum GlobalMetadata {
     ContractCreation = 38,
     IsPrecompileFromEoa = 39,
     CallStackDepth = 40,
-    /// Transaction logs list length
+    /// Transaction logs list length.
     LogsLen = 41,
     LogsDataLen = 42,
     LogsPayloadLen = 43,
     TxnNumberBefore = 44,
     TxnNumberAfter = 45,
     BlockBlobBaseFee = 46,
+    /// Number of created contracts during the current transaction.
+    CreatedContractsLen = 47,
 }
 
 impl GlobalMetadata {
-    pub(crate) const COUNT: usize = 47;
+    pub(crate) const COUNT: usize = 48;
 
     pub(crate) fn all() -> [Self; Self::COUNT] {
         [
@@ -140,6 +142,7 @@ impl GlobalMetadata {
             Self::TxnNumberBefore,
             Self::TxnNumberAfter,
             Self::BlockBlobBaseFee,
+            Self::CreatedContractsLen,
         ]
     }
 
@@ -193,6 +196,7 @@ impl GlobalMetadata {
             Self::TxnNumberBefore => "GLOBAL_METADATA_TXN_NUMBER_BEFORE",
             Self::TxnNumberAfter => "GLOBAL_METADATA_TXN_NUMBER_AFTER",
             Self::BlockBlobBaseFee => "GLOBAL_METADATA_BLOCK_BLOB_BASE_FEE",
+            Self::CreatedContractsLen => "GLOBAL_METADATA_CREATED_CONTRACTS_LEN",
         }
     }
 }
