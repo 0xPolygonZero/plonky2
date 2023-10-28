@@ -1,7 +1,9 @@
 use anyhow::Result;
+use ethereum_types::U256;
 
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::interpreter::Interpreter;
+use crate::memory::segments::Segment;
 
 #[test]
 fn hex_prefix_even_nonterminated() -> Result<()> {
@@ -11,11 +13,14 @@ fn hex_prefix_even_nonterminated() -> Result<()> {
     let terminated = 0.into();
     let packed_nibbles = 0xABCDEF.into();
     let num_nibbles = 6.into();
-    let rlp_pos = 0.into();
+    let rlp_pos = U256::from(Segment::RlpRaw as usize);
     let initial_stack = vec![retdest, terminated, packed_nibbles, num_nibbles, rlp_pos];
     let mut interpreter = Interpreter::new_with_kernel(hex_prefix, initial_stack);
     interpreter.run()?;
-    assert_eq!(interpreter.stack(), vec![5.into()]);
+    assert_eq!(
+        interpreter.stack(),
+        vec![U256::from(Segment::RlpRaw as usize + 5)]
+    );
 
     assert_eq!(
         interpreter.get_rlp_memory(),
@@ -39,11 +44,14 @@ fn hex_prefix_odd_terminated() -> Result<()> {
     let terminated = 1.into();
     let packed_nibbles = 0xABCDE.into();
     let num_nibbles = 5.into();
-    let rlp_pos = 0.into();
+    let rlp_pos = U256::from(Segment::RlpRaw as usize);
     let initial_stack = vec![retdest, terminated, packed_nibbles, num_nibbles, rlp_pos];
     let mut interpreter = Interpreter::new_with_kernel(hex_prefix, initial_stack);
     interpreter.run()?;
-    assert_eq!(interpreter.stack(), vec![4.into()]);
+    assert_eq!(
+        interpreter.stack(),
+        vec![U256::from(Segment::RlpRaw as usize + 4)]
+    );
 
     assert_eq!(
         interpreter.get_rlp_memory(),
@@ -66,11 +74,14 @@ fn hex_prefix_odd_terminated_tiny() -> Result<()> {
     let terminated = 1.into();
     let packed_nibbles = 0xA.into();
     let num_nibbles = 1.into();
-    let rlp_pos = 2.into();
+    let rlp_pos = U256::from(Segment::RlpRaw as usize + 2);
     let initial_stack = vec![retdest, terminated, packed_nibbles, num_nibbles, rlp_pos];
     let mut interpreter = Interpreter::new_with_kernel(hex_prefix, initial_stack);
     interpreter.run()?;
-    assert_eq!(interpreter.stack(), vec![3.into()]);
+    assert_eq!(
+        interpreter.stack(),
+        vec![U256::from(Segment::RlpRaw as usize + 3)]
+    );
 
     assert_eq!(
         interpreter.get_rlp_memory(),

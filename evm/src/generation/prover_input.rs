@@ -14,8 +14,8 @@ use crate::generation::prover_input::EvmField::{
 };
 use crate::generation::prover_input::FieldOp::{Inverse, Sqrt};
 use crate::generation::state::GenerationState;
-use crate::memory::segments::Segment;
 use crate::memory::segments::Segment::BnPairing;
+use crate::memory::segments::{Segment, SEGMENT_SCALING_FACTOR};
 use crate::util::{biguint_to_mem_vec, mem_vec_to_biguint, u256_to_usize};
 use crate::witness::errors::ProgramError;
 use crate::witness::errors::ProverInputError::*;
@@ -193,12 +193,15 @@ impl<F: Field> GenerationState<F> {
         m_start_loc: usize,
     ) -> (Vec<U256>, Vec<U256>) {
         let n = self.memory.contexts.len();
-        let a = &self.memory.contexts[n - 1].segments[Segment::KernelGeneral as usize].content
-            [a_start_loc..a_start_loc + len];
-        let b = &self.memory.contexts[n - 1].segments[Segment::KernelGeneral as usize].content
-            [b_start_loc..b_start_loc + len];
-        let m = &self.memory.contexts[n - 1].segments[Segment::KernelGeneral as usize].content
-            [m_start_loc..m_start_loc + len];
+        let a = &self.memory.contexts[n - 1].segments
+            [Segment::KernelGeneral as usize >> SEGMENT_SCALING_FACTOR]
+            .content[a_start_loc..a_start_loc + len];
+        let b = &self.memory.contexts[n - 1].segments
+            [Segment::KernelGeneral as usize >> SEGMENT_SCALING_FACTOR]
+            .content[b_start_loc..b_start_loc + len];
+        let m = &self.memory.contexts[n - 1].segments
+            [Segment::KernelGeneral as usize >> SEGMENT_SCALING_FACTOR]
+            .content[m_start_loc..m_start_loc + len];
 
         let a_biguint = mem_vec_to_biguint(a);
         let b_biguint = mem_vec_to_biguint(b);

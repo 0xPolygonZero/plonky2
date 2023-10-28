@@ -271,7 +271,10 @@ call_too_deep:
 // because it will already be 0 by default.
 %macro set_static_true
     // stack: new_ctx
-    %stack (new_ctx) -> (new_ctx, @SEGMENT_CONTEXT_METADATA, @CTX_METADATA_STATIC, 1, new_ctx)
+    PUSH 1
+    DUP2
+    // stack: new_ctx, 1, new_ctx
+    %new_address_with_ctx_no_segment(@CTX_METADATA_STATIC)
     MSTORE_GENERAL
     // stack: new_ctx
 %endmacro
@@ -280,55 +283,63 @@ call_too_deep:
 %macro set_static
     // stack: new_ctx
     %mload_context_metadata(@CTX_METADATA_STATIC)
-    %stack (is_static, new_ctx) -> (new_ctx, @SEGMENT_CONTEXT_METADATA, @CTX_METADATA_STATIC, is_static, new_ctx)
+    DUP2
+    // stack: new_ctx, is_static, new_ctx
+    %new_address_with_ctx_no_segment(@CTX_METADATA_STATIC)
     MSTORE_GENERAL
     // stack: new_ctx
 %endmacro
 
 %macro set_new_ctx_addr
     // stack: called_addr, new_ctx
-    %stack (called_addr, new_ctx)
-        -> (new_ctx, @SEGMENT_CONTEXT_METADATA, @CTX_METADATA_ADDRESS, called_addr, new_ctx)
+    DUP2
+    // stack: new_ctx, called_addr, new_ctx
+    %new_address_with_ctx_no_segment(@CTX_METADATA_ADDRESS)
     MSTORE_GENERAL
     // stack: new_ctx
 %endmacro
 
 %macro set_new_ctx_caller
     // stack: sender, new_ctx
-    %stack (sender, new_ctx)
-        -> (new_ctx, @SEGMENT_CONTEXT_METADATA, @CTX_METADATA_CALLER, sender, new_ctx)
+    DUP2
+    // stack: new_ctx, sender, new_ctx
+    %new_address_with_ctx_no_segment(@CTX_METADATA_CALLER)
     MSTORE_GENERAL
     // stack: new_ctx
 %endmacro
 
 %macro set_new_ctx_value
     // stack: value, new_ctx
-    %stack (value, new_ctx)
-        -> (new_ctx, @SEGMENT_CONTEXT_METADATA, @CTX_METADATA_CALL_VALUE, value, new_ctx)
+    DUP2
+    // stack: new_ctx, value, new_ctx
+    %new_address_with_ctx_no_segment(@CTX_METADATA_CALL_VALUE)
     MSTORE_GENERAL
     // stack: new_ctx
 %endmacro
 
 %macro set_new_ctx_code_size
     // stack: code_size, new_ctx
-    %stack (code_size, new_ctx)
-        -> (new_ctx, @SEGMENT_CONTEXT_METADATA, @CTX_METADATA_CODE_SIZE, code_size, new_ctx)
+    DUP2
+    // stack: new_ctx, code_size, new_ctx
+    %new_address_with_ctx_no_segment(@CTX_METADATA_CODE_SIZE)
     MSTORE_GENERAL
     // stack: new_ctx
 %endmacro
 
 %macro set_new_ctx_calldata_size
     // stack: calldata_size, new_ctx
-    %stack (calldata_size, new_ctx)
-        -> (new_ctx, @SEGMENT_CONTEXT_METADATA, @CTX_METADATA_CALLDATA_SIZE, calldata_size, new_ctx)
+    DUP2
+    // stack: new_ctx, calldata_size, new_ctx
+    %new_address_with_ctx_no_segment(@CTX_METADATA_CALLDATA_SIZE)
     MSTORE_GENERAL
     // stack: new_ctx
 %endmacro
 
 %macro set_new_ctx_gas_limit
     // stack: gas_limit, new_ctx
-    %stack (gas_limit, new_ctx)
-        -> (new_ctx, @SEGMENT_CONTEXT_METADATA, @CTX_METADATA_GAS_LIMIT, gas_limit, new_ctx)
+    DUP2
+    // stack: new_ctx, gas_limit, new_ctx
+    %new_address_with_ctx_no_segment(@CTX_METADATA_GAS_LIMIT)
     MSTORE_GENERAL
     // stack: new_ctx
 %endmacro
@@ -336,23 +347,27 @@ call_too_deep:
 %macro set_new_ctx_parent_ctx
     // stack: new_ctx
     GET_CONTEXT
-    PUSH @CTX_METADATA_PARENT_CONTEXT
-    PUSH @SEGMENT_CONTEXT_METADATA
-    DUP4 // new_ctx
+    DUP2
+    // stack: new_ctx, ctx, new_ctx
+    %new_address_with_ctx_no_segment(@CTX_METADATA_PARENT_CONTEXT)
     MSTORE_GENERAL
     // stack: new_ctx
 %endmacro
 
 %macro set_new_ctx_parent_pc(label)
     // stack: new_ctx
-    %stack (new_ctx)
-        -> (new_ctx, @SEGMENT_CONTEXT_METADATA, @CTX_METADATA_PARENT_PC, $label, new_ctx)
+    PUSH $label
+    DUP2
+    // stack: new_ctx, label, new_ctx
+    %new_address_with_ctx_no_segment(@CTX_METADATA_PARENT_PC)
     MSTORE_GENERAL
     // stack: new_ctx
 %endmacro
 
 %macro set_new_ctx_code
-    %stack (address, new_ctx) -> (address, new_ctx, @SEGMENT_CODE, %%after, new_ctx)
+    // stack: address, new_ctx
+    DUP2 // DST (segment == 0 (i.e. CODE), and offset = 0)
+    %stack (dest, address, new_ctx) -> (address, dest, %%after, new_ctx)
     %jump(load_code)
 %%after:
     %set_new_ctx_code_size
@@ -381,17 +396,17 @@ call_too_deep:
 %macro copy_mem_to_calldata
     // stack: new_ctx, args_offset, args_size
     GET_CONTEXT
-    %stack (ctx, new_ctx, args_offset, args_size) ->
-        (
-            new_ctx, @SEGMENT_CALLDATA, 0,          // DST
-            ctx, @SEGMENT_MAIN_MEMORY, args_offset, // SRC
-            args_size, %%after,                     // count, retdest
-            new_ctx, args_size
-        )
+    %stack(ctx, new_ctx, args_offset, args_size) -> (ctx, @SEGMENT_MAIN_MEMORY, args_offset, args_size, %%after, new_ctx, args_size)
+    %build_address
+    // stack: SRC, args_size, %%after, new_ctx, args_size
+    DUP4
+    %new_address_with_ctx_no_offset(@SEGMENT_CALLDATA)
+    // stack: DST, SRC, args_size, %%after, new_ctx, args_size
     %jump(memcpy_bytes)
 %%after:
-    %stack (new_ctx, args_size) ->
-        (new_ctx, @SEGMENT_CONTEXT_METADATA, @CTX_METADATA_CALLDATA_SIZE, args_size)
+    // stack: new_ctx, args_size
+    %new_address_with_ctx_no_segment(@CTX_METADATA_CALLDATA_SIZE)
+    // stack: addr, args_size
     MSTORE_GENERAL
     // stack: (empty)
 %endmacro
@@ -403,13 +418,12 @@ call_too_deep:
     // stack: returndata_size, ret_size, new_ctx, success, ret_offset, kexit_info
     %min
     GET_CONTEXT
-    %stack (ctx, n, new_ctx, success, ret_offset, kexit_info) ->
-        (
-            ctx, @SEGMENT_MAIN_MEMORY, ret_offset, // DST
-            ctx, @SEGMENT_RETURNDATA, 0,           // SRC
-            n, %%after,                     // count, retdest
-            kexit_info, success
-        )
+    %stack (ctx, n, new_ctx, success, ret_offset, kexit_info) -> (ctx, @SEGMENT_RETURNDATA, @SEGMENT_MAIN_MEMORY, ret_offset, ctx, n, %%after, kexit_info, success)
+    %build_address_no_offset
+    // stack: SRC, @SEGMENT_MAIN_MEMORY, ret_offset, ctx, n, %%after, kexit_info, success
+    SWAP3
+    %build_address
+    // stack: DST, SRC, n, %%after, kexit_info, success
     %jump(memcpy_bytes)
 %%after:
 %endmacro

@@ -12,11 +12,11 @@ global process_normalized_txn:
 
     // Compute this transaction's intrinsic gas and store it.
     %intrinsic_gas
+    DUP1
     %mstore_txn_field(@TXN_FIELD_INTRINSIC_GAS)
-    // stack: retdest
+    // stack: intrinsic_gas, retdest
 
     // Assert gas_limit >= intrinsic_gas.
-    %mload_txn_field(@TXN_FIELD_INTRINSIC_GAS)
     %mload_txn_field(@TXN_FIELD_GAS_LIMIT)
     %assert_ge(invalid_txn)
 
@@ -148,21 +148,17 @@ global process_contract_creation_txn:
     %mload_txn_field(@TXN_FIELD_DATA_LEN)
     // stack: data_len, new_ctx, address, retdest
     PUSH @CTX_METADATA_CODE_SIZE
-    PUSH @SEGMENT_CONTEXT_METADATA
-    // stack: segment, offset, data_len, new_ctx, address, retdest
-    DUP4 // new_ctx
+    // stack: offset, data_len, new_ctx, address, retdest
+    DUP3 // new_ctx
+    ADD // CTX_METADATA_CODE_SIZE is already scaled by its segment
     MSTORE_GENERAL
     // stack: new_ctx, address, retdest
 
     // Copy the code from txdata to the new context's code segment.
     PUSH process_contract_creation_txn_after_code_loaded
     %mload_txn_field(@TXN_FIELD_DATA_LEN)
-    PUSH 0 // SRC.offset
-    PUSH @SEGMENT_TXN_DATA // SRC.segment
-    PUSH 0 // SRC.context
-    PUSH 0 // DST.offset
-    PUSH @SEGMENT_CODE // DST.segment
-    DUP8 // DST.context = new_ctx
+    PUSH @SEGMENT_TXN_DATA // SRC (context == offset == 0)
+    DUP4 // DST (segment == 0 (i.e. CODE), and offset = 0)
     %jump(memcpy_bytes)
 
 global process_contract_creation_txn_after_code_loaded:
@@ -203,9 +199,11 @@ global process_contract_creation_txn_after_constructor:
 
     // Store the code hash of the new contract.
     // stack: leftover_gas, new_ctx, address, retdest, success
-    GET_CONTEXT
     %returndatasize
-    %stack (size, ctx) -> (ctx, @SEGMENT_RETURNDATA, 0, size) // context, segment, offset, len
+    PUSH @SEGMENT_RETURNDATA
+    GET_CONTEXT
+    %build_address_no_offset
+    // stack: addr, len
     KECCAK_GENERAL
     // stack: codehash, leftover_gas, new_ctx, address, retdest, success
     %observe_new_contract
@@ -248,10 +246,9 @@ global process_message_txn:
     %create_context
     // stack: new_ctx, retdest
     PUSH process_message_txn_code_loaded
-    PUSH @SEGMENT_CODE
-    DUP3 // new_ctx
+    DUP2 // DST (segment == 0 (i.e. CODE), and offset = 0)
     %mload_txn_field(@TXN_FIELD_TO)
-    // stack: address, new_ctx, segment, process_message_txn_code_loaded, new_ctx, retdest
+    // stack: address, dest, process_message_txn_code_loaded, new_ctx, retdest
     %jump(load_code)
 
 global process_message_txn_insufficient_balance:
@@ -293,7 +290,9 @@ global process_message_txn_code_loaded:
     %mload_txn_field(@TXN_FIELD_DATA_LEN)
     %stack (calldata_size, new_ctx, retdest) -> (calldata_size, new_ctx, calldata_size, retdest)
     %set_new_ctx_calldata_size
-    %stack (new_ctx, calldata_size, retdest) -> (new_ctx, @SEGMENT_CALLDATA, 0, 0, @SEGMENT_TXN_DATA, 0, calldata_size, process_message_txn_code_loaded_finish, new_ctx, retdest)
+    %stack (new_ctx, calldata_size, retdest) -> (@SEGMENT_TXN_DATA, @SEGMENT_CALLDATA, new_ctx, calldata_size, process_message_txn_code_loaded_finish, new_ctx, retdest)
+    SWAP2
+    %build_address_no_offset // DST
     %jump(memcpy_bytes)
 
 process_message_txn_code_loaded_finish:

@@ -2,6 +2,10 @@ global main:
     // First, initialise the shift table
     %shift_table_init
 
+    // Initialize the RLP DATA pointer to its initial position (ctx == virt == 0, segment = RLP)
+    PUSH @SEGMENT_RLP_RAW
+    %mstore_global_metadata(@GLOBAL_METADATA_RLP_DATA_POS)
+
     // Initialize the block bloom filter
     %initialize_block_bloom
 
@@ -63,25 +67,26 @@ global hash_final_tries:
 
 initialize_block_bloom:
     // stack: retdest
-    PUSH 0 PUSH 8 PUSH 0
+    PUSH @SEGMENT_BLOCK_BLOOM // Bloom word address in SEGMENT_BLOCK_BLOOM, ctx == virt == 0
+    PUSH 8 PUSH 0
 
 initialize_bloom_loop:
-    // stack: i, len, offset, retdest
+    // stack: i, len, addr, retdest
     DUP2 DUP2 EQ %jumpi(initialize_bloom_loop_end)
     PUSH 32 // Bloom word length
-    // stack: word_len, i, len, offset, retdest
+    // stack: word_len, i, len, addr, retdest
     // Load the next `block_bloom_before` word.
     DUP2 %add_const(8) %mload_kernel(@SEGMENT_GLOBAL_BLOCK_BLOOM)
-    // stack: bloom_word, word_len, i, len, offset, retdest
-    DUP5 PUSH @SEGMENT_BLOCK_BLOOM PUSH 0 // Bloom word address in SEGMENT_BLOCK_BLOOM
+    // stack: bloom_word, word_len, i, len, addr, retdest
+    DUP5 
     %mstore_unpacking
-    // stack: new_offset, i, len, old_offset, retdest
+    // stack: new_addr, i, len, old_addr, retdest
     SWAP3 POP %increment
-    // stack: i, len, new_offset, retdest
+    // stack: i, len, new_addr, retdest
     %jump(initialize_bloom_loop)
 
 initialize_bloom_loop_end:
-    // stack: len, len, offset, retdest
+    // stack: len, len, addr, retdest
     %pop3
     JUMP
     
@@ -94,24 +99,25 @@ initialize_bloom_loop_end:
 
 check_metadata_block_bloom:
     // stack: retdest
-    PUSH 0 PUSH 8 PUSH 0
+    PUSH @SEGMENT_BLOCK_BLOOM // Bloom word address in SEGMENT_BLOCK_BLOOM, ctx == virt == 0
+    PUSH 8 PUSH 0
 
 check_bloom_loop:
-    // stack: i, len, offset, retdest
+    // stack: i, len, addr, retdest
     DUP2 DUP2 EQ %jumpi(check_bloom_loop_end)
     PUSH 32 // Bloom word length
-    // stack: word_len, i, len, offset, retdest
-    DUP4 PUSH @SEGMENT_BLOCK_BLOOM PUSH 0
+    // stack: word_len, i, len, addr, retdest
+    DUP4
     %mload_packing
-    // stack: bloom_word, i, len, offset, retdest
+    // stack: bloom_word, i, len, addr, retdest
     DUP2 %add_const(16) %mload_kernel(@SEGMENT_GLOBAL_BLOCK_BLOOM) %assert_eq
-    // stack: i, len, offset, retdest
+    // stack: i, len, addr, retdest
     %increment SWAP2 %add_const(32) SWAP2
-    // stack: i+1, len, new_offset, retdest
+    // stack: i+1, len, new_addr, retdest
     %jump(check_bloom_loop)
 
 check_bloom_loop_end:
-    // stack: len, len, offset, retdest
+    // stack: len, len, addr, retdest
     %pop3
     JUMP
 

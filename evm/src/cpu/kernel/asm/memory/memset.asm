@@ -5,7 +5,7 @@ global memset:
     // stack: DST, count, retdest
 
     // Handle small case
-    DUP4
+    DUP2
     // stack: count, DST, count, retdest
     %lt_const(0x21)
     // stack: count <= 32, DST, count, retdest
@@ -14,21 +14,15 @@ global memset:
     // stack: DST, count, retdest
     PUSH 32
     PUSH 0
-    DUP5
-    DUP5
-    DUP5
+    DUP3
     // stack: DST, 0, 32, DST, count, retdest
     MSTORE_32BYTES
     // stack: DST, count, retdest
 
     // Increment dst_addr.
-    SWAP2
     %add_const(0x20)
-    SWAP2
     // Decrement count.
-    SWAP3
-    %sub_const(0x20)
-    SWAP3
+    PUSH 32 DUP3 SUB SWAP2 POP
 
     // Continue the loop.
     %jump(memset)
@@ -37,27 +31,25 @@ memset_finish:
     // stack: DST, final_count, retdest
 
     // Handle empty case
-    DUP4
+    DUP2
     // stack: final_count, DST, final_count, retdest
     ISZERO
     // stack: final_count == 0, DST, final_count, retdest
     %jumpi(memset_bytes_empty)
 
     // stack: DST, final_count, retdest
-    DUP4
+    DUP2
     PUSH 0
-    DUP5
-    DUP5
-    DUP5
+    DUP3
     // stack: DST, 0, final_count, DST, final_count, retdest
     MSTORE_32BYTES
     // stack: DST, final_count, retdest
-    %pop4
+    %pop2
     // stack: retdest
     JUMP
 
 memset_bytes_empty:
     // stack: DST, 0, retdest
-    %pop4
+    %pop2
     // stack: retdest
     JUMP

@@ -6,207 +6,206 @@
 
 // Decode the chain ID and store it.
 %macro decode_and_store_chain_id
-    // stack: pos
+    // stack: rlp_addr
     %decode_rlp_scalar
-    %stack (pos, chain_id) -> (chain_id, pos)
+    %stack (rlp_addr, chain_id) -> (chain_id, rlp_addr)
     %mstore_txn_field(@TXN_FIELD_CHAIN_ID)
-    // stack: pos
+    // stack: rlp_addr
 %endmacro
 
 // Decode the nonce and store it.
 %macro decode_and_store_nonce
-    // stack: pos
+    // stack: rlp_addr
     %decode_rlp_scalar
-    %stack (pos, nonce) -> (nonce, pos)
+    %stack (rlp_addr, nonce) -> (nonce, rlp_addr)
     %mstore_txn_field(@TXN_FIELD_NONCE)
-    // stack: pos
+    // stack: rlp_addr
 %endmacro
 
 // Decode the gas price and, since this is for legacy txns, store it as both
 // TXN_FIELD_MAX_PRIORITY_FEE_PER_GAS and TXN_FIELD_MAX_FEE_PER_GAS.
 %macro decode_and_store_gas_price_legacy
-    // stack: pos
+    // stack: rlp_addr
     %decode_rlp_scalar
-    %stack (pos, gas_price) -> (gas_price, gas_price, pos)
+    %stack (rlp_addr, gas_price) -> (gas_price, gas_price, rlp_addr)
     %mstore_txn_field(@TXN_FIELD_MAX_PRIORITY_FEE_PER_GAS)
     %mstore_txn_field(@TXN_FIELD_MAX_FEE_PER_GAS)
-    // stack: pos
+    // stack: rlp_addr
 %endmacro
 
 // Decode the max priority fee and store it.
 %macro decode_and_store_max_priority_fee
-    // stack: pos
+    // stack: rlp_addr
     %decode_rlp_scalar
-    %stack (pos, gas_price) -> (gas_price, pos)
+    %stack (rlp_addr, gas_price) -> (gas_price, rlp_addr)
     %mstore_txn_field(@TXN_FIELD_MAX_PRIORITY_FEE_PER_GAS)
-    // stack: pos
+    // stack: rlp_addr
 %endmacro
 
 // Decode the max fee and store it.
 %macro decode_and_store_max_fee
-    // stack: pos
+    // stack: rlp_addr
     %decode_rlp_scalar
-    %stack (pos, gas_price) -> (gas_price, pos)
+    %stack (rlp_addr, gas_price) -> (gas_price, rlp_addr)
     %mstore_txn_field(@TXN_FIELD_MAX_FEE_PER_GAS)
-    // stack: pos
+    // stack: rlp_addr
 %endmacro
 
 // Decode the gas limit and store it.
 %macro decode_and_store_gas_limit
-    // stack: pos
+    // stack: rlp_addr
     %decode_rlp_scalar
-    %stack (pos, gas_limit) -> (gas_limit, pos)
+    %stack (rlp_addr, gas_limit) -> (gas_limit, rlp_addr)
     %mstore_txn_field(@TXN_FIELD_GAS_LIMIT)
-    // stack: pos
+    // stack: rlp_addr
 %endmacro
 
 // Decode the "to" field and store it.
 // This field is either 160-bit or empty in the case of a contract creation txn.
 %macro decode_and_store_to
-    // stack: pos
+    // stack: rlp_addr
     %decode_rlp_string_len
-    // stack: pos, len
+    // stack: rlp_addr, len
     SWAP1
-    // stack: len, pos
+    // stack: len, rlp_addr
     DUP1 ISZERO %jumpi(%%contract_creation)
-    // stack: len, pos
+    // stack: len, rlp_addr
     DUP1 %eq_const(20) ISZERO %jumpi(invalid_txn) // Address is 160-bit
-    %stack (len, pos) -> (pos, len, %%with_scalar)
+    %stack (len, rlp_addr) -> (rlp_addr, len, %%with_scalar)
     %jump(decode_int_given_len)
 %%with_scalar:
-    // stack: pos, int
+    // stack: rlp_addr, int
     SWAP1
     %mstore_txn_field(@TXN_FIELD_TO)
-    // stack: pos
+    // stack: rlp_addr
     %jump(%%end)
 %%contract_creation:
-    // stack: len, pos
+    // stack: len, rlp_addr
     POP
     PUSH 1 %mstore_global_metadata(@GLOBAL_METADATA_CONTRACT_CREATION)
-    // stack: pos
+    // stack: rlp_addr
 %%end:
 %endmacro
 
 // Decode the "value" field and store it.
 %macro decode_and_store_value
-    // stack: pos
+    // stack: rlp_addr
     %decode_rlp_scalar
-    %stack (pos, value) -> (value, pos)
+    %stack (rlp_addr, value) -> (value, rlp_addr)
     %mstore_txn_field(@TXN_FIELD_VALUE)
-    // stack: pos
+    // stack: rlp_addr
 %endmacro
 
 // Decode the calldata field, store its length in @TXN_FIELD_DATA_LEN, and copy it to @SEGMENT_TXN_DATA.
 %macro decode_and_store_data
-    // stack: pos
-    // Decode the data length, store it, and compute new_pos after any data.
+    // stack: rlp_addr
+    // Decode the data length, store it, and compute new_rlp_addr after any data.
     %decode_rlp_string_len
-    %stack (pos, data_len) -> (data_len, pos, data_len, pos, data_len)
+    %stack (rlp_addr, data_len) -> (data_len, rlp_addr, data_len, rlp_addr, data_len)
     %mstore_txn_field(@TXN_FIELD_DATA_LEN)
-    // stack: pos, data_len, pos, data_len
+    // stack: rlp_addr, data_len, rlp_addr, data_len
     ADD
-    // stack: new_pos, old_pos, data_len
+    // stack: new_rlp_addr, old_rlp_addr, data_len
 
     // Memcpy the txn data from @SEGMENT_RLP_RAW to @SEGMENT_TXN_DATA.
-    %stack (new_pos, old_pos, data_len) -> (old_pos, data_len, %%after, new_pos)
-    PUSH @SEGMENT_RLP_RAW
-    GET_CONTEXT
-    PUSH 0
+    %stack (new_rlp_addr, old_rlp_addr, data_len) -> (old_rlp_addr, data_len, %%after, new_rlp_addr)
+    // old_rlp_addr has context 0. We will call GET_CONTEXT and update it.
+    GET_CONTEXT ADD
     PUSH @SEGMENT_TXN_DATA
-    GET_CONTEXT
-    // stack: DST, SRC, data_len, %%after, new_pos
+    GET_CONTEXT ADD
+    // stack: DST, SRC, data_len, %%after, new_rlp_addr
     %jump(memcpy_bytes)
 
 %%after:
-    // stack: new_pos
+    // stack: new_rlp_addr
 %endmacro
 
 %macro decode_and_store_access_list
-    // stack: pos
+    // stack: rlp_addr
     DUP1 %mstore_global_metadata(@GLOBAL_METADATA_ACCESS_LIST_RLP_START)
     %decode_rlp_list_len
-    %stack (pos, len) -> (len, len, pos, %%after)
+    %stack (rlp_addr, len) -> (len, len, rlp_addr, %%after)
     %jumpi(decode_and_store_access_list)
-    // stack: len, pos, %%after
+    // stack: len, rlp_addr, %%after
     POP SWAP1 POP
-    // stack: pos
+    // stack: rlp_addr
     %mload_global_metadata(@GLOBAL_METADATA_ACCESS_LIST_RLP_START) DUP2 SUB %mstore_global_metadata(@GLOBAL_METADATA_ACCESS_LIST_RLP_LEN)
 %%after:
 %endmacro
 
 %macro decode_and_store_y_parity
-    // stack: pos
+    // stack: rlp_addr
     %decode_rlp_scalar
-    %stack (pos, y_parity) -> (y_parity, pos)
+    %stack (rlp_addr, y_parity) -> (y_parity, rlp_addr)
     %mstore_txn_field(@TXN_FIELD_Y_PARITY)
-    // stack: pos
+    // stack: rlp_addr
 %endmacro
 
 %macro decode_and_store_r
-    // stack: pos
+    // stack: rlp_addr
     %decode_rlp_scalar
-    %stack (pos, r) -> (r, pos)
+    %stack (rlp_addr, r) -> (r, rlp_addr)
     %mstore_txn_field(@TXN_FIELD_R)
-    // stack: pos
+    // stack: rlp_addr
 %endmacro
 
 %macro decode_and_store_s
-    // stack: pos
+    // stack: rlp_addr
     %decode_rlp_scalar
-    %stack (pos, s) -> (s, pos)
+    %stack (rlp_addr, s) -> (s, rlp_addr)
     %mstore_txn_field(@TXN_FIELD_S)
-    // stack: pos
+    // stack: rlp_addr
 %endmacro
 
 
 // The access list is of the form `[[{20 bytes}, [{32 bytes}...]]...]`.
 global decode_and_store_access_list:
-    // stack: len, pos
+    // stack: len, rlp_addr
     DUP2 ADD
-    // stack: end_pos, pos
+    // stack: end_rlp_addr, rlp_addr
     // Store the RLP length.
     %mload_global_metadata(@GLOBAL_METADATA_ACCESS_LIST_RLP_START) DUP2 SUB %mstore_global_metadata(@GLOBAL_METADATA_ACCESS_LIST_RLP_LEN)
     SWAP1
 decode_and_store_access_list_loop:
-    // stack: pos, end_pos
+    // stack: rlp_addr, end_rlp_addr
     DUP2 DUP2 EQ %jumpi(decode_and_store_access_list_finish)
-    // stack: pos, end_pos
+    // stack: rlp_addr, end_rlp_addr
     %decode_rlp_list_len // Should be a list `[{20 bytes}, [{32 bytes}...]]`
-    // stack: pos, internal_len, end_pos
+    // stack: rlp_addr, internal_len, end_rlp_addr
     SWAP1 POP // We don't need the length of this list.
-    // stack: pos, end_pos
+    // stack: rlp_addr, end_rlp_addr
     %decode_rlp_scalar // Address // TODO: Should panic when address is not 20 bytes?
-    // stack: pos, addr, end_pos
+    // stack: rlp_addr, addr, end_rlp_addr
     SWAP1
-    // stack: addr, pos, end_pos
+    // stack: addr, rlp_addr, end_rlp_addr
     DUP1 %insert_accessed_addresses_no_return
-    // stack: addr, pos, end_pos
+    // stack: addr, rlp_addr, end_rlp_addr
     %add_address_cost
-    // stack: addr, pos, end_pos
+    // stack: addr, rlp_addr, end_rlp_addr
     SWAP1
-    // stack: pos, addr, end_pos
+    // stack: rlp_addr, addr, end_rlp_addr
     %decode_rlp_list_len // Should be a list of storage keys `[{32 bytes}...]`
-    // stack: pos, sk_len, addr, end_pos
+    // stack: rlp_addr, sk_len, addr, end_rlp_addr
     SWAP1 DUP2 ADD
-    // stack: sk_end_pos, pos, addr, end_pos
+    // stack: sk_end_rlp_addr, rlp_addr, addr, end_rlp_addr
     SWAP1
-    // stack: pos, sk_end_pos, addr, end_pos
+    // stack: rlp_addr, sk_end_rlp_addr, addr, end_rlp_addr
 sk_loop:
     DUP2 DUP2 EQ %jumpi(end_sk)
-    // stack: pos, sk_end_pos, addr, end_pos
+    // stack: rlp_addr, sk_end_rlp_addr, addr, end_rlp_addr
     %decode_rlp_scalar // Storage key // TODO: Should panic when key is not 32 bytes?
-    %stack (pos, key, sk_end_pos, addr, end_pos) ->
-        (addr, key, sk_loop_contd, pos, sk_end_pos, addr, end_pos)
+    %stack (rlp_addr, key, sk_end_rlp_addr, addr, end_rlp_addr) ->
+        (addr, key, sk_loop_contd, rlp_addr, sk_end_rlp_addr, addr, end_rlp_addr)
     %jump(insert_accessed_storage_keys_with_original_value)
 sk_loop_contd:
-    // stack: pos, sk_end_pos, addr, end_pos
+    // stack: rlp_addr, sk_end_rlp_addr, addr, end_rlp_addr
     %add_storage_key_cost
     %jump(sk_loop)
 end_sk:
-    %stack (pos, sk_end_pos, addr, end_pos) -> (pos, end_pos)
+    %stack (rlp_addr, sk_end_rlp_addr, addr, end_rlp_addr) -> (rlp_addr, end_rlp_addr)
     %jump(decode_and_store_access_list_loop)
 decode_and_store_access_list_finish:
-    %stack (pos, end_pos, retdest) -> (retdest, pos)
+    %stack (rlp_addr, end_rlp_addr, retdest) -> (retdest, rlp_addr)
     JUMP
 
 %macro add_address_cost

@@ -33,18 +33,24 @@ return_after_gas:
 
     // Store the return data size in the parent context's metadata.
     %stack (parent_ctx, kexit_info, offset, size) ->
-        (parent_ctx, @SEGMENT_CONTEXT_METADATA, @CTX_METADATA_RETURNDATA_SIZE, size, offset, size, parent_ctx, kexit_info)
+        (parent_ctx, @CTX_METADATA_RETURNDATA_SIZE, size, offset, size, parent_ctx, kexit_info)
+    ADD // addr (CTX offsets are already scaled by their segment)
     MSTORE_GENERAL
     // stack: offset, size, parent_ctx, kexit_info
 
     // Store the return data in the parent context's returndata segment.
+    PUSH @SEGMENT_MAIN_MEMORY
     GET_CONTEXT
-    %stack (ctx, offset, size, parent_ctx, kexit_info) ->
+    %build_address
+
+    %stack (addr, size, parent_ctx, kexit_info) ->
         (
-        parent_ctx, @SEGMENT_RETURNDATA, 0, // DST
-        ctx, @SEGMENT_MAIN_MEMORY, offset,  // SRC
+        parent_ctx, @SEGMENT_RETURNDATA, // DST
+        addr, // SRC
         size, sys_return_finish, kexit_info // count, retdest, ...
         )
+    %build_address_no_offset
+    // stack: DST, SRC, size, sys_return_finish, kexit_info
     %jump(memcpy_bytes)
 
 sys_return_finish:
@@ -133,18 +139,24 @@ revert_after_gas:
 
     // Store the return data size in the parent context's metadata.
     %stack (parent_ctx, kexit_info, offset, size) ->
-        (parent_ctx, @SEGMENT_CONTEXT_METADATA, @CTX_METADATA_RETURNDATA_SIZE, size, offset, size, parent_ctx, kexit_info)
+        (parent_ctx, @CTX_METADATA_RETURNDATA_SIZE, size, offset, size, parent_ctx, kexit_info)
+    ADD // addr (CTX offsets are already scaled by their segment)
     MSTORE_GENERAL
     // stack: offset, size, parent_ctx, kexit_info
 
     // Store the return data in the parent context's returndata segment.
+    PUSH @SEGMENT_MAIN_MEMORY
     GET_CONTEXT
-    %stack (ctx, offset, size, parent_ctx, kexit_info) ->
+    %build_address
+
+    %stack (addr, size, parent_ctx, kexit_info) ->
         (
-        parent_ctx, @SEGMENT_RETURNDATA, 0, // DST
-        ctx, @SEGMENT_MAIN_MEMORY, offset,  // SRC
+        parent_ctx, @SEGMENT_RETURNDATA, // DST
+        addr,  // SRC
         size, sys_revert_finish, kexit_info // count, retdest, ...
         )
+    %build_address_no_offset
+    // stack: DST, SRC, size, sys_revert_finish, kexit_info
     %jump(memcpy_bytes)
 
 sys_revert_finish:

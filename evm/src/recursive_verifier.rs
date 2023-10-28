@@ -34,7 +34,7 @@ use crate::cross_table_lookup::{
 };
 use crate::evaluation_frame::StarkEvaluationFrame;
 use crate::lookup::LookupCheckVarsTarget;
-use crate::memory::segments::Segment;
+use crate::memory::segments::{Segment, SEGMENT_SCALING_FACTOR};
 use crate::memory::VALUE_LIMBS;
 use crate::proof::{
     BlockHashes, BlockHashesTarget, BlockMetadata, BlockMetadataTarget, ExtraBlockData,
@@ -495,7 +495,9 @@ pub(crate) fn get_memory_extra_looking_products_circuit<
         ),
     ];
 
-    let metadata_segment = builder.constant(F::from_canonical_u32(Segment::GlobalMetadata as u32));
+    let metadata_segment = builder.constant(F::from_canonical_u64(
+        Segment::GlobalMetadata as u64 >> SEGMENT_SCALING_FACTOR,
+    ));
     block_fields_scalars.map(|(field, target)| {
         // Each of those fields fit in 32 bits, hence in a single Target.
         product = add_data_write(
@@ -520,7 +522,9 @@ pub(crate) fn get_memory_extra_looking_products_circuit<
     });
 
     // Add block hashes writes.
-    let block_hashes_segment = builder.constant(F::from_canonical_u32(Segment::BlockHashes as u32));
+    let block_hashes_segment = builder.constant(F::from_canonical_u64(
+        Segment::BlockHashes as u64 >> SEGMENT_SCALING_FACTOR,
+    ));
     for i in 0..256 {
         product = add_data_write(
             builder,
@@ -533,7 +537,9 @@ pub(crate) fn get_memory_extra_looking_products_circuit<
     }
 
     // Add block bloom filters writes.
-    let bloom_segment = builder.constant(F::from_canonical_u32(Segment::GlobalBlockBloom as u32));
+    let bloom_segment = builder.constant(F::from_canonical_u64(
+        Segment::GlobalBlockBloom as u64 >> SEGMENT_SCALING_FACTOR,
+    ));
     for i in 0..8 {
         product = add_data_write(
             builder,

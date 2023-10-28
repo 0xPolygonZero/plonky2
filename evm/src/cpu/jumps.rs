@@ -7,7 +7,7 @@ use plonky2::iop::ext_target::ExtensionTarget;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::membus::NUM_GP_CHANNELS;
-use crate::memory::segments::Segment;
+use crate::memory::segments::{Segment, SEGMENT_SCALING_FACTOR};
 
 /// Evaluates constraints for EXIT_KERNEL.
 pub fn eval_packed_exit_kernel<P: PackedField>(
@@ -86,7 +86,9 @@ pub fn eval_packed_jump_jumpi<P: PackedField>(
     yield_constr.constraint_transition(new_filter * (channel.is_read - P::ONES));
     yield_constr.constraint_transition(new_filter * (channel.addr_context - nv.context));
     yield_constr.constraint_transition(
-        new_filter * (channel.addr_segment - P::Scalar::from_canonical_u64(Segment::Stack as u64)),
+        new_filter
+            * (channel.addr_segment
+                - P::Scalar::from_canonical_u64(Segment::Stack as u64 >> SEGMENT_SCALING_FACTOR)),
     );
     let addr_virtual = nv.stack_len - P::ONES;
     yield_constr.constraint_transition(new_filter * (channel.addr_virtual - addr_virtual));
@@ -133,7 +135,9 @@ pub fn eval_packed_jump_jumpi<P: PackedField>(
     yield_constr.constraint(
         filter
             * (jumpdest_flag_channel.addr_segment
-                - P::Scalar::from_canonical_u64(Segment::JumpdestBits as u64)),
+                - P::Scalar::from_canonical_u64(
+                    Segment::JumpdestBits as u64 >> SEGMENT_SCALING_FACTOR,
+                )),
     );
     yield_constr.constraint(filter * (jumpdest_flag_channel.addr_virtual - dst[0]));
 
@@ -202,7 +206,7 @@ pub fn eval_ext_circuit_jump_jumpi<F: RichField + Extendable<D>, const D: usize>
     {
         let constr = builder.arithmetic_extension(
             F::ONE,
-            -F::from_canonical_u64(Segment::Stack as u64),
+            -F::from_canonical_u64(Segment::Stack as u64 >> SEGMENT_SCALING_FACTOR),
             new_filter,
             channel.addr_segment,
             new_filter,
@@ -305,7 +309,7 @@ pub fn eval_ext_circuit_jump_jumpi<F: RichField + Extendable<D>, const D: usize>
     {
         let constr = builder.arithmetic_extension(
             F::ONE,
-            -F::from_canonical_u64(Segment::JumpdestBits as u64),
+            -F::from_canonical_u64(Segment::JumpdestBits as u64 >> SEGMENT_SCALING_FACTOR),
             filter,
             jumpdest_flag_channel.addr_segment,
             filter,

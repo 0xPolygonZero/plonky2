@@ -10,8 +10,9 @@ pub enum MemoryChannel {
 
 use MemoryChannel::{Code, GeneralPurpose};
 
+use super::operation::CONTEXT_SCALING_FACTOR;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
-use crate::memory::segments::Segment;
+use crate::memory::segments::{Segment, SEGMENT_SCALING_FACTOR};
 use crate::witness::errors::MemoryError::{ContextTooLarge, SegmentTooLarge, VirtTooLarge};
 use crate::witness::errors::ProgramError;
 use crate::witness::errors::ProgramError::MemoryError;
@@ -39,7 +40,8 @@ impl MemoryAddress {
     pub(crate) fn new(context: usize, segment: Segment, virt: usize) -> Self {
         Self {
             context,
-            segment: segment as usize,
+            // segment is scaled
+            segment: segment as usize >> 32,
             virt,
         }
     }
@@ -65,6 +67,14 @@ impl MemoryAddress {
             segment: segment.as_usize(),
             virt: virt.as_usize(),
         })
+    }
+
+    pub(crate) fn new_bundle(addr: U256) -> Result<Self, ProgramError> {
+        let virt = addr.low_u32().into();
+        let segment = (addr >> SEGMENT_SCALING_FACTOR).low_u32().into();
+        let context = (addr >> CONTEXT_SCALING_FACTOR).low_u32().into();
+
+        Self::new_u256s(context, segment, virt)
     }
 
     pub(crate) fn increment(&mut self) {
@@ -147,7 +157,8 @@ impl MemoryState {
     pub fn new(kernel_code: &[u8]) -> Self {
         let code_u256s = kernel_code.iter().map(|&x| x.into()).collect();
         let mut result = Self::default();
-        result.contexts[0].segments[Segment::Code as usize].content = code_u256s;
+        result.contexts[0].segments[Segment::Code as usize >> SEGMENT_SCALING_FACTOR].content =
+            code_u256s;
         result
     }
 
@@ -198,12 +209,9 @@ impl MemoryState {
         self.contexts[address.context].segments[address.segment].set(address.virt, val);
     }
 
+    // Those fields are already scaled by their respective segment.
     pub(crate) fn read_global_metadata(&self, field: GlobalMetadata) -> U256 {
-        self.get(MemoryAddress::new(
-            0,
-            Segment::GlobalMetadata,
-            field as usize,
-        ))
+        self.get(MemoryAddress::new_bundle(U256::from(field as usize)).unwrap())
     }
 }
 

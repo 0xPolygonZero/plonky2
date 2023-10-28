@@ -19,7 +19,7 @@ use crate::cross_table_lookup::{
 };
 use crate::evaluation_frame::StarkEvaluationFrame;
 use crate::lookup::LookupCheckVars;
-use crate::memory::segments::Segment;
+use crate::memory::segments::{Segment, SEGMENT_SCALING_FACTOR};
 use crate::memory::VALUE_LIMBS;
 use crate::proof::{
     AllProof, AllProofChallenges, PublicValues, StarkOpeningSet, StarkProof, StarkProofChallenges,
@@ -236,12 +236,17 @@ where
         ),
     ];
 
-    let segment = F::from_canonical_u32(Segment::GlobalMetadata as u32);
+    let segment = F::from_canonical_u64(Segment::GlobalMetadata as u64 >> SEGMENT_SCALING_FACTOR);
 
-    fields.map(|(field, val)| prod = add_data_write(challenge, segment, prod, field as usize, val));
+    fields.map(|(field, val)| {
+        // Those fields are already scaled by their segment, and are in context 0 (kernel).
+        let field = field as usize - Segment::GlobalMetadata as usize;
+        prod = add_data_write(challenge, segment, prod, field as usize, val)
+    });
 
     // Add block bloom writes.
-    let bloom_segment = F::from_canonical_u32(Segment::GlobalBlockBloom as u32);
+    let bloom_segment =
+        F::from_canonical_u64(Segment::GlobalBlockBloom as u64 >> SEGMENT_SCALING_FACTOR);
     for index in 0..8 {
         let val = public_values.block_metadata.block_bloom[index];
         prod = add_data_write(challenge, bloom_segment, prod, index, val);
@@ -257,7 +262,8 @@ where
     }
 
     // Add Blockhashes writes.
-    let block_hashes_segment = F::from_canonical_u32(Segment::BlockHashes as u32);
+    let block_hashes_segment =
+        F::from_canonical_u64(Segment::BlockHashes as u64 >> SEGMENT_SCALING_FACTOR);
     for index in 0..256 {
         let val = h2u(public_values.block_hashes.prev_hashes[index]);
         prod = add_data_write(challenge, block_hashes_segment, prod, index, val);
@@ -551,7 +557,8 @@ pub(crate) mod testutils {
             ),
         ];
 
-        let segment = F::from_canonical_u32(Segment::GlobalMetadata as u32);
+        let segment =
+            F::from_canonical_u64(Segment::GlobalMetadata as u64 >> SEGMENT_SCALING_FACTOR);
         let mut extra_looking_rows = Vec::new();
 
         fields.map(|(field, val)| {
@@ -559,7 +566,8 @@ pub(crate) mod testutils {
         });
 
         // Add block bloom writes.
-        let bloom_segment = F::from_canonical_u32(Segment::GlobalBlockBloom as u32);
+        let bloom_segment =
+            F::from_canonical_u64(Segment::GlobalBlockBloom as u64 >> SEGMENT_SCALING_FACTOR);
         for index in 0..8 {
             let val = public_values.block_metadata.block_bloom[index];
             extra_looking_rows.push(add_extra_looking_row(bloom_segment, index, val));
@@ -575,7 +583,8 @@ pub(crate) mod testutils {
         }
 
         // Add Blockhashes writes.
-        let block_hashes_segment = F::from_canonical_u32(Segment::BlockHashes as u32);
+        let block_hashes_segment =
+            F::from_canonical_u64(Segment::BlockHashes as u64 >> SEGMENT_SCALING_FACTOR);
         for index in 0..256 {
             let val = h2u(public_values.block_hashes.prev_hashes[index]);
             extra_looking_rows.push(add_extra_looking_row(block_hashes_segment, index, val));

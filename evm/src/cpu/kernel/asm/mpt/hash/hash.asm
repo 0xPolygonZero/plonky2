@@ -24,15 +24,13 @@ mpt_hash_hash_if_rlp:
 mpt_hash_hash_rlp:
     // stack: result, result_len, retdest
     %stack (result, result_len)
-        // context, segment, offset, value, len, retdest
-        -> (0, @SEGMENT_RLP_RAW, 0, result, result_len, mpt_hash_hash_rlp_after_unpacking)
+        -> (@SEGMENT_RLP_RAW, result, result_len, mpt_hash_hash_rlp_after_unpacking, result_len)
+    // stack: addr, result, result_len, mpt_hash_hash_rlp_after_unpacking
     %jump(mstore_unpacking)
 mpt_hash_hash_rlp_after_unpacking:
-    // stack: result_len, retdest
-    PUSH 0 // offset
-    PUSH @SEGMENT_RLP_RAW // segment
-    PUSH 0 // context
-    // stack: result_addr: 3, result_len, retdest
+    // stack: result_addr, result_len, retdest
+    POP
+    PUSH @SEGMENT_RLP_RAW // ctx == virt == 0
     KECCAK_GENERAL
     // stack: hash, retdest
     SWAP1
@@ -72,23 +70,19 @@ encode_or_hash_concrete_node:
     %stack (node_type, node_ptr, encode_value) -> (node_type, node_ptr, encode_value, maybe_hash_node)
     %jump(encode_node)
 maybe_hash_node:
-    // stack: result_ptr, result_len, retdest
+    // stack: result_addr, result_len, retdest
     DUP2 %lt_const(32)
     %jumpi(pack_small_rlp)
 
     // result_len >= 32, so we hash the result.
-    // stack: result_ptr, result_len, retdest
-    PUSH @SEGMENT_RLP_RAW // segment
-    PUSH 0 // context
-    // stack: result_addr: 3, result_len, retdest
+    // stack: result_addr, result_len, retdest
     KECCAK_GENERAL
     %stack (hash, retdest) -> (retdest, hash, 32)
     JUMP
 pack_small_rlp:
     // stack: result_ptr, result_len, retdest
     %stack (result_ptr, result_len)
-        -> (0, @SEGMENT_RLP_RAW, result_ptr, result_len,
-            after_packed_small_rlp, result_len)
+        -> (result_ptr, result_len, after_packed_small_rlp, result_len)
     %jump(mload_packing)
 after_packed_small_rlp:
     %stack (result, result_len, retdest) -> (retdest, result, result_len)
@@ -121,13 +115,13 @@ global encode_node_empty:
     // An empty node is encoded as a single byte, 0x80, which is the RLP encoding of the empty string.
     // TODO: Write this byte just once to RLP memory, then we can always return (0, 1).
     %alloc_rlp_block
-    // stack: rlp_pos, retdest
+    // stack: rlp_start, retdest
     PUSH 0x80
-    // stack: 0x80, rlp_pos, retdest
+    // stack: 0x80, rlp_start, retdest
     DUP2
-    // stack: rlp_pos, 0x80, rlp_pos, retdest
+    // stack: rlp_start, 0x80, rlp_start, retdest
     %mstore_rlp
-    %stack (rlp_pos, retdest) -> (retdest, rlp_pos, 1)
+    %stack (rlp_start, retdest) -> (retdest, rlp_start, 1)
     JUMP
 
 global encode_node_branch:
@@ -154,7 +148,8 @@ global encode_node_branch:
     // stack: base_offset, node_payload_ptr, encode_value, retdest
 
     // Now, append each child to our RLP tape.
-    %alloc_rlp_block DUP1
+    %alloc_rlp_block
+    DUP1
     // stack: rlp_pos, rlp_start, base_offset, node_payload_ptr, encode_value, retdest
     %append_child(0)  %append_child(1)  %append_child(2)  %append_child(3)
     %append_child(4)  %append_child(5)  %append_child(6)  %append_child(7)
@@ -228,7 +223,7 @@ encode_node_branch_prepend_prefix:
     %stack (result_len, result, rlp_pos, rlp_start, base_offset, node_payload_ptr, encode_value, retdest)
         -> (rlp_pos, result, result_len, %%after_unpacking,
             rlp_start, base_offset, node_payload_ptr, encode_value, retdest)
-    %jump(mstore_unpacking_rlp)
+    %jump(mstore_unpacking)
 %%after_unpacking:
     // stack: rlp_pos', rlp_start, base_offset, node_payload_ptr, encode_value, retdest
 %endmacro
@@ -266,7 +261,7 @@ encode_node_extension_after_hex_prefix:
 encode_node_extension_unpack:
     %stack (rlp_pos, rlp_start, result, result_len, node_payload_ptr)
         -> (rlp_pos, result, result_len, encode_node_extension_after_unpacking, rlp_start)
-    %jump(mstore_unpacking_rlp)
+    %jump(mstore_unpacking)
 encode_node_extension_after_unpacking:
     // stack: rlp_pos, rlp_start, retdest
     %prepend_rlp_list_prefix

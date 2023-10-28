@@ -13,7 +13,7 @@ use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer
 use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::membus::NUM_GP_CHANNELS;
-use crate::memory::segments::Segment;
+use crate::memory::segments::{Segment, SEGMENT_SCALING_FACTOR};
 
 // Copy the constant but make it `usize`.
 const BYTES_PER_OFFSET: usize = crate::cpu::kernel::assembler::BYTES_PER_OFFSET as usize;
@@ -45,7 +45,8 @@ pub fn eval_packed<P: PackedField>(
     }
 
     // Look up the handler in memory
-    let code_segment = P::Scalar::from_canonical_usize(Segment::Code as usize);
+    let code_segment =
+        P::Scalar::from_canonical_usize(Segment::Code as usize >> SEGMENT_SCALING_FACTOR);
 
     let opcode: P = lv
         .opcode_bits
@@ -155,7 +156,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     }
 
     // Look up the handler in memory
-    let code_segment = F::from_canonical_usize(Segment::Code as usize);
+    let code_segment = F::from_canonical_usize(Segment::Code as usize >> SEGMENT_SCALING_FACTOR);
 
     let opcode = lv
         .opcode_bits

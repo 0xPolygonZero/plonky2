@@ -12,7 +12,7 @@ use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
 use crate::cpu::kernel::interpreter::Interpreter;
 use crate::cpu::kernel::tests::mpt::nibbles_64;
 use crate::generation::mpt::{all_mpt_prover_inputs_reversed, AccountRlp};
-use crate::memory::segments::Segment;
+use crate::memory::segments::{Segment, SEGMENT_SCALING_FACTOR};
 use crate::Node;
 
 // Test account with a given code hash.
@@ -144,8 +144,11 @@ fn test_extcodecopy() -> Result<()> {
     prepare_interpreter(&mut interpreter, address, &account)?;
 
     interpreter.generation_state.memory.contexts[interpreter.context].segments
-        [Segment::ContextMetadata as usize]
-        .set(GasLimit as usize, U256::from(1000000000000u64) << 192);
+        [Segment::ContextMetadata as usize >> SEGMENT_SCALING_FACTOR]
+        .set(
+            GasLimit as usize - Segment::ContextMetadata as usize,
+            U256::from(1000000000000u64) << 192,
+        );
 
     let extcodecopy = KERNEL.global_labels["sys_extcodecopy"];
 
@@ -153,10 +156,10 @@ fn test_extcodecopy() -> Result<()> {
     let mut rng = thread_rng();
     for i in 0..2000 {
         interpreter.generation_state.memory.contexts[interpreter.context].segments
-            [Segment::MainMemory as usize]
+            [Segment::MainMemory as usize >> SEGMENT_SCALING_FACTOR]
             .set(i, U256::from(rng.gen::<u8>()));
         interpreter.generation_state.memory.contexts[interpreter.context].segments
-            [Segment::KernelAccountCode as usize]
+            [Segment::KernelAccountCode as usize >> SEGMENT_SCALING_FACTOR]
             .set(i, U256::from(rng.gen::<u8>()));
     }
 
@@ -182,7 +185,7 @@ fn test_extcodecopy() -> Result<()> {
     // Check that the code was correctly copied to memory.
     for i in 0..size {
         let memory = interpreter.generation_state.memory.contexts[interpreter.context].segments
-            [Segment::MainMemory as usize]
+            [Segment::MainMemory as usize >> SEGMENT_SCALING_FACTOR]
             .get(dest_offset + i);
         assert_eq!(
             memory,

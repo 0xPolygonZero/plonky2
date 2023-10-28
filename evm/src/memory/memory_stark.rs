@@ -117,8 +117,14 @@ pub fn generate_first_change_flags_and_rc<F: RichField>(trace_rows: &mut [[F; NU
 
         assert!(
             row[RANGE_CHECK].to_canonical_u64() < num_ops as u64,
-            "Range check of {} is too large. Bug in fill_gaps?",
-            row[RANGE_CHECK]
+            "Range check of {} is too large. Bug in fill_gaps?\nCtx diff: {:?}\tSeg diff: {:?}\tVirt diff: {:?}\tTime diff: {:?}\n\tseg: {:?}, next: {:?}",
+            row[RANGE_CHECK],
+            F::from_bool(context_first_change) * (next_context - context - F::ONE),
+            F::from_bool(!context_first_change && segment_first_change) * (next_segment - segment - F::ONE),
+            F::from_bool(!context_first_change && !segment_first_change && virtual_first_change) * (next_virt - virt - F::ONE),
+            F::from_bool(!context_first_change && !segment_first_change && !virtual_first_change) * (next_timestamp - timestamp),
+            segment,
+            next_segment
         );
     }
 }

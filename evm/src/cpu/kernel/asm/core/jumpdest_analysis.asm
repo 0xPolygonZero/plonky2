@@ -14,7 +14,8 @@ loop:
     %jumpi(return)
 
     // stack: i, ctx, code_len, retdest
-    %stack (i, ctx) -> (ctx, @SEGMENT_CODE, i, i, ctx)
+    %stack (i, ctx) -> (ctx, i, i, ctx)
+    ADD // combine context and offset to make an address (SEGMENT_CODE == 0)
     MLOAD_GENERAL
     // stack: opcode, i, ctx, code_len, retdest
 
@@ -33,6 +34,7 @@ encountered_jumpdest:
     POP
     // stack: i, ctx, code_len, retdest
     %stack (i, ctx) -> (ctx, @SEGMENT_JUMPDEST_BITS, i, 1, i, ctx)
+    %build_address
     MSTORE_GENERAL
 
 continue:

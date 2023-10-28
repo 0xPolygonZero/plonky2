@@ -1,62 +1,100 @@
 // Load the given global metadata field from memory.
 %macro mload_global_metadata(field)
+    // Global metadata are already scaled by their corresponding segment,
+    // effectively making them the direct memory position to read from /
+    // write to.
+
     // stack: (empty)
     PUSH $field
-    // stack: offset
-    %mload_kernel(@SEGMENT_GLOBAL_METADATA)
+    MLOAD_GENERAL
     // stack: value
 %endmacro
 
 // Store the given global metadata field to memory.
 %macro mstore_global_metadata(field)
+    // Global metadata are already scaled by their corresponding segment,
+    // effectively making them the direct memory position to read from /
+    // write to.
+
     // stack: value
     PUSH $field
-    // stack: offset, value
-    %mstore_kernel(@SEGMENT_GLOBAL_METADATA)
+    MSTORE_GENERAL
     // stack: (empty)
 %endmacro
 
 // Load the given context metadata field from memory.
 %macro mload_context_metadata(field)
+    // Context metadata are already scaled by their corresponding segment,
+    // effectively making them the direct memory position to read from /
+    // write to.
+
     // stack: (empty)
     PUSH $field
-    // stack: offset
-    %mload_current(@SEGMENT_CONTEXT_METADATA)
+    GET_CONTEXT
+    ADD 
+    // stack: addr
+    MLOAD_GENERAL
     // stack: value
 %endmacro
 
 // Store the given context metadata field to memory.
 %macro mstore_context_metadata(field)
+    // Context metadata are already scaled by their corresponding segment,
+    // effectively making them the direct memory position to read from /
+    // write to.
+
     // stack: value
     PUSH $field
-    // stack: offset, value
-    %mstore_current(@SEGMENT_CONTEXT_METADATA)
+    GET_CONTEXT
+    ADD 
+    // stack: addr
+    MSTORE_GENERAL
     // stack: (empty)
 %endmacro
 
 // Store the given context metadata field to memory.
 %macro mstore_context_metadata(field, value)
+    // Context metadata are already scaled by their corresponding segment,
+    // effectively making them the direct memory position to read from /
+    // write to.
+
     PUSH $value
+    // stack: value
     PUSH $field
-    // stack: offset, value
-    %mstore_current(@SEGMENT_CONTEXT_METADATA)
+    GET_CONTEXT
+    ADD 
+    // stack: addr
+    MSTORE_GENERAL
     // stack: (empty)
 %endmacro
 
 %macro mstore_parent_context_metadata(field)
+    // Context metadata are already scaled by their corresponding segment,
+    // effectively making them the direct memory position to read from /
+    // write to.
+
     // stack: value
     %mload_context_metadata(@CTX_METADATA_PARENT_CONTEXT)
-    %stack (parent_ctx, value) ->
-        (parent_ctx, @SEGMENT_CONTEXT_METADATA, $field, value)
+
+    // stack: parent_ctx, value
+    PUSH $field ADD
+    // stack: addr, value
     MSTORE_GENERAL
     // stack: (empty)
 %endmacro
 
 %macro mstore_parent_context_metadata(field, value)
+    // Context metadata are already scaled by their corresponding segment,
+    // effectively making them the direct memory position to read from /
+    // write to.
+
     // stack: (empty)
+    PUSH $value
     %mload_context_metadata(@CTX_METADATA_PARENT_CONTEXT)
-    %stack (parent_ctx) ->
-        (parent_ctx, @SEGMENT_CONTEXT_METADATA, $field, $value)
+
+    // stack: parent_ctx, value
+    PUSH $field ADD
+    // stack: addr, value
     MSTORE_GENERAL
     // stack: (empty)
 %endmacro

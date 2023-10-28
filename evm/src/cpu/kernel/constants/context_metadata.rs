@@ -1,34 +1,40 @@
+use crate::memory::segments::Segment;
+
 /// These metadata fields contain VM state specific to a particular context.
+///
+/// Each value is directly scaled by the corresponding `Segment::ContextMetadata` value for faster
+/// memory access in the kernel.
+#[repr(usize)]
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Ord, PartialOrd, Debug)]
 pub(crate) enum ContextMetadata {
     /// The ID of the context which created this one.
-    ParentContext = 0,
+    ParentContext = Segment::ContextMetadata as usize,
     /// The program counter to return to when we return to the parent context.
-    ParentProgramCounter = 1,
-    CalldataSize = 2,
-    ReturndataSize = 3,
+    ParentProgramCounter = Segment::ContextMetadata as usize + 1,
+    CalldataSize = Segment::ContextMetadata as usize + 2,
+    ReturndataSize = Segment::ContextMetadata as usize + 3,
     /// The address of the account associated with this context.
-    Address = 4,
+    Address = Segment::ContextMetadata as usize + 4,
     /// The size of the code under the account associated with this context.
     /// While this information could be obtained from the state trie, it is best to cache it since
     /// the `CODESIZE` instruction is very cheap.
-    CodeSize = 5,
+    CodeSize = Segment::ContextMetadata as usize + 5,
     /// The address of the caller who spawned this context.
-    Caller = 6,
+    Caller = Segment::ContextMetadata as usize + 6,
     /// The value (in wei) deposited by the caller.
-    CallValue = 7,
+    CallValue = Segment::ContextMetadata as usize + 7,
     /// Whether this context was created by `STATICCALL`, in which case state changes are
     /// prohibited.
-    Static = 8,
+    Static = Segment::ContextMetadata as usize + 8,
     /// Pointer to the initial version of the state trie, at the creation of this context. Used when
     /// we need to revert a context.
-    StateTrieCheckpointPointer = 9,
+    StateTrieCheckpointPointer = Segment::ContextMetadata as usize + 9,
     /// Size of the active main memory, in (32 byte) words.
-    MemWords = 10,
-    StackSize = 11,
+    MemWords = Segment::ContextMetadata as usize + 10,
+    StackSize = Segment::ContextMetadata as usize + 11,
     /// The gas limit for this call (not the entire transaction).
-    GasLimit = 12,
-    ContextCheckpointsLen = 13,
+    GasLimit = Segment::ContextMetadata as usize + 12,
+    ContextCheckpointsLen = Segment::ContextMetadata as usize + 13,
 }
 
 impl ContextMetadata {

@@ -11,7 +11,8 @@ use super::membus::NUM_GP_CHANNELS;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::kernel::constants::context_metadata::ContextMetadata;
-use crate::memory::segments::Segment;
+use crate::memory::segments::{Segment, SEGMENT_SCALING_FACTOR};
+use crate::memory::VALUE_LIMBS;
 
 // If true, the instruction will keep the current context for the next row.
 // If false, next row's context is handled manually.
@@ -85,9 +86,13 @@ fn eval_packed_get<P: PackedField>(
     // If the opcode is GET_CONTEXT, then lv.opcode_bits[0] = 0.
     let filter = lv.op.context_op * (P::ONES - lv.opcode_bits[0]);
     let new_stack_top = nv.mem_channels[0].value;
-    yield_constr.constraint(filter * (new_stack_top[0] - lv.context));
-    for &limb in &new_stack_top[1..] {
-        yield_constr.constraint(filter * limb);
+    // Context is scaled by 2^64, hence stored in the 3rd limb.
+    yield_constr.constraint(filter * (new_stack_top[2] - lv.context));
+
+    for (i, &limb) in new_stack_top.iter().enumerate() {
+        if i != 2 {
+            yield_constr.constraint(filter * limb);
+        }
     }
 
     // Constrain new stack length.
@@ -115,14 +120,18 @@ fn eval_ext_circuit_get<F: RichField + Extendable<D>, const D: usize>(
     let prod = builder.mul_extension(lv.op.context_op, lv.opcode_bits[0]);
     let filter = builder.sub_extension(lv.op.context_op, prod);
     let new_stack_top = nv.mem_channels[0].value;
+    // Context is scaled by 2^64, hence stored in the 3rd limb.
     {
-        let diff = builder.sub_extension(new_stack_top[0], lv.context);
+        let diff = builder.sub_extension(new_stack_top[2], lv.context);
         let constr = builder.mul_extension(filter, diff);
         yield_constr.constraint(builder, constr);
     }
-    for &limb in &new_stack_top[1..] {
-        let constr = builder.mul_extension(filter, limb);
-        yield_constr.constraint(builder, constr);
+
+    for (i, &limb) in new_stack_top.iter().enumerate() {
+        if i != 2 {
+            let constr = builder.mul_extension(filter, limb);
+            yield_constr.constraint(builder, constr);
+        }
     }
 
     // Constrain new stack length.
@@ -157,12 +166,16 @@ fn eval_packed_set<P: PackedField>(
     let stack_top = lv.mem_channels[0].value;
     let write_old_sp_channel = lv.mem_channels[1];
     let read_new_sp_channel = lv.mem_channels[2];
-    let ctx_metadata_segment = P::Scalar::from_canonical_u64(Segment::ContextMetadata as u64);
-    let stack_size_field = P::Scalar::from_canonical_u64(ContextMetadata::StackSize as u64);
+    let ctx_metadata_segment =
+        P::Scalar::from_canonical_u64(Segment::ContextMetadata as u64 >> SEGMENT_SCALING_FACTOR);
+    let stack_size_field = P::Scalar::from_canonical_u64(
+        // We need to unscale the context metadata.
+        ContextMetadata::StackSize as u64 - Segment::ContextMetadata as u64,
+    );
     let local_sp_dec = lv.stack_len - P::ONES;
 
     // The next row's context is read from stack_top.
-    yield_constr.constraint(filter * (stack_top[0] - nv.context));
+    yield_constr.constraint(filter * (stack_top[2] - nv.context));
 
     // The old SP is decremented (since the new context was popped) and written to memory.
     yield_constr.constraint(filter * (write_old_sp_channel.value[0] - local_sp_dec));
@@ -191,13 +204,12 @@ fn eval_packed_set<P: PackedField>(
                 - lv.general.stack().stack_inv_aux_2),
     );
     // The new top is loaded in memory channel 3, if the stack isn't empty (see eval_packed).
-    yield_constr.constraint(
-        lv.op.context_op
-            * lv.general.stack().stack_inv_aux_2
-            * (lv.mem_channels[3].value[0] - new_top_channel.value[0]),
-    );
-    for &limb in &new_top_channel.value[1..] {
-        yield_constr.constraint(lv.op.context_op * lv.general.stack().stack_inv_aux_2 * limb);
+    for i in 0..VALUE_LIMBS {
+        yield_constr.constraint(
+            lv.op.context_op
+                * lv.general.stack().stack_inv_aux_2
+                * (lv.mem_channels[3].value[i] - new_top_channel.value[i]),
+        );
     }
 
     // Unused channels.
@@ -220,18 +232,19 @@ fn eval_ext_circuit_set<F: RichField + Extendable<D>, const D: usize>(
     let stack_top = lv.mem_channels[0].value;
     let write_old_sp_channel = lv.mem_channels[1];
     let read_new_sp_channel = lv.mem_channels[2];
-    let ctx_metadata_segment = builder.constant_extension(F::Extension::from_canonical_u32(
-        Segment::ContextMetadata as u32,
+    let ctx_metadata_segment = builder.constant_extension(F::Extension::from_canonical_u64(
+        Segment::ContextMetadata as u64 >> SEGMENT_SCALING_FACTOR,
     ));
-    let stack_size_field = builder.constant_extension(F::Extension::from_canonical_u32(
-        ContextMetadata::StackSize as u32,
+    let stack_size_field = builder.constant_extension(F::Extension::from_canonical_u64(
+        // We need to unscale the context metadata.
+        ContextMetadata::StackSize as u64 - Segment::ContextMetadata as u64,
     ));
     let one = builder.one_extension();
     let local_sp_dec = builder.sub_extension(lv.stack_len, one);
 
     // The next row's context is read from stack_top.
     {
-        let diff = builder.sub_extension(stack_top[0], nv.context);
+        let diff = builder.sub_extension(stack_top[2], nv.context);
         let constr = builder.mul_extension(filter, diff);
         yield_constr.constraint(builder, constr);
     }
@@ -312,14 +325,9 @@ fn eval_ext_circuit_set<F: RichField + Extendable<D>, const D: usize>(
         yield_constr.constraint(builder, constr);
     }
     // The new top is loaded in memory channel 3, if the stack isn't empty (see eval_packed).
-    {
-        let diff = builder.sub_extension(lv.mem_channels[3].value[0], new_top_channel.value[0]);
+    for i in 0..VALUE_LIMBS {
+        let diff = builder.sub_extension(lv.mem_channels[3].value[i], new_top_channel.value[i]);
         let prod = builder.mul_extension(lv.general.stack().stack_inv_aux_2, diff);
-        let constr = builder.mul_extension(lv.op.context_op, prod);
-        yield_constr.constraint(builder, constr);
-    }
-    for &limb in &new_top_channel.value[1..] {
-        let prod = builder.mul_extension(lv.general.stack().stack_inv_aux_2, limb);
         let constr = builder.mul_extension(lv.op.context_op, prod);
         yield_constr.constraint(builder, constr);
     }
@@ -367,7 +375,9 @@ pub fn eval_packed<P: PackedField>(
     yield_constr.constraint(new_filter * (channel.addr_context - nv.context));
     // Same segment for both.
     yield_constr.constraint(
-        new_filter * (channel.addr_segment - P::Scalar::from_canonical_u64(Segment::Stack as u64)),
+        new_filter
+            * (channel.addr_segment
+                - P::Scalar::from_canonical_u64(Segment::Stack as u64 >> SEGMENT_SCALING_FACTOR)),
     );
     // The address is one less than stack_len.
     let addr_virtual = stack_len - P::ONES;
@@ -428,7 +438,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     {
         let diff = builder.add_const_extension(
             channel.addr_segment,
-            -F::from_canonical_u64(Segment::Stack as u64),
+            -F::from_canonical_u64(Segment::Stack as u64 >> SEGMENT_SCALING_FACTOR),
         );
         let constr = builder.mul_extension(new_filter, diff);
         yield_constr.constraint(builder, constr);

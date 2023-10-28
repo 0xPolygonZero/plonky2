@@ -24,30 +24,18 @@ global precompile_sha256:
     // Copy the call data to the kernel general segment (sha2 expects it there) and call sha2.
     %calldatasize
     GET_CONTEXT
-    // stack: ctx, size
 
-    // The next block of code is equivalent to the following %stack macro call
-    // (unfortunately the macro call takes too long to expand dynamically).
-    //
-    //    %stack (ctx, size) ->
-    //        (
-    //        ctx, @SEGMENT_KERNEL_GENERAL, 1, // DST
-    //        ctx, @SEGMENT_CALLDATA, 0,     // SRC
-    //        size, sha2,                    // count, retdest
-    //        0, size, sha256_contd          // sha2 input: virt, num_bytes, retdest
-    //        )
-    //
-    PUSH 0
-    PUSH sha2
-    DUP4
-    PUSH 0
-    PUSH @SEGMENT_CALLDATA
-    PUSH sha256_contd
-    SWAP7
-    SWAP6
-    PUSH 1
-    PUSH @SEGMENT_KERNEL_GENERAL
-    DUP3
+    %stack (ctx, size) ->
+        (
+        ctx, @SEGMENT_CALLDATA,          // SRC
+        ctx,
+        size, sha2,                      // count, retdest
+        0, size, sha256_contd            // sha2 input: virt, num_bytes, retdest
+        )
+    %build_address_no_offset
+    %stack(addr, ctx) -> (ctx, @SEGMENT_KERNEL_GENERAL, 1, addr)
+    %build_address
+    // stack: DST, SRC, count, retdest, virt, num_bytes, retdest
 
     %jump(memcpy_bytes)
 
@@ -56,5 +44,6 @@ sha256_contd:
     // Store the result hash to the parent's return data using `mstore_unpacking`.
     %mstore_parent_context_metadata(@CTX_METADATA_RETURNDATA_SIZE, 32)
     %mload_context_metadata(@CTX_METADATA_PARENT_CONTEXT)
-    %stack (parent_ctx, hash) -> (parent_ctx, @SEGMENT_RETURNDATA, 0, hash, 32, pop_and_return_success)
+    %stack (parent_ctx, hash) -> (parent_ctx, @SEGMENT_RETURNDATA, hash, 32, pop_and_return_success)
+    %build_address_no_offset
     %jump(mstore_unpacking)

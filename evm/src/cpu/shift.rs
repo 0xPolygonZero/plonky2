@@ -7,7 +7,7 @@ use plonky2::iop::ext_target::ExtensionTarget;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::membus::NUM_GP_CHANNELS;
-use crate::memory::segments::Segment;
+use crate::memory::segments::{Segment, SEGMENT_SCALING_FACTOR};
 
 /// Evaluates constraints for shift operations on the CPU side:
 /// the shifting factor is read from memory when displacement < 2^32.
@@ -24,7 +24,8 @@ pub(crate) fn eval_packed<P: PackedField>(
     // let val = lv.mem_channels[0];
     // let output = lv.mem_channels[NUM_GP_CHANNELS - 1];
 
-    let shift_table_segment = P::Scalar::from_canonical_u64(Segment::ShiftTable as u64);
+    let shift_table_segment =
+        P::Scalar::from_canonical_u64(Segment::ShiftTable as u64 >> SEGMENT_SCALING_FACTOR);
 
     // Only lookup the shifting factor when displacement is < 2^32.
     // two_exp.used is true (1) if the high limbs of the displacement are
@@ -73,7 +74,8 @@ pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let displacement = lv.mem_channels[0];
     let two_exp = lv.mem_channels[2];
 
-    let shift_table_segment = F::from_canonical_u64(Segment::ShiftTable as u64);
+    let shift_table_segment =
+        F::from_canonical_u64(Segment::ShiftTable as u64 >> SEGMENT_SCALING_FACTOR);
 
     // Only lookup the shifting factor when displacement is < 2^32.
     // two_exp.used is true (1) if the high limbs of the displacement are

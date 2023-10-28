@@ -15,7 +15,8 @@ use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::membus::NUM_GP_CHANNELS;
 use crate::generation::state::GenerationState;
-use crate::memory::segments::Segment;
+use crate::memory::segments::{Segment, SEGMENT_SCALING_FACTOR};
+use crate::util::u256_limbs;
 use crate::witness::memory::MemoryAddress;
 use crate::witness::util::{keccak_sponge_log, mem_write_gp_log_and_fill};
 
@@ -43,10 +44,8 @@ pub(crate) fn generate_bootstrap_kernel<F: Field>(state: &mut GenerationState<F>
     final_cpu_row.is_bootstrap_kernel = F::ONE;
     final_cpu_row.is_keccak_sponge = F::ONE;
     // The Keccak sponge CTL uses memory value columns for its inputs and outputs.
-    final_cpu_row.mem_channels[0].value[0] = F::ZERO; // context
-    final_cpu_row.mem_channels[1].value[0] = F::from_canonical_usize(Segment::Code as usize); // segment
-    final_cpu_row.mem_channels[2].value[0] = F::ZERO; // virt
-    final_cpu_row.mem_channels[3].value[0] = F::from_canonical_usize(KERNEL.code.len()); // len
+    final_cpu_row.mem_channels[0].value = u256_limbs(U256::from(Segment::Code as usize)); // addr
+    final_cpu_row.mem_channels[1].value[0] = F::from_canonical_usize(KERNEL.code.len()); // len
     final_cpu_row.mem_channels[4].value = KERNEL.code_hash.map(F::from_canonical_u32);
     final_cpu_row.mem_channels[4].value.reverse();
     keccak_sponge_log(
@@ -81,7 +80,7 @@ pub(crate) fn eval_bootstrap_kernel_packed<F: Field, P: PackedField<Scalar = F>>
 
     // If this is a bootloading row and the i'th memory channel is used, it must have the right
     // address, name context = 0, segment = Code, virt = clock * NUM_GP_CHANNELS + i.
-    let code_segment = F::from_canonical_usize(Segment::Code as usize);
+    let code_segment = F::from_canonical_usize(Segment::Code as usize >> SEGMENT_SCALING_FACTOR);
     for (i, channel) in local_values.mem_channels.iter().enumerate() {
         let filter = local_is_bootstrap * channel.used;
         yield_constr.constraint(filter * channel.addr_context);
@@ -132,8 +131,9 @@ pub(crate) fn eval_bootstrap_kernel_ext_circuit<F: RichField + Extendable<D>, co
 
     // If this is a bootloading row and the i'th memory channel is used, it must have the right
     // address, name context = 0, segment = Code, virt = clock * NUM_GP_CHANNELS + i.
-    let code_segment =
-        builder.constant_extension(F::Extension::from_canonical_usize(Segment::Code as usize));
+    let code_segment = builder.constant_extension(F::Extension::from_canonical_usize(
+        Segment::Code as usize >> SEGMENT_SCALING_FACTOR,
+    ));
     for (i, channel) in local_values.mem_channels.iter().enumerate() {
         let filter = builder.mul_extension(local_is_bootstrap, channel.used);
         let constraint = builder.mul_extension(filter, channel.addr_context);

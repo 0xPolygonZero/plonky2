@@ -11,7 +11,7 @@ use crate::cpu::stack::{
 };
 use crate::cpu::stack_bounds::MAX_USER_STACK_SIZE;
 use crate::generation::state::GenerationState;
-use crate::memory::segments::Segment;
+use crate::memory::segments::{Segment, SEGMENT_SCALING_FACTOR};
 use crate::witness::errors::ProgramError;
 use crate::witness::gas::gas_to_charge;
 use crate::witness::memory::MemoryAddress;
@@ -313,14 +313,15 @@ fn try_perform_instruction<F: Field>(state: &mut GenerationState<F>) -> Result<(
         channel.used = F::ONE;
         channel.is_read = F::ONE;
         channel.addr_context = F::from_canonical_usize(state.registers.context);
-        channel.addr_segment = F::from_canonical_usize(Segment::Stack as usize);
+        channel.addr_segment =
+            F::from_canonical_usize(Segment::Stack as usize >> SEGMENT_SCALING_FACTOR);
         channel.addr_virtual = F::from_canonical_usize(state.registers.stack_len - 1);
 
-        let address = MemoryAddress {
-            context: state.registers.context,
-            segment: Segment::Stack as usize,
-            virt: state.registers.stack_len - 1,
-        };
+        let address = MemoryAddress::new(
+            state.registers.context,
+            Segment::Stack,
+            state.registers.stack_len - 1,
+        );
 
         let mem_op = MemoryOp::new(
             GeneralPurpose(0),
@@ -435,7 +436,9 @@ pub(crate) fn transition<F: Field>(state: &mut GenerationState<F>) -> anyhow::Re
                     e,
                     offset_name,
                     state.stack(),
-                    state.memory.contexts[0].segments[Segment::KernelGeneral as usize].content,
+                    state.memory.contexts[0].segments
+                        [Segment::KernelGeneral as usize >> SEGMENT_SCALING_FACTOR]
+                        .content,
                 );
             }
             state.rollback(checkpoint);
