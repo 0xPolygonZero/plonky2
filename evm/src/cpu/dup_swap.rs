@@ -101,6 +101,7 @@ fn constrain_channel_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
         );
         yield_constr.constraint(builder, constr);
     }
+    // Top of the stack is at `addr = lv.stack_len - 1`.
     {
         let constr = builder.add_extension(channel.addr_virtual, offset);
         let constr = builder.sub_extension(constr, lv.stack_len);
@@ -109,6 +110,7 @@ fn constrain_channel_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     }
 }
 
+/// Evaluates constraints for DUP.
 fn eval_packed_dup<P: PackedField>(
     n: P,
     lv: &CpuColumnsView<P>,
@@ -121,10 +123,14 @@ fn eval_packed_dup<P: PackedField>(
     let write_channel = &lv.mem_channels[1];
     let read_channel = &lv.mem_channels[2];
 
+    // Constrain the input and top of the stack channels to have the same value.
     channels_equal_packed(filter, write_channel, &lv.mem_channels[0], yield_constr);
+    // Constrain the output channel's addresses, `is_read` and `used` fields.
     constrain_channel_packed(false, filter, P::ZEROS, write_channel, lv, yield_constr);
 
+    // Constrain the output and top of the stack channels to have the same value.
     channels_equal_packed(filter, read_channel, &nv.mem_channels[0], yield_constr);
+    // Constrain the input channel's addresses, `is_read` and `used` fields.
     constrain_channel_packed(true, filter, n, read_channel, lv, yield_constr);
 
     // Constrain nv.stack_len.
@@ -139,6 +145,8 @@ fn eval_packed_dup<P: PackedField>(
     }
 }
 
+/// Circuit version of `eval_packed_dup`.
+/// Evaluates constraints for DUP.
 fn eval_ext_circuit_dup<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     n: ExtensionTarget<D>,
@@ -155,6 +163,7 @@ fn eval_ext_circuit_dup<F: RichField + Extendable<D>, const D: usize>(
     let write_channel = &lv.mem_channels[1];
     let read_channel = &lv.mem_channels[2];
 
+    // Constrain the input and top of the stack channels to have the same value.
     channels_equal_ext_circuit(
         builder,
         filter,
@@ -162,6 +171,7 @@ fn eval_ext_circuit_dup<F: RichField + Extendable<D>, const D: usize>(
         &lv.mem_channels[0],
         yield_constr,
     );
+    // Constrain the output channel's addresses, `is_read` and `used` fields.
     constrain_channel_ext_circuit(
         builder,
         false,
@@ -172,6 +182,7 @@ fn eval_ext_circuit_dup<F: RichField + Extendable<D>, const D: usize>(
         yield_constr,
     );
 
+    // Constrain the output and top of the stack channels to have the same value.
     channels_equal_ext_circuit(
         builder,
         filter,
@@ -179,6 +190,7 @@ fn eval_ext_circuit_dup<F: RichField + Extendable<D>, const D: usize>(
         &nv.mem_channels[0],
         yield_constr,
     );
+    // Constrain the input channel's addresses, `is_read` and `used` fields.
     constrain_channel_ext_circuit(builder, true, filter, n, read_channel, lv, yield_constr);
 
     // Constrain nv.stack_len.
@@ -201,6 +213,7 @@ fn eval_ext_circuit_dup<F: RichField + Extendable<D>, const D: usize>(
     }
 }
 
+/// Evaluates constraints for SWAP.
 fn eval_packed_swap<P: PackedField>(
     n: P,
     lv: &CpuColumnsView<P>,
@@ -216,10 +229,15 @@ fn eval_packed_swap<P: PackedField>(
     let in2_channel = &lv.mem_channels[1];
     let out_channel = &lv.mem_channels[2];
 
+    // Constrain the first input channel value to be equal to the output channel value.
     channels_equal_packed(filter, in1_channel, out_channel, yield_constr);
+    // We set `is_read`, `used` and the address for the first input. The first input is
+    // read from the top of the stack, and is therefore not a memory read.
     constrain_channel_packed(false, filter, n_plus_one, out_channel, lv, yield_constr);
 
+    // Constrain the second input channel value to be equal to the new top of the stack.
     channels_equal_packed(filter, in2_channel, &nv.mem_channels[0], yield_constr);
+    // We set `is_read`, `used` and the address for the second input.
     constrain_channel_packed(true, filter, n_plus_one, in2_channel, lv, yield_constr);
 
     // Constrain nv.stack_len.
@@ -234,6 +252,8 @@ fn eval_packed_swap<P: PackedField>(
     }
 }
 
+/// Circuit version of `eval_packed_swap`.
+/// Evaluates constraints for SWAP.
 fn eval_ext_circuit_swap<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     n: ExtensionTarget<D>,
@@ -251,7 +271,10 @@ fn eval_ext_circuit_swap<F: RichField + Extendable<D>, const D: usize>(
     let in2_channel = &lv.mem_channels[1];
     let out_channel = &lv.mem_channels[2];
 
+    // Constrain the first input channel value to be equal to the output channel value.
     channels_equal_ext_circuit(builder, filter, in1_channel, out_channel, yield_constr);
+    // We set `is_read`, `used` and the address for the first input. The first input is
+    // read from the top of the stack, and is therefore not a memory read.
     constrain_channel_ext_circuit(
         builder,
         false,
@@ -262,6 +285,7 @@ fn eval_ext_circuit_swap<F: RichField + Extendable<D>, const D: usize>(
         yield_constr,
     );
 
+    // Constrain the second input channel value to be equal to the new top of the stack.
     channels_equal_ext_circuit(
         builder,
         filter,
@@ -269,6 +293,7 @@ fn eval_ext_circuit_swap<F: RichField + Extendable<D>, const D: usize>(
         &nv.mem_channels[0],
         yield_constr,
     );
+    // We set `is_read`, `used` and the address for the second input.
     constrain_channel_ext_circuit(
         builder,
         true,
@@ -297,6 +322,7 @@ fn eval_ext_circuit_swap<F: RichField + Extendable<D>, const D: usize>(
     }
 }
 
+/// Evaluates the constraints for the DUP and SWAP opcodes.
 pub fn eval_packed<P: PackedField>(
     lv: &CpuColumnsView<P>,
     nv: &CpuColumnsView<P>,
@@ -311,6 +337,8 @@ pub fn eval_packed<P: PackedField>(
     eval_packed_swap(n, lv, nv, yield_constr);
 }
 
+/// Circuit version of `eval_packed`.
+/// Evaluates the constraints for the DUP and SWAP opcodes.
 pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     lv: &CpuColumnsView<ExtensionTarget<D>>,

@@ -55,6 +55,9 @@ pub(crate) enum Operation {
     MstoreGeneral,
 }
 
+/// Adds a CPU row filled with the two inputs and the output of a logic operation.
+/// Generates a new logic operation and adds it to the vector of operation in `LogicStark`.
+/// Adds three memory read operations to `MemoryStark`: for the two inputs and the output.
 pub(crate) fn generate_binary_logic_op<F: Field>(
     op: logic::Op,
     state: &mut GenerationState<F>,

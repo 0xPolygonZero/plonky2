@@ -19,6 +19,7 @@ use crate::memory::segments::Segment;
 use crate::witness::memory::MemoryAddress;
 use crate::witness::util::{keccak_sponge_log, mem_write_gp_log_and_fill};
 
+/// Generates the rows to bootstrap the kernel.
 pub(crate) fn generate_bootstrap_kernel<F: Field>(state: &mut GenerationState<F>) {
     // Iterate through chunks of the code, such that we can write one chunk to memory per row.
     for chunk in &KERNEL.code.iter().enumerate().chunks(NUM_GP_CHANNELS) {
@@ -64,6 +65,7 @@ pub(crate) fn generate_bootstrap_kernel<F: Field>(state: &mut GenerationState<F>
     log::info!("Bootstrapping took {} cycles", state.traces.clock());
 }
 
+/// Evaluates the constraints for kernel bootstrapping.
 pub(crate) fn eval_bootstrap_kernel_packed<F: Field, P: PackedField<Scalar = F>>(
     local_values: &CpuColumnsView<P>,
     next_values: &CpuColumnsView<P>,
@@ -107,6 +109,8 @@ pub(crate) fn eval_bootstrap_kernel_packed<F: Field, P: PackedField<Scalar = F>>
     }
 }
 
+/// Circuit version of `eval_bootstrap_kernel_packed`.
+/// Evaluates the constraints for kernel bootstrapping.
 pub(crate) fn eval_bootstrap_kernel_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     local_values: &CpuColumnsView<ExtensionTarget<D>>,

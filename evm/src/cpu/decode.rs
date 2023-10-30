@@ -74,6 +74,7 @@ const fn bits_from_opcode(opcode: u8) -> [bool; 8] {
     ]
 }
 
+/// Evaluates the constraints for opcode decoding.
 pub fn eval_packed_generic<P: PackedField>(
     lv: &CpuColumnsView<P>,
     yield_constr: &mut ConstraintConsumer<P>,
@@ -156,6 +157,8 @@ pub fn eval_packed_generic<P: PackedField>(
     yield_constr.constraint(not_pop_op);
 }
 
+/// Circuit version of `eval_packed_generic`.
+/// Evaluates the constraints for opcode decoding.
 pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
     lv: &CpuColumnsView<ExtensionTarget<D>>,
