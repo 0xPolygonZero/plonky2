@@ -57,7 +57,7 @@ global update_txn_trie:
         0, @SEGMENT_RLP_RAW, 0, // src addr. Kernel has context 0
         txn_rlp_len, // mcpy len
         txn_rlp_len, rlp_start, txn_counter, num_nibbles, value_ptr)
-    %memcpy
+    %memcpy_bytes
     ADD
     %set_trie_data_size
     // stack: txn_counter, num_nibbles, value_ptr, retdest
