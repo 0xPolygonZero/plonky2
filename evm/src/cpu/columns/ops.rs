@@ -28,12 +28,8 @@ pub struct OpsColumnsView<T: Copy> {
     pub prover_input: T,
     /// Combines JUMP and JUMPI flags.
     pub jumps: T,
-    /// Flag for PC.
-    pub pc: T,
     /// Flag for JUMPDEST.
     pub jumpdest: T,
-    /// Flag for PUSH0.
-    pub push0: T,
     /// Flag for PUSH.
     pub push: T,
     /// Combines DUP and SWAP flags.
@@ -48,6 +44,8 @@ pub struct OpsColumnsView<T: Copy> {
     pub exit_kernel: T,
     /// Combines MSTORE_GENERAL and MLOAD_GENERAL flags.
     pub m_op_general: T,
+    /// Combines PC and PUSH0
+    pub pc_push0: T,
 
     /// Flag for syscalls.
     pub syscall: T,

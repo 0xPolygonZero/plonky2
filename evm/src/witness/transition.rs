@@ -160,7 +160,6 @@ fn decode(registers: RegistersState, opcode: u8) -> Result<Operation, ProgramErr
 fn fill_op_flag<F: Field>(op: Operation, row: &mut CpuColumnsView<F>) {
     let flags = &mut row.op;
     *match op {
-        Operation::Push(0) => &mut flags.push0,
         Operation::Push(1..) => &mut flags.push,
         Operation::Dup(_) | Operation::Swap(_) => &mut flags.dup_swap,
         Operation::Iszero | Operation::Eq => &mut flags.eq_iszero,
@@ -177,7 +176,7 @@ fn fill_op_flag<F: Field>(op: Operation, row: &mut CpuColumnsView<F>) {
         Operation::KeccakGeneral => &mut flags.keccak_general,
         Operation::ProverInput => &mut flags.prover_input,
         Operation::Jump | Operation::Jumpi => &mut flags.jumps,
-        Operation::Pc => &mut flags.pc,
+        Operation::Pc | Operation::Push(0) => &mut flags.pc_push0,
         Operation::Jumpdest => &mut flags.jumpdest,
         Operation::GetContext | Operation::SetContext => &mut flags.context_op,
         Operation::Mload32Bytes => &mut flags.mload_32bytes,
@@ -190,7 +189,7 @@ fn fill_op_flag<F: Field>(op: Operation, row: &mut CpuColumnsView<F>) {
 // Equal to the number of pops if an operation pops without pushing, and `None` otherwise.
 fn get_op_special_length(op: Operation) -> Option<usize> {
     let behavior_opt = match op {
-        Operation::Push(0) => STACK_BEHAVIORS.push0,
+        Operation::Push(0) | Operation::Pc => STACK_BEHAVIORS.pc_push0,
         Operation::Push(1..) => STACK_BEHAVIORS.push,
         Operation::Dup(_) | Operation::Swap(_) => STACK_BEHAVIORS.dup_swap,
         Operation::Iszero => IS_ZERO_STACK_BEHAVIOR,
@@ -211,7 +210,6 @@ fn get_op_special_length(op: Operation) -> Option<usize> {
         Operation::ProverInput => STACK_BEHAVIORS.prover_input,
         Operation::Jump => JUMP_OP,
         Operation::Jumpi => JUMPI_OP,
-        Operation::Pc => STACK_BEHAVIORS.pc,
         Operation::Jumpdest => STACK_BEHAVIORS.jumpdest,
         Operation::GetContext | Operation::SetContext => None,
         Operation::Mload32Bytes => STACK_BEHAVIORS.mload_32bytes,

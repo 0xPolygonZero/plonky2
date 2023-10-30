@@ -23,7 +23,7 @@ use crate::cpu::columns::{CpuColumnsView, COL_MAP};
 /// behavior.
 /// Note: invalid opcodes are not represented here. _Any_ opcode is permitted to decode to
 /// `is_invalid`. The kernel then verifies that the opcode was _actually_ invalid.
-const OPCODES: [(u8, usize, bool, usize); 13] = [
+const OPCODES: [(u8, usize, bool, usize); 11] = [
     // (start index of block, number of top bits to check (log2), kernel-only, flag column)
     // ADD, MUL, SUB, DIV, MOD, LT, GT and BYTE flags are handled partly manually here, and partly through the Arithmetic table CTL.
     // ADDMOD, MULMOD and SUBMOD flags are handled partly manually here, and partly through the Arithmetic table CTL.
@@ -35,9 +35,7 @@ const OPCODES: [(u8, usize, bool, usize); 13] = [
     (0x21, 0, true, COL_MAP.op.keccak_general),
     (0x49, 0, true, COL_MAP.op.prover_input),
     (0x56, 1, false, COL_MAP.op.jumps), // 0x56-0x57
-    (0x58, 0, false, COL_MAP.op.pc),
     (0x5b, 0, false, COL_MAP.op.jumpdest),
-    (0x5f, 0, false, COL_MAP.op.push0),
     (0x60, 5, false, COL_MAP.op.push),     // 0x60-0x7f
     (0x80, 5, false, COL_MAP.op.dup_swap), // 0x80-0x9f
     (0xee, 0, true, COL_MAP.op.mstore_32bytes),
@@ -50,7 +48,7 @@ const OPCODES: [(u8, usize, bool, usize); 13] = [
 /// List of combined opcodes requiring a special handling.
 /// Each index in the list corresponds to an arbitrary combination
 /// of opcodes defined in evm/src/cpu/columns/ops.rs.
-const COMBINED_OPCODES: [usize; 7] = [
+const COMBINED_OPCODES: [usize; 8] = [
     COL_MAP.op.logic_op,
     COL_MAP.op.fp254_op,
     COL_MAP.op.binary_op,
@@ -58,6 +56,7 @@ const COMBINED_OPCODES: [usize; 7] = [
     COL_MAP.op.shift,
     COL_MAP.op.m_op_general,
     COL_MAP.op.not_pop,
+    COL_MAP.op.pc_push0,
 ];
 
 /// Break up an opcode (which is 8 bits long) into its eight bits.
@@ -147,6 +146,14 @@ pub fn eval_packed_generic<P: PackedField>(
         * (opcode - P::Scalar::from_canonical_usize(0xfc_usize))
         * lv.op.m_op_general;
     yield_constr.constraint(m_op_constr);
+
+    // Manually check lv.op.pc_push0.
+    // Both PC and PUSH0 can be called outside of the kernel mode:
+    // there is no need to constrain them in that regard.
+    let pc_push0_constr = (opcode - P::Scalar::from_canonical_usize(0x58_usize))
+        * (opcode - P::Scalar::from_canonical_usize(0x5f_usize))
+        * lv.op.pc_push0;
+    yield_constr.constraint(pc_push0_constr);
 
     // Manually check lv.op.not_pop.
     // Both NOT and POP can be called outside of the kernel mode:
@@ -259,6 +266,17 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     m_op_constr = builder.mul_extension(m_op_constr, lv.op.m_op_general);
 
     yield_constr.constraint(builder, m_op_constr);
+
+    // Manually check lv.op.pc_push0.
+    // Both PC and PUSH0 can be called outside of the kernel mode:
+    // there is no need to constrain them in that regard.
+    let pc_opcode = builder.constant_extension(F::Extension::from_canonical_usize(0x58_usize));
+    let push0_opcode = builder.constant_extension(F::Extension::from_canonical_usize(0x5f_usize));
+    let pc_constr = builder.sub_extension(opcode, pc_opcode);
+    let push0_constr = builder.sub_extension(opcode, push0_opcode);
+    let mut pc_push0_constr = builder.mul_extension(pc_constr, push0_constr);
+    pc_push0_constr = builder.mul_extension(pc_push0_constr, lv.op.pc_push0);
+    yield_constr.constraint(builder, pc_push0_constr);
 
     // Manually check lv.op.not_pop.
     // Both NOT and POP can be called outside of the kernel mode:

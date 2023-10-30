@@ -29,9 +29,8 @@ const SIMPLE_OPCODES: OpsColumnsView<Option<u32>> = OpsColumnsView {
     keccak_general: KERNEL_ONLY_INSTR,
     prover_input: KERNEL_ONLY_INSTR,
     jumps: None, // Combined flag handled separately.
-    pc: G_BASE,
+    pc_push0: G_BASE,
     jumpdest: G_JUMPDEST,
-    push0: G_BASE,
     push: G_VERYLOW,
     dup_swap: G_VERYLOW,
     context_op: KERNEL_ONLY_INSTR,
