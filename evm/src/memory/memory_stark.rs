@@ -318,10 +318,14 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
         yield_constr.constraint_transition(range_check - computed_range_check);
 
         // Enumerate purportedly-ordered log.
+        // We assume that memory is initialized with 0. This means that if the first operation of a new address
+        // is a read, then its value must be 0.
         for i in 0..8 {
             yield_constr.constraint_transition(
                 next_is_read * address_unchanged * (next_values_limbs[i] - value_limbs[i]),
             );
+            yield_constr
+                .constraint_transition(next_is_read * not_address_unchanged * next_values_limbs[i]);
         }
     }
 
@@ -439,11 +443,17 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
         yield_constr.constraint_transition(builder, range_check_diff);
 
         // Enumerate purportedly-ordered log.
+        // We assume that memory is initialized with 0. This means that if the first operation of a new address
+        // is a read, then its value must be 0.
         for i in 0..8 {
             let value_diff = builder.sub_extension(next_values_limbs[i], value_limbs[i]);
             let zero_if_read = builder.mul_extension(address_unchanged, value_diff);
             let read_constraint = builder.mul_extension(next_is_read, zero_if_read);
             yield_constr.constraint_transition(builder, read_constraint);
+            let first_read_value =
+                builder.mul_extension(next_values_limbs[i], not_address_unchanged);
+            let first_read_constraint = builder.mul_extension(first_read_value, next_is_read);
+            yield_constr.constraint_transition(builder, first_read_constraint);
         }
     }
 
