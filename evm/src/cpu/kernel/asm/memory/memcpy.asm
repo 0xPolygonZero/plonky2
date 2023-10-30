@@ -52,15 +52,6 @@ global memcpy:
 global memcpy_bytes:
     // stack: DST, SRC, count, retdest
 
-    // Handle empty case
-    DUP7
-    // stack: count, DST, SRC, count, retdest
-    ISZERO
-    // stack: count == 0, DST, SRC, count, retdest
-    %jumpi(memcpy_finish)
-
-    // stack: DST, SRC, count, retdest
-
     // Handle small case
     DUP7
     // stack: count, DST, SRC, count, retdest
@@ -102,6 +93,15 @@ global memcpy_bytes:
     %jump(memcpy_bytes)
 
 memcpy_bytes_finish:
+    // stack: DST, SRC, count, retdest
+
+    // Handle empty case
+    DUP7
+    // stack: count, DST, SRC, count, retdest
+    ISZERO
+    // stack: count == 0, DST, SRC, count, retdest
+    %jumpi(memcpy_finish)
+
     // stack: DST, SRC, count, retdest
 
     // Copy the last chunk of `count` bytes.
