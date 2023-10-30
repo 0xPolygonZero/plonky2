@@ -319,7 +319,22 @@ pub(crate) fn generate_get_context<F: Field>(
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
-    push_with_write(state, &mut row, state.registers.context.into())?;
+    // Same logic as push_with_write, but we have to use channel 3 for stack constraint reasons.
+    let write = if state.registers.stack_len == 0 {
+        None
+    } else {
+        let address = MemoryAddress::new(
+            state.registers.context,
+            Segment::Stack,
+            state.registers.stack_len - 1,
+        );
+        let res = mem_write_gp_log_and_fill(3, address, state, &mut row, state.registers.stack_top);
+        Some(res)
+    };
+    push_no_write(state, state.registers.context.into());
+    if let Some(log) = write {
+        state.traces.push_memory(log);
+    }
     state.traces.push_cpu(row);
     Ok(())
 }
@@ -375,9 +390,11 @@ pub(crate) fn generate_set_context<F: Field>(
         if let Some(inv) = new_sp_field.try_inverse() {
             row.general.stack_mut().stack_inv = inv;
             row.general.stack_mut().stack_inv_aux = F::ONE;
+            row.general.stack_mut().stack_inv_aux_2 = F::ONE;
         } else {
             row.general.stack_mut().stack_inv = F::ZERO;
             row.general.stack_mut().stack_inv_aux = F::ZERO;
+            row.general.stack_mut().stack_inv_aux_2 = F::ZERO;
         }
 
         let new_top_addr = MemoryAddress::new(new_ctx, Segment::Stack, new_sp - 1);
@@ -855,6 +872,7 @@ pub(crate) fn generate_mstore_general<F: Field>(
     state.traces.push_memory(log_in2);
     state.traces.push_memory(log_in3);
     state.traces.push_memory(log_write);
+
     state.traces.push_cpu(row);
 
     Ok(())
