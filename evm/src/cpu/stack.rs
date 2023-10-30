@@ -20,6 +20,11 @@ pub(crate) struct StackBehavior {
     disable_other_channels: bool,
 }
 
+pub(crate) const BASIC_UNARY_OP: Option<StackBehavior> = Some(StackBehavior {
+    num_pops: 1,
+    pushes: true,
+    disable_other_channels: true,
+});
 const BASIC_BINARY_OP: Option<StackBehavior> = Some(StackBehavior {
     num_pops: 2,
     pushes: true,
@@ -30,6 +35,7 @@ const BASIC_TERNARY_OP: Option<StackBehavior> = Some(StackBehavior {
     pushes: true,
     disable_other_channels: true,
 });
+
 pub(crate) const JUMP_OP: Option<StackBehavior> = Some(StackBehavior {
     num_pops: 1,
     pushes: false,
@@ -58,11 +64,7 @@ pub(crate) const STACK_BEHAVIORS: OpsColumnsView<Option<StackBehavior>> = OpsCol
     fp254_op: BASIC_BINARY_OP,
     eq_iszero: None, // EQ is binary, IS_ZERO is unary.
     logic_op: BASIC_BINARY_OP,
-    not: Some(StackBehavior {
-        num_pops: 1,
-        pushes: true,
-        disable_other_channels: true,
-    }),
+    not_pop: None,
     shift: Some(StackBehavior {
         num_pops: 2,
         pushes: true,
@@ -74,12 +76,7 @@ pub(crate) const STACK_BEHAVIORS: OpsColumnsView<Option<StackBehavior>> = OpsCol
         disable_other_channels: true,
     }),
     prover_input: None, // TODO
-    pop: Some(StackBehavior {
-        num_pops: 1,
-        pushes: false,
-        disable_other_channels: true,
-    }),
-    jumps: None, // Depends on whether it's a JUMP or a JUMPI.
+    jumps: None,        // Depends on whether it's a JUMP or a JUMPI.
     pc: Some(StackBehavior {
         num_pops: 0,
         pushes: true,
@@ -256,6 +253,50 @@ pub fn eval_packed<P: PackedField>(
             eval_packed_one(lv, nv, op, stack_behavior, yield_constr);
         }
     }
+
+    // Stack constraints for POP.
+    // The only constraints POP has are stack constraints.
+    // Since POP and NOT are combined into one flag and they have
+    // different stack behaviors, POP needs special stack constraints.
+    // Constrain `stack_inv_aux`.
+    let len_diff = lv.stack_len - P::Scalar::ONES;
+    yield_constr.constraint(
+        lv.op.not_pop
+            * (len_diff * lv.general.stack().stack_inv - lv.general.stack().stack_inv_aux),
+    );
+
+    // If stack_len != 1 and POP, read new top of the stack in nv.mem_channels[0].
+    let top_read_channel = nv.mem_channels[0];
+    let is_top_read = lv.general.stack().stack_inv_aux * (P::ONES - lv.opcode_bits[0]);
+
+    // Constrain `stack_inv_aux_2`. It contains `stack_inv_aux * (1 - opcode_bits[0])`.
+    yield_constr.constraint(lv.op.not_pop * (lv.general.stack().stack_inv_aux_2 - is_top_read));
+    let new_filter = lv.op.not_pop * lv.general.stack().stack_inv_aux_2;
+    yield_constr.constraint_transition(new_filter * (top_read_channel.used - P::ONES));
+    yield_constr.constraint_transition(new_filter * (top_read_channel.is_read - P::ONES));
+    yield_constr.constraint_transition(new_filter * (top_read_channel.addr_context - nv.context));
+    yield_constr.constraint_transition(
+        new_filter
+            * (top_read_channel.addr_segment
+                - P::Scalar::from_canonical_u64(Segment::Stack as u64)),
+    );
+    let addr_virtual = nv.stack_len - P::ONES;
+    yield_constr.constraint_transition(new_filter * (top_read_channel.addr_virtual - addr_virtual));
+    // If stack_len == 1 or NOT, disable the channel.
+    // If NOT or (len==1 and POP), then `stack_inv_aux_2` = 0.
+    yield_constr.constraint(
+        lv.op.not_pop * (lv.general.stack().stack_inv_aux_2 - P::ONES) * top_read_channel.used,
+    );
+
+    // Disable remaining memory channels.
+    for &channel in &lv.mem_channels[1..] {
+        yield_constr.constraint(lv.op.not_pop * (lv.opcode_bits[0] - P::ONES) * channel.used);
+    }
+
+    // Constrain the new stack length for POP.
+    yield_constr.constraint_transition(
+        lv.op.not_pop * (lv.opcode_bits[0] - P::ONES) * (nv.stack_len - lv.stack_len + P::ONES),
+    );
 }
 
 pub(crate) fn eval_ext_circuit_one<F: RichField + Extendable<D>, const D: usize>(
@@ -473,4 +514,81 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
             eval_ext_circuit_one(builder, lv, nv, op, stack_behavior, yield_constr);
         }
     }
+
+    // Stack constraints for POP.
+    // The only constraints POP has are stack constraints.
+    // Since POP and NOT are combined into one flag and they have
+    // different stack behaviors, POP needs special stack constraints.
+    // Constrain `stack_inv_aux`.
+    {
+        let len_diff = builder.add_const_extension(lv.stack_len, F::NEG_ONE);
+        let diff = builder.mul_sub_extension(
+            len_diff,
+            lv.general.stack().stack_inv,
+            lv.general.stack().stack_inv_aux,
+        );
+        let constr = builder.mul_extension(lv.op.not_pop, diff);
+        yield_constr.constraint(builder, constr);
+    }
+    // If stack_len != 4 and MSTORE, read new top of the stack in nv.mem_channels[0].
+    let top_read_channel = nv.mem_channels[0];
+    let is_top_read = builder.mul_extension(lv.general.stack().stack_inv_aux, lv.opcode_bits[0]);
+    let is_top_read = builder.sub_extension(lv.general.stack().stack_inv_aux, is_top_read);
+    // Constrain `stack_inv_aux_2`. It contains `stack_inv_aux * opcode_bits[0]`.
+    {
+        let diff = builder.sub_extension(lv.general.stack().stack_inv_aux_2, is_top_read);
+        let constr = builder.mul_extension(lv.op.not_pop, diff);
+        yield_constr.constraint(builder, constr);
+    }
+    let new_filter = builder.mul_extension(lv.op.not_pop, lv.general.stack().stack_inv_aux_2);
+    {
+        let constr = builder.mul_sub_extension(new_filter, top_read_channel.used, new_filter);
+        yield_constr.constraint_transition(builder, constr);
+    }
+    {
+        let constr = builder.mul_sub_extension(new_filter, top_read_channel.is_read, new_filter);
+        yield_constr.constraint_transition(builder, constr);
+    }
+    {
+        let diff = builder.sub_extension(top_read_channel.addr_context, nv.context);
+        let constr = builder.mul_extension(new_filter, diff);
+        yield_constr.constraint_transition(builder, constr);
+    }
+    {
+        let diff = builder.add_const_extension(
+            top_read_channel.addr_segment,
+            -F::from_canonical_u64(Segment::Stack as u64),
+        );
+        let constr = builder.mul_extension(new_filter, diff);
+        yield_constr.constraint_transition(builder, constr);
+    }
+    {
+        let addr_virtual = builder.add_const_extension(nv.stack_len, -F::ONE);
+        let diff = builder.sub_extension(top_read_channel.addr_virtual, addr_virtual);
+        let constr = builder.mul_extension(new_filter, diff);
+        yield_constr.constraint_transition(builder, constr);
+    }
+    // If stack_len == 1 or NOT, disable the channel.
+    {
+        let diff = builder.mul_sub_extension(
+            lv.op.not_pop,
+            lv.general.stack().stack_inv_aux_2,
+            lv.op.not_pop,
+        );
+        let constr = builder.mul_extension(diff, top_read_channel.used);
+        yield_constr.constraint(builder, constr);
+    }
+
+    // Disable remaining memory channels.
+    let filter = builder.mul_sub_extension(lv.op.not_pop, lv.opcode_bits[0], lv.op.not_pop);
+    for &channel in &lv.mem_channels[1..] {
+        let constr = builder.mul_extension(filter, channel.used);
+        yield_constr.constraint(builder, constr);
+    }
+
+    // Constrain the new stack length for POP.
+    let diff = builder.sub_extension(nv.stack_len, lv.stack_len);
+    let mut constr = builder.add_const_extension(diff, F::ONES);
+    constr = builder.mul_extension(filter, constr);
+    yield_constr.constraint_transition(builder, constr);
 }

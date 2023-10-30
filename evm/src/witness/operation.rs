@@ -170,6 +170,17 @@ pub(crate) fn generate_pop<F: Field>(
 ) -> Result<(), ProgramError> {
     let [(_, _)] = stack_pop_with_log_and_fill::<1, _>(state, &mut row)?;
 
+    let diff = row.stack_len - F::from_canonical_usize(1);
+    if let Some(inv) = diff.try_inverse() {
+        row.general.stack_mut().stack_inv = inv;
+        row.general.stack_mut().stack_inv_aux = F::ONE;
+        row.general.stack_mut().stack_inv_aux_2 = F::ONE;
+        state.registers.is_stack_top_read = true;
+    } else {
+        row.general.stack_mut().stack_inv = F::ZERO;
+        row.general.stack_mut().stack_inv_aux = F::ZERO;
+    }
+
     state.traces.push_cpu(row);
 
     Ok(())
@@ -537,6 +548,17 @@ pub(crate) fn generate_not<F: Field>(
     let [(x, _)] = stack_pop_with_log_and_fill::<1, _>(state, &mut row)?;
     let result = !x;
     push_no_write(state, result);
+
+    // This is necessary for the stack constraints for POP,
+    // since the two flags are combined.
+    let diff = row.stack_len - F::from_canonical_usize(1);
+    if let Some(inv) = diff.try_inverse() {
+        row.general.stack_mut().stack_inv = inv;
+        row.general.stack_mut().stack_inv_aux = F::ONE;
+    } else {
+        row.general.stack_mut().stack_inv = F::ZERO;
+        row.general.stack_mut().stack_inv_aux = F::ZERO;
+    }
 
     state.traces.push_cpu(row);
     Ok(())

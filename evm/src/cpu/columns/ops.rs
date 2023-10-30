@@ -12,11 +12,10 @@ pub struct OpsColumnsView<T: Copy> {
     pub fp254_op: T,   // Combines ADD_FP254, MUL_FP254 and SUB_FP254 flags.
     pub eq_iszero: T,  // Combines EQ and ISZERO flags.
     pub logic_op: T,   // Combines AND, OR and XOR flags.
-    pub not: T,
-    pub shift: T, // Combines SHL and SHR flags.
+    pub not_pop: T,    // Combines NOT and POP flags.
+    pub shift: T,      // Combines SHL and SHR flags.
     pub keccak_general: T,
     pub prover_input: T,
-    pub pop: T,
     pub jumps: T, // Combines JUMP and JUMPI flags.
     pub pc: T,
     pub jumpdest: T,
