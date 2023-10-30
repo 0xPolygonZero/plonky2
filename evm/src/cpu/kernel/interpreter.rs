@@ -349,6 +349,7 @@ impl<'a> Interpreter<'a> {
             0x0c => self.run_addfp254(),                                // "ADDFP254",
             0x0d => self.run_mulfp254(),                                // "MULFP254",
             0x0e => self.run_subfp254(),                                // "SUBFP254",
+            0x0f => self.run_submod(),                                  // "SUBMOD",
             0x10 => self.run_lt(),                                      // "LT",
             0x11 => self.run_gt(),                                      // "GT",
             0x12 => self.run_slt(),                                     // "SLT",
@@ -425,7 +426,7 @@ impl<'a> Interpreter<'a> {
             0xf6 => self.run_get_context(),                             // "GET_CONTEXT",
             0xf7 => self.run_set_context(),                             // "SET_CONTEXT",
             0xf8 => self.run_mload_32bytes(),                           // "MLOAD_32BYTES",
-            0xf9 => todo!(),                                            // "EXIT_KERNEL",
+            0xf9 => self.run_exit_kernel(),                             // "EXIT_KERNEL",
             0xfa => todo!(),                                            // "STATICCALL",
             0xfb => self.run_mload_general(),                           // "MLOAD_GENERAL",
             0xfc => self.run_mstore_general(),                          // "MSTORE_GENERAL",
@@ -580,6 +581,17 @@ impl<'a> Interpreter<'a> {
             U256::zero()
         } else {
             U256::try_from((x + y) % z).unwrap()
+        });
+    }
+
+    fn run_submod(&mut self) {
+        let x = U512::from(self.pop());
+        let y = U512::from(self.pop());
+        let z = U512::from(self.pop());
+        self.push(if z.is_zero() {
+            U256::zero()
+        } else {
+            U256::try_from((z + x - y) % z).unwrap()
         });
     }
 
@@ -1114,6 +1126,24 @@ impl<'a> Interpreter<'a> {
         }
     }
 
+    fn run_exit_kernel(&mut self) {
+        let kexit_info = self.pop();
+
+        let kexit_info_u64 = kexit_info.0[0];
+        let program_counter = kexit_info_u64 as u32 as usize;
+        let is_kernel_mode_val = (kexit_info_u64 >> 32) as u32;
+        assert!(is_kernel_mode_val == 0 || is_kernel_mode_val == 1);
+        let is_kernel_mode = is_kernel_mode_val != 0;
+        let gas_used_val = kexit_info.0[3];
+        if TryInto::<u64>::try_into(gas_used_val).is_err() {
+            panic!("Gas overflow");
+        }
+
+        self.generation_state.registers.program_counter = program_counter;
+        self.generation_state.registers.is_kernel = is_kernel_mode;
+        self.generation_state.registers.gas_used = gas_used_val;
+    }
+
     pub(crate) fn stack_len(&self) -> usize {
         self.generation_state.registers.stack_len
     }
@@ -1220,6 +1250,7 @@ fn get_mnemonic(opcode: u8) -> &'static str {
         0x0c => "ADDFP254",
         0x0d => "MULFP254",
         0x0e => "SUBFP254",
+        0x0f => "SUBMOD",
         0x10 => "LT",
         0x11 => "GT",
         0x12 => "SLT",

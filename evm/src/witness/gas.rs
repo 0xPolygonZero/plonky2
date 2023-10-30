@@ -10,6 +10,7 @@ const G_HIGH: u64 = 10;
 
 pub(crate) fn gas_to_charge(op: Operation) -> u64 {
     use crate::arithmetic::BinaryOperator::*;
+    use crate::arithmetic::TernaryOperator::*;
     use crate::witness::operation::Operation::*;
     match op {
         Iszero => G_VERYLOW,
@@ -30,7 +31,9 @@ pub(crate) fn gas_to_charge(op: Operation) -> u64 {
         BinaryArithmetic(AddFp254) => KERNEL_ONLY_INSTR,
         BinaryArithmetic(MulFp254) => KERNEL_ONLY_INSTR,
         BinaryArithmetic(SubFp254) => KERNEL_ONLY_INSTR,
-        TernaryArithmetic(_) => G_MID,
+        TernaryArithmetic(AddMod) => G_MID,
+        TernaryArithmetic(MulMod) => G_MID,
+        TernaryArithmetic(SubMod) => KERNEL_ONLY_INSTR,
         KeccakGeneral => KERNEL_ONLY_INSTR,
         ProverInput => KERNEL_ONLY_INSTR,
         Pop => G_BASE,

@@ -135,7 +135,9 @@ fn shortest_path(
 
             let cost = node.cost + op.cost();
             let entry = node_info.entry(neighbor.clone());
-            if let Occupied(e) = &entry && e.get().0 <= cost {
+            if let Occupied(e) = &entry
+                && e.get().0 <= cost
+            {
                 // We already found a better or equal path.
                 continue;
             }
@@ -202,9 +204,11 @@ fn next_ops(
     dst: &[StackItem],
     unique_push_targets: &[PushTarget],
 ) -> Vec<StackOp> {
-    if let Some(top) = src.last() && !dst.contains(top) {
+    if let Some(top) = src.last()
+        && !dst.contains(top)
+    {
         // If the top of src doesn't appear in dst, don't bother with anything other than a POP.
-        return vec![StackOp::Pop]
+        return vec![StackOp::Pop];
     }
 
     if is_permutation(src, dst) {

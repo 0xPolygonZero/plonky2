@@ -6,6 +6,7 @@ use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 
+use super::membus::NUM_GP_CHANNELS;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::{CpuColumnsView, MemoryChannelView};
 use crate::memory::segments::Segment;
@@ -135,7 +136,13 @@ fn eval_packed_dup<P: PackedField>(
     // Constrain nv.stack_len.
     yield_constr.constraint_transition(filter * (nv.stack_len - lv.stack_len - P::ONES));
 
-    // TODO: Constrain unused channels?
+    // Disable next top.
+    yield_constr.constraint(filter * nv.mem_channels[0].used);
+
+    // Constrain unused channels.
+    for i in 3..NUM_GP_CHANNELS {
+        yield_constr.constraint(filter * lv.mem_channels[i].used);
+    }
 }
 
 /// Circuit version of `eval_packed_dup`.
@@ -187,11 +194,23 @@ fn eval_ext_circuit_dup<F: RichField + Extendable<D>, const D: usize>(
     constrain_channel_ext_circuit(builder, true, filter, n, read_channel, lv, yield_constr);
 
     // Constrain nv.stack_len.
-    let diff = builder.sub_extension(nv.stack_len, lv.stack_len);
-    let constr = builder.mul_sub_extension(filter, diff, filter);
-    yield_constr.constraint_transition(builder, constr);
+    {
+        let diff = builder.sub_extension(nv.stack_len, lv.stack_len);
+        let constr = builder.mul_sub_extension(filter, diff, filter);
+        yield_constr.constraint_transition(builder, constr);
+    }
 
-    // TODO: Constrain unused channels?
+    // Disable next top.
+    {
+        let constr = builder.mul_extension(filter, nv.mem_channels[0].used);
+        yield_constr.constraint(builder, constr);
+    }
+
+    // Constrain unused channels.
+    for i in 3..NUM_GP_CHANNELS {
+        let constr = builder.mul_extension(filter, lv.mem_channels[i].used);
+        yield_constr.constraint(builder, constr);
+    }
 }
 
 /// Evaluates constraints for SWAP.
@@ -221,10 +240,16 @@ fn eval_packed_swap<P: PackedField>(
     // We set `is_read`, `used` and the address for the second input.
     constrain_channel_packed(true, filter, n_plus_one, in2_channel, lv, yield_constr);
 
-    // Constrain nv.stack_len;
+    // Constrain nv.stack_len.
     yield_constr.constraint(filter * (nv.stack_len - lv.stack_len));
 
-    // TODO: Constrain unused channels?
+    // Disable next top.
+    yield_constr.constraint(filter * nv.mem_channels[0].used);
+
+    // Constrain unused channels.
+    for i in 3..NUM_GP_CHANNELS {
+        yield_constr.constraint(filter * lv.mem_channels[i].used);
+    }
 }
 
 /// Circuit version of `eval_packed_swap`.
@@ -284,7 +309,17 @@ fn eval_ext_circuit_swap<F: RichField + Extendable<D>, const D: usize>(
     let constr = builder.mul_extension(filter, diff);
     yield_constr.constraint(builder, constr);
 
-    // TODO: Constrain unused channels?
+    // Disable next top.
+    {
+        let constr = builder.mul_extension(filter, nv.mem_channels[0].used);
+        yield_constr.constraint(builder, constr);
+    }
+
+    // Constrain unused channels.
+    for i in 3..NUM_GP_CHANNELS {
+        let constr = builder.mul_extension(filter, lv.mem_channels[i].used);
+        yield_constr.constraint(builder, constr);
+    }
 }
 
 /// Evaluates the constraints for the DUP and SWAP opcodes.

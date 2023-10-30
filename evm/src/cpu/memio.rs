@@ -275,7 +275,7 @@ fn eval_ext_circuit_store<F: RichField + Extendable<D>, const D: usize>(
     let top_read_channel = nv.mem_channels[0];
     let is_top_read = builder.mul_extension(lv.general.stack().stack_inv_aux, lv.opcode_bits[0]);
     let is_top_read = builder.sub_extension(lv.general.stack().stack_inv_aux, is_top_read);
-    // Constrain `stack_inv_aux_2`. It contains `stack_inv_aux * opcode_bits[0]`.
+    // Constrain `stack_inv_aux_2`. It contains `stack_inv_aux * (1 - opcode_bits[0])`.
     {
         let diff = builder.sub_extension(lv.general.stack().stack_inv_aux_2, is_top_read);
         let constr = builder.mul_extension(lv.op.m_op_general, diff);

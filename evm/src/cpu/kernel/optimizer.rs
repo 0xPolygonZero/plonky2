@@ -114,7 +114,8 @@ fn no_op_jumps(code: &mut Vec<Item>) {
 fn remove_swapped_pushes(code: &mut Vec<Item>) {
     replace_windows(code, |window| {
         if let [Push(x), Push(y), StandardOp(swap1)] = window
-            && &swap1 == "SWAP1" {
+            && &swap1 == "SWAP1"
+        {
             Some(vec![Push(y), Push(x)])
         } else {
             None
@@ -125,7 +126,9 @@ fn remove_swapped_pushes(code: &mut Vec<Item>) {
 /// Remove SWAP1 before a commutative function.
 fn remove_swaps_commutative(code: &mut Vec<Item>) {
     replace_windows(code, |window| {
-        if let [StandardOp(swap1), StandardOp(f)] = window && &swap1 == "SWAP1" {
+        if let [StandardOp(swap1), StandardOp(f)] = window
+            && &swap1 == "SWAP1"
+        {
             let commutative = matches!(f.as_str(), "ADD" | "MUL" | "AND" | "OR" | "XOR" | "EQ");
             commutative.then_some(vec![StandardOp(f)])
         } else {
@@ -138,7 +141,9 @@ fn remove_swaps_commutative(code: &mut Vec<Item>) {
 // Could be extended to other non-side-effecting operations, e.g. [DUP1, ADD, POP] -> [POP].
 fn remove_ignored_values(code: &mut Vec<Item>) {
     replace_windows(code, |[a, b]| {
-        if let StandardOp(pop) = b && &pop == "POP" {
+        if let StandardOp(pop) = b
+            && &pop == "POP"
+        {
             match a {
                 Push(_) => Some(vec![]),
                 StandardOp(dup) if dup.starts_with("DUP") => Some(vec![]),

@@ -18,16 +18,14 @@ pub struct OpsColumnsView<T: Copy> {
     pub eq_iszero: T,
     /// Combines AND, OR and XOR flags.
     pub logic_op: T,
-    /// Flag for NOT.
-    pub not: T,
+    /// Combines NOT and POP flags.
+    pub not_pop: T,
     /// Combines SHL and SHR flags.
     pub shift: T,
     /// Flag for KECCAK_GENERAL.
     pub keccak_general: T,
     /// Flag for PROVER_INPUT.
     pub prover_input: T,
-    /// Flag for POP.
-    pub pop: T,
     /// Combines JUMP and JUMPI flags.
     pub jumps: T,
     /// Flag for PC.
@@ -40,10 +38,8 @@ pub struct OpsColumnsView<T: Copy> {
     pub push: T,
     /// Combines DUP and SWAP flags.
     pub dup_swap: T,
-    /// Flag for GET_CONTEXT
-    pub get_context: T,
-    /// Flag for SET_CONTEXT
-    pub set_context: T,
+    /// Combines GET_CONTEXT and SET_CONTEXT flags.
+    pub context_op: T,
     /// Flag for MSTORE_32BYTES.
     pub mstore_32bytes: T,
     /// Flag for MLOAD_32BYTES.

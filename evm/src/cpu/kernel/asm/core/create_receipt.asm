@@ -203,17 +203,23 @@ process_receipt_after_write:
     DUP5
     %mpt_insert_receipt_trie
     // stack: new_cum_gas, txn_nb, num_nibbles, retdest
-    // Now, we set the Bloom filter back to 0.
+    // Now, we set the Bloom filter back to 0. We proceed by chunks of 32 bytes.
+    PUSH 32
     PUSH 0
-    %rep 256
-        // stack: counter, new_cum_gas, txn_nb, num_nibbles, retdest
-        PUSH 0 DUP2
-        // stack: counter, 0, counter, new_cum_gas, txn_nb, num_nibbles, retdest
-        %mstore_kernel(@SEGMENT_TXN_BLOOM)
-        // stack: counter, new_cum_gas, txn_nb, num_nibbles, retdest
-        %increment
+    %rep 8
+        // stack: counter, 32, new_cum_gas, txn_nb, num_nibbles, retdest
+        DUP2
+        PUSH 0 // we will fill the memory segment with zeroes
+        DUP2
+        PUSH @SEGMENT_TXN_BLOOM
+        DUP3 // kernel context is 0
+        // stack: ctx, segment, counter, 0, 32, counter, 32, new_cum_gas, txn_nb, num_nibbles, retdest
+        MSTORE_32BYTES
+        // stack: counter, 32, new_cum_gas, txn_nb, num_nibbles, retdest
+        DUP2
+        ADD
     %endrep
-    POP
+    %pop2
     // stack: new_cum_gas, txn_nb, num_nibbles, retdest
     %stack (new_cum_gas, txn_nb, num_nibbles, retdest) -> (retdest, new_cum_gas)
     JUMP

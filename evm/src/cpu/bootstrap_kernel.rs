@@ -1,6 +1,7 @@
 //! The initial phase of execution, where the kernel code is hashed while being written to memory.
 //! The hash is then checked against a precomputed kernel hash.
 
+use ethereum_types::U256;
 use itertools::Itertools;
 use plonky2::field::extension::Extendable;
 use plonky2::field::packed::PackedField;
@@ -53,6 +54,13 @@ pub(crate) fn generate_bootstrap_kernel<F: Field>(state: &mut GenerationState<F>
         MemoryAddress::new(0, Segment::Code, 0),
         KERNEL.code.clone(),
     );
+    state.registers.stack_top = KERNEL
+        .code_hash
+        .iter()
+        .enumerate()
+        .fold(0.into(), |acc, (i, &elt)| {
+            acc + (U256::from(elt) << (224 - 32 * i))
+        });
     state.traces.push_cpu(final_cpu_row);
     log::info!("Bootstrapping took {} cycles", state.traces.clock());
 }
