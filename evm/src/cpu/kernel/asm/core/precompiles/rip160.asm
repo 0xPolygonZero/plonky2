@@ -47,7 +47,7 @@ global precompile_rip160:
     PUSH @SEGMENT_KERNEL_GENERAL
     DUP3
 
-    %jump(memcpy)
+    %jump(memcpy_bytes)
 
 rip160_contd:
     // stack: hash, kexit_info

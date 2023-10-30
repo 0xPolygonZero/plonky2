@@ -94,7 +94,7 @@ after_serializing_txn_data:
             al_len,
             after_serializing_access_list,
             rlp_pos, rlp_start, retdest)
-    %jump(memcpy)
+    %jump(memcpy_bytes)
 after_serializing_access_list:
     // stack: rlp_pos, rlp_start, retdest
     %mload_global_metadata(@GLOBAL_METADATA_ACCESS_LIST_RLP_LEN) ADD
