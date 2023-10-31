@@ -20,6 +20,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, CircuitVariable)]
 #[value_name(U160Value)]
 pub struct U160Variable {
+    // These limbs are little-endian
     pub limbs: [U32Variable; 5],
 }
 
@@ -30,6 +31,7 @@ impl EvmVariable for U160Variable {
     ) -> Vec<ByteVariable> {
         self.limbs
             .iter()
+            .rev()
             .flat_map(|limb| limb.encode(builder))
             .collect()
     }
@@ -42,6 +44,7 @@ impl EvmVariable for U160Variable {
         for i in 0..5 {
             limbs.push(U32Variable::decode(builder, &bytes[i * 4..(i + 1) * 4]));
         }
+        limbs.reverse();
         Self {
             limbs: limbs.try_into().unwrap(),
         }
@@ -52,6 +55,7 @@ impl EvmVariable for U160Variable {
         for limb in value.limbs.iter() {
             bytes.extend_from_slice(&U32Variable::encode_value::<F>(*limb));
         }
+        bytes.reverse();
         bytes
     }
 
@@ -60,6 +64,7 @@ impl EvmVariable for U160Variable {
         for i in 0..5 {
             limbs.push(U32Variable::decode_value::<F>(&bytes[i * 4..(i + 1) * 4]));
         }
+        limbs.reverse();
         Self::ValueType::<F> {
             limbs: limbs.try_into().unwrap(),
         }
@@ -404,11 +409,11 @@ mod tests {
     fn hex_str_to_u160<F: RichField>(hex: &str) -> U160Value<F> {
         U160Value::<F> {
             limbs: [
-                u32::from_str_radix(&hex[34..42], 16).expect("Failed to convert to u32"),
-                u32::from_str_radix(&hex[26..34], 16).expect("Failed to convert to u32"),
-                u32::from_str_radix(&hex[18..26], 16).expect("Failed to convert to u32"),
-                u32::from_str_radix(&hex[10..18], 16).expect("Failed to convert to u32"),
                 u32::from_str_radix(&hex[2..10], 16).expect("Failed to convert to u32"),
+                u32::from_str_radix(&hex[10..18], 16).expect("Failed to convert to u32"),
+                u32::from_str_radix(&hex[18..26], 16).expect("Failed to convert to u32"),
+                u32::from_str_radix(&hex[26..34], 16).expect("Failed to convert to u32"),
+                u32::from_str_radix(&hex[34..42], 16).expect("Failed to convert to u32"),
             ],
         }
     }
