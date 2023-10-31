@@ -52,10 +52,10 @@ impl EvmVariable for U160Variable {
 
     fn encode_value<F: RichField>(value: Self::ValueType<F>) -> Vec<u8> {
         let mut bytes = vec![];
-        for limb in value.limbs.iter() {
+        // Iterate over the limbs big-endian
+        for limb in value.limbs.iter().rev() {
             bytes.extend_from_slice(&U32Variable::encode_value::<F>(*limb));
         }
-        bytes.reverse();
         bytes
     }
 
@@ -64,6 +64,7 @@ impl EvmVariable for U160Variable {
         for i in 0..5 {
             limbs.push(U32Variable::decode_value::<F>(&bytes[i * 4..(i + 1) * 4]));
         }
+        // Store the limbs as little-endian
         limbs.reverse();
         Self::ValueType::<F> {
             limbs: limbs.try_into().unwrap(),
@@ -409,11 +410,11 @@ mod tests {
     fn hex_str_to_u160<F: RichField>(hex: &str) -> U160Value<F> {
         U160Value::<F> {
             limbs: [
-                u32::from_str_radix(&hex[2..10], 16).expect("Failed to convert to u32"),
-                u32::from_str_radix(&hex[10..18], 16).expect("Failed to convert to u32"),
-                u32::from_str_radix(&hex[18..26], 16).expect("Failed to convert to u32"),
-                u32::from_str_radix(&hex[26..34], 16).expect("Failed to convert to u32"),
                 u32::from_str_radix(&hex[34..42], 16).expect("Failed to convert to u32"),
+                u32::from_str_radix(&hex[26..34], 16).expect("Failed to convert to u32"),
+                u32::from_str_radix(&hex[18..26], 16).expect("Failed to convert to u32"),
+                u32::from_str_radix(&hex[10..18], 16).expect("Failed to convert to u32"),
+                u32::from_str_radix(&hex[2..10], 16).expect("Failed to convert to u32"),
             ],
         }
     }
