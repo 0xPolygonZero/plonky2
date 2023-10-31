@@ -23,6 +23,11 @@ use crate::stark::Stark;
 use crate::util::trace_rows_to_poly_values;
 use crate::witness::memory::MemoryAddress;
 
+/// Creates the vector of `Columns` corresponding to:
+/// - the address in memory of the inputs,
+/// - the length of the inputs,
+/// - the timestamp at which the inputs are read from memory,
+/// - the output limbs of the Keccak sponge.
 pub(crate) fn ctl_looked_data<F: Field>() -> Vec<Column<F>> {
     let cols = KECCAK_SPONGE_COL_MAP;
     let mut outputs = Vec::with_capacity(8);
@@ -47,6 +52,9 @@ pub(crate) fn ctl_looked_data<F: Field>() -> Vec<Column<F>> {
     .collect()
 }
 
+/// Creates the vector of `Columns` corresponding to the inputs of the Keccak sponge.
+/// This is used to check that the inputs of the sponge correspond to the inputs
+/// given by `KeccakStark`.
 pub(crate) fn ctl_looking_keccak_inputs<F: Field>() -> Vec<Column<F>> {
     let cols = KECCAK_SPONGE_COL_MAP;
     let mut res: Vec<_> = Column::singles(
@@ -62,6 +70,9 @@ pub(crate) fn ctl_looking_keccak_inputs<F: Field>() -> Vec<Column<F>> {
     res
 }
 
+/// Creates the vector of `Columns` corresponding to the outputs of the Keccak sponge.
+/// This is used to check that the outputs of the sponge correspond to the outputs
+/// given by `KeccakStark`.
 pub(crate) fn ctl_looking_keccak_outputs<F: Field>() -> Vec<Column<F>> {
     let cols = KECCAK_SPONGE_COL_MAP;
 
@@ -83,6 +94,7 @@ pub(crate) fn ctl_looking_keccak_outputs<F: Field>() -> Vec<Column<F>> {
     res
 }
 
+/// Creates the vector of `Columns` corresponding to the address and value of the byte being read from memory.
 pub(crate) fn ctl_looking_memory<F: Field>(i: usize) -> Vec<Column<F>> {
     let cols = KECCAK_SPONGE_COL_MAP;
 
@@ -111,12 +123,16 @@ pub(crate) fn ctl_looking_memory<F: Field>(i: usize) -> Vec<Column<F>> {
     res
 }
 
+/// Returns the number of `KeccakSponge` tables looking into the `LogicStark`.
 pub(crate) fn num_logic_ctls() -> usize {
     const U8S_PER_CTL: usize = 32;
     ceil_div_usize(KECCAK_RATE_BYTES, U8S_PER_CTL)
 }
 
-/// CTL for performing the `i`th logic CTL. Since we need to do 136 byte XORs, and the logic CTL can
+/// Creates the vector of `Columns` required to perform the `i`th logic CTL.
+/// It is comprised of the ÌS_XOR` flag, the two inputs and the output
+/// of the XOR operation.
+/// Since we need to do 136 byte XORs, and the logic CTL can
 /// XOR 32 bytes per CTL, there are 5 such CTLs.
 pub(crate) fn ctl_looking_logic<F: Field>(i: usize) -> Vec<Column<F>> {
     const U32S_PER_CTL: usize = 8;
@@ -156,6 +172,7 @@ pub(crate) fn ctl_looking_logic<F: Field>(i: usize) -> Vec<Column<F>> {
     res
 }
 
+/// CTL filter for the final block rows of the `KeccakSponge` table.
 pub(crate) fn ctl_looked_filter<F: Field>() -> Column<F> {
     // The CPU table is only interested in our final-block rows, since those contain the final
     // sponge output.
@@ -181,6 +198,7 @@ pub(crate) fn ctl_looking_logic_filter<F: Field>() -> Column<F> {
     Column::sum(once(&cols.is_full_input_block).chain(&cols.is_final_input_len))
 }
 
+/// CTL filter for looking at the input and output in the Keccak table.
 pub(crate) fn ctl_looking_keccak_filter<F: Field>() -> Column<F> {
     let cols = KECCAK_SPONGE_COL_MAP;
     Column::sum(once(&cols.is_full_input_block).chain(&cols.is_final_input_len))
@@ -199,12 +217,14 @@ pub(crate) struct KeccakSpongeOp {
     pub(crate) input: Vec<u8>,
 }
 
+/// Structure representing the `KeccakSponge` STARK, which carries out the sponge permutation.
 #[derive(Copy, Clone, Default)]
 pub struct KeccakSpongeStark<F, const D: usize> {
     f: PhantomData<F>,
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> KeccakSpongeStark<F, D> {
+    /// Generates the trace polynomial values for the `KeccakSponge`STARK.
     pub(crate) fn generate_trace(
         &self,
         operations: Vec<KeccakSpongeOp>,
@@ -227,6 +247,8 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakSpongeStark<F, D> {
         trace_polys
     }
 
+    /// Generates the trace rows given the vector of `KeccakSponge` operations.
+    /// The trace is padded to a power of two with all-zero rows.
     fn generate_trace_rows(
         &self,
         operations: Vec<KeccakSpongeOp>,
@@ -237,9 +259,11 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakSpongeStark<F, D> {
             .map(|op| op.input.len() / KECCAK_RATE_BYTES + 1)
             .sum();
         let mut rows = Vec::with_capacity(base_len.max(min_rows).next_power_of_two());
+        // Generate active rows.
         for op in operations {
             rows.extend(self.generate_rows_for_op(op));
         }
+        // Pad the trace.
         let padded_rows = rows.len().max(min_rows).next_power_of_two();
         for _ in rows.len()..padded_rows {
             rows.push(self.generate_padding_row());
@@ -247,6 +271,9 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakSpongeStark<F, D> {
         rows
     }
 
+    /// Generates the rows associated to a given operation:
+    /// Performs a Keccak sponge permutation and fills the STARK's rows accordingly.
+    /// The number of rows is the number of input chunks of size `KECCAK_RATE_BYTES`.
     fn generate_rows_for_op(&self, op: KeccakSpongeOp) -> Vec<[F; NUM_KECCAK_SPONGE_COLUMNS]> {
         let mut rows = Vec::with_capacity(op.input.len() / KECCAK_RATE_BYTES + 1);
 
@@ -255,6 +282,7 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakSpongeStark<F, D> {
         let mut input_blocks = op.input.chunks_exact(KECCAK_RATE_BYTES);
         let mut already_absorbed_bytes = 0;
         for block in input_blocks.by_ref() {
+            // We compute the updated state of the sponge.
             let row = self.generate_full_input_row(
                 &op,
                 already_absorbed_bytes,
@@ -262,6 +290,9 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakSpongeStark<F, D> {
                 block.try_into().unwrap(),
             );
 
+            // We update the state limbs for the next block absorption.
+            // The first `KECCAK_DIGEST_U32s` limbs are stored as bytes after the computation,
+            // so we recompute the corresponding `u32` and update the first state limbs.
             sponge_state[..KECCAK_DIGEST_U32S]
                 .iter_mut()
                 .zip(row.updated_digest_state_bytes.chunks_exact(4))
@@ -273,6 +304,8 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakSpongeStark<F, D> {
                         .sum();
                 });
 
+            // The rest of the bytes are already stored in the expected form, so we can directly
+            // update the state with the stored values.
             sponge_state[KECCAK_DIGEST_U32S..]
                 .iter_mut()
                 .zip(row.partial_updated_state_u32s)
@@ -295,6 +328,8 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakSpongeStark<F, D> {
         rows
     }
 
+    /// Generates a row where all bytes are input bytes, not padding bytes.
+    /// This includes updating the state sponge with a single absorption.
     fn generate_full_input_row(
         &self,
         op: &KeccakSpongeOp,
@@ -313,6 +348,10 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakSpongeStark<F, D> {
         row
     }
 
+    /// Generates a row containing the last input bytes.
+    /// On top of computing one absorption and padding the input,
+    /// we indicate the last non-padding input byte by setting
+    /// `row.is_final_input_len[final_inputs.len()]` to 1.
     fn generate_final_row(
         &self,
         op: &KeccakSpongeOp,
@@ -345,6 +384,9 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakSpongeStark<F, D> {
 
     /// Generate fields that are common to both full-input-block rows and final-block rows.
     /// Also updates the sponge state with a single absorption.
+    /// Given a state S = R || C and a block input B,
+    /// - R is updated with R XOR B,
+    /// - S is replaced by keccakf_u32s(S).
     fn generate_common_fields(
         row: &mut KeccakSpongeColumnsView<F>,
         op: &KeccakSpongeOp,

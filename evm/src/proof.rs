@@ -23,36 +23,52 @@ use crate::cross_table_lookup::GrandProductChallengeSet;
 /// A STARK proof for each table, plus some metadata used to create recursive wrapper proofs.
 #[derive(Debug, Clone)]
 pub struct AllProof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> {
+    /// Proofs for all the different STARK modules.
     pub stark_proofs: [StarkProofWithMetadata<F, C, D>; NUM_TABLES],
+    /// Cross-table lookup challenges.
     pub(crate) ctl_challenges: GrandProductChallengeSet<F>,
+    /// Public memory values used for the recursive proofs.
     pub public_values: PublicValues,
 }
 
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> AllProof<F, C, D> {
+    /// Returns the degree (i.e. the trace length) of each STARK.
     pub fn degree_bits(&self, config: &StarkConfig) -> [usize; NUM_TABLES] {
         core::array::from_fn(|i| self.stark_proofs[i].proof.recover_degree_bits(config))
     }
 }
 
+/// Randomness for all STARKs.
 pub(crate) struct AllProofChallenges<F: RichField + Extendable<D>, const D: usize> {
+    /// Randomness used in each STARK proof.
     pub stark_challenges: [StarkProofChallenges<F, D>; NUM_TABLES],
+    /// Randomness used for cross-table lookups. It is shared by all STARKs.
     pub ctl_challenges: GrandProductChallengeSet<F>,
 }
 
 /// Memory values which are public.
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct PublicValues {
+    /// Trie hashes before the execution of the local state transition
     pub trie_roots_before: TrieRoots,
+    /// Trie hashes after the execution of the local state transition.
     pub trie_roots_after: TrieRoots,
+    /// Block metadata: it remains unchanged withing a block.
     pub block_metadata: BlockMetadata,
+    /// 256 previous block hashes and current block's hash.
     pub block_hashes: BlockHashes,
+    /// Extra block data that is specific to the current proof.
     pub extra_block_data: ExtraBlockData,
 }
 
+/// Trie hashes.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct TrieRoots {
+    /// State trie hash.
     pub state_root: H256,
+    /// Transaction trie hash.
     pub transactions_root: H256,
+    /// Receipts trie hash.
     pub receipts_root: H256,
 }
 
@@ -141,14 +157,20 @@ pub struct ExtraBlockData {
 /// Note: All the larger integers are encoded with 32-bit limbs in little-endian order.
 #[derive(Eq, PartialEq, Debug)]
 pub struct PublicValuesTarget {
+    /// Trie hashes before the execution of the local state transition.
     pub trie_roots_before: TrieRootsTarget,
+    /// Trie hashes after the execution of the local state transition.
     pub trie_roots_after: TrieRootsTarget,
+    /// Block metadata: it remains unchanged withing a block.
     pub block_metadata: BlockMetadataTarget,
+    /// 256 previous block hashes and current block's hash.
     pub block_hashes: BlockHashesTarget,
+    /// Extra block data that is specific to the current proof.
     pub extra_block_data: ExtraBlockDataTarget,
 }
 
 impl PublicValuesTarget {
+    /// Serializes public value targets.
     pub fn to_buffer(&self, buffer: &mut Vec<u8>) -> IoResult<()> {
         let TrieRootsTarget {
             state_root: state_root_before,
@@ -221,6 +243,7 @@ impl PublicValuesTarget {
         Ok(())
     }
 
+    /// Deserializes public value targets.
     pub fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
         let trie_roots_before = TrieRootsTarget {
             state_root: buffer.read_target_array()?,
@@ -271,6 +294,9 @@ impl PublicValuesTarget {
         })
     }
 
+    /// Extracts public value `Target`s from the given public input `Target`s.
+    /// Public values are always the first public inputs added to the circuit,
+    /// so we can start extracting at index 0.
     pub fn from_public_inputs(pis: &[Target]) -> Self {
         assert!(
             pis.len()
@@ -308,6 +334,7 @@ impl PublicValuesTarget {
         }
     }
 
+    /// Returns the public values in `pv0` or `pv1` depening on `condition`.
     pub fn select<F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
         condition: BoolTarget,
@@ -349,16 +376,24 @@ impl PublicValuesTarget {
     }
 }
 
+/// Circuit version of `TrieRoots`.
+/// `Target`s for trie hashes. Since a `Target` holds a 32-bit limb, each hash requires 8 `Target`s.
 #[derive(Eq, PartialEq, Debug, Copy, Clone)]
 pub struct TrieRootsTarget {
+    /// Targets for the state trie hash.
     pub state_root: [Target; 8],
+    /// Targets for the transactions trie hash.
     pub transactions_root: [Target; 8],
+    /// Targets for the receipts trie hash.
     pub receipts_root: [Target; 8],
 }
 
 impl TrieRootsTarget {
+    /// Number of `Target`s required for all trie hashes.
     pub const SIZE: usize = 24;
 
+    /// Extracts trie hash `Target`s for all tries from the provided public input `Target`s.
+    /// The provided `pis` should start with the trie hashes.
     pub fn from_public_inputs(pis: &[Target]) -> Self {
         let state_root = pis[0..8].try_into().unwrap();
         let transactions_root = pis[8..16].try_into().unwrap();
@@ -371,6 +406,8 @@ impl TrieRootsTarget {
         }
     }
 
+    /// If `condition`, returns the trie hashes in `tr0`,
+    /// otherwise returns the trie hashes in `tr1`.
     pub fn select<F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
         condition: BoolTarget,
@@ -394,6 +431,7 @@ impl TrieRootsTarget {
         }
     }
 
+    /// Connects the trie hashes in `tr0` and in `tr1`.
     pub fn connect<F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
         tr0: Self,
@@ -407,23 +445,39 @@ impl TrieRootsTarget {
     }
 }
 
+/// Circuit version of `BlockMetadata`.
+/// Metadata contained in a block header. Those are identical between
+/// all state transition proofs within the same block.
 #[derive(Eq, PartialEq, Debug, Copy, Clone)]
 pub struct BlockMetadataTarget {
+    /// `Target`s for the address of this block's producer.
     pub block_beneficiary: [Target; 5],
+    /// `Target` for the timestamp of this block.
     pub block_timestamp: Target,
+    /// `Target` for the index of this block.
     pub block_number: Target,
+    /// `Target` for the difficulty (before PoS transition) of this block.
     pub block_difficulty: Target,
+    /// `Target`s for the `mix_hash` value of this block.
     pub block_random: [Target; 8],
+    /// `Target`s for the gas limit of this block.
     pub block_gaslimit: [Target; 2],
+    /// `Target` for the chain id of this block.
     pub block_chain_id: Target,
+    /// `Target`s for the base fee of this block.
     pub block_base_fee: [Target; 2],
+    /// `Target`s for the gas used of this block.
     pub block_gas_used: [Target; 2],
+    /// `Target`s for the block bloom of this block.
     pub block_bloom: [Target; 64],
 }
 
 impl BlockMetadataTarget {
+    /// Number of `Target`s required for the block metadata.
     pub const SIZE: usize = 87;
 
+    /// Extracts block metadata `Target`s from the provided public input `Target`s.
+    /// The provided `pis` should start with the block metadata.
     pub fn from_public_inputs(pis: &[Target]) -> Self {
         let block_beneficiary = pis[0..5].try_into().unwrap();
         let block_timestamp = pis[5];
@@ -450,6 +504,8 @@ impl BlockMetadataTarget {
         }
     }
 
+    /// If `condition`, returns the block metadata in `bm0`,
+    /// otherwise returns the block metadata in `bm1`.
     pub fn select<F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
         condition: BoolTarget,
@@ -486,6 +542,7 @@ impl BlockMetadataTarget {
         }
     }
 
+    /// Connects the block metadata in `bm0` to the block metadata in `bm1`.
     pub fn connect<F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
         bm0: Self,
@@ -516,14 +573,29 @@ impl BlockMetadataTarget {
     }
 }
 
+/// Circuit version of `BlockHashes`.
+/// `Target`s for the user-provided previous 256 block hashes and current block hash.
+/// Each block hash requires 8 `Target`s.
+/// The proofs across consecutive blocks ensure that these values
+/// are consistent (i.e. shifted by eight `Target`s to the left).
+///
+/// When the block number is less than 256, dummy values, i.e. `H256::default()`,
+/// should be used for the additional block hashes.
 #[derive(Eq, PartialEq, Debug, Copy, Clone)]
 pub struct BlockHashesTarget {
+    /// `Target`s for the previous 256 hashes to the current block. The leftmost hash, i.e. `prev_hashes[0..8]`,
+    /// is the oldest, and the rightmost, i.e. `prev_hashes[255 * 7..255 * 8]` is the hash of the parent block.
     pub prev_hashes: [Target; 2048],
+    // `Target` for the hash of the current block.
     pub cur_hash: [Target; 8],
 }
 
 impl BlockHashesTarget {
+    /// Number of `Target`s required for previous and current block hashes.
     pub const BLOCK_HASHES_SIZE: usize = 2056;
+
+    /// Extracts the previous and current block hash `Target`s from the public input `Target`s.
+    /// The provided `pis` should start with the block hashes.
     pub fn from_public_inputs(pis: &[Target]) -> Self {
         Self {
             prev_hashes: pis[0..2048].try_into().unwrap(),
@@ -531,6 +603,8 @@ impl BlockHashesTarget {
         }
     }
 
+    /// If `condition`, returns the block hashes in `bm0`,
+    /// otherwise returns the block hashes in `bm1`.
     pub fn select<F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
         condition: BoolTarget,
@@ -547,6 +621,7 @@ impl BlockHashesTarget {
         }
     }
 
+    /// Connects the block hashes in `bm0` to the block hashes in `bm1`.
     pub fn connect<F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
         bm0: Self,
@@ -561,20 +636,38 @@ impl BlockHashesTarget {
     }
 }
 
+/// Circuit version of `ExtraBlockData`.
+/// Additional block data that are specific to the local transaction being proven,
+/// unlike `BlockMetadata`.
 #[derive(Eq, PartialEq, Debug, Copy, Clone)]
 pub struct ExtraBlockDataTarget {
+    /// `Target`s for the state trie digest of the genesis block.
     pub genesis_state_trie_root: [Target; 8],
+    /// `Target` for the transaction count prior execution of the local state transition, starting
+    /// at 0 for the initial trnasaction of a block.
     pub txn_number_before: Target,
+    /// `Target` for the transaction count after execution of the local state transition.
     pub txn_number_after: Target,
+    /// `Target` for the accumulated gas used prior execution of the local state transition, starting
+    /// at 0 for the initial transaction of a block.
     pub gas_used_before: [Target; 2],
+    /// `Target` for the accumulated gas used after execution of the local state transition. It should
+    /// match the `block_gas_used` value after execution of the last transaction in a block.
     pub gas_used_after: [Target; 2],
+    /// `Target`s for the accumulated bloom filter of this block prior execution of the local state transition,
+    /// starting with all zeros for the initial transaction of a block.
     pub block_bloom_before: [Target; 64],
+    /// `Target`s for the accumulated bloom filter after execution of the local state transition. It should
+    /// match the `block_bloom` value after execution of the last transaction in a block.
     pub block_bloom_after: [Target; 64],
 }
 
 impl ExtraBlockDataTarget {
+    /// Number of `Target`s required for the extra block data.
     const SIZE: usize = 142;
 
+    /// Extracts the extra block data `Target`s from the public input `Target`s.
+    /// The provided `pis` should start with the extra vblock data.
     pub fn from_public_inputs(pis: &[Target]) -> Self {
         let genesis_state_trie_root = pis[0..8].try_into().unwrap();
         let txn_number_before = pis[8];
@@ -595,6 +688,8 @@ impl ExtraBlockDataTarget {
         }
     }
 
+    /// If `condition`, returns the extra block data in `ed0`,
+    /// otherwise returns the extra block data in `ed1`.
     pub fn select<F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
         condition: BoolTarget,
@@ -638,6 +733,7 @@ impl ExtraBlockDataTarget {
         }
     }
 
+    /// Connects the extra block data in `ed0` with the extra block data in `ed1`.
     pub fn connect<F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
         ed0: Self,
@@ -666,6 +762,7 @@ impl ExtraBlockDataTarget {
     }
 }
 
+/// Merkle caps and openings that form the proof of a single STARK.
 #[derive(Debug, Clone)]
 pub struct StarkProof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> {
     /// Merkle cap of LDEs of trace values.
@@ -688,7 +785,9 @@ where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
 {
+    /// Initial Fiat-Shamir state.
     pub(crate) init_challenger_state: <C::Hasher as Hasher<F>>::Permutation,
+    /// Proof for a single STARK.
     pub(crate) proof: StarkProof<F, C, D>,
 }
 
@@ -703,21 +802,30 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> S
         lde_bits - config.fri_config.rate_bits
     }
 
+    /// Returns the number of cross-table lookup polynomials computed for the current STARK.
     pub fn num_ctl_zs(&self) -> usize {
         self.openings.ctl_zs_first.len()
     }
 }
 
+/// Circuit version of `StarkProof`.
+/// Merkle caps and openings that form the proof of a single STARK.
 #[derive(Eq, PartialEq, Debug)]
 pub struct StarkProofTarget<const D: usize> {
+    /// `Target` for the Merkle cap if LDEs of trace values.
     pub trace_cap: MerkleCapTarget,
+    /// `Target` for the Merkle cap of LDEs of lookup helper and CTL columns.
     pub auxiliary_polys_cap: MerkleCapTarget,
+    /// `Target` for the Merkle cap of LDEs of quotient polynomial evaluations.
     pub quotient_polys_cap: MerkleCapTarget,
+    /// `Target`s for the purported values of each polynomial at the challenge point.
     pub openings: StarkOpeningSetTarget<D>,
+    /// `Target`s for the batch FRI argument for all openings.
     pub opening_proof: FriProofTarget<D>,
 }
 
 impl<const D: usize> StarkProofTarget<D> {
+    /// Serializes a STARK proof.
     pub fn to_buffer(&self, buffer: &mut Vec<u8>) -> IoResult<()> {
         buffer.write_target_merkle_cap(&self.trace_cap)?;
         buffer.write_target_merkle_cap(&self.auxiliary_polys_cap)?;
@@ -727,6 +835,7 @@ impl<const D: usize> StarkProofTarget<D> {
         Ok(())
     }
 
+    /// Deserializes a STARK proof.
     pub fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
         let trace_cap = buffer.read_target_merkle_cap()?;
         let auxiliary_polys_cap = buffer.read_target_merkle_cap()?;
@@ -754,6 +863,7 @@ impl<const D: usize> StarkProofTarget<D> {
     }
 }
 
+/// Randomness used for a STARK proof.
 pub(crate) struct StarkProofChallenges<F: RichField + Extendable<D>, const D: usize> {
     /// Random values used to combine STARK constraints.
     pub stark_alphas: Vec<F>,
@@ -761,12 +871,17 @@ pub(crate) struct StarkProofChallenges<F: RichField + Extendable<D>, const D: us
     /// Point at which the STARK polynomials are opened.
     pub stark_zeta: F::Extension,
 
+    /// Randomness used in FRI.
     pub fri_challenges: FriChallenges<F, D>,
 }
 
+/// Circuit version of `StarkProofChallenges`.
 pub(crate) struct StarkProofChallengesTarget<const D: usize> {
+    /// `Target`s for the random values used to combine STARK constraints.
     pub stark_alphas: Vec<Target>,
+    /// `ExtensionTarget` for the point at which the STARK polynomials are opened.
     pub stark_zeta: ExtensionTarget<D>,
+    /// `Target`s for the randomness used in FRI.
     pub fri_challenges: FriChallengesTarget<D>,
 }
 
@@ -788,6 +903,9 @@ pub struct StarkOpeningSet<F: RichField + Extendable<D>, const D: usize> {
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> StarkOpeningSet<F, D> {
+    /// Returns a `StarkOpeningSet` given all the polynomial commitments, the number of permutation `Z`polynomials,
+    /// the evaluation point and a generator `g`.
+    /// Polynomials are evaluated at point `zeta` and, if necessary, at `g * zeta`.
     pub fn new<C: GenericConfig<D, F = F>>(
         zeta: F::Extension,
         g: F,
@@ -796,18 +914,21 @@ impl<F: RichField + Extendable<D>, const D: usize> StarkOpeningSet<F, D> {
         quotient_commitment: &PolynomialBatch<F, C, D>,
         num_lookup_columns: usize,
     ) -> Self {
+        // Batch evaluates polynomials on the LDE, at a point `z`.
         let eval_commitment = |z: F::Extension, c: &PolynomialBatch<F, C, D>| {
             c.polynomials
                 .par_iter()
                 .map(|p| p.to_extension().eval(z))
                 .collect::<Vec<_>>()
         };
+        // Batch evaluates polynomials at a base field point `z`.
         let eval_commitment_base = |z: F, c: &PolynomialBatch<F, C, D>| {
             c.polynomials
                 .par_iter()
                 .map(|p| p.eval(z))
                 .collect::<Vec<_>>()
         };
+        // `g * zeta`.
         let zeta_next = zeta.scalar_mul(g);
         Self {
             local_values: eval_commitment(zeta, trace_commitment),
@@ -821,6 +942,8 @@ impl<F: RichField + Extendable<D>, const D: usize> StarkOpeningSet<F, D> {
         }
     }
 
+    /// Constructs the openings required by FRI.
+    /// All openings but `ctl_zs_first` are grouped together.
     pub(crate) fn to_fri_openings(&self) -> FriOpenings<F, D> {
         let zeta_batch = FriOpeningBatch {
             values: self
@@ -855,17 +978,26 @@ impl<F: RichField + Extendable<D>, const D: usize> StarkOpeningSet<F, D> {
     }
 }
 
+/// Circuit version of `StarkOpeningSet`.
+/// `Target`s for the purported values of each polynomial at the challenge point.
 #[derive(Eq, PartialEq, Debug)]
 pub struct StarkOpeningSetTarget<const D: usize> {
+    /// `ExtensionTarget`s for the openings of trace polynomials at `zeta`.
     pub local_values: Vec<ExtensionTarget<D>>,
+    /// `ExtensionTarget`s for the opening of trace polynomials at `g * zeta`.
     pub next_values: Vec<ExtensionTarget<D>>,
+    /// `ExtensionTarget`s for the opening of lookups and cross-table lookups `Z` polynomials at `zeta`.
     pub auxiliary_polys: Vec<ExtensionTarget<D>>,
+    /// `ExtensionTarget`s for the opening of lookups and cross-table lookups `Z` polynomials at `g * zeta`.
     pub auxiliary_polys_next: Vec<ExtensionTarget<D>>,
+    /// /// `ExtensionTarget`s for the opening of lookups and cross-table lookups `Z` polynomials at 1.
     pub ctl_zs_first: Vec<Target>,
+    /// `ExtensionTarget`s for the opening of quotient polynomials at `zeta`.
     pub quotient_polys: Vec<ExtensionTarget<D>>,
 }
 
 impl<const D: usize> StarkOpeningSetTarget<D> {
+    /// Serializes a STARK's opening set.
     pub fn to_buffer(&self, buffer: &mut Vec<u8>) -> IoResult<()> {
         buffer.write_target_ext_vec(&self.local_values)?;
         buffer.write_target_ext_vec(&self.next_values)?;
@@ -876,6 +1008,7 @@ impl<const D: usize> StarkOpeningSetTarget<D> {
         Ok(())
     }
 
+    /// Deserializes a STARK's opening set.
     pub fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
         let local_values = buffer.read_target_ext_vec::<D>()?;
         let next_values = buffer.read_target_ext_vec::<D>()?;
@@ -894,6 +1027,9 @@ impl<const D: usize> StarkOpeningSetTarget<D> {
         })
     }
 
+    /// Circuit version of `to_fri_openings`for `FriOpenings`.
+    /// Constructs the `Target`s the circuit version of FRI.
+    /// All openings but `ctl_zs_first` are grouped together.
     pub(crate) fn to_fri_openings(&self, zero: Target) -> FriOpeningsTarget<D> {
         let zeta_batch = FriOpeningBatchTarget {
             values: self

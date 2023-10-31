@@ -33,22 +33,26 @@ pub(crate) const NUM_ROUNDS: usize = 24;
 /// Number of 64-bit elements in the Keccak permutation input.
 pub(crate) const NUM_INPUTS: usize = 25;
 
+/// Create vector of `Columns` corresponding to the permutation input limbs.
 pub fn ctl_data_inputs<F: Field>() -> Vec<Column<F>> {
     let mut res: Vec<_> = (0..2 * NUM_INPUTS).map(reg_input_limb).collect();
     res.push(Column::single(TIMESTAMP));
     res
 }
 
+/// Create vector of `Columns` corresponding to the permutation output limbs.
 pub fn ctl_data_outputs<F: Field>() -> Vec<Column<F>> {
     let mut res: Vec<_> = Column::singles((0..2 * NUM_INPUTS).map(reg_output_limb)).collect();
     res.push(Column::single(TIMESTAMP));
     res
 }
 
+/// CTL filter for the first round of the Keccak permutation.
 pub fn ctl_filter_inputs<F: Field>() -> Column<F> {
     Column::single(reg_step(0))
 }
 
+/// CTL filter for the final round of the Keccak permutation.
 pub fn ctl_filter_outputs<F: Field>() -> Column<F> {
     Column::single(reg_step(NUM_ROUNDS - 1))
 }
