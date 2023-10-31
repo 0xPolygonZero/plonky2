@@ -49,7 +49,7 @@ global precompile_sha256:
     PUSH @SEGMENT_KERNEL_GENERAL
     DUP3
 
-    %jump(memcpy)
+    %jump(memcpy_bytes)
 
 sha256_contd:
     // stack: hash, kexit_info

@@ -32,7 +32,7 @@ global precompile_id:
         ctx, @SEGMENT_CALLDATA, 0,  // SRC
         size, id_contd              // count, retdest
         )
-    %jump(memcpy)
+    %jump(memcpy_bytes)
 
 id_contd:
     // stack: kexit_info

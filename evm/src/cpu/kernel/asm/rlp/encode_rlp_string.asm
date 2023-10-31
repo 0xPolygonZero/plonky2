@@ -33,7 +33,7 @@ global encode_rlp_string_small:
     // stack: pos'', pos', ADDR: 3, len, retdest
     %stack (pos2, pos1, ADDR: 3, len, retdest)
         -> (0, @SEGMENT_RLP_RAW, pos1, ADDR, len, retdest, pos2)
-    %jump(memcpy)
+    %jump(memcpy_bytes)
 
 global encode_rlp_string_small_single_byte:
     // stack: pos, ADDR: 3, len, retdest
@@ -71,7 +71,7 @@ global encode_rlp_string_large_after_writing_len:
     // stack: pos''', pos'', ADDR: 3, len, retdest
     %stack (pos3, pos2, ADDR: 3, len, retdest)
         -> (0, @SEGMENT_RLP_RAW, pos2, ADDR, len, retdest, pos3)
-    %jump(memcpy)
+    %jump(memcpy_bytes)
 
 %macro encode_rlp_string
     %stack (pos, ADDR: 3, len) -> (pos, ADDR, len, %%after)
