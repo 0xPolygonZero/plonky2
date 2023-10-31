@@ -156,8 +156,10 @@ pub fn eval_packed_generic<P: PackedField>(
     );
 
     // Check the JUMPDEST and KERNEL_GENERAL opcodes.
-    let jumpdest_keccak_general_constr = (opcode - P::Scalar::from_canonical_usize(0x21_usize))
-        * (opcode - P::Scalar::from_canonical_usize(0x5b_usize))
+    let jumpdest_opcode = P::Scalar::from_canonical_usize(0x5b);
+    let keccak_general_opcode = P::Scalar::from_canonical_usize(0x21);
+    let jumpdest_keccak_general_constr = (opcode - keccak_general_opcode)
+        * (opcode - jumpdest_opcode)
         * lv.op.jumpdest_keccak_general;
     yield_constr.constraint(jumpdest_keccak_general_constr);
 }
