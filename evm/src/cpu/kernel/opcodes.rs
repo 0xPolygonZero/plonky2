@@ -22,6 +22,7 @@ pub fn get_opcode(mnemonic: &str) -> u8 {
         "ADDFP254" => 0x0c,
         "MULFP254" => 0x0d,
         "SUBFP254" => 0x0e,
+        "SUBMOD" => 0x0f,
         "LT" => 0x10,
         "GT" => 0x11,
         "SLT" => 0x12,

@@ -97,9 +97,9 @@ contd:
 
 underflowed:
     // stack: underflow, k, s*k2, N, k2
-    // Compute (k-s*k2)%N. TODO: Use SUBMOD here when ready
-    %stack (u, k, x, N, k2) -> (N, x, k, N, k2, u)
-    SUB ADDMOD
+    // Compute (k-s*k2)%N.
+    %stack (u, k, x, N, k2) -> (k, x, N, k2, u)
+    SUBMOD
     %stack (k1, k2, underflow, retdest) -> (retdest, underflow, k1, k2)
     JUMP
 

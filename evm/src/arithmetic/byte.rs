@@ -197,7 +197,7 @@ pub(crate) fn generate<F: PrimeField64>(lv: &mut [F], idx: U256, val: U256) {
     );
 }
 
-pub fn eval_packed<P: PackedField>(
+pub(crate) fn eval_packed<P: PackedField>(
     lv: &[P; NUM_ARITH_COLUMNS],
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
@@ -293,7 +293,7 @@ pub fn eval_packed<P: PackedField>(
     }
 }
 
-pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
+pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     lv: &[ExtensionTarget<D>; NUM_ARITH_COLUMNS],
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
@@ -306,6 +306,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let idx_decomp = &lv[AUX_INPUT_REGISTER_0];
     let tree = &lv[AUX_INPUT_REGISTER_1];
 
+    // low 5 bits of the first limb of idx:
     let mut idx0_lo5 = builder.zero_extension();
     for i in 0..5 {
         let bit = idx_decomp[i];
@@ -316,6 +317,9 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
         let scale = builder.constant_extension(scale);
         idx0_lo5 = builder.mul_add_extension(bit, scale, idx0_lo5);
     }
+    // Verify that idx0_hi is the high (11) bits of the first limb of
+    // idx (in particular idx0_hi is at most 11 bits, since idx[0] is
+    // at most 16 bits).
     let t = F::Extension::from(F::from_canonical_u64(32));
     let t = builder.constant_extension(t);
     let t = builder.mul_add_extension(idx_decomp[5], t, idx0_lo5);
@@ -323,6 +327,9 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let t = builder.mul_extension(is_byte, t);
     yield_constr.constraint(builder, t);
 
+    // Verify the layers of the tree
+    // NB: Each of the bit values is negated in place to account for
+    // the reversed indexing.
     let one = builder.one_extension();
     let bit = idx_decomp[4];
     for i in 0..8 {
@@ -362,6 +369,8 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let t = builder.mul_extension(is_byte, t);
     yield_constr.constraint(builder, t);
 
+    // Check byte decomposition of last limb:
+
     let base8 = F::Extension::from(F::from_canonical_u64(1 << 8));
     let base8 = builder.constant_extension(base8);
     let lo_byte = lv[BYTE_LAST_LIMB_LO];
@@ -380,19 +389,29 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     yield_constr.constraint(builder, t);
     let expected_out_byte = tree[15];
 
+    // Sum all higher limbs; sum will be non-zero iff idx >= 32.
     let mut hi_limb_sum = lv[BYTE_IDX_DECOMP_HI];
     for i in 1..N_LIMBS {
         hi_limb_sum = builder.add_extension(hi_limb_sum, idx[i]);
     }
+    // idx_is_large is 0 or 1
     let idx_is_large = lv[BYTE_IDX_IS_LARGE];
     let t = builder.mul_sub_extension(idx_is_large, idx_is_large, idx_is_large);
     let t = builder.mul_extension(is_byte, t);
     yield_constr.constraint(builder, t);
 
+    // If hi_limb_sum is nonzero, then idx_is_large must be one.
     let t = builder.sub_extension(idx_is_large, one);
     let t = builder.mul_many_extension([is_byte, hi_limb_sum, t]);
     yield_constr.constraint(builder, t);
 
+    // If idx_is_large is 1, then hi_limb_sum_inv must be the inverse
+    // of hi_limb_sum, hence hi_limb_sum is non-zero, hence idx is
+    // indeed "large".
+    //
+    // Otherwise, if idx_is_large is 0, then hi_limb_sum * hi_limb_sum_inv
+    // is zero, which is only possible if hi_limb_sum is zero, since
+    // hi_limb_sum_inv is non-zero.
     let base16 = F::from_canonical_u64(1 << 16);
     let hi_limb_sum_inv = builder.mul_const_add_extension(
         base16,
@@ -414,6 +433,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let t = builder.mul_extension(is_byte, check);
     yield_constr.constraint(builder, t);
 
+    // Check that the rest of the output limbs are zero
     for i in 1..N_LIMBS {
         let t = builder.mul_extension(is_byte, out[i]);
         yield_constr.constraint(builder, t);
