@@ -9,15 +9,65 @@ use plonky2::plonk::proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget};
 use plonky2::util::serialization::{Buffer, DefaultGateSerializer, IoResult, Read, Write};
 use plonky2x::backend::circuit::Circuit;
 use plonky2x::backend::function::Plonky2xFunction;
-use plonky2x::frontend::uint::uint160::U160Variable;
 use plonky2x::frontend::uint::uint256::U256Variable;
+use plonky2x::frontend::vars::EvmVariable;
 use plonky2x::prelude::{
-    CircuitBuilder as CircuitBuilderX, CircuitVariable, PlonkParameters, Variable,
+    ByteVariable, CircuitBuilder, CircuitVariable, PlonkParameters, RichField, U32Variable,
+    Variable,
 };
 use serde::{Deserialize, Serialize};
 
+#[derive(Clone, Debug, CircuitVariable)]
+#[value_name(U160Value)]
+pub struct U160Variable {
+    pub limbs: [U32Variable; 5],
+}
+
+impl EvmVariable for U160Variable {
+    fn encode<L: PlonkParameters<D>, const D: usize>(
+        &self,
+        builder: &mut CircuitBuilder<L, D>,
+    ) -> Vec<ByteVariable> {
+        self.limbs
+            .iter()
+            .flat_map(|limb| limb.encode(builder))
+            .collect()
+    }
+
+    fn decode<L: PlonkParameters<D>, const D: usize>(
+        builder: &mut CircuitBuilder<L, D>,
+        bytes: &[ByteVariable],
+    ) -> Self {
+        let mut limbs = vec![];
+        for i in 0..5 {
+            limbs.push(U32Variable::decode(builder, &bytes[i * 4..(i + 1) * 4]));
+        }
+        Self {
+            limbs: limbs.try_into().unwrap(),
+        }
+    }
+
+    fn encode_value<F: RichField>(value: Self::ValueType<F>) -> Vec<u8> {
+        let mut bytes = vec![];
+        for limb in value.limbs.iter() {
+            bytes.extend_from_slice(&U32Variable::encode_value::<F>(*limb));
+        }
+        bytes
+    }
+
+    fn decode_value<F: RichField>(bytes: &[u8]) -> Self::ValueType<F> {
+        let mut limbs = vec![];
+        for i in 0..5 {
+            limbs.push(U32Variable::decode_value::<F>(&bytes[i * 4..(i + 1) * 4]));
+        }
+        Self::ValueType::<F> {
+            limbs: limbs.try_into().unwrap(),
+        }
+    }
+}
+
 fn connect_public_inputs<L: PlonkParameters<D>, const D: usize>(
-    builder: &mut CircuitBuilderX<L, D>,
+    builder: &mut CircuitBuilder<L, D>,
     public_input_targets: &Vec<Target>,
     input_target_vec: &Vec<Target>,
 ) {
@@ -98,7 +148,7 @@ where
 pub struct WrapCircuit;
 
 impl Circuit for WrapCircuit {
-    fn define<L: PlonkParameters<D>, const D: usize>(builder: &mut CircuitBuilderX<L, D>)
+    fn define<L: PlonkParameters<D>, const D: usize>(builder: &mut CircuitBuilder<L, D>)
     where
         <<L as PlonkParameters<D>>::Config as GenericConfig<D>>::Hasher:
             AlgebraicHasher<<L as PlonkParameters<D>>::Field>,
@@ -300,7 +350,6 @@ mod tests {
     use ethereum_types::U256;
     use ethers::utils::hex;
     use plonky2x::backend::circuit::PublicInput;
-    use plonky2x::frontend::uint::uint160::U160;
     use plonky2x::prelude::{DefaultBuilder, GateRegistry, HintRegistry};
 
     use super::*;
@@ -352,14 +401,16 @@ mod tests {
         value
     }
 
-    fn hex_str_to_u160(hex: &str) -> U160 {
-        U160::from_u32_limbs([
-            u32::from_str_radix(&hex[34..42], 16).expect("Failed to convert to u32"),
-            u32::from_str_radix(&hex[26..34], 16).expect("Failed to convert to u32"),
-            u32::from_str_radix(&hex[18..26], 16).expect("Failed to convert to u32"),
-            u32::from_str_radix(&hex[10..18], 16).expect("Failed to convert to u32"),
-            u32::from_str_radix(&hex[2..10], 16).expect("Failed to convert to u32"),
-        ])
+    fn hex_str_to_u160<F: RichField>(hex: &str) -> U160Value<F> {
+        U160Value::<F> {
+            limbs: [
+                u32::from_str_radix(&hex[34..42], 16).expect("Failed to convert to u32"),
+                u32::from_str_radix(&hex[26..34], 16).expect("Failed to convert to u32"),
+                u32::from_str_radix(&hex[18..26], 16).expect("Failed to convert to u32"),
+                u32::from_str_radix(&hex[10..18], 16).expect("Failed to convert to u32"),
+                u32::from_str_radix(&hex[2..10], 16).expect("Failed to convert to u32"),
+            ],
+        }
     }
 
     #[test]

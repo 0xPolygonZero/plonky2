@@ -37,7 +37,8 @@ static_assertions = "1.1.0"
 hashbrown = { version = "0.14.0" }
 tiny-keccak = "2.0.2"
 serde_json = "1.0"
-plonky2x = { git = "https://github.com/npwardberkeley/succinctx.git", branch = "u160" }
+plonky2x = { git = "https://github.com/succinctlabs/succinctx.git" }
+plonky2x-derive = { git = "https://github.com/succinctlabs/succinctx.git" }
 ethers = "2.0.10"
 
 [target.'cfg(not(target_env = "msvc"))'.dependencies]
