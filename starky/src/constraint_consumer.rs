@@ -57,6 +57,8 @@ impl<P: PackedField> ConstraintConsumer<P> {
     }
 
     /// Add one constraint valid on all rows except the last.
+    ///
+    /// Leaves degree unchanged.
     pub fn constraint_transition(&mut self, constraint: P) {
         self.constraint(constraint * self.z_last);
     }
@@ -80,12 +82,16 @@ impl<P: PackedField> ConstraintConsumer<P> {
 
     /// Add one constraint, but first multiply it by a filter such that it will only apply to the
     /// first row of the trace.
+    ///
+    /// Increases degree by 1.
     pub fn constraint_first_row(&mut self, constraint: P) {
         self.constraint(constraint * self.lagrange_basis_first);
     }
 
     /// Add one constraint, but first multiply it by a filter such that it will only apply to the
     /// last row of the trace.
+    ///
+    /// Increases degree by 1.
     pub fn constraint_last_row(&mut self, constraint: P) {
         self.constraint(constraint * self.lagrange_basis_last);
     }
