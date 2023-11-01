@@ -4,13 +4,8 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches:
-      - "**"
-  workflow_dispatch:
-    branches:
-      - "**"
 
-jobs:  
+jobs:
   test:
     name: Test Suite
     runs-on: ubuntu-latest
