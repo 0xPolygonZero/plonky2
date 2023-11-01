@@ -23,7 +23,7 @@ pub struct OpsColumnsView<T: Copy> {
     /// Combines SHL and SHR flags.
     pub shift: T,
     /// Combines JUMPDEST and KECCAK_GENERAL flags.
-    pub jumpdest_keccak_general: T, // Combines JUMPDEST and KECCAK_GENERAL flags.
+    pub jumpdest_keccak_general: T,
     /// Flag for PROVER_INPUT.
     pub prover_input: T,
     /// Combines JUMP and JUMPI flags.
