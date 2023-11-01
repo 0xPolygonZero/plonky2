@@ -13,8 +13,8 @@ global smt_hash_state:
 // Pseudocode:
 // ```
 // hash( HashNode { h } ) = h
-// hash( InternalNode { left, right } ) = keccak(1 || hash(left) || hash(right))
-// hash( Leaf { key, val_hash } ) = keccak(0 || key || val_hash)
+// hash( InternalNode { left, right } ) = keccak(1 || hash(left) || hash(right)) // TODO: Domain separation in capacity when using Poseidon. See https://github.com/0xPolygonZero/plonky2/pull/1315#discussion_r1374780333.
+// hash( Leaf { key, val_hash } ) = keccak(0 || key || val_hash) // TODO: Domain separation in capacity when using Poseidon.
 // ```
 // where `val_hash` is `keccak(nonce || balance || storage_root || code_hash)` for accounts and
 // `val` for a storage value.
@@ -117,6 +117,7 @@ smt_hash_leaf_account_after_storage:
     // 0----7 | 8----39 | 40--------71 | 72----103
     // nonce  | balance | storage_root | code_hash
 
+    // TODO: The way we do the `mstore_unpacking`s could be optimized. See https://github.com/0xPolygonZero/plonky2/pull/1315#discussion_r1378207927.
     %stack (code_hash) -> (0, @SEGMENT_KERNEL_GENERAL, 72, code_hash, 32)
     %mstore_unpacking POP
 

@@ -18,8 +18,11 @@ smt_insert_state_set_root:
 // ```
 // insert( HashNode { h }, key, value_ptr ) = if h == 0 then Leaf { key, value_ptr } else PANIC
 // insert( InternalNode { left, right }, key, value_ptr ) = if key&1 { insert( right, key>>1, value_ptr ) } else { insert( left, key>>1, value_ptr ) }
-// insert( Leaf { key', value_ptr' }, key, value_ptr ) =
-// with internal = new InternalNode { insert(internal, key', value_ptr'), insert(internal, key, value_ptr), return internal }
+// insert( Leaf { key', value_ptr' }, key, value_ptr ) = {
+//    let internal = new InternalNode;
+//    insert(internal, key', value_ptr');
+//    insert(internal, key, value_ptr);
+//    return internal;}
 // ```
 global smt_insert:
     // stack: node_ptr, key, value_ptr, retdest
@@ -69,7 +72,7 @@ smt_insert_internal:
     %jump(smt_insert)
 
 smt_insert_internal_after:
-    // stack: new_node_ptr, child_ptr_ptr, node_payload_ptr retdest
+    // stack: new_node_ptr, child_ptr_ptr, node_payload_ptr, retdest
     SWAP1 %mstore_trie_data
     // stack: node_payload_ptr retdest
     %decrement

@@ -3,14 +3,14 @@ use std::collections::HashMap;
 use anyhow::{anyhow, Result};
 use ethereum_types::{Address, BigEndianHash, H256, U256};
 use keccak_hash::keccak;
-use rand::{thread_rng, Rng};
+use rand::{random, thread_rng, Rng};
 use smt_utils::account::Account;
 use smt_utils::smt::Smt;
 
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
 use crate::cpu::kernel::interpreter::Interpreter;
-use crate::generation::mpt::all_mpt_prover_inputs_reversed;
+use crate::generation::mpt::{all_mpt_prover_inputs_reversed, state_smt_prover_inputs_reversed};
 use crate::memory::segments::Segment;
 
 // Test account with a given code hash.
@@ -45,6 +45,8 @@ fn prepare_interpreter(
     interpreter.generation_state.registers.program_counter = load_all_mpts;
     interpreter.push(0xDEADBEEFu32.into());
 
+    interpreter.generation_state.state_smt_prover_inputs =
+        state_smt_prover_inputs_reversed(&trie_inputs);
     interpreter.generation_state.mpt_prover_inputs =
         all_mpt_prover_inputs_reversed(&trie_inputs)
             .map_err(|err| anyhow!("Invalid MPT data: {:?}", err))?;
@@ -55,11 +57,6 @@ fn prepare_interpreter(
     // Next, execute smt_insert_state.
     interpreter.generation_state.registers.program_counter = smt_insert_state;
     let trie_data = interpreter.get_trie_data_mut();
-    if trie_data.is_empty() {
-        // In the assembly we skip over 0, knowing trie_data[0:4] = 0 by default.
-        // Since we don't explicitly set it to 0, we need to do so here.
-        trie_data.extend((0..4).map(|_| U256::zero()));
-    }
     let value_ptr = trie_data.len();
     trie_data.push(U256::zero()); // For key.
     trie_data.push(account.nonce.into());
@@ -109,7 +106,7 @@ fn test_extcodesize() -> Result<()> {
     let account = test_account(&code);
 
     let mut interpreter = Interpreter::new_with_kernel(0, vec![]);
-    let address: Address = thread_rng().gen();
+    let address: Address = random();
     // Prepare the interpreter by inserting the account in the state trie.
     prepare_interpreter(&mut interpreter, address, account)?;
 

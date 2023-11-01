@@ -46,7 +46,7 @@ fn test_state_smt(state_smt: Smt) -> Result<()> {
     interpreter.run()?;
     assert_eq!(interpreter.stack(), vec![]);
 
-    // Now, execute mpt_hash_state_trie.
+    // Now, execute smt_hash_state.
     interpreter.generation_state.registers.program_counter = smt_hash_state;
     interpreter.push(0xDEADBEEFu32.into());
     interpreter.run()?;

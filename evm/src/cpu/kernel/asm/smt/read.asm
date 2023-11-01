@@ -19,9 +19,9 @@ global smt_read_state:
 // Return the data at the given key in the SMT at `trie_data[node_ptr]`.
 // Pseudocode:
 // ```
-// read( HashNode { h }, key) = if h == 0 then 0 else PANIC
-// read( InternalNode { left, right }, key) = if key&1 { read( right, key>>1) } else { read( left, key>>1) }
-// read( Leaf { key', value_ptr }, key) = if key == key' then value_ptr' else 0
+// read( HashNode { h }, key ) = if h == 0 then 0 else PANIC
+// read( InternalNode { left, right }, key ) = if key&1 { read( right, key>>1 ) } else { read( left, key>>1 ) }
+// read( Leaf { key', value_ptr }, key ) = if key == key' then value_ptr' else 0
 // ```
 global smt_read:
     // stack: node_ptr, key, retdest
@@ -74,7 +74,7 @@ smt_read_non_existing_leaf:
     JUMP
 
 smt_read_existing_leaf:
-    // stack: node_payload_ptr_ptr, retdest
+    // stack: node_payload_ptr, retdest
     %increment // We want to point to the account values, not the key.
     SWAP1 JUMP
 
