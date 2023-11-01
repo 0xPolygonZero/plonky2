@@ -22,14 +22,12 @@ pub struct OpsColumnsView<T: Copy> {
     pub not_pop: T,
     /// Combines SHL and SHR flags.
     pub shift: T,
-    /// Flag for KECCAK_GENERAL.
-    pub keccak_general: T,
+    /// Combines JUMPDEST and KECCAK_GENERAL flags.
+    pub jumpdest_keccak_general: T, // Combines JUMPDEST and KECCAK_GENERAL flags.
     /// Flag for PROVER_INPUT.
     pub prover_input: T,
     /// Combines JUMP and JUMPI flags.
     pub jumps: T,
-    /// Flag for JUMPDEST.
-    pub jumpdest: T,
     /// Flag for PUSH.
     pub push: T,
     /// Combines DUP and SWAP flags.

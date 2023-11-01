@@ -26,11 +26,10 @@ const SIMPLE_OPCODES: OpsColumnsView<Option<u32>> = OpsColumnsView {
     logic_op: G_VERYLOW,
     not_pop: None, // This is handled manually below
     shift: G_VERYLOW,
-    keccak_general: KERNEL_ONLY_INSTR,
+    jumpdest_keccak_general: None, // This is handled manually below.
     prover_input: KERNEL_ONLY_INSTR,
     jumps: None, // Combined flag handled separately.
     pc_push0: G_BASE,
-    jumpdest: G_JUMPDEST,
     push: G_VERYLOW,
     dup_swap: G_VERYLOW,
     context_op: KERNEL_ONLY_INSTR,
@@ -109,6 +108,15 @@ fn eval_packed_accumulate<P: PackedField>(
         * P::Scalar::from_canonical_u32(G_BASE.unwrap())
         + lv.opcode_bits[0] * P::Scalar::from_canonical_u32(G_VERYLOW.unwrap());
     yield_constr.constraint_transition(lv.op.not_pop * (gas_diff - not_pop_cost));
+
+    // For JUMPDEST and KECCAK_GENERAL.
+    // JUMPDEST is differentiated from KECCAK_GENERAL by its second bit set to 1.
+    let jumpdest_keccak_general_gas_cost = lv.opcode_bits[1]
+        * P::Scalar::from_canonical_u32(G_JUMPDEST.unwrap())
+        + (P::ONES - lv.opcode_bits[1]) * P::Scalar::from_canonical_u32(KERNEL_ONLY_INSTR.unwrap());
+    yield_constr.constraint_transition(
+        lv.op.jumpdest_keccak_general * (gas_diff - jumpdest_keccak_general_gas_cost),
+    );
 }
 
 fn eval_packed_init<P: PackedField>(
@@ -252,6 +260,25 @@ fn eval_ext_circuit_accumulate<F: RichField + Extendable<D>, const D: usize>(
     let not_pop_gas_diff = builder.sub_extension(nv_lv_diff, not_pop_cost);
     let not_pop_constr = builder.mul_extension(filter, not_pop_gas_diff);
     yield_constr.constraint_transition(builder, not_pop_constr);
+
+    // For JUMPDEST and KECCAK_GENERAL.
+    // JUMPDEST is differentiated from KECCAK_GENERAL by its second bit set to 1.
+    let one = builder.one_extension();
+    let filter = lv.op.jumpdest_keccak_general;
+
+    let jumpdest_keccak_general_gas_cost = builder.arithmetic_extension(
+        F::from_canonical_u32(G_JUMPDEST.unwrap())
+            - F::from_canonical_u32(KERNEL_ONLY_INSTR.unwrap()),
+        F::from_canonical_u32(KERNEL_ONLY_INSTR.unwrap()),
+        lv.opcode_bits[1],
+        one,
+        one,
+    );
+
+    let gas_diff = builder.sub_extension(nv_lv_diff, jumpdest_keccak_general_gas_cost);
+    let constr = builder.mul_extension(filter, gas_diff);
+
+    yield_constr.constraint_transition(builder, constr);
 }
 
 fn eval_ext_circuit_init<F: RichField + Extendable<D>, const D: usize>(
