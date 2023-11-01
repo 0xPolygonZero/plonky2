@@ -61,6 +61,18 @@ pub(crate) const MLOAD_GENERAL_OP: Option<StackBehavior> = Some(StackBehavior {
     disable_other_channels: false,
 });
 
+pub(crate) const KECCAK_GENERAL_OP: StackBehavior = StackBehavior {
+    num_pops: 4,
+    pushes: true,
+    disable_other_channels: true,
+};
+
+pub(crate) const JUMPDEST_OP: StackBehavior = StackBehavior {
+    num_pops: 0,
+    pushes: false,
+    disable_other_channels: true,
+};
+
 // AUDITORS: If the value below is `None`, then the operation must be manually checked to ensure
 // that every general-purpose memory channel is either disabled or has its read flag and address
 // propertly constrained. The same applies  when `disable_other_channels` is set to `false`,
@@ -78,21 +90,12 @@ pub(crate) const STACK_BEHAVIORS: OpsColumnsView<Option<StackBehavior>> = OpsCol
         pushes: true,
         disable_other_channels: false,
     }),
-    keccak_general: Some(StackBehavior {
-        num_pops: 4,
-        pushes: true,
-        disable_other_channels: true,
-    }),
+    jumpdest_keccak_general: None,
     prover_input: None, // TODO
     jumps: None,        // Depends on whether it's a JUMP or a JUMPI.
     pc_push0: Some(StackBehavior {
         num_pops: 0,
         pushes: true,
-        disable_other_channels: true,
-    }),
-    jumpdest: Some(StackBehavior {
-        num_pops: 0,
-        pushes: false,
         disable_other_channels: true,
     }),
     push: None, // TODO
@@ -260,6 +263,20 @@ pub fn eval_packed<P: PackedField>(
             eval_packed_one(lv, nv, op, stack_behavior, yield_constr);
         }
     }
+
+    // Constrain stack for JUMPDEST.
+    let jumpdest_filter = lv.op.jumpdest_keccak_general * lv.opcode_bits[1];
+    eval_packed_one(lv, nv, jumpdest_filter, JUMPDEST_OP, yield_constr);
+
+    // Constrain stack for KECCAK_GENERAL.
+    let keccak_general_filter = lv.op.jumpdest_keccak_general * (P::ONES - lv.opcode_bits[1]);
+    eval_packed_one(
+        lv,
+        nv,
+        keccak_general_filter,
+        KECCAK_GENERAL_OP,
+        yield_constr,
+    );
 
     // Stack constraints for POP.
     // The only constraints POP has are stack constraints.
@@ -525,6 +542,24 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
             eval_ext_circuit_one(builder, lv, nv, op, stack_behavior, yield_constr);
         }
     }
+
+    // Constrain stack for JUMPDEST.
+    let jumpdest_filter = builder.mul_extension(lv.op.jumpdest_keccak_general, lv.opcode_bits[1]);
+    eval_ext_circuit_one(builder, lv, nv, jumpdest_filter, JUMPDEST_OP, yield_constr);
+
+    // Constrain stack for KECCAK_GENERAL.
+    let one = builder.one_extension();
+    let mut keccak_general_filter = builder.sub_extension(one, lv.opcode_bits[1]);
+    keccak_general_filter =
+        builder.mul_extension(lv.op.jumpdest_keccak_general, keccak_general_filter);
+    eval_ext_circuit_one(
+        builder,
+        lv,
+        nv,
+        keccak_general_filter,
+        KECCAK_GENERAL_OP,
+        yield_constr,
+    );
 
     // Stack constraints for POP.
     // The only constraints POP has are stack constraints.

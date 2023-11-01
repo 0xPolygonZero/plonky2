@@ -1,3 +1,4 @@
+use itertools::izip;
 use plonky2::field::extension::Extendable;
 use plonky2::field::packed::PackedField;
 use plonky2::field::types::Field;
@@ -5,11 +6,75 @@ use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 
+use super::columns::ops::OpsColumnsView;
 use super::membus::NUM_GP_CHANNELS;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::kernel::constants::context_metadata::ContextMetadata;
 use crate::memory::segments::Segment;
+
+// If true, the instruction will keep the current context for the next row.
+// If false, next row's context is handled manually.
+const KEEPS_CONTEXT: OpsColumnsView<bool> = OpsColumnsView {
+    binary_op: true,
+    ternary_op: true,
+    fp254_op: true,
+    eq_iszero: true,
+    logic_op: true,
+    not_pop: true,
+    shift: true,
+    jumpdest_keccak_general: true,
+    prover_input: true,
+    jumps: true,
+    pc_push0: true,
+    push: true,
+    dup_swap: true,
+    context_op: false,
+    mstore_32bytes: true,
+    mload_32bytes: true,
+    exit_kernel: true,
+    m_op_general: true,
+    syscall: true,
+    exception: true,
+};
+
+fn eval_packed_keep<P: PackedField>(
+    lv: &CpuColumnsView<P>,
+    nv: &CpuColumnsView<P>,
+    yield_constr: &mut ConstraintConsumer<P>,
+) {
+    for (op, keeps_context) in izip!(lv.op.into_iter(), KEEPS_CONTEXT.into_iter()) {
+        if keeps_context {
+            yield_constr.constraint_transition(op * (nv.context - lv.context));
+        }
+    }
+
+    // context_op is hybrid; we evaluate it separately.
+    let is_get_context = lv.op.context_op * (lv.opcode_bits[0] - P::ONES);
+    yield_constr.constraint_transition(is_get_context * (nv.context - lv.context));
+}
+
+fn eval_ext_circuit_keep<F: RichField + Extendable<D>, const D: usize>(
+    builder: &mut CircuitBuilder<F, D>,
+    lv: &CpuColumnsView<ExtensionTarget<D>>,
+    nv: &CpuColumnsView<ExtensionTarget<D>>,
+    yield_constr: &mut RecursiveConstraintConsumer<F, D>,
+) {
+    for (op, keeps_context) in izip!(lv.op.into_iter(), KEEPS_CONTEXT.into_iter()) {
+        if keeps_context {
+            let diff = builder.sub_extension(nv.context, lv.context);
+            let constr = builder.mul_extension(op, diff);
+            yield_constr.constraint_transition(builder, constr);
+        }
+    }
+
+    // context_op is hybrid; we evaluate it separately.
+    let is_get_context =
+        builder.mul_sub_extension(lv.op.context_op, lv.opcode_bits[0], lv.op.context_op);
+    let diff = builder.sub_extension(nv.context, lv.context);
+    let constr = builder.mul_extension(is_get_context, diff);
+    yield_constr.constraint_transition(builder, constr);
+}
 
 /// Evaluates constraints for GET_CONTEXT.
 fn eval_packed_get<P: PackedField>(
@@ -277,6 +342,7 @@ pub fn eval_packed<P: PackedField>(
     nv: &CpuColumnsView<P>,
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
+    eval_packed_keep(lv, nv, yield_constr);
     eval_packed_get(lv, nv, yield_constr);
     eval_packed_set(lv, nv, yield_constr);
 
@@ -316,6 +382,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     nv: &CpuColumnsView<ExtensionTarget<D>>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
+    eval_ext_circuit_keep(builder, lv, nv, yield_constr);
     eval_ext_circuit_get(builder, lv, nv, yield_constr);
     eval_ext_circuit_set(builder, lv, nv, yield_constr);
 
