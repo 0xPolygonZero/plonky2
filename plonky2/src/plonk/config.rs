@@ -44,7 +44,7 @@ pub trait Hasher<F: RichField>: Sized + Copy + Debug + Eq + PartialEq {
     fn hash_pad(input: &[F]) -> Self::Hash {
         let mut padded_input = input.to_vec();
         padded_input.push(F::ONE);
-        while (padded_input.len() + 1) % Self::Permutation::WIDTH != 0 {
+        while (padded_input.len() + 1) % Self::Permutation::RATE != 0 {
             padded_input.push(F::ZERO);
         }
         padded_input.push(F::ONE);
