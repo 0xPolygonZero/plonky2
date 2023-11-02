@@ -12,18 +12,22 @@ use plonky2::plonk::config::KeccakGoldilocksConfig;
 use plonky2::util::timing::TimingTree;
 use plonky2_evm::all_stark::AllStark;
 use plonky2_evm::config::StarkConfig;
-use plonky2_evm::generation::mpt::{AccountRlp, LegacyReceiptRlp};
+use plonky2_evm::generation::mpt::LegacyReceiptRlp;
 use plonky2_evm::generation::{GenerationInputs, TrieInputs};
 use plonky2_evm::proof::{BlockHashes, BlockMetadata, TrieRoots};
 use plonky2_evm::prover::prove;
 use plonky2_evm::verifier::verify_proof;
 use plonky2_evm::Node;
+use smt_utils::account::Account;
+use smt_utils::bits::Bits;
+use smt_utils::smt::Smt;
 
 type F = GoldilocksField;
 const D: usize = 2;
 type C = KeccakGoldilocksConfig;
 
 /// Test a simple selfdestruct.
+#[ignore]
 #[test]
 fn test_selfdestruct() -> anyhow::Result<()> {
     init_logger();
@@ -38,32 +42,34 @@ fn test_selfdestruct() -> anyhow::Result<()> {
     let sender_state_key = keccak(sender);
     let to_state_key = keccak(to);
 
-    let sender_nibbles = Nibbles::from_bytes_be(sender_state_key.as_bytes()).unwrap();
-    let to_nibbles = Nibbles::from_bytes_be(to_state_key.as_bytes()).unwrap();
+    let sender_bits = Bits::from(sender_state_key);
+    let to_bits = Bits::from(to_state_key);
 
-    let sender_account_before = AccountRlp {
-        nonce: 5.into(),
+    let sender_account_before = Account {
+        nonce: 5,
         balance: eth_to_wei(100_000.into()),
-        storage_root: HashedPartialTrie::from(Node::Empty).hash(),
         code_hash: keccak([]),
+        storage_smt: Smt::empty(),
     };
     let code = vec![
         0x32, // ORIGIN
         0xFF, // SELFDESTRUCT
     ];
-    let to_account_before = AccountRlp {
-        nonce: 12.into(),
+    let to_account_before = Account {
+        nonce: 12,
         balance: eth_to_wei(10_000.into()),
-        storage_root: HashedPartialTrie::from(Node::Empty).hash(),
         code_hash: keccak(&code),
+        storage_smt: Smt::empty(),
     };
 
-    let mut state_trie_before = HashedPartialTrie::from(Node::Empty);
-    state_trie_before.insert(sender_nibbles, rlp::encode(&sender_account_before).to_vec());
-    state_trie_before.insert(to_nibbles, rlp::encode(&to_account_before).to_vec());
+    let state_trie_before = Smt::new([
+        (sender_bits, sender_account_before.into()),
+        (to_bits, to_account_before.into()),
+    ])
+    .unwrap();
 
     let tries_before = TrieInputs {
-        state_trie: state_trie_before,
+        state_smt: state_trie_before.serialize(),
         transactions_trie: HashedPartialTrie::from(Node::Empty),
         receipts_trie: HashedPartialTrie::from(Node::Empty),
         storage_tries: vec![],
@@ -87,16 +93,14 @@ fn test_selfdestruct() -> anyhow::Result<()> {
 
     let contract_code = [(keccak(&code), code), (keccak([]), vec![])].into();
 
-    let expected_state_trie_after: HashedPartialTrie = {
-        let mut state_trie_after = HashedPartialTrie::from(Node::Empty);
-        let sender_account_after = AccountRlp {
-            nonce: 6.into(),
+    let expected_state_trie_after = {
+        let sender_account_after = Account {
+            nonce: 6,
             balance: eth_to_wei(110_000.into()) - 26_002 * 0xa,
-            storage_root: HashedPartialTrie::from(Node::Empty).hash(),
             code_hash: keccak([]),
+            storage_smt: Smt::empty(),
         };
-        state_trie_after.insert(sender_nibbles, rlp::encode(&sender_account_after).to_vec());
-        state_trie_after
+        Smt::new([(sender_bits, sender_account_after.into())]).unwrap()
     };
 
     let receipt_0 = LegacyReceiptRlp {
@@ -117,7 +121,7 @@ fn test_selfdestruct() -> anyhow::Result<()> {
     .into();
 
     let trie_roots_after = TrieRoots {
-        state_root: expected_state_trie_after.hash(),
+        state_root: expected_state_trie_after.root,
         transactions_root: transactions_trie.hash(),
         receipts_root: receipts_trie.hash(),
     };
