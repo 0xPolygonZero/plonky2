@@ -388,7 +388,7 @@ call_too_deep:
             args_size, %%after,                     // count, retdest
             new_ctx, args_size
         )
-    %jump(memcpy)
+    %jump(memcpy_bytes)
 %%after:
     %stack (new_ctx, args_size) ->
         (new_ctx, @SEGMENT_CONTEXT_METADATA, @CTX_METADATA_CALLDATA_SIZE, args_size)
@@ -410,7 +410,7 @@ call_too_deep:
             n, %%after,                     // count, retdest
             kexit_info, success
         )
-    %jump(memcpy)
+    %jump(memcpy_bytes)
 %%after:
 %endmacro
 

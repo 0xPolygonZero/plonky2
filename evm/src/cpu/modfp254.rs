@@ -15,6 +15,7 @@ const P_LIMBS: [u32; 8] = [
     0xd87cfd47, 0x3c208c16, 0x6871ca8d, 0x97816a91, 0x8181585d, 0xb85045b6, 0xe131a029, 0x30644e72,
 ];
 
+/// Evaluates constriants to check the modulus in mem_channel[2].
 pub fn eval_packed<P: PackedField>(
     lv: &CpuColumnsView<P>,
     yield_constr: &mut ConstraintConsumer<P>,
@@ -31,6 +32,8 @@ pub fn eval_packed<P: PackedField>(
     }
 }
 
+/// Circuit version of `eval_packed`.
+/// Evaluates constriants to check the modulus in mem_channel[2].
 pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
     lv: &CpuColumnsView<ExtensionTarget<D>>,

@@ -1,5 +1,5 @@
-//! Support for the EVM modular instructions ADDMOD, MULMOD and MOD,
-//! as well as DIV.
+//! Support for the EVM modular instructions ADDMOD, SUBMOD, MULMOD and MOD,
+//! as well as DIV and FP254 related modular instructions.
 //!
 //! This crate verifies an EVM modular instruction, which takes three
 //! 256-bit inputs A, B and M, and produces a 256-bit output C satisfying
@@ -478,7 +478,7 @@ pub(crate) fn modular_constr_poly<P: PackedField>(
     let base = P::Scalar::from_canonical_u64(1 << LIMB_BITS);
     let offset = P::Scalar::from_canonical_u64(AUX_COEFF_ABS_MAX as u64);
 
-    // constr_poly = c(x) + q(x) * m(x) + (x - β) * s(x)
+    // constr_poly = c(x) + q(x) * m(x) + (x - β) * s(x)c
     let mut aux = [P::ZEROS; 2 * N_LIMBS];
     for (c, i) in aux.iter_mut().zip(MODULAR_AUX_INPUT_LO) {
         // MODULAR_AUX_INPUT elements were offset by 2^20 in
@@ -625,10 +625,13 @@ pub(crate) fn modular_constr_poly_ext_circuit<F: RichField + Extendable<D>, cons
 ) -> [ExtensionTarget<D>; 2 * N_LIMBS] {
     let mod_is_zero = nv[MODULAR_MOD_IS_ZERO];
 
+    // Check that mod_is_zero is zero or one
     let t = builder.mul_sub_extension(mod_is_zero, mod_is_zero, mod_is_zero);
     let t = builder.mul_extension(filter, t);
     yield_constr.constraint_transition(builder, t);
 
+    // Check that mod_is_zero is zero if modulus is not zero (they
+    // could both be zero)
     let limb_sum = builder.add_many_extension(modulus);
     let t = builder.mul_extension(limb_sum, mod_is_zero);
     let t = builder.mul_extension(filter, t);
@@ -636,13 +639,19 @@ pub(crate) fn modular_constr_poly_ext_circuit<F: RichField + Extendable<D>, cons
 
     modulus[0] = builder.add_extension(modulus[0], mod_is_zero);
 
+    // Is 1 iff the operation is DIV or SHR and the denominator is zero.
     let div_denom_is_zero = nv[MODULAR_DIV_DENOM_IS_ZERO];
     let div_shr_filter = builder.add_extension(lv[IS_DIV], lv[IS_SHR]);
     let t = builder.mul_sub_extension(mod_is_zero, div_shr_filter, div_denom_is_zero);
     let t = builder.mul_extension(filter, t);
     yield_constr.constraint_transition(builder, t);
+
+    // Needed to compensate for adding mod_is_zero to modulus above,
+    // since the call eval_packed_generic_addcy() below subtracts modulus
+    // to verify in the case of a DIV or SHR.
     output[0] = builder.add_extension(output[0], div_denom_is_zero);
 
+    // Verify that the output is reduced, i.e. output < modulus.
     let out_aux_red = &nv[MODULAR_OUT_AUX_RED];
     let one = builder.one_extension();
     let zero = builder.zero_extension();
@@ -660,24 +669,31 @@ pub(crate) fn modular_constr_poly_ext_circuit<F: RichField + Extendable<D>, cons
         &is_less_than,
         true,
     );
+    // restore output[0]
     output[0] = builder.sub_extension(output[0], div_denom_is_zero);
 
+    // prod = q(x) * m(x)
     let prod = pol_mul_wide2_ext_circuit(builder, quot, modulus);
+    // higher order terms must be zero
     for &x in prod[2 * N_LIMBS..].iter() {
         let t = builder.mul_extension(filter, x);
         yield_constr.constraint_transition(builder, t);
     }
 
+    // constr_poly = c(x) + q(x) * m(x)
     let mut constr_poly: [_; 2 * N_LIMBS] = prod[0..2 * N_LIMBS].try_into().unwrap();
     pol_add_assign_ext_circuit(builder, &mut constr_poly, &output);
 
     let offset =
         builder.constant_extension(F::Extension::from_canonical_u64(AUX_COEFF_ABS_MAX as u64));
     let zero = builder.zero_extension();
+
+    // constr_poly = c(x) + q(x) * m(x)
     let mut aux = [zero; 2 * N_LIMBS];
     for (c, i) in aux.iter_mut().zip(MODULAR_AUX_INPUT_LO) {
         *c = builder.sub_extension(nv[i], offset);
     }
+    // add high 16-bits of aux input
     let base = F::from_canonical_u64(1u64 << LIMB_BITS);
     for (c, j) in aux.iter_mut().zip(MODULAR_AUX_INPUT_HI) {
         *c = builder.mul_const_add_extension(base, nv[j], *c);
@@ -700,10 +716,13 @@ pub(crate) fn submod_constr_poly_ext_circuit<F: RichField + Extendable<D>, const
     modulus: [ExtensionTarget<D>; N_LIMBS],
     mut quot: [ExtensionTarget<D>; 2 * N_LIMBS],
 ) -> [ExtensionTarget<D>; 2 * N_LIMBS] {
+    // quot was offset by 2^16 - 1 if it was negative; we undo that
+    // offset here:
     let (lo, hi) = quot.split_at_mut(N_LIMBS);
     let sign = hi[0];
     let t = builder.mul_sub_extension(sign, sign, sign);
     let t = builder.mul_extension(filter, t);
+    // sign must be 1 (negative) or 0 (positive)
     yield_constr.constraint(builder, t);
     let offset = F::from_canonical_u16(u16::max_value());
     for c in lo {
@@ -712,6 +731,7 @@ pub(crate) fn submod_constr_poly_ext_circuit<F: RichField + Extendable<D>, const
     }
     hi[0] = builder.zero_extension();
     for d in hi {
+        // All higher limbs must be zero
         let t = builder.mul_extension(filter, *d);
         yield_constr.constraint(builder, t);
     }
@@ -737,8 +757,12 @@ pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
         bn254_filter,
     ]);
 
+    // Ensure that this operation is not the last row of the table;
+    // needed because we access the next row of the table in nv.
     yield_constr.constraint_last_row(builder, filter);
 
+    // Verify that the modulus is the BN254 modulus for the
+    // {ADD,MUL,SUB}FP254 operations.
     let modulus = read_value::<N_LIMBS, _>(lv, MODULAR_MODULUS);
     for (&mi, bi) in modulus.iter().zip(bn254_modulus_limbs()) {
         // bn254_filter * (mi - bi)
@@ -760,6 +784,7 @@ pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let mul_filter = builder.add_extension(lv[columns::IS_MULMOD], lv[columns::IS_MULFP254]);
     let addmul_filter = builder.add_extension(add_filter, mul_filter);
 
+    // constr_poly has 2*N_LIMBS limbs
     let submod_constr_poly = submod_constr_poly_ext_circuit(
         lv,
         nv,

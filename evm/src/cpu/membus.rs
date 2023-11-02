@@ -9,6 +9,7 @@ use crate::cpu::columns::CpuColumnsView;
 /// General-purpose memory channels; they can read and write to all contexts/segments/addresses.
 pub const NUM_GP_CHANNELS: usize = 4;
 
+/// Indices for code and general purpose memory channels.
 pub mod channel_indices {
     use std::ops::Range;
 
@@ -31,6 +32,7 @@ pub mod channel_indices {
 /// These limitations save us numerous columns in the CPU table.
 pub const NUM_CHANNELS: usize = channel_indices::GP.end;
 
+/// Evaluates constraints regarding the membus.
 pub fn eval_packed<P: PackedField>(
     lv: &CpuColumnsView<P>,
     yield_constr: &mut ConstraintConsumer<P>,
@@ -51,6 +53,8 @@ pub fn eval_packed<P: PackedField>(
     yield_constr.constraint(lv.partial_channel.used * (lv.partial_channel.used - P::ONES));
 }
 
+/// Circuit version of `eval_packed`.
+/// Evaluates constraints regarding the membus.
 pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
     lv: &CpuColumnsView<ExtensionTarget<D>>,

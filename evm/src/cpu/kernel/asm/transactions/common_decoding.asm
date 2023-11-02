@@ -115,7 +115,7 @@
     PUSH @SEGMENT_TXN_DATA
     GET_CONTEXT
     // stack: DST, SRC, data_len, %%after, new_pos
-    %jump(memcpy)
+    %jump(memcpy_bytes)
 
 %%after:
     // stack: new_pos

@@ -12,23 +12,32 @@ use crate::memory;
 use crate::util::{indices_arr, transmute_no_compile_time_size_checks};
 
 mod general;
+/// Cpu operation flags.
 pub(crate) mod ops;
 
+/// 32-bit limbs of the value stored in the current memory channel.
 pub type MemValue<T> = [T; memory::VALUE_LIMBS];
 
+/// View of the columns required for one memory channel.
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct MemoryChannelView<T: Copy> {
     /// 1 if this row includes a memory operation in the `i`th channel of the memory bus, otherwise
     /// 0.
     pub used: T,
+    /// 1 if a read is performed on the `i`th channel of the memory bus, otherwise 0.
     pub is_read: T,
+    /// Context of the memory operation in the `i`th channel of the memory bus.
     pub addr_context: T,
+    /// Segment of the memory operation in the `ith` channel of the memory bus.
     pub addr_segment: T,
+    /// Virtual address of the memory operation in the `ith` channel of the memory bus.
     pub addr_virtual: T,
+    /// Value, subdivided into 32-bit limbs, stored in the `ith` channel of the memory bus.
     pub value: MemValue<T>,
 }
 
+/// View of all the columns in `CpuStark`.
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 // A more lightweight channel, sharing values with the 0-th memory channel
@@ -48,7 +57,6 @@ pub struct CpuColumnsView<T: Copy> {
     pub is_bootstrap_kernel: T,
 
     /// If CPU cycle: Current context.
-    // TODO: this is currently unconstrained
     pub context: T,
 
     /// If CPU cycle: Context for code memory channel.
@@ -80,14 +88,19 @@ pub struct CpuColumnsView<T: Copy> {
     /// Filter. 1 iff a Keccak sponge lookup is performed on this row.
     pub is_keccak_sponge: T,
 
+    /// Columns shared by various operations.
     pub(crate) general: CpuGeneralColumnsView<T>,
 
+    /// CPU clock.
     pub(crate) clock: T,
+
+    /// Memory bus channels in the CPU. Each channel is comprised of 13 columns.
     pub mem_channels: [MemoryChannelView<T>; NUM_GP_CHANNELS],
     pub partial_channel: PartialMemoryChannelView<T>,
 }
 
-// `u8` is guaranteed to have a `size_of` of 1.
+/// Total number of columns in `CpuStark`.
+/// `u8` is guaranteed to have a `size_of` of 1.
 pub const NUM_CPU_COLUMNS: usize = size_of::<CpuColumnsView<u8>>();
 
 impl<F: Field> Default for CpuColumnsView<F> {
@@ -159,4 +172,5 @@ const fn make_col_map() -> CpuColumnsView<usize> {
     unsafe { transmute::<[usize; NUM_CPU_COLUMNS], CpuColumnsView<usize>>(indices_arr) }
 }
 
+/// Mapping between [0..NUM_CPU_COLUMNS-1] and the CPU columns.
 pub const COL_MAP: CpuColumnsView<usize> = make_col_map();

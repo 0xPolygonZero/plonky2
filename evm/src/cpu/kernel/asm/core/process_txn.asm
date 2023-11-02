@@ -163,7 +163,7 @@ global process_contract_creation_txn:
     PUSH 0 // DST.offset
     PUSH @SEGMENT_CODE // DST.segment
     DUP8 // DST.context = new_ctx
-    %jump(memcpy)
+    %jump(memcpy_bytes)
 
 global process_contract_creation_txn_after_code_loaded:
     // stack: new_ctx, address, retdest
@@ -294,7 +294,7 @@ global process_message_txn_code_loaded:
     %stack (calldata_size, new_ctx, retdest) -> (calldata_size, new_ctx, calldata_size, retdest)
     %set_new_ctx_calldata_size
     %stack (new_ctx, calldata_size, retdest) -> (new_ctx, @SEGMENT_CALLDATA, 0, 0, @SEGMENT_TXN_DATA, 0, calldata_size, process_message_txn_code_loaded_finish, new_ctx, retdest)
-    %jump(memcpy)
+    %jump(memcpy_bytes)
 
 process_message_txn_code_loaded_finish:
     %enter_new_ctx

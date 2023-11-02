@@ -1,6 +1,7 @@
 //! The initial phase of execution, where the kernel code is hashed while being written to memory.
 //! The hash is then checked against a precomputed kernel hash.
 
+use ethereum_types::U256;
 use itertools::Itertools;
 use plonky2::field::extension::Extendable;
 use plonky2::field::packed::PackedField;
@@ -18,6 +19,7 @@ use crate::memory::segments::Segment;
 use crate::witness::memory::MemoryAddress;
 use crate::witness::util::{keccak_sponge_log, mem_write_gp_log_and_fill};
 
+/// Generates the rows to bootstrap the kernel.
 pub(crate) fn generate_bootstrap_kernel<F: Field>(state: &mut GenerationState<F>) {
     // Iterate through chunks of the code, such that we can write one chunk to memory per row.
     for chunk in &KERNEL.code.iter().enumerate().chunks(NUM_GP_CHANNELS) {
@@ -53,10 +55,18 @@ pub(crate) fn generate_bootstrap_kernel<F: Field>(state: &mut GenerationState<F>
         MemoryAddress::new(0, Segment::Code, 0),
         KERNEL.code.clone(),
     );
+    state.registers.stack_top = KERNEL
+        .code_hash
+        .iter()
+        .enumerate()
+        .fold(0.into(), |acc, (i, &elt)| {
+            acc + (U256::from(elt) << (224 - 32 * i))
+        });
     state.traces.push_cpu(final_cpu_row);
     log::info!("Bootstrapping took {} cycles", state.traces.clock());
 }
 
+/// Evaluates the constraints for kernel bootstrapping.
 pub(crate) fn eval_bootstrap_kernel_packed<F: Field, P: PackedField<Scalar = F>>(
     local_values: &CpuColumnsView<P>,
     next_values: &CpuColumnsView<P>,
@@ -102,6 +112,8 @@ pub(crate) fn eval_bootstrap_kernel_packed<F: Field, P: PackedField<Scalar = F>>
     }
 }
 
+/// Circuit version of `eval_bootstrap_kernel_packed`.
+/// Evaluates the constraints for kernel bootstrapping.
 pub(crate) fn eval_bootstrap_kernel_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     local_values: &CpuColumnsView<ExtensionTarget<D>>,

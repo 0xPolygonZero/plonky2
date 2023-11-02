@@ -27,6 +27,11 @@ use crate::stark::Stark;
 use crate::witness::memory::MemoryOpKind::Read;
 use crate::witness::memory::{MemoryAddress, MemoryOp};
 
+/// Creates the vector of `Columns` corresponding to:
+/// - the memory operation type,
+/// - the address in memory of the element being read/written,
+/// - the value being read/written,
+/// - the timestamp at which the element is read/written.
 pub fn ctl_data<F: Field>() -> Vec<Column<F>> {
     let mut res =
         Column::singles([IS_READ, ADDR_CONTEXT, ADDR_SEGMENT, ADDR_VIRTUAL]).collect_vec();
@@ -35,6 +40,7 @@ pub fn ctl_data<F: Field>() -> Vec<Column<F>> {
     res
 }
 
+/// CTL filter for memory operations.
 pub fn ctl_filter<F: Field>() -> Column<F> {
     Column::single(FILTER)
 }

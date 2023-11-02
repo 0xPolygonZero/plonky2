@@ -1,5 +1,3 @@
-use std::any::type_name;
-
 use anyhow::{ensure, Result};
 use itertools::Itertools;
 use once_cell::sync::Lazy;
@@ -35,6 +33,10 @@ use crate::lookup::{lookup_helper_columns, Lookup, LookupCheckVars};
 use crate::proof::{AllProof, PublicValues, StarkOpeningSet, StarkProof, StarkProofWithMetadata};
 use crate::stark::Stark;
 use crate::vanishing_poly::eval_vanishing_poly;
+#[cfg(test)]
+use crate::{
+    cross_table_lookup::testutils::check_ctls, verifier::testutils::get_memory_extra_looking_values,
+};
 
 /// Generate traces, then create all STARK proofs.
 pub fn prove<F, C, const D: usize>(
@@ -88,6 +90,7 @@ where
     let rate_bits = config.fri_config.rate_bits;
     let cap_height = config.fri_config.cap_height;
 
+    // For each STARK, we compute the polynomial commitments for the polynomials interpolating its trace.
     let trace_commitments = timed!(
         timing,
         "compute all trace commitments",
@@ -113,6 +116,7 @@ where
             .collect::<Vec<_>>()
     );
 
+    // Get the Merkle caps for all trace commitments and observe them.
     let trace_caps = trace_commitments
         .iter()
         .map(|c| c.merkle_tree.cap.clone())
@@ -125,7 +129,9 @@ where
     observe_public_values::<F, C, D>(&mut challenger, &public_values)
         .map_err(|_| anyhow::Error::msg("Invalid conversion of public values."))?;
 
+    // Get challenges for the cross-table lookups.
     let ctl_challenges = get_grand_product_challenge_set(&mut challenger, config.num_challenges);
+    // For each STARK, compute its cross-table lookup Z polynomials and get the associated `CtlData`.
     let ctl_data_per_table = timed!(
         timing,
         "compute CTL data",
@@ -142,7 +148,7 @@ where
         prove_with_commitments(
             all_stark,
             config,
-            trace_poly_values,
+            &trace_poly_values,
             trace_commitments,
             ctl_data_per_table,
             &mut challenger,
@@ -151,6 +157,15 @@ where
         )?
     );
 
+    #[cfg(test)]
+    {
+        check_ctls(
+            &trace_poly_values,
+            &all_stark.cross_table_lookups,
+            &get_memory_extra_looking_values(&public_values),
+        );
+    }
+
     Ok(AllProof {
         stark_proofs,
         ctl_challenges,
@@ -158,10 +173,17 @@ where
     })
 }
 
+/// Generates a proof for each STARK.
+/// At this stage, we have computed the trace polynomials commitments for the various STARKs,
+/// and we have the cross-table lookup data for each table, including the associated challenges.
+/// - `trace_poly_values` are the trace values for each STARK.
+/// - `trace_commitments` are the trace polynomials commitments for each STARK.
+/// - `ctl_data_per_table` group all the cross-table lookup data for each STARK.
+/// Each STARK uses its associated data to generate a proof.
 fn prove_with_commitments<F, C, const D: usize>(
     all_stark: &AllStark<F, D>,
     config: &StarkConfig,
-    trace_poly_values: [Vec<PolynomialValues<F>>; NUM_TABLES],
+    trace_poly_values: &[Vec<PolynomialValues<F>>; NUM_TABLES],
     trace_commitments: Vec<PolynomialBatch<F, C, D>>,
     ctl_data_per_table: [CtlData<F>; NUM_TABLES],
     challenger: &mut Challenger<F, C::Hasher>,
@@ -282,7 +304,10 @@ where
     ])
 }
 
-/// Compute proof for a single STARK table.
+/// Computes a proof for a single STARK table, including:
+/// - the initial state of the challenger,
+/// - all the requires Merkle caps,
+/// - all the required polynomial and FRI argument openings.
 pub(crate) fn prove_single_table<F, C, S, const D: usize>(
     stark: &S,
     config: &StarkConfig,
@@ -339,6 +364,8 @@ where
     );
     let num_lookup_columns = lookup_helper_columns.as_ref().map(|v| v.len()).unwrap_or(0);
 
+    // We add CTLs to the permutation arguments so that we can batch commit to
+    // all auxiliary polynomials.
     let auxiliary_polys = match lookup_helper_columns {
         None => ctl_data.z_polys(),
         Some(mut lookup_columns) => {
@@ -348,6 +375,7 @@ where
     };
     assert!(!auxiliary_polys.is_empty(), "No CTL?");
 
+    // Get the polynomial commitments for all auxiliary polynomials.
     let auxiliary_polys_commitment = timed!(
         timing,
         "compute auxiliary polynomials commitment",
@@ -365,7 +393,9 @@ where
     challenger.observe_cap(&auxiliary_polys_cap);
 
     let alphas = challenger.get_n_challenges(config.num_challenges);
-    if cfg!(test) {
+
+    #[cfg(test)]
+    {
         check_constraints(
             stark,
             trace_commitment,
@@ -378,6 +408,7 @@ where
             num_lookup_columns,
         );
     }
+
     let quotient_polys = timed!(
         timing,
         "compute quotient polys",
@@ -410,6 +441,7 @@ where
             })
             .collect()
     );
+    // Commit to the quotient polynomials.
     let quotient_commitment = timed!(
         timing,
         "compute quotient commitment",
@@ -422,6 +454,7 @@ where
             None,
         )
     );
+    // Observe the quotient polynomials Merkle cap.
     let quotient_polys_cap = quotient_commitment.merkle_tree.cap.clone();
     challenger.observe_cap(&quotient_polys_cap);
 
@@ -435,6 +468,7 @@ where
         "Opening point is in the subgroup."
     );
 
+    // Compute all openings: evaluate all commited polynomials at `zeta` and, when necessary, at `g * zeta`.
     let openings = StarkOpeningSet::new(
         zeta,
         g,
@@ -443,6 +477,7 @@ where
         &quotient_commitment,
         stark.num_lookup_helper_columns(config),
     );
+    // Get the FRI openings and observe them.
     challenger.observe_openings(&openings.to_fri_openings());
 
     let initial_merkle_trees = vec![
@@ -549,10 +584,12 @@ where
                 lagrange_basis_first,
                 lagrange_basis_last,
             );
+            // Get the local and next row evaluations for the current STARK.
             let vars = S::EvaluationFrame::from_values(
                 &get_trace_values_packed(i_start),
                 &get_trace_values_packed(i_next_start),
             );
+            // Get the local and next row evaluations for the permutation argument, as well as the associated challenges.
             let lookup_vars = lookup_challenges.map(|challenges| LookupCheckVars {
                 local_values: auxiliary_polys_commitment.get_lde_values_packed(i_start, step)
                     [..num_lookup_columns]
@@ -560,6 +597,13 @@ where
                 next_values: auxiliary_polys_commitment.get_lde_values_packed(i_next_start, step),
                 challenges: challenges.to_vec(),
             });
+
+            // Get all the data for this STARK's CTLs:
+            // - the local and next row evaluations for the CTL Z polynomials
+            // - the associated challenges.
+            // - for each CTL:
+            //     - the filter `Column`
+            //     - the `Column`s that form the looking/looked table.
             let ctl_vars = ctl_data
                 .zs_columns
                 .iter()
@@ -574,6 +618,9 @@ where
                     filter_column: &zs_columns.filter_column,
                 })
                 .collect::<Vec<_>>();
+
+            // Evaluate the polynomial combining all constraints, including those associated
+            // to the permutation and CTL arguments.
             eval_vanishing_poly::<F, F, P, S, D, 1>(
                 stark,
                 &vars,
@@ -606,6 +653,7 @@ where
         .collect()
 }
 
+#[cfg(test)]
 /// Check that all constraints evaluate to zero on `H`.
 /// Can also be used to check the degree of the constraints by evaluating on a larger subgroup.
 fn check_constraints<'a, F, C, S, const D: usize>(
@@ -646,6 +694,7 @@ fn check_constraints<'a, F, C, S, const D: usize>(
         transpose(&values)
     };
 
+    // Get batch evaluations of the trace, permutation and CTL polynomials over our subgroup.
     let trace_subgroup_evals = get_subgroup_evals(trace_commitment);
     let auxiliary_subgroup_evals = get_subgroup_evals(auxiliary_commitment);
 
@@ -667,16 +716,19 @@ fn check_constraints<'a, F, C, S, const D: usize>(
                 lagrange_basis_first,
                 lagrange_basis_last,
             );
+            // Get the local and next row evaluations for the current STARK's trace.
             let vars = S::EvaluationFrame::from_values(
                 &trace_subgroup_evals[i],
                 &trace_subgroup_evals[i_next],
             );
+            // Get the local and next row evaluations for the current STARK's permutation argument.
             let lookup_vars = lookup_challenges.map(|challenges| LookupCheckVars {
                 local_values: auxiliary_subgroup_evals[i][..num_lookup_columns].to_vec(),
                 next_values: auxiliary_subgroup_evals[i_next][..num_lookup_columns].to_vec(),
                 challenges: challenges.to_vec(),
             });
 
+            // Get the local and next row evaluations for the current STARK's CTL Z polynomials.
             let ctl_vars = ctl_data
                 .zs_columns
                 .iter()
@@ -689,6 +741,8 @@ fn check_constraints<'a, F, C, S, const D: usize>(
                     filter_column: &zs_columns.filter_column,
                 })
                 .collect::<Vec<_>>();
+            // Evaluate the polynomial combining all constraints, including those associated
+            // to the permutation and CTL arguments.
             eval_vanishing_poly::<F, F, F, S, D, 1>(
                 stark,
                 &vars,
@@ -701,11 +755,12 @@ fn check_constraints<'a, F, C, S, const D: usize>(
         })
         .collect::<Vec<_>>();
 
+    // Assert that all constraints evaluate to 0 over our subgroup.
     for v in constraint_values {
         assert!(
             v.iter().all(|x| x.is_zero()),
             "Constraint failed in {}",
-            type_name::<S>()
+            std::any::type_name::<S>()
         );
     }
 }

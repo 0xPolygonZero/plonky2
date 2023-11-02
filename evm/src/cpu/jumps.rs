@@ -9,6 +9,7 @@ use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::membus::NUM_GP_CHANNELS;
 use crate::memory::segments::Segment;
 
+/// Evaluates constraints for EXIT_KERNEL.
 pub fn eval_packed_exit_kernel<P: PackedField>(
     lv: &CpuColumnsView<P>,
     nv: &CpuColumnsView<P>,
@@ -26,6 +27,8 @@ pub fn eval_packed_exit_kernel<P: PackedField>(
     yield_constr.constraint_transition(filter * (input[7] - nv.gas[1]));
 }
 
+/// Circuit version of `eval_packed_exit_kernel`.
+/// Evaluates constraints for EXIT_KERNEL.
 pub fn eval_ext_circuit_exit_kernel<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
     lv: &CpuColumnsView<ExtensionTarget<D>>,
@@ -59,6 +62,7 @@ pub fn eval_ext_circuit_exit_kernel<F: RichField + Extendable<D>, const D: usize
     }
 }
 
+/// Evaluates constraints jump operations: JUMP and JUMPI.
 pub fn eval_packed_jump_jumpi<P: PackedField>(
     lv: &CpuColumnsView<P>,
     nv: &CpuColumnsView<P>,
@@ -156,6 +160,8 @@ pub fn eval_packed_jump_jumpi<P: PackedField>(
         .constraint_transition(filter * jumps_lv.should_jump * (nv.program_counter - jump_dest));
 }
 
+/// Circuit version of `eval_packed_jumpi_jumpi`.
+/// Evaluates constraints jump operations: JUMP and JUMPI.
 pub fn eval_ext_circuit_jump_jumpi<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
     lv: &CpuColumnsView<ExtensionTarget<D>>,
@@ -353,6 +359,7 @@ pub fn eval_ext_circuit_jump_jumpi<F: RichField + Extendable<D>, const D: usize>
     }
 }
 
+/// Evaluates constraints for EXIT_KERNEL, JUMP and JUMPI.
 pub fn eval_packed<P: PackedField>(
     lv: &CpuColumnsView<P>,
     nv: &CpuColumnsView<P>,
@@ -362,6 +369,8 @@ pub fn eval_packed<P: PackedField>(
     eval_packed_jump_jumpi(lv, nv, yield_constr);
 }
 
+/// Circuit version of `eval_packed`.
+/// Evaluates constraints for EXIT_KERNEL, JUMP and JUMPI.
 pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
     lv: &CpuColumnsView<ExtensionTarget<D>>,
