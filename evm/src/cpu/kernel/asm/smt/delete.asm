@@ -133,3 +133,22 @@ global sibling_is_leaf_child_is_non_empty:
     POP
     // stack: deleted_child_ptr, node_payload_ptr, bit, retdest
     %jump(insert_child)
+
+global delete_account:
+    %stack (address, retdest) -> (address, delete_account_save, retdest)
+    %addr_to_state_key
+    // stack: key, delete_account_save, retdest
+    %mload_global_metadata(@GLOBAL_METADATA_STATE_TRIE_ROOT)
+    // stack: state_root_prt, key, delete_account_save, retdest
+    %jump(smt_delete)
+delete_account_save:
+    // stack: updated_state_root_ptr, retdest
+    %mstore_global_metadata(@GLOBAL_METADATA_STATE_TRIE_ROOT)
+    JUMP
+
+%macro delete_account
+    %stack (address) -> (address, %%after)
+    %jump(delete_account)
+%%after:
+    // stack: (empty)
+%endmacro

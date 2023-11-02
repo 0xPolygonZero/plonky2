@@ -12,7 +12,7 @@ use crate::util::u256_to_usize;
 use crate::witness::errors::ProgramError;
 
 /// The post-state after trace generation; intended for debugging.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct GenerationOutputs {
     pub accounts: HashMap<AddressOrStateKey, AccountOutput>,
 }

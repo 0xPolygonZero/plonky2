@@ -279,4 +279,4 @@ const MAX_NONCE: (&str, u64) = ("MAX_NONCE", 0xffffffffffffffff);
 const CALL_STACK_LIMIT: (&str, u64) = ("CALL_STACK_LIMIT", 1024);
 
 // Holds a flag that is set to 1 when hashing storage SMTs. Used in `smt_hash`.
-const SMT_IS_STORAGE: (&str, u64) = ("SMT_IS_STORAGE", 13371337);
+const SMT_IS_STORAGE: (&str, u64) = ("SMT_IS_STORAGE", 1337);
