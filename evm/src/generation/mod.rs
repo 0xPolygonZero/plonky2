@@ -21,7 +21,7 @@ use crate::cpu::bootstrap_kernel::generate_bootstrap_kernel;
 use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
-use crate::generation::outputs::{get_outputs, GenerationOutputs};
+use crate::generation::outputs::GenerationOutputs;
 use crate::generation::state::GenerationState;
 use crate::memory::segments::Segment;
 use crate::proof::{BlockHashes, BlockMetadata, ExtraBlockData, PublicValues, TrieRoots};
