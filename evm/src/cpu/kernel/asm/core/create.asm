@@ -104,7 +104,7 @@ global create_common:
             code_len,
             run_constructor,
             new_ctx, value, address)
-    %jump(memcpy)
+    %jump(memcpy_bytes)
 
 run_constructor:
     // stack: new_ctx, value, address, kexit_info

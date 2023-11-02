@@ -59,6 +59,8 @@ use crate::witness::memory::MemoryAddress;
 /// Strict upper bound for the individual bytes range-check.
 const BYTE_RANGE_MAX: usize = 1usize << 8;
 
+/// Creates the vector of `Columns` for `BytePackingStark` corresponding to the final packed limbs being read/written.
+/// `CpuStark` will look into these columns, as the CPU needs the output of byte packing.
 pub(crate) fn ctl_looked_data<F: Field>() -> Vec<Column<F>> {
     // Reconstruct the u32 limbs composing the final `U256` word
     // being read/written from the underlying byte values. For each,
@@ -88,12 +90,14 @@ pub(crate) fn ctl_looked_data<F: Field>() -> Vec<Column<F>> {
         .collect()
 }
 
+/// CTL filter for the `BytePackingStark` looked table.
 pub fn ctl_looked_filter<F: Field>() -> Column<F> {
     // The CPU table is only interested in our sequence end rows,
     // since those contain the final limbs of our packed int.
     Column::single(SEQUENCE_END)
 }
 
+/// Column linear combination for the `BytePackingStark` table reading/writing the `i`th byte sequence from `MemoryStark`.
 pub(crate) fn ctl_looking_memory<F: Field>(i: usize) -> Vec<Column<F>> {
     let mut res =
         Column::singles([IS_READ, ADDR_CONTEXT, ADDR_SEGMENT, ADDR_VIRTUAL]).collect_vec();
@@ -212,6 +216,8 @@ impl<F: RichField + Extendable<D>, const D: usize> BytePackingStark<F, D> {
             row[index_bytes(i)] = F::ONE;
 
             rows.push(row);
+
+            // Update those fields for the next row
             row[index_bytes(i)] = F::ZERO;
             row[ADDR_VIRTUAL] -= F::ONE;
         }
