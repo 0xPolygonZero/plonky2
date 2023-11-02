@@ -109,4 +109,5 @@ pub(crate) const RANGE_COUNTER: usize = START_SHARED_COLS + NUM_SHARED_COLS;
 /// The frequencies column used in logUp.
 pub(crate) const RC_FREQUENCIES: usize = RANGE_COUNTER + 1;
 
+/// Number of columns in `ArithmeticStark`.
 pub const NUM_ARITH_COLUMNS: usize = START_SHARED_COLS + NUM_SHARED_COLS + 2;

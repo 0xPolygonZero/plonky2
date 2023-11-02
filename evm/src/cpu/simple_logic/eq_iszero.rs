@@ -19,7 +19,11 @@ fn limbs(x: U256) -> [u32; 8] {
     }
     res
 }
-
+/// Form `diff_pinv`.
+/// Let `diff = val0 - val1`. Consider `x[i] = diff[i]^-1` if `diff[i] != 0` and 0 otherwise.
+/// Then `diff @ x = num_unequal_limbs`, where `@` denotes the dot product. We set
+/// `diff_pinv = num_unequal_limbs^-1 * x` if `num_unequal_limbs != 0` and 0 otherwise. We have
+/// `diff @ diff_pinv = 1 - equal` as desired.
 pub fn generate_pinv_diff<F: Field>(val0: U256, val1: U256, lv: &mut CpuColumnsView<F>) {
     let val0_limbs = limbs(val0).map(F::from_canonical_u32);
     let val1_limbs = limbs(val1).map(F::from_canonical_u32);
@@ -27,19 +31,8 @@ pub fn generate_pinv_diff<F: Field>(val0: U256, val1: U256, lv: &mut CpuColumnsV
     let num_unequal_limbs = izip!(val0_limbs, val1_limbs)
         .map(|(limb0, limb1)| (limb0 != limb1) as usize)
         .sum();
-    let equal = num_unequal_limbs == 0;
-
-    let output = &mut lv.mem_channels[2].value;
-    output[0] = F::from_bool(equal);
-    for limb in &mut output[1..] {
-        *limb = F::ZERO;
-    }
 
     // Form `diff_pinv`.
-    // Let `diff = val0 - val1`. Consider `x[i] = diff[i]^-1` if `diff[i] != 0` and 0 otherwise.
-    // Then `diff @ x = num_unequal_limbs`, where `@` denotes the dot product. We set
-    // `diff_pinv = num_unequal_limbs^-1 * x` if `num_unequal_limbs != 0` and 0 otherwise. We have
-    // `diff @ diff_pinv = 1 - equal` as desired.
     let logic = lv.general.logic_mut();
     let num_unequal_limbs_inv = F::from_canonical_usize(num_unequal_limbs)
         .try_inverse()
@@ -49,6 +42,7 @@ pub fn generate_pinv_diff<F: Field>(val0: U256, val1: U256, lv: &mut CpuColumnsV
     }
 }
 
+/// Evaluates the constraints for EQ and ISZERO.
 pub fn eval_packed<P: PackedField>(
     lv: &CpuColumnsView<P>,
     nv: &CpuColumnsView<P>,
@@ -57,7 +51,7 @@ pub fn eval_packed<P: PackedField>(
     let logic = lv.general.logic();
     let input0 = lv.mem_channels[0].value;
     let input1 = lv.mem_channels[1].value;
-    let output = lv.mem_channels[2].value;
+    let output = nv.mem_channels[0].value;
 
     // EQ (0x14) and ISZERO (0x15) are differentiated by their first opcode bit.
     let eq_filter = lv.op.eq_iszero * (P::ONES - lv.opcode_bits[0]);
@@ -105,6 +99,8 @@ pub fn eval_packed<P: PackedField>(
     );
 }
 
+/// Circuit version of `eval_packed`.
+/// Evaluates the constraints for EQ and ISZERO.
 pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
     lv: &CpuColumnsView<ExtensionTarget<D>>,
@@ -117,7 +113,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let logic = lv.general.logic();
     let input0 = lv.mem_channels[0].value;
     let input1 = lv.mem_channels[1].value;
-    let output = lv.mem_channels[2].value;
+    let output = nv.mem_channels[0].value;
 
     // EQ (0x14) and ISZERO (0x15) are differentiated by their first opcode bit.
     let eq_filter = builder.mul_extension(lv.op.eq_iszero, lv.opcode_bits[0]);

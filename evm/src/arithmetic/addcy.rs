@@ -149,7 +149,7 @@ pub(crate) fn eval_packed_generic_addcy<P: PackedField>(
     }
 }
 
-pub fn eval_packed_generic<P: PackedField>(
+pub(crate) fn eval_packed_generic<P: PackedField>(
     lv: &[P; NUM_ARITH_COLUMNS],
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
@@ -236,7 +236,7 @@ pub(crate) fn eval_ext_circuit_addcy<F: RichField + Extendable<D>, const D: usiz
     }
 }
 
-pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
+pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     lv: &[ExtensionTarget<D>; NUM_ARITH_COLUMNS],
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
