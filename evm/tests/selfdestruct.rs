@@ -23,7 +23,7 @@ type F = GoldilocksField;
 const D: usize = 2;
 type C = KeccakGoldilocksConfig;
 
-/// Test a simple token transfer to a new address.
+/// Test a simple selfdestruct.
 #[test]
 fn test_selfdestruct() -> anyhow::Result<()> {
     init_logger();
