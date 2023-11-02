@@ -12,6 +12,12 @@ smt_insert_state_set_root:
     // stack: retdest
     JUMP
 
+%macro smt_insert_state
+    %stack (key, value_ptr) -> (key, value_ptr, %%after)
+    %jump(smt_insert_state)
+%%after:
+%endmacro
+
 // Insert a key-value pair in the SMT at `trie_data[node_ptr]`.
 // `value_ptr`  should point to a an empty slot reserved for `rem_key`, followed by the actual value.
 // Pseudocode:
