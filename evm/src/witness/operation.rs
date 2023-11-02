@@ -10,13 +10,14 @@ use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::assembler::BYTES_PER_OFFSET;
 use crate::cpu::kernel::constants::context_metadata::ContextMetadata;
-use crate::cpu::membus::NUM_GP_CHANNELS;
+use crate::cpu::membus::{NUM_CHANNELS, NUM_GP_CHANNELS};
 use crate::cpu::simple_logic::eq_iszero::generate_pinv_diff;
 use crate::cpu::stack_bounds::MAX_USER_STACK_SIZE;
 use crate::extension_tower::BN_BASE;
 use crate::generation::state::GenerationState;
 use crate::memory::segments::Segment;
 use crate::poseidon::columns::POSEIDON_SPONGE_RATE;
+use crate::poseidon::poseidon_stark::PoseidonOp;
 use crate::util::u256_to_usize;
 use crate::witness::errors::MemoryError::{ContextTooLarge, SegmentTooLarge, VirtTooLarge};
 use crate::witness::errors::ProgramError;
@@ -25,7 +26,7 @@ use crate::witness::memory::{MemoryAddress, MemoryChannel, MemoryOp, MemoryOpKin
 use crate::witness::operation::MemoryChannel::GeneralPurpose;
 use crate::witness::util::{
     compute_poseidon, keccak_sponge_log, mem_read_gp_with_log_and_fill, mem_write_gp_log_and_fill,
-    poseidon_sponge_log, stack_pop_with_log_and_fill,
+    stack_pop_with_log_and_fill,
 };
 use crate::{arithmetic, logic};
 
@@ -182,8 +183,15 @@ pub(crate) fn generate_poseidon_general<F: RichField>(
                 ..base_address
             };
             let val = state.memory.get(address);
+            state.traces.push_memory(MemoryOp::new(
+                MemoryChannel::Code,
+                state.traces.clock(),
+                address,
+                MemoryOpKind::Read,
+                val.0[0].into(),
+            ));
 
-            val.0[0]
+            val.0[0] as u32
         })
         .collect_vec();
     log::debug!("Hashing {:?}", input);
@@ -199,11 +207,17 @@ pub(crate) fn generate_poseidon_general<F: RichField>(
         padded_input.push(1);
     }
 
-    poseidon_sponge_log(state, base_address, input.clone(), padded_input.clone());
+    let poseidon_op = PoseidonOp {
+        base_address,
+        timestamp: state.traces.clock() * NUM_CHANNELS,
+        input: padded_input.clone(),
+        len: input.len(),
+    };
+    state.traces.push_poseidon_elts(poseidon_op);
 
     let padded_input = padded_input
         .iter()
-        .map(|&elt| F::from_canonical_u64(elt))
+        .map(|&elt| F::from_canonical_u32(elt))
         .collect::<Vec<F>>();
     let hash: [u64; 4] = compute_poseidon(padded_input)
         .iter()

@@ -1,9 +1,12 @@
+use std::ops::Range;
+
 use plonky2::field::types::Field;
 
 use crate::cross_table_lookup::Column;
 
 pub(crate) const POSEIDON_SPONGE_WIDTH: usize = 12;
 pub(crate) const POSEIDON_SPONGE_RATE: usize = 8;
+pub(crate) const POSEIDON_DIGEST: usize = 4;
 pub(crate) const HALF_N_FULL_ROUNDS: usize = 4;
 pub(crate) const N_PARTIAL_ROUNDS: usize = 22;
 
@@ -11,6 +14,11 @@ pub(crate) const N_PARTIAL_ROUNDS: usize = 22;
 pub fn reg_input_limb(i: usize) -> usize {
     debug_assert!(i < POSEIDON_SPONGE_WIDTH);
     i
+}
+
+pub(crate) fn reg_input_capacity(i: usize) -> usize {
+    debug_assert!(i < POSEIDON_SPONGE_WIDTH - POSEIDON_SPONGE_RATE);
+    POSEIDON_SPONGE_RATE + i
 }
 
 pub fn col_input_limb<F: Field>(i: usize) -> Column<F> {
@@ -34,17 +42,39 @@ pub fn reg_power_6_full(round: usize, i: usize) -> usize {
 }
 
 const START_OUTPUT_LIMBS: usize = START_POWER_6 + 2 * HALF_N_FULL_ROUNDS * POSEIDON_SPONGE_WIDTH;
+
+// The output digest is written in two limbs so we can compare it to
+// the values in `CpuStark`.
 pub fn reg_output_limb(i: usize) -> usize {
     debug_assert!(i < POSEIDON_SPONGE_WIDTH);
-
-    START_OUTPUT_LIMBS + i
+    if i < POSEIDON_DIGEST {
+        START_OUTPUT_LIMBS + 2 * i
+    } else {
+        START_OUTPUT_LIMBS + POSEIDON_DIGEST + i
+    }
 }
 
+pub fn reg_output_capacity(i: usize) -> usize {
+    START_OUTPUT_LIMBS + POSEIDON_SPONGE_RATE + POSEIDON_DIGEST + i
+}
+
+pub fn reg_output_capacity_range() -> Range<usize> {
+    START_OUTPUT_LIMBS + POSEIDON_SPONGE_RATE + POSEIDON_DIGEST
+        ..START_OUTPUT_LIMBS + POSEIDON_DIGEST + POSEIDON_SPONGE_WIDTH
+}
+
+pub fn reg_output_digest_range() -> Range<usize> {
+    START_OUTPUT_LIMBS..START_OUTPUT_LIMBS + 2 * POSEIDON_DIGEST
+}
+pub fn reg_output_non_digest_range() -> Range<usize> {
+    START_OUTPUT_LIMBS + 2 * POSEIDON_DIGEST
+        ..START_OUTPUT_LIMBS + POSEIDON_SPONGE_WIDTH + POSEIDON_DIGEST
+}
 pub fn col_output_limb<F: Field>(i: usize) -> Column<F> {
     Column::single(reg_output_limb(i))
 }
 
-const START_CUBED_PARTIAL: usize = START_OUTPUT_LIMBS + POSEIDON_SPONGE_WIDTH;
+const START_CUBED_PARTIAL: usize = START_OUTPUT_LIMBS + POSEIDON_SPONGE_WIDTH + POSEIDON_DIGEST;
 /// Holds x^3 for one element in partial rounds.
 pub fn reg_cubed_partial(round: usize) -> usize {
     debug_assert!(round < N_PARTIAL_ROUNDS);
@@ -90,5 +120,30 @@ pub(crate) fn full_sbox_1(round: usize, i: usize) -> usize {
     START_FULL_1 + POSEIDON_SPONGE_WIDTH * round + i
 }
 
-pub(crate) const FILTER: usize = START_FULL_1 + POSEIDON_SPONGE_WIDTH * HALF_N_FULL_ROUNDS;
-pub(crate) const NUM_COLUMNS: usize = FILTER + 1;
+pub(crate) const IS_FULL_INPUT_BLOCK: usize =
+    START_FULL_1 + POSEIDON_SPONGE_WIDTH * HALF_N_FULL_ROUNDS;
+
+const IS_FINAL_INPUT_LEN: usize = IS_FULL_INPUT_BLOCK + 1;
+pub(crate) fn reg_is_final_input_len(i: usize) -> usize {
+    debug_assert!(i < POSEIDON_SPONGE_RATE);
+    IS_FINAL_INPUT_LEN + i
+}
+
+pub(crate) fn is_final_len_range() -> Range<usize> {
+    IS_FINAL_INPUT_LEN..IS_FINAL_INPUT_LEN + POSEIDON_SPONGE_RATE
+}
+
+pub(crate) const START_AUX_COLS: usize = IS_FINAL_INPUT_LEN + POSEIDON_SPONGE_RATE;
+pub(crate) fn reg_address() -> usize {
+    START_AUX_COLS
+}
+pub(crate) fn reg_timestamp() -> usize {
+    START_AUX_COLS + 3
+}
+pub(crate) fn reg_len() -> usize {
+    START_AUX_COLS + 4
+}
+pub(crate) fn reg_already_absorbed_elements() -> usize {
+    START_AUX_COLS + 5
+}
+pub(crate) const NUM_COLUMNS: usize = START_AUX_COLS + 6;
