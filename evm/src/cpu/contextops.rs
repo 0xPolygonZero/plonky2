@@ -200,11 +200,6 @@ fn eval_packed_set<P: PackedField>(
         yield_constr.constraint(lv.op.context_op * lv.general.stack().stack_inv_aux_2 * limb);
     }
 
-    // Unused channels.
-    for i in 4..NUM_GP_CHANNELS {
-        let channel = lv.mem_channels[i];
-        yield_constr.constraint(filter * channel.used);
-    }
     yield_constr.constraint(filter * new_top_channel.used);
 }
 
@@ -324,12 +319,6 @@ fn eval_ext_circuit_set<F: RichField + Extendable<D>, const D: usize>(
         yield_constr.constraint(builder, constr);
     }
 
-    // Unused channels.
-    for i in 4..NUM_GP_CHANNELS {
-        let channel = lv.mem_channels[i];
-        let constr = builder.mul_extension(filter, channel.used);
-        yield_constr.constraint(builder, constr);
-    }
     {
         let constr = builder.mul_extension(filter, new_top_channel.used);
         yield_constr.constraint(builder, constr);

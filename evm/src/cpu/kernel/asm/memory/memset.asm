@@ -21,19 +21,17 @@ global memset:
     %jumpi(memset_finish)
 
     // stack: DST, count, retdest
-    PUSH 32
     PUSH 0
-    DUP5
-    DUP5
-    DUP5
-    // stack: DST, 0, 32, DST, count, retdest
-    MSTORE_32BYTES
-    // stack: DST, count, retdest
+    DUP4
+    DUP4
+    DUP4
+    // stack: DST, 0, DST, count, retdest
+    MSTORE_32BYTES_32
+    // stack: new_offset, DST, count, retdest
 
     // Increment dst_addr.
-    SWAP2
-    %add_const(0x20)
-    SWAP2
+    SWAP3
+    POP
     // Decrement count.
     SWAP3
     %sub_const(0x20)
@@ -50,9 +48,9 @@ memset_finish:
     DUP5
     DUP5
     // stack: DST, 0, final_count, DST, final_count, retdest
-    MSTORE_32BYTES
-    // stack: DST, final_count, retdest
-    %pop4
+    %mstore_unpacking
+    // stack: new_offset, DST, final_count, retdest
+    %pop5
     // stack: retdest
     JUMP
 
