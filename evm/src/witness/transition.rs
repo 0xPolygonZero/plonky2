@@ -6,6 +6,7 @@ use super::memory::{MemoryOp, MemoryOpKind};
 use super::util::fill_channel_with_value;
 use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::kernel::aggregator::KERNEL;
+use crate::cpu::kernel::constants::context_metadata::ContextMetadata;
 use crate::cpu::stack::{
     EQ_STACK_BEHAVIOR, IS_ZERO_STACK_BEHAVIOR, JUMPI_OP, JUMP_OP, STACK_BEHAVIORS,
 };
@@ -272,6 +273,23 @@ fn perform_op<F: Field>(
     };
 
     state.registers.gas_used += gas_to_charge(op);
+
+    let gas_limit_address = MemoryAddress {
+        context: state.registers.context,
+        segment: Segment::ContextMetadata as usize,
+        virt: ContextMetadata::GasLimit as usize,
+    };
+    if !state.registers.is_kernel {
+        let gas_limit = TryInto::<u64>::try_into(state.memory.get(gas_limit_address));
+        match gas_limit {
+            Ok(limit) => {
+                if state.registers.gas_used > limit {
+                    return Err(ProgramError::OutOfGas);
+                }
+            }
+            Err(_) => return Err(ProgramError::IntegerTooLarge),
+        }
+    }
 
     Ok(())
 }

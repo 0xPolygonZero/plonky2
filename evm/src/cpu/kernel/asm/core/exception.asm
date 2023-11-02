@@ -24,8 +24,31 @@ global exception_jumptable:
 
 
 global exc_out_of_gas:
-    // TODO
-    %jump(fault_exception)
+    // stack: trap_info
+    %ctx_gas_limit
+    // stack: gas_limit, trap_info
+    DUP2 %shr_const(192)
+    // stack: gas_used, gas_limit, trap_info
+    DUP2 DUP2
+    // stack: gas_used, gas_limit, gas_used, gas_limit, trap_info
+    // If gas_used is already over the limit, panic. The exception should have
+    // been raised earlier.
+    GT %jumpi(panic)
+    // stack: gas_used, gas_limit, trap_info
+    DUP3 %opcode_from_exp_trap_info
+    // stack: opcode, gas_used, gas_limit, trap_info
+    %add_const(gas_cost_for_opcode)
+    %mload_kernel_code
+    // stack: gas_cost, gas_used, gas_limit, trap_info
+    ADD
+    // stack: new_gas_used, gas_limit, trap_info
+    GT
+    // stack: is_oog, trap_info
+    SWAP1 POP
+    // stack: is_oog
+    %jumpi(fault_exception)
+    // If we didn't jump, we shouldn't have raised the exception.
+    PANIC
 
 
 global exc_invalid_opcode:
@@ -297,3 +320,110 @@ min_stack_len_for_opcode:
     BYTES 2  // 0xfd, REVERT
     BYTES 0  // 0xfe, invalid
     BYTES 1  // 0xff, SELFDESTRUCT
+
+// A zero indicates either that the opcode is kernel-only,
+// or that it's handled with a syscall.
+gas_cost_for_opcode:
+    BYTES 0  // 0x00, STOP
+    BYTES 3  // 0x01, ADD
+    BYTES 5  // 0x02, MUL
+    BYTES 3  // 0x03, SUB
+    BYTES 5  // 0x04, DIV
+    BYTES 5  // 0x05, SDIV
+    BYTES 5  // 0x06, MOD
+    BYTES 5  // 0x07, SMOD
+    BYTES 8  // 0x08, ADDMOD
+    BYTES 8  // 0x09, MULMOD
+    BYTES 0  // 0x0a, EXP
+    BYTES 0  // 0x0b, SIGNEXTEND
+    %rep 4  // 0x0c-0x0f, invalid
+        BYTES 0
+    %endrep
+
+    BYTES 3  // 0x10, LT
+    BYTES 3  // 0x11, GT
+    BYTES 3  // 0x12, SLT
+    BYTES 3  // 0x13, SGT
+    BYTES 3  // 0x14, EQ
+    BYTES 3  // 0x15, ISZERO
+    BYTES 3  // 0x16, AND
+    BYTES 3  // 0x17, OR
+    BYTES 3  // 0x18, XOR
+    BYTES 3  // 0x19, NOT
+    BYTES 3  // 0x1a, BYTE
+    BYTES 3  // 0x1b, SHL
+    BYTES 3  // 0x1c, SHR
+    BYTES 3  // 0x1d, SAR
+    BYTES 0  // 0x1e, invalid
+    BYTES 0  // 0x1f, invalid
+
+    BYTES 0  // 0x20, KECCAK256
+    %rep 15 // 0x21-0x2f, invalid
+        BYTES 0
+    %endrep
+
+    %rep 25 //0x30-0x48, only syscalls
+    BYTES 0  
+    %endrep
+
+    %rep 7  // 0x49-0x4f, invalid
+        BYTES 0
+    %endrep
+
+    BYTES 2  // 0x50, POP
+    BYTES 0  // 0x51, MLOAD
+    BYTES 0  // 0x52, MSTORE
+    BYTES 0  // 0x53, MSTORE8
+    BYTES 0  // 0x54, SLOAD
+    BYTES 0  // 0x55, SSTORE
+    BYTES 8  // 0x56, JUMP
+    BYTES 10  // 0x57, JUMPI
+    BYTES 2  // 0x58, PC
+    BYTES 0  // 0x59, MSIZE
+    BYTES 0  // 0x5a, GAS
+    BYTES 1  // 0x5b, JUMPDEST
+    %rep 3  // 0x5c-0x5e, invalid
+        BYTES 0
+    %endrep
+
+    BYTES 2 // 0x5f, PUSH0
+    %rep 32 // 0x60-0x7f, PUSH1-PUSH32
+        BYTES 3
+    %endrep
+
+    %rep 16 // 0x80-0x8f, DUP1-DUP16
+        BYTES 3
+    %endrep
+
+    %rep 16 // 0x90-0x9f, SWAP1-SWAP16
+        BYTES 3
+    %endrep
+
+    BYTES 0  // 0xa0, LOG0
+    BYTES 0  // 0xa1, LOG1
+    BYTES 0  // 0xa2, LOG2
+    BYTES 0  // 0xa3, LOG3
+    BYTES 0  // 0xa4, LOG4
+    %rep 11 // 0xa5-0xaf, invalid
+        BYTES 0
+    %endrep
+
+    %rep 64 // 0xb0-0xef, invalid
+        BYTES 0
+    %endrep
+
+    BYTES 0  // 0xf0, CREATE
+    BYTES 0  // 0xf1, CALL
+    BYTES 0  // 0xf2, CALLCODE
+    BYTES 0  // 0xf3, RETURN
+    BYTES 0  // 0xf4, DELEGATECALL
+    BYTES 0  // 0xf5, CREATE2
+    %rep 4  // 0xf6-0xf9, invalid
+        BYTES 0
+    %endrep
+    BYTES 0  // 0xfa, STATICCALL
+    BYTES 0  // 0xfb, invalid
+    BYTES 0  // 0xfc, invalid
+    BYTES 0  // 0xfd, REVERT
+    BYTES 0  // 0xfe, invalid
+    BYTES 0  // 0xff, SELFDESTRUCT
