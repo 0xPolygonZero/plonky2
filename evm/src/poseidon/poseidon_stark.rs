@@ -16,9 +16,9 @@ use super::columns::{
     col_input_limb, col_output_limb, full_sbox_0, full_sbox_1, is_final_len_range, partial_sbox,
     reg_address, reg_already_absorbed_elements, reg_cubed_full, reg_cubed_partial,
     reg_input_capacity, reg_input_limb, reg_is_final_input_len, reg_len, reg_output_capacity,
-    reg_output_digest_range, reg_output_limb, reg_output_non_digest_range, reg_timestamp,
-    HALF_N_FULL_ROUNDS, IS_FULL_INPUT_BLOCK, NUM_COLUMNS, N_PARTIAL_ROUNDS, POSEIDON_DIGEST,
-    POSEIDON_SPONGE_RATE, POSEIDON_SPONGE_WIDTH,
+    reg_output_digest_range, reg_output_limb, reg_output_non_digest_range, reg_pinv_digest,
+    reg_timestamp, HALF_N_FULL_ROUNDS, IS_FULL_INPUT_BLOCK, NUM_COLUMNS, N_PARTIAL_ROUNDS,
+    POSEIDON_DIGEST, POSEIDON_SPONGE_RATE, POSEIDON_SPONGE_WIDTH,
 };
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cross_table_lookup::Column;
@@ -289,8 +289,15 @@ impl<F: RichField + Extendable<D>, const D: usize> PoseidonStark<F, D> {
 
         for i in 0..POSEIDON_DIGEST {
             let state_val = state[i].to_canonical_u64();
+            let hi_limb = F::from_canonical_u32((state_val >> 32) as u32);
+            row[reg_pinv_digest(i)] =
+                if let Some(inv) = (hi_limb - F::from_canonical_u32(u32::MAX)).try_inverse() {
+                    inv
+                } else {
+                    F::ZERO
+                };
             row[reg_output_limb(i)] = F::from_canonical_u32(state_val as u32);
-            row[reg_output_limb(i) + 1] = F::from_canonical_u32((state_val >> 32) as u32);
+            row[reg_output_limb(i) + 1] = hi_limb;
         }
         row[reg_output_non_digest_range()]
             .copy_from_slice(&state[POSEIDON_DIGEST..POSEIDON_SPONGE_WIDTH]);
@@ -503,6 +510,15 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for PoseidonStark
         }
         for i in POSEIDON_DIGEST..POSEIDON_SPONGE_WIDTH {
             yield_constr.constraint(state[i] - lv[reg_output_limb(i)])
+        }
+
+        // Ensure that the output limbs are written in canonical form.
+        for i in 0..POSEIDON_DIGEST {
+            let constr = ((lv[reg_output_limb(i) + 1] - P::Scalar::from_canonical_u32(u32::MAX))
+                * lv[reg_pinv_digest(i)]
+                - P::ONES)
+                * lv[reg_output_limb(i)];
+            yield_constr.constraint(constr);
         }
     }
 
@@ -734,6 +750,21 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for PoseidonStark
         }
         for i in POSEIDON_DIGEST..POSEIDON_SPONGE_WIDTH {
             let constr = builder.sub_extension(state[i], lv[reg_output_limb(i)]);
+            yield_constr.constraint(builder, constr);
+        }
+
+        // Ensure that the output limbs are written in canonical form.
+        for i in 0..POSEIDON_DIGEST {
+            let mut constr = builder.arithmetic_extension(
+                F::ONE,
+                F::NEG_ONE * F::from_canonical_u32(u32::MAX),
+                lv[reg_output_limb(i) + 1],
+                lv[reg_pinv_digest(i)],
+                lv[reg_pinv_digest(i)],
+            );
+            constr =
+                builder.mul_sub_extension(lv[reg_output_limb(i)], constr, lv[reg_output_limb(i)]);
+
             yield_constr.constraint(builder, constr);
         }
     }

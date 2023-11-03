@@ -67,7 +67,13 @@ pub fn col_output_limb<F: Field>(i: usize) -> Column<F> {
     Column::single(reg_output_limb(i))
 }
 
-const START_CUBED_PARTIAL: usize = START_OUTPUT_LIMBS + POSEIDON_SPONGE_WIDTH + POSEIDON_DIGEST;
+/// The i-th element holds the pseudo inverse of (digest_high_limb_i - 2^32 - 1).
+const START_DIGEST_PINV: usize = START_OUTPUT_LIMBS + POSEIDON_SPONGE_WIDTH + POSEIDON_DIGEST;
+pub fn reg_pinv_digest(i: usize) -> usize {
+    START_DIGEST_PINV + i
+}
+
+const START_CUBED_PARTIAL: usize = START_DIGEST_PINV + POSEIDON_DIGEST;
 /// Holds x^3 for one element in partial rounds.
 pub fn reg_cubed_partial(round: usize) -> usize {
     debug_assert!(round < N_PARTIAL_ROUNDS);
