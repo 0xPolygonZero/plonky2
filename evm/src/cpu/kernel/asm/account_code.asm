@@ -24,7 +24,7 @@ extcodehash_dead:
 
 global extcodehash:
     // stack: address, retdest
-    %mpt_read_state_trie
+    %smt_read_state
     // stack: account_ptr, retdest
     DUP1 ISZERO %jumpi(retzero)
     %add_const(3)
@@ -79,110 +79,6 @@ global extcodesize:
     %extcodesize
     // stack: extcodesize(address), retdest
     SWAP1 JUMP
-
-%macro extcodecopy
-    // stack: address, dest_offset, offset, size
-    %stack (address, dest_offset, offset, size) -> (address, dest_offset, offset, size, %%after)
-    %jump(extcodecopy)
-%%after:
-%endmacro
-
-// Pre stack: kexit_info, address, dest_offset, offset, size
-// Post stack: (empty)
-global sys_extcodecopy:
-    %stack (kexit_info, address, dest_offset, offset, size)
-        -> (address, dest_offset, offset, size, kexit_info)
-    %u256_to_addr DUP1 %insert_accessed_addresses
-    // stack: cold_access, address, dest_offset, offset, size, kexit_info
-    PUSH @GAS_COLDACCOUNTACCESS_MINUS_WARMACCESS
-    MUL
-    PUSH @GAS_WARMACCESS
-    ADD
-    // stack: Gaccess, address, dest_offset, offset, size, kexit_info
-
-    DUP5
-    // stack: size, Gaccess, address, dest_offset, offset, size, kexit_info
-    ISZERO %jumpi(sys_extcodecopy_empty)
-
-    // stack: Gaccess, address, dest_offset, offset, size, kexit_info
-    DUP5 %num_bytes_to_num_words %mul_const(@GAS_COPY) ADD
-    %stack (gas, address, dest_offset, offset, size, kexit_info) -> (gas, kexit_info, address, dest_offset, offset, size)
-    %charge_gas
-
-    %stack (kexit_info, address, dest_offset, offset, size) -> (dest_offset, size, kexit_info, address, dest_offset, offset, size)
-    %add_or_fault
-    // stack: expanded_num_bytes, kexit_info, address, dest_offset, offset, size
-    DUP1 %ensure_reasonable_offset
-    %update_mem_bytes
-
-    %stack (kexit_info, address, dest_offset, offset, size) -> (address, dest_offset, offset, size, kexit_info)
-    %extcodecopy
-    // stack: kexit_info
-    EXIT_KERNEL
-
-sys_extcodecopy_empty:
-    %stack (Gaccess, address, dest_offset, offset, size, kexit_info) -> (Gaccess, kexit_info)
-    %charge_gas
-    EXIT_KERNEL
-
-
-// Pre stack: address, dest_offset, offset, size, retdest
-// Post stack: (empty)
-global extcodecopy:
-    // stack: address, dest_offset, offset, size, retdest
-    %stack (address, dest_offset, offset, size, retdest)
-        -> (address, 0, @SEGMENT_KERNEL_ACCOUNT_CODE, extcodecopy_contd, size, offset, dest_offset, retdest)
-    %jump(load_code)
-
-extcodecopy_contd:
-    // stack: code_size, size, offset, dest_offset, retdest
-    DUP1 DUP4
-    // stack: offset, code_size, code_size, size, offset, dest_offset, retdest
-    GT %jumpi(extcodecopy_large_offset)
-
-    // stack: code_size, size, offset, dest_offset, retdest
-    DUP3 DUP3 ADD
-    // stack: offset + size, code_size, size, offset, dest_offset, retdest
-    DUP2 GT %jumpi(extcodecopy_within_bounds)
-
-    // stack: code_size, size, offset, dest_offset, retdest
-    DUP3 DUP3 ADD
-    // stack: offset + size, code_size, size, offset, dest_offset, retdest
-    SUB
-    // stack: extra_size = offset + size - code_size, size, offset, dest_offset, retdest
-    DUP1 DUP3 SUB
-    // stack: copy_size = size - extra_size, extra_size, size, offset, dest_offset, retdest
-
-    // Compute the new dest_offset after actual copies, at which we will start padding with zeroes.
-    DUP1 DUP6 ADD
-    // stack: new_dest_offset, copy_size, extra_size, size, offset, dest_offset, retdest
-
-    GET_CONTEXT
-    %stack (context, new_dest_offset, copy_size, extra_size, size, offset, dest_offset, retdest) ->
-        (context, @SEGMENT_MAIN_MEMORY, dest_offset, 0, @SEGMENT_KERNEL_ACCOUNT_CODE, offset, copy_size, extcodecopy_end, new_dest_offset, extra_size, retdest)
-    %jump(memcpy_bytes)
-
-extcodecopy_within_bounds:
-    // stack: code_size, size, offset, dest_offset, retdest
-    GET_CONTEXT
-    %stack (context, code_size, size, offset, dest_offset, retdest) ->
-        (context, @SEGMENT_MAIN_MEMORY, dest_offset, 0, @SEGMENT_KERNEL_ACCOUNT_CODE, offset, size, retdest)
-    %jump(memcpy_bytes)
-
-// Same as extcodecopy_large_offset, but without `offset` in the stack.
-extcodecopy_end:
-    // stack: dest_offset, size, retdest
-    GET_CONTEXT
-    %stack (context, dest_offset, size, retdest) ->
-        (context, @SEGMENT_MAIN_MEMORY, dest_offset, size, retdest)
-    %jump(memset)
-
-extcodecopy_large_offset:
-    // offset is larger than the code size. So we just have to write zeros.
-    // stack: code_size, size, offset, dest_offset, retdest
-    GET_CONTEXT
-    %stack (context, code_size, size, offset, dest_offset, retdest) -> (context, @SEGMENT_MAIN_MEMORY, dest_offset, size, retdest)
-    %jump(memset)
 
 // Loads the code at `address` into memory, at the given context and segment, starting at offset 0.
 // Checks that the hash of the loaded code corresponds to the `codehash` in the state trie.

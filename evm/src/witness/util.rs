@@ -68,31 +68,9 @@ pub(crate) fn fill_channel_with_value<F: Field>(row: &mut CpuColumnsView<F>, n: 
 }
 
 /// Pushes without writing in memory. This happens in opcodes where a push immediately follows a pop.
-/// The pushed value may be loaded in a memory channel, without creating a memory operation.
-pub(crate) fn push_no_write<F: Field>(
-    state: &mut GenerationState<F>,
-    row: &mut CpuColumnsView<F>,
-    val: U256,
-    channel_opt: Option<usize>,
-) {
+pub(crate) fn push_no_write<F: Field>(state: &mut GenerationState<F>, val: U256) {
     state.registers.stack_top = val;
     state.registers.stack_len += 1;
-
-    if let Some(channel) = channel_opt {
-        let val_limbs: [u64; 4] = val.0;
-
-        let channel = &mut row.mem_channels[channel];
-        assert_eq!(channel.used, F::ZERO);
-        channel.used = F::ZERO;
-        channel.is_read = F::ZERO;
-        channel.addr_context = F::from_canonical_usize(0);
-        channel.addr_segment = F::from_canonical_usize(0);
-        channel.addr_virtual = F::from_canonical_usize(0);
-        for (i, limb) in val_limbs.into_iter().enumerate() {
-            channel.value[2 * i] = F::from_canonical_u32(limb as u32);
-            channel.value[2 * i + 1] = F::from_canonical_u32((limb >> 32) as u32);
-        }
-    }
 }
 
 /// Pushes and (maybe) writes the previous stack top in memory. This happens in opcodes which only push.
@@ -122,7 +100,7 @@ pub(crate) fn push_with_write<F: Field>(
         );
         Some(res)
     };
-    push_no_write(state, row, val, None);
+    push_no_write(state, val);
     if let Some(log) = write {
         state.traces.push_memory(log);
     }

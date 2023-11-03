@@ -38,7 +38,7 @@ use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer
 /// NB: if `shift >= 256`, then the third register holds 0.
 /// We leverage the functions in mul.rs and divmod.rs to carry out
 /// the computation.
-pub fn generate<F: PrimeField64>(
+pub(crate) fn generate<F: PrimeField64>(
     lv: &mut [F],
     nv: &mut [F],
     is_shl: bool,
@@ -117,7 +117,7 @@ fn eval_packed_shr<P: PackedField>(
     );
 }
 
-pub fn eval_packed_generic<P: PackedField>(
+pub(crate) fn eval_packed_generic<P: PackedField>(
     lv: &[P; NUM_ARITH_COLUMNS],
     nv: &[P; NUM_ARITH_COLUMNS],
     yield_constr: &mut ConstraintConsumer<P>,
@@ -168,7 +168,7 @@ fn eval_ext_circuit_shr<F: RichField + Extendable<D>, const D: usize>(
     );
 }
 
-pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
+pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     lv: &[ExtensionTarget<D>; NUM_ARITH_COLUMNS],
     nv: &[ExtensionTarget<D>; NUM_ARITH_COLUMNS],

@@ -1,17 +1,15 @@
-use std::collections::HashMap;
 use std::ops::Deref;
 
 use bytes::Bytes;
-use eth_trie_utils::nibbles::Nibbles;
 use eth_trie_utils::partial_trie::{HashedPartialTrie, PartialTrie};
-use ethereum_types::{Address, BigEndianHash, H256, U256, U512};
+use ethereum_types::{Address, H256, U256};
 use keccak_hash::keccak;
 use rlp::{Decodable, DecoderError, Encodable, PayloadInfo, Rlp, RlpStream};
 use rlp_derive::{RlpDecodable, RlpEncodable};
 
 use crate::cpu::kernel::constants::trie_type::PartialTrieType;
 use crate::generation::TrieInputs;
-use crate::witness::errors::{ProgramError, ProverInputError};
+use crate::witness::errors::ProgramError;
 use crate::Node;
 
 #[derive(RlpEncodable, RlpDecodable, Debug)]
@@ -46,6 +44,12 @@ pub struct LegacyReceiptRlp {
     pub cum_gas_used: U256,
     pub bloom: Bytes,
     pub logs: Vec<LogRlp>,
+}
+
+pub(crate) fn state_smt_prover_inputs_reversed(trie_inputs: &TrieInputs) -> Vec<U256> {
+    let mut inputs = state_smt_prover_inputs(trie_inputs);
+    inputs.reverse();
+    inputs
 }
 
 pub(crate) fn all_mpt_prover_inputs_reversed(
@@ -86,25 +90,17 @@ pub(crate) fn parse_receipts(rlp: &[u8]) -> Result<Vec<U256>, ProgramError> {
 
     Ok(parsed_receipt)
 }
+
+pub(crate) fn state_smt_prover_inputs(trie_inputs: &TrieInputs) -> Vec<U256> {
+    let len = trie_inputs.state_smt.len();
+    let mut v = vec![len.into()];
+    v.extend(trie_inputs.state_smt.iter());
+    v
+}
+
 /// Generate prover inputs for the initial MPT data, in the format expected by `mpt/load.asm`.
 pub(crate) fn all_mpt_prover_inputs(trie_inputs: &TrieInputs) -> Result<Vec<U256>, ProgramError> {
     let mut prover_inputs = vec![];
-
-    let storage_tries_by_state_key = trie_inputs
-        .storage_tries
-        .iter()
-        .map(|(hashed_address, storage_trie)| {
-            let key = Nibbles::from_bytes_be(hashed_address.as_bytes()).unwrap();
-            (key, storage_trie)
-        })
-        .collect();
-
-    mpt_prover_inputs_state_trie(
-        &trie_inputs.state_trie,
-        empty_nibbles(),
-        &mut prover_inputs,
-        &storage_tries_by_state_key,
-    )?;
 
     mpt_prover_inputs(&trie_inputs.transactions_trie, &mut prover_inputs, &|rlp| {
         let mut parsed_txn = vec![U256::from(rlp.len())];
@@ -176,106 +172,6 @@ where
 
             Ok(())
         }
-    }
-}
-
-/// Like `mpt_prover_inputs`, but for the state trie, which is a bit unique since each value
-/// leads to a storage trie which we recursively traverse.
-pub(crate) fn mpt_prover_inputs_state_trie(
-    trie: &HashedPartialTrie,
-    key: Nibbles,
-    prover_inputs: &mut Vec<U256>,
-    storage_tries_by_state_key: &HashMap<Nibbles, &HashedPartialTrie>,
-) -> Result<(), ProgramError> {
-    prover_inputs.push((PartialTrieType::of(trie) as u32).into());
-    match trie.deref() {
-        Node::Empty => Ok(()),
-        Node::Hash(h) => {
-            prover_inputs.push(U256::from_big_endian(h.as_bytes()));
-            Ok(())
-        }
-        Node::Branch { children, value } => {
-            if !value.is_empty() {
-                return Err(ProgramError::ProverInputError(
-                    ProverInputError::InvalidMptInput,
-                ));
-            }
-            prover_inputs.push(U256::zero()); // value_present = 0
-
-            for (i, child) in children.iter().enumerate() {
-                let extended_key = key.merge_nibbles(&Nibbles {
-                    count: 1,
-                    packed: i.into(),
-                });
-                mpt_prover_inputs_state_trie(
-                    child,
-                    extended_key,
-                    prover_inputs,
-                    storage_tries_by_state_key,
-                )?;
-            }
-
-            Ok(())
-        }
-        Node::Extension { nibbles, child } => {
-            prover_inputs.push(nibbles.count.into());
-            prover_inputs.push(
-                nibbles
-                    .try_into_u256()
-                    .map_err(|_| ProgramError::IntegerTooLarge)?,
-            );
-            let extended_key = key.merge_nibbles(nibbles);
-            mpt_prover_inputs_state_trie(
-                child,
-                extended_key,
-                prover_inputs,
-                storage_tries_by_state_key,
-            )
-        }
-        Node::Leaf { nibbles, value } => {
-            let account: AccountRlp = rlp::decode(value).map_err(|_| ProgramError::InvalidRlp)?;
-            let AccountRlp {
-                nonce,
-                balance,
-                storage_root,
-                code_hash,
-            } = account;
-
-            let storage_hash_only = HashedPartialTrie::new(Node::Hash(storage_root));
-            let merged_key = key.merge_nibbles(nibbles);
-            let storage_trie: &HashedPartialTrie = storage_tries_by_state_key
-                .get(&merged_key)
-                .copied()
-                .unwrap_or(&storage_hash_only);
-
-            assert_eq!(storage_trie.hash(), storage_root,
-                       "In TrieInputs, an account's storage_root didn't match the associated storage trie hash");
-
-            prover_inputs.push(nibbles.count.into());
-            prover_inputs.push(
-                nibbles
-                    .try_into_u256()
-                    .map_err(|_| ProgramError::IntegerTooLarge)?,
-            );
-            prover_inputs.push(nonce);
-            prover_inputs.push(balance);
-            mpt_prover_inputs(storage_trie, prover_inputs, &parse_storage_value)?;
-            prover_inputs.push(code_hash.into_uint());
-
-            Ok(())
-        }
-    }
-}
-
-fn parse_storage_value(value_rlp: &[u8]) -> Result<Vec<U256>, ProgramError> {
-    let value: U256 = rlp::decode(value_rlp).map_err(|_| ProgramError::InvalidRlp)?;
-    Ok(vec![value])
-}
-
-fn empty_nibbles() -> Nibbles {
-    Nibbles {
-        count: 0,
-        packed: U512::zero(),
     }
 }
 

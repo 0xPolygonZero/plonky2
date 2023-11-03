@@ -24,19 +24,15 @@ const SIMPLE_OPCODES: OpsColumnsView<Option<u32>> = OpsColumnsView {
     fp254_op: KERNEL_ONLY_INSTR,
     eq_iszero: G_VERYLOW,
     logic_op: G_VERYLOW,
-    not: G_VERYLOW,
+    not_pop: None, // This is handled manually below
     shift: G_VERYLOW,
-    keccak_general: KERNEL_ONLY_INSTR,
+    jumpdest_keccak_general: None, // This is handled manually below.
     prover_input: KERNEL_ONLY_INSTR,
-    pop: G_BASE,
     jumps: None, // Combined flag handled separately.
-    pc: G_BASE,
-    jumpdest: G_JUMPDEST,
-    push0: G_BASE,
+    pc_push0: G_BASE,
     push: G_VERYLOW,
     dup_swap: G_VERYLOW,
-    get_context: KERNEL_ONLY_INSTR,
-    set_context: KERNEL_ONLY_INSTR,
+    context_op: KERNEL_ONLY_INSTR,
     mstore_32bytes: KERNEL_ONLY_INSTR,
     mload_32bytes: KERNEL_ONLY_INSTR,
     exit_kernel: None,
@@ -105,6 +101,22 @@ fn eval_packed_accumulate<P: PackedField>(
     let ternary_op_cost = P::Scalar::from_canonical_u32(G_MID.unwrap())
         - lv.opcode_bits[1] * P::Scalar::from_canonical_u32(G_MID.unwrap());
     yield_constr.constraint_transition(lv.op.ternary_op * (gas_diff - ternary_op_cost));
+
+    // For NOT and POP.
+    // NOT is differentiated from POP by its first bit set to 1.
+    let not_pop_cost = (P::ONES - lv.opcode_bits[0])
+        * P::Scalar::from_canonical_u32(G_BASE.unwrap())
+        + lv.opcode_bits[0] * P::Scalar::from_canonical_u32(G_VERYLOW.unwrap());
+    yield_constr.constraint_transition(lv.op.not_pop * (gas_diff - not_pop_cost));
+
+    // For JUMPDEST and KECCAK_GENERAL.
+    // JUMPDEST is differentiated from KECCAK_GENERAL by its second bit set to 1.
+    let jumpdest_keccak_general_gas_cost = lv.opcode_bits[1]
+        * P::Scalar::from_canonical_u32(G_JUMPDEST.unwrap())
+        + (P::ONES - lv.opcode_bits[1]) * P::Scalar::from_canonical_u32(KERNEL_ONLY_INSTR.unwrap());
+    yield_constr.constraint_transition(
+        lv.op.jumpdest_keccak_general * (gas_diff - jumpdest_keccak_general_gas_cost),
+    );
 }
 
 fn eval_packed_init<P: PackedField>(
@@ -121,6 +133,7 @@ fn eval_packed_init<P: PackedField>(
     yield_constr.constraint_transition(filter * nv.gas[1]);
 }
 
+/// Evaluate the gas constraints for the opcodes that cost a constant gas.
 pub fn eval_packed<P: PackedField>(
     lv: &CpuColumnsView<P>,
     nv: &CpuColumnsView<P>,
@@ -233,6 +246,39 @@ fn eval_ext_circuit_accumulate<F: RichField + Extendable<D>, const D: usize>(
     let gas_diff = builder.sub_extension(nv_lv_diff, ternary_op_cost);
     let constr = builder.mul_extension(filter, gas_diff);
     yield_constr.constraint_transition(builder, constr);
+
+    // For NOT and POP.
+    // NOT is differentiated from POP by its first bit set to 1.
+    let filter = lv.op.not_pop;
+    let one = builder.one_extension();
+    let mut not_pop_cost =
+        builder.mul_const_extension(F::from_canonical_u32(G_VERYLOW.unwrap()), lv.opcode_bits[0]);
+    let mut pop_cost = builder.sub_extension(one, lv.opcode_bits[0]);
+    pop_cost = builder.mul_const_extension(F::from_canonical_u32(G_BASE.unwrap()), pop_cost);
+    not_pop_cost = builder.add_extension(not_pop_cost, pop_cost);
+
+    let not_pop_gas_diff = builder.sub_extension(nv_lv_diff, not_pop_cost);
+    let not_pop_constr = builder.mul_extension(filter, not_pop_gas_diff);
+    yield_constr.constraint_transition(builder, not_pop_constr);
+
+    // For JUMPDEST and KECCAK_GENERAL.
+    // JUMPDEST is differentiated from KECCAK_GENERAL by its second bit set to 1.
+    let one = builder.one_extension();
+    let filter = lv.op.jumpdest_keccak_general;
+
+    let jumpdest_keccak_general_gas_cost = builder.arithmetic_extension(
+        F::from_canonical_u32(G_JUMPDEST.unwrap())
+            - F::from_canonical_u32(KERNEL_ONLY_INSTR.unwrap()),
+        F::from_canonical_u32(KERNEL_ONLY_INSTR.unwrap()),
+        lv.opcode_bits[1],
+        one,
+        one,
+    );
+
+    let gas_diff = builder.sub_extension(nv_lv_diff, jumpdest_keccak_general_gas_cost);
+    let constr = builder.mul_extension(filter, gas_diff);
+
+    yield_constr.constraint_transition(builder, constr);
 }
 
 fn eval_ext_circuit_init<F: RichField + Extendable<D>, const D: usize>(
@@ -252,12 +298,16 @@ fn eval_ext_circuit_init<F: RichField + Extendable<D>, const D: usize>(
     yield_constr.constraint_transition(builder, constr);
 }
 
+/// Circuit version of `eval_packed`.
+/// Evaluate the gas constraints for the opcodes that cost a constant gas.
 pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
     lv: &CpuColumnsView<ExtensionTarget<D>>,
     nv: &CpuColumnsView<ExtensionTarget<D>>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
+    // Evaluates the transition gas constraints.
     eval_ext_circuit_accumulate(builder, lv, nv, yield_constr);
+    // Evaluates the initial gas constraints.
     eval_ext_circuit_init(builder, lv, nv, yield_constr);
 }
