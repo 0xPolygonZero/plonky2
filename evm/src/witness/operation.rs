@@ -218,7 +218,7 @@ pub(crate) fn generate_poseidon_general<F: RichField>(
         .collect::<Vec<u64>>()
         .try_into()
         .unwrap();
-    push_no_write(state, &mut row, U256(hash), Some(NUM_GP_CHANNELS - 1));
+    push_no_write(state, U256(hash));
 
     state.traces.push_memory(log_in1);
     state.traces.push_memory(log_in2);
