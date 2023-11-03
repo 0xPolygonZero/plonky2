@@ -8,43 +8,42 @@ use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer
 use crate::cpu::columns::{CpuColumnsView, COL_MAP};
 use crate::cpu::kernel::aggregator::KERNEL;
 
-const NATIVE_INSTRUCTIONS: [usize; 18] = [
+const NATIVE_INSTRUCTIONS: [usize; 14] = [
     COL_MAP.op.binary_op,
     COL_MAP.op.ternary_op,
     COL_MAP.op.fp254_op,
     COL_MAP.op.eq_iszero,
     COL_MAP.op.logic_op,
-    COL_MAP.op.not,
+    COL_MAP.op.not_pop,
     COL_MAP.op.shift,
-    COL_MAP.op.keccak_general,
+    COL_MAP.op.jumpdest_keccak_general,
     COL_MAP.op.poseidon_general,
     COL_MAP.op.prover_input,
-    COL_MAP.op.pop,
     // not JUMPS (possible need to jump)
-    COL_MAP.op.pc,
-    COL_MAP.op.jumpdest,
-    COL_MAP.op.push0,
+    COL_MAP.op.pc_push0,
     // not PUSH (need to increment by more than 1)
     COL_MAP.op.dup_swap,
-    COL_MAP.op.get_context,
-    COL_MAP.op.set_context,
+    COL_MAP.op.context_op,
     // not EXIT_KERNEL (performs a jump)
     COL_MAP.op.m_op_general,
     // not SYSCALL (performs a jump)
     // not exceptions (also jump)
 ];
 
+/// Returns `halt`'s program counter.
 pub(crate) fn get_halt_pc<F: Field>() -> F {
     let halt_pc = KERNEL.global_labels["halt"];
     F::from_canonical_usize(halt_pc)
 }
 
+/// Returns `main`'s program counter.
 pub(crate) fn get_start_pc<F: Field>() -> F {
     let start_pc = KERNEL.global_labels["main"];
 
     F::from_canonical_usize(start_pc)
 }
 
+/// Evaluates the constraints related to the flow of instructions.
 pub fn eval_packed_generic<P: PackedField>(
     lv: &CpuColumnsView<P>,
     nv: &CpuColumnsView<P>,
@@ -83,6 +82,8 @@ pub fn eval_packed_generic<P: PackedField>(
     yield_constr.constraint_transition(is_last_noncpu_cycle * nv.stack_len);
 }
 
+/// Circuit version of `eval_packed`.
+/// Evaluates the constraints related to the flow of instructions.
 pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
     lv: &CpuColumnsView<ExtensionTarget<D>>,

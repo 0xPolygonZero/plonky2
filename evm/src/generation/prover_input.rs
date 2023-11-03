@@ -40,6 +40,7 @@ impl<F: Field> GenerationState<F> {
             "sf" => self.run_sf(input_fn),
             "ffe" => self.run_ffe(input_fn),
             "mpt" => self.run_mpt(),
+            "smt" => self.run_smt(input_fn),
             "rlp" => self.run_rlp(),
             "current_hash" => self.run_current_hash(),
             "account_code" => self.run_account_code(input_fn),
@@ -118,6 +119,19 @@ impl<F: Field> GenerationState<F> {
         self.mpt_prover_inputs
             .pop()
             .ok_or(ProgramError::ProverInputError(OutOfMptData))
+    }
+
+    /// SMT data.
+    fn run_smt(&mut self, input_fn: &ProverInputFn) -> Result<U256, ProgramError> {
+        match input_fn.0[1].as_str() {
+            "state" => self
+                .state_smt_prover_inputs
+                .pop()
+                .ok_or(ProgramError::ProverInputError(OutOfSmtData)),
+            "transactions" => todo!(),
+            "receipts" => todo!(),
+            _ => panic!("Invalid SMT"),
+        }
     }
 
     /// RLP data.

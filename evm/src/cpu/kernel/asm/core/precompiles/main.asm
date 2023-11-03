@@ -59,7 +59,7 @@ global handle_precompiles_from_eoa:
     %stack (calldata_size, new_ctx) -> (calldata_size, new_ctx, calldata_size)
     %set_new_ctx_calldata_size
     %stack (new_ctx, calldata_size) -> (new_ctx, @SEGMENT_CALLDATA, 0, 0, @SEGMENT_TXN_DATA, 0, calldata_size, handle_precompiles_from_eoa_finish, new_ctx)
-    %jump(memcpy)
+    %jump(memcpy_bytes)
 
 handle_precompiles_from_eoa_finish:
     %stack (new_ctx, addr, retdest) -> (addr, new_ctx, retdest)

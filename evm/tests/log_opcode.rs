@@ -18,12 +18,14 @@ use plonky2_evm::all_stark::AllStark;
 use plonky2_evm::config::StarkConfig;
 use plonky2_evm::fixed_recursive_verifier::AllRecursiveCircuits;
 use plonky2_evm::generation::mpt::transaction_testing::{AddressOption, LegacyTransactionRlp};
-use plonky2_evm::generation::mpt::{AccountRlp, LegacyReceiptRlp, LogRlp};
+use plonky2_evm::generation::mpt::{LegacyReceiptRlp, LogRlp};
 use plonky2_evm::generation::{GenerationInputs, TrieInputs};
 use plonky2_evm::proof::{BlockHashes, BlockMetadata, ExtraBlockData, PublicValues, TrieRoots};
 use plonky2_evm::prover::prove;
 use plonky2_evm::verifier::verify_proof;
 use plonky2_evm::Node;
+use smt_utils::account::Account;
+use smt_utils::smt::Smt;
 
 type F = GoldilocksField;
 const D: usize = 2;
@@ -47,9 +49,9 @@ fn test_log_opcodes() -> anyhow::Result<()> {
     let sender_state_key = keccak(sender);
     let to_hashed = keccak(to);
 
-    let beneficiary_nibbles = Nibbles::from_bytes_be(beneficiary_state_key.as_bytes()).unwrap();
-    let sender_nibbles = Nibbles::from_bytes_be(sender_state_key.as_bytes()).unwrap();
-    let to_nibbles = Nibbles::from_bytes_be(to_hashed.as_bytes()).unwrap();
+    let beneficiary_bits = beneficiary_state_key.into();
+    let sender_bits = sender_state_key.into();
+    let to_bits = to_hashed.into();
 
     // For the first code transaction code, we consider two LOG opcodes. The first deals with 0 topics and empty data. The second deals with two topics, and data of length 5, stored in memory.
     let code = [
@@ -68,30 +70,29 @@ fn test_log_opcodes() -> anyhow::Result<()> {
     let code_hash = keccak(code);
 
     // Set accounts before the transaction.
-    let beneficiary_account_before = AccountRlp {
-        nonce: 1.into(),
-        ..AccountRlp::default()
+    let beneficiary_account_before = Account {
+        nonce: 1,
+        ..Account::default()
     };
 
     let sender_balance_before = 5000000000000000u64;
-    let sender_account_before = AccountRlp {
+    let sender_account_before = Account {
         balance: sender_balance_before.into(),
-        ..AccountRlp::default()
+        ..Account::default()
     };
-    let to_account_before = AccountRlp {
+    let to_account_before = Account {
         balance: 9000000000u64.into(),
         code_hash,
-        ..AccountRlp::default()
+        ..Account::default()
     };
 
     // Initialize the state trie with three accounts.
-    let mut state_trie_before = HashedPartialTrie::from(Node::Empty);
-    state_trie_before.insert(
-        beneficiary_nibbles,
-        rlp::encode(&beneficiary_account_before).to_vec(),
-    );
-    state_trie_before.insert(sender_nibbles, rlp::encode(&sender_account_before).to_vec());
-    state_trie_before.insert(to_nibbles, rlp::encode(&to_account_before).to_vec());
+    let state_smt_before = Smt::new([
+        (beneficiary_bits, beneficiary_account_before.clone().into()),
+        (sender_bits, sender_account_before.clone().into()),
+        (to_bits, to_account_before.clone().into()),
+    ])
+    .unwrap();
 
     // We now add two receipts with logs and data. This updates the receipt trie as well.
     let log_0 = LogRlp {
@@ -121,7 +122,7 @@ fn test_log_opcodes() -> anyhow::Result<()> {
     );
 
     let tries_before = TrieInputs {
-        state_trie: state_trie_before,
+        state_smt: state_smt_before.serialize(),
         transactions_trie: Node::Empty.into(),
         receipts_trie: receipts_trie.clone(),
         storage_tries: vec![(to_hashed, Node::Empty.into())],
@@ -150,21 +151,21 @@ fn test_log_opcodes() -> anyhow::Result<()> {
 
     // Update the state and receipt tries after the transaction, so that we have the correct expected tries:
     // Update accounts
-    let beneficiary_account_after = AccountRlp {
-        nonce: 1.into(),
-        ..AccountRlp::default()
+    let beneficiary_account_after = Account {
+        nonce: 1,
+        ..Account::default()
     };
 
     let sender_balance_after = sender_balance_before - gas_used * txn_gas_price;
-    let sender_account_after = AccountRlp {
+    let sender_account_after = Account {
         balance: sender_balance_after.into(),
-        nonce: 1.into(),
-        ..AccountRlp::default()
+        nonce: 1,
+        ..Account::default()
     };
-    let to_account_after = AccountRlp {
+    let to_account_after = Account {
         balance: 9000000000u64.into(),
         code_hash,
-        ..AccountRlp::default()
+        ..Account::default()
     };
 
     // Update the receipt trie.
@@ -195,13 +196,12 @@ fn test_log_opcodes() -> anyhow::Result<()> {
     receipts_trie.insert(receipt_nibbles, rlp::encode(&receipt).to_vec());
 
     // Update the state trie.
-    let mut expected_state_trie_after = HashedPartialTrie::from(Node::Empty);
-    expected_state_trie_after.insert(
-        beneficiary_nibbles,
-        rlp::encode(&beneficiary_account_after).to_vec(),
-    );
-    expected_state_trie_after.insert(sender_nibbles, rlp::encode(&sender_account_after).to_vec());
-    expected_state_trie_after.insert(to_nibbles, rlp::encode(&to_account_after).to_vec());
+    let expected_state_smt_after = Smt::new([
+        (beneficiary_bits, beneficiary_account_after.into()),
+        (sender_bits, sender_account_after.into()),
+        (to_bits, to_account_after.into()),
+    ])
+    .unwrap();
 
     let transactions_trie: HashedPartialTrie = Node::Leaf {
         nibbles: Nibbles::from_str("0x80").unwrap(),
@@ -210,7 +210,7 @@ fn test_log_opcodes() -> anyhow::Result<()> {
     .into();
 
     let trie_roots_after = TrieRoots {
-        state_root: expected_state_trie_after.hash(),
+        state_root: expected_state_smt_after.root,
         transactions_root: transactions_trie.hash(),
         receipts_root: receipts_trie.hash(),
     };
@@ -255,7 +255,7 @@ fn test_log_opcodes() -> anyhow::Result<()> {
     // Assert that the proof leads to the correct state and receipt roots.
     assert_eq!(
         proof.public_values.trie_roots_after.state_root,
-        expected_state_trie_after.hash()
+        expected_state_smt_after.root,
     );
 
     assert_eq!(
@@ -303,46 +303,42 @@ fn test_log_with_aggreg() -> anyhow::Result<()> {
     let to_hashed = keccak(to_first);
     let to_hashed_2 = keccak(to);
 
-    let beneficiary_nibbles = Nibbles::from_bytes_be(beneficiary_state_key.as_bytes()).unwrap();
-    let sender_nibbles = Nibbles::from_bytes_be(sender_state_key.as_bytes()).unwrap();
-    let to_nibbles = Nibbles::from_bytes_be(to_hashed.as_bytes()).unwrap();
-    let to_second_nibbles = Nibbles::from_bytes_be(to_hashed_2.as_bytes()).unwrap();
+    let beneficiary_bits = beneficiary_state_key.into();
+    let sender_bits = sender_state_key.into();
+    let to_bits = to_hashed.into();
+    let to_second_bits = to_hashed_2.into();
 
-    let beneficiary_account_before = AccountRlp {
-        nonce: 1.into(),
-        ..AccountRlp::default()
+    let beneficiary_account_before = Account {
+        nonce: 1,
+        ..Account::default()
     };
     let sender_balance_before = 1000000000000000000u64.into();
-    let sender_account_before = AccountRlp {
+    let sender_account_before = Account {
         balance: sender_balance_before,
-        ..AccountRlp::default()
+        ..Account::default()
     };
-    let to_account_before = AccountRlp {
-        ..AccountRlp::default()
+    let to_account_before = Account {
+        ..Account::default()
     };
-    let to_account_second_before = AccountRlp {
+    let to_account_second_before = Account {
         code_hash,
-        ..AccountRlp::default()
+        ..Account::default()
     };
 
     // In the first transaction, the sender account sends `txn_value` to `to_account`.
     let gas_price = 10;
     let txn_value = 0xau64;
-    let mut state_trie_before = HashedPartialTrie::from(Node::Empty);
-    state_trie_before.insert(
-        beneficiary_nibbles,
-        rlp::encode(&beneficiary_account_before).to_vec(),
-    );
-    state_trie_before.insert(sender_nibbles, rlp::encode(&sender_account_before).to_vec());
-    state_trie_before.insert(to_nibbles, rlp::encode(&to_account_before).to_vec());
-    state_trie_before.insert(
-        to_second_nibbles,
-        rlp::encode(&to_account_second_before).to_vec(),
-    );
-    let genesis_state_trie_root = state_trie_before.hash();
+    let state_smt_before = Smt::new([
+        (beneficiary_bits, beneficiary_account_before.clone().into()),
+        (sender_bits, sender_account_before.clone().into()),
+        (to_bits, to_account_before.clone().into()),
+        (to_second_bits, to_account_second_before.clone().into()),
+    ])
+    .unwrap();
+    let genesis_state_trie_root = state_smt_before.root;
 
     let tries_before = TrieInputs {
-        state_trie: state_trie_before,
+        state_smt: state_smt_before.serialize(),
         transactions_trie: Node::Empty.into(),
         receipts_trie: Node::Empty.into(),
         storage_tries: vec![],
@@ -378,37 +374,33 @@ fn test_log_with_aggreg() -> anyhow::Result<()> {
         block_random: Default::default(),
     };
 
-    let beneficiary_account_after = AccountRlp {
-        nonce: 1.into(),
-        ..AccountRlp::default()
+    let beneficiary_account_after = Account {
+        nonce: 1,
+        ..Account::default()
     };
 
     let sender_balance_after = sender_balance_before - gas_price * 21000 - txn_value;
-    let sender_account_after = AccountRlp {
+    let sender_account_after = Account {
         balance: sender_balance_after,
-        nonce: 1.into(),
-        ..AccountRlp::default()
+        nonce: 1,
+        ..Account::default()
     };
-    let to_account_after = AccountRlp {
+    let to_account_after = Account {
         balance: txn_value.into(),
-        ..AccountRlp::default()
+        ..Account::default()
     };
 
     let mut contract_code = HashMap::new();
     contract_code.insert(keccak(vec![]), vec![]);
     contract_code.insert(code_hash, code.to_vec());
 
-    let mut expected_state_trie_after = HashedPartialTrie::from(Node::Empty);
-    expected_state_trie_after.insert(
-        beneficiary_nibbles,
-        rlp::encode(&beneficiary_account_after).to_vec(),
-    );
-    expected_state_trie_after.insert(sender_nibbles, rlp::encode(&sender_account_after).to_vec());
-    expected_state_trie_after.insert(to_nibbles, rlp::encode(&to_account_after).to_vec());
-    expected_state_trie_after.insert(
-        to_second_nibbles,
-        rlp::encode(&to_account_second_before).to_vec(),
-    );
+    let expected_state_smt_after = Smt::new([
+        (beneficiary_bits, beneficiary_account_after.into()),
+        (sender_bits, sender_account_after.into()),
+        (to_bits, to_account_after.clone().into()),
+        (to_second_bits, to_account_second_before.clone().into()),
+    ])
+    .unwrap();
 
     // Compute new receipt trie.
     let mut receipts_trie = HashedPartialTrie::from(Node::Empty);
@@ -430,7 +422,7 @@ fn test_log_with_aggreg() -> anyhow::Result<()> {
     .into();
 
     let tries_after = TrieRoots {
-        state_root: expected_state_trie_after.hash(),
+        state_root: expected_state_smt_after.root,
         transactions_root: transactions_trie.hash(),
         receipts_root: receipts_trie.clone().hash(),
     };
@@ -474,10 +466,10 @@ fn test_log_with_aggreg() -> anyhow::Result<()> {
 
     // Prove second transaction. In this second transaction, the code with logs is executed.
 
-    let state_trie_before = expected_state_trie_after;
+    let state_trie_before = expected_state_smt_after;
 
     let tries_before = TrieInputs {
-        state_trie: state_trie_before,
+        state_smt: state_trie_before.serialize(),
         transactions_trie: transactions_trie.clone(),
         receipts_trie: receipts_trie.clone(),
         storage_tries: vec![],
@@ -493,26 +485,26 @@ fn test_log_with_aggreg() -> anyhow::Result<()> {
 
     // Update the state and receipt tries after the transaction, so that we have the correct expected tries:
     // Update accounts.
-    let beneficiary_account_after = AccountRlp {
-        nonce: 1.into(),
-        ..AccountRlp::default()
+    let beneficiary_account_after = Account {
+        nonce: 1,
+        ..Account::default()
     };
 
     let sender_balance_after = sender_balance_after - gas_used * txn_gas_price;
-    let sender_account_after = AccountRlp {
+    let sender_account_after = Account {
         balance: sender_balance_after,
-        nonce: 2.into(),
-        ..AccountRlp::default()
+        nonce: 2,
+        ..Account::default()
     };
     let balance_after = to_account_after.balance;
-    let to_account_after = AccountRlp {
+    let to_account_after = Account {
         balance: balance_after,
-        ..AccountRlp::default()
+        ..Account::default()
     };
-    let to_account_second_after = AccountRlp {
+    let to_account_second_after = Account {
         balance: to_account_second_before.balance,
         code_hash,
-        ..AccountRlp::default()
+        ..Account::default()
     };
 
     // Update the receipt trie.
@@ -542,23 +534,19 @@ fn test_log_with_aggreg() -> anyhow::Result<()> {
 
     receipts_trie.insert(receipt_nibbles, rlp::encode(&receipt).to_vec());
 
-    // Update the state trie.
-    let mut expected_state_trie_after = HashedPartialTrie::from(Node::Empty);
-    expected_state_trie_after.insert(
-        beneficiary_nibbles,
-        rlp::encode(&beneficiary_account_after).to_vec(),
-    );
-    expected_state_trie_after.insert(sender_nibbles, rlp::encode(&sender_account_after).to_vec());
-    expected_state_trie_after.insert(to_nibbles, rlp::encode(&to_account_after).to_vec());
-    expected_state_trie_after.insert(
-        to_second_nibbles,
-        rlp::encode(&to_account_second_after).to_vec(),
-    );
+    // Update the state SMT.
+    let expected_state_trie_after = Smt::new([
+        (beneficiary_bits, beneficiary_account_after.into()),
+        (sender_bits, sender_account_after.into()),
+        (to_bits, to_account_after.into()),
+        (to_second_bits, to_account_second_after.into()),
+    ])
+    .unwrap();
 
     transactions_trie.insert(Nibbles::from_str("0x01").unwrap(), txn_2.to_vec());
 
     let trie_roots_after = TrieRoots {
-        state_root: expected_state_trie_after.hash(),
+        state_root: expected_state_trie_after.root,
         transactions_root: transactions_trie.hash(),
         receipts_root: receipts_trie.hash(),
     };
@@ -767,36 +755,35 @@ fn test_two_txn() -> anyhow::Result<()> {
     let sender_state_key = keccak(sender);
     let to_hashed = keccak(to);
 
-    let beneficiary_nibbles = Nibbles::from_bytes_be(beneficiary_state_key.as_bytes()).unwrap();
-    let sender_nibbles = Nibbles::from_bytes_be(sender_state_key.as_bytes()).unwrap();
-    let to_nibbles = Nibbles::from_bytes_be(to_hashed.as_bytes()).unwrap();
+    let beneficiary_bits = beneficiary_state_key.into();
+    let sender_bits = sender_state_key.into();
+    let to_bits = to_hashed.into();
 
     // Set accounts before the transaction.
-    let beneficiary_account_before = AccountRlp {
-        nonce: 1.into(),
-        ..AccountRlp::default()
+    let beneficiary_account_before = Account {
+        nonce: 1,
+        ..Account::default()
     };
 
     let sender_balance_before = 50000000000000000u64;
-    let sender_account_before = AccountRlp {
+    let sender_account_before = Account {
         balance: sender_balance_before.into(),
-        ..AccountRlp::default()
+        ..Account::default()
     };
-    let to_account_before = AccountRlp {
-        ..AccountRlp::default()
+    let to_account_before = Account {
+        ..Account::default()
     };
 
     // Initialize the state trie with three accounts.
-    let mut state_trie_before = HashedPartialTrie::from(Node::Empty);
-    state_trie_before.insert(
-        beneficiary_nibbles,
-        rlp::encode(&beneficiary_account_before).to_vec(),
-    );
-    state_trie_before.insert(sender_nibbles, rlp::encode(&sender_account_before).to_vec());
-    state_trie_before.insert(to_nibbles, rlp::encode(&to_account_before).to_vec());
+    let state_smt_before = Smt::new([
+        (beneficiary_bits, beneficiary_account_before.clone().into()),
+        (sender_bits, sender_account_before.clone().into()),
+        (to_bits, to_account_before.clone().into()),
+    ])
+    .unwrap();
 
     let tries_before = TrieInputs {
-        state_trie: state_trie_before,
+        state_smt: state_smt_before.serialize(),
         transactions_trie: Node::Empty.into(),
         receipts_trie: Node::Empty.into(),
         storage_tries: vec![(to_hashed, Node::Empty.into())],
@@ -825,30 +812,29 @@ fn test_two_txn() -> anyhow::Result<()> {
     contract_code.insert(keccak(vec![]), vec![]);
 
     // Update accounts
-    let beneficiary_account_after = AccountRlp {
-        nonce: 1.into(),
-        ..AccountRlp::default()
+    let beneficiary_account_after = Account {
+        nonce: 1,
+        ..Account::default()
     };
 
     let sender_balance_after = sender_balance_before - gas_price * 21000 * 2 - txn_value * 2;
-    let sender_account_after = AccountRlp {
+    let sender_account_after = Account {
         balance: sender_balance_after.into(),
-        nonce: 2.into(),
-        ..AccountRlp::default()
+        nonce: 2,
+        ..Account::default()
     };
-    let to_account_after = AccountRlp {
+    let to_account_after = Account {
         balance: (2 * txn_value).into(),
-        ..AccountRlp::default()
+        ..Account::default()
     };
 
     // Update the state trie.
-    let mut expected_state_trie_after = HashedPartialTrie::from(Node::Empty);
-    expected_state_trie_after.insert(
-        beneficiary_nibbles,
-        rlp::encode(&beneficiary_account_after).to_vec(),
-    );
-    expected_state_trie_after.insert(sender_nibbles, rlp::encode(&sender_account_after).to_vec());
-    expected_state_trie_after.insert(to_nibbles, rlp::encode(&to_account_after).to_vec());
+    let expected_state_smt_after = Smt::new([
+        (beneficiary_bits, beneficiary_account_after.into()),
+        (sender_bits, sender_account_after.into()),
+        (to_bits, to_account_after.into()),
+    ])
+    .unwrap();
 
     // Compute new receipt trie.
     let mut receipts_trie = HashedPartialTrie::from(Node::Empty);
@@ -886,7 +872,7 @@ fn test_two_txn() -> anyhow::Result<()> {
     transactions_trie.insert(Nibbles::from_str("0x01").unwrap(), txn_1.to_vec());
 
     let trie_roots_after = TrieRoots {
-        state_root: expected_state_trie_after.hash(),
+        state_root: expected_state_smt_after.root,
         transactions_root: transactions_trie.hash(),
         receipts_root: receipts_trie.hash(),
     };
@@ -916,7 +902,7 @@ fn test_two_txn() -> anyhow::Result<()> {
     // Assert trie roots.
     assert_eq!(
         proof.public_values.trie_roots_after.state_root,
-        expected_state_trie_after.hash()
+        expected_state_smt_after.root
     );
 
     assert_eq!(

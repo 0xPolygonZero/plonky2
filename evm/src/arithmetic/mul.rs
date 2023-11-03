@@ -107,7 +107,7 @@ pub(crate) fn generate_mul<F: PrimeField64>(lv: &mut [F], left_in: [i64; 16], ri
         .copy_from_slice(&aux_limbs.map(|c| F::from_canonical_u16((c >> 16) as u16)));
 }
 
-pub fn generate<F: PrimeField64>(lv: &mut [F], left_in: U256, right_in: U256) {
+pub(crate) fn generate<F: PrimeField64>(lv: &mut [F], left_in: U256, right_in: U256) {
     // TODO: It would probably be clearer/cleaner to read the U256
     // into an [i64;N] and then copy that to the lv table.
     u256_to_array(&mut lv[INPUT_REGISTER_0], left_in);
@@ -173,7 +173,7 @@ pub(crate) fn eval_packed_generic_mul<P: PackedField>(
     }
 }
 
-pub fn eval_packed_generic<P: PackedField>(
+pub(crate) fn eval_packed_generic<P: PackedField>(
     lv: &[P; NUM_ARITH_COLUMNS],
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
@@ -195,6 +195,8 @@ pub(crate) fn eval_ext_mul_circuit<F: RichField + Extendable<D>, const D: usize>
     let output_limbs = read_value::<N_LIMBS, _>(lv, OUTPUT_REGISTER);
 
     let aux_limbs = {
+        // MUL_AUX_INPUT was offset by 2^20 in generation, so we undo
+        // that here
         let base = builder.constant_extension(F::Extension::from_canonical_u64(1 << LIMB_BITS));
         let offset =
             builder.constant_extension(F::Extension::from_canonical_u64(AUX_COEFF_ABS_MAX as u64));
@@ -211,17 +213,22 @@ pub(crate) fn eval_ext_mul_circuit<F: RichField + Extendable<D>, const D: usize>
     let mut constr_poly = pol_mul_lo_ext_circuit(builder, left_in_limbs, right_in_limbs);
     pol_sub_assign_ext_circuit(builder, &mut constr_poly, &output_limbs);
 
+    // This subtracts (x - β) * s(x) from constr_poly.
     let base = builder.constant_extension(F::Extension::from_canonical_u64(1 << LIMB_BITS));
     let rhs = pol_adjoin_root_ext_circuit(builder, aux_limbs, base);
     pol_sub_assign_ext_circuit(builder, &mut constr_poly, &rhs);
 
+    // At this point constr_poly holds the coefficients of the
+    // polynomial a(x)b(x) - c(x) - (x - β)*s(x). The
+    // multiplication is valid if and only if all of those
+    // coefficients are zero.
     for &c in &constr_poly {
         let filter = builder.mul_extension(filter, c);
         yield_constr.constraint(builder, filter);
     }
 }
 
-pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
+pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     lv: &[ExtensionTarget<D>; NUM_ARITH_COLUMNS],
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,

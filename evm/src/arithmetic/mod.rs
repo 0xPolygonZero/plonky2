@@ -15,6 +15,9 @@ mod utils;
 pub mod arithmetic_stark;
 pub(crate) mod columns;
 
+/// An enum representing different binary operations.
+///
+/// `Shl` and `Shr` are handled differently, by leveraging `Mul` and `Div` respectively.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum BinaryOperator {
     Add,
@@ -33,6 +36,7 @@ pub(crate) enum BinaryOperator {
 }
 
 impl BinaryOperator {
+    /// Computes the result of a binary arithmetic operation given two inputs.
     pub(crate) fn result(&self, input0: U256, input1: U256) -> U256 {
         match self {
             BinaryOperator::Add => input0.overflowing_add(input1).0,
@@ -81,6 +85,7 @@ impl BinaryOperator {
         }
     }
 
+    /// Maps a binary arithmetic operation to its associated flag column in the trace.
     pub(crate) fn row_filter(&self) -> usize {
         match self {
             BinaryOperator::Add => columns::IS_ADD,
@@ -100,6 +105,7 @@ impl BinaryOperator {
     }
 }
 
+/// An enum representing different ternary operations.
 #[allow(clippy::enum_variant_names)]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum TernaryOperator {
@@ -109,6 +115,7 @@ pub(crate) enum TernaryOperator {
 }
 
 impl TernaryOperator {
+    /// Computes the result of a ternary arithmetic operation given three inputs.
     pub(crate) fn result(&self, input0: U256, input1: U256, input2: U256) -> U256 {
         match self {
             TernaryOperator::AddMod => addmod(input0, input1, input2),
@@ -117,6 +124,7 @@ impl TernaryOperator {
         }
     }
 
+    /// Maps a ternary arithmetic operation to its associated flag column in the trace.
     pub(crate) fn row_filter(&self) -> usize {
         match self {
             TernaryOperator::AddMod => columns::IS_ADDMOD,
@@ -145,7 +153,7 @@ pub(crate) enum Operation {
 }
 
 impl Operation {
-    /// Create a binary operator with given inputs.
+    /// Creates a binary operator with given inputs.
     ///
     /// NB: This works as you would expect, EXCEPT for SHL and SHR,
     /// whose inputs need a small amount of preprocessing. Specifically,
@@ -170,6 +178,7 @@ impl Operation {
         }
     }
 
+    /// Creates a ternary operator with given inputs.
     pub(crate) fn ternary(
         operator: TernaryOperator,
         input0: U256,
@@ -186,6 +195,7 @@ impl Operation {
         }
     }
 
+    /// Gets the result of an arithmetic operation.
     pub(crate) fn result(&self) -> U256 {
         match self {
             Operation::BinaryOperation { result, .. } => *result,
@@ -222,6 +232,7 @@ impl Operation {
     }
 }
 
+/// Converts a ternary arithmetic operation to one or two rows of the `ArithmeticStark` table.
 fn ternary_op_to_rows<F: PrimeField64>(
     row_filter: usize,
     input0: U256,
@@ -239,6 +250,7 @@ fn ternary_op_to_rows<F: PrimeField64>(
     (row1, Some(row2))
 }
 
+/// Converts a binary arithmetic operation to one or two rows of the `ArithmeticStark` table.
 fn binary_op_to_rows<F: PrimeField64>(
     op: BinaryOperator,
     input0: U256,

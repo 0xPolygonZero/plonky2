@@ -13,12 +13,14 @@ use plonky2::plonk::config::KeccakGoldilocksConfig;
 use plonky2::util::timing::TimingTree;
 use plonky2_evm::all_stark::AllStark;
 use plonky2_evm::config::StarkConfig;
-use plonky2_evm::generation::mpt::{AccountRlp, LegacyReceiptRlp};
+use plonky2_evm::generation::mpt::LegacyReceiptRlp;
 use plonky2_evm::generation::{GenerationInputs, TrieInputs};
 use plonky2_evm::proof::{BlockHashes, BlockMetadata, TrieRoots};
 use plonky2_evm::prover::prove;
 use plonky2_evm::verifier::verify_proof;
 use plonky2_evm::Node;
+use smt_utils::account::Account;
+use smt_utils::smt::Smt;
 
 type F = GoldilocksField;
 const D: usize = 2;
@@ -39,25 +41,25 @@ fn test_simple_transfer() -> anyhow::Result<()> {
     let sender_state_key = keccak(sender);
     let to_state_key = keccak(to);
 
-    let sender_nibbles = Nibbles::from_bytes_be(sender_state_key.as_bytes()).unwrap();
-    let to_nibbles = Nibbles::from_bytes_be(to_state_key.as_bytes()).unwrap();
+    let sender_bits = sender_state_key.into();
+    let to_bits = to_state_key.into();
 
-    let sender_account_before = AccountRlp {
-        nonce: 5.into(),
+    let sender_account_before = Account {
+        nonce: 5,
         balance: eth_to_wei(100_000.into()),
-        storage_root: HashedPartialTrie::from(Node::Empty).hash(),
+        storage_smt: Smt::empty(),
         code_hash: keccak([]),
     };
-    let to_account_before = AccountRlp::default();
+    let to_account_before = Account::default();
 
-    let state_trie_before = Node::Leaf {
-        nibbles: sender_nibbles,
-        value: rlp::encode(&sender_account_before).to_vec(),
-    }
-    .into();
+    let state_smt_before = Smt::new([
+        (sender_bits, sender_account_before.clone().into()),
+        (to_bits, to_account_before.clone().into()),
+    ])
+    .unwrap();
 
     let tries_before = TrieInputs {
-        state_trie: state_trie_before,
+        state_smt: state_smt_before.serialize(),
         transactions_trie: HashedPartialTrie::from(Node::Empty),
         receipts_trie: HashedPartialTrie::from(Node::Empty),
         storage_tries: vec![],
@@ -83,36 +85,25 @@ fn test_simple_transfer() -> anyhow::Result<()> {
     let mut contract_code = HashMap::new();
     contract_code.insert(keccak(vec![]), vec![]);
 
-    let expected_state_trie_after: HashedPartialTrie = {
+    let expected_state_smt_after: Smt = {
         let txdata_gas = 2 * 16;
         let gas_used = 21_000 + txdata_gas;
 
-        let sender_account_after = AccountRlp {
+        let sender_account_after = Account {
             balance: sender_account_before.balance - value - gas_used * 10,
             nonce: sender_account_before.nonce + 1,
             ..sender_account_before
         };
-        let to_account_after = AccountRlp {
+        let to_account_after = Account {
             balance: value,
             ..to_account_before
         };
 
-        let mut children = core::array::from_fn(|_| Node::Empty.into());
-        children[sender_nibbles.get_nibble(0) as usize] = Node::Leaf {
-            nibbles: sender_nibbles.truncate_n_nibbles_front(1),
-            value: rlp::encode(&sender_account_after).to_vec(),
-        }
-        .into();
-        children[to_nibbles.get_nibble(0) as usize] = Node::Leaf {
-            nibbles: to_nibbles.truncate_n_nibbles_front(1),
-            value: rlp::encode(&to_account_after).to_vec(),
-        }
-        .into();
-        Node::Branch {
-            children,
-            value: vec![],
-        }
-        .into()
+        Smt::new([
+            (sender_bits, sender_account_after.clone().into()),
+            (to_bits, to_account_after.clone().into()),
+        ])
+        .unwrap()
     };
 
     let receipt_0 = LegacyReceiptRlp {
@@ -133,7 +124,7 @@ fn test_simple_transfer() -> anyhow::Result<()> {
     .into();
 
     let trie_roots_after = TrieRoots {
-        state_root: expected_state_trie_after.hash(),
+        state_root: expected_state_smt_after.root,
         transactions_root: transactions_trie.hash(),
         receipts_root: receipts_trie.hash(),
     };

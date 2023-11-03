@@ -30,9 +30,9 @@ pub enum MemoryError {
 #[derive(Debug)]
 pub enum ProverInputError {
     OutOfMptData,
+    OutOfSmtData,
     OutOfRlpData,
     CodeHashNotFound,
-    InvalidMptInput,
     InvalidInput,
     InvalidFunction,
 }

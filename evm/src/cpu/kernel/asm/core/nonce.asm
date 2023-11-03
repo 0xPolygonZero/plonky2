@@ -3,7 +3,7 @@
 // Post stack: (empty)
 global nonce:
     // stack: address, retdest
-    %mpt_read_state_trie
+    %smt_read_state
     // stack: account_ptr, retdest
     // The nonce is the first account field, so we deref the account pointer itself.
     // Note: We don't need to handle account_ptr=0, as trie_data[0] = 0,
@@ -23,7 +23,7 @@ global nonce:
 global increment_nonce:
     // stack: address, retdest
     DUP1
-    %mpt_read_state_trie
+    %smt_read_state
     // stack: account_ptr, address, retdest
     DUP1 ISZERO %jumpi(increment_nonce_no_such_account)
     // stack: nonce_ptr, address, retdest

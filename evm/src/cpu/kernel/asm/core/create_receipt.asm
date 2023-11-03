@@ -82,7 +82,7 @@ process_receipt_after_type:
     PUSH 0 PUSH @SEGMENT_TXN_BLOOM PUSH 0 // Bloom memory address.
     %get_trie_data_size PUSH @SEGMENT_TRIE_DATA PUSH 0 // MPT dest address.
     // stack: DST, SRC, 256, receipt_ptr, txn_nb, new_cum_gas, txn_nb, num_nibbles, retdest
-    %memcpy
+    %memcpy_bytes
     // stack: receipt_ptr, txn_nb, new_cum_gas, txn_nb, num_nibbles, retdest
     // Update trie data size.
     %get_trie_data_size

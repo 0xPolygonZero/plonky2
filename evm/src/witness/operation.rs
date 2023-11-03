@@ -59,6 +59,9 @@ pub(crate) enum Operation {
     MstoreGeneral,
 }
 
+/// Adds a CPU row filled with the two inputs and the output of a logic operation.
+/// Generates a new logic operation and adds it to the vector of operation in `LogicStark`.
+/// Adds three memory read operations to `MemoryStark`: for the two inputs and the output.
 pub(crate) fn generate_binary_logic_op<F: Field>(
     op: logic::Op,
     state: &mut GenerationState<F>,
@@ -67,7 +70,7 @@ pub(crate) fn generate_binary_logic_op<F: Field>(
     let [(in0, _), (in1, log_in1)] = stack_pop_with_log_and_fill::<2, _>(state, &mut row)?;
     let operation = logic::Operation::new(op, in0, in1);
 
-    push_no_write(state, &mut row, operation.result, Some(NUM_GP_CHANNELS - 1));
+    push_no_write(state, operation.result);
 
     state.traces.push_logic(operation);
     state.traces.push_memory(log_in1);
@@ -96,12 +99,7 @@ pub(crate) fn generate_binary_arithmetic_op<F: Field>(
         }
     }
 
-    push_no_write(
-        state,
-        &mut row,
-        operation.result(),
-        Some(NUM_GP_CHANNELS - 1),
-    );
+    push_no_write(state, operation.result());
 
     state.traces.push_arithmetic(operation);
     state.traces.push_memory(log_in1);
@@ -118,12 +116,7 @@ pub(crate) fn generate_ternary_arithmetic_op<F: Field>(
         stack_pop_with_log_and_fill::<3, _>(state, &mut row)?;
     let operation = arithmetic::Operation::ternary(operator, input0, input1, input2);
 
-    push_no_write(
-        state,
-        &mut row,
-        operation.result(),
-        Some(NUM_GP_CHANNELS - 1),
-    );
+    push_no_write(state, operation.result());
 
     state.traces.push_arithmetic(operation);
     state.traces.push_memory(log_in1);
@@ -155,7 +148,7 @@ pub(crate) fn generate_keccak_general<F: Field>(
     log::debug!("Hashing {:?}", input);
 
     let hash = keccak(&input);
-    push_no_write(state, &mut row, hash.into_uint(), Some(NUM_GP_CHANNELS - 1));
+    push_no_write(state, hash.into_uint());
 
     keccak_sponge_log(state, base_address, input);
 
@@ -251,6 +244,17 @@ pub(crate) fn generate_pop<F: Field>(
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
     let [(_, _)] = stack_pop_with_log_and_fill::<1, _>(state, &mut row)?;
+
+    let diff = row.stack_len - F::from_canonical_usize(1);
+    if let Some(inv) = diff.try_inverse() {
+        row.general.stack_mut().stack_inv = inv;
+        row.general.stack_mut().stack_inv_aux = F::ONE;
+        row.general.stack_mut().stack_inv_aux_2 = F::ONE;
+        state.registers.is_stack_top_read = true;
+    } else {
+        row.general.stack_mut().stack_inv = F::ZERO;
+        row.general.stack_mut().stack_inv_aux = F::ZERO;
+    }
 
     state.traces.push_cpu(row);
 
@@ -390,7 +394,22 @@ pub(crate) fn generate_get_context<F: Field>(
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
-    push_with_write(state, &mut row, state.registers.context.into())?;
+    // Same logic as push_with_write, but we have to use channel 3 for stack constraint reasons.
+    let write = if state.registers.stack_len == 0 {
+        None
+    } else {
+        let address = MemoryAddress::new(
+            state.registers.context,
+            Segment::Stack,
+            state.registers.stack_len - 1,
+        );
+        let res = mem_write_gp_log_and_fill(3, address, state, &mut row, state.registers.stack_top);
+        Some(res)
+    };
+    push_no_write(state, state.registers.context.into());
+    if let Some(log) = write {
+        state.traces.push_memory(log);
+    }
     state.traces.push_cpu(row);
     Ok(())
 }
@@ -446,9 +465,11 @@ pub(crate) fn generate_set_context<F: Field>(
         if let Some(inv) = new_sp_field.try_inverse() {
             row.general.stack_mut().stack_inv = inv;
             row.general.stack_mut().stack_inv_aux = F::ONE;
+            row.general.stack_mut().stack_inv_aux_2 = F::ONE;
         } else {
             row.general.stack_mut().stack_inv = F::ZERO;
             row.general.stack_mut().stack_inv_aux = F::ZERO;
+            row.general.stack_mut().stack_inv_aux_2 = F::ZERO;
         }
 
         let new_top_addr = MemoryAddress::new(new_ctx, Segment::Stack, new_sp - 1);
@@ -565,7 +586,7 @@ pub(crate) fn generate_dup<F: Field>(
     } else {
         mem_read_gp_with_log_and_fill(2, other_addr, state, &mut row)
     };
-    push_no_write(state, &mut row, val, None);
+    push_no_write(state, val);
 
     state.traces.push_memory(log_read);
     state.traces.push_cpu(row);
@@ -587,7 +608,7 @@ pub(crate) fn generate_swap<F: Field>(
     let [(in0, _)] = stack_pop_with_log_and_fill::<1, _>(state, &mut row)?;
     let (in1, log_in1) = mem_read_gp_with_log_and_fill(1, other_addr, state, &mut row);
     let log_out0 = mem_write_gp_log_and_fill(2, other_addr, state, &mut row, in0);
-    push_no_write(state, &mut row, in1, None);
+    push_no_write(state, in1);
 
     state.traces.push_memory(log_in1);
     state.traces.push_memory(log_out0);
@@ -601,7 +622,18 @@ pub(crate) fn generate_not<F: Field>(
 ) -> Result<(), ProgramError> {
     let [(x, _)] = stack_pop_with_log_and_fill::<1, _>(state, &mut row)?;
     let result = !x;
-    push_no_write(state, &mut row, result, Some(NUM_GP_CHANNELS - 1));
+    push_no_write(state, result);
+
+    // This is necessary for the stack constraints for POP,
+    // since the two flags are combined.
+    let diff = row.stack_len - F::from_canonical_usize(1);
+    if let Some(inv) = diff.try_inverse() {
+        row.general.stack_mut().stack_inv = inv;
+        row.general.stack_mut().stack_inv_aux = F::ONE;
+    } else {
+        row.general.stack_mut().stack_inv = F::ZERO;
+        row.general.stack_mut().stack_inv_aux = F::ZERO;
+    }
 
     state.traces.push_cpu(row);
     Ok(())
@@ -620,7 +652,7 @@ pub(crate) fn generate_iszero<F: Field>(
 
     generate_pinv_diff(x, U256::zero(), &mut row);
 
-    push_no_write(state, &mut row, result, None);
+    push_no_write(state, result);
     state.traces.push_cpu(row);
     Ok(())
 }
@@ -659,7 +691,7 @@ fn append_shift<F: Field>(
     let operation = arithmetic::Operation::binary(operator, input0, input1);
 
     state.traces.push_arithmetic(operation);
-    push_no_write(state, &mut row, result, Some(NUM_GP_CHANNELS - 1));
+    push_no_write(state, result);
     state.traces.push_memory(log_in1);
     state.traces.push_cpu(row);
     Ok(())
@@ -773,7 +805,7 @@ pub(crate) fn generate_eq<F: Field>(
 
     generate_pinv_diff(in0, in1, &mut row);
 
-    push_no_write(state, &mut row, result, None);
+    push_no_write(state, result);
     state.traces.push_memory(log_in1);
     state.traces.push_cpu(row);
     Ok(())
@@ -821,7 +853,7 @@ pub(crate) fn generate_mload_general<F: Field>(
         state,
         &mut row,
     );
-    push_no_write(state, &mut row, val, None);
+    push_no_write(state, val);
 
     let diff = row.stack_len - F::from_canonical_usize(4);
     if let Some(inv) = diff.try_inverse() {
@@ -869,7 +901,7 @@ pub(crate) fn generate_mload_32bytes<F: Field>(
         .collect_vec();
 
     let packed_int = U256::from_big_endian(&bytes);
-    push_no_write(state, &mut row, packed_int, Some(4));
+    push_no_write(state, packed_int);
 
     byte_packing_log(state, base_address, bytes);
 
@@ -915,6 +947,7 @@ pub(crate) fn generate_mstore_general<F: Field>(
     state.traces.push_memory(log_in2);
     state.traces.push_memory(log_in3);
     state.traces.push_memory(log_write);
+
     state.traces.push_cpu(row);
 
     Ok(())
