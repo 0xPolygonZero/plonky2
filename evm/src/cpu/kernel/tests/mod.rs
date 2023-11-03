@@ -10,11 +10,11 @@ mod ecc;
 mod exp;
 mod hash;
 mod log;
-mod mpt;
 mod packing;
 mod receipt;
 mod rlp;
 mod signed_syscalls;
+mod smt;
 mod transaction_parsing;
 
 use std::str::FromStr;

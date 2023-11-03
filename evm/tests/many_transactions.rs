@@ -16,12 +16,14 @@ use plonky2::util::timing::TimingTree;
 use plonky2_evm::all_stark::AllStark;
 use plonky2_evm::config::StarkConfig;
 use plonky2_evm::cpu::kernel::opcodes::{get_opcode, get_push_opcode};
-use plonky2_evm::generation::mpt::{AccountRlp, LegacyReceiptRlp};
+use plonky2_evm::generation::mpt::LegacyReceiptRlp;
 use plonky2_evm::generation::{GenerationInputs, TrieInputs};
 use plonky2_evm::proof::{BlockHashes, BlockMetadata, TrieRoots};
 use plonky2_evm::prover::prove;
 use plonky2_evm::verifier::verify_proof;
 use plonky2_evm::Node;
+use smt_utils::account::Account;
+use smt_utils::smt::Smt;
 
 type F = GoldilocksField;
 const D: usize = 2;
@@ -43,9 +45,9 @@ fn test_four_transactions() -> anyhow::Result<()> {
     let sender_state_key = keccak(sender);
     let to_state_key = keccak(to);
 
-    let beneficiary_nibbles = Nibbles::from_bytes_be(beneficiary_state_key.as_bytes()).unwrap();
-    let sender_nibbles = Nibbles::from_bytes_be(sender_state_key.as_bytes()).unwrap();
-    let to_nibbles = Nibbles::from_bytes_be(to_state_key.as_bytes()).unwrap();
+    let beneficiary_bits = beneficiary_state_key.into();
+    let sender_bits = sender_state_key.into();
+    let to_bits = to_state_key.into();
 
     let push1 = get_push_opcode(1);
     let add = get_opcode("ADD");
@@ -54,42 +56,26 @@ fn test_four_transactions() -> anyhow::Result<()> {
     let code_gas = 3 + 3 + 3;
     let code_hash = keccak(code);
 
-    let beneficiary_account_before = AccountRlp::default();
-    let sender_account_before = AccountRlp {
-        nonce: 5.into(),
-
+    let beneficiary_account_before = Account::default();
+    let sender_account_before = Account {
+        nonce: 5,
         balance: eth_to_wei(100_000.into()),
-
-        ..AccountRlp::default()
+        ..Account::default()
     };
-    let to_account_before = AccountRlp {
+    let to_account_before = Account {
         code_hash,
-        ..AccountRlp::default()
+        ..Account::default()
     };
 
-    let state_trie_before = {
-        let mut children = core::array::from_fn(|_| Node::Empty.into());
-        children[sender_nibbles.get_nibble(0) as usize] = Node::Leaf {
-            nibbles: sender_nibbles.truncate_n_nibbles_front(1),
-
-            value: rlp::encode(&sender_account_before).to_vec(),
-        }
-        .into();
-        children[to_nibbles.get_nibble(0) as usize] = Node::Leaf {
-            nibbles: to_nibbles.truncate_n_nibbles_front(1),
-
-            value: rlp::encode(&to_account_before).to_vec(),
-        }
-        .into();
-        Node::Branch {
-            children,
-            value: vec![],
-        }
-    }
-    .into();
+    let state_smt_before = Smt::new([
+        (beneficiary_bits, beneficiary_account_before.clone().into()),
+        (sender_bits, sender_account_before.clone().into()),
+        (to_bits, to_account_before.clone().into()),
+    ])
+    .unwrap();
 
     let tries_before = TrieInputs {
-        state_trie: state_trie_before,
+        state_smt: state_smt_before.serialize(),
         transactions_trie: Node::Empty.into(),
         receipts_trie: Node::Empty.into(),
         storage_tries: vec![],
@@ -123,46 +109,27 @@ fn test_four_transactions() -> anyhow::Result<()> {
 
     // Update trie roots after the 4 transactions.
     // State trie.
-    let expected_state_trie_after: HashedPartialTrie = {
-        let beneficiary_account_after = AccountRlp {
+    let expected_state_trie_after = {
+        let beneficiary_account_after = Account {
             balance: beneficiary_account_before.balance + gas_used * 10,
             ..beneficiary_account_before
         };
-        let sender_account_after = AccountRlp {
+        let sender_account_after = Account {
             balance: sender_account_before.balance - value - gas_used * 10,
             nonce: sender_account_before.nonce + 1,
             ..sender_account_before
         };
-        let to_account_after = AccountRlp {
+        let to_account_after = Account {
             balance: to_account_before.balance + value,
             ..to_account_before
         };
-
-        let mut children = core::array::from_fn(|_| Node::Empty.into());
-        children[beneficiary_nibbles.get_nibble(0) as usize] = Node::Leaf {
-            nibbles: beneficiary_nibbles.truncate_n_nibbles_front(1),
-
-            value: rlp::encode(&beneficiary_account_after).to_vec(),
-        }
-        .into();
-        children[sender_nibbles.get_nibble(0) as usize] = Node::Leaf {
-            nibbles: sender_nibbles.truncate_n_nibbles_front(1),
-
-            value: rlp::encode(&sender_account_after).to_vec(),
-        }
-        .into();
-        children[to_nibbles.get_nibble(0) as usize] = Node::Leaf {
-            nibbles: to_nibbles.truncate_n_nibbles_front(1),
-
-            value: rlp::encode(&to_account_after).to_vec(),
-        }
-        .into();
-        Node::Branch {
-            children,
-            value: vec![],
-        }
-    }
-    .into();
+        Smt::new([
+            (beneficiary_bits, beneficiary_account_after.into()),
+            (sender_bits, sender_account_after.into()),
+            (to_bits, to_account_after.into()),
+        ])
+        .unwrap()
+    };
 
     // Transactions trie.
     let mut transactions_trie: HashedPartialTrie = Node::Leaf {
@@ -206,7 +173,7 @@ fn test_four_transactions() -> anyhow::Result<()> {
     );
 
     let trie_roots_after = TrieRoots {
-        state_root: expected_state_trie_after.hash(),
+        state_root: expected_state_trie_after.root,
         transactions_root: transactions_trie.hash(),
         receipts_root: receipts_trie.hash(),
     };

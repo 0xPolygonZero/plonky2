@@ -6,6 +6,7 @@ use hex_literal::hex;
 use crate::cpu::kernel::constants::context_metadata::ContextMetadata;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
 use crate::cpu::kernel::constants::journal_entry::JournalEntry;
+use crate::cpu::kernel::constants::smt_type::PartialSmtType;
 use crate::cpu::kernel::constants::trie_type::PartialTrieType;
 use crate::cpu::kernel::constants::txn_fields::NormalizedTxnField;
 use crate::memory::segments::Segment;
@@ -14,6 +15,7 @@ pub(crate) mod context_metadata;
 mod exc_bitfields;
 pub(crate) mod global_metadata;
 pub(crate) mod journal_entry;
+pub(crate) mod smt_type;
 pub(crate) mod trie_type;
 pub(crate) mod txn_fields;
 
@@ -57,6 +59,8 @@ pub fn evm_constants() -> HashMap<String, U256> {
     c.insert(MAX_NONCE.0.into(), U256::from(MAX_NONCE.1));
     c.insert(CALL_STACK_LIMIT.0.into(), U256::from(CALL_STACK_LIMIT.1));
 
+    c.insert(SMT_IS_STORAGE.0.into(), U256::from(SMT_IS_STORAGE.1));
+
     for segment in Segment::all() {
         c.insert(segment.var_name().into(), (segment as u32).into());
     }
@@ -70,6 +74,9 @@ pub fn evm_constants() -> HashMap<String, U256> {
         c.insert(txn_field.var_name().into(), (txn_field as u32).into());
     }
     for trie_type in PartialTrieType::all() {
+        c.insert(trie_type.var_name().into(), (trie_type as u32).into());
+    }
+    for trie_type in PartialSmtType::all() {
         c.insert(trie_type.var_name().into(), (trie_type as u32).into());
     }
     for entry in JournalEntry::all() {
@@ -270,3 +277,6 @@ const CODE_SIZE_LIMIT: [(&str, u64); 3] = [
 
 const MAX_NONCE: (&str, u64) = ("MAX_NONCE", 0xffffffffffffffff);
 const CALL_STACK_LIMIT: (&str, u64) = ("CALL_STACK_LIMIT", 1024);
+
+// Holds a flag that is set to 1 when hashing storage SMTs. Used in `smt_hash`.
+const SMT_IS_STORAGE: (&str, u64) = ("SMT_IS_STORAGE", 13371337);

@@ -8,10 +8,9 @@ global sload_current:
     %stack (slot) -> (slot, after_storage_read)
     %slot_to_storage_key
     // stack: storage_key, after_storage_read
-    PUSH 64 // storage_key has 64 nibbles
-    %current_storage_trie
-    // stack: storage_root_ptr, 64, storage_key, after_storage_read
-    %jump(mpt_read)
+    %current_storage_smt
+    // stack: storage_root_ptr, storage_key, after_storage_read
+    %jump(smt_read)
 
 global after_storage_read:
     // stack: value_ptr, retdest

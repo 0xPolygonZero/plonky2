@@ -24,7 +24,7 @@ extcodehash_dead:
 
 global extcodehash:
     // stack: address, retdest
-    %mpt_read_state_trie
+    %smt_read_state
     // stack: account_ptr, retdest
     DUP1 ISZERO %jumpi(retzero)
     %add_const(3)

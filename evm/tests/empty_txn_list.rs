@@ -17,6 +17,7 @@ use plonky2_evm::fixed_recursive_verifier::AllRecursiveCircuits;
 use plonky2_evm::generation::{GenerationInputs, TrieInputs};
 use plonky2_evm::proof::{BlockHashes, BlockMetadata, TrieRoots};
 use plonky2_evm::Node;
+use smt_utils::smt::Smt;
 
 type F = GoldilocksField;
 const D: usize = 2;
@@ -33,7 +34,7 @@ fn test_empty_txn_list() -> anyhow::Result<()> {
 
     let block_metadata = BlockMetadata::default();
 
-    let state_trie = HashedPartialTrie::from(Node::Empty);
+    let state_smt = Smt::empty();
     let transactions_trie = HashedPartialTrie::from(Node::Empty);
     let receipts_trie = HashedPartialTrie::from(Node::Empty);
     let storage_tries = vec![];
@@ -43,21 +44,21 @@ fn test_empty_txn_list() -> anyhow::Result<()> {
 
     // No transactions, so no trie roots change.
     let trie_roots_after = TrieRoots {
-        state_root: state_trie.hash(),
+        state_root: state_smt.root,
         transactions_root: transactions_trie.hash(),
         receipts_root: receipts_trie.hash(),
     };
     let inputs = GenerationInputs {
         signed_txns: vec![],
         tries: TrieInputs {
-            state_trie,
+            state_smt: state_smt.serialize(),
             transactions_trie,
             receipts_trie,
             storage_tries,
         },
         trie_roots_after,
         contract_code,
-        genesis_state_trie_root: HashedPartialTrie::from(Node::Empty).hash(),
+        genesis_state_trie_root: Smt::empty().root,
         block_metadata,
         txn_number_before: 0.into(),
         gas_used_before: 0.into(),

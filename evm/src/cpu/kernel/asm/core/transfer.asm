@@ -29,7 +29,7 @@ global transfer_eth_failure:
 global deduct_eth:
     // stack: addr, amount, retdest
     DUP1 %insert_touched_addresses
-    %mpt_read_state_trie
+    %smt_read_state
     // stack: account_ptr, amount, retdest
     DUP1 ISZERO %jumpi(deduct_eth_no_such_account) // If the account pointer is null, return 1.
     %add_const(1)
@@ -65,7 +65,7 @@ global deduct_eth_insufficient_balance:
 global add_eth:
     // stack: addr, amount, retdest
     DUP1 %insert_touched_addresses
-    DUP1 %mpt_read_state_trie
+    DUP1 %smt_read_state
     // stack: account_ptr, addr, amount, retdest
     DUP1 ISZERO %jumpi(add_eth_new_account) // If the account pointer is null, we need to create the account.
     %add_const(1)
@@ -90,6 +90,7 @@ global add_eth_new_account:
     // stack: new_account_ptr, addr, amount, retdest
     SWAP2
     // stack: amount, addr, new_account_ptr, retdest
+    PUSH 0 %append_to_trie_data // key
     PUSH 0 %append_to_trie_data // nonce
     %append_to_trie_data // balance
     // stack: addr, new_account_ptr, retdest
@@ -98,7 +99,7 @@ global add_eth_new_account:
     // stack: addr, new_account_ptr, retdest
     %addr_to_state_key
     // stack: key, new_account_ptr, retdest
-    %jump(mpt_insert_state_trie)
+    %jump(smt_insert_state)
 
 add_eth_new_account_zero:
     // stack: addr, amount, retdest

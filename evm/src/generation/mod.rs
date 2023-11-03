@@ -9,6 +9,7 @@ use plonky2::hash::hash_types::RichField;
 use plonky2::timed;
 use plonky2::util::timing::TimingTree;
 use serde::{Deserialize, Serialize};
+use smt_utils::smt::hash_serialize_state;
 use GlobalMetadata::{
     ReceiptTrieRootDigestAfter, ReceiptTrieRootDigestBefore, StateTrieRootDigestAfter,
     StateTrieRootDigestBefore, TransactionTrieRootDigestAfter, TransactionTrieRootDigestBefore,
@@ -69,11 +70,11 @@ pub struct GenerationInputs {
     pub addresses: Vec<Address>,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, Default)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct TrieInputs {
-    /// A partial version of the state trie prior to these transactions. It should include all nodes
+    /// A serialized partial version of the state SMT prior to these transactions. It should include all nodes
     /// that will be accessed by these transactions.
-    pub state_trie: HashedPartialTrie,
+    pub state_smt: Vec<U256>,
 
     /// A partial version of the transaction trie prior to these transactions. It should include all
     /// nodes that will be accessed by these transactions.
@@ -86,6 +87,18 @@ pub struct TrieInputs {
     /// A partial version of each storage trie prior to these transactions. It should include all
     /// storage tries, and nodes therein, that will be accessed by these transactions.
     pub storage_tries: Vec<(H256, HashedPartialTrie)>,
+}
+
+impl Default for TrieInputs {
+    fn default() -> Self {
+        Self {
+            // First 2 zeros are for the default empty node. The next 2 are for the current empty state trie root.
+            state_smt: vec![U256::zero(); 4],
+            transactions_trie: Default::default(),
+            receipts_trie: Default::default(),
+            storage_tries: vec![],
+        }
+    }
 }
 
 fn apply_metadata_and_tries_memops<F: RichField + Extendable<D>, const D: usize>(
@@ -124,7 +137,7 @@ fn apply_metadata_and_tries_memops<F: RichField + Extendable<D>, const D: usize>
         ),
         (
             GlobalMetadata::StateTrieRootDigestBefore,
-            h2u(tries.state_trie.hash()),
+            h2u(hash_serialize_state(&tries.state_smt)),
         ),
         (
             GlobalMetadata::TransactionTrieRootDigestBefore,
