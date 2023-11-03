@@ -64,7 +64,7 @@ fn test_state_smt(smt: Smt, k: U256, account: Account) -> Result<()> {
         interpreter.stack()
     );
 
-    // Next, execute mpt_delete, deleting the account we just inserted.
+    // Next, execute smt_delete, deleting the account we just inserted.
     let state_trie_ptr = interpreter.get_global_metadata_field(GlobalMetadata::StateTrieRoot);
     interpreter.generation_state.registers.program_counter = smt_delete;
     interpreter.push(0xDEADBEEFu32.into());
@@ -74,7 +74,7 @@ fn test_state_smt(smt: Smt, k: U256, account: Account) -> Result<()> {
     let state_trie_ptr = interpreter.pop();
     interpreter.set_global_metadata_field(GlobalMetadata::StateTrieRoot, state_trie_ptr);
 
-    // Now, execute mpt_hash_state_trie.
+    // Now, execute smt_hash_state.
     interpreter.generation_state.registers.program_counter = smt_hash_state;
     interpreter.push(0xDEADBEEFu32.into());
     interpreter.run()?;

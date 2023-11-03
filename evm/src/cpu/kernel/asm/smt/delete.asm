@@ -15,13 +15,13 @@ global smt_delete:
     DUP1 %eq_const(@SMT_NODE_LEAF)      %jumpi(smt_delete_leaf)
     PANIC // Should never happen.
 
-global smt_delete_leaf:
+smt_delete_leaf:
     // stack: node_type, node_payload_ptr, key, retdest
     %pop3
     PUSH 0 // empty node ptr
     SWAP1 JUMP
 
-global smt_delete_internal:
+smt_delete_internal:
     // stack: node_type, node_payload_ptr, key, retdest
     POP
     // stack: node_payload_ptr, key, retdest
@@ -35,7 +35,7 @@ global smt_delete_internal:
 
 // Update the internal node, possibly deleting it, or returning a leaf node.
 // TODO: Could replace a lot of `is_empty` check with just ISZERO.
-global internal_update:
+internal_update:
     // Update the child first.
     // stack: deleted_child_ptr, node_payload_ptr, bit, retdest
     DUP3 PUSH 1 SUB
@@ -46,10 +46,10 @@ global internal_update:
     // stack: sibling_node_type, sibling_ptr, deleted_child_ptr, node_payload_ptr, bit, retdest
     DUP1 %eq_const(@SMT_NODE_HASH) %jumpi(sibling_is_hash)
     %eq_const(@SMT_NODE_LEAF) %jumpi(sibling_is_leaf)
-global sibling_is_internal:
+sibling_is_internal:
     // stack: sibling_ptr, deleted_child_ptr, node_payload_ptr, bit, retdest
     POP
-global insert_child:
+insert_child:
     // stack: deleted_child_ptr, node_payload_ptr, bit, retdest
     %stack (deleted_child_ptr, node_payload_ptr, bit) -> (node_payload_ptr, bit, deleted_child_ptr, node_payload_ptr)
     ADD %mstore_trie_data
@@ -58,33 +58,33 @@ global insert_child:
     // stack: retdest, node_ptr
     JUMP
 
-global sibling_is_hash:
+sibling_is_hash:
     // stack: sibling_node_type, sibling_ptr, deleted_child_ptr, node_payload_ptr, bit, retdest
     POP
     // stack: sibling_ptr, deleted_child_ptr, node_payload_ptr, bit, retdest
     %increment %mload_trie_data
     // stack: hash, deleted_child_ptr, node_payload_ptr, bit, retdest
     %jumpi(insert_child)
-global sibling_is_empty:
+sibling_is_empty:
     // stack: deleted_child_ptr, node_payload_ptr, bit, retdest
     DUP1 %mload_trie_data
     // stack: deleted_child_node_type, deleted_child_ptr, node_payload_ptr, bit, retdest
     DUP1 %eq_const(@SMT_NODE_HASH) %jumpi(sibling_is_empty_child_is_hash)
     DUP1 %eq_const(@SMT_NODE_LEAF) %jumpi(sibling_is_empty_child_is_leaf)
-global sibling_is_empty_child_is_internal:
+sibling_is_empty_child_is_internal:
     // stack: deleted_child_node_type, deleted_child_ptr, node_payload_ptr, bit, retdest
     POP
     // stack: deleted_child_ptr, node_payload_ptr, bit, retdest
     %jump(insert_child)
 
-global sibling_is_empty_child_is_hash:
+sibling_is_empty_child_is_hash:
     // stack: deleted_child_node_type, deleted_child_ptr, node_payload_ptr, bit, retdest
     POP
     // stack: deleted_child_ptr, node_payload_ptr, bit, retdest
     DUP1 %increment %mload_trie_data
     // stack: hash, deleted_child_ptr, node_payload_ptr, bit, retdest
     %jumpi(insert_child)
-global sibling_is_empty_child_is_empty:
+sibling_is_empty_child_is_empty:
     // We can just delete this node.
     // stack: deleted_child_ptr, node_payload_ptr, bit, retdest
     %pop3
@@ -92,7 +92,7 @@ global sibling_is_empty_child_is_empty:
     // stack: retdest, 0
     JUMP
 
-global sibling_is_empty_child_is_leaf:
+sibling_is_empty_child_is_leaf:
     // stack: deleted_child_node_type, deleted_child_ptr, node_payload_ptr, bit, retdest
     POP
     // stack: deleted_child_ptr, node_payload_ptr, bit, retdest
@@ -108,12 +108,12 @@ global sibling_is_empty_child_is_leaf:
     %stack (deleted_child_ptr, node_payload_ptr, bit, retdest) -> (retdest, deleted_child_ptr)
     JUMP
 
-global sibling_is_leaf:
+sibling_is_leaf:
     // stack: sibling_ptr, deleted_child_ptr, node_payload_ptr, bit, retdest
     DUP2 %is_non_empty_node
     // stack: child_is_non_empty, sibling_ptr, deleted_child_ptr, node_payload_ptr, bit, retdest
     %jumpi(sibling_is_leaf_child_is_non_empty)
-global sibling_is_leaf_child_is_empty:
+sibling_is_leaf_child_is_empty:
     // stack: sibling_ptr, deleted_child_ptr, node_payload_ptr, bit, retdest
     DUP1 %increment %mload_trie_data
     // stack: sibling_key_ptr, sibling_ptr, deleted_child_ptr, node_payload_ptr, bit, retdest
@@ -128,7 +128,7 @@ global sibling_is_leaf_child_is_empty:
     %stack (sibling_ptr, deleted_child_ptr, node_payload_ptr, bit, retdest) -> (retdest, sibling_ptr)
     JUMP
 
-global sibling_is_leaf_child_is_non_empty:
+sibling_is_leaf_child_is_non_empty:
     // stack: sibling_ptr, deleted_child_ptr, node_payload_ptr, bit, retdest
     POP
     // stack: deleted_child_ptr, node_payload_ptr, bit, retdest
