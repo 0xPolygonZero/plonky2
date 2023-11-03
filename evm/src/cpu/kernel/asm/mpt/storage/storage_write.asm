@@ -133,14 +133,12 @@ sstore_noop:
 
 // Delete the slot from the storage SMT.
 sstore_delete:
-    PANIC // TODO: Not implemented for SMT.
     // stack: slot, value, kexit_info
     SWAP1 POP
     PUSH after_storage_insert SWAP1
     // stack: slot, after_storage_insert, kexit_info
     %slot_to_storage_key
     // stack: storage_key, after_storage_insert, kexit_info
-    PUSH 64 // storage_key has 64 nibbles
     %current_storage_smt
-    // stack: storage_root_ptr, 64, storage_key, after_storage_insert, kexit_info
-    %jump(mpt_delete)
+    // stack: storage_root_ptr, storage_key, after_storage_insert, kexit_info
+    %jump(smt_delete)

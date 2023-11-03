@@ -12,7 +12,7 @@ use crate::util::u256_to_usize;
 use crate::witness::errors::ProgramError;
 
 /// The post-state after trace generation; intended for debugging.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct GenerationOutputs {
     pub accounts: HashMap<AddressOrStateKey, AccountOutput>,
 }
@@ -31,6 +31,7 @@ pub struct AccountOutput {
     pub storage: HashMap<U256, U256>,
 }
 
+#[allow(unused)]
 pub(crate) fn get_outputs<F: Field>(
     state: &mut GenerationState<F>,
 ) -> Result<GenerationOutputs, ProgramError> {
@@ -64,6 +65,7 @@ pub(crate) fn get_outputs<F: Field>(
     Ok(GenerationOutputs { accounts })
 }
 
+#[allow(unused)]
 fn account_trie_record_to_output<F: Field>(
     state: &GenerationState<F>,
     account: AccountTrieRecord,
@@ -88,6 +90,7 @@ fn account_trie_record_to_output<F: Field>(
     })
 }
 
+#[allow(unused)]
 /// Get an account's storage trie, given a pointer to its root.
 fn get_storage<F: Field>(
     state: &GenerationState<F>,

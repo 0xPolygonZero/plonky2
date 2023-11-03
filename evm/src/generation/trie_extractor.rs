@@ -12,6 +12,7 @@ use crate::witness::errors::ProgramError;
 use crate::witness::memory::{MemoryAddress, MemoryState};
 
 /// Account data as it's stored in the state trie, with a pointer to the storage trie.
+#[allow(unused)]
 #[derive(Debug)]
 pub(crate) struct AccountTrieRecord {
     pub(crate) nonce: u64,
@@ -20,6 +21,7 @@ pub(crate) struct AccountTrieRecord {
     pub(crate) code_hash: H256,
 }
 
+#[allow(unused)]
 pub(crate) fn read_state_trie_value(slice: &[U256]) -> Result<AccountTrieRecord, ProgramError> {
     Ok(AccountTrieRecord {
         nonce: slice[0].low_u64(),
@@ -29,6 +31,7 @@ pub(crate) fn read_state_trie_value(slice: &[U256]) -> Result<AccountTrieRecord,
     })
 }
 
+#[allow(unused)]
 pub(crate) fn read_storage_trie_value(slice: &[U256]) -> U256 {
     slice[0]
 }
