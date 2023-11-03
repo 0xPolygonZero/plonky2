@@ -230,6 +230,7 @@ fn test_log_opcodes() -> anyhow::Result<()> {
     ];
     let inputs = GenerationInputs {
         signed_txns: vec![txn.to_vec()],
+        withdrawals: vec![],
         tries: tries_before,
         trie_roots_after,
         contract_code,
@@ -437,6 +438,7 @@ fn test_log_with_aggreg() -> anyhow::Result<()> {
 
     let inputs_first = GenerationInputs {
         signed_txns: vec![txn.to_vec()],
+        withdrawals: vec![],
         tries: tries_before,
         trie_roots_after: tries_after,
         contract_code,
@@ -581,6 +583,7 @@ fn test_log_with_aggreg() -> anyhow::Result<()> {
     ];
     let inputs = GenerationInputs {
         signed_txns: vec![txn_2.to_vec()],
+        withdrawals: vec![],
         tries: tries_before,
         trie_roots_after,
         contract_code,
@@ -892,6 +895,7 @@ fn test_two_txn() -> anyhow::Result<()> {
     };
     let inputs = GenerationInputs {
         signed_txns: vec![txn_0.to_vec(), txn_1.to_vec()],
+        withdrawals: vec![],
         tries: tries_before,
         trie_roots_after,
         contract_code,

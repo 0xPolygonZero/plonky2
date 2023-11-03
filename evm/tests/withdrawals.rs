@@ -1,31 +1,30 @@
 use std::collections::HashMap;
-use std::marker::PhantomData;
 use std::time::Duration;
 
 use env_logger::{try_init_from_env, Env, DEFAULT_FILTER_ENV};
+use eth_trie_utils::nibbles::Nibbles;
 use eth_trie_utils::partial_trie::{HashedPartialTrie, PartialTrie};
-use ethereum_types::H256;
+use ethereum_types::{H160, H256, U256};
 use keccak_hash::keccak;
-use log::info;
 use plonky2::field::goldilocks_field::GoldilocksField;
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
-use plonky2::util::serialization::{DefaultGateSerializer, DefaultGeneratorSerializer};
 use plonky2::util::timing::TimingTree;
 use plonky2_evm::all_stark::AllStark;
 use plonky2_evm::config::StarkConfig;
 use plonky2_evm::fixed_recursive_verifier::AllRecursiveCircuits;
+use plonky2_evm::generation::mpt::AccountRlp;
 use plonky2_evm::generation::{GenerationInputs, TrieInputs};
 use plonky2_evm::proof::{BlockHashes, BlockMetadata, TrieRoots};
 use plonky2_evm::Node;
+use rand::random;
 
 type F = GoldilocksField;
 const D: usize = 2;
 type C = PoseidonGoldilocksConfig;
 
-/// Execute the empty list of transactions, i.e. a no-op.
+/// Execute 0 txns and 1 withdrawal.
 #[test]
-#[ignore] // Too slow to run on CI.
-fn test_empty_txn_list() -> anyhow::Result<()> {
+fn test_withdrawals() -> anyhow::Result<()> {
     init_logger();
 
     let all_stark = AllStark::<F, D>::default();
@@ -33,7 +32,7 @@ fn test_empty_txn_list() -> anyhow::Result<()> {
 
     let block_metadata = BlockMetadata::default();
 
-    let state_trie = HashedPartialTrie::from(Node::Empty);
+    let state_trie_before = HashedPartialTrie::from(Node::Empty);
     let transactions_trie = HashedPartialTrie::from(Node::Empty);
     let receipts_trie = HashedPartialTrie::from(Node::Empty);
     let storage_tries = vec![];
@@ -41,17 +40,32 @@ fn test_empty_txn_list() -> anyhow::Result<()> {
     let mut contract_code = HashMap::new();
     contract_code.insert(keccak(vec![]), vec![]);
 
-    // No transactions, so no trie roots change.
+    // Just one withdrawal.
+    let withdrawals = vec![(H160(random()), U256(random()))];
+
+    let state_trie_after = {
+        let mut trie = HashedPartialTrie::from(Node::Empty);
+        let addr_state_key = keccak(withdrawals[0].0);
+        let addr_nibbles = Nibbles::from_bytes_be(addr_state_key.as_bytes()).unwrap();
+        let account = AccountRlp {
+            balance: withdrawals[0].1,
+            ..AccountRlp::default()
+        };
+        trie.insert(addr_nibbles, rlp::encode(&account).to_vec());
+        trie
+    };
+
     let trie_roots_after = TrieRoots {
-        state_root: state_trie.hash(),
+        state_root: state_trie_after.hash(),
         transactions_root: transactions_trie.hash(),
         receipts_root: receipts_trie.hash(),
     };
+
     let inputs = GenerationInputs {
         signed_txns: vec![],
-        withdrawals: vec![],
+        withdrawals,
         tries: TrieInputs {
-            state_trie,
+            state_trie: state_trie_before,
             transactions_trie,
             receipts_trie,
             storage_tries,
@@ -78,47 +92,11 @@ fn test_empty_txn_list() -> anyhow::Result<()> {
         &config,
     );
 
-    {
-        let gate_serializer = DefaultGateSerializer;
-        let generator_serializer = DefaultGeneratorSerializer {
-            _phantom: PhantomData::<C>,
-        };
-
-        let timing = TimingTree::new("serialize AllRecursiveCircuits", log::Level::Info);
-        let all_circuits_bytes = all_circuits
-            .to_bytes(&gate_serializer, &generator_serializer)
-            .map_err(|_| anyhow::Error::msg("AllRecursiveCircuits serialization failed."))?;
-        timing.filter(Duration::from_millis(100)).print();
-        info!(
-            "AllRecursiveCircuits length: {} bytes",
-            all_circuits_bytes.len()
-        );
-
-        let timing = TimingTree::new("deserialize AllRecursiveCircuits", log::Level::Info);
-        let all_circuits_from_bytes = AllRecursiveCircuits::<F, C, D>::from_bytes(
-            &all_circuits_bytes,
-            &gate_serializer,
-            &generator_serializer,
-        )
-        .map_err(|_| anyhow::Error::msg("AllRecursiveCircuits deserialization failed."))?;
-        timing.filter(Duration::from_millis(100)).print();
-
-        assert_eq!(all_circuits, all_circuits_from_bytes);
-    }
-
     let mut timing = TimingTree::new("prove", log::Level::Info);
-    let (root_proof, public_values) =
+    let (root_proof, _public_values) =
         all_circuits.prove_root(&all_stark, &config, inputs, &mut timing)?;
     timing.filter(Duration::from_millis(100)).print();
-    all_circuits.verify_root(root_proof.clone())?;
-
-    // We can duplicate the proofs here because the state hasn't mutated.
-    let (agg_proof, public_values) =
-        all_circuits.prove_aggregation(false, &root_proof, false, &root_proof, public_values)?;
-    all_circuits.verify_aggregation(&agg_proof)?;
-
-    let (block_proof, _) = all_circuits.prove_block(None, &agg_proof, public_values)?;
-    all_circuits.verify_block(&block_proof)
+    all_circuits.verify_root(root_proof.clone())
 }
 
 fn init_logger() {
