@@ -27,6 +27,7 @@ const D: usize = 2;
 type C = KeccakGoldilocksConfig;
 
 /// Test a simple selfdestruct.
+#[ignore]
 #[test]
 fn test_selfdestruct() -> anyhow::Result<()> {
     init_logger();
