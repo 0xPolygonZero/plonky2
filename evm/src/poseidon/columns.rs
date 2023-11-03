@@ -1,14 +1,15 @@
 use std::ops::Range;
 
 use plonky2::field::types::Field;
+use plonky2::hash::poseidon;
 
 use crate::cross_table_lookup::Column;
 
-pub(crate) const POSEIDON_SPONGE_WIDTH: usize = 12;
-pub(crate) const POSEIDON_SPONGE_RATE: usize = 8;
+pub(crate) const POSEIDON_SPONGE_WIDTH: usize = poseidon::SPONGE_WIDTH;
+pub(crate) const POSEIDON_SPONGE_RATE: usize = poseidon::SPONGE_RATE;
+pub(crate) const HALF_N_FULL_ROUNDS: usize = poseidon::HALF_N_FULL_ROUNDS;
+pub(crate) const N_PARTIAL_ROUNDS: usize = poseidon::N_PARTIAL_ROUNDS;
 pub(crate) const POSEIDON_DIGEST: usize = 4;
-pub(crate) const HALF_N_FULL_ROUNDS: usize = 4;
-pub(crate) const N_PARTIAL_ROUNDS: usize = 22;
 
 /// Registers to hold permutation inputs.
 pub fn reg_input_limb(i: usize) -> usize {
@@ -25,23 +26,15 @@ pub fn col_input_limb<F: Field>(i: usize) -> Column<F> {
     Column::single(reg_input_limb(i))
 }
 
+const START_CUBED: usize = POSEIDON_SPONGE_WIDTH;
 /// Holds x^3 for all elements in full rounds.
 pub fn reg_cubed_full(round: usize, i: usize) -> usize {
     debug_assert!(i < POSEIDON_SPONGE_WIDTH);
     debug_assert!(round < 2 * HALF_N_FULL_ROUNDS);
-    POSEIDON_SPONGE_WIDTH + POSEIDON_SPONGE_WIDTH * round + i
+    START_CUBED + POSEIDON_SPONGE_WIDTH * round + i
 }
 
-const START_POWER_6: usize = POSEIDON_SPONGE_WIDTH + 2 * HALF_N_FULL_ROUNDS * POSEIDON_SPONGE_WIDTH;
-
-/// Holds x^6 for all elements in full rounds.
-pub fn reg_power_6_full(round: usize, i: usize) -> usize {
-    debug_assert!(i < POSEIDON_SPONGE_WIDTH);
-    debug_assert!(round < 2 * HALF_N_FULL_ROUNDS);
-    START_POWER_6 + POSEIDON_SPONGE_WIDTH * round + i
-}
-
-const START_OUTPUT_LIMBS: usize = START_POWER_6 + 2 * HALF_N_FULL_ROUNDS * POSEIDON_SPONGE_WIDTH;
+const START_OUTPUT_LIMBS: usize = START_CUBED + 2 * HALF_N_FULL_ROUNDS * POSEIDON_SPONGE_WIDTH;
 
 // The output digest is written in two limbs so we can compare it to
 // the values in `CpuStark`.
@@ -81,14 +74,7 @@ pub fn reg_cubed_partial(round: usize) -> usize {
     START_CUBED_PARTIAL + round
 }
 
-const START_POWER_6_PARTIAL: usize = START_CUBED_PARTIAL + N_PARTIAL_ROUNDS;
-/// Holds x^6 for one element in partial rounds.
-pub fn reg_power_6_partial(round: usize) -> usize {
-    debug_assert!(round < N_PARTIAL_ROUNDS);
-    START_POWER_6_PARTIAL + round
-}
-
-const START_FULL_0: usize = START_POWER_6_PARTIAL + N_PARTIAL_ROUNDS;
+const START_FULL_0: usize = START_CUBED_PARTIAL + N_PARTIAL_ROUNDS;
 
 /// A column which stores the input of the `i`-th S-box of the `round`-th round of the first set
 /// of full rounds.

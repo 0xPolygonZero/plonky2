@@ -16,9 +16,9 @@ use super::columns::{
     col_input_limb, col_output_limb, full_sbox_0, full_sbox_1, is_final_len_range, partial_sbox,
     reg_address, reg_already_absorbed_elements, reg_cubed_full, reg_cubed_partial,
     reg_input_capacity, reg_input_limb, reg_is_final_input_len, reg_len, reg_output_capacity,
-    reg_output_digest_range, reg_output_limb, reg_output_non_digest_range, reg_power_6_full,
-    reg_power_6_partial, reg_timestamp, HALF_N_FULL_ROUNDS, IS_FULL_INPUT_BLOCK, NUM_COLUMNS,
-    N_PARTIAL_ROUNDS, POSEIDON_DIGEST, POSEIDON_SPONGE_RATE, POSEIDON_SPONGE_WIDTH,
+    reg_output_digest_range, reg_output_limb, reg_output_non_digest_range, reg_timestamp,
+    HALF_N_FULL_ROUNDS, IS_FULL_INPUT_BLOCK, NUM_COLUMNS, N_PARTIAL_ROUNDS, POSEIDON_DIGEST,
+    POSEIDON_SPONGE_RATE, POSEIDON_SPONGE_WIDTH,
 };
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cross_table_lookup::Column;
@@ -243,10 +243,9 @@ impl<F: RichField + Extendable<D>, const D: usize> PoseidonStark<F, D> {
                 }
                 // Generate x^3 and x^6 for the SBox layer constraints.
                 row[reg_cubed_full(r, i)] = state[i].cube();
-                row[reg_power_6_full(r, i)] = row[reg_cubed_full(r, i)] * row[reg_cubed_full(r, i)];
 
                 // Apply x^7 to the state.
-                state[i] *= row[reg_power_6_full(r, i)];
+                state[i] *= row[reg_cubed_full(r, i)] * row[reg_cubed_full(r, i)];
             }
             state = <F as Poseidon>::mds_layer_field(&state);
             round_ctr += 1;
@@ -257,10 +256,10 @@ impl<F: RichField + Extendable<D>, const D: usize> PoseidonStark<F, D> {
         for r in 0..(N_PARTIAL_ROUNDS - 1) {
             row[partial_sbox(r)] = state[0];
 
-            // Generate x^3 and x^6 for the SBox layer constraints.
+            // Generate x^3 for the SBox layer constraints.
             row[reg_cubed_partial(r)] = state[0] * state[0] * state[0];
-            row[reg_power_6_partial(r)] = row[reg_cubed_partial(r)] * row[reg_cubed_partial(r)];
-            state[0] *= row[reg_power_6_partial(r)];
+
+            state[0] *= row[reg_cubed_partial(r)] * row[reg_cubed_partial(r)];
             state[0] += F::from_canonical_u64(<F as Poseidon>::FAST_PARTIAL_ROUND_CONSTANTS[r]);
             state = <F as Poseidon>::mds_partial_layer_fast_field(&state, r);
         }
@@ -268,10 +267,9 @@ impl<F: RichField + Extendable<D>, const D: usize> PoseidonStark<F, D> {
         row[partial_sbox(N_PARTIAL_ROUNDS - 1)] = state[0];
         // Generate x^3 and x^6 for the SBox layer constraints.
         row[reg_cubed_partial(N_PARTIAL_ROUNDS - 1)] = state[0].cube();
-        row[reg_power_6_partial(N_PARTIAL_ROUNDS - 1)] = row
-            [reg_cubed_partial(N_PARTIAL_ROUNDS - 1)]
+
+        state[0] *= row[reg_cubed_partial(N_PARTIAL_ROUNDS - 1)]
             * row[reg_cubed_partial(N_PARTIAL_ROUNDS - 1)];
-        state[0] *= row[reg_power_6_partial(N_PARTIAL_ROUNDS - 1)];
         state = <F as Poseidon>::mds_partial_layer_fast_field(&state, N_PARTIAL_ROUNDS - 1);
         round_ctr += N_PARTIAL_ROUNDS;
 
@@ -281,19 +279,18 @@ impl<F: RichField + Extendable<D>, const D: usize> PoseidonStark<F, D> {
                 row[full_sbox_1(r, i)] = state[i];
                 // Generate x^3 and x^6 for the SBox layer constraints.
                 row[reg_cubed_full(HALF_N_FULL_ROUNDS + r, i)] = state[i].cube();
-                row[reg_power_6_full(HALF_N_FULL_ROUNDS + r, i)] = row
-                    [reg_cubed_full(HALF_N_FULL_ROUNDS + r, i)]
+
+                state[i] *= row[reg_cubed_full(HALF_N_FULL_ROUNDS + r, i)]
                     * row[reg_cubed_full(HALF_N_FULL_ROUNDS + r, i)];
-                state[i] *= row[reg_power_6_full(HALF_N_FULL_ROUNDS + r, i)];
             }
             state = <F as Poseidon>::mds_layer_field(&state);
             round_ctr += 1;
         }
 
         for i in 0..POSEIDON_DIGEST {
-            row[reg_output_limb(i)] = F::from_canonical_u32(state[i].to_canonical_u64() as u32);
-            row[reg_output_limb(i) + 1] =
-                F::from_canonical_u32((state[i].to_canonical_u64() >> 32) as u32);
+            let state_val = state[i].to_canonical_u64();
+            row[reg_output_limb(i)] = F::from_canonical_u32(state_val as u32);
+            row[reg_output_limb(i) + 1] = F::from_canonical_u32((state_val >> 32) as u32);
         }
         row[reg_output_non_digest_range()]
             .copy_from_slice(&state[POSEIDON_DIGEST..POSEIDON_SPONGE_WIDTH]);
@@ -426,23 +423,21 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for PoseidonStark
         let mut round_ctr = 0;
 
         // First set of full rounds.
-        let filter = is_final_block + is_full_input_block;
         for r in 0..HALF_N_FULL_ROUNDS {
             <F as Poseidon>::constant_layer_packed_field(&mut state, round_ctr);
 
             for i in 0..POSEIDON_SPONGE_WIDTH {
                 if r != 0 {
                     let sbox_in = lv[full_sbox_0(r, i)];
-                    yield_constr.constraint(filter * (state[i] - sbox_in));
+                    yield_constr.constraint(state[i] - sbox_in);
                     state[i] = sbox_in;
                 }
 
                 // Check that the powers were correctly generated.
                 let cube = state[i] * state[i] * state[i];
                 yield_constr.constraint(cube - lv[reg_cubed_full(r, i)]);
-                let power_6 = lv[reg_cubed_full(r, i)] * lv[reg_cubed_full(r, i)];
-                yield_constr.constraint(power_6 - lv[reg_power_6_full(r, i)]);
-                state[i] *= lv[reg_power_6_full(r, i)];
+
+                state[i] *= lv[reg_cubed_full(r, i)] * lv[reg_cubed_full(r, i)];
             }
 
             state = <F as Poseidon>::mds_layer_packed_field(&state);
@@ -454,32 +449,29 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for PoseidonStark
         state = <F as Poseidon>::mds_partial_layer_packed_init(&state);
         for r in 0..(N_PARTIAL_ROUNDS - 1) {
             let sbox_in = lv[partial_sbox(r)];
-            yield_constr.constraint(filter * (state[0] - sbox_in));
+            yield_constr.constraint(state[0] - sbox_in);
             state[0] = sbox_in;
 
             // Check that the powers were generated correctly.
             let cube = state[0] * state[0] * state[0];
             yield_constr.constraint(cube - lv[reg_cubed_partial(r)]);
-            let power_6 = lv[reg_cubed_partial(r)] * lv[reg_cubed_partial(r)];
-            yield_constr.constraint(power_6 - lv[reg_power_6_partial(r)]);
 
-            state[0] = lv[reg_power_6_partial(r)] * sbox_in;
+            state[0] = lv[reg_cubed_partial(r)] * lv[reg_cubed_partial(r)] * sbox_in;
             state[0] +=
                 P::Scalar::from_canonical_u64(<F as Poseidon>::FAST_PARTIAL_ROUND_CONSTANTS[r]);
             state = <F as Poseidon>::mds_partial_layer_fast_packed_field(&state, r);
         }
         let sbox_in = lv[partial_sbox(N_PARTIAL_ROUNDS - 1)];
-        yield_constr.constraint(filter * (state[0] - sbox_in));
+        yield_constr.constraint(state[0] - sbox_in);
         state[0] = sbox_in;
 
         // Check that the powers were generated correctly.
         let cube = state[0] * state[0] * state[0];
         yield_constr.constraint(cube - lv[reg_cubed_partial(N_PARTIAL_ROUNDS - 1)]);
-        let power_6 = lv[reg_cubed_partial(N_PARTIAL_ROUNDS - 1)]
-            * lv[reg_cubed_partial(N_PARTIAL_ROUNDS - 1)];
-        yield_constr.constraint(power_6 - lv[reg_power_6_partial(N_PARTIAL_ROUNDS - 1)]);
 
-        state[0] = lv[reg_power_6_partial(N_PARTIAL_ROUNDS - 1)] * sbox_in;
+        state[0] = lv[reg_cubed_partial(N_PARTIAL_ROUNDS - 1)]
+            * lv[reg_cubed_partial(N_PARTIAL_ROUNDS - 1)]
+            * sbox_in;
         state = <F as Poseidon>::mds_partial_layer_fast_packed_field(&state, N_PARTIAL_ROUNDS - 1);
         round_ctr += N_PARTIAL_ROUNDS;
 
@@ -488,16 +480,15 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for PoseidonStark
             <F as Poseidon>::constant_layer_packed_field(&mut state, round_ctr);
             for i in 0..POSEIDON_SPONGE_WIDTH {
                 let sbox_in = lv[full_sbox_1(r, i)];
-                yield_constr.constraint(filter * (state[i] - sbox_in));
+                yield_constr.constraint(state[i] - sbox_in);
                 state[i] = sbox_in;
 
                 // Check that the powers were correctly generated.
                 let cube = state[i] * state[i] * state[i];
                 yield_constr.constraint(cube - lv[reg_cubed_full(HALF_N_FULL_ROUNDS + r, i)]);
-                let power_6 = lv[reg_cubed_full(HALF_N_FULL_ROUNDS + r, i)]
+
+                state[i] *= lv[reg_cubed_full(HALF_N_FULL_ROUNDS + r, i)]
                     * lv[reg_cubed_full(HALF_N_FULL_ROUNDS + r, i)];
-                yield_constr.constraint(power_6 - lv[reg_power_6_full(HALF_N_FULL_ROUNDS + r, i)]);
-                state[i] *= lv[reg_power_6_full(HALF_N_FULL_ROUNDS + r, i)];
             }
             state = <F as Poseidon>::mds_layer_packed_field(&state);
             round_ctr += 1;
@@ -505,14 +496,13 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for PoseidonStark
 
         for i in 0..POSEIDON_DIGEST {
             yield_constr.constraint(
-                filter
-                    * (state[i]
-                        - (lv[reg_output_limb(i)]
-                            + lv[reg_output_limb(i) + 1] * P::Scalar::from_canonical_u64(1 << 32))),
+                state[i]
+                    - (lv[reg_output_limb(i)]
+                        + lv[reg_output_limb(i) + 1] * P::Scalar::from_canonical_u64(1 << 32)),
             );
         }
         for i in POSEIDON_DIGEST..POSEIDON_SPONGE_WIDTH {
-            yield_constr.constraint(filter * (state[i] - lv[reg_output_limb(i)]))
+            yield_constr.constraint(state[i] - lv[reg_output_limb(i)])
         }
     }
 
@@ -634,14 +624,12 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for PoseidonStark
         let mut round_ctr = 0;
 
         // First set of full rounds.
-        let filter = builder.add_extension(is_final_block, is_full_input_block);
         for r in 0..HALF_N_FULL_ROUNDS {
             <F as Poseidon>::constant_layer_circuit(builder, &mut state, round_ctr);
             for i in 0..POSEIDON_SPONGE_WIDTH {
                 if r != 0 {
                     let sbox_in = lv[full_sbox_0(r, i)];
-                    let mut constr = builder.sub_extension(state[i], sbox_in);
-                    constr = builder.mul_extension(filter, constr);
+                    let constr = builder.sub_extension(state[i], sbox_in);
                     yield_constr.constraint(builder, constr);
                     state[i] = sbox_in;
                 }
@@ -650,15 +638,13 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for PoseidonStark
                 let cube = builder.mul_many_extension([state[i], state[i], state[i]]);
                 let constr = builder.sub_extension(cube, lv[reg_cubed_full(r, i)]);
                 yield_constr.constraint(builder, constr);
-                let power_6_constr = builder.mul_sub_extension(
-                    lv[reg_cubed_full(r, i)],
-                    lv[reg_cubed_full(r, i)],
-                    lv[reg_power_6_full(r, i)],
-                );
-                yield_constr.constraint(builder, power_6_constr);
 
                 // Update the i'th element of the state.
-                state[i] = builder.mul_extension(state[i], lv[reg_power_6_full(r, i)]);
+                state[i] = builder.mul_many_extension([
+                    state[i],
+                    lv[reg_cubed_full(r, i)],
+                    lv[reg_cubed_full(r, i)],
+                ]);
             }
 
             state = <F as Poseidon>::mds_layer_circuit(builder, &state);
@@ -670,8 +656,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for PoseidonStark
         state = <F as Poseidon>::mds_partial_layer_init_circuit(builder, &state);
         for r in 0..(N_PARTIAL_ROUNDS - 1) {
             let sbox_in = lv[partial_sbox(r)];
-            let mut constr = builder.sub_extension(state[0], sbox_in);
-            constr = builder.mul_extension(filter, constr);
+            let constr = builder.sub_extension(state[0], sbox_in);
             yield_constr.constraint(builder, constr);
             state[0] = sbox_in;
 
@@ -679,15 +664,13 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for PoseidonStark
             let cube = builder.mul_many_extension([state[0], state[0], state[0]]);
             let constr = builder.sub_extension(cube, lv[reg_cubed_partial(r)]);
             yield_constr.constraint(builder, constr);
-            let power_6_constr = builder.mul_sub_extension(
-                lv[reg_cubed_partial(r)],
-                lv[reg_cubed_partial(r)],
-                lv[reg_power_6_partial(r)],
-            );
-            yield_constr.constraint(builder, power_6_constr);
 
             // Update state[0].
-            state[0] = builder.mul_extension(lv[reg_power_6_partial(r)], sbox_in);
+            state[0] = builder.mul_many_extension([
+                lv[reg_cubed_partial(r)],
+                lv[reg_cubed_partial(r)],
+                sbox_in,
+            ]);
             state[0] = builder.add_const_extension(
                 state[0],
                 F::from_canonical_u64(<F as Poseidon>::FAST_PARTIAL_ROUND_CONSTANTS[r]),
@@ -695,8 +678,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for PoseidonStark
             state = <F as Poseidon>::mds_partial_layer_fast_circuit(builder, &state, r);
         }
         let sbox_in = lv[partial_sbox(N_PARTIAL_ROUNDS - 1)];
-        let mut constr = builder.sub_extension(state[0], sbox_in);
-        constr = builder.mul_extension(filter, constr);
+        let constr = builder.sub_extension(state[0], sbox_in);
         yield_constr.constraint(builder, constr);
         state[0] = sbox_in;
 
@@ -704,14 +686,12 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for PoseidonStark
         let mut constr = builder.mul_many_extension([state[0], state[0], state[0]]);
         constr = builder.sub_extension(constr, lv[reg_cubed_partial(N_PARTIAL_ROUNDS - 1)]);
         yield_constr.constraint(builder, constr);
-        let power_6_constr = builder.mul_sub_extension(
-            lv[reg_cubed_partial(N_PARTIAL_ROUNDS - 1)],
-            lv[reg_cubed_partial(N_PARTIAL_ROUNDS - 1)],
-            lv[reg_power_6_partial(N_PARTIAL_ROUNDS - 1)],
-        );
-        yield_constr.constraint(builder, power_6_constr);
 
-        state[0] = builder.mul_extension(lv[reg_power_6_partial(N_PARTIAL_ROUNDS - 1)], sbox_in);
+        state[0] = builder.mul_many_extension([
+            lv[reg_cubed_partial(N_PARTIAL_ROUNDS - 1)],
+            lv[reg_cubed_partial(N_PARTIAL_ROUNDS - 1)],
+            sbox_in,
+        ]);
         state =
             <F as Poseidon>::mds_partial_layer_fast_circuit(builder, &state, N_PARTIAL_ROUNDS - 1);
         round_ctr += N_PARTIAL_ROUNDS;
@@ -721,8 +701,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for PoseidonStark
             <F as Poseidon>::constant_layer_circuit(builder, &mut state, round_ctr);
             for i in 0..POSEIDON_SPONGE_WIDTH {
                 let sbox_in = lv[full_sbox_1(r, i)];
-                let mut constr = builder.sub_extension(state[i], sbox_in);
-                constr = builder.mul_extension(filter, constr);
+                let constr = builder.sub_extension(state[i], sbox_in);
                 yield_constr.constraint(builder, constr);
                 state[i] = sbox_in;
 
@@ -731,16 +710,13 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for PoseidonStark
                 constr =
                     builder.sub_extension(constr, lv[reg_cubed_full(HALF_N_FULL_ROUNDS + r, i)]);
                 yield_constr.constraint(builder, constr);
-                let power_6_constr = builder.mul_sub_extension(
-                    lv[reg_cubed_full(HALF_N_FULL_ROUNDS + r, i)],
-                    lv[reg_cubed_full(HALF_N_FULL_ROUNDS + r, i)],
-                    lv[reg_power_6_full(HALF_N_FULL_ROUNDS + r, i)],
-                );
-                yield_constr.constraint(builder, power_6_constr);
 
                 // Update the i'th element of the state.
-                state[i] = builder
-                    .mul_extension(state[i], lv[reg_power_6_full(HALF_N_FULL_ROUNDS + r, i)]);
+                state[i] = builder.mul_many_extension([
+                    lv[reg_cubed_full(HALF_N_FULL_ROUNDS + r, i)],
+                    lv[reg_cubed_full(HALF_N_FULL_ROUNDS + r, i)],
+                    state[i],
+                ]);
             }
 
             state = <F as Poseidon>::mds_layer_circuit(builder, &state);
@@ -753,13 +729,11 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for PoseidonStark
                 lv[reg_output_limb(i) + 1],
                 lv[reg_output_limb(i)],
             );
-            let mut constr = builder.sub_extension(state[i], val);
-            constr = builder.mul_extension(filter, constr);
+            let constr = builder.sub_extension(state[i], val);
             yield_constr.constraint(builder, constr);
         }
-        for i in POSEIDON_DIGEST..POSEIDON_SPONGE_RATE {
-            let mut constr = builder.sub_extension(state[i], lv[reg_output_limb(i)]);
-            constr = builder.mul_extension(filter, constr);
+        for i in POSEIDON_DIGEST..POSEIDON_SPONGE_WIDTH {
+            let constr = builder.sub_extension(state[i], lv[reg_output_limb(i)]);
             yield_constr.constraint(builder, constr);
         }
     }
