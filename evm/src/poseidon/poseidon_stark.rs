@@ -1,3 +1,4 @@
+use std::borrow::Borrow;
 use std::iter::once;
 use std::marker::PhantomData;
 
@@ -13,12 +14,10 @@ use plonky2::timed;
 use plonky2::util::timing::TimingTree;
 
 use super::columns::{
-    col_input_limb, col_output_limb, full_sbox_0, full_sbox_1, is_final_len_range, partial_sbox,
-    reg_address, reg_already_absorbed_elements, reg_cubed_full, reg_cubed_partial,
-    reg_input_capacity, reg_input_limb, reg_is_final_input_len, reg_len, reg_output_capacity,
-    reg_output_digest_range, reg_output_limb, reg_output_non_digest_range, reg_pinv_digest,
-    reg_timestamp, HALF_N_FULL_ROUNDS, IS_FULL_INPUT_BLOCK, NUM_COLUMNS, N_PARTIAL_ROUNDS,
-    POSEIDON_DIGEST, POSEIDON_SPONGE_RATE, POSEIDON_SPONGE_WIDTH,
+    reg_cubed_full, reg_cubed_partial, reg_full_sbox_0, reg_full_sbox_1, reg_input_capacity,
+    reg_output_capacity, reg_partial_sbox, PoseidonColumnsView, HALF_N_FULL_ROUNDS, NUM_COLUMNS,
+    N_PARTIAL_ROUNDS, POSEIDON_COL_MAP, POSEIDON_DIGEST, POSEIDON_SPONGE_RATE,
+    POSEIDON_SPONGE_WIDTH,
 };
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cross_table_lookup::Column;
@@ -28,13 +27,14 @@ use crate::util::trace_rows_to_poly_values;
 use crate::witness::memory::MemoryAddress;
 
 pub fn ctl_looked_data<F: Field>() -> Vec<Column<F>> {
-    let outputs: Vec<Column<F>> = Column::singles(reg_output_digest_range()).collect();
+    let cols = POSEIDON_COL_MAP;
+    let outputs: Vec<Column<F>> = Column::singles(cols.digest).collect();
     let mut res: Vec<_> = Column::singles([
-        reg_address(),
-        reg_address() + 1,
-        reg_address() + 2,
-        reg_len(),
-        reg_timestamp(),
+        cols.context,
+        cols.segment,
+        cols.virt,
+        cols.len,
+        cols.timestamp,
     ])
     .collect();
     res.extend(outputs);
@@ -42,26 +42,27 @@ pub fn ctl_looked_data<F: Field>() -> Vec<Column<F>> {
 }
 
 pub fn ctl_looked_filter<F: Field>() -> Column<F> {
-    Column::sum(is_final_len_range())
+    Column::sum(POSEIDON_COL_MAP.is_final_input_len)
 }
 
 pub fn ctl_looking_memory<F: Field>(i: usize) -> Vec<Column<F>> {
+    let cols = POSEIDON_COL_MAP;
     let mut res = vec![Column::constant(F::ONE)]; // is_read
 
-    res.extend(Column::singles([reg_address(), reg_address() + 1]));
+    res.extend(Column::singles([cols.context, cols.segment]));
 
     res.push(Column::linear_combination_with_constant(
         [
-            (reg_address() + 2, F::ONE),
-            (reg_already_absorbed_elements(), F::ONE),
+            (cols.virt, F::ONE),
+            (cols.already_absorbed_elements, F::ONE),
         ],
         F::from_canonical_usize(i),
     ));
 
-    res.push(Column::single(reg_input_limb(i)));
+    res.push(Column::single(cols.input[i]));
     res.extend((1..8).map(|_| Column::zero()));
 
-    res.push(Column::single(reg_timestamp()));
+    res.push(Column::single(cols.timestamp));
 
     assert_eq!(
         res.len(),
@@ -72,19 +73,12 @@ pub fn ctl_looking_memory<F: Field>(i: usize) -> Vec<Column<F>> {
 }
 
 pub fn ctl_looking_memory_filter<F: Field>(i: usize) -> Column<F> {
+    let cols = POSEIDON_COL_MAP;
     if i == POSEIDON_SPONGE_RATE - 1 {
-        Column::single(IS_FULL_INPUT_BLOCK)
+        Column::single(cols.is_full_input_block)
     } else {
-        let range: Vec<usize> =
-            (is_final_len_range().start + i + 1..is_final_len_range().end).collect();
-        Column::sum(once(&IS_FULL_INPUT_BLOCK).chain(&range))
+        Column::sum(once(&cols.is_full_input_block).chain(&cols.is_final_input_len[i + 1..]))
     }
-}
-
-pub fn ctl_data<F: Field>() -> Vec<Column<F>> {
-    let mut res: Vec<_> = (0..POSEIDON_SPONGE_WIDTH).map(col_input_limb).collect();
-    res.extend((0..POSEIDON_SPONGE_WIDTH).map(col_output_limb));
-    res
 }
 
 #[derive(Clone, Debug)]
@@ -134,12 +128,13 @@ impl<F: RichField + Extendable<D>, const D: usize> PoseidonStark<F, D> {
 
         // We generate "actual" rows for padding to avoid having to store
         // another power of x, on top of x^3 and x^6.
-        let padding_row = {
-            let mut tmp_row = [F::ZERO; NUM_COLUMNS];
+        let padding_row: [F; NUM_COLUMNS] = {
+            let mut tmp_row = PoseidonColumnsView::default();
             let padding_inp = [F::ZERO; POSEIDON_SPONGE_WIDTH];
             Self::generate_perm(&mut tmp_row, padding_inp);
             tmp_row
-        };
+        }
+        .into();
         while rows.len() < num_rows {
             rows.push(padding_row);
         }
@@ -170,11 +165,10 @@ impl<F: RichField + Extendable<D>, const D: usize> PoseidonStark<F, D> {
             };
             // Update state.
             for i in 0..POSEIDON_DIGEST {
-                state[i] = row[reg_output_limb(i)]
-                    + F::from_canonical_u64(1 << 32) * row[reg_output_limb(i) + 1];
+                state[i] =
+                    row.digest[2 * i] + F::from_canonical_u64(1 << 32) * row.digest[2 * i + 1];
             }
-            state[POSEIDON_DIGEST..POSEIDON_SPONGE_WIDTH]
-                .copy_from_slice(&row[reg_output_non_digest_range()]);
+            state[POSEIDON_DIGEST..POSEIDON_SPONGE_WIDTH].copy_from_slice(&row.output_partial);
 
             rows.push(row.into());
         }
@@ -182,17 +176,17 @@ impl<F: RichField + Extendable<D>, const D: usize> PoseidonStark<F, D> {
     }
 
     fn generate_commons(
-        row: &mut [F; NUM_COLUMNS],
+        row: &mut PoseidonColumnsView<F>,
         input: [F; POSEIDON_SPONGE_WIDTH],
         op: &PoseidonOp,
         already_absorbed_elements: usize,
     ) {
-        row[reg_address()] = F::from_canonical_usize(op.base_address.context);
-        row[reg_address() + 1] = F::from_canonical_usize(op.base_address.segment);
-        row[reg_address() + 2] = F::from_canonical_usize(op.base_address.virt);
-        row[reg_timestamp()] = F::from_canonical_usize(op.timestamp);
-        row[reg_len()] = F::from_canonical_usize(op.len);
-        row[reg_already_absorbed_elements()] = F::from_canonical_usize(already_absorbed_elements);
+        row.context = F::from_canonical_usize(op.base_address.context);
+        row.segment = F::from_canonical_usize(op.base_address.segment);
+        row.virt = F::from_canonical_usize(op.base_address.virt);
+        row.timestamp = F::from_canonical_usize(op.timestamp);
+        row.len = F::from_canonical_usize(op.len);
+        row.already_absorbed_elements = F::from_canonical_usize(already_absorbed_elements);
 
         Self::generate_perm(row, input);
     }
@@ -202,9 +196,9 @@ impl<F: RichField + Extendable<D>, const D: usize> PoseidonStark<F, D> {
         input: [F; POSEIDON_SPONGE_WIDTH],
         op: &PoseidonOp,
         already_absorbed_elements: usize,
-    ) -> [F; NUM_COLUMNS] {
-        let mut row = [F::ZERO; NUM_COLUMNS];
-        row[IS_FULL_INPUT_BLOCK] = F::ONE;
+    ) -> PoseidonColumnsView<F> {
+        let mut row = PoseidonColumnsView::default();
+        row.is_full_input_block = F::ONE;
 
         Self::generate_commons(&mut row, input, op, already_absorbed_elements);
         row
@@ -215,19 +209,17 @@ impl<F: RichField + Extendable<D>, const D: usize> PoseidonStark<F, D> {
         input: [F; POSEIDON_SPONGE_WIDTH],
         op: &PoseidonOp,
         already_absorbed_elements: usize,
-    ) -> [F; NUM_COLUMNS] {
-        let mut row = [F::ZERO; NUM_COLUMNS];
-        row[reg_is_final_input_len(op.len % POSEIDON_SPONGE_RATE)] = F::ONE;
+    ) -> PoseidonColumnsView<F> {
+        let mut row = PoseidonColumnsView::default();
+        row.is_final_input_len[op.len % POSEIDON_SPONGE_RATE] = F::ONE;
 
         Self::generate_commons(&mut row, input, op, already_absorbed_elements);
         row
     }
 
-    fn generate_perm(row: &mut [F; NUM_COLUMNS], input: [F; POSEIDON_SPONGE_WIDTH]) {
+    fn generate_perm(row: &mut PoseidonColumnsView<F>, input: [F; POSEIDON_SPONGE_WIDTH]) {
         // Populate the round input for the first round.
-        for i in 0..POSEIDON_SPONGE_WIDTH {
-            row[reg_input_limb(i)] = input[i];
-        }
+        row.input.copy_from_slice(&input);
 
         let mut state: [F; POSEIDON_SPONGE_WIDTH] = input;
         let mut round_ctr = 0;
@@ -239,13 +231,14 @@ impl<F: RichField + Extendable<D>, const D: usize> PoseidonStark<F, D> {
                 // We do not need to store the first full_sbox_0 inputs, since they are
                 // the permutation's inputs.
                 if r != 0 {
-                    row[full_sbox_0(r, i)] = state[i];
+                    row.full_sbox_0[reg_full_sbox_0(r, i)] = state[i];
                 }
                 // Generate x^3 and x^6 for the SBox layer constraints.
-                row[reg_cubed_full(r, i)] = state[i].cube();
+                row.cubed_full[reg_cubed_full(r, i)] = state[i].cube();
 
                 // Apply x^7 to the state.
-                state[i] *= row[reg_cubed_full(r, i)] * row[reg_cubed_full(r, i)];
+                state[i] *=
+                    row.cubed_full[reg_cubed_full(r, i)] * row.cubed_full[reg_cubed_full(r, i)];
             }
             state = <F as Poseidon>::mds_layer_field(&state);
             round_ctr += 1;
@@ -254,34 +247,35 @@ impl<F: RichField + Extendable<D>, const D: usize> PoseidonStark<F, D> {
         <F as Poseidon>::partial_first_constant_layer(&mut state);
         state = <F as Poseidon>::mds_partial_layer_init(&state);
         for r in 0..(N_PARTIAL_ROUNDS - 1) {
-            row[partial_sbox(r)] = state[0];
+            row.partial_sbox[reg_partial_sbox(r)] = state[0];
 
             // Generate x^3 for the SBox layer constraints.
-            row[reg_cubed_partial(r)] = state[0] * state[0] * state[0];
+            row.cubed_partial[reg_cubed_partial(r)] = state[0] * state[0] * state[0];
 
-            state[0] *= row[reg_cubed_partial(r)] * row[reg_cubed_partial(r)];
+            state[0] *=
+                row.cubed_partial[reg_cubed_partial(r)] * row.cubed_partial[reg_cubed_partial(r)];
             state[0] += F::from_canonical_u64(<F as Poseidon>::FAST_PARTIAL_ROUND_CONSTANTS[r]);
             state = <F as Poseidon>::mds_partial_layer_fast_field(&state, r);
         }
 
-        row[partial_sbox(N_PARTIAL_ROUNDS - 1)] = state[0];
+        row.partial_sbox[reg_partial_sbox(N_PARTIAL_ROUNDS - 1)] = state[0];
         // Generate x^3 and x^6 for the SBox layer constraints.
-        row[reg_cubed_partial(N_PARTIAL_ROUNDS - 1)] = state[0].cube();
+        row.cubed_partial[reg_cubed_partial(N_PARTIAL_ROUNDS - 1)] = state[0].cube();
 
-        state[0] *= row[reg_cubed_partial(N_PARTIAL_ROUNDS - 1)]
-            * row[reg_cubed_partial(N_PARTIAL_ROUNDS - 1)];
+        state[0] *= row.cubed_partial[reg_cubed_partial(N_PARTIAL_ROUNDS - 1)]
+            * row.cubed_partial[reg_cubed_partial(N_PARTIAL_ROUNDS - 1)];
         state = <F as Poseidon>::mds_partial_layer_fast_field(&state, N_PARTIAL_ROUNDS - 1);
         round_ctr += N_PARTIAL_ROUNDS;
 
         for r in 0..HALF_N_FULL_ROUNDS {
             <F as Poseidon>::constant_layer_field(&mut state, round_ctr);
             for i in 0..POSEIDON_SPONGE_WIDTH {
-                row[full_sbox_1(r, i)] = state[i];
+                row.full_sbox_1[reg_full_sbox_1(r, i)] = state[i];
                 // Generate x^3 and x^6 for the SBox layer constraints.
-                row[reg_cubed_full(HALF_N_FULL_ROUNDS + r, i)] = state[i].cube();
+                row.cubed_full[reg_cubed_full(HALF_N_FULL_ROUNDS + r, i)] = state[i].cube();
 
-                state[i] *= row[reg_cubed_full(HALF_N_FULL_ROUNDS + r, i)]
-                    * row[reg_cubed_full(HALF_N_FULL_ROUNDS + r, i)];
+                state[i] *= row.cubed_full[reg_cubed_full(HALF_N_FULL_ROUNDS + r, i)]
+                    * row.cubed_full[reg_cubed_full(HALF_N_FULL_ROUNDS + r, i)];
             }
             state = <F as Poseidon>::mds_layer_field(&state);
             round_ctr += 1;
@@ -290,16 +284,16 @@ impl<F: RichField + Extendable<D>, const D: usize> PoseidonStark<F, D> {
         for i in 0..POSEIDON_DIGEST {
             let state_val = state[i].to_canonical_u64();
             let hi_limb = F::from_canonical_u32((state_val >> 32) as u32);
-            row[reg_pinv_digest(i)] =
+            row.pinv[i] =
                 if let Some(inv) = (hi_limb - F::from_canonical_u32(u32::MAX)).try_inverse() {
                     inv
                 } else {
                     F::ZERO
                 };
-            row[reg_output_limb(i)] = F::from_canonical_u32(state_val as u32);
-            row[reg_output_limb(i) + 1] = hi_limb;
+            row.digest[2 * i] = F::from_canonical_u32(state_val as u32);
+            row.digest[2 * i + 1] = hi_limb;
         }
-        row[reg_output_non_digest_range()]
+        row.output_partial
             .copy_from_slice(&state[POSEIDON_DIGEST..POSEIDON_SPONGE_WIDTH]);
     }
 
@@ -340,17 +334,19 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for PoseidonStark
         FE: FieldExtension<D2, BaseField = F>,
         P: PackedField<Scalar = FE>,
     {
-        let lv = vars.get_local_values();
-        let nv = vars.get_next_values();
+        let lv: &[P; NUM_COLUMNS] = vars.get_local_values().try_into().unwrap();
+        let lv: &PoseidonColumnsView<P> = lv.borrow();
+        let nv: &[P; NUM_COLUMNS] = vars.get_next_values().try_into().unwrap();
+        let nv: &PoseidonColumnsView<P> = nv.borrow();
 
         // Each flag (full-input block, final block or implied dummy flag) must be boolean.
-        let is_full_input_block = lv[IS_FULL_INPUT_BLOCK];
+        let is_full_input_block = lv.is_full_input_block;
         yield_constr.constraint(is_full_input_block * (is_full_input_block - P::ONES));
 
-        let is_final_block: P = lv[is_final_len_range()].iter().copied().sum();
+        let is_final_block: P = lv.is_final_input_len.iter().copied().sum();
         yield_constr.constraint(is_final_block * (is_final_block - P::ONES));
 
-        for &is_final_len in lv[is_final_len_range()].iter() {
+        for &is_final_len in lv.is_final_input_len.iter() {
             yield_constr.constraint(is_final_len * (is_final_len - P::ONES));
         }
 
@@ -361,35 +357,28 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for PoseidonStark
         // first `POSEIDON_SPONGE_RATE` elements followed by 0 for the capacity elements.
         // The input values are checked with a CTL.
         // Also, already_absorbed_elements = 0.
-        let already_absorbed_elements = lv[reg_already_absorbed_elements()];
+        let already_absorbed_elements = lv.already_absorbed_elements;
         yield_constr.constraint_first_row(already_absorbed_elements);
 
-        for i in 0..POSEIDON_SPONGE_WIDTH - POSEIDON_SPONGE_RATE {
-            yield_constr.constraint_first_row(lv[reg_input_capacity(i)]);
+        for i in POSEIDON_SPONGE_RATE..POSEIDON_SPONGE_WIDTH {
+            yield_constr.constraint_first_row(lv.input[i]);
         }
 
         // If this is a final row and there is an upcoming operation, then
         // we make the previous checks for next row's `already_absorbed_elements`
         // and the original sponge state.
-        yield_constr.constraint_transition(is_final_block * nv[reg_already_absorbed_elements()]);
+        yield_constr.constraint_transition(is_final_block * nv.already_absorbed_elements);
 
-        for i in 0..POSEIDON_SPONGE_WIDTH - POSEIDON_SPONGE_RATE {
-            yield_constr.constraint_transition(is_final_block * nv[reg_input_capacity(i)]);
+        for i in POSEIDON_SPONGE_RATE..POSEIDON_SPONGE_WIDTH {
+            yield_constr.constraint_transition(is_final_block * nv.input[i]);
         }
 
         // If this is a full-input block, the next row's address,
         // time and len must match as well as its timestamp.
-        yield_constr
-            .constraint_transition(is_full_input_block * (lv[reg_address()] - nv[reg_address()]));
-        yield_constr.constraint_transition(
-            is_full_input_block * (lv[reg_address() + 1] - nv[reg_address() + 1]),
-        );
-        yield_constr.constraint_transition(
-            is_full_input_block * (lv[reg_address() + 2] - nv[reg_address() + 2]),
-        );
-        yield_constr.constraint_transition(
-            is_full_input_block * (lv[reg_timestamp()] - nv[reg_timestamp()]),
-        );
+        yield_constr.constraint_transition(is_full_input_block * (lv.context - nv.context));
+        yield_constr.constraint_transition(is_full_input_block * (lv.segment - nv.segment));
+        yield_constr.constraint_transition(is_full_input_block * (lv.virt - nv.virt));
+        yield_constr.constraint_transition(is_full_input_block * (lv.timestamp - nv.timestamp));
 
         // If this is a full-input block, the next row's already_absorbed_elements should be ours plus `POSEIDON_SPONGE_RATE`,
         // and the next input's capacity is the current output's capacity.
@@ -397,24 +386,26 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for PoseidonStark
             is_full_input_block
                 * (already_absorbed_elements
                     + P::from(FE::from_canonical_usize(POSEIDON_SPONGE_RATE))
-                    - nv[reg_already_absorbed_elements()]),
+                    - nv.already_absorbed_elements),
         );
 
         for i in 0..POSEIDON_SPONGE_WIDTH - POSEIDON_SPONGE_RATE {
             yield_constr.constraint_transition(
-                is_full_input_block * (lv[reg_output_capacity(i)] - nv[reg_input_capacity(i)]),
+                is_full_input_block
+                    * (lv.output_partial[reg_output_capacity(i)]
+                        - nv.input[POSEIDON_SPONGE_RATE + i]),
             );
         }
 
         // A dummy row is always followed by another dummy row, so the prover can't put dummy rows "in between" to avoid the above checks.
         let is_dummy = P::ONES - is_full_input_block - is_final_block;
-        let next_is_final_block: P = nv[is_final_len_range()].iter().copied().sum();
+        let next_is_final_block: P = nv.is_final_input_len.iter().copied().sum();
         yield_constr
-            .constraint_transition(is_dummy * (nv[IS_FULL_INPUT_BLOCK] + next_is_final_block));
+            .constraint_transition(is_dummy * (nv.is_full_input_block + next_is_final_block));
 
         // If this is a final block, is_final_input_len implies `len - already_absorbed == i`.
-        let offset = lv[reg_len()] - already_absorbed_elements;
-        for (i, &is_final_len) in lv[is_final_len_range()].iter().enumerate() {
+        let offset = lv.len - already_absorbed_elements;
+        for (i, &is_final_len) in lv.is_final_input_len.iter().enumerate() {
             let entry_match = offset - P::from(FE::from_canonical_usize(i));
             yield_constr.constraint(is_final_len * entry_match);
         }
@@ -422,10 +413,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for PoseidonStark
         // Compute the input layer. We assume that, when necessary,
         // input values were previously swapped before being passed
         // to Poseidon.
-        let mut state = [P::ZEROS; POSEIDON_SPONGE_WIDTH];
-        for i in 0..POSEIDON_SPONGE_WIDTH {
-            state[i] = lv[reg_input_limb(i)];
-        }
+        let mut state = lv.input;
 
         let mut round_ctr = 0;
 
@@ -435,16 +423,17 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for PoseidonStark
 
             for i in 0..POSEIDON_SPONGE_WIDTH {
                 if r != 0 {
-                    let sbox_in = lv[full_sbox_0(r, i)];
+                    let sbox_in = lv.full_sbox_0[reg_full_sbox_0(r, i)];
                     yield_constr.constraint(state[i] - sbox_in);
                     state[i] = sbox_in;
                 }
 
                 // Check that the powers were correctly generated.
                 let cube = state[i] * state[i] * state[i];
-                yield_constr.constraint(cube - lv[reg_cubed_full(r, i)]);
+                yield_constr.constraint(cube - lv.cubed_full[reg_cubed_full(r, i)]);
 
-                state[i] *= lv[reg_cubed_full(r, i)] * lv[reg_cubed_full(r, i)];
+                state[i] *=
+                    lv.cubed_full[reg_cubed_full(r, i)] * lv.cubed_full[reg_cubed_full(r, i)];
             }
 
             state = <F as Poseidon>::mds_layer_packed_field(&state);
@@ -455,29 +444,31 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for PoseidonStark
         <F as Poseidon>::partial_first_constant_layer_packed(&mut state);
         state = <F as Poseidon>::mds_partial_layer_packed_init(&state);
         for r in 0..(N_PARTIAL_ROUNDS - 1) {
-            let sbox_in = lv[partial_sbox(r)];
+            let sbox_in = lv.partial_sbox[reg_partial_sbox(r)];
             yield_constr.constraint(state[0] - sbox_in);
             state[0] = sbox_in;
 
             // Check that the powers were generated correctly.
             let cube = state[0] * state[0] * state[0];
-            yield_constr.constraint(cube - lv[reg_cubed_partial(r)]);
+            yield_constr.constraint(cube - lv.cubed_partial[reg_cubed_partial(r)]);
 
-            state[0] = lv[reg_cubed_partial(r)] * lv[reg_cubed_partial(r)] * sbox_in;
+            state[0] = lv.cubed_partial[reg_cubed_partial(r)]
+                * lv.cubed_partial[reg_cubed_partial(r)]
+                * sbox_in;
             state[0] +=
                 P::Scalar::from_canonical_u64(<F as Poseidon>::FAST_PARTIAL_ROUND_CONSTANTS[r]);
             state = <F as Poseidon>::mds_partial_layer_fast_packed_field(&state, r);
         }
-        let sbox_in = lv[partial_sbox(N_PARTIAL_ROUNDS - 1)];
+        let sbox_in = lv.partial_sbox[reg_partial_sbox(N_PARTIAL_ROUNDS - 1)];
         yield_constr.constraint(state[0] - sbox_in);
         state[0] = sbox_in;
 
         // Check that the powers were generated correctly.
         let cube = state[0] * state[0] * state[0];
-        yield_constr.constraint(cube - lv[reg_cubed_partial(N_PARTIAL_ROUNDS - 1)]);
+        yield_constr.constraint(cube - lv.cubed_partial[reg_cubed_partial(N_PARTIAL_ROUNDS - 1)]);
 
-        state[0] = lv[reg_cubed_partial(N_PARTIAL_ROUNDS - 1)]
-            * lv[reg_cubed_partial(N_PARTIAL_ROUNDS - 1)]
+        state[0] = lv.cubed_partial[reg_cubed_partial(N_PARTIAL_ROUNDS - 1)]
+            * lv.cubed_partial[reg_cubed_partial(N_PARTIAL_ROUNDS - 1)]
             * sbox_in;
         state = <F as Poseidon>::mds_partial_layer_fast_packed_field(&state, N_PARTIAL_ROUNDS - 1);
         round_ctr += N_PARTIAL_ROUNDS;
@@ -486,16 +477,17 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for PoseidonStark
         for r in 0..HALF_N_FULL_ROUNDS {
             <F as Poseidon>::constant_layer_packed_field(&mut state, round_ctr);
             for i in 0..POSEIDON_SPONGE_WIDTH {
-                let sbox_in = lv[full_sbox_1(r, i)];
+                let sbox_in = lv.full_sbox_1[reg_full_sbox_1(r, i)];
                 yield_constr.constraint(state[i] - sbox_in);
                 state[i] = sbox_in;
 
                 // Check that the powers were correctly generated.
                 let cube = state[i] * state[i] * state[i];
-                yield_constr.constraint(cube - lv[reg_cubed_full(HALF_N_FULL_ROUNDS + r, i)]);
+                yield_constr
+                    .constraint(cube - lv.cubed_full[reg_cubed_full(HALF_N_FULL_ROUNDS + r, i)]);
 
-                state[i] *= lv[reg_cubed_full(HALF_N_FULL_ROUNDS + r, i)]
-                    * lv[reg_cubed_full(HALF_N_FULL_ROUNDS + r, i)];
+                state[i] *= lv.cubed_full[reg_cubed_full(HALF_N_FULL_ROUNDS + r, i)]
+                    * lv.cubed_full[reg_cubed_full(HALF_N_FULL_ROUNDS + r, i)];
             }
             state = <F as Poseidon>::mds_layer_packed_field(&state);
             round_ctr += 1;
@@ -504,20 +496,20 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for PoseidonStark
         for i in 0..POSEIDON_DIGEST {
             yield_constr.constraint(
                 state[i]
-                    - (lv[reg_output_limb(i)]
-                        + lv[reg_output_limb(i) + 1] * P::Scalar::from_canonical_u64(1 << 32)),
+                    - (lv.digest[2 * i]
+                        + lv.digest[2 * i + 1] * P::Scalar::from_canonical_u64(1 << 32)),
             );
         }
         for i in POSEIDON_DIGEST..POSEIDON_SPONGE_WIDTH {
-            yield_constr.constraint(state[i] - lv[reg_output_limb(i)])
+            yield_constr.constraint(state[i] - lv.output_partial[i - POSEIDON_DIGEST])
         }
 
         // Ensure that the output limbs are written in canonical form.
         for i in 0..POSEIDON_DIGEST {
-            let constr = ((lv[reg_output_limb(i) + 1] - P::Scalar::from_canonical_u32(u32::MAX))
-                * lv[reg_pinv_digest(i)]
+            let constr = ((lv.digest[2 * i + 1] - P::Scalar::from_canonical_u32(u32::MAX))
+                * lv.pinv[i]
                 - P::ONES)
-                * lv[reg_output_limb(i)];
+                * lv.digest[2 * i];
             yield_constr.constraint(constr);
         }
     }
@@ -528,11 +520,13 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for PoseidonStark
         vars: &Self::EvaluationFrameTarget,
         yield_constr: &mut RecursiveConstraintConsumer<F, D>,
     ) {
-        let lv = vars.get_local_values();
-        let nv = vars.get_next_values();
+        let lv: &[ExtensionTarget<D>; NUM_COLUMNS] = vars.get_local_values().try_into().unwrap();
+        let lv: &PoseidonColumnsView<ExtensionTarget<D>> = lv.borrow();
+        let nv: &[ExtensionTarget<D>; NUM_COLUMNS] = vars.get_next_values().try_into().unwrap();
+        let nv: &PoseidonColumnsView<ExtensionTarget<D>> = nv.borrow();
 
         // Each flag (full-input block, final block or implied dummy flag) must be boolean.
-        let is_full_input_block = lv[IS_FULL_INPUT_BLOCK];
+        let is_full_input_block = lv.is_full_input_block;
         let constr = builder.mul_sub_extension(
             is_full_input_block,
             is_full_input_block,
@@ -540,11 +534,11 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for PoseidonStark
         );
         yield_constr.constraint(builder, constr);
 
-        let is_final_block = builder.add_many_extension(&lv[is_final_len_range()]);
+        let is_final_block = builder.add_many_extension(lv.is_final_input_len);
         let constr = builder.mul_sub_extension(is_final_block, is_final_block, is_final_block);
         yield_constr.constraint(builder, constr);
 
-        for &is_final_len in lv[is_final_len_range()].iter() {
+        for &is_final_len in lv.is_final_input_len.iter() {
             let constr = builder.mul_sub_extension(is_final_len, is_final_len, is_final_len);
             yield_constr.constraint(builder, constr);
         }
@@ -556,45 +550,42 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for PoseidonStark
         // If this is the first row, the original sponge state should have the input in the
         // first `POSEIDON_SPONGE_RATE` elements followed by 0 for the capacity elements.
         // Also, already_absorbed_elements = 0.
-        let already_absorbed_elements = lv[reg_already_absorbed_elements()];
+        let already_absorbed_elements = lv.already_absorbed_elements;
         yield_constr.constraint_first_row(builder, already_absorbed_elements);
 
         for i in 0..POSEIDON_SPONGE_WIDTH - POSEIDON_SPONGE_RATE {
-            yield_constr.constraint_first_row(builder, lv[reg_input_capacity(i)]);
+            yield_constr.constraint_first_row(builder, lv.input[reg_input_capacity(i)]);
         }
 
         // If this is a final row and there is an upcoming operation, then
         // we make the previous checks for next row's `already_absorbed_elements`
         // and the original sponge state.
-        let constr = builder.mul_extension(is_final_block, nv[reg_already_absorbed_elements()]);
+        let constr = builder.mul_extension(is_final_block, nv.already_absorbed_elements);
         yield_constr.constraint_transition(builder, constr);
 
         for i in 0..POSEIDON_SPONGE_WIDTH - POSEIDON_SPONGE_RATE {
-            let constr = builder.mul_extension(is_final_block, nv[reg_input_capacity(i)]);
+            let constr = builder.mul_extension(is_final_block, nv.input[reg_input_capacity(i)]);
             yield_constr.constraint_transition(builder, constr);
         }
 
         // If this is a full-input block, the next row's address,
         // time and len must match as well as its timestamp.
-        let mut constr = builder.sub_extension(lv[reg_address()], nv[reg_address()]);
+        let mut constr = builder.sub_extension(lv.context, nv.context);
         constr = builder.mul_extension(is_full_input_block, constr);
         yield_constr.constraint_transition(builder, constr);
-        let mut constr = builder.sub_extension(lv[reg_address() + 1], nv[reg_address() + 1]);
+        let mut constr = builder.sub_extension(lv.segment, nv.segment);
         constr = builder.mul_extension(is_full_input_block, constr);
         yield_constr.constraint_transition(builder, constr);
-        let mut constr = builder.sub_extension(lv[reg_address() + 2], nv[reg_address() + 2]);
+        let mut constr = builder.sub_extension(lv.virt, nv.virt);
         constr = builder.mul_extension(is_full_input_block, constr);
         yield_constr.constraint_transition(builder, constr);
-        let mut constr = builder.sub_extension(lv[reg_timestamp()], nv[reg_timestamp()]);
+        let mut constr = builder.sub_extension(lv.timestamp, nv.timestamp);
         constr = builder.mul_extension(is_full_input_block, constr);
         yield_constr.constraint_transition(builder, constr);
 
         // If this is a full-input block, the next row's already_absorbed_elements should be ours plus `POSEIDON_SPONGE_RATE`,
         // and the next input's capacity is the current output's capacity.
-        let diff = builder.sub_extension(
-            already_absorbed_elements,
-            nv[reg_already_absorbed_elements()],
-        );
+        let diff = builder.sub_extension(already_absorbed_elements, nv.already_absorbed_elements);
         let constr = builder.arithmetic_extension(
             F::ONE,
             F::from_canonical_usize(POSEIDON_SPONGE_RATE),
@@ -605,8 +596,10 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for PoseidonStark
         yield_constr.constraint_transition(builder, constr);
 
         for i in 0..POSEIDON_SPONGE_WIDTH - POSEIDON_SPONGE_RATE {
-            let mut constr =
-                builder.sub_extension(lv[reg_output_capacity(i)], nv[reg_input_capacity(i)]);
+            let mut constr = builder.sub_extension(
+                lv.output_partial[reg_output_capacity(i)],
+                nv.input[reg_input_capacity(i)],
+            );
             constr = builder.mul_extension(is_full_input_block, constr);
             yield_constr.constraint_transition(builder, constr);
         }
@@ -615,14 +608,14 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for PoseidonStark
         let mut is_dummy = builder.add_extension(is_full_input_block, is_final_block);
         let one = builder.one_extension();
         is_dummy = builder.sub_extension(one, is_dummy);
-        let next_is_final_block = builder.add_many_extension(nv[is_final_len_range()].iter());
-        let mut constr = builder.add_extension(nv[IS_FULL_INPUT_BLOCK], next_is_final_block);
+        let next_is_final_block = builder.add_many_extension(nv.is_final_input_len.iter());
+        let mut constr = builder.add_extension(nv.is_full_input_block, next_is_final_block);
         constr = builder.mul_extension(is_dummy, constr);
         yield_constr.constraint_transition(builder, constr);
 
         // If this is a final block, is_final_input_len implies `len - already_absorbed == i`
-        let offset = builder.sub_extension(lv[reg_len()], already_absorbed_elements);
-        for (i, &is_final_len) in lv[is_final_len_range()].iter().enumerate() {
+        let offset = builder.sub_extension(lv.len, already_absorbed_elements);
+        for (i, &is_final_len) in lv.is_final_input_len.iter().enumerate() {
             let index = builder.constant_extension(F::from_canonical_usize(i).into());
             let entry_match = builder.sub_extension(offset, index);
             let constr = builder.mul_extension(is_final_len, entry_match);
@@ -632,10 +625,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for PoseidonStark
         // Compute the input layer. We assume that, when necessary,
         // input values were previously swapped before being passed
         // to Poseidon.
-        let mut state = [builder.zero_extension(); POSEIDON_SPONGE_WIDTH];
-        for i in 0..POSEIDON_SPONGE_WIDTH {
-            state[i] = lv[reg_input_limb(i)];
-        }
+        let mut state = lv.input;
 
         let mut round_ctr = 0;
 
@@ -644,7 +634,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for PoseidonStark
             <F as Poseidon>::constant_layer_circuit(builder, &mut state, round_ctr);
             for i in 0..POSEIDON_SPONGE_WIDTH {
                 if r != 0 {
-                    let sbox_in = lv[full_sbox_0(r, i)];
+                    let sbox_in = lv.full_sbox_0[reg_full_sbox_0(r, i)];
                     let constr = builder.sub_extension(state[i], sbox_in);
                     yield_constr.constraint(builder, constr);
                     state[i] = sbox_in;
@@ -652,14 +642,14 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for PoseidonStark
 
                 // Check that the powers were correctly generated.
                 let cube = builder.mul_many_extension([state[i], state[i], state[i]]);
-                let constr = builder.sub_extension(cube, lv[reg_cubed_full(r, i)]);
+                let constr = builder.sub_extension(cube, lv.cubed_full[reg_cubed_full(r, i)]);
                 yield_constr.constraint(builder, constr);
 
                 // Update the i'th element of the state.
                 state[i] = builder.mul_many_extension([
                     state[i],
-                    lv[reg_cubed_full(r, i)],
-                    lv[reg_cubed_full(r, i)],
+                    lv.cubed_full[reg_cubed_full(r, i)],
+                    lv.cubed_full[reg_cubed_full(r, i)],
                 ]);
             }
 
@@ -671,20 +661,20 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for PoseidonStark
         <F as Poseidon>::partial_first_constant_layer_circuit(builder, &mut state);
         state = <F as Poseidon>::mds_partial_layer_init_circuit(builder, &state);
         for r in 0..(N_PARTIAL_ROUNDS - 1) {
-            let sbox_in = lv[partial_sbox(r)];
+            let sbox_in = lv.partial_sbox[reg_partial_sbox(r)];
             let constr = builder.sub_extension(state[0], sbox_in);
             yield_constr.constraint(builder, constr);
             state[0] = sbox_in;
 
             // Check that the powers were generated correctly.
             let cube = builder.mul_many_extension([state[0], state[0], state[0]]);
-            let constr = builder.sub_extension(cube, lv[reg_cubed_partial(r)]);
+            let constr = builder.sub_extension(cube, lv.cubed_partial[reg_cubed_partial(r)]);
             yield_constr.constraint(builder, constr);
 
             // Update state[0].
             state[0] = builder.mul_many_extension([
-                lv[reg_cubed_partial(r)],
-                lv[reg_cubed_partial(r)],
+                lv.cubed_partial[reg_cubed_partial(r)],
+                lv.cubed_partial[reg_cubed_partial(r)],
                 sbox_in,
             ]);
             state[0] = builder.add_const_extension(
@@ -693,19 +683,22 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for PoseidonStark
             );
             state = <F as Poseidon>::mds_partial_layer_fast_circuit(builder, &state, r);
         }
-        let sbox_in = lv[partial_sbox(N_PARTIAL_ROUNDS - 1)];
+        let sbox_in = lv.partial_sbox[reg_partial_sbox(N_PARTIAL_ROUNDS - 1)];
         let constr = builder.sub_extension(state[0], sbox_in);
         yield_constr.constraint(builder, constr);
         state[0] = sbox_in;
 
         // Check that the powers were generated correctly.
         let mut constr = builder.mul_many_extension([state[0], state[0], state[0]]);
-        constr = builder.sub_extension(constr, lv[reg_cubed_partial(N_PARTIAL_ROUNDS - 1)]);
+        constr = builder.sub_extension(
+            constr,
+            lv.cubed_partial[reg_cubed_partial(N_PARTIAL_ROUNDS - 1)],
+        );
         yield_constr.constraint(builder, constr);
 
         state[0] = builder.mul_many_extension([
-            lv[reg_cubed_partial(N_PARTIAL_ROUNDS - 1)],
-            lv[reg_cubed_partial(N_PARTIAL_ROUNDS - 1)],
+            lv.cubed_partial[reg_cubed_partial(N_PARTIAL_ROUNDS - 1)],
+            lv.cubed_partial[reg_cubed_partial(N_PARTIAL_ROUNDS - 1)],
             sbox_in,
         ]);
         state =
@@ -716,21 +709,23 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for PoseidonStark
         for r in 0..HALF_N_FULL_ROUNDS {
             <F as Poseidon>::constant_layer_circuit(builder, &mut state, round_ctr);
             for i in 0..POSEIDON_SPONGE_WIDTH {
-                let sbox_in = lv[full_sbox_1(r, i)];
+                let sbox_in = lv.full_sbox_1[reg_full_sbox_1(r, i)];
                 let constr = builder.sub_extension(state[i], sbox_in);
                 yield_constr.constraint(builder, constr);
                 state[i] = sbox_in;
 
                 // Check that the powers were correctly generated.
                 let mut constr = builder.mul_many_extension([state[i], state[i], state[i]]);
-                constr =
-                    builder.sub_extension(constr, lv[reg_cubed_full(HALF_N_FULL_ROUNDS + r, i)]);
+                constr = builder.sub_extension(
+                    constr,
+                    lv.cubed_full[reg_cubed_full(HALF_N_FULL_ROUNDS + r, i)],
+                );
                 yield_constr.constraint(builder, constr);
 
                 // Update the i'th element of the state.
                 state[i] = builder.mul_many_extension([
-                    lv[reg_cubed_full(HALF_N_FULL_ROUNDS + r, i)],
-                    lv[reg_cubed_full(HALF_N_FULL_ROUNDS + r, i)],
+                    lv.cubed_full[reg_cubed_full(HALF_N_FULL_ROUNDS + r, i)],
+                    lv.cubed_full[reg_cubed_full(HALF_N_FULL_ROUNDS + r, i)],
                     state[i],
                 ]);
             }
@@ -742,14 +737,14 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for PoseidonStark
         for i in 0..POSEIDON_DIGEST {
             let val = builder.mul_const_add_extension(
                 F::from_canonical_u64(1 << 32),
-                lv[reg_output_limb(i) + 1],
-                lv[reg_output_limb(i)],
+                lv.digest[2 * i + 1],
+                lv.digest[2 * i],
             );
             let constr = builder.sub_extension(state[i], val);
             yield_constr.constraint(builder, constr);
         }
         for i in POSEIDON_DIGEST..POSEIDON_SPONGE_WIDTH {
-            let constr = builder.sub_extension(state[i], lv[reg_output_limb(i)]);
+            let constr = builder.sub_extension(state[i], lv.output_partial[i - POSEIDON_DIGEST]);
             yield_constr.constraint(builder, constr);
         }
 
@@ -758,12 +753,11 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for PoseidonStark
             let mut constr = builder.arithmetic_extension(
                 F::ONE,
                 F::NEG_ONE * F::from_canonical_u32(u32::MAX),
-                lv[reg_output_limb(i) + 1],
-                lv[reg_pinv_digest(i)],
-                lv[reg_pinv_digest(i)],
+                lv.digest[2 * i + 1],
+                lv.pinv[i],
+                lv.pinv[i],
             );
-            constr =
-                builder.mul_sub_extension(lv[reg_output_limb(i)], constr, lv[reg_output_limb(i)]);
+            constr = builder.mul_sub_extension(lv.digest[2 * i], constr, lv.digest[2 * i]);
 
             yield_constr.constraint(builder, constr);
         }
@@ -776,6 +770,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for PoseidonStark
 
 #[cfg(test)]
 mod tests {
+    use std::borrow::Borrow;
+
     use anyhow::Result;
     use env_logger::{try_init_from_env, Env, DEFAULT_FILTER_ENV};
     use plonky2::field::polynomial::PolynomialValues;
@@ -793,8 +789,7 @@ mod tests {
     };
     use crate::memory::segments::Segment;
     use crate::poseidon::columns::{
-        reg_output_limb, reg_output_non_digest_range, POSEIDON_DIGEST, POSEIDON_SPONGE_RATE,
-        POSEIDON_SPONGE_WIDTH,
+        PoseidonColumnsView, POSEIDON_DIGEST, POSEIDON_SPONGE_RATE, POSEIDON_SPONGE_WIDTH,
     };
     use crate::poseidon::poseidon_stark::{PoseidonOp, PoseidonStark};
     use crate::prover::prove_single_table;
@@ -844,9 +839,7 @@ mod tests {
             input: input
                 .iter()
                 .map(|&inp| inp.to_canonical_u64() as u32)
-                .collect::<Vec<u32>>()
-                .try_into()
-                .unwrap(),
+                .collect::<Vec<u32>>(),
             timestamp: 0,
             len: POSEIDON_SPONGE_RATE,
         };
@@ -861,14 +854,13 @@ mod tests {
 
         let rows = stark.generate_trace_rows(vec![int_inputs], 8);
         assert_eq!(rows.len(), 8);
-        let last_row = rows[0];
+        let last_row: &PoseidonColumnsView<F> = rows[0].borrow();
         let mut output: Vec<_> = (0..POSEIDON_DIGEST)
             .map(|i| {
-                last_row[reg_output_limb(i)]
-                    + F::from_canonical_u64(1 << 32) * last_row[reg_output_limb(i) + 1]
+                last_row.digest[2 * i] + F::from_canonical_u64(1 << 32) * last_row.digest[2 * i + 1]
             })
             .collect();
-        output.extend(&last_row[reg_output_non_digest_range()]);
+        output.extend(&last_row.output_partial);
 
         let mut state = input.to_vec();
         state.extend(vec![F::ZERO; POSEIDON_SPONGE_WIDTH - POSEIDON_SPONGE_RATE]);
@@ -896,8 +888,6 @@ mod tests {
                 (0..POSEIDON_SPONGE_RATE)
                     .map(|_| rand::random())
                     .collect::<Vec<_>>()
-                    .try_into()
-                    .unwrap()
             })
             .collect();
         let ops: Vec<_> = (0..NUM_PERMS)
