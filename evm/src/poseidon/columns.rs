@@ -114,10 +114,6 @@ pub(crate) fn reg_partial_sbox(round: usize) -> usize {
 
 /// Returns the index of the `i`-th input in the `round`-th round within `full_sbox_1`.
 pub(crate) fn reg_full_sbox_1(round: usize, i: usize) -> usize {
-    debug_assert!(
-        round != 0,
-        "First round S-box inputs are not stored as wires"
-    );
     debug_assert!(round < HALF_N_FULL_ROUNDS);
     debug_assert!(i < POSEIDON_SPONGE_WIDTH);
     POSEIDON_SPONGE_WIDTH * round + i
