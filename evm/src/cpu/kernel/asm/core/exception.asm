@@ -1,4 +1,4 @@
-// These exception codes are arbitary and assigned by us.
+// These exception codes are arbitrary and assigned by us.
 global exception_jumptable:
     // exception 0: out of gas
     JUMPTABLE exc_out_of_gas

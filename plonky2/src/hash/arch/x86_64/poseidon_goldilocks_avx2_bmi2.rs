@@ -18,7 +18,7 @@ use crate::util::branch_hint;
 
 const WIDTH: usize = 12;
 
-// These tranformed round constants are used where the constant layer is fused with the preceeding
+// These transformed round constants are used where the constant layer is fused with the preceding
 // MDS layer. The FUSED_ROUND_CONSTANTS for round i are the ALL_ROUND_CONSTANTS for round i + 1.
 // The FUSED_ROUND_CONSTANTS for the very last round are 0, as it is not followed by a constant
 // layer. On top of that, all FUSED_ROUND_CONSTANTS are shifted by 2 ** 63 to save a few XORs per
@@ -183,10 +183,10 @@ unsafe fn const_layer(
     // occur if all round constants are < 0xffffffff00000001 = ORDER: if the high bits are
     // 0xffffffff, then the low bits are 0, so the carry bit cannot occur. So this trick is valid
     // as long as all the round constants are in canonical form.
-    // The mask contains 0xffffffff in the high doubleword if wraparound occured and 0 otherwise.
+    // The mask contains 0xffffffff in the high doubleword if wraparound occurred and 0 otherwise.
     // We will ignore the low doubleword.
     let wraparound_mask = map3!(_mm256_cmpgt_epi32, state_s, res_maybe_wrapped_s);
-    // wraparound_adjustment contains 0xffffffff = EPSILON if wraparound occured and 0 otherwise.
+    // wraparound_adjustment contains 0xffffffff = EPSILON if wraparound occurred and 0 otherwise.
     let wraparound_adjustment = map3!(_mm256_srli_epi64::<32>, wraparound_mask);
     // XOR commutes with the addition below. Placing it here helps mask latency.
     let res_maybe_wrapped = map3!(_mm256_xor_si256, res_maybe_wrapped_s, rep sign_bit);
@@ -939,7 +939,7 @@ pub unsafe fn poseidon(state: &[GoldilocksField; 12]) -> [GoldilocksField; 12] {
     let state = load_state(state);
 
     // The first constant layer must be done explicitly. The remaining constant layers are fused
-    // with the preceeding MDS layer.
+    // with the preceding MDS layer.
     let state = const_layer(state, &ALL_ROUND_CONSTANTS[0..WIDTH].try_into().unwrap());
 
     let state = half_full_rounds(state, 0);

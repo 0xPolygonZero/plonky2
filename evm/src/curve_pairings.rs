@@ -370,7 +370,7 @@ const BN_EXP: [bool; 253] = [
     false,
 ];
 
-// The folowing constants are defined above get_custom_powers
+// The following constants are defined above get_custom_powers
 
 const BN_EXPS4: [(bool, bool, bool); 64] = [
     (true, true, false),
