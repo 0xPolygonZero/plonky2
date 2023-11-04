@@ -8,7 +8,7 @@ When a native instruction (one that is not a syscall) is executed, a constraint 
 
 If everything goes smoothly and we have not run out of gas, `gas` should be no more than the gas allowance at the point that we `STOP`, `REVERT`, stack overflow, or whatever. Indeed, because we assume that the gas overflow handler is invoked _as soon as_ we've run out of gas, all these termination methods must verify that `gas` <= allowance, and `PANIC` if this is not the case. This is also true for the out-of-gas handler, which should check that (a) we have not yet run out of gas and (b) we are about to run out of gas, `PANIC`king if either of those does not hold.
 
-When we do run out of gas, however, this event must be handled. Syscalls are responsible for checking that their execution would not cause the transaction to run out of gas. If the syscall detects that it would need to charge more gas than available, it must abort the transaction by jumping to `exc_out_of_gas`, which in turn verifies that the out-of-gas hasn't _already_ occured.
+When we do run out of gas, however, this event must be handled. Syscalls are responsible for checking that their execution would not cause the transaction to run out of gas. If the syscall detects that it would need to charge more gas than available, it must abort the transaction by jumping to `exc_out_of_gas`, which in turn verifies that the out-of-gas hasn't _already_ occurred.
 
 Native instructions do this differently. If the prover notices that execution of the instruction would cause an out-of-gas error, it must jump to the appropriate handler instead of executing the instruction. (The handler contains special code that `PANIC`s if the prover invoked it incorrectly.)
 
