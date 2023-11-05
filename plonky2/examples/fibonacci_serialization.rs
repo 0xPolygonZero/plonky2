@@ -65,3 +65,21 @@ fn main() -> Result<()> {
 
     data.verify(proof)
 }
+
+#[cfg(test)]
+mod tests {
+    use plonky2::zkcir_test_util::{get_last_cir, test_ir_string};
+
+    use super::*;
+
+    #[test]
+    fn test() {
+        main().expect("Failed to run circuit");
+        let cir = get_last_cir();
+
+        test_ir_string(
+            "fibonacci_serialization",
+            cir.to_string().expect("Could not get cir output"),
+        );
+    }
+}

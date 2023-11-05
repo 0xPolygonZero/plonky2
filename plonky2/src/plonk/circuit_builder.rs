@@ -52,6 +52,7 @@ use crate::util::context_tree::ContextTree;
 use crate::util::partial_products::num_partial_products;
 use crate::util::timing::TimingTree;
 use crate::util::{log2_ceil, log2_strict, transpose, transpose_poly_values};
+use crate::zkcir_test_util::set_cir;
 
 /// Number of random coins needed for lookups (for each challenge).
 /// A coin is a randomly sampled extension field element from the verifier,
@@ -1162,8 +1163,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     pub fn build<C: GenericConfig<D, F = F>>(self) -> CircuitData<F, C, D> {
-        if let Ok(zkcir_circuit) = zkcir::ir::CirBuilder::new().to_cli_string() {
+        let cir = zkcir::ir::CirBuilder::new();
+
+        if let Ok(zkcir_circuit) = cir.to_cli_string() {
             println!("{:?}", zkcir_circuit);
+            set_cir(cir);
         }
 
         self.build_with_options(true)
