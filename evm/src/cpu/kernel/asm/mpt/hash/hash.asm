@@ -1,7 +1,7 @@
 // Computes the Merkle root of the given trie node.
 //
 // encode_value is a function which should take as input
-// - the position withing @SEGMENT_RLP_RAW to write to,
+// - the position within @SEGMENT_RLP_RAW to write to,
 // - the offset of a value within @SEGMENT_TRIE_DATA, and
 // - a return address.
 // It should serialize the value, write it to @SEGMENT_RLP_RAW starting at the
