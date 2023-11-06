@@ -80,7 +80,7 @@ macro_rules! impl_generator_serializer {
 
         fn write_generator(
             &self,
-            buf: &mut Vec<u8>,
+            buf: &mut $crate::alloc::vec::Vec<u8>,
             generator: &$crate::iop::generator::WitnessGeneratorRef<F, D>,
             common: &$crate::plonk::circuit_data::CommonCircuitData<F, D>,
         ) -> $crate::util::serialization::IoResult<()> {
