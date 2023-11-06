@@ -35,7 +35,6 @@ global smt_insert:
     DUP1 %eq_const(@SMT_NODE_HASH)        %jumpi(smt_insert_hash)
     DUP1 %eq_const(@SMT_NODE_INTERNAL)    %jumpi(smt_insert_internal)
     DUP1 %eq_const(@SMT_NODE_LEAF)        %jumpi(smt_insert_leaf)
-global wtf0:
     PANIC
 
 smt_insert_hash:
@@ -45,7 +44,6 @@ smt_insert_hash:
     %mload_trie_data
     // stack: hash, key, value_ptr, retdest
     ISZERO %jumpi(smt_insert_empty)
-global wtf1:
     PANIC // Trying to insert in a non-empty hash node.
 smt_insert_empty:
     // stack: key, value_ptr, retdest
@@ -106,15 +104,6 @@ after_second_leaf:
     SWAP1 JUMP
 
 
-global smt_insert_leaf_same_key:
-    PANIC
-    // stack: node_payload_ptr_ptr, key, value_ptr, retdest
-    //DUP3 %increment %mload_trie_data POP
-    %mload_trie_data
-    // stack: key_ptr, key, value_ptr, retdest
-    %increment
-    //DUP1 %mload_trie_data POP
-    %stack (value_ptr_ptr, key, value_ptr, retdest) -> (value_ptr_ptr, value_ptr, retdest)
-    SWAP1 %increment SWAP1
-    %mstore_trie_data
-    JUMP
+smt_insert_leaf_same_key:
+    // stack: node_payload_ptr, key, value_ptr, retdest
+    PANIC // Not sure if this should happen.
