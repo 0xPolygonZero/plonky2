@@ -10,11 +10,14 @@ on:
     branches:
       - "**"
 
-jobs:  
+jobs:
   test:
     name: Test Suite
     runs-on: ubuntu-latest
     if: "! contains(toJSON(github.event.commits.*.message), '[skip-ci]')"
+    strategy:
+      matrix:
+        target: [x86_64-unknown-linux-gnu, wasm32-unknown-unknown]
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
@@ -25,6 +28,7 @@ jobs:
         with:
           profile: minimal
           toolchain: nightly
+          target: ${{ matrix.target }}
           override: true
 
       - name: rust-cache
