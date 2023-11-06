@@ -51,14 +51,31 @@ global txn_loop_after:
 global hash_final_tries:
     // stack: cum_gas, txn_counter, num_nibbles, txn_nb
     // Check that we end up with the correct `cum_gas`, `txn_nb` and bloom filter.
-    %mload_global_metadata(@GLOBAL_METADATA_BLOCK_GAS_USED_AFTER) %assert_eq
-    DUP3 %mload_global_metadata(@GLOBAL_METADATA_TXN_NUMBER_AFTER) %assert_eq
+    //%mload_global_metadata(@GLOBAL_METADATA_BLOCK_GAS_USED_AFTER) %assert_eq
+    //DUP3 %mload_global_metadata(@GLOBAL_METADATA_TXN_NUMBER_AFTER) %assert_eq
+    %mload_global_metadata(@GLOBAL_METADATA_BLOCK_GAS_USED_AFTER) EQ ISZERO %jumpi(wtfgas)
+    DUP3 %mload_global_metadata(@GLOBAL_METADATA_TXN_NUMBER_AFTER) EQ ISZERO %jumpi(wtftxn)
     %pop3
     %check_metadata_block_bloom
-    %mpt_hash_state_trie   %mload_global_metadata(@GLOBAL_METADATA_STATE_TRIE_DIGEST_AFTER)     %assert_eq
-    %mpt_hash_txn_trie     %mload_global_metadata(@GLOBAL_METADATA_TXN_TRIE_DIGEST_AFTER)       %assert_eq
-    %mpt_hash_receipt_trie %mload_global_metadata(@GLOBAL_METADATA_RECEIPT_TRIE_DIGEST_AFTER)   %assert_eq
+    // %mpt_hash_state_trie   %mload_global_metadata(@GLOBAL_METADATA_STATE_TRIE_DIGEST_AFTER)     %assert_eq
+    // %mpt_hash_txn_trie     %mload_global_metadata(@GLOBAL_METADATA_TXN_TRIE_DIGEST_AFTER)       %assert_eq
+    // %mpt_hash_receipt_trie %mload_global_metadata(@GLOBAL_METADATA_RECEIPT_TRIE_DIGEST_AFTER)   %assert_eq
+    %mpt_hash_state_trie   %mload_global_metadata(@GLOBAL_METADATA_STATE_TRIE_DIGEST_AFTER)     EQ ISZERO %jumpi(wtf0)
+    %mpt_hash_txn_trie     %mload_global_metadata(@GLOBAL_METADATA_TXN_TRIE_DIGEST_AFTER)       EQ ISZERO %jumpi(wtf1)
+    %mpt_hash_receipt_trie %mload_global_metadata(@GLOBAL_METADATA_RECEIPT_TRIE_DIGEST_AFTER) EQ ISZERO %jumpi(wtf2)
     %jump(halt)
+
+global wtf0:
+    PANIC
+global wtf1:
+    PANIC
+global wtf2:
+    PANIC
+global wtfgas:
+    PANIC
+global wtftxn:
+    PANIC
+
 
 initialize_block_bloom:
     // stack: retdest
@@ -103,7 +120,8 @@ check_bloom_loop:
     DUP4 PUSH @SEGMENT_BLOCK_BLOOM PUSH 0
     %mload_packing
     // stack: bloom_word, i, len, offset, retdest
-    DUP2 %add_const(16) %mload_kernel(@SEGMENT_GLOBAL_BLOCK_BLOOM) %assert_eq
+    // DUP2 %add_const(16) %mload_kernel(@SEGMENT_GLOBAL_BLOCK_BLOOM) %assert_eq
+    DUP2 %add_const(16) %mload_kernel(@SEGMENT_GLOBAL_BLOCK_BLOOM) EQ ISZERO %jumpi(wtf12)
     // stack: i, len, offset, retdest
     %increment SWAP2 %add_const(32) SWAP2
     // stack: i+1, len, new_offset, retdest
@@ -113,6 +131,9 @@ check_bloom_loop_end:
     // stack: len, len, offset, retdest
     %pop3
     JUMP
+
+global wtf12:
+    PANIC
 
 %macro check_metadata_block_bloom
     PUSH %%after
