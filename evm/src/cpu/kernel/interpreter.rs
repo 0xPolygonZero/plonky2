@@ -167,15 +167,19 @@ impl<'a> Interpreter<'a> {
     }
 
     pub(crate) fn get_txn_field(&self, field: NormalizedTxnField) -> U256 {
+        // Those fields are already scaled by their respective segment.
+        let field = field as usize - Segment::TxnFields as usize;
         self.generation_state.memory.contexts[0].segments
             [Segment::TxnFields as usize >> SEGMENT_SCALING_FACTOR]
-            .get(field as usize)
+            .get(field)
     }
 
     pub(crate) fn set_txn_field(&mut self, field: NormalizedTxnField, value: U256) {
+        // Those fields are already scaled by their respective segment.
+        let field = field as usize - Segment::TxnFields as usize;
         self.generation_state.memory.contexts[0].segments
             [Segment::TxnFields as usize >> SEGMENT_SCALING_FACTOR]
-            .set(field as usize, value);
+            .set(field, value);
     }
 
     pub(crate) fn get_txn_data(&self) -> &[U256] {

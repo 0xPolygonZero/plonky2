@@ -1,29 +1,35 @@
+use crate::memory::segments::Segment;
+
 /// These are normalized transaction fields, i.e. not specific to any transaction type.
+///
+/// Each value is directly scaled by the corresponding `Segment::TxnFields` value for faster
+/// memory access in the kernel.
 #[allow(dead_code)]
+#[repr(usize)]
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Ord, PartialOrd, Debug)]
 pub(crate) enum NormalizedTxnField {
     /// Whether a chain ID was present in the txn data. Type 0 transaction with v=27 or v=28 have
     /// no chain ID. This affects what fields get signed.
-    ChainIdPresent = 0,
-    ChainId = 1,
-    Nonce = 2,
-    MaxPriorityFeePerGas = 3,
-    MaxFeePerGas = 4,
-    GasLimit = 6,
-    IntrinsicGas = 7,
-    To = 8,
-    Value = 9,
+    ChainIdPresent = Segment::TxnFields as usize,
+    ChainId = Segment::TxnFields as usize + 1,
+    Nonce = Segment::TxnFields as usize + 2,
+    MaxPriorityFeePerGas = Segment::TxnFields as usize + 3,
+    MaxFeePerGas = Segment::TxnFields as usize + 4,
+    GasLimit = Segment::TxnFields as usize + 6,
+    IntrinsicGas = Segment::TxnFields as usize + 7,
+    To = Segment::TxnFields as usize + 8,
+    Value = Segment::TxnFields as usize + 9,
     /// The length of the data field. The data itself is stored in another segment.
-    DataLen = 10,
-    YParity = 11,
-    R = 12,
-    S = 13,
-    Origin = 14,
+    DataLen = Segment::TxnFields as usize + 10,
+    YParity = Segment::TxnFields as usize + 11,
+    R = Segment::TxnFields as usize + 12,
+    S = Segment::TxnFields as usize + 13,
+    Origin = Segment::TxnFields as usize + 14,
 
     /// The actual computed gas price for this transaction in the block.
     /// This is not technically a transaction field, as it depends on the block's base fee.
-    ComputedFeePerGas = 15,
-    ComputedPriorityFeePerGas = 16,
+    ComputedFeePerGas = Segment::TxnFields as usize + 15,
+    ComputedPriorityFeePerGas = Segment::TxnFields as usize + 16,
 }
 
 impl NormalizedTxnField {
