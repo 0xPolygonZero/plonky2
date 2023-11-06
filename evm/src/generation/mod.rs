@@ -9,7 +9,7 @@ use plonky2::hash::hash_types::RichField;
 use plonky2::timed;
 use plonky2::util::timing::TimingTree;
 use serde::{Deserialize, Serialize};
-use smt_utils::smt::hash_serialize_state;
+use smt_utils::smt::{hash_serialize_state, Smt};
 use GlobalMetadata::{
     ReceiptTrieRootDigestAfter, ReceiptTrieRootDigestBefore, StateTrieRootDigestAfter,
     StateTrieRootDigestBefore, TransactionTrieRootDigestAfter, TransactionTrieRootDigestBefore,
@@ -86,7 +86,7 @@ pub struct TrieInputs {
 
     /// A partial version of each storage trie prior to these transactions. It should include all
     /// storage tries, and nodes therein, that will be accessed by these transactions.
-    pub storage_tries: Vec<(H256, HashedPartialTrie)>,
+    pub storage_tries: Vec<(H256, Vec<U256>)>,
 }
 
 impl Default for TrieInputs {
