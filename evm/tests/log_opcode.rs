@@ -125,7 +125,6 @@ fn test_log_opcodes() -> anyhow::Result<()> {
         state_smt: state_smt_before.serialize(),
         transactions_trie: Node::Empty.into(),
         receipts_trie: receipts_trie.clone(),
-        storage_tries: vec![(to_hashed, Node::Empty.into())],
     };
 
     // Prove a transaction which carries out two LOG opcodes.
@@ -341,7 +340,6 @@ fn test_log_with_aggreg() -> anyhow::Result<()> {
         state_smt: state_smt_before.serialize(),
         transactions_trie: Node::Empty.into(),
         receipts_trie: Node::Empty.into(),
-        storage_tries: vec![],
     };
 
     let txn = hex!("f85f800a82520894095e7baea6a6c7c4c2dfeb977efac326af552d870a8026a0122f370ed4023a6c253350c6bfb87d7d7eb2cd86447befee99e0a26b70baec20a07100ab1b3977f2b4571202b9f4b68850858caf5469222794600b5ce1cfb348ad");
@@ -472,7 +470,6 @@ fn test_log_with_aggreg() -> anyhow::Result<()> {
         state_smt: state_trie_before.serialize(),
         transactions_trie: transactions_trie.clone(),
         receipts_trie: receipts_trie.clone(),
-        storage_tries: vec![],
     };
 
     // Prove a transaction which carries out two LOG opcodes.
@@ -786,7 +783,6 @@ fn test_two_txn() -> anyhow::Result<()> {
         state_smt: state_smt_before.serialize(),
         transactions_trie: Node::Empty.into(),
         receipts_trie: Node::Empty.into(),
-        storage_tries: vec![(to_hashed, Node::Empty.into())],
     };
 
     // Prove two simple transfers.

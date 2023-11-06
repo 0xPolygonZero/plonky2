@@ -78,7 +78,6 @@ fn add11_yml() -> anyhow::Result<()> {
         state_smt: state_smt_before.serialize(),
         transactions_trie: Node::Empty.into(),
         receipts_trie: Node::Empty.into(),
-        storage_tries: vec![(to_hashed, Node::Empty.into())],
     };
 
     let txn = hex!("f863800a83061a8094095e7baea6a6c7c4c2dfeb977efac326af552d87830186a0801ba0ffb600e63115a7362e7811894a91d8ba4330e526f22121c994c4692035dfdfd5a06198379fcac8de3dbfac48b165df4bf88e2088f294b61efb9a65fe2281c76e16");

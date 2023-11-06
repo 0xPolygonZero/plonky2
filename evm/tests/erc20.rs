@@ -76,16 +76,10 @@ fn test_erc20() -> anyhow::Result<()> {
         .insert(token_bits, token_account().into())
         .unwrap();
 
-    let storage_tries = vec![
-        (giver_state_key, giver_storage()),
-        (token_state_key, token_storage()),
-    ];
-
     let tries_before = TrieInputs {
-        state_smt: state_smt_before,,
+        state_smt: state_smt_before.serialize(),
         transactions_trie: HashedPartialTrie::from(Node::Empty),
         receipts_trie: HashedPartialTrie::from(Node::Empty),
-        storage_tries,
     };
 
     let txn = signed_tx();
@@ -259,7 +253,7 @@ fn token_storage_after() -> Smt {
 
 fn giver_account() -> Account {
     Account {
-        nonce: 1.into(),
+        nonce: 1,
         balance: 0.into(),
         code_hash: keccak(giver_bytecode()),
         storage_smt: giver_storage(),
@@ -268,7 +262,7 @@ fn giver_account() -> Account {
 
 fn token_account() -> Account {
     Account {
-        nonce: 1.into(),
+        nonce: 1,
         balance: 0.into(),
         code_hash: keccak(token_bytecode()),
         storage_smt: token_storage(),
@@ -277,7 +271,7 @@ fn token_account() -> Account {
 
 fn sender_account() -> Account {
     Account {
-        nonce: 0.into(),
+        nonce: 0,
         balance: sd2u("10000000000000000000000"),
         code_hash: keccak([]),
         storage_smt: Smt::empty(),

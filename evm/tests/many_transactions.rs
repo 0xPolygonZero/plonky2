@@ -78,7 +78,6 @@ fn test_four_transactions() -> anyhow::Result<()> {
         state_smt: state_smt_before.serialize(),
         transactions_trie: Node::Empty.into(),
         receipts_trie: Node::Empty.into(),
-        storage_tries: vec![],
     };
 
     // Generated using a little py-evm script.

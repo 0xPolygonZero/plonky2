@@ -63,7 +63,6 @@ impl<F: Field> GenerationState<F> {
             &inputs.tries.transactions_trie
         );
         log::debug!("Input receipts_trie: {:?}", &inputs.tries.receipts_trie);
-        log::debug!("Input storage_tries: {:?}", &inputs.tries.storage_tries);
         log::debug!("Input contract_code: {:?}", &inputs.contract_code);
         let state_smt_prover_inputs = state_smt_prover_inputs_reversed(&inputs.tries);
         let mpt_prover_inputs = all_mpt_prover_inputs_reversed(&inputs.tries)?;

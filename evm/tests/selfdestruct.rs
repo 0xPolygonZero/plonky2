@@ -72,7 +72,6 @@ fn test_selfdestruct() -> anyhow::Result<()> {
         state_smt: state_trie_before.serialize(),
         transactions_trie: HashedPartialTrie::from(Node::Empty),
         receipts_trie: HashedPartialTrie::from(Node::Empty),
-        storage_tries: vec![],
     };
 
     // Generated using a little py-evm script.

@@ -34,7 +34,6 @@ fn test_state_smt(mut state_smt: Smt, new_key: U256, new_account: Account) -> Re
         state_smt: state_smt.serialize(),
         transactions_trie: Default::default(),
         receipts_trie: Default::default(),
-        storage_tries: vec![],
     };
     let load_all_mpts = KERNEL.global_labels["load_all_mpts"];
 

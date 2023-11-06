@@ -431,11 +431,12 @@ pub(crate) fn transition<F: Field>(state: &mut GenerationState<F>) -> anyhow::Re
             if state.registers.is_kernel {
                 let offset_name = KERNEL.offset_name(state.registers.program_counter);
                 bail!(
-                    "{:?} in kernel at pc={}, stack={:?}, memory={:?}",
+                    // "{:?} in kernel at pc={}, stack={:?}, memory={:?}",
+                    "{:?} in kernel at pc={}, stack={:?}",
                     e,
                     offset_name,
                     state.stack(),
-                    state.memory.contexts[0].segments[Segment::KernelGeneral as usize].content,
+                    // state.memory.contexts[0].segments[Segment::KernelGeneral as usize].content,
                 );
             }
             state.rollback(checkpoint);

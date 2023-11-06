@@ -80,7 +80,6 @@ fn test_basic_smart_contract() -> anyhow::Result<()> {
         state_smt: state_smt_before.serialize(),
         transactions_trie: Node::Empty.into(),
         receipts_trie: Node::Empty.into(),
-        storage_tries: vec![],
     };
 
     let txdata_gas = 2 * 16;

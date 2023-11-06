@@ -32,7 +32,6 @@ fn test_state_smt(state_smt: Smt) -> Result<()> {
         state_smt: state_smt.serialize(),
         transactions_trie: Default::default(),
         receipts_trie: Default::default(),
-        storage_tries: vec![],
     };
     let load_all_mpts = KERNEL.global_labels["load_all_mpts"];
     let smt_hash_state = KERNEL.global_labels["smt_hash_state"];

@@ -89,8 +89,9 @@ sstore_after_refund:
     EQ %jumpi(sstore_noop)
 
     // stack: current_value, slot, value, kexit_info
-    DUP2 %address %journal_add_storage_change
-    // stack: slot, value, kexit_info
+    DUP1 DUP2 %address %journal_add_storage_change
+    // stack: current_value, slot, value, kexit_info
+    %jumpi(existing_slot)
 
     // If the value is zero, delete the slot from the storage SMT.
     // stack: slot, value, kexit_info
@@ -99,6 +100,7 @@ sstore_after_refund:
     // First we write the value to SMT data, and get a pointer to it.
     %get_trie_data_size
     // stack: value_ptr, slot, value, kexit_info
+global yoooo:
     PUSH 0 %append_to_trie_data // For the key.
     // stack: value_ptr, slot, value, kexit_info
     SWAP2
@@ -114,7 +116,8 @@ sstore_after_refund:
     // stack: storage_root_ptr, storage_key, value_ptr, after_storage_insert, kexit_info
     %jump(smt_insert)
 
-after_storage_insert:
+
+global after_storage_insert:
     // stack: new_storage_root_ptr, kexit_info
     %current_account_data
     // stack: account_ptr, new_storage_root_ptr, kexit_info
@@ -122,6 +125,20 @@ after_storage_insert:
     // Update the copied account with our new storage root pointer.
     %add_const(2)
     // stack: account_storage_root_ptr_ptr, new_storage_root_ptr, kexit_info
+    %mstore_trie_data
+    // stack: kexit_info
+    EXIT_KERNEL
+
+existing_slot:
+    // stack: slot, value, kexit_info
+    %slot_to_storage_key
+    // stack: storage_key, value, kexit_info
+    %current_storage_smt
+    // stack: storage_root_ptr, storage_key, value, kexit_info
+    %stack (storage_root_ptr, storage_key) -> (storage_root_ptr, storage_key, existing_slot_after_read)
+    %jump(smt_read)
+existing_slot_after_read:
+    // stack: value_ptr, value, kexit_info
     %mstore_trie_data
     // stack: kexit_info
     EXIT_KERNEL
