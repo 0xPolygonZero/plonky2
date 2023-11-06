@@ -41,7 +41,7 @@ pub(crate) fn ctl_looked_data<F: Field>() -> Vec<Column<F>> {
         outputs.push(cur_col);
     }
 
-    // The length of the inputs is already_absorbed_byres + is_final_input_len.
+    // The length of the inputs is `already_absorbed_bytes + is_final_input_len`.
     let len_col = Column::linear_combination(
         iter::once((cols.already_absorbed_bytes, F::ONE)).chain(
             cols.is_final_input_len
