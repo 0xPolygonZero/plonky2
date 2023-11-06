@@ -23,6 +23,171 @@ type F = GoldilocksField;
 const D: usize = 2;
 type C = KeccakGoldilocksConfig;
 
+/// Test a simple ERC20 transfer.
+/// Used the following Solidity code:
+/// ```solidity
+/// pragma solidity ^0.8.13;
+/// import "../lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
+/// contract Token is ERC20 {
+///     constructor() ERC20("Token", "TKN") {
+///         _mint(msg.sender, 1_000_000 ether);
+///     }
+/// }
+/// contract Giver {
+///     Token public token;
+///     constructor(address _token) {
+///         token = Token(_token);
+///     }
+///     function send(uint256 amount) public {
+///         token.transfer(0x1f9090aaE28b8a3dCeaDf281B0F12828e676c326, amount);
+///     }
+/// }
+/// ```
+#[test]
+fn test_erc20() -> anyhow::Result<()> {
+    init_logger();
+
+    let all_stark = AllStark::<F, D>::default();
+    let config = StarkConfig::standard_fast_config();
+
+    let beneficiary = hex!("deadbeefdeadbeefdeadbeefdeadbeefdeadbeef");
+    let sender = hex!("70997970C51812dc3A010C7d01b50e0d17dc79C8");
+    let giver = hex!("e7f1725E7734CE288F8367e1Bb143E90bb3F0512");
+    let token = hex!("5FbDB2315678afecb367f032d93F642f64180aa3");
+
+    let sender_state_key = keccak(sender);
+    let giver_state_key = keccak(giver);
+    let token_state_key = keccak(token);
+
+    let sender_nibbles = Nibbles::from_bytes_be(sender_state_key.as_bytes()).unwrap();
+    let giver_nibbles = Nibbles::from_bytes_be(giver_state_key.as_bytes()).unwrap();
+    let token_nibbles = Nibbles::from_bytes_be(token_state_key.as_bytes()).unwrap();
+
+    let mut state_trie_before = HashedPartialTrie::from(Node::Empty);
+    state_trie_before.insert(sender_nibbles, rlp::encode(&sender_account()).to_vec());
+    state_trie_before.insert(giver_nibbles, rlp::encode(&giver_account()).to_vec());
+    state_trie_before.insert(token_nibbles, rlp::encode(&token_account()).to_vec());
+
+    let storage_tries = vec![
+        (giver_state_key, giver_storage()),
+        (token_state_key, token_storage()),
+    ];
+
+    let tries_before = TrieInputs {
+        state_trie: state_trie_before,
+        transactions_trie: HashedPartialTrie::from(Node::Empty),
+        receipts_trie: HashedPartialTrie::from(Node::Empty),
+        storage_tries,
+    };
+
+    let txn = signed_tx();
+
+    let gas_used = 56_499.into();
+    let bloom = bloom();
+    let block_metadata = BlockMetadata {
+        block_beneficiary: Address::from(beneficiary),
+        block_timestamp: 0x03e8.into(),
+        block_number: 1.into(),
+        block_difficulty: 0x020000.into(),
+        block_random: H256::from_uint(&0x020000.into()),
+        block_gaslimit: 0xff112233u32.into(),
+        block_chain_id: 1.into(),
+        block_base_fee: 0xa.into(),
+        block_gas_used: gas_used,
+        block_bloom: bloom,
+    };
+
+    let contract_code = [giver_bytecode(), token_bytecode(), vec![]]
+        .map(|v| (keccak(v.clone()), v))
+        .into();
+
+    let expected_state_trie_after: HashedPartialTrie = {
+        let mut state_trie_after = HashedPartialTrie::from(Node::Empty);
+        let sender_account = sender_account();
+        let sender_account_after = AccountRlp {
+            nonce: sender_account.nonce + 1,
+            balance: sender_account.balance - gas_used * 0xa,
+            ..sender_account
+        };
+        state_trie_after.insert(sender_nibbles, rlp::encode(&sender_account_after).to_vec());
+        state_trie_after.insert(giver_nibbles, rlp::encode(&giver_account()).to_vec());
+        let token_account_after = AccountRlp {
+            storage_root: token_storage_after().hash(),
+            ..token_account()
+        };
+        state_trie_after.insert(token_nibbles, rlp::encode(&token_account_after).to_vec());
+
+        state_trie_after
+    };
+
+    let receipt_0 = LegacyReceiptRlp {
+        status: true,
+        cum_gas_used: gas_used,
+        bloom: bloom_bytes().to_vec().into(),
+        logs: vec![LogRlp {
+            address: H160::from_str("0x5fbdb2315678afecb367f032d93f642f64180aa3").unwrap(),
+            topics: vec![
+                H256::from_str(
+                    "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+                )
+                .unwrap(),
+                H256::from_str(
+                    "0x000000000000000000000000e7f1725e7734ce288f8367e1bb143e90bb3f0512",
+                )
+                .unwrap(),
+                H256::from_str(
+                    "0x0000000000000000000000001f9090aae28b8a3dceadf281b0f12828e676c326",
+                )
+                .unwrap(),
+            ],
+            data: hex!("0000000000000000000000000000000000000000000000056bc75e2d63100000")
+                .to_vec()
+                .into(),
+        }],
+    };
+    let mut receipts_trie = HashedPartialTrie::from(Node::Empty);
+    receipts_trie.insert(Nibbles::from_str("0x80").unwrap(), receipt_0.encode(2));
+    let transactions_trie: HashedPartialTrie = Node::Leaf {
+        nibbles: Nibbles::from_str("0x80").unwrap(),
+        value: txn.to_vec(),
+    }
+    .into();
+
+    let trie_roots_after = TrieRoots {
+        state_root: expected_state_trie_after.hash(),
+        transactions_root: transactions_trie.hash(),
+        receipts_root: receipts_trie.hash(),
+    };
+    let inputs = GenerationInputs {
+        signed_txns: vec![txn.to_vec()],
+        tries: tries_before,
+        trie_roots_after,
+        contract_code,
+        genesis_state_trie_root: HashedPartialTrie::from(Node::Empty).hash(),
+        block_metadata,
+        txn_number_before: 0.into(),
+        gas_used_before: 0.into(),
+        gas_used_after: gas_used,
+        block_bloom_before: [0.into(); 8],
+        block_bloom_after: bloom,
+        block_hashes: BlockHashes {
+            prev_hashes: vec![H256::default(); 256],
+            cur_hash: H256::default(),
+        },
+        addresses: vec![],
+    };
+
+    let mut timing = TimingTree::new("prove", log::Level::Debug);
+    let proof = prove::<F, C, D>(&all_stark, &config, inputs, &mut timing)?;
+    timing.filter(Duration::from_millis(100)).print();
+
+    verify_proof(&all_stark, proof, &config)
+}
+
+fn init_logger() {
+    let _ = try_init_from_env(Env::default().filter_or(DEFAULT_FILTER_ENV, "info"));
+}
+
 fn giver_bytecode() -> Vec<u8> {
     hex!("608060405234801561001057600080fd5b50600436106100365760003560e01c8063a52c101e1461003b578063fc0c546a14610050575b600080fd5b61004e61004936600461010c565b61007f565b005b600054610063906001600160a01b031681565b6040516001600160a01b03909116815260200160405180910390f35b60005460405163a9059cbb60e01b8152731f9090aae28b8a3dceadf281b0f12828e676c3266004820152602481018390526001600160a01b039091169063a9059cbb906044016020604051808303816000875af11580156100e4573d6000803e3d6000fd5b505050506040513d601f19601f820116820180604052508101906101089190610125565b5050565b60006020828403121561011e57600080fd5b5035919050565b60006020828403121561013757600080fd5b8151801515811461014757600080fd5b939250505056fea264697066735822122050741efdbac11eb0bbb776ce3ac6004e596b7d7559658a12506164388c371cfd64736f6c63430008140033").into()
 }
@@ -117,161 +282,7 @@ fn bloom_bytes() -> [u8; 256] {
 fn bloom() -> [U256; 8] {
     let bloom = bloom_bytes()
         .chunks_exact(32)
-        .map(|c| U256::from_big_endian(c))
+        .map(U256::from_big_endian)
         .collect::<Vec<_>>();
     bloom.try_into().unwrap()
-}
-
-/// Test a simple ERC20 transfer.
-#[test]
-fn test_erc20() -> anyhow::Result<()> {
-    init_logger();
-
-    let all_stark = AllStark::<F, D>::default();
-    let config = StarkConfig::standard_fast_config();
-
-    let beneficiary = hex!("deadbeefdeadbeefdeadbeefdeadbeefdeadbeef");
-    let sender = hex!("70997970C51812dc3A010C7d01b50e0d17dc79C8");
-    let giver = hex!("e7f1725E7734CE288F8367e1Bb143E90bb3F0512");
-    let token = hex!("5FbDB2315678afecb367f032d93F642f64180aa3");
-
-    let sender_state_key = keccak(sender);
-    let giver_state_key = keccak(giver);
-    let token_state_key = keccak(token);
-
-    let sender_nibbles = Nibbles::from_bytes_be(sender_state_key.as_bytes()).unwrap();
-    let giver_nibbles = Nibbles::from_bytes_be(giver_state_key.as_bytes()).unwrap();
-    let token_nibbles = Nibbles::from_bytes_be(token_state_key.as_bytes()).unwrap();
-
-    let mut state_trie_before = HashedPartialTrie::from(Node::Empty);
-    state_trie_before.insert(sender_nibbles, rlp::encode(&sender_account()).to_vec());
-    state_trie_before.insert(giver_nibbles, rlp::encode(&giver_account()).to_vec());
-    state_trie_before.insert(token_nibbles, rlp::encode(&token_account()).to_vec());
-
-    let storage_tries = vec![
-        (giver_state_key, giver_storage()),
-        (token_state_key, token_storage()),
-    ];
-
-    let tries_before = TrieInputs {
-        state_trie: state_trie_before,
-        transactions_trie: HashedPartialTrie::from(Node::Empty),
-        receipts_trie: HashedPartialTrie::from(Node::Empty),
-        storage_tries,
-    };
-
-    let txn = signed_tx();
-
-    let gas_used = 56_499.into();
-    let bloom = bloom();
-    let block_metadata = BlockMetadata {
-        block_beneficiary: Address::from(beneficiary),
-        block_timestamp: 0x03e8.into(),
-        block_number: 1.into(),
-        block_difficulty: 0x020000.into(),
-        block_random: H256::from_uint(&0x020000.into()),
-        block_gaslimit: 0xff112233u32.into(),
-        block_chain_id: 1.into(),
-        block_base_fee: 0xa.into(),
-        block_gas_used: gas_used,
-        block_bloom: bloom,
-    };
-
-    let contract_code = [
-        (keccak(&giver_bytecode()), giver_bytecode()),
-        (keccak(&token_bytecode()), token_bytecode()),
-        (keccak([]), vec![]),
-    ]
-    .into();
-
-    let expected_state_trie_after: HashedPartialTrie = {
-        let mut state_trie_after = HashedPartialTrie::from(Node::Empty);
-        let sender_account = sender_account();
-        let sender_account_after = AccountRlp {
-            nonce: sender_account.nonce + 1,
-            balance: sender_account.balance - gas_used * 0xa,
-            ..sender_account
-        };
-        state_trie_after.insert(sender_nibbles, rlp::encode(&sender_account_after).to_vec());
-        state_trie_after.insert(giver_nibbles, rlp::encode(&giver_account()).to_vec());
-        let token_account_after = AccountRlp {
-            storage_root: token_storage_after().hash(),
-            ..token_account()
-        };
-        state_trie_after.insert(token_nibbles, rlp::encode(&token_account_after).to_vec());
-
-        state_trie_after
-    };
-
-    let receipt_0 = LegacyReceiptRlp {
-        status: true,
-        cum_gas_used: gas_used,
-        bloom: bloom_bytes().to_vec().into(),
-        logs: vec![LogRlp {
-            address: H160::from_str("0x5fbdb2315678afecb367f032d93f642f64180aa3").unwrap(),
-            topics: vec![
-                H256::from_str(
-                    "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
-                )
-                .unwrap(),
-                H256::from_str(
-                    "0x000000000000000000000000e7f1725e7734ce288f8367e1bb143e90bb3f0512",
-                )
-                .unwrap(),
-                H256::from_str(
-                    "0x0000000000000000000000001f9090aae28b8a3dceadf281b0f12828e676c326",
-                )
-                .unwrap(),
-            ],
-            data: hex!("0000000000000000000000000000000000000000000000056bc75e2d63100000")
-                .to_vec()
-                .into(),
-        }],
-    };
-    let mut receipts_trie = HashedPartialTrie::from(Node::Empty);
-    receipts_trie.insert(Nibbles::from_str("0x80").unwrap(), receipt_0.encode(2));
-    let transactions_trie: HashedPartialTrie = Node::Leaf {
-        nibbles: Nibbles::from_str("0x80").unwrap(),
-        value: txn.to_vec(),
-    }
-    .into();
-
-    let trie_roots_after = TrieRoots {
-        state_root: expected_state_trie_after.hash(),
-        transactions_root: transactions_trie.hash(),
-        receipts_root: receipts_trie.hash(),
-    };
-    let inputs = GenerationInputs {
-        signed_txns: vec![txn.to_vec()],
-        tries: tries_before,
-        trie_roots_after,
-        contract_code,
-        genesis_state_trie_root: HashedPartialTrie::from(Node::Empty).hash(),
-        block_metadata,
-        txn_number_before: 0.into(),
-        gas_used_before: 0.into(),
-        gas_used_after: gas_used,
-        block_bloom_before: [0.into(); 8],
-        block_bloom_after: bloom,
-        block_hashes: BlockHashes {
-            prev_hashes: vec![H256::default(); 256],
-            cur_hash: H256::default(),
-        },
-        addresses: vec![],
-    };
-
-    let mut timing = TimingTree::new("prove", log::Level::Debug);
-    let proof = prove::<F, C, D>(&all_stark, &config, inputs, &mut timing)?;
-    timing.filter(Duration::from_millis(100)).print();
-
-    verify_proof(&all_stark, proof, &config)
-}
-
-fn eth_to_wei(eth: U256) -> U256 {
-    // 1 ether = 10^18 wei.
-    eth * U256::from(10).pow(18.into())
-}
-
-fn init_logger() {
-    let _ = try_init_from_env(Env::default().filter_or(DEFAULT_FILTER_ENV, "info"));
 }
