@@ -21,9 +21,6 @@ global precompile_sha256:
     // stack: gas, kexit_info
     %charge_gas
 
-    // TODO: fix this
-    %zero_out_kernel_general
-
     // Copy the call data to the kernel general segment (sha2 expects it there) and call sha2.
     %calldatasize
     GET_CONTEXT
@@ -52,7 +49,7 @@ global precompile_sha256:
     PUSH @SEGMENT_KERNEL_GENERAL
     DUP3
 
-    %jump(memcpy)
+    %jump(memcpy_bytes)
 
 sha256_contd:
     // stack: hash, kexit_info

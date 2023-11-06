@@ -9,7 +9,7 @@
 %macro clear_current_general
     // stack: dst, len
     GET_CONTEXT
-    %stack (context, dst, len) -> (context, @SEGMENT_KERNEL_GENERAL, dst, 0, len, %%after)
+    %stack (context, dst, len) -> (context, @SEGMENT_KERNEL_GENERAL, dst, len, %%after)
     %jump(memset)
 %%after:
 %endmacro

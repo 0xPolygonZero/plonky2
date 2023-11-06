@@ -99,7 +99,7 @@ global encode_account:
 global encode_txn:
     // stack: rlp_pos, value_ptr, retdest
     
-    // Load the txn_rlp_len which is at the beginnig of value_ptr
+    // Load the txn_rlp_len which is at the beginning of value_ptr
     DUP2 %mload_trie_data
     // stack: txn_rlp_len, rlp_pos, value_ptr, retdest
     SWAP2 %increment
@@ -116,7 +116,7 @@ global encode_txn:
         0, @SEGMENT_TRIE_DATA, txn_rlp_ptr, // src addr. Kernel has context 0
         txn_rlp_len, // mcpy len
         txn_rlp_len, rlp_pos)
-    %memcpy
+    %memcpy_bytes
     ADD
     // stack new_rlp_pos, retdest
     SWAP1
