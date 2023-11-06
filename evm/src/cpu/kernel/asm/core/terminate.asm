@@ -81,11 +81,6 @@ global sys_selfdestruct:
     %charge_gas
     %stack (kexit_info, balance, address, recipient) -> (balance, address, recipient, kexit_info)
 
-    // EIP-6780: insert address into the selfdestruct set if contact has been created
-    // during the current transaction.
-    // stack: balance, address, recipient, kexit_info
-    DUP2 %maybe_insert_selfdestruct_list
-
     // Set the balance of the address to 0.
     // stack: balance, address, recipient, kexit_info
     PUSH 0
@@ -95,6 +90,14 @@ global sys_selfdestruct:
     %add_const(1)
     // stack: balance_ptr, 0, balance, address, recipient, kexit_info
     %mstore_trie_data
+
+
+    // EIP-6780: insert address into the selfdestruct set only if contract has been created
+    // during the current transaction.
+    // stack: balance, address, recipient, kexit_info
+    DUP2 %contract_just_created
+    // stack: is_just_created, balance, address, recipient, kexit_info
+    %jumpi(sys_selfdestruct_just_created)
 
     // Send the balance to the recipient. 
     %stack (balance, address, recipient, kexit_info) ->
@@ -110,6 +113,21 @@ sys_selfdestruct_journal_add:
     // stack: leftover_gas
     PUSH 1 // success
     %jump(terminate_common)
+
+sys_selfdestruct_just_created:
+    // Send funds to beneficiary only if the recipient isn't the same as the address.
+    %stack (balance, address, recipient, kexit_info) -> (address, recipient, balance, address, recipient, balance, kexit_info)
+    EQ ISZERO
+    // stack: address ≠ recipient, balance, address, recipient, balance, kexit_info
+    MUL
+    // stack: maybe_balance, address, recipient, balance, kexit_info
+    DUP3
+    // stack: recipient, maybe_balance, address, recipient, balance, kexit_info
+    %add_eth
+    // stack: address, recipient, balance, kexit_info
+    DUP1
+    %insert_selfdestruct_list
+    %jump(sys_selfdestruct_journal_add)
 
 global sys_revert:
     // stack: kexit_info, offset, size
@@ -205,3 +223,41 @@ global terminate_common:
 
     // stack: parent_pc, success, leftover_gas
     JUMP
+
+
+
+
+// Returns 1 if the address is present in SEGMENT_CREATED_CONTRACTS, meaning that it has been
+// created during this transaction. Returns 0 otherwise.
+// Pre stack: addr
+// Post stack: is_just_created
+%macro contract_just_created
+    // stack: addr
+    %mload_global_metadata(@GLOBAL_METADATA_CREATED_CONTRACTS_LEN)
+    // stack: nb_created_contracts, addr
+    PUSH 0
+%%maybe_insert_selfdestruct_list_loop:
+    %stack (i, nb_created_contracts, addr) -> (i, nb_created_contracts, i, nb_created_contracts, addr)
+    EQ %jumpi(%%contract_not_created)
+    // stack: i, nb_created_contracts, addr
+    DUP1 %mload_kernel(@SEGMENT_CREATED_CONTRACTS)
+    // stack: addr_created_contract, i, nb_created_contracts, addr
+    DUP4
+    // stack: addr, addr_created_contract, i, nb_created_contracts, addr
+    EQ %jumpi(%%contract_just_created)
+    // stack: i, nb_created_contracts, addr
+    %increment
+    %jump(%%maybe_insert_selfdestruct_list_loop)
+%%contract_just_created:
+    // stack: i, nb_created_contracts, addr
+    %pop3
+    PUSH 1
+    // stack: 1
+    %jump(%%after)
+%%contract_not_created:
+    // stack: i, nb_created_contracts, addr
+    %pop3
+    PUSH 0
+    // stack: 0
+%%after:
+%endmacro

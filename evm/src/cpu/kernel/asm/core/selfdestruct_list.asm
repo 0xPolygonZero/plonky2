@@ -12,41 +12,6 @@
     %mstore_global_metadata(@GLOBAL_METADATA_SELFDESTRUCT_LIST_LEN) // Store new length.
 %endmacro
 
-global maybe_insert_selfdestruct_list:
-    // stack: addr, retdest
-    %mload_global_metadata(@GLOBAL_METADATA_CREATED_CONTRACTS_LEN)
-    // stack: nb_created_contracts, addr, retdest
-    PUSH 0
-maybe_insert_selfdestruct_list_loop:
-    %stack (i, nb_created_contracts, addr, retdest) -> (i, nb_created_contracts, i, nb_created_contracts, addr, retdest)
-    EQ %jumpi(contract_not_created)
-    // stack: i, nb_created_contracts, addr, retdest
-    DUP1 %mload_kernel(@SEGMENT_CREATED_CONTRACTS)
-    // stack: addr_created_contract, i, nb_created_contracts, addr, retdest
-    DUP4
-    // stack: addr, addr_created_contract, i, nb_created_contracts, addr, retdest
-    EQ %jumpi(contract_just_created)
-    // stack: i, nb_created_contracts, addr, retdest
-    %increment
-    %jump(maybe_insert_selfdestruct_list_loop)
-contract_just_created:
-    // stack: i, nb_created_contracts, addr, retdest
-    %pop2
-    // stack: addr, retdest
-    %insert_selfdestruct_list
-    // stack: retdest
-    JUMP
-contract_not_created:
-    // stack: i, nb_created_contracts, addr, retdest
-    %pop3
-    JUMP
-
-%macro maybe_insert_selfdestruct_list
-    %stack (addr) -> (addr, %%after)
-    %jump(maybe_insert_selfdestruct_list)
-%%after:
-%endmacro 
-
 /// Remove one occurrence of the address from the list.
 /// No effect if the address is not in the list.
 global remove_selfdestruct_list:
@@ -56,7 +21,7 @@ global remove_selfdestruct_list:
     PUSH 0
 remove_selfdestruct_list_loop:
     %stack (i, len, addr, retdest) -> (i, len, i, len, addr, retdest)
-    EQ %jumpi(remove_self_dstruct_not_found)
+    EQ %jumpi(remove_selfdestruct_not_found)
     // stack: i, len, addr, retdest
     DUP1 %mload_kernel(@SEGMENT_SELFDESTRUCT_LIST)
     // stack: loaded_addr, i, len, addr, retdest
@@ -75,7 +40,7 @@ remove_selfdestruct_list_found:
     SWAP1
     %mstore_kernel(@SEGMENT_SELFDESTRUCT_LIST) // Store the last address at the position of the removed address.
     JUMP
-remove_self_dstruct_not_found:
+remove_selfdestruct_not_found:
     // stack: i, len, addr, retdest
     %pop3
     JUMP
