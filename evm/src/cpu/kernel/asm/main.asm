@@ -32,7 +32,7 @@ global start_txns:
 txn_loop:
     // If the prover has no more txns for us to process, halt.
     PROVER_INPUT(end_of_txns)
-    %jumpi(hash_final_tries)
+    %jumpi(execute_withdrawals)
 
     // Call route_txn. When we return, continue the txn loop.
     PUSH txn_loop_after
@@ -48,6 +48,9 @@ global txn_loop_after:
     SWAP3 %increment SWAP3
     %jump(txn_loop)
 
+global execute_withdrawals:
+    // stack: cum_gas, txn_counter, num_nibbles, txn_nb
+    %withdrawals
 global hash_final_tries:
     // stack: cum_gas, txn_counter, num_nibbles, txn_nb
     // Check that we end up with the correct `cum_gas`, `txn_nb` and bloom filter.
