@@ -31,7 +31,7 @@ pub(crate) const TIMESTAMP: usize = ADDR_VIRTUAL + 1;
 // 32 byte limbs hold a total of 256 bits.
 const BYTES_VALUES_START: usize = TIMESTAMP + 1;
 // There are `NUM_BYTES` columns used to store the values of the bytes
-// that are beeing read/written for an (un)packing operation.
+// that are being read/written for an (un)packing operation.
 // If `index_bytes(i) == 1`, then all `value_bytes(j) for j <= i` may be non-zero.
 pub(crate) const fn value_bytes(i: usize) -> usize {
     debug_assert!(i < NUM_BYTES);

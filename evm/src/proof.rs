@@ -53,7 +53,7 @@ pub struct PublicValues {
     pub trie_roots_before: TrieRoots,
     /// Trie hashes after the execution of the local state transition.
     pub trie_roots_after: TrieRoots,
-    /// Block metadata: it remains unchanged withing a block.
+    /// Block metadata: it remains unchanged within a block.
     pub block_metadata: BlockMetadata,
     /// 256 previous block hashes and current block's hash.
     pub block_hashes: BlockHashes,
@@ -161,7 +161,7 @@ pub struct PublicValuesTarget {
     pub trie_roots_before: TrieRootsTarget,
     /// Trie hashes after the execution of the local state transition.
     pub trie_roots_after: TrieRootsTarget,
-    /// Block metadata: it remains unchanged withing a block.
+    /// Block metadata: it remains unchanged within a block.
     pub block_metadata: BlockMetadataTarget,
     /// 256 previous block hashes and current block's hash.
     pub block_hashes: BlockHashesTarget,

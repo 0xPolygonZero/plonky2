@@ -41,9 +41,6 @@ pub(crate) struct KeccakSpongeColumnsView<T: Copy> {
     /// The timestamp at which inputs should be read from memory.
     pub timestamp: T,
 
-    /// The length of the original input, in bytes.
-    pub len: T,
-
     /// The number of input bytes that have already been absorbed prior to this block.
     pub already_absorbed_bytes: T,
 
