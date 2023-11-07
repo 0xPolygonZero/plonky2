@@ -236,25 +236,25 @@ global terminate_common:
     %mload_global_metadata(@GLOBAL_METADATA_CREATED_CONTRACTS_LEN)
     // stack: nb_created_contracts, addr
     PUSH 0
-%%maybe_insert_selfdestruct_list_loop:
+%%contract_just_created_loop:
     %stack (i, nb_created_contracts, addr) -> (i, nb_created_contracts, i, nb_created_contracts, addr)
-    EQ %jumpi(%%contract_not_created)
+    EQ %jumpi(%%contract_just_created_false)
     // stack: i, nb_created_contracts, addr
     DUP1 %mload_kernel(@SEGMENT_CREATED_CONTRACTS)
     // stack: addr_created_contract, i, nb_created_contracts, addr
     DUP4
     // stack: addr, addr_created_contract, i, nb_created_contracts, addr
-    EQ %jumpi(%%contract_just_created)
+    EQ %jumpi(%%contract_just_created_true)
     // stack: i, nb_created_contracts, addr
     %increment
-    %jump(%%maybe_insert_selfdestruct_list_loop)
-%%contract_just_created:
+    %jump(%%contract_just_created_loop)
+%%contract_just_created_true:
     // stack: i, nb_created_contracts, addr
     %pop3
     PUSH 1
     // stack: 1
     %jump(%%after)
-%%contract_not_created:
+%%contract_just_created_false:
     // stack: i, nb_created_contracts, addr
     %pop3
     PUSH 0
