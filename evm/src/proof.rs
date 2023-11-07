@@ -109,6 +109,8 @@ pub struct BlockMetadata {
     pub block_gas_used: U256,
     /// The blob base fee. It must fit in a `u64`.
     pub block_blob_base_fee: U256,
+    /// The hash tree root of the parent beacon block.
+    pub parent_beacon_block_root: H256,
     /// The block bloom of this block, represented as the consecutive
     /// 32-byte chunks of a block's final bloom filter string.
     pub block_bloom: [U256; 8],
@@ -183,6 +185,7 @@ impl PublicValuesTarget {
             block_base_fee,
             block_gas_used,
             block_blob_base_fee,
+            parent_beacon_block_root,
             block_bloom,
         } = self.block_metadata;
 
@@ -196,6 +199,7 @@ impl PublicValuesTarget {
         buffer.write_target_array(&block_base_fee)?;
         buffer.write_target_array(&block_gas_used)?;
         buffer.write_target_array(&block_blob_base_fee)?;
+        buffer.write_target_array(&parent_beacon_block_root)?;
         buffer.write_target_array(&block_bloom)?;
 
         let BlockHashesTarget {
@@ -249,6 +253,7 @@ impl PublicValuesTarget {
             block_base_fee: buffer.read_target_array()?,
             block_gas_used: buffer.read_target_array()?,
             block_blob_base_fee: buffer.read_target_array()?,
+            parent_beacon_block_root: buffer.read_target_array()?,
             block_bloom: buffer.read_target_array()?,
         };
 
@@ -424,11 +429,12 @@ pub struct BlockMetadataTarget {
     pub block_base_fee: [Target; 2],
     pub block_gas_used: [Target; 2],
     pub block_blob_base_fee: [Target; 2],
+    pub parent_beacon_block_root: [Target; 8],
     pub block_bloom: [Target; 64],
 }
 
 impl BlockMetadataTarget {
-    pub const SIZE: usize = 89;
+    pub const SIZE: usize = 97;
 
     pub fn from_public_inputs(pis: &[Target]) -> Self {
         let block_beneficiary = pis[0..5].try_into().unwrap();
@@ -441,7 +447,8 @@ impl BlockMetadataTarget {
         let block_base_fee = pis[19..21].try_into().unwrap();
         let block_gas_used = pis[21..23].try_into().unwrap();
         let block_blob_base_fee = pis[23..25].try_into().unwrap();
-        let block_bloom = pis[25..89].try_into().unwrap();
+        let parent_beacon_block_root = pis[25..33].try_into().unwrap();
+        let block_bloom = pis[33..97].try_into().unwrap();
 
         Self {
             block_beneficiary,
@@ -454,6 +461,7 @@ impl BlockMetadataTarget {
             block_base_fee,
             block_gas_used,
             block_blob_base_fee,
+            parent_beacon_block_root,
             block_bloom,
         }
     }
@@ -495,6 +503,13 @@ impl BlockMetadataTarget {
                     bm1.block_blob_base_fee[i],
                 )
             }),
+            parent_beacon_block_root: core::array::from_fn(|i| {
+                builder.select(
+                    condition,
+                    bm0.parent_beacon_block_root[i],
+                    bm1.parent_beacon_block_root[i],
+                )
+            }),
             block_bloom: core::array::from_fn(|i| {
                 builder.select(condition, bm0.block_bloom[i], bm1.block_bloom[i])
             }),
@@ -527,6 +542,12 @@ impl BlockMetadataTarget {
         }
         for i in 0..2 {
             builder.connect(bm0.block_blob_base_fee[i], bm1.block_blob_base_fee[i])
+        }
+        for i in 0..8 {
+            builder.connect(
+                bm0.parent_beacon_block_root[i],
+                bm1.parent_beacon_block_root[i],
+            );
         }
         for i in 0..64 {
             builder.connect(bm0.block_bloom[i], bm1.block_bloom[i])

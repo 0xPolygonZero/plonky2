@@ -713,6 +713,7 @@ pub(crate) fn add_virtual_block_metadata<F: RichField + Extendable<D>, const D: 
     let block_base_fee = builder.add_virtual_public_input_arr();
     let block_gas_used = builder.add_virtual_public_input_arr();
     let block_blob_base_fee = builder.add_virtual_public_input_arr();
+    let parent_beacon_block_root = builder.add_virtual_public_input_arr();
     let block_bloom = builder.add_virtual_public_input_arr();
     BlockMetadataTarget {
         block_beneficiary,
@@ -725,6 +726,7 @@ pub(crate) fn add_virtual_block_metadata<F: RichField + Extendable<D>, const D: 
         block_base_fee,
         block_gas_used,
         block_blob_base_fee,
+        parent_beacon_block_root,
         block_bloom,
     }
 }
