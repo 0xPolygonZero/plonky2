@@ -29,6 +29,7 @@ jobs:
           profile: minimal
           toolchain: nightly
           target: ${{ matrix.target }}
+          default: true
           override: true
 
       - name: rust-cache
