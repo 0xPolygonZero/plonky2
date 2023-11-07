@@ -11,10 +11,11 @@ use plonky2::plonk::config::PoseidonGoldilocksConfig;
 use plonky2::util::timing::TimingTree;
 use plonky2_evm::all_stark::AllStark;
 use plonky2_evm::config::StarkConfig;
-use plonky2_evm::fixed_recursive_verifier::AllRecursiveCircuits;
 use plonky2_evm::generation::mpt::AccountRlp;
 use plonky2_evm::generation::{GenerationInputs, TrieInputs};
 use plonky2_evm::proof::{BlockHashes, BlockMetadata, TrieRoots};
+use plonky2_evm::prover::prove;
+use plonky2_evm::verifier::verify_proof;
 use plonky2_evm::Node;
 use rand::random;
 
@@ -86,17 +87,11 @@ fn test_withdrawals() -> anyhow::Result<()> {
         addresses: vec![],
     };
 
-    let all_circuits = AllRecursiveCircuits::<F, C, D>::new(
-        &all_stark,
-        &[16..17, 10..11, 15..16, 14..15, 9..10, 12..13, 18..19], // Minimal ranges to prove an empty list
-        &config,
-    );
-
-    let mut timing = TimingTree::new("prove", log::Level::Info);
-    let (root_proof, _public_values) =
-        all_circuits.prove_root(&all_stark, &config, inputs, &mut timing)?;
+    let mut timing = TimingTree::new("prove", log::Level::Debug);
+    let proof = prove::<F, C, D>(&all_stark, &config, inputs, &mut timing)?;
     timing.filter(Duration::from_millis(100)).print();
-    all_circuits.verify_root(root_proof.clone())
+
+    verify_proof(&all_stark, proof, &config)
 }
 
 fn init_logger() {
