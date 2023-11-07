@@ -1,7 +1,7 @@
-use alloc::format;
-use alloc::string::String;
+use alloc::string::{String, ToString};
 use alloc::sync::Arc;
 use alloc::vec::Vec;
+use alloc::{format, vec};
 use core::usize;
 
 use itertools::Itertools;
