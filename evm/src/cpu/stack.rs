@@ -115,7 +115,7 @@ const STACK_BEHAVIORS: OpsColumnsView<Option<StackBehavior>> = OpsColumnsView {
     dup: None,
     swap: None,
     context_op: None, // SET_CONTEXT is special since it involves the old and the new stack.
-    memop_32bytes: None,
+    memop_32bytes: None, // Manually checked in `memio.rs`.
     exit_kernel: Some(StackBehavior {
         num_pops: 1,
         pushes: false,
