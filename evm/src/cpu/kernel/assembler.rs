@@ -411,10 +411,6 @@ fn assemble_file(
                         BytesTarget::Constant(c) => panic!("Constant wasn't inlined: {c}"),
                     }
                 }
-                // let bytes: Vec<u8> = targets.iter().map(|target| match target {
-                //     BytesTarget::Literal(n) => u256_to_trimmed_be_bytes(&n),
-                //     BytesTarget::Constant(c) => panic!("Constant wasn't inlined: {c}"),
-                // }).collect()
             }
             Item::Jumptable(labels) => {
                 for label in labels {
