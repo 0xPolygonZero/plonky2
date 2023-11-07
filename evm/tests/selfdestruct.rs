@@ -123,6 +123,7 @@ fn test_selfdestruct() -> anyhow::Result<()> {
     };
     let inputs = GenerationInputs {
         signed_txns: vec![txn.to_vec()],
+        withdrawals: vec![],
         tries: tries_before,
         trie_roots_after,
         contract_code,

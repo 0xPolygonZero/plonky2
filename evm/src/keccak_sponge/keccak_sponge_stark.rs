@@ -1,5 +1,5 @@
 use std::borrow::Borrow;
-use std::iter::{once, repeat};
+use std::iter::{self, once, repeat};
 use std::marker::PhantomData;
 use std::mem::size_of;
 
@@ -41,15 +41,23 @@ pub(crate) fn ctl_looked_data<F: Field>() -> Vec<Column<F>> {
         outputs.push(cur_col);
     }
 
-    Column::singles([
-        cols.context,
-        cols.segment,
-        cols.virt,
-        cols.len,
-        cols.timestamp,
-    ])
-    .chain(outputs)
-    .collect()
+    // The length of the inputs is `already_absorbed_bytes + is_final_input_len`.
+    let len_col = Column::linear_combination(
+        iter::once((cols.already_absorbed_bytes, F::ONE)).chain(
+            cols.is_final_input_len
+                .iter()
+                .enumerate()
+                .map(|(i, &elt)| (elt, F::from_canonical_usize(i))),
+        ),
+    );
+
+    let mut res: Vec<Column<F>> =
+        Column::singles([cols.context, cols.segment, cols.virt]).collect();
+    res.push(len_col);
+    res.push(Column::single(cols.timestamp));
+    res.extend(outputs);
+
+    res
 }
 
 /// Creates the vector of `Columns` corresponding to the inputs of the Keccak sponge.
@@ -397,7 +405,6 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakSpongeStark<F, D> {
         row.segment = F::from_canonical_usize(op.base_address.segment);
         row.virt = F::from_canonical_usize(op.base_address.virt);
         row.timestamp = F::from_canonical_usize(op.timestamp);
-        row.len = F::from_canonical_usize(op.input.len());
         row.already_absorbed_bytes = F::from_canonical_usize(already_absorbed_bytes);
 
         row.original_rate_u32s = sponge_state[..KECCAK_RATE_U32S]
@@ -584,13 +591,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakSpongeS
         yield_constr.constraint_transition(
             is_dummy * (next_values.is_full_input_block + next_is_final_block),
         );
-
-        // If this is a final block, is_final_input_len implies `len - already_absorbed == i`.
-        let offset = local_values.len - already_absorbed_bytes;
-        for (i, &is_final_len) in local_values.is_final_input_len.iter().enumerate() {
-            let entry_match = offset - P::from(FE::from_canonical_usize(i));
-            yield_constr.constraint(is_final_len * entry_match);
-        }
     }
 
     fn eval_ext_circuit(
@@ -728,16 +728,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakSpongeS
             builder.mul_extension(is_dummy, tmp)
         };
         yield_constr.constraint_transition(builder, constraint);
-
-        // If this is a final block, is_final_input_len implies `len - already_absorbed == i`.
-        let offset = builder.sub_extension(local_values.len, already_absorbed_bytes);
-        for (i, &is_final_len) in local_values.is_final_input_len.iter().enumerate() {
-            let index = builder.constant_extension(F::from_canonical_usize(i).into());
-            let entry_match = builder.sub_extension(offset, index);
-
-            let constraint = builder.mul_extension(is_final_len, entry_match);
-            yield_constr.constraint(builder, constraint);
-        }
     }
 
     fn constraint_degree(&self) -> usize {
