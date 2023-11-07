@@ -27,7 +27,12 @@
 
 %%add_account:
     // stack: existing_balance, address
-    DUP2 %journal_add_account_created
+    DUP2 PUSH 1
+    // stack: is_contract, address, existing_balance, addr
+    %journal_add_account_created
+    // stack: existing_balance, addr
+    DUP2
+    %append_created_contracts
 %%do_insert:
     // stack: new_acct_value, address
     // Write the new account's data to MPT data, and get a pointer to it.
@@ -59,4 +64,16 @@
 
 %%end:
     // stack: status
+%endmacro
+
+%macro append_created_contracts
+    // stack: address
+    %mload_global_metadata(@GLOBAL_METADATA_CREATED_CONTRACTS_LEN)
+    // stack: nb_created_contracts, address
+    SWAP1 DUP2
+    // stack: nb_created_contracts, address, nb_created_contracts
+    %mstore_kernel(@SEGMENT_CREATED_CONTRACTS)
+    // stack: nb_created_contracts
+    %increment
+    %mstore_global_metadata(@GLOBAL_METADATA_CREATED_CONTRACTS_LEN)
 %endmacro

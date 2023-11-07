@@ -70,10 +70,12 @@ pub enum Segment {
     ContextCheckpoints = 35,
     /// List of 256 previous block hashes.
     BlockHashes = 36,
+    /// List of contracts which have been created during the current transaction.
+    CreatedContracts = 37,
 }
 
 impl Segment {
-    pub(crate) const COUNT: usize = 37;
+    pub(crate) const COUNT: usize = 38;
 
     pub(crate) fn all() -> [Self; Self::COUNT] {
         [
@@ -114,6 +116,7 @@ impl Segment {
             Self::TouchedAddresses,
             Self::ContextCheckpoints,
             Self::BlockHashes,
+            Self::CreatedContracts,
         ]
     }
 
@@ -157,6 +160,7 @@ impl Segment {
             Segment::TouchedAddresses => "SEGMENT_TOUCHED_ADDRESSES",
             Segment::ContextCheckpoints => "SEGMENT_CONTEXT_CHECKPOINTS",
             Segment::BlockHashes => "SEGMENT_BLOCK_HASHES",
+            Segment::CreatedContracts => "SEGMENT_CREATED_CONTRACTS",
         }
     }
 
@@ -200,6 +204,7 @@ impl Segment {
             Segment::TouchedAddresses => 256,
             Segment::ContextCheckpoints => 256,
             Segment::BlockHashes => 256,
+            Segment::CreatedContracts => 256,
         }
     }
 }
