@@ -55,11 +55,10 @@ initialize_block_bloom:
 initialize_bloom_loop:
     // stack: i, len, offset, retdest
     DUP2 DUP2 EQ %jumpi(initialize_bloom_loop_end)
-    PUSH 32 // Bloom word length
-    // stack: word_len, i, len, offset, retdest
     // Load the next `block_bloom_before` word.
-    DUP2 %add_const(8) %mload_kernel(@SEGMENT_GLOBAL_BLOCK_BLOOM)
-    // stack: bloom_word, word_len, i, len, offset, retdest
+    DUP1 %add_const(8) %mload_kernel(@SEGMENT_GLOBAL_BLOCK_BLOOM)
+    PUSH 32 // Bloom word length
+    // stack: word_len, bloom_word, i, len, offset, retdest
     DUP5 PUSH @SEGMENT_BLOCK_BLOOM PUSH 0 // Bloom word address in SEGMENT_BLOCK_BLOOM
     %mstore_unpacking
     // stack: new_offset, i, len, old_offset, retdest

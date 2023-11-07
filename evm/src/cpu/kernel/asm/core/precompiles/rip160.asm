@@ -54,5 +54,5 @@ rip160_contd:
     // Store the result hash to the parent's return data using `mstore_unpacking`.
     %mstore_parent_context_metadata(@CTX_METADATA_RETURNDATA_SIZE, 32)
     %mload_context_metadata(@CTX_METADATA_PARENT_CONTEXT)
-    %stack (parent_ctx, hash) -> (parent_ctx, @SEGMENT_RETURNDATA, 0, hash, 32, pop_and_return_success)
+    %stack (parent_ctx, hash) -> (parent_ctx, @SEGMENT_RETURNDATA, 0, 32, hash, pop_and_return_success)
     %jump(mstore_unpacking)

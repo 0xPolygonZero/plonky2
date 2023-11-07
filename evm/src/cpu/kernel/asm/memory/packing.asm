@@ -41,8 +41,8 @@ global mload_packing_u64_LE:
 // Pre stack: context, segment, offset, value, len, retdest
 // Post stack: offset'
 global mstore_unpacking:
-    // stack: context, segment, offset, value, len, retdest
-    %stack(context, segment, offset, value, len, retdest) -> (context, segment, offset, len, value, offset, len, retdest)
+    // stack: context, segment, offset, len, value, retdest
+    %stack(context, segment, offset, len, value, retdest) -> (context, segment, offset, len, value, offset, len, retdest)
     // stack: context, segment, offset, len, value, offset, len, retdest
     MSTORE_32BYTES
     // stack: offset, len, retdest
@@ -51,7 +51,7 @@ global mstore_unpacking:
     JUMP
 
 %macro mstore_unpacking
-    %stack (addr: 3, value, len) -> (addr, value, len, %%after)
+    %stack (addr: 3, len, value) -> (addr, len, value, %%after)
     %jump(mstore_unpacking)
 %%after:
 %endmacro

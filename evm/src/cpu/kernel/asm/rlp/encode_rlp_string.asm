@@ -63,7 +63,7 @@ global encode_rlp_string_large:
     %increment
     // stack: pos', len_of_len, ADDR: 3, len, retdest
     %stack (pos, len_of_len, ADDR: 3, len)
-        -> (pos, len, len_of_len, encode_rlp_string_large_after_writing_len, ADDR, len)
+        -> (pos, len_of_len, len, encode_rlp_string_large_after_writing_len, ADDR, len)
     %jump(mstore_unpacking_rlp)
 global encode_rlp_string_large_after_writing_len:
     // stack: pos'', ADDR: 3, len, retdest

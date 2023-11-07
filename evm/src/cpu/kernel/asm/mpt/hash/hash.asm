@@ -24,8 +24,8 @@ mpt_hash_hash_if_rlp:
 mpt_hash_hash_rlp:
     // stack: result, result_len, retdest
     %stack (result, result_len)
-        // context, segment, offset, value, len, retdest
-        -> (0, @SEGMENT_RLP_RAW, 0, result, result_len, mpt_hash_hash_rlp_after_unpacking)
+        // context, segment, offset, len, value, retdest
+        -> (0, @SEGMENT_RLP_RAW, 0, result_len, result, mpt_hash_hash_rlp_after_unpacking)
     %jump(mstore_unpacking)
 mpt_hash_hash_rlp_after_unpacking:
     // stack: result_len, retdest
@@ -226,7 +226,7 @@ encode_node_branch_prepend_prefix:
     SWAP2 %increment SWAP2 // rlp_pos += 1
 %%unpack:
     %stack (result_len, result, rlp_pos, rlp_start, base_offset, node_payload_ptr, encode_value, retdest)
-        -> (rlp_pos, result, result_len, %%after_unpacking,
+        -> (rlp_pos, result_len, result, %%after_unpacking,
             rlp_start, base_offset, node_payload_ptr, encode_value, retdest)
     %jump(mstore_unpacking_rlp)
 %%after_unpacking:
@@ -265,7 +265,7 @@ encode_node_extension_after_hex_prefix:
     %increment // rlp_pos += 1
 encode_node_extension_unpack:
     %stack (rlp_pos, rlp_start, result, result_len, node_payload_ptr)
-        -> (rlp_pos, result, result_len, encode_node_extension_after_unpacking, rlp_start)
+        -> (rlp_pos, result_len, result, encode_node_extension_after_unpacking, rlp_start)
     %jump(mstore_unpacking_rlp)
 encode_node_extension_after_unpacking:
     // stack: rlp_pos, rlp_start, retdest

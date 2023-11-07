@@ -71,7 +71,7 @@
 // Store a big-endian u32, consisting of 4 bytes (c_3, c_2, c_1, c_0).
 %macro mstore_u32
     // stack: context, segment, offset, value
-    %stack (addr: 3, value) -> (addr, value, 4, %%after)
+    %stack (addr: 3, value) -> (addr, 4, value, %%after)
     %jump(mstore_unpacking)
 %%after:
     // stack: offset

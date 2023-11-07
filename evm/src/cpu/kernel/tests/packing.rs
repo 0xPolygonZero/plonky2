@@ -70,12 +70,12 @@ fn test_mstore_unpacking() -> Result<()> {
     let mstore_unpacking = KERNEL.global_labels["mstore_unpacking"];
 
     let retdest = 0xDEADBEEFu32.into();
-    let len = 4.into();
     let value = 0xABCD1234u32.into();
+    let len = 4.into();
     let offset = 0.into();
     let segment = (Segment::TxnData as u32).into();
     let context = 0.into();
-    let initial_stack = vec![retdest, len, value, offset, segment, context];
+    let initial_stack = vec![retdest, value, len, offset, segment, context];
 
     let mut interpreter = Interpreter::new_with_kernel(mstore_unpacking, initial_stack);
 

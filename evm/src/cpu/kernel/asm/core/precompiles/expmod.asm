@@ -413,7 +413,7 @@ expmod_contd:
     // stack: cur_address=out+l_M_128-1, end_address=out-1, l_M_128, l_M%16, kexit_info
     DUP1 %mload_current_general
     %stack (cur_limb, cur_address, end_address, l_M_128, l_M_mod16, kexit_info) ->
-        (@SEGMENT_RETURNDATA, 0, cur_limb, l_M_mod16, cur_address, end_address, l_M_128, kexit_info)
+        (@SEGMENT_RETURNDATA, 0, l_M_mod16, cur_limb, cur_address, end_address, l_M_128, kexit_info)
     %mload_context_metadata(@CTX_METADATA_PARENT_CONTEXT)
     %mstore_unpacking
     // stack: offset, cur_address, end_address, l_M_128, kexit_info
@@ -428,7 +428,7 @@ expmod_store_loop:
     DUP1 %mload_current_general
     %stack (cur_limb, cur_address, offset, end_address, l_M_128, kexit_info) ->
          (offset, cur_limb, cur_address, end_address, l_M_128, kexit_info)
-    %stack (offset, cur_limb) -> (@SEGMENT_RETURNDATA, offset, cur_limb, 16)
+    %stack (offset, cur_limb) -> (@SEGMENT_RETURNDATA, offset, 16, cur_limb)
     %mload_context_metadata(@CTX_METADATA_PARENT_CONTEXT)
     %mstore_unpacking
     // stack: offset', cur_address, end_address, l_M_128, kexit_info)

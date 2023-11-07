@@ -37,7 +37,7 @@ sys_keccak256_empty:
 %macro keccak256_word(num_bytes)
     // Since KECCAK_GENERAL takes its input from memory, we will first write
     // input_word's bytes to @SEGMENT_KERNEL_GENERAL[0..$num_bytes].
-    %stack (word) -> (0, @SEGMENT_KERNEL_GENERAL, 0, word, $num_bytes, %%after_mstore)
+    %stack (word) -> (0, @SEGMENT_KERNEL_GENERAL, 0, $num_bytes, word, %%after_mstore)
     %jump(mstore_unpacking)
 %%after_mstore:
     // stack: offset
@@ -53,10 +53,10 @@ sys_keccak256_empty:
     // Since KECCAK_GENERAL takes its input from memory, we will first write
     // a's bytes to @SEGMENT_KERNEL_GENERAL[0..32], then b's bytes to
     // @SEGMENT_KERNEL_GENERAL[32..64].
-    %stack (a) -> (0, @SEGMENT_KERNEL_GENERAL, 0, a, 32, %%after_mstore_a)
+    %stack (a) -> (0, @SEGMENT_KERNEL_GENERAL, 0, 32, a, %%after_mstore_a)
     %jump(mstore_unpacking)
 %%after_mstore_a:
-    %stack (offset, b) -> (0, @SEGMENT_KERNEL_GENERAL, 32, b, 32, %%after_mstore_b)
+    %stack (offset, b) -> (0, @SEGMENT_KERNEL_GENERAL, 32, 32, b, %%after_mstore_b)
     %jump(mstore_unpacking)
 %%after_mstore_b:
     %stack (offset) -> (0, @SEGMENT_KERNEL_GENERAL, 0, 64) // context, segment, offset, len
