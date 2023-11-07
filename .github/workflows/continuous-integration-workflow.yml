@@ -66,6 +66,11 @@ jobs:
           CARGO_INCREMENTAL: 1
           RUST_BACKTRACE: 1
 
+      - name: Add examples to test
+        run: |
+          mkdir -p plonky2/tests
+          cp -r plonky2/examples/* plonky2/tests/
+
       - name: Run cargo test
         uses: actions-rs/cargo@v1
         with:
