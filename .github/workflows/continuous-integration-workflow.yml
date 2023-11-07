@@ -65,6 +65,7 @@ jobs:
           RUST_BACKTRACE: 1
 
       - name: Check in evm subdirectory
+        if: ${{ matrix.target != wasm32-unknown-unknown }}
         uses: actions-rs/cargo@v1
         with:
           command: check
