@@ -8,7 +8,7 @@ use keccak_hash::keccak;
 use log::debug;
 use serde::{Deserialize, Serialize};
 
-use super::ast::PushTarget;
+use super::ast::{BytesTarget, PushTarget};
 use crate::cpu::kernel::ast::Item::LocalLabelDeclaration;
 use crate::cpu::kernel::ast::{File, Item, StackReplacement};
 use crate::cpu::kernel::opcodes::{get_opcode, get_push_opcode};
@@ -277,6 +277,23 @@ fn inline_constants(body: Vec<Item>, constants: &HashMap<String, U256>) -> Vec<I
         .map(|item| {
             if let Item::Push(PushTarget::Constant(c)) = item {
                 Item::Push(PushTarget::Literal(resolve_const(c)))
+            } else if let Item::Bytes(targets) = item {
+                let targets = targets
+                    .into_iter()
+                    .map(|target| {
+                        if let BytesTarget::Constant(c) = target {
+                            let c = resolve_const(c);
+                            assert!(
+                                c < U256::from(256),
+                                "Constant in a BYTES object should be a byte"
+                            );
+                            BytesTarget::Literal(c.byte(0))
+                        } else {
+                            target
+                        }
+                    })
+                    .collect();
+                Item::Bytes(targets)
             } else if let Item::StackManipulation(from, to) = item {
                 let to = to
                     .into_iter()
@@ -387,7 +404,18 @@ fn assemble_file(
             Item::StandardOp(opcode) => {
                 code.push(get_opcode(&opcode));
             }
-            Item::Bytes(bytes) => code.extend(bytes),
+            Item::Bytes(targets) => {
+                for target in targets {
+                    match target {
+                        BytesTarget::Literal(n) => code.push(n),
+                        BytesTarget::Constant(c) => panic!("Constant wasn't inlined: {c}"),
+                    }
+                }
+                // let bytes: Vec<u8> = targets.iter().map(|target| match target {
+                //     BytesTarget::Literal(n) => u256_to_trimmed_be_bytes(&n),
+                //     BytesTarget::Constant(c) => panic!("Constant wasn't inlined: {c}"),
+                // }).collect()
+            }
             Item::Jumptable(labels) => {
                 for label in labels {
                     let bytes = look_up_label(&label, &local_labels, global_labels);
@@ -507,7 +535,10 @@ mod tests {
     #[test]
     fn literal_bytes() {
         let file = File {
-            body: vec![Item::Bytes(vec![0x12, 42]), Item::Bytes(vec![0xFE, 255])],
+            body: vec![
+                Item::Bytes(vec![BytesTarget::Literal(0x12), BytesTarget::Literal(42)]),
+                Item::Bytes(vec![BytesTarget::Literal(0xFE), BytesTarget::Literal(255)]),
+            ],
         };
         let code = assemble(vec![file], HashMap::new(), false).code;
         assert_eq!(code, vec![0x12, 42, 0xfe, 255]);

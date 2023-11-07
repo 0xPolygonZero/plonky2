@@ -325,35 +325,35 @@ min_stack_len_for_opcode:
 // or that it's handled with a syscall.
 gas_cost_for_opcode:
     BYTES 0  // 0x00, STOP
-    BYTES 3  // 0x01, ADD
-    BYTES 5  // 0x02, MUL
-    BYTES 3  // 0x03, SUB
-    BYTES 5  // 0x04, DIV
-    BYTES 5  // 0x05, SDIV
-    BYTES 5  // 0x06, MOD
-    BYTES 5  // 0x07, SMOD
-    BYTES 8  // 0x08, ADDMOD
-    BYTES 8  // 0x09, MULMOD
+    BYTES @GAS_VERYLOW  // 0x01, ADD
+    BYTES @GAS_LOW  // 0x02, MUL
+    BYTES @GAS_VERYLOW  // 0x03, SUB
+    BYTES @GAS_LOW  // 0x04, DIV
+    BYTES @GAS_LOW  // 0x05, SDIV
+    BYTES @GAS_LOW  // 0x06, MOD
+    BYTES @GAS_LOW  // 0x07, SMOD
+    BYTES @GAS_MID  // 0x08, ADDMOD
+    BYTES @GAS_MID  // 0x09, MULMOD
     BYTES 0  // 0x0a, EXP
     BYTES 0  // 0x0b, SIGNEXTEND
     %rep 4  // 0x0c-0x0f, invalid
         BYTES 0
     %endrep
 
-    BYTES 3  // 0x10, LT
-    BYTES 3  // 0x11, GT
-    BYTES 3  // 0x12, SLT
-    BYTES 3  // 0x13, SGT
-    BYTES 3  // 0x14, EQ
-    BYTES 3  // 0x15, ISZERO
-    BYTES 3  // 0x16, AND
-    BYTES 3  // 0x17, OR
-    BYTES 3  // 0x18, XOR
-    BYTES 3  // 0x19, NOT
-    BYTES 3  // 0x1a, BYTE
-    BYTES 3  // 0x1b, SHL
-    BYTES 3  // 0x1c, SHR
-    BYTES 3  // 0x1d, SAR
+    BYTES @GAS_VERYLOW  // 0x10, LT
+    BYTES @GAS_VERYLOW  // 0x11, GT
+    BYTES @GAS_VERYLOW  // 0x12, SLT
+    BYTES @GAS_VERYLOW  // 0x13, SGT
+    BYTES @GAS_VERYLOW  // 0x14, EQ
+    BYTES @GAS_VERYLOW  // 0x15, ISZERO
+    BYTES @GAS_VERYLOW  // 0x16, AND
+    BYTES @GAS_VERYLOW  // 0x17, OR
+    BYTES @GAS_VERYLOW  // 0x18, XOR
+    BYTES @GAS_VERYLOW  // 0x19, NOT
+    BYTES @GAS_VERYLOW  // 0x1a, BYTE
+    BYTES @GAS_VERYLOW  // 0x1b, SHL
+    BYTES @GAS_VERYLOW  // 0x1c, SHR
+    BYTES @GAS_VERYLOW  // 0x1d, SAR
     BYTES 0  // 0x1e, invalid
     BYTES 0  // 0x1f, invalid
 
@@ -370,33 +370,33 @@ gas_cost_for_opcode:
         BYTES 0
     %endrep
 
-    BYTES 2  // 0x50, POP
+    BYTES @GAS_BASE  // 0x50, POP
     BYTES 0  // 0x51, MLOAD
     BYTES 0  // 0x52, MSTORE
     BYTES 0  // 0x53, MSTORE8
     BYTES 0  // 0x54, SLOAD
     BYTES 0  // 0x55, SSTORE
-    BYTES 8  // 0x56, JUMP
-    BYTES 10  // 0x57, JUMPI
-    BYTES 2  // 0x58, PC
+    BYTES @GAS_MID  // 0x56, JUMP
+    BYTES @GAS_HIGH  // 0x57, JUMPI
+    BYTES @GAS_BASE  // 0x58, PC
     BYTES 0  // 0x59, MSIZE
     BYTES 0  // 0x5a, GAS
-    BYTES 1  // 0x5b, JUMPDEST
+    BYTES @GAS_JUMPDEST  // 0x5b, JUMPDEST
     %rep 3  // 0x5c-0x5e, invalid
         BYTES 0
     %endrep
 
-    BYTES 2 // 0x5f, PUSH0
+    BYTES @GAS_BASE // 0x5f, PUSH0
     %rep 32 // 0x60-0x7f, PUSH1-PUSH32
-        BYTES 3
+        BYTES @GAS_VERYLOW
     %endrep
 
     %rep 16 // 0x80-0x8f, DUP1-DUP16
-        BYTES 3
+        BYTES @GAS_VERYLOW
     %endrep
 
     %rep 16 // 0x90-0x9f, SWAP1-SWAP16
-        BYTES 3
+        BYTES @GAS_VERYLOW
     %endrep
 
     BYTES 0  // 0xa0, LOG0
