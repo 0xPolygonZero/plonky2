@@ -187,7 +187,7 @@ pub(crate) fn generate_poseidon_general<F: RichField>(
             val.0[0] as u32
         })
         .collect_vec();
-    log::debug!("Hashing {:?}", input);
+    log::debug!("Poseidon hashing {:?}", input);
 
     let mut padded_input = input.clone();
     if padded_input.len() % POSEIDON_SPONGE_RATE == POSEIDON_SPONGE_RATE - 1 {

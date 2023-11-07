@@ -221,7 +221,7 @@ impl<F: RichField + Extendable<D>, const D: usize> PoseidonStark<F, D> {
         // Populate the round input for the first round.
         row.input.copy_from_slice(&input);
 
-        let mut state: [F; POSEIDON_SPONGE_WIDTH] = input;
+        let mut state = input;
         let mut round_ctr = 0;
 
         for r in 0..HALF_N_FULL_ROUNDS {
