@@ -15,9 +15,6 @@ jobs:
     name: Test Suite
     runs-on: ubuntu-latest
     if: "! contains(toJSON(github.event.commits.*.message), '[skip-ci]')"
-    strategy:
-      matrix:
-        target: [x86_64-unknown-linux-gnu, wasm32-unknown-unknown]
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
@@ -28,8 +25,6 @@ jobs:
         with:
           profile: minimal
           toolchain: nightly
-          target: ${{ matrix.target }}
-          default: true
           override: true
 
       - name: rust-cache
@@ -47,7 +42,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: check
-          args: --manifest-path plonky2/Cargo.toml --target ${{ matrix.target }}
+          args: --manifest-path plonky2/Cargo.toml
         env:
           RUSTFLAGS: -Copt-level=3 -Cdebug-assertions -Coverflow-checks=y -Cdebuginfo=0
           RUST_LOG: 1
@@ -58,7 +53,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: check
-          args: --manifest-path starky/Cargo.toml --target ${{ matrix.target }}
+          args: --manifest-path starky/Cargo.toml
         env:
           RUSTFLAGS: -Copt-level=3 -Cdebug-assertions -Coverflow-checks=y -Cdebuginfo=0
           RUST_LOG: 1
@@ -66,7 +61,6 @@ jobs:
           RUST_BACKTRACE: 1
 
       - name: Check in evm subdirectory
-        if: ${{ matrix.target != 'wasm32-unknown-unknown' }}
         uses: actions-rs/cargo@v1
         with:
           command: check
@@ -78,11 +72,59 @@ jobs:
           RUST_BACKTRACE: 1
 
       - name: Run cargo test
-        if: ${{ matrix.target != 'wasm32-unknown-unknown' }}
         uses: actions-rs/cargo@v1
         with:
           command: test
           args: --workspace
+        env:
+          RUSTFLAGS: -Copt-level=3 -Cdebug-assertions -Coverflow-checks=y -Cdebuginfo=0
+          RUST_LOG: 1
+          CARGO_INCREMENTAL: 1
+          RUST_BACKTRACE: 1
+
+  wasm32:
+    name: wasm32 compatibility
+    runs-on: ubuntu-latest
+    if: "! contains(toJSON(github.event.commits.*.message), '[skip-ci]')"
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+      - name: Install nightly wasm32 toolchain
+        id: rustc-toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly
+          target: wasm32-unknown-unknown
+          default: true
+          override: true
+      - name: rust-cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: rustc-wasm32-${{ steps.rustc-toolchain.outputs.rustc_hash }}-cargo-${{ hashFiles('**/Cargo.toml') }}
+
+      - name: Check in plonky2 subdirectory
+        uses: actions-rs/cargo@v1
+        with:
+          command: check
+          args: --manifest-path plonky2/Cargo.toml --target wasm32-unknown-unknown
+        env:
+          RUSTFLAGS: -Copt-level=3 -Cdebug-assertions -Coverflow-checks=y -Cdebuginfo=0
+          RUST_LOG: 1
+          CARGO_INCREMENTAL: 1
+          RUST_BACKTRACE: 1
+
+      - name: Check in starky subdirectory
+        uses: actions-rs/cargo@v1
+        with:
+          command: check
+          args: --manifest-path starky/Cargo.toml --target wasm32-unknown-unknown
         env:
           RUSTFLAGS: -Copt-level=3 -Cdebug-assertions -Coverflow-checks=y -Cdebuginfo=0
           RUST_LOG: 1
