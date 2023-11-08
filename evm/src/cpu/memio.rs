@@ -327,7 +327,7 @@ fn eval_ext_circuit_store<F: RichField + Extendable<D>, const D: usize>(
 }
 
 /// Evaluates constraints for MLOAD_GENERAL and MSTORE_GENERAL.
-pub fn eval_packed<P: PackedField>(
+pub(crate) fn eval_packed<P: PackedField>(
     lv: &CpuColumnsView<P>,
     nv: &CpuColumnsView<P>,
     yield_constr: &mut ConstraintConsumer<P>,
@@ -338,7 +338,7 @@ pub fn eval_packed<P: PackedField>(
 
 /// Circuit version of `eval_packed`.
 /// Evaluates constraints for MLOAD_GENERAL and MSTORE_GENERAL.
-pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
+pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
     lv: &CpuColumnsView<ExtensionTarget<D>>,
     nv: &CpuColumnsView<ExtensionTarget<D>>,

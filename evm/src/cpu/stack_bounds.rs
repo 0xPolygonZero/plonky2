@@ -21,7 +21,7 @@ use crate::cpu::columns::CpuColumnsView;
 pub const MAX_USER_STACK_SIZE: usize = 1024;
 
 /// Evaluates constraints to check for stack overflows.
-pub fn eval_packed<P: PackedField>(
+pub(crate) fn eval_packed<P: PackedField>(
     lv: &CpuColumnsView<P>,
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
@@ -39,7 +39,7 @@ pub fn eval_packed<P: PackedField>(
 
 /// Circuit version of `eval_packed`.
 /// Evaluates constraints to check for stack overflows.
-pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
+pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
     lv: &CpuColumnsView<ExtensionTarget<D>>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,

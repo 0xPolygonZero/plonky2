@@ -84,7 +84,7 @@ impl<F: Field> GenerationState<F> {
 
     /// Updates `program_counter`, and potentially adds some extra handling if we're jumping to a
     /// special location.
-    pub fn jump_to(&mut self, dst: usize) -> Result<(), ProgramError> {
+    pub(crate) fn jump_to(&mut self, dst: usize) -> Result<(), ProgramError> {
         self.registers.program_counter = dst;
         if dst == KERNEL.global_labels["observe_new_address"] {
             let tip_u256 = stack_peek(self, 0)?;
@@ -102,14 +102,14 @@ impl<F: Field> GenerationState<F> {
 
     /// Observe the given address, so that we will be able to recognize the associated state key.
     /// This is just for debugging purposes.
-    pub fn observe_address(&mut self, address: Address) {
+    pub(crate) fn observe_address(&mut self, address: Address) {
         let state_key = keccak(address.0);
         self.state_key_to_address.insert(state_key, address);
     }
 
     /// Observe the given code hash and store the associated code.
     /// When called, the code corresponding to `codehash` should be stored in the return data.
-    pub fn observe_contract(&mut self, codehash: H256) -> Result<(), ProgramError> {
+    pub(crate) fn observe_contract(&mut self, codehash: H256) -> Result<(), ProgramError> {
         if self.inputs.contract_code.contains_key(&codehash) {
             return Ok(()); // Return early if the code hash has already been observed.
         }
@@ -133,14 +133,14 @@ impl<F: Field> GenerationState<F> {
         Ok(())
     }
 
-    pub fn checkpoint(&self) -> GenerationStateCheckpoint {
+    pub(crate) fn checkpoint(&self) -> GenerationStateCheckpoint {
         GenerationStateCheckpoint {
             registers: self.registers,
             traces: self.traces.checkpoint(),
         }
     }
 
-    pub fn rollback(&mut self, checkpoint: GenerationStateCheckpoint) {
+    pub(crate) fn rollback(&mut self, checkpoint: GenerationStateCheckpoint) {
         self.registers = checkpoint.registers;
         self.traces.rollback(checkpoint.traces);
     }

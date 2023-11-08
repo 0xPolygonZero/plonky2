@@ -91,7 +91,7 @@ pub(crate) fn ctl_looked_data<F: Field>() -> Vec<Column<F>> {
 }
 
 /// CTL filter for the `BytePackingStark` looked table.
-pub fn ctl_looked_filter<F: Field>() -> Column<F> {
+pub(crate) fn ctl_looked_filter<F: Field>() -> Column<F> {
     // The CPU table is only interested in our sequence end rows,
     // since those contain the final limbs of our packed int.
     Column::single(SEQUENCE_END)
@@ -136,7 +136,7 @@ pub(crate) struct BytePackingOp {
 }
 
 #[derive(Copy, Clone, Default)]
-pub struct BytePackingStark<F, const D: usize> {
+pub(crate) struct BytePackingStark<F, const D: usize> {
     pub(crate) f: PhantomData<F>,
 }
 

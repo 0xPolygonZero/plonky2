@@ -323,7 +323,7 @@ fn eval_ext_circuit_swap<F: RichField + Extendable<D>, const D: usize>(
 }
 
 /// Evaluates the constraints for the DUP and SWAP opcodes.
-pub fn eval_packed<P: PackedField>(
+pub(crate) fn eval_packed<P: PackedField>(
     lv: &CpuColumnsView<P>,
     nv: &CpuColumnsView<P>,
     yield_constr: &mut ConstraintConsumer<P>,
@@ -339,7 +339,7 @@ pub fn eval_packed<P: PackedField>(
 
 /// Circuit version of `eval_packed`.
 /// Evaluates the constraints for the DUP and SWAP opcodes.
-pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
+pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     lv: &CpuColumnsView<ExtensionTarget<D>>,
     nv: &CpuColumnsView<ExtensionTarget<D>>,

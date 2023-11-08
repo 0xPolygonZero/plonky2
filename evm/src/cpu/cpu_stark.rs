@@ -26,7 +26,7 @@ use crate::stark::Stark;
 
 /// Creates the vector of `Columns` corresponding to the General Purpose channels when calling the Keccak sponge:
 /// the CPU reads the output of the sponge directly from the `KeccakSpongeStark` table.
-pub fn ctl_data_keccak_sponge<F: Field>() -> Vec<Column<F>> {
+pub(crate) fn ctl_data_keccak_sponge<F: Field>() -> Vec<Column<F>> {
     // When executing KECCAK_GENERAL, the GP memory channels are used as follows:
     // GP channel 0: stack[-1] = context
     // GP channel 1: stack[-2] = segment
@@ -47,7 +47,7 @@ pub fn ctl_data_keccak_sponge<F: Field>() -> Vec<Column<F>> {
 }
 
 /// CTL filter for a call to the Keccak sponge.
-pub fn ctl_filter_keccak_sponge<F: Field>() -> Column<F> {
+pub(crate) fn ctl_filter_keccak_sponge<F: Field>() -> Column<F> {
     Column::single(COL_MAP.is_keccak_sponge)
 }
 
@@ -73,7 +73,7 @@ fn ctl_data_ternops<F: Field>() -> Vec<Column<F>> {
 }
 
 /// Creates the vector of columns corresponding to the opcode, the two inputs and the output of the logic operation.
-pub fn ctl_data_logic<F: Field>() -> Vec<Column<F>> {
+pub(crate) fn ctl_data_logic<F: Field>() -> Vec<Column<F>> {
     // Instead of taking single columns, we reconstruct the entire opcode value directly.
     let mut res = vec![Column::le_bits(COL_MAP.opcode_bits)];
     res.extend(ctl_data_binops());
@@ -81,12 +81,12 @@ pub fn ctl_data_logic<F: Field>() -> Vec<Column<F>> {
 }
 
 /// CTL filter for logic operations.
-pub fn ctl_filter_logic<F: Field>() -> Column<F> {
+pub(crate) fn ctl_filter_logic<F: Field>() -> Column<F> {
     Column::single(COL_MAP.op.logic_op)
 }
 
 /// Returns the `TableWithColumns` for the CPU rows calling arithmetic operations.
-pub fn ctl_arithmetic_base_rows<F: Field>() -> TableWithColumns<F> {
+pub(crate) fn ctl_arithmetic_base_rows<F: Field>() -> TableWithColumns<F> {
     // Instead of taking single columns, we reconstruct the entire opcode value directly.
     let mut columns = vec![Column::le_bits(COL_MAP.opcode_bits)];
     columns.extend(ctl_data_ternops());
@@ -112,17 +112,17 @@ pub fn ctl_arithmetic_base_rows<F: Field>() -> TableWithColumns<F> {
 
 /// Creates the vector of `Columns` corresponding to the contents of General Purpose channels when calling byte packing.
 /// We use `ctl_data_keccak_sponge` because the `Columns` are the same as the ones computed for `KeccakSpongeStark`.
-pub fn ctl_data_byte_packing<F: Field>() -> Vec<Column<F>> {
+pub(crate) fn ctl_data_byte_packing<F: Field>() -> Vec<Column<F>> {
     ctl_data_keccak_sponge()
 }
 
 /// CTL filter for the `MLOAD_32BYTES` operation.
-pub fn ctl_filter_byte_packing<F: Field>() -> Column<F> {
+pub(crate) fn ctl_filter_byte_packing<F: Field>() -> Column<F> {
     Column::single(COL_MAP.op.mload_32bytes)
 }
 
 /// Creates the vector of `Columns` corresponding to the contents of General Purpose channels when calling byte unpacking.
-pub fn ctl_data_byte_unpacking<F: Field>() -> Vec<Column<F>> {
+pub(crate) fn ctl_data_byte_unpacking<F: Field>() -> Vec<Column<F>> {
     // When executing MSTORE_32BYTES, the GP memory channels are used as follows:
     // GP channel 0: stack[-1] = context
     // GP channel 1: stack[-2] = segment
@@ -145,7 +145,7 @@ pub fn ctl_data_byte_unpacking<F: Field>() -> Vec<Column<F>> {
 }
 
 /// CTL filter for the `MSTORE_32BYTES` operation.
-pub fn ctl_filter_byte_unpacking<F: Field>() -> Column<F> {
+pub(crate) fn ctl_filter_byte_unpacking<F: Field>() -> Column<F> {
     Column::single(COL_MAP.op.mstore_32bytes)
 }
 
@@ -162,7 +162,7 @@ fn mem_time_and_channel<F: Field>(channel: usize) -> Column<F> {
 }
 
 /// Creates the vector of `Columns` corresponding to the contents of the code channel when reading code values.
-pub fn ctl_data_code_memory<F: Field>() -> Vec<Column<F>> {
+pub(crate) fn ctl_data_code_memory<F: Field>() -> Vec<Column<F>> {
     let mut cols = vec![
         Column::constant(F::ONE),                                      // is_read
         Column::single(COL_MAP.code_context),                          // addr_context
@@ -182,7 +182,7 @@ pub fn ctl_data_code_memory<F: Field>() -> Vec<Column<F>> {
 }
 
 /// Creates the vector of `Columns` corresponding to the contents of General Purpose channels.
-pub fn ctl_data_gp_memory<F: Field>(channel: usize) -> Vec<Column<F>> {
+pub(crate) fn ctl_data_gp_memory<F: Field>(channel: usize) -> Vec<Column<F>> {
     let channel_map = COL_MAP.mem_channels[channel];
     let mut cols: Vec<_> = Column::singles([
         channel_map.is_read,
@@ -200,18 +200,18 @@ pub fn ctl_data_gp_memory<F: Field>(channel: usize) -> Vec<Column<F>> {
 }
 
 /// CTL filter for code read and write operations.
-pub fn ctl_filter_code_memory<F: Field>() -> Column<F> {
+pub(crate) fn ctl_filter_code_memory<F: Field>() -> Column<F> {
     Column::sum(COL_MAP.op.iter())
 }
 
 /// CTL filter for General Purpose memory read and write operations.
-pub fn ctl_filter_gp_memory<F: Field>(channel: usize) -> Column<F> {
+pub(crate) fn ctl_filter_gp_memory<F: Field>(channel: usize) -> Column<F> {
     Column::single(COL_MAP.mem_channels[channel].used)
 }
 
 /// Structure representing the CPU Stark.
 #[derive(Copy, Clone, Default)]
-pub struct CpuStark<F, const D: usize> {
+pub(crate) struct CpuStark<F, const D: usize> {
     pub f: PhantomData<F>,
 }
 

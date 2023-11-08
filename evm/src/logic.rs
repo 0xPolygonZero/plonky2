@@ -47,7 +47,9 @@ pub(crate) mod columns {
     pub const RESULT: Range<usize> = INPUT1.end..INPUT1.end + PACKED_LEN;
 
     /// Returns the column range for each 32 bit chunk in the input.
-    pub fn limb_bit_cols_for_input(input_bits: Range<usize>) -> impl Iterator<Item = Range<usize>> {
+    pub(crate) fn limb_bit_cols_for_input(
+        input_bits: Range<usize>,
+    ) -> impl Iterator<Item = Range<usize>> {
         (0..PACKED_LEN).map(move |i| {
             let start = input_bits.start + i * PACKED_LIMB_BITS;
             let end = min(start + PACKED_LIMB_BITS, input_bits.end);
@@ -60,7 +62,7 @@ pub(crate) mod columns {
 }
 
 /// Creates the vector of `Columns` corresponding to the opcode, the two inputs and the output of the logic operation.
-pub fn ctl_data<F: Field>() -> Vec<Column<F>> {
+pub(crate) fn ctl_data<F: Field>() -> Vec<Column<F>> {
     // We scale each filter flag with the associated opcode value.
     // If a logic operation is happening on the CPU side, the CTL
     // will enforce that the reconstructed opcode value from the
@@ -77,13 +79,13 @@ pub fn ctl_data<F: Field>() -> Vec<Column<F>> {
 }
 
 /// CTL filter for logic operations.
-pub fn ctl_filter<F: Field>() -> Column<F> {
+pub(crate) fn ctl_filter<F: Field>() -> Column<F> {
     Column::sum([columns::IS_AND, columns::IS_OR, columns::IS_XOR])
 }
 
 /// Structure representing the Logic STARK, which computes all logic operations.
 #[derive(Copy, Clone, Default)]
-pub struct LogicStark<F, const D: usize> {
+pub(crate) struct LogicStark<F, const D: usize> {
     pub f: PhantomData<F>,
 }
 

@@ -14,7 +14,7 @@ use plonky2::util::transpose;
 use crate::witness::errors::ProgramError;
 
 /// Construct an integer from its constituent bits (in little-endian order)
-pub fn limb_from_bits_le<P: PackedField>(iter: impl IntoIterator<Item = P>) -> P {
+pub(crate) fn limb_from_bits_le<P: PackedField>(iter: impl IntoIterator<Item = P>) -> P {
     // TODO: This is technically wrong, as 1 << i won't be canonical for all fields...
     iter.into_iter()
         .enumerate()
@@ -23,7 +23,7 @@ pub fn limb_from_bits_le<P: PackedField>(iter: impl IntoIterator<Item = P>) -> P
 }
 
 /// Construct an integer from its constituent bits (in little-endian order): recursive edition
-pub fn limb_from_bits_le_recursive<F: RichField + Extendable<D>, const D: usize>(
+pub(crate) fn limb_from_bits_le_recursive<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
     iter: impl IntoIterator<Item = ExtensionTarget<D>>,
 ) -> ExtensionTarget<D> {
@@ -36,7 +36,7 @@ pub fn limb_from_bits_le_recursive<F: RichField + Extendable<D>, const D: usize>
 }
 
 /// A helper function to transpose a row-wise trace and put it in the format that `prove` expects.
-pub fn trace_rows_to_poly_values<F: Field, const COLUMNS: usize>(
+pub(crate) fn trace_rows_to_poly_values<F: Field, const COLUMNS: usize>(
     trace_rows: Vec<[F; COLUMNS]>,
 ) -> Vec<PolynomialValues<F>> {
     let trace_row_vecs = trace_rows.into_iter().map(|row| row.to_vec()).collect_vec();

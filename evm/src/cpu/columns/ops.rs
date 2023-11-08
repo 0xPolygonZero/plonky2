@@ -7,7 +7,7 @@ use crate::util::transmute_no_compile_time_size_checks;
 /// Structure representing the flags for the various opcodes.
 #[repr(C)]
 #[derive(Clone, Copy, Eq, PartialEq, Debug)]
-pub struct OpsColumnsView<T: Copy> {
+pub(crate) struct OpsColumnsView<T: Copy> {
     /// Combines ADD, MUL, SUB, DIV, MOD, LT, GT and BYTE flags.
     pub binary_op: T,
     /// Combines ADDMOD, MULMOD and SUBMOD flags.

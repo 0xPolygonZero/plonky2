@@ -10,7 +10,7 @@ use crate::cpu::kernel::ast::{File, Item, PushTarget, StackReplacement};
 /// Parses EVM assembly code.
 #[derive(pest_derive::Parser)]
 #[grammar = "cpu/kernel/evm_asm.pest"]
-pub struct AsmParser;
+struct AsmParser;
 
 pub(crate) fn parse(s: &str) -> File {
     let file = AsmParser::parse(Rule::file, s)

@@ -24,7 +24,7 @@ fn limbs(x: U256) -> [u32; 8] {
 /// Then `diff @ x = num_unequal_limbs`, where `@` denotes the dot product. We set
 /// `diff_pinv = num_unequal_limbs^-1 * x` if `num_unequal_limbs != 0` and 0 otherwise. We have
 /// `diff @ diff_pinv = 1 - equal` as desired.
-pub fn generate_pinv_diff<F: Field>(val0: U256, val1: U256, lv: &mut CpuColumnsView<F>) {
+pub(crate) fn generate_pinv_diff<F: Field>(val0: U256, val1: U256, lv: &mut CpuColumnsView<F>) {
     let val0_limbs = limbs(val0).map(F::from_canonical_u32);
     let val1_limbs = limbs(val1).map(F::from_canonical_u32);
 
@@ -43,7 +43,7 @@ pub fn generate_pinv_diff<F: Field>(val0: U256, val1: U256, lv: &mut CpuColumnsV
 }
 
 /// Evaluates the constraints for EQ and ISZERO.
-pub fn eval_packed<P: PackedField>(
+pub(crate) fn eval_packed<P: PackedField>(
     lv: &CpuColumnsView<P>,
     nv: &CpuColumnsView<P>,
     yield_constr: &mut ConstraintConsumer<P>,
@@ -101,7 +101,7 @@ pub fn eval_packed<P: PackedField>(
 
 /// Circuit version of `eval_packed`.
 /// Evaluates the constraints for EQ and ISZERO.
-pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
+pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
     lv: &CpuColumnsView<ExtensionTarget<D>>,
     nv: &CpuColumnsView<ExtensionTarget<D>>,
