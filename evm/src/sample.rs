@@ -199,6 +199,7 @@ where
 
     let inputs_first = GenerationInputs {
         signed_txns: vec![txn.to_vec()],
+        withdrawals: vec![],
         tries: tries_before,
         trie_roots_after: tries_after,
         contract_code,
@@ -344,6 +345,7 @@ where
     ];
     let inputs = GenerationInputs {
         signed_txns: vec![txn_2.to_vec()],
+        withdrawals: vec![],
         tries: tries_before,
         trie_roots_after,
         contract_code,
