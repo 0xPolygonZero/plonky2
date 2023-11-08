@@ -1,4 +1,4 @@
-use alloc::string::String;
+use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use alloc::{format, vec};
 use core::marker::PhantomData;
@@ -631,8 +631,6 @@ fn partial_interpolate_ext_algebra_target<F: RichField + Extendable<D>, const D:
 
 #[cfg(test)]
 mod tests {
-    use core::iter::repeat_with;
-
     use anyhow::Result;
     use plonky2_field::polynomial::PolynomialValues;
     use plonky2_util::log2_strict;
@@ -832,7 +830,7 @@ mod tests {
 
         // Get a working row for InterpolationGate.
         let shift = F::rand();
-        let values = PolynomialValues::new(repeat_with(FF::rand).take(4).collect());
+        let values = PolynomialValues::new(core::iter::repeat_with(FF::rand).take(4).collect());
         let eval_point = FF::rand();
         let gate = CosetInterpolationGate::<F, D>::with_max_degree(2, 3);
         let vars = EvaluationVars {

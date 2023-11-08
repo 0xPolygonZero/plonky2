@@ -1,11 +1,10 @@
-use std::collections::HashMap;
 use std::str::FromStr;
 use std::time::Duration;
 
 use env_logger::{try_init_from_env, Env, DEFAULT_FILTER_ENV};
 use eth_trie_utils::nibbles::Nibbles;
 use eth_trie_utils::partial_trie::{HashedPartialTrie, PartialTrie};
-use ethereum_types::{Address, BigEndianHash, H256};
+use ethereum_types::{Address, BigEndianHash, H256, U256};
 use hex_literal::hex;
 use keccak_hash::keccak;
 use plonky2::field::goldilocks_field::GoldilocksField;
@@ -24,59 +23,54 @@ type F = GoldilocksField;
 const D: usize = 2;
 type C = KeccakGoldilocksConfig;
 
-/// The `add11_yml` test case from https://github.com/ethereum/tests
+/// Test a simple selfdestruct.
 #[test]
-fn add11_yml() -> anyhow::Result<()> {
+fn test_selfdestruct() -> anyhow::Result<()> {
     init_logger();
 
     let all_stark = AllStark::<F, D>::default();
     let config = StarkConfig::standard_fast_config();
 
-    let beneficiary = hex!("2adc25665018aa1fe0e6bc666dac8fc2697ff9ba");
-    let sender = hex!("a94f5374fce5edbc8e2a8697c15331677e6ebf0b");
-    let to = hex!("095e7baea6a6c7c4c2dfeb977efac326af552d87");
+    let beneficiary = hex!("deadbeefdeadbeefdeadbeefdeadbeefdeadbeef");
+    let sender = hex!("5eb96AA102a29fAB267E12A40a5bc6E9aC088759");
+    let to = hex!("a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0");
 
-    let beneficiary_state_key = keccak(beneficiary);
     let sender_state_key = keccak(sender);
-    let to_hashed = keccak(to);
+    let to_state_key = keccak(to);
 
-    let beneficiary_nibbles = Nibbles::from_bytes_be(beneficiary_state_key.as_bytes()).unwrap();
     let sender_nibbles = Nibbles::from_bytes_be(sender_state_key.as_bytes()).unwrap();
-    let to_nibbles = Nibbles::from_bytes_be(to_hashed.as_bytes()).unwrap();
+    let to_nibbles = Nibbles::from_bytes_be(to_state_key.as_bytes()).unwrap();
 
-    let code = [0x60, 0x01, 0x60, 0x01, 0x01, 0x60, 0x00, 0x55, 0x00];
-    let code_hash = keccak(code);
-
-    let beneficiary_account_before = AccountRlp {
-        nonce: 1.into(),
-        ..AccountRlp::default()
-    };
     let sender_account_before = AccountRlp {
-        balance: 0x0de0b6b3a7640000u64.into(),
-        ..AccountRlp::default()
+        nonce: 5.into(),
+        balance: eth_to_wei(100_000.into()),
+        storage_root: HashedPartialTrie::from(Node::Empty).hash(),
+        code_hash: keccak([]),
     };
+    let code = vec![
+        0x32, // ORIGIN
+        0xFF, // SELFDESTRUCT
+    ];
     let to_account_before = AccountRlp {
-        balance: 0x0de0b6b3a7640000u64.into(),
-        code_hash,
-        ..AccountRlp::default()
+        nonce: 12.into(),
+        balance: eth_to_wei(10_000.into()),
+        storage_root: HashedPartialTrie::from(Node::Empty).hash(),
+        code_hash: keccak(&code),
     };
 
     let mut state_trie_before = HashedPartialTrie::from(Node::Empty);
-    state_trie_before.insert(
-        beneficiary_nibbles,
-        rlp::encode(&beneficiary_account_before).to_vec(),
-    );
     state_trie_before.insert(sender_nibbles, rlp::encode(&sender_account_before).to_vec());
     state_trie_before.insert(to_nibbles, rlp::encode(&to_account_before).to_vec());
 
     let tries_before = TrieInputs {
         state_trie: state_trie_before,
-        transactions_trie: Node::Empty.into(),
-        receipts_trie: Node::Empty.into(),
-        storage_tries: vec![(to_hashed, Node::Empty.into())],
+        transactions_trie: HashedPartialTrie::from(Node::Empty),
+        receipts_trie: HashedPartialTrie::from(Node::Empty),
+        storage_tries: vec![],
     };
 
-    let txn = hex!("f863800a83061a8094095e7baea6a6c7c4c2dfeb977efac326af552d87830186a0801ba0ffb600e63115a7362e7811894a91d8ba4330e526f22121c994c4692035dfdfd5a06198379fcac8de3dbfac48b165df4bf88e2088f294b61efb9a65fe2281c76e16");
+    // Generated using a little py-evm script.
+    let txn = hex!("f868050a831e848094a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0880de0b6b3a76400008025a09bab8db7d72e4b42cba8b117883e16872966bae8e4570582de6ed0065e8c36a1a01256d44d982c75e0ab7a19f61ab78afa9e089d51c8686fdfbee085a5ed5d8ff8");
 
     let block_metadata = BlockMetadata {
         block_beneficiary: Address::from(beneficiary),
@@ -87,50 +81,27 @@ fn add11_yml() -> anyhow::Result<()> {
         block_gaslimit: 0xff112233u32.into(),
         block_chain_id: 1.into(),
         block_base_fee: 0xa.into(),
-        block_gas_used: 0xa868u64.into(),
+        block_gas_used: 26002.into(),
         block_bloom: [0.into(); 8],
     };
 
-    let mut contract_code = HashMap::new();
-    contract_code.insert(keccak(vec![]), vec![]);
-    contract_code.insert(code_hash, code.to_vec());
+    let contract_code = [(keccak(&code), code), (keccak([]), vec![])].into();
 
-    let expected_state_trie_after = {
-        let beneficiary_account_after = AccountRlp {
-            nonce: 1.into(),
-            ..AccountRlp::default()
-        };
+    let expected_state_trie_after: HashedPartialTrie = {
+        let mut state_trie_after = HashedPartialTrie::from(Node::Empty);
         let sender_account_after = AccountRlp {
-            balance: 0xde0b6b3a75be550u64.into(),
-            nonce: 1.into(),
-            ..AccountRlp::default()
+            nonce: 6.into(),
+            balance: eth_to_wei(110_000.into()) - 26_002 * 0xa,
+            storage_root: HashedPartialTrie::from(Node::Empty).hash(),
+            code_hash: keccak([]),
         };
-        let to_account_after = AccountRlp {
-            balance: 0xde0b6b3a76586a0u64.into(),
-            code_hash,
-            // Storage map: { 0 => 2 }
-            storage_root: HashedPartialTrie::from(Node::Leaf {
-                nibbles: Nibbles::from_h256_be(keccak([0u8; 32])),
-                value: vec![2],
-            })
-            .hash(),
-            ..AccountRlp::default()
-        };
-
-        let mut expected_state_trie_after = HashedPartialTrie::from(Node::Empty);
-        expected_state_trie_after.insert(
-            beneficiary_nibbles,
-            rlp::encode(&beneficiary_account_after).to_vec(),
-        );
-        expected_state_trie_after
-            .insert(sender_nibbles, rlp::encode(&sender_account_after).to_vec());
-        expected_state_trie_after.insert(to_nibbles, rlp::encode(&to_account_after).to_vec());
-        expected_state_trie_after
+        state_trie_after.insert(sender_nibbles, rlp::encode(&sender_account_after).to_vec());
+        state_trie_after
     };
 
     let receipt_0 = LegacyReceiptRlp {
         status: true,
-        cum_gas_used: 0xa868u64.into(),
+        cum_gas_used: 26002.into(),
         bloom: vec![0; 256].into(),
         logs: vec![],
     };
@@ -156,11 +127,11 @@ fn add11_yml() -> anyhow::Result<()> {
         tries: tries_before,
         trie_roots_after,
         contract_code,
-        block_metadata,
         genesis_state_trie_root: HashedPartialTrie::from(Node::Empty).hash(),
+        block_metadata,
         txn_number_before: 0.into(),
         gas_used_before: 0.into(),
-        gas_used_after: 0xa868u64.into(),
+        gas_used_after: 26002.into(),
         block_bloom_before: [0.into(); 8],
         block_bloom_after: [0.into(); 8],
         block_hashes: BlockHashes {
@@ -175,6 +146,11 @@ fn add11_yml() -> anyhow::Result<()> {
     timing.filter(Duration::from_millis(100)).print();
 
     verify_proof(&all_stark, proof, &config)
+}
+
+fn eth_to_wei(eth: U256) -> U256 {
+    // 1 ether = 10^18 wei.
+    eth * U256::from(10).pow(18.into())
 }
 
 fn init_logger() {

@@ -31,6 +31,7 @@ pub enum MemoryError {
 pub enum ProverInputError {
     OutOfMptData,
     OutOfRlpData,
+    OutOfWithdrawalData,
     CodeHashNotFound,
     InvalidMptInput,
     InvalidInput,

@@ -1,6 +1,11 @@
 use ethereum_types::U256;
 use plonky2::field::types::PrimeField64;
 
+use self::columns::{
+    INPUT_REGISTER_0, INPUT_REGISTER_1, INPUT_REGISTER_2, OPCODE_COL, OUTPUT_REGISTER,
+};
+use self::utils::u256_to_array;
+use crate::arithmetic::columns::IS_RANGE_CHECK;
 use crate::extension_tower::BN_BASE;
 use crate::util::{addmod, mulmod, submod};
 
@@ -15,6 +20,9 @@ mod utils;
 pub mod arithmetic_stark;
 pub(crate) mod columns;
 
+/// An enum representing different binary operations.
+///
+/// `Shl` and `Shr` are handled differently, by leveraging `Mul` and `Div` respectively.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum BinaryOperator {
     Add,
@@ -33,6 +41,7 @@ pub(crate) enum BinaryOperator {
 }
 
 impl BinaryOperator {
+    /// Computes the result of a binary arithmetic operation given two inputs.
     pub(crate) fn result(&self, input0: U256, input1: U256) -> U256 {
         match self {
             BinaryOperator::Add => input0.overflowing_add(input1).0,
@@ -81,6 +90,7 @@ impl BinaryOperator {
         }
     }
 
+    /// Maps a binary arithmetic operation to its associated flag column in the trace.
     pub(crate) fn row_filter(&self) -> usize {
         match self {
             BinaryOperator::Add => columns::IS_ADD,
@@ -100,6 +110,7 @@ impl BinaryOperator {
     }
 }
 
+/// An enum representing different ternary operations.
 #[allow(clippy::enum_variant_names)]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum TernaryOperator {
@@ -109,6 +120,7 @@ pub(crate) enum TernaryOperator {
 }
 
 impl TernaryOperator {
+    /// Computes the result of a ternary arithmetic operation given three inputs.
     pub(crate) fn result(&self, input0: U256, input1: U256, input2: U256) -> U256 {
         match self {
             TernaryOperator::AddMod => addmod(input0, input1, input2),
@@ -117,6 +129,7 @@ impl TernaryOperator {
         }
     }
 
+    /// Maps a ternary arithmetic operation to its associated flag column in the trace.
     pub(crate) fn row_filter(&self) -> usize {
         match self {
             TernaryOperator::AddMod => columns::IS_ADDMOD,
@@ -127,6 +140,7 @@ impl TernaryOperator {
 }
 
 /// An enum representing arithmetic operations that can be either binary or ternary.
+#[allow(clippy::enum_variant_names)]
 #[derive(Debug)]
 pub(crate) enum Operation {
     BinaryOperation {
@@ -142,10 +156,17 @@ pub(crate) enum Operation {
         input2: U256,
         result: U256,
     },
+    RangeCheckOperation {
+        input0: U256,
+        input1: U256,
+        input2: U256,
+        opcode: U256,
+        result: U256,
+    },
 }
 
 impl Operation {
-    /// Create a binary operator with given inputs.
+    /// Creates a binary operator with given inputs.
     ///
     /// NB: This works as you would expect, EXCEPT for SHL and SHR,
     /// whose inputs need a small amount of preprocessing. Specifically,
@@ -170,6 +191,7 @@ impl Operation {
         }
     }
 
+    /// Creates a ternary operator with given inputs.
     pub(crate) fn ternary(
         operator: TernaryOperator,
         input0: U256,
@@ -186,10 +208,28 @@ impl Operation {
         }
     }
 
+    pub(crate) fn range_check(
+        input0: U256,
+        input1: U256,
+        input2: U256,
+        opcode: U256,
+        result: U256,
+    ) -> Self {
+        Self::RangeCheckOperation {
+            input0,
+            input1,
+            input2,
+            opcode,
+            result,
+        }
+    }
+
+    /// Gets the result of an arithmetic operation.
     pub(crate) fn result(&self) -> U256 {
         match self {
             Operation::BinaryOperation { result, .. } => *result,
             Operation::TernaryOperation { result, .. } => *result,
+            _ => panic!("This function should not be called for range checks."),
         }
     }
 
@@ -218,10 +258,18 @@ impl Operation {
                 input2,
                 result,
             } => ternary_op_to_rows(operator.row_filter(), input0, input1, input2, result),
+            Operation::RangeCheckOperation {
+                input0,
+                input1,
+                input2,
+                opcode,
+                result,
+            } => range_check_to_rows(input0, input1, input2, opcode, result),
         }
     }
 }
 
+/// Converts a ternary arithmetic operation to one or two rows of the `ArithmeticStark` table.
 fn ternary_op_to_rows<F: PrimeField64>(
     row_filter: usize,
     input0: U256,
@@ -239,6 +287,7 @@ fn ternary_op_to_rows<F: PrimeField64>(
     (row1, Some(row2))
 }
 
+/// Converts a binary arithmetic operation to one or two rows of the `ArithmeticStark` table.
 fn binary_op_to_rows<F: PrimeField64>(
     op: BinaryOperator,
     input0: U256,
@@ -280,4 +329,22 @@ fn binary_op_to_rows<F: PrimeField64>(
             (row, None)
         }
     }
+}
+
+fn range_check_to_rows<F: PrimeField64>(
+    input0: U256,
+    input1: U256,
+    input2: U256,
+    opcode: U256,
+    result: U256,
+) -> (Vec<F>, Option<Vec<F>>) {
+    let mut row = vec![F::ZERO; columns::NUM_ARITH_COLUMNS];
+    row[IS_RANGE_CHECK] = F::ONE;
+    row[OPCODE_COL] = F::from_canonical_u64(opcode.as_u64());
+    u256_to_array(&mut row[INPUT_REGISTER_0], input0);
+    u256_to_array(&mut row[INPUT_REGISTER_1], input1);
+    u256_to_array(&mut row[INPUT_REGISTER_2], input2);
+    u256_to_array(&mut row[OUTPUT_REGISTER], result);
+
+    (row, None)
 }

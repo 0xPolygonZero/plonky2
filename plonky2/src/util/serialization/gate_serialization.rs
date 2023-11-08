@@ -1,3 +1,7 @@
+//! A module to help with GateRef serialization
+
+use alloc::vec::Vec;
+
 use plonky2_field::extension::Extendable;
 
 use crate::gates::gate::GateRef;
@@ -44,7 +48,11 @@ macro_rules! get_gate_tag_impl {
             Ok(tag)
         } else)*
         {
-            log::log!(log::Level::Error, "attempted to serialize gate with id `{}` which is unsupported by this gate serializer", $gate.0.id());
+            log::log!(
+                log::Level::Error,
+                "attempted to serialize gate with id `{}` which is unsupported by this gate serializer",
+                $gate.0.id()
+            );
             Err($crate::util::serialization::IoError)
         }
     }};
@@ -68,7 +76,7 @@ macro_rules! impl_gate_serializer {
 
         fn write_gate(
             &self,
-            buf: &mut Vec<u8>,
+            buf: &mut $crate::alloc::vec::Vec<u8>,
             gate: &$crate::gates::gate::GateRef<F, D>,
             common: &$crate::plonk::circuit_data::CommonCircuitData<F, D>,
         ) -> $crate::util::serialization::IoResult<()> {

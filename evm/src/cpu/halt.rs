@@ -11,6 +11,7 @@ use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer
 use crate::cpu::columns::{CpuColumnsView, COL_MAP};
 use crate::cpu::membus::NUM_GP_CHANNELS;
 
+/// Evaluates constraints for the `halt` flag.
 pub fn eval_packed<P: PackedField>(
     lv: &CpuColumnsView<P>,
     nv: &CpuColumnsView<P>,
@@ -45,6 +46,8 @@ pub fn eval_packed<P: PackedField>(
     yield_constr.constraint(halt_state * (lv.program_counter - halt_pc));
 }
 
+/// Circuit version of `eval_packed`.
+/// Evaluates constraints for the `halt` flag.
 pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
     lv: &CpuColumnsView<ExtensionTarget<D>>,
