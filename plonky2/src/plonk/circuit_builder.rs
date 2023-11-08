@@ -1163,7 +1163,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     pub fn build<C: GenericConfig<D, F = F>>(self) -> CircuitData<F, C, D> {
-        let cir = zkcir::ir::CirBuilder::new();
+        let cir = zkcir::ir::CirBuilder::new().num_wires(self.config.num_wires as u64);
 
         if let Ok(zkcir_circuit) = cir.to_cli_string() {
             println!("{:?}", zkcir_circuit);
