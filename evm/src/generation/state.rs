@@ -43,6 +43,8 @@ pub(crate) struct GenerationState<F: Field> {
     /// via `pop()`.
     pub(crate) rlp_prover_inputs: Vec<U256>,
 
+    pub(crate) withdrawal_prover_inputs: Vec<U256>,
+
     /// The state trie only stores state keys, which are hashes of addresses, but sometimes it is
     /// useful to see the actual addresses for debugging. Here we store the mapping for all known
     /// addresses.
@@ -67,6 +69,7 @@ impl<F: Field> GenerationState<F> {
         let state_smt_prover_inputs = state_smt_prover_inputs_reversed(&inputs.tries);
         let mpt_prover_inputs = all_mpt_prover_inputs_reversed(&inputs.tries)?;
         let rlp_prover_inputs = all_rlp_prover_inputs_reversed(&inputs.signed_txns);
+        let withdrawal_prover_inputs = all_withdrawals_prover_inputs_reversed(&inputs.withdrawals);
         let bignum_modmul_result_limbs = Vec::new();
 
         Ok(Self {
@@ -78,6 +81,7 @@ impl<F: Field> GenerationState<F> {
             mpt_prover_inputs,
             state_smt_prover_inputs,
             rlp_prover_inputs,
+            withdrawal_prover_inputs,
             state_key_to_address: HashMap::new(),
             bignum_modmul_result_limbs,
         })
@@ -152,4 +156,17 @@ impl<F: Field> GenerationState<F> {
             .map(|i| stack_peek(self, i).unwrap())
             .collect()
     }
+}
+
+/// Withdrawals prover input array is of the form `[addr0, amount0, ..., addrN, amountN, U256::MAX, U256::MAX]`.
+/// Returns the reversed array.
+fn all_withdrawals_prover_inputs_reversed(withdrawals: &[(Address, U256)]) -> Vec<U256> {
+    let mut withdrawal_prover_inputs = withdrawals
+        .iter()
+        .flat_map(|w| [U256::from((w.0).0.as_slice()), w.1])
+        .collect::<Vec<_>>();
+    withdrawal_prover_inputs.push(U256::MAX);
+    withdrawal_prover_inputs.push(U256::MAX);
+    withdrawal_prover_inputs.reverse();
+    withdrawal_prover_inputs
 }

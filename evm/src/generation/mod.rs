@@ -48,6 +48,8 @@ pub struct GenerationInputs {
     pub block_bloom_after: [U256; 8],
 
     pub signed_txns: Vec<Vec<u8>>,
+    // Withdrawal pairs `(addr, amount)`. At the end of the txs, `amount` is added to `addr`'s balance. See EIP-4895.
+    pub withdrawals: Vec<(Address, U256)>,
     pub tries: TrieInputs,
     /// Expected trie roots after the transactions are executed.
     pub trie_roots_after: TrieRoots,

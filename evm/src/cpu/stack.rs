@@ -91,8 +91,12 @@ pub(crate) const STACK_BEHAVIORS: OpsColumnsView<Option<StackBehavior>> = OpsCol
         disable_other_channels: false,
     }),
     jumpdest_keccak_general: None,
-    prover_input: None, // TODO
-    jumps: None,        // Depends on whether it's a JUMP or a JUMPI.
+    prover_input: Some(StackBehavior {
+        num_pops: 0,
+        pushes: true,
+        disable_other_channels: true,
+    }),
+    jumps: None, // Depends on whether it's a JUMP or a JUMPI.
     pc_push0: Some(StackBehavior {
         num_pops: 0,
         pushes: true,

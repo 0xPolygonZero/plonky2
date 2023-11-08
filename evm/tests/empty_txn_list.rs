@@ -49,6 +49,7 @@ fn test_empty_txn_list() -> anyhow::Result<()> {
     };
     let inputs = GenerationInputs {
         signed_txns: vec![],
+        withdrawals: vec![],
         tries: TrieInputs {
             state_smt: state_smt.serialize(),
             transactions_trie,
