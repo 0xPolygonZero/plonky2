@@ -33,7 +33,7 @@ global start_txn:
     PROVER_INPUT(no_txn)
     %jumpi(execute_withdrawals)
 
-    // Call route_txn. When we return, continue the txn loop.
+    // Call route_txn. When we return, we will process the txn receipt.
     PUSH txn_after
     // stack: retdest, prev_gas_used, txn_counter, num_nibbles, txn_nb
     DUP4 DUP4 %increment_bounded_rlp
