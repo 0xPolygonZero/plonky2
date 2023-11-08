@@ -75,7 +75,6 @@ pub(crate) fn u256_to_usize(u256: U256) -> Result<usize, ProgramError> {
     u256.try_into().map_err(|_| ProgramError::IntegerTooLarge)
 }
 
-#[allow(unused)] // TODO: Remove?
 /// Returns the 32-bit little-endian limbs of a `U256`.
 pub(crate) fn u256_limbs<F: Field>(u256: U256) -> [F; 8] {
     u256.0
@@ -91,7 +90,6 @@ pub(crate) fn u256_limbs<F: Field>(u256: U256) -> [F; 8] {
         .unwrap()
 }
 
-#[allow(unused)]
 /// Returns the 32-bit little-endian limbs of a `H256`.
 pub(crate) fn h256_limbs<F: Field>(h256: H256) -> [F; 8] {
     let mut temp_h256 = h256.0;
@@ -105,7 +103,6 @@ pub(crate) fn h256_limbs<F: Field>(h256: H256) -> [F; 8] {
         .unwrap()
 }
 
-#[allow(unused)]
 /// Returns the 32-bit limbs of a `U160`.
 pub(crate) fn h160_limbs<F: Field>(h160: H160) -> [F; 5] {
     h160.0

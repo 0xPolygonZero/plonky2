@@ -1,5 +1,3 @@
-#![allow(unused)]
-
 use std::ops::{Add, Mul, Neg};
 
 use ethereum_types::U256;
