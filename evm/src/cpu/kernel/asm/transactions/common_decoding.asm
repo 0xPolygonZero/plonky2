@@ -235,17 +235,16 @@ sload_with_addr:
     %stack (slot, addr) -> (slot, addr, after_storage_read)
     %slot_to_storage_key
     // stack: storage_key, addr, after_storage_read
-    PUSH 64 // storage_key has 64 nibbles
-    %stack (n64, storage_key, addr, after_storage_read) -> (addr, n64, storage_key, after_storage_read)
-    %mpt_read_state_trie
-    // stack: account_ptr, 64, storage_key, after_storage_read
+    %stack (storage_key, addr, after_storage_read) -> (addr, storage_key, after_storage_read)
+    %smt_read_state
+    // stack: account_ptr, storage_key, after_storage_read
     DUP1 ISZERO %jumpi(ret_zero) // TODO: Fix this. This should never happen.
-    // stack: account_ptr, 64, storage_key, after_storage_read
+    // stack: account_ptr, storage_key, after_storage_read
     %add_const(2)
     // stack: storage_root_ptr_ptr
     %mload_trie_data
     // stack: storage_root_ptr, 64, storage_key, after_storage_read
-    %jump(mpt_read)
+    %jump(smt_read)
 
 ret_zero:
     // stack: account_ptr, 64, storage_key, after_storage_read, retdest

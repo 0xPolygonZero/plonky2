@@ -21,7 +21,7 @@ use crate::cpu::bootstrap_kernel::generate_bootstrap_kernel;
 use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
-use crate::generation::outputs::{get_outputs, GenerationOutputs};
+use crate::generation::outputs::GenerationOutputs;
 use crate::generation::state::GenerationState;
 use crate::memory::segments::Segment;
 use crate::proof::{BlockHashes, BlockMetadata, ExtraBlockData, PublicValues, TrieRoots};
@@ -252,8 +252,10 @@ pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
         state.traces.get_lengths()
     );
 
-    let outputs = get_outputs(&mut state)
-        .map_err(|err| anyhow!("Failed to generate post-state info: {:?}", err))?;
+    // TODO: fix this
+    // let outputs = get_outputs(&mut state)
+    //     .map_err(|err| anyhow!("Failed to generate post-state info: {:?}", err))?;
+    let outputs = Default::default();
 
     let read_metadata = |field| state.memory.read_global_metadata(field);
     let trie_roots_before = TrieRoots {

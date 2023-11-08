@@ -4,7 +4,7 @@
 %macro create_contract_account
     // stack: address
     DUP1 %insert_touched_addresses
-    DUP1 %mpt_read_state_trie
+    DUP1 %smt_read_state
     // stack: existing_account_ptr, address
     // If the account doesn't exist, there's no need to check its balance or nonce,
     // so we can skip ahead, setting existing_balance = existing_account_ptr = 0.
@@ -46,7 +46,7 @@
     // stack: address, account_ptr
     %addr_to_state_key
     // stack: state_key, account_ptr
-    %mpt_insert_state_trie
+    %smt_insert_state
     // stack: (empty)
     PUSH 0 // success
     %jump(%%end)

@@ -89,7 +89,7 @@ global sys_selfdestruct:
     // stack: balance, address, recipient, kexit_info
     PUSH 0
     // stack: 0, balance, address, recipient, kexit_info
-    DUP3 %mpt_read_state_trie
+    DUP3 %smt_read_state
     // stack: account_ptr, 0, balance, address, recipient, kexit_info
     %add_const(1)
     // stack: balance_ptr, 0, balance, address, recipient, kexit_info
