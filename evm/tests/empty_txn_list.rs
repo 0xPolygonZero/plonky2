@@ -48,7 +48,7 @@ fn test_empty_txn_list() -> anyhow::Result<()> {
         receipts_root: receipts_trie.hash(),
     };
     let inputs = GenerationInputs {
-        signed_txns: vec![],
+        signed_txn: None,
         withdrawals: vec![],
         tries: TrieInputs {
             state_trie,

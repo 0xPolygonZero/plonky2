@@ -35,7 +35,7 @@ impl From<Vec<String>> for ProverInputFn {
 impl<F: Field> GenerationState<F> {
     pub(crate) fn prover_input(&mut self, input_fn: &ProverInputFn) -> Result<U256, ProgramError> {
         match input_fn.0[0].as_str() {
-            "end_of_txns" => self.run_end_of_txns(),
+            "no_txn" => self.no_txn(),
             "ff" => self.run_ff(input_fn),
             "sf" => self.run_sf(input_fn),
             "ffe" => self.run_ffe(input_fn),
@@ -49,14 +49,8 @@ impl<F: Field> GenerationState<F> {
         }
     }
 
-    fn run_end_of_txns(&mut self) -> Result<U256, ProgramError> {
-        let end = self.next_txn_index == self.inputs.signed_txns.len();
-        if end {
-            Ok(U256::one())
-        } else {
-            self.next_txn_index += 1;
-            Ok(U256::zero())
-        }
+    fn no_txn(&mut self) -> Result<U256, ProgramError> {
+        Ok(U256::from(self.inputs.signed_txn.is_none() as u8))
     }
 
     /// Finite field operations.

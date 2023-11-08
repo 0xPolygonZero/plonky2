@@ -14,7 +14,7 @@ global hash_initial_tries:
     %mpt_hash_txn_trie     %mload_global_metadata(@GLOBAL_METADATA_TXN_TRIE_DIGEST_BEFORE)      %assert_eq
     %mpt_hash_receipt_trie %mload_global_metadata(@GLOBAL_METADATA_RECEIPT_TRIE_DIGEST_BEFORE)  %assert_eq
 
-global start_txns:
+global start_txn:
     // stack: (empty)
     // The special case of an empty trie (i.e. for the first transaction)
     // is handled outside of the kernel.
@@ -29,24 +29,22 @@ global start_txns:
     SWAP2
     // stack: init_gas_used, txn_counter, num_nibbles, txn_nb
 
-txn_loop:
-    // If the prover has no more txns for us to process, halt.
-    PROVER_INPUT(end_of_txns)
+    // If the prover has no txn for us to process, halt.
+    PROVER_INPUT(no_txn)
     %jumpi(execute_withdrawals)
 
     // Call route_txn. When we return, continue the txn loop.
-    PUSH txn_loop_after
+    PUSH txn_after
     // stack: retdest, prev_gas_used, txn_counter, num_nibbles, txn_nb
     DUP4 DUP4 %increment_bounded_rlp
     %stack (next_txn_counter, next_num_nibbles, retdest, prev_gas_used, txn_counter, num_nibbles) -> (txn_counter, num_nibbles, retdest, prev_gas_used, txn_counter, num_nibbles, next_txn_counter, next_num_nibbles)
     %jump(route_txn)
 
-global txn_loop_after:
+global txn_after:
     // stack: success, leftover_gas, cur_cum_gas, prev_txn_counter, prev_num_nibbles, txn_counter, num_nibbles, txn_nb
     %process_receipt
     // stack: new_cum_gas, txn_counter, num_nibbles, txn_nb
     SWAP3 %increment SWAP3
-    %jump(txn_loop)
 
 global execute_withdrawals:
     // stack: cum_gas, txn_counter, num_nibbles, txn_nb
