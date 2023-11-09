@@ -50,6 +50,7 @@ where
         cpu_stark,
         keccak_stark,
         keccak_sponge_stark,
+        poseidon_stark,
         logic_stark,
         memory_stark,
         cross_table_lookups,
@@ -99,6 +100,14 @@ where
         &all_proof.stark_proofs[Table::KeccakSponge as usize].proof,
         &stark_challenges[Table::KeccakSponge as usize],
         &ctl_vars_per_table[Table::KeccakSponge as usize],
+        &ctl_challenges,
+        config,
+    )?;
+    verify_stark_proof_with_challenges(
+        poseidon_stark,
+        &all_proof.stark_proofs[Table::Poseidon as usize].proof,
+        &stark_challenges[Table::Poseidon as usize],
+        &ctl_vars_per_table[Table::Poseidon as usize],
         &ctl_challenges,
         config,
     )?;

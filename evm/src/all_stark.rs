@@ -21,6 +21,8 @@ use crate::logic;
 use crate::logic::LogicStark;
 use crate::memory::memory_stark;
 use crate::memory::memory_stark::MemoryStark;
+use crate::poseidon::columns::POSEIDON_SPONGE_RATE;
+use crate::poseidon::poseidon_stark::{self, PoseidonStark};
 use crate::stark::Stark;
 
 /// Structure containing all STARKs and the cross-table lookups.
@@ -31,6 +33,7 @@ pub struct AllStark<F: RichField + Extendable<D>, const D: usize> {
     pub cpu_stark: CpuStark<F, D>,
     pub keccak_stark: KeccakStark<F, D>,
     pub keccak_sponge_stark: KeccakSpongeStark<F, D>,
+    pub poseidon_stark: PoseidonStark<F, D>,
     pub logic_stark: LogicStark<F, D>,
     pub memory_stark: MemoryStark<F, D>,
     pub cross_table_lookups: Vec<CrossTableLookup<F>>,
@@ -45,6 +48,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Default for AllStark<F, D> {
             cpu_stark: CpuStark::default(),
             keccak_stark: KeccakStark::default(),
             keccak_sponge_stark: KeccakSpongeStark::default(),
+            poseidon_stark: PoseidonStark::default(),
             logic_stark: LogicStark::default(),
             memory_stark: MemoryStark::default(),
             cross_table_lookups: all_cross_table_lookups(),
@@ -60,6 +64,7 @@ impl<F: RichField + Extendable<D>, const D: usize> AllStark<F, D> {
             self.cpu_stark.num_lookup_helper_columns(config),
             self.keccak_stark.num_lookup_helper_columns(config),
             self.keccak_sponge_stark.num_lookup_helper_columns(config),
+            self.poseidon_stark.num_lookup_helper_columns(config),
             self.logic_stark.num_lookup_helper_columns(config),
             self.memory_stark.num_lookup_helper_columns(config),
         ]
@@ -74,8 +79,9 @@ pub enum Table {
     Cpu = 2,
     Keccak = 3,
     KeccakSponge = 4,
-    Logic = 5,
-    Memory = 6,
+    Poseidon = 5,
+    Logic = 6,
+    Memory = 7,
 }
 
 /// Number of STARK tables.
@@ -90,6 +96,7 @@ impl Table {
             Self::Cpu,
             Self::Keccak,
             Self::KeccakSponge,
+            Self::Poseidon,
             Self::Logic,
             Self::Memory,
         ]
@@ -104,6 +111,7 @@ pub(crate) fn all_cross_table_lookups<F: Field>() -> Vec<CrossTableLookup<F>> {
         ctl_keccak_sponge(),
         ctl_keccak_inputs(),
         ctl_keccak_outputs(),
+        ctl_poseidon(),
         ctl_logic(),
         ctl_memory(),
     ]
@@ -188,6 +196,21 @@ fn ctl_keccak_sponge<F: Field>() -> CrossTableLookup<F> {
     CrossTableLookup::new(vec![cpu_looking], keccak_sponge_looked)
 }
 
+/// `CrossTableLookup` for `PoseidonStark` to connect it with the `Cpu` module.
+fn ctl_poseidon<F: Field>() -> CrossTableLookup<F> {
+    let cpu_looking = TableWithColumns::new(
+        Table::Cpu,
+        cpu_stark::ctl_data_poseidon(),
+        Some(cpu_stark::ctl_filter_poseidon()),
+    );
+    let poseidon_looked = TableWithColumns::new(
+        Table::Poseidon,
+        poseidon_stark::ctl_looked_data(),
+        Some(poseidon_stark::ctl_looked_filter()),
+    );
+    CrossTableLookup::new(vec![cpu_looking], poseidon_looked)
+}
+
 /// `CrossTableLookup` for `LogicStark` to connect it with the `Cpu` and `KeccakSponge` modules.
 fn ctl_logic<F: Field>() -> CrossTableLookup<F> {
     let cpu_looking = TableWithColumns::new(
@@ -230,6 +253,13 @@ fn ctl_memory<F: Field>() -> CrossTableLookup<F> {
             Some(keccak_sponge_stark::ctl_looking_memory_filter(i)),
         )
     });
+    let poseidon_reads = (0..POSEIDON_SPONGE_RATE).map(|i| {
+        TableWithColumns::new(
+            Table::Poseidon,
+            poseidon_stark::ctl_looking_memory(i),
+            Some(poseidon_stark::ctl_looking_memory_filter(i)),
+        )
+    });
     let byte_packing_ops = (0..32).map(|i| {
         TableWithColumns::new(
             Table::BytePacking,
@@ -240,6 +270,7 @@ fn ctl_memory<F: Field>() -> CrossTableLookup<F> {
     let all_lookers = iter::once(cpu_memory_code_read)
         .chain(cpu_memory_gp_ops)
         .chain(keccak_sponge_reads)
+        .chain(poseidon_reads)
         .chain(byte_packing_ops)
         .collect();
     let memory_looked = TableWithColumns::new(

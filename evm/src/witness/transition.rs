@@ -1,6 +1,7 @@
 use anyhow::bail;
 use log::log_enabled;
 use plonky2::field::types::Field;
+use plonky2::hash::hash_types::RichField;
 
 use super::memory::{MemoryOp, MemoryOpKind};
 use super::util::fill_channel_with_value;
@@ -81,6 +82,7 @@ fn decode(registers: RegistersState, opcode: u8) -> Result<Operation, ProgramErr
         (0x1d, _) => Ok(Operation::Syscall(opcode, 2, false)), // SAR
         (0x20, _) => Ok(Operation::Syscall(opcode, 2, false)), // KECCAK256
         (0x21, true) => Ok(Operation::KeccakGeneral),
+        (0x22, true) => Ok(Operation::PoseidonGeneral),
         (0x30, _) => Ok(Operation::Syscall(opcode, 0, true)), // ADDRESS
         (0x31, _) => Ok(Operation::Syscall(opcode, 1, false)), // BALANCE
         (0x32, _) => Ok(Operation::Syscall(opcode, 0, true)), // ORIGIN
@@ -174,6 +176,7 @@ fn fill_op_flag<F: Field>(op: Operation, row: &mut CpuColumnsView<F>) {
         Operation::BinaryArithmetic(_) => &mut flags.binary_op,
         Operation::TernaryArithmetic(_) => &mut flags.ternary_op,
         Operation::KeccakGeneral | Operation::Jumpdest => &mut flags.jumpdest_keccak_general,
+        Operation::PoseidonGeneral => &mut flags.poseidon_general,
         Operation::ProverInput => &mut flags.prover_input,
         Operation::Jump | Operation::Jumpi => &mut flags.jumps,
         Operation::Pc | Operation::Push(0) => &mut flags.pc_push0,
@@ -206,6 +209,7 @@ fn get_op_special_length(op: Operation) -> Option<usize> {
         Operation::BinaryArithmetic(_) => STACK_BEHAVIORS.binary_op,
         Operation::TernaryArithmetic(_) => STACK_BEHAVIORS.ternary_op,
         Operation::KeccakGeneral | Operation::Jumpdest => STACK_BEHAVIORS.jumpdest_keccak_general,
+        Operation::PoseidonGeneral => STACK_BEHAVIORS.poseidon_general,
         Operation::ProverInput => STACK_BEHAVIORS.prover_input,
         Operation::Jump => JUMP_OP,
         Operation::Jumpi => JUMPI_OP,
@@ -226,7 +230,7 @@ fn get_op_special_length(op: Operation) -> Option<usize> {
     }
 }
 
-fn perform_op<F: Field>(
+fn perform_op<F: RichField>(
     state: &mut GenerationState<F>,
     op: Operation,
     row: CpuColumnsView<F>,
@@ -249,6 +253,7 @@ fn perform_op<F: Field>(
         Operation::BinaryArithmetic(op) => generate_binary_arithmetic_op(op, state, row)?,
         Operation::TernaryArithmetic(op) => generate_ternary_arithmetic_op(op, state, row)?,
         Operation::KeccakGeneral => generate_keccak_general(state, row)?,
+        Operation::PoseidonGeneral => generate_poseidon_general(state, row)?,
         Operation::ProverInput => generate_prover_input(state, row)?,
         Operation::Pop => generate_pop(state, row)?,
         Operation::Jump => generate_jump(state, row)?,
@@ -296,7 +301,9 @@ fn base_row<F: Field>(state: &mut GenerationState<F>) -> (CpuColumnsView<F>, u8)
     (row, opcode)
 }
 
-fn try_perform_instruction<F: Field>(state: &mut GenerationState<F>) -> Result<(), ProgramError> {
+fn try_perform_instruction<F: RichField>(
+    state: &mut GenerationState<F>,
+) -> Result<(), ProgramError> {
     let (mut row, opcode) = base_row(state);
     let op = decode(state.registers, opcode)?;
 
@@ -416,7 +423,7 @@ fn handle_error<F: Field>(state: &mut GenerationState<F>, err: ProgramError) -> 
     Ok(())
 }
 
-pub(crate) fn transition<F: Field>(state: &mut GenerationState<F>) -> anyhow::Result<()> {
+pub(crate) fn transition<F: RichField>(state: &mut GenerationState<F>) -> anyhow::Result<()> {
     let checkpoint = state.checkpoint();
     let result = try_perform_instruction(state);
 

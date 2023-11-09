@@ -264,6 +264,20 @@ where
             timing,
         )?
     );
+    let poseidon_proof = timed!(
+        timing,
+        "prove Keccak STARK",
+        prove_single_table(
+            &all_stark.poseidon_stark,
+            config,
+            &trace_poly_values[Table::Poseidon as usize],
+            &trace_commitments[Table::Poseidon as usize],
+            &ctl_data_per_table[Table::Poseidon as usize],
+            ctl_challenges,
+            challenger,
+            timing,
+        )?
+    );
     let logic_proof = timed!(
         timing,
         "prove logic STARK",
@@ -299,6 +313,7 @@ where
         cpu_proof,
         keccak_proof,
         keccak_sponge_proof,
+        poseidon_proof,
         logic_proof,
         memory_proof,
     ])
