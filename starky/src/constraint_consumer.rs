@@ -2,6 +2,7 @@ use alloc::vec;
 use alloc::vec::Vec;
 use core::marker::PhantomData;
 
+#[cfg(std)]
 use backtrace::Backtrace;
 use plonky2::field::extension::Extendable;
 use plonky2::field::packed::PackedField;
@@ -66,6 +67,7 @@ impl<P: PackedField> ConstraintConsumer<P> {
     /// Add one constraint on all rows.
     #[allow(clippy::collapsible_if)]
     pub fn constraint(&mut self, constraint: P) {
+        #[cfg(std)]
         if std::intrinsics::unlikely(self.debug_api) {
             if !constraint.is_zeros() {
                 println!(

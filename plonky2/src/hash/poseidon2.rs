@@ -4,7 +4,8 @@
 //! NOTE: This and related work like Poseidon2Gate and benchmarks are based on OlaVM's work
 //! at https://github.com/Sin7Y/olavm/blob/main/plonky2/plonky2/src/hash/poseidon2.rs
 //!
-use std::fmt::Debug;
+use alloc::vec;
+use core::fmt::Debug;
 
 use plonky2_field::extension::{Extendable, FieldExtension};
 use plonky2_field::types::{Field, PrimeField64};

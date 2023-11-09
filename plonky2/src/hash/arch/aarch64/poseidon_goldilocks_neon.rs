@@ -89,7 +89,7 @@ unsafe fn add_with_wraparound(a: u64, b: u64) -> u64 {
         adj = lateout(reg) adj,
         options(pure, nomem, nostack),
     );
-    res + adj // adj is EPSILON if wraparound occured and 0 otherwise
+    res + adj // adj is EPSILON if wraparound occurred and 0 otherwise
 }
 
 /// Subtraction of a and (b >> 32) modulo ORDER accounting for wraparound.
@@ -152,7 +152,7 @@ unsafe fn multiply(x: u64, y: u64) -> u64 {
 // ==================================== STANDALONE CONST LAYER =====================================
 
 /// Standalone const layer. Run only once, at the start of round 1. Remaining const layers are fused
-/// with the preceeding MDS matrix multiplication.
+/// with the preceding MDS matrix multiplication.
 /*
 #[inline(always)]
 #[unroll_for_loops]

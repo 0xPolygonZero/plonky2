@@ -1,5 +1,7 @@
 #![allow(clippy::int_plus_one)] // Makes more sense for some inequalities below.
 
+use alloc::vec::Vec;
+
 use anyhow::{ensure, Result};
 
 use crate::field::extension::Extendable;
