@@ -499,8 +499,8 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakSpongeStark<F, D> {
         // permutations and put them in the corresponding range-check
         // columns rc_c and rc_c+1.
         for col in 0..KECCAK_RATE_BYTES {
+            let c = get_single_block_bytes_value(col);
             for i in 0..n_rows {
-                let c = get_single_block_bytes_value(col);
                 let x = cols[c][i].to_canonical_u64() as usize;
                 assert!(
                     x < BYTE_RANGE_MAX,
