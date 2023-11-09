@@ -49,7 +49,7 @@ pub fn eval_packed<P: PackedField>(
         yield_constr.constraint(channel.used * (channel.used - P::ONES));
     }
 
-    // Validate partial channel used flags. They should be binary.
+    // Validate `partial_channel.used`. It should be binary.
     yield_constr.constraint(lv.partial_channel.used * (lv.partial_channel.used - P::ONES));
 }
 
@@ -74,7 +74,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
         yield_constr.constraint(builder, constr);
     }
 
-    // Validate partial channel used flags. They should be binary.
+    // Validate `partial_channel.used`. It should be binary.
     {
         let constr = builder.mul_sub_extension(
             lv.partial_channel.used,

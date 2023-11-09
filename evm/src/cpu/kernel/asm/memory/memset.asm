@@ -29,7 +29,7 @@ global memset:
     MSTORE_32BYTES_32
     // stack: new_offset, DST, count, retdest
 
-    // Increment dst_addr.
+    // Update dst_addr.
     SWAP3
     POP
     // Decrement count.

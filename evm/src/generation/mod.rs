@@ -290,7 +290,6 @@ fn simulate_cpu<F: RichField + Extendable<D>, const D: usize>(
     state: &mut GenerationState<F>,
 ) -> anyhow::Result<()> {
     let halt_pc = KERNEL.global_labels["halt"];
-    let bootstrapping_len = state.traces.clock();
 
     loop {
         // If we've reached the kernel's halt routine, and our trace length is a power of 2, stop.
@@ -318,12 +317,6 @@ fn simulate_cpu<F: RichField + Extendable<D>, const D: usize>(
                     break;
                 }
             }
-
-            // First CPU row's memory channel 0 must contain the kernel hash to make
-            // the Keccak CTL check pass.
-            let first_cpu_row = &mut state.traces.cpu[bootstrapping_len];
-            first_cpu_row.mem_channels[0].value = KERNEL.code_hash.map(F::from_canonical_u32);
-            first_cpu_row.mem_channels[0].value.reverse();
 
             log::info!("CPU trace padded to {} cycles", state.traces.clock());
 

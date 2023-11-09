@@ -205,8 +205,7 @@ pub(crate) fn mem_write_partial_log_and_fill<F: Field>(
 
     let channel = &mut row.partial_channel;
     assert!(channel.used.is_zero());
-    // channel.used = F::ONE;
-    // Flags set elsewhere.
+    channel.used = F::ONE;
     channel.is_read = F::ZERO;
     channel.addr_context = F::from_canonical_usize(address.context);
     channel.addr_segment = F::from_canonical_usize(address.segment);

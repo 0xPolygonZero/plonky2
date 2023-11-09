@@ -34,7 +34,7 @@ pub fn ctl_data_keccak_sponge<F: Field>() -> Vec<Column<F>> {
     // GP channel 1: stack[-2] = segment
     // GP channel 2: stack[-3] = virt
     // GP channel 3: stack[-4] = len
-    // GP channel 4: pushed = outputs
+    // Next GP channel 0: pushed = outputs
     let context = Column::single(COL_MAP.mem_channels[0].value[0]);
     let segment = Column::single(COL_MAP.mem_channels[1].value[0]);
     let virt = Column::single(COL_MAP.mem_channels[2].value[0]);
@@ -127,7 +127,7 @@ pub fn ctl_data_byte_unpacking<F: Field>() -> Vec<Column<F>> {
     // GP channel 1: stack[-2] = segment
     // GP channel 2: stack[-3] = virt
     // GP channel 3: stack[-4] = val
-    // GP channel 4: pushed = new_offset (virt + len)
+    // Next GP channel 0: pushed = new_offset (virt + len)
     let context = Column::single(COL_MAP.mem_channels[0].value[0]);
     let segment = Column::single(COL_MAP.mem_channels[1].value[0]);
     let virt = Column::single(COL_MAP.mem_channels[2].value[0]);

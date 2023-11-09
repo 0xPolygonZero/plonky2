@@ -4,7 +4,7 @@ pub fn get_push_opcode(n: u8) -> u8 {
     0x5f + n
 }
 
-/// The opcode of a standard instruction (not a `PUSH` or a `MSTORE_32BYTES`).
+/// The opcode of a standard instruction (not a `PUSH`).
 pub fn get_opcode(mnemonic: &str) -> u8 {
     match mnemonic.to_uppercase().as_str() {
         "STOP" => 0x00,

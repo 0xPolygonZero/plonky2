@@ -41,20 +41,29 @@ global mload_packing_u64_LE:
 // Pre stack: context, segment, offset, value, len, retdest
 // Post stack: offset'
 global mstore_unpacking:
+    // stack: context, segment, offset, value, len, retdest
+    DUP5 ISZERO
+    // stack: len == 0, context, segment, offset, value, len, retdest
+    %jumpi(mstore_unpacking_empty)
     %stack(context, segment, offset, value, len, retdest) -> (len, context, segment, offset, value, retdest)
     PUSH 3
-    //stack: BYTES_PER_JUMP, len, context, segment, offset, value, retdest
+    // stack: BYTES_PER_JUMP, len, context, segment, offset, value, retdest
     MUL
-    //stack: jump_offset, context, segment, offset, value, retdest
+    // stack: jump_offset, context, segment, offset, value, retdest
     PUSH mstore_unpacking_0
-    //stack: mstore_unpacking_0, jump_offset, context, segment, offset, value, retdest
+    // stack: mstore_unpacking_0, jump_offset, context, segment, offset, value, retdest
     ADD
-    //stack: address_unpacking, context, segment, offset, value, retdest
+    // stack: address_unpacking, context, segment, offset, value, retdest
     JUMP
 
+mstore_unpacking_empty:
+    %stack(context, segment, offset, value, len, retdest) -> (retdest, offset)
+    JUMP
+
+// This case can never be reached. It's only here to offset the table correctly.
 mstore_unpacking_0:
     %rep 3
-    PUSH 0
+        PANIC
     %endrep
 mstore_unpacking_1:
     // stack: context, segment, offset, value, retdest

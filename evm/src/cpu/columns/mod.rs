@@ -94,8 +94,10 @@ pub struct CpuColumnsView<T: Copy> {
     /// CPU clock.
     pub(crate) clock: T,
 
-    /// Memory bus channels in the CPU. Each channel is comprised of 13 columns.
+    /// Memory bus channels in the CPU.
+    /// Full channels are comprised of 13 columns.
     pub mem_channels: [MemoryChannelView<T>; NUM_GP_CHANNELS],
+    /// Partial channel is only comprised of 5 columns.
     pub partial_channel: PartialMemoryChannelView<T>,
 }
 

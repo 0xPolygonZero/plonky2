@@ -862,13 +862,6 @@ pub(crate) fn generate_mstore_general<F: Field>(
             .map_err(|_| MemoryError(VirtTooLarge { virt }))?,
     };
     let log_write = mem_write_partial_log_and_fill(address, state, &mut row, val);
-    // Write in partial channel.
-    let channel = &mut row.partial_channel;
-    channel.used = F::ONE;
-    channel.is_read = F::ZERO;
-    channel.addr_context = F::from_canonical_usize(address.context);
-    channel.addr_segment = F::from_canonical_usize(address.segment);
-    channel.addr_virtual = F::from_canonical_usize(address.virt);
 
     let diff = row.stack_len - F::from_canonical_usize(4);
     if let Some(inv) = diff.try_inverse() {
