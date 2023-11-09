@@ -125,6 +125,10 @@ pub fn ctl_arithmetic_shift_rows<F: Field>() -> TableWithColumns<F> {
     TableWithColumns::new(Table::Cpu, columns, Some(Column::single(COL_MAP.op.shift)))
 }
 
+/// We use the same columns for `memop_32bytes` and `is_keccak_sponge`.
+/// However, while `MLOAD_32BYTES` and `KeccakSponge` share the same
+/// data structure for the memory columns, MSTORE_32BYTES reads from
+/// GP channel 4, instead of pushing into it.
 pub fn ctl_data_byte32<F: Field>() -> Vec<Column<F>> {
     ctl_data_keccak_sponge()
 }
