@@ -63,7 +63,7 @@ impl<F: Field> GenerationState<F> {
         log::debug!("Input contract_code: {:?}", &inputs.contract_code);
         let mpt_prover_inputs = all_mpt_prover_inputs_reversed(&inputs.tries)?;
         let rlp_prover_inputs =
-            all_rlp_prover_inputs_reversed(&inputs.signed_txn.clone().unwrap_or_default());
+            all_rlp_prover_inputs_reversed(inputs.signed_txn.as_ref().unwrap_or(&vec![]));
         let withdrawal_prover_inputs = all_withdrawals_prover_inputs_reversed(&inputs.withdrawals);
         let bignum_modmul_result_limbs = Vec::new();
 
