@@ -178,6 +178,19 @@ impl<F: Field> Column<F> {
         Self::linear_combination(cs.into_iter().map(|c| *c.borrow()).zip(F::TWO.powers()))
     }
 
+    /// Given an iterator of columns (c_0, ..., c_n) containing bits in little endian order:
+    /// returns the representation of c_0 + 2 * c_1 + ... + 2^n * c_n + k where `k` is an
+    /// additional constant.
+    pub(crate) fn le_bits_with_constant<I: IntoIterator<Item = impl Borrow<usize>>>(
+        cs: I,
+        constant: F,
+    ) -> Self {
+        Self::linear_combination_with_constant(
+            cs.into_iter().map(|c| *c.borrow()).zip(F::TWO.powers()),
+            constant,
+        )
+    }
+
     /// Given an iterator of columns (c_0, ..., c_n) containing bytes in little endian order:
     /// returns the representation of c_0 + 256 * c_1 + ... + 256^n * c_n.
     pub(crate) fn le_bytes<I: IntoIterator<Item = impl Borrow<usize>>>(cs: I) -> Self {
