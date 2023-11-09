@@ -29,8 +29,6 @@ pub(crate) struct GenerationState<F: Field> {
     pub(crate) memory: MemoryState,
     pub(crate) traces: Traces<F>,
 
-    pub(crate) next_txn_index: usize,
-
     /// Prover inputs containing MPT data, in reverse order so that the next input can be obtained
     /// via `pop()`.
     pub(crate) mpt_prover_inputs: Vec<U256>,
@@ -38,6 +36,8 @@ pub(crate) struct GenerationState<F: Field> {
     /// Prover inputs containing RLP data, in reverse order so that the next input can be obtained
     /// via `pop()`.
     pub(crate) rlp_prover_inputs: Vec<U256>,
+
+    pub(crate) withdrawal_prover_inputs: Vec<U256>,
 
     /// The state trie only stores state keys, which are hashes of addresses, but sometimes it is
     /// useful to see the actual addresses for debugging. Here we store the mapping for all known
@@ -52,7 +52,7 @@ pub(crate) struct GenerationState<F: Field> {
 
 impl<F: Field> GenerationState<F> {
     pub(crate) fn new(inputs: GenerationInputs, kernel_code: &[u8]) -> Result<Self, ProgramError> {
-        log::debug!("Input signed_txns: {:?}", &inputs.signed_txns);
+        log::debug!("Input signed_txn: {:?}", &inputs.signed_txn);
         log::debug!("Input state_trie: {:?}", &inputs.tries.state_trie);
         log::debug!(
             "Input transactions_trie: {:?}",
@@ -62,7 +62,9 @@ impl<F: Field> GenerationState<F> {
         log::debug!("Input storage_tries: {:?}", &inputs.tries.storage_tries);
         log::debug!("Input contract_code: {:?}", &inputs.contract_code);
         let mpt_prover_inputs = all_mpt_prover_inputs_reversed(&inputs.tries)?;
-        let rlp_prover_inputs = all_rlp_prover_inputs_reversed(&inputs.signed_txns);
+        let rlp_prover_inputs =
+            all_rlp_prover_inputs_reversed(inputs.signed_txn.as_ref().unwrap_or(&vec![]));
+        let withdrawal_prover_inputs = all_withdrawals_prover_inputs_reversed(&inputs.withdrawals);
         let bignum_modmul_result_limbs = Vec::new();
 
         Ok(Self {
@@ -70,9 +72,9 @@ impl<F: Field> GenerationState<F> {
             registers: Default::default(),
             memory: MemoryState::new(kernel_code),
             traces: Traces::default(),
-            next_txn_index: 0,
             mpt_prover_inputs,
             rlp_prover_inputs,
+            withdrawal_prover_inputs,
             state_key_to_address: HashMap::new(),
             bignum_modmul_result_limbs,
         })
@@ -147,4 +149,17 @@ impl<F: Field> GenerationState<F> {
             .map(|i| stack_peek(self, i).unwrap())
             .collect()
     }
+}
+
+/// Withdrawals prover input array is of the form `[addr0, amount0, ..., addrN, amountN, U256::MAX, U256::MAX]`.
+/// Returns the reversed array.
+fn all_withdrawals_prover_inputs_reversed(withdrawals: &[(Address, U256)]) -> Vec<U256> {
+    let mut withdrawal_prover_inputs = withdrawals
+        .iter()
+        .flat_map(|w| [U256::from((w.0).0.as_slice()), w.1])
+        .collect::<Vec<_>>();
+    withdrawal_prover_inputs.push(U256::MAX);
+    withdrawal_prover_inputs.push(U256::MAX);
+    withdrawal_prover_inputs.reverse();
+    withdrawal_prover_inputs
 }

@@ -1,3 +1,6 @@
+use alloc::borrow::ToOwned;
+use alloc::vec;
+
 use crate::field::extension::Extendable;
 use crate::gates::lookup::LookupGate;
 use crate::gates::lookup_table::{LookupTable, LookupTableGate};

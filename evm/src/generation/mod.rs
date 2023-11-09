@@ -46,7 +46,10 @@ pub struct GenerationInputs {
     pub gas_used_after: U256,
     pub block_bloom_after: [U256; 8],
 
-    pub signed_txns: Vec<Vec<u8>>,
+    // A None would yield an empty proof, otherwise this contains the encoding of a transaction.
+    pub signed_txn: Option<Vec<u8>>,
+    // Withdrawal pairs `(addr, amount)`. At the end of the txs, `amount` is added to `addr`'s balance. See EIP-4895.
+    pub withdrawals: Vec<(Address, U256)>,
     pub tries: TrieInputs,
     /// Expected trie roots after the transactions are executed.
     pub trie_roots_after: TrieRoots,
@@ -120,7 +123,7 @@ fn apply_metadata_and_tries_memops<F: RichField + Extendable<D>, const D: usize>
         (GlobalMetadata::TxnNumberBefore, inputs.txn_number_before),
         (
             GlobalMetadata::TxnNumberAfter,
-            inputs.txn_number_before + inputs.signed_txns.len(),
+            inputs.txn_number_before + if inputs.signed_txn.is_some() { 1 } else { 0 },
         ),
         (
             GlobalMetadata::StateTrieRootDigestBefore,

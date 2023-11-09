@@ -3,7 +3,7 @@
 
 use alloc::vec;
 use alloc::vec::Vec;
-use std::fmt::Debug;
+use core::fmt::Debug;
 
 use unroll::unroll_for_loops;
 

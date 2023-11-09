@@ -1,4 +1,4 @@
-// Returns reverse order divison y/x, modulo N
+// Returns reverse order division y/x, modulo N
 %macro divr_fp254
     // stack: x   , y
     %inv_fp254
