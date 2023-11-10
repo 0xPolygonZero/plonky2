@@ -201,7 +201,7 @@ fn test_extcodecopy() -> Result<()> {
 fn prepare_interpreter_all_accounts(
     interpreter: &mut Interpreter,
     trie_inputs: TrieInputs,
-    to: [u8; 20],
+    addr: [u8; 20],
     code: &[u8],
 ) -> Result<()> {
     // Load all MPTs.
@@ -222,7 +222,7 @@ fn prepare_interpreter_all_accounts(
     interpreter.generation_state.memory.contexts[1].segments[Segment::ContextMetadata as usize]
         .set(
             ContextMetadata::Address as usize,
-            U256::from_big_endian(&to),
+            U256::from_big_endian(&addr),
         );
     interpreter.generation_state.memory.contexts[1].segments[Segment::ContextMetadata as usize]
         .set(ContextMetadata::GasLimit as usize, 100_000.into());
