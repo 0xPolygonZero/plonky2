@@ -1,7 +1,7 @@
 pub(crate) mod errors;
 pub(crate) mod gas;
 pub(crate) mod memory;
-mod operation;
+pub(crate) mod operation;
 pub(crate) mod state;
 pub(crate) mod traces;
 pub mod transition;
