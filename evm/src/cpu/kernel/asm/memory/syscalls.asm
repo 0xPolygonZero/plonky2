@@ -31,6 +31,7 @@ global sys_mstore:
     GET_CONTEXT
     // stack: addr: 3, value, kexit_info
     MSTORE_32BYTES_32
+    POP
     // stack: kexit_info
     EXIT_KERNEL
 
