@@ -43,7 +43,7 @@ impl MemoryState {
 }
 
 pub struct Interpreter<'a> {
-    kernel_mode: bool,
+    pub(crate) kernel_mode: bool,
     jumpdests: Vec<usize>,
     pub(crate) context: usize,
     pub(crate) generation_state: GenerationState<F>,
@@ -340,6 +340,7 @@ impl<'a> Interpreter<'a> {
             .get(self.generation_state.registers.program_counter)
             .byte(0);
         self.opcode_count[opcode as usize] += 1;
+        println!("opcode {:x?}", opcode);
         self.incr(1);
 
         match opcode {
@@ -1200,6 +1201,7 @@ impl<'a> Interpreter<'a> {
         self.generation_state.registers.program_counter = program_counter;
         self.generation_state.registers.is_kernel = is_kernel_mode;
         self.kernel_mode = is_kernel_mode;
+        println!("kernel mode {:?} ", is_kernel_mode);
         self.generation_state.registers.gas_used = gas_used_val;
     }
 

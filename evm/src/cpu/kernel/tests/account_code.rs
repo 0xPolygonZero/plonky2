@@ -229,6 +229,7 @@ fn prepare_interpreter_all_accounts(
     interpreter.context = 1;
     interpreter.generation_state.registers.context = 1;
     interpreter.generation_state.registers.is_kernel = false;
+    interpreter.kernel_mode = false;
 
     Ok(())
 }
@@ -289,6 +290,7 @@ fn sstore() -> Result<()> {
     interpreter.context = 0;
     interpreter.generation_state.registers.context = 0;
     interpreter.generation_state.registers.is_kernel = true;
+    interpreter.kernel_mode = true;
     interpreter.push(0xDEADBEEFu32.into());
     interpreter.run()?;
 
@@ -348,7 +350,6 @@ fn sload() -> Result<()> {
     prepare_interpreter_all_accounts(&mut interpreter, trie_inputs, addr, &code)?;
 
     interpreter.run()?;
-
     // We check that no value was found.
     let value = interpreter.pop();
     assert_eq!(value, 0.into());
@@ -358,6 +359,7 @@ fn sload() -> Result<()> {
     interpreter.context = 0;
     interpreter.generation_state.registers.context = 0;
     interpreter.generation_state.registers.is_kernel = true;
+    interpreter.kernel_mode = true;
     interpreter.push(0xDEADBEEFu32.into());
     interpreter.run()?;
 
