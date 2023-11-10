@@ -43,8 +43,8 @@ return:
     %pop3
     JUMP
 
-// Determines how many bytes to skip, if any, based on the opcode we read.
-// If we read a PUSH<n> opcode, we skip over n bytes, otherwise we skip 0.
+// Determines how many bytes away is the next opcode, based on the opcode we read.
+// If we read a PUSH<n> opcode, next opcode is in n + 1 bytes, otherwise it's the next one.
 //
 // Note that the range of PUSH opcodes is [0x60, 0x80). I.e. PUSH1 is 0x60
 // and PUSH32 is 0x7f.
