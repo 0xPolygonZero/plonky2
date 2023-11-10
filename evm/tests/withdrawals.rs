@@ -63,7 +63,7 @@ fn test_withdrawals() -> anyhow::Result<()> {
     };
 
     let inputs = GenerationInputs {
-        signed_txns: vec![],
+        signed_txn: None,
         withdrawals,
         tries: TrieInputs {
             state_trie: state_trie_before,

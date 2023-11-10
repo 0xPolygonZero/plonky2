@@ -1,4 +1,5 @@
 pub(crate) mod bootstrap_kernel;
+mod clock;
 pub(crate) mod columns;
 mod contextops;
 pub(crate) mod control_flow;

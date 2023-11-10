@@ -21,7 +21,10 @@ use crate::generation::state::GenerationState;
 use crate::generation::GenerationInputs;
 use crate::memory::segments::Segment;
 use crate::util::u256_to_usize;
+use crate::witness::gas::gas_to_charge;
 use crate::witness::memory::{MemoryAddress, MemoryContextState, MemorySegmentState, MemoryState};
+use crate::witness::operation::Operation;
+use crate::witness::transition::decode;
 use crate::witness::util::stack_peek;
 
 type F = GoldilocksField;
@@ -450,6 +453,11 @@ impl<'a> Interpreter<'a> {
         } else if let Some(label) = self.offset_label() {
             println!("At {label}");
         }
+
+        let op = decode(self.generation_state.registers, opcode)
+            // We default to prover inputs, as those are kernel-only instructions that charge nothing.
+            .unwrap_or(Operation::ProverInput);
+        self.generation_state.registers.gas_used += gas_to_charge(op);
 
         Ok(())
     }

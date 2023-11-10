@@ -29,8 +29,6 @@ pub(crate) struct GenerationState<F: Field> {
     pub(crate) memory: MemoryState,
     pub(crate) traces: Traces<F>,
 
-    pub(crate) next_txn_index: usize,
-
     /// Prover inputs containing MPT data, in reverse order so that the next input can be obtained
     /// via `pop()`.
     pub(crate) mpt_prover_inputs: Vec<U256>,
@@ -54,7 +52,7 @@ pub(crate) struct GenerationState<F: Field> {
 
 impl<F: Field> GenerationState<F> {
     pub(crate) fn new(inputs: GenerationInputs, kernel_code: &[u8]) -> Result<Self, ProgramError> {
-        log::debug!("Input signed_txns: {:?}", &inputs.signed_txns);
+        log::debug!("Input signed_txn: {:?}", &inputs.signed_txn);
         log::debug!("Input state_trie: {:?}", &inputs.tries.state_trie);
         log::debug!(
             "Input transactions_trie: {:?}",
@@ -64,7 +62,8 @@ impl<F: Field> GenerationState<F> {
         log::debug!("Input storage_tries: {:?}", &inputs.tries.storage_tries);
         log::debug!("Input contract_code: {:?}", &inputs.contract_code);
         let mpt_prover_inputs = all_mpt_prover_inputs_reversed(&inputs.tries)?;
-        let rlp_prover_inputs = all_rlp_prover_inputs_reversed(&inputs.signed_txns);
+        let rlp_prover_inputs =
+            all_rlp_prover_inputs_reversed(inputs.signed_txn.as_ref().unwrap_or(&vec![]));
         let withdrawal_prover_inputs = all_withdrawals_prover_inputs_reversed(&inputs.withdrawals);
         let bignum_modmul_result_limbs = Vec::new();
 
@@ -73,7 +72,6 @@ impl<F: Field> GenerationState<F> {
             registers: Default::default(),
             memory: MemoryState::new(kernel_code),
             traces: Traces::default(),
-            next_txn_index: 0,
             mpt_prover_inputs,
             rlp_prover_inputs,
             withdrawal_prover_inputs,

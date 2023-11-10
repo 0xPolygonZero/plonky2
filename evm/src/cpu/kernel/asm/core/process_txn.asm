@@ -452,22 +452,22 @@ global invalid_txn:
     POP
     %mload_txn_field(@TXN_FIELD_GAS_LIMIT)
     PUSH 0
-    %jump(txn_loop_after)
+    %jump(txn_after)
 
 global invalid_txn_1:
     %pop2
     %mload_txn_field(@TXN_FIELD_GAS_LIMIT)
     PUSH 0
-    %jump(txn_loop_after)
+    %jump(txn_after)
 
 global invalid_txn_2:
     %pop3
     %mload_txn_field(@TXN_FIELD_GAS_LIMIT)
     PUSH 0
-    %jump(txn_loop_after)
+    %jump(txn_after)
 
 global invalid_txn_3:
     %pop4
     %mload_txn_field(@TXN_FIELD_GAS_LIMIT)
     PUSH 0
-    %jump(txn_loop_after)
+    %jump(txn_after)
