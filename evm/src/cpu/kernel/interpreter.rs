@@ -515,8 +515,8 @@ impl<'a> Interpreter<'a> {
             0x58 => G_BASE,            // "PC",
             0x59 => KERNEL_ONLY_INSTR, // "MSIZE",
             0x5a => KERNEL_ONLY_INSTR, // "GAS",
-            0x5b => G_JUMPDEST,
-            0x5f => G_BASE,                              // "JUMPDEST",
+            0x5b => G_JUMPDEST,        // "JUMPDEST",
+            0x5f => G_BASE,                              // "PUSH0",
             x if (0x60..0x80).contains(&x) => G_VERYLOW, // "PUSH"
             x if (0x80..0x90).contains(&x) => G_VERYLOW, // "DUP"
             x if (0x90..0xa0).contains(&x) => G_VERYLOW, // "SWAP"
