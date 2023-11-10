@@ -18,27 +18,24 @@ loop:
     MLOAD_GENERAL
     // stack: opcode, i, ctx, code_len, retdest
 
-    DUP1 %eq_const(0x5b)
-    // stack: opcode == JUMPDEST, opcode, i, ctx, code_len, retdest
-    %jumpi(encountered_jumpdest)
+    DUP1 
+    // Slightly more efficient than `%eq_const(0x5b) ISZERO`
+    PUSH 0x5b
+    SUB
+    // stack: opcode != JUMPDEST, opcode, i, ctx, code_len, retdest
+    %jumpi(continue)
 
+    // stack: JUMPDEST, i, ctx, code_len, retdest
+    %stack (JUMPDEST, i, ctx) -> (ctx, @SEGMENT_JUMPDEST_BITS, i, 1, JUMPDEST, i, ctx)
+    MSTORE_GENERAL
+
+continue:
     // stack: opcode, i, ctx, code_len, retdest
     %add_const(code_bytes_to_skip)
     %mload_kernel_code
     // stack: bytes_to_skip, i, ctx, code_len, retdest
     ADD
-    %jump(continue)
-
-encountered_jumpdest:
-    // stack: opcode, i, ctx, code_len, retdest
-    POP
     // stack: i, ctx, code_len, retdest
-    %stack (i, ctx) -> (ctx, @SEGMENT_JUMPDEST_BITS, i, 1, i, ctx)
-    MSTORE_GENERAL
-
-continue:
-    // stack: i, ctx, code_len, retdest
-    %increment
     %jump(loop)
 
 return:
@@ -53,10 +50,9 @@ return:
 // and PUSH32 is 0x7f.
 code_bytes_to_skip:
     %rep 96
-        BYTES 0 // 0x00-0x5f
+        BYTES 1 // 0x00-0x5f
     %endrep
 
-    BYTES 1
     BYTES 2
     BYTES 3
     BYTES 4
@@ -88,7 +84,8 @@ code_bytes_to_skip:
     BYTES 30
     BYTES 31
     BYTES 32
+    BYTES 33
 
     %rep 128
-        BYTES 0 // 0x80-0xff
+        BYTES 1 // 0x80-0xff
     %endrep
