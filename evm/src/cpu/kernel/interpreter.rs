@@ -1044,6 +1044,7 @@ impl<'a> Interpreter<'a> {
         self.generation_state.registers.program_counter = new_program_counter;
 
         self.generation_state.registers.is_kernel = true;
+        self.kernel_mode = true;
         self.generation_state.registers.gas_used = 0;
         self.push(syscall_info);
 
@@ -1198,6 +1199,7 @@ impl<'a> Interpreter<'a> {
 
         self.generation_state.registers.program_counter = program_counter;
         self.generation_state.registers.is_kernel = is_kernel_mode;
+        self.kernel_mode = is_kernel_mode;
         self.generation_state.registers.gas_used = gas_used_val;
     }
 

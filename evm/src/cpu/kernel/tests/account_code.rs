@@ -237,16 +237,16 @@ fn prepare_interpreter_all_accounts(
 #[test]
 fn sstore() -> Result<()> {
     // We take the same `to` account as in add11_yml.
-    let to = hex!("095e7baea6a6c7c4c2dfeb977efac326af552d87");
+    let addr = hex!("095e7baea6a6c7c4c2dfeb977efac326af552d87");
 
-    let to_hashed = keccak(to);
+    let addr_hashed = keccak(addr);
 
-    let to_nibbles = Nibbles::from_bytes_be(to_hashed.as_bytes()).unwrap();
+    let addr_nibbles = Nibbles::from_bytes_be(addr_hashed.as_bytes()).unwrap();
 
     let code = [0x60, 0x01, 0x60, 0x01, 0x01, 0x60, 0x00, 0x55, 0x00];
     let code_hash = keccak(code);
 
-    let to_account_before = AccountRlp {
+    let account_before = AccountRlp {
         balance: 0x0de0b6b3a7640000u64.into(),
         code_hash,
         ..AccountRlp::default()
@@ -254,26 +254,26 @@ fn sstore() -> Result<()> {
 
     let mut state_trie_before = HashedPartialTrie::from(Node::Empty);
 
-    state_trie_before.insert(to_nibbles, rlp::encode(&to_account_before).to_vec());
+    state_trie_before.insert(addr_nibbles, rlp::encode(&account_before).to_vec());
 
     let trie_inputs = TrieInputs {
         state_trie: state_trie_before.clone(),
         transactions_trie: Node::Empty.into(),
         receipts_trie: Node::Empty.into(),
-        storage_tries: vec![(to_hashed, Node::Empty.into())],
+        storage_tries: vec![(addr_hashed, Node::Empty.into())],
     };
 
     let initial_stack = vec![];
     let mut interpreter = Interpreter::new_with_kernel(0, initial_stack);
 
     // Prepare the interpreter by inserting the account in the state trie.
-    prepare_interpreter_all_accounts(&mut interpreter, trie_inputs, to, &code)?;
+    prepare_interpreter_all_accounts(&mut interpreter, trie_inputs, addr, &code)?;
 
     interpreter.run()?;
 
     // The code should have added an element to the storage of `to_account`. We run
     // `mpt_hash_state_trie` to check that.
-    let to_account_after = AccountRlp {
+    let account_after = AccountRlp {
         balance: 0x0de0b6b3a7640000u64.into(),
         code_hash,
         storage_root: HashedPartialTrie::from(Node::Leaf {
@@ -302,7 +302,7 @@ fn sstore() -> Result<()> {
     let hash = H256::from_uint(&interpreter.stack()[0]);
 
     let mut expected_state_trie_after = HashedPartialTrie::from(Node::Empty);
-    expected_state_trie_after.insert(to_nibbles, rlp::encode(&to_account_after).to_vec());
+    expected_state_trie_after.insert(addr_nibbles, rlp::encode(&account_after).to_vec());
 
     let expected_state_trie_hash = expected_state_trie_after.hash();
     assert_eq!(hash, expected_state_trie_hash);
@@ -313,18 +313,18 @@ fn sstore() -> Result<()> {
 #[test]
 fn sload() -> Result<()> {
     // We take the same `to` account as in add11_yml.
-    let to = hex!("095e7baea6a6c7c4c2dfeb977efac326af552d87");
+    let addr = hex!("095e7baea6a6c7c4c2dfeb977efac326af552d87");
 
-    let to_hashed = keccak(to);
+    let addr_hashed = keccak(addr);
 
-    let to_nibbles = Nibbles::from_bytes_be(to_hashed.as_bytes()).unwrap();
+    let addr_nibbles = Nibbles::from_bytes_be(addr_hashed.as_bytes()).unwrap();
 
     // This code is similar to the one in add11_yml's contract, but we pop the added value
     // and carry out an SLOAD instead of an SSTORE.
     let code = [0x60, 0x01, 0x60, 0x01, 0x01, 0x50, 0x60, 0x00, 0x54, 0x00];
     let code_hash = keccak(code);
 
-    let to_account_before = AccountRlp {
+    let account_before = AccountRlp {
         balance: 0x0de0b6b3a7640000u64.into(),
         code_hash,
         ..AccountRlp::default()
@@ -332,20 +332,20 @@ fn sload() -> Result<()> {
 
     let mut state_trie_before = HashedPartialTrie::from(Node::Empty);
 
-    state_trie_before.insert(to_nibbles, rlp::encode(&to_account_before).to_vec());
+    state_trie_before.insert(addr_nibbles, rlp::encode(&account_before).to_vec());
 
     let trie_inputs = TrieInputs {
         state_trie: state_trie_before.clone(),
         transactions_trie: Node::Empty.into(),
         receipts_trie: Node::Empty.into(),
-        storage_tries: vec![(to_hashed, Node::Empty.into())],
+        storage_tries: vec![(addr_hashed, Node::Empty.into())],
     };
 
     let initial_stack = vec![];
     let mut interpreter = Interpreter::new_with_kernel(0, initial_stack);
 
     // Prepare the interpreter by inserting the account in the state trie.
-    prepare_interpreter_all_accounts(&mut interpreter, trie_inputs, to, &code)?;
+    prepare_interpreter_all_accounts(&mut interpreter, trie_inputs, addr, &code)?;
 
     interpreter.run()?;
 
