@@ -89,11 +89,12 @@ pub const NUM_KECCAK_SPONGE_COLUMNS: usize = size_of::<KeccakSpongeColumnsView<u
 pub(crate) const RC_FREQUENCIES: usize = NUM_KECCAK_SPONGE_COLUMNS - 1;
 pub(crate) const RANGE_COUNTER: usize = RC_FREQUENCIES - 1;
 
+pub(crate) const BLOCK_BYTES_START: usize =
+    6 + KECCAK_RATE_BYTES + KECCAK_RATE_U32S + KECCAK_CAPACITY_U32S;
 /// Indices for the range-checked values, i.e. the `block_bytes` section.
 // TODO: Find a better way to access those indices
 pub(crate) const fn get_block_bytes_range() -> Range<usize> {
-    let start = 6 + KECCAK_RATE_BYTES + KECCAK_RATE_U32S + KECCAK_CAPACITY_U32S;
-    start..start + KECCAK_RATE_BYTES
+    BLOCK_BYTES_START..BLOCK_BYTES_START + KECCAK_RATE_BYTES
 }
 
 /// Return the index for the targeted `block_bytes` element.
