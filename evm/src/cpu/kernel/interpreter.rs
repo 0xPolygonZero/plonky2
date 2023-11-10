@@ -18,6 +18,7 @@ use crate::generation::prover_input::ProverInputFn;
 use crate::generation::state::GenerationState;
 use crate::generation::GenerationInputs;
 use crate::memory::segments::Segment;
+use crate::witness::gas::{G_BASE, G_HIGH, G_JUMPDEST, G_LOW, G_MID, G_VERYLOW, KERNEL_ONLY_INSTR};
 use crate::witness::memory::{MemoryAddress, MemoryContextState, MemorySegmentState, MemoryState};
 use crate::witness::util::stack_peek;
 
@@ -444,6 +445,108 @@ impl<'a> Interpreter<'a> {
         } else if let Some(label) = self.offset_label() {
             println!("At {label}");
         }
+
+        let gas_cost = match opcode {
+            0x00 => KERNEL_ONLY_INSTR, // "STOP",
+            0x01 => G_VERYLOW,         // "ADD",
+            0x02 => G_LOW,             // "MUL",
+            0x03 => G_VERYLOW,         // "SUB",
+            0x04 => G_LOW,             // "DIV",
+            0x05 => G_LOW,             // "SDIV",
+            0x06 => G_LOW,             // "MOD",
+            0x07 => G_LOW,             // "SMOD",
+            0x08 => G_MID,             // "ADDMOD",
+            0x09 => G_MID,             // "MULMOD",
+            0x0a => KERNEL_ONLY_INSTR, // "EXP",
+            0x0b => KERNEL_ONLY_INSTR, // "SIGNEXTEND",
+            0x0c => KERNEL_ONLY_INSTR, // "ADDFP254",
+            0x0d => KERNEL_ONLY_INSTR, // "MULFP254",
+            0x0e => KERNEL_ONLY_INSTR, // "SUBFP254",
+            0x0f => KERNEL_ONLY_INSTR, // "SUBMOD",
+            0x10 => G_VERYLOW,         // "LT",
+            0x11 => G_VERYLOW,         // "GT",
+            0x12 => G_VERYLOW,         // "SLT",
+            0x13 => G_VERYLOW,         // "SGT",
+            0x14 => G_VERYLOW,         // "EQ",
+            0x15 => G_VERYLOW,         // "ISZERO",
+            0x16 => G_VERYLOW,         // "AND",
+            0x17 => G_VERYLOW,         // "OR",
+            0x18 => G_VERYLOW,         // "XOR",
+            0x19 => G_VERYLOW,         // "NOT",
+            0x1a => G_VERYLOW,         // "BYTE",
+            0x1b => G_VERYLOW,         // "SHL",
+            0x1c => G_VERYLOW,         // "SHR",
+            0x1d => G_VERYLOW,         // "SAR",
+            0x20 => KERNEL_ONLY_INSTR, // "KECCAK256",
+            0x21 => KERNEL_ONLY_INSTR, // "KECCAK_GENERAL",
+            0x30 => KERNEL_ONLY_INSTR, // "ADDRESS",
+            0x31 => KERNEL_ONLY_INSTR, // "BALANCE",
+            0x32 => KERNEL_ONLY_INSTR, // "ORIGIN",
+            0x33 => KERNEL_ONLY_INSTR, // "CALLER",
+            0x34 => KERNEL_ONLY_INSTR, // "CALLVALUE",
+            0x35 => KERNEL_ONLY_INSTR, // "CALLDATALOAD",
+            0x36 => KERNEL_ONLY_INSTR, // "CALLDATASIZE",
+            0x37 => KERNEL_ONLY_INSTR, // "CALLDATACOPY",
+            0x38 => KERNEL_ONLY_INSTR, // "CODESIZE",
+            0x39 => KERNEL_ONLY_INSTR, // "CODECOPY",
+            0x3a => KERNEL_ONLY_INSTR, // "GASPRICE",
+            0x3b => KERNEL_ONLY_INSTR, // "EXTCODESIZE",
+            0x3c => KERNEL_ONLY_INSTR, // "EXTCODECOPY",
+            0x3d => KERNEL_ONLY_INSTR, // "RETURNDATASIZE",
+            0x3e => KERNEL_ONLY_INSTR, // "RETURNDATACOPY",
+            0x3f => KERNEL_ONLY_INSTR, // "EXTCODEHASH",
+            0x40 => KERNEL_ONLY_INSTR, // "BLOCKHASH",
+            0x41 => KERNEL_ONLY_INSTR, // "COINBASE",
+            0x42 => KERNEL_ONLY_INSTR, // "TIMESTAMP",
+            0x43 => KERNEL_ONLY_INSTR, // "NUMBER",
+            0x44 => KERNEL_ONLY_INSTR, // "DIFFICULTY",
+            0x45 => KERNEL_ONLY_INSTR, // "GASLIMIT",
+            0x46 => KERNEL_ONLY_INSTR, // "CHAINID",
+            0x48 => KERNEL_ONLY_INSTR, // "BASEFEE",
+            0x49 => KERNEL_ONLY_INSTR, // "PROVER_INPUT",
+            0x50 => G_BASE,            // "POP",
+            0x51 => KERNEL_ONLY_INSTR, // "MLOAD",
+            0x52 => KERNEL_ONLY_INSTR, // "MSTORE",
+            0x53 => KERNEL_ONLY_INSTR, // "MSTORE8",
+            0x54 => KERNEL_ONLY_INSTR, // "SLOAD",
+            0x55 => KERNEL_ONLY_INSTR, // "SSTORE",
+            0x56 => G_MID,             // "JUMP",
+            0x57 => G_HIGH,            // "JUMPI",
+            0x58 => G_BASE,            // "PC",
+            0x59 => KERNEL_ONLY_INSTR, // "MSIZE",
+            0x5a => KERNEL_ONLY_INSTR, // "GAS",
+            0x5b => G_JUMPDEST,
+            0x5f => G_BASE,                              // "JUMPDEST",
+            x if (0x60..0x80).contains(&x) => G_VERYLOW, // "PUSH"
+            x if (0x80..0x90).contains(&x) => G_VERYLOW, // "DUP"
+            x if (0x90..0xa0).contains(&x) => G_VERYLOW, // "SWAP"
+            0xa0 => KERNEL_ONLY_INSTR,                   // "LOG0",
+            0xa1 => KERNEL_ONLY_INSTR,                   // "LOG1",
+            0xa2 => KERNEL_ONLY_INSTR,                   // "LOG2",
+            0xa3 => KERNEL_ONLY_INSTR,                   // "LOG3",
+            0xa4 => KERNEL_ONLY_INSTR,                   // "LOG4",
+            0xa5 => KERNEL_ONLY_INSTR,                   // "PANIC",
+            0xee => KERNEL_ONLY_INSTR,                   // "MSTORE_32BYTES",
+            0xf0 => KERNEL_ONLY_INSTR,                   // "CREATE",
+            0xf1 => KERNEL_ONLY_INSTR,                   // "CALL",
+            0xf2 => KERNEL_ONLY_INSTR,                   // "CALLCODE",
+            0xf3 => KERNEL_ONLY_INSTR,                   // "RETURN",
+            0xf4 => KERNEL_ONLY_INSTR,                   // "DELEGATECALL",
+            0xf5 => KERNEL_ONLY_INSTR,                   // "CREATE2",
+            0xf6 => KERNEL_ONLY_INSTR,                   // "GET_CONTEXT",
+            0xf7 => KERNEL_ONLY_INSTR,                   // "SET_CONTEXT",
+            0xf8 => KERNEL_ONLY_INSTR,                   // "MLOAD_32BYTES",
+            0xf9 => KERNEL_ONLY_INSTR,                   // "EXIT_KERNEL",
+            0xfa => KERNEL_ONLY_INSTR,                   // "STATICCALL",
+            0xfb => KERNEL_ONLY_INSTR,                   // "MLOAD_GENERAL",
+            0xfc => KERNEL_ONLY_INSTR,                   // "MSTORE_GENERAL",
+            0xfd => KERNEL_ONLY_INSTR,                   // "REVERT",
+            0xfe => KERNEL_ONLY_INSTR,                   // "INVALID",
+            0xff => KERNEL_ONLY_INSTR,                   // "SELFDESTRUCT",
+            _ => KERNEL_ONLY_INSTR,
+        };
+
+        self.generation_state.registers.gas_used += gas_cost;
 
         Ok(())
     }

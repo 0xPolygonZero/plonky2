@@ -1,12 +1,12 @@
 use crate::witness::operation::Operation;
 
-const KERNEL_ONLY_INSTR: u64 = 0;
-const G_JUMPDEST: u64 = 1;
-const G_BASE: u64 = 2;
-const G_VERYLOW: u64 = 3;
-const G_LOW: u64 = 5;
-const G_MID: u64 = 8;
-const G_HIGH: u64 = 10;
+pub(crate) const KERNEL_ONLY_INSTR: u64 = 0;
+pub(crate) const G_JUMPDEST: u64 = 1;
+pub(crate) const G_BASE: u64 = 2;
+pub(crate) const G_VERYLOW: u64 = 3;
+pub(crate) const G_LOW: u64 = 5;
+pub(crate) const G_MID: u64 = 8;
+pub(crate) const G_HIGH: u64 = 10;
 
 pub(crate) fn gas_to_charge(op: Operation) -> u64 {
     use crate::arithmetic::BinaryOperator::*;
