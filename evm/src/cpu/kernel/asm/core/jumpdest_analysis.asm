@@ -23,7 +23,8 @@ loop:
     %jumpi(encountered_jumpdest)
 
     // stack: opcode, i, ctx, code_len, retdest
-    %code_bytes_to_skip
+    %add_const(code_bytes_to_skip)
+    %mload_kernel_code
     // stack: bytes_to_skip, i, ctx, code_len, retdest
     ADD
     %jump(continue)
@@ -50,15 +51,44 @@ return:
 //
 // Note that the range of PUSH opcodes is [0x60, 0x80). I.e. PUSH1 is 0x60
 // and PUSH32 is 0x7f.
-%macro code_bytes_to_skip
-    // stack: opcode
-    %sub_const(0x60)
-    // stack: opcode - 0x60
-    DUP1 %lt_const(0x20)
-    // stack: is_push_opcode, opcode - 0x60
-    SWAP1
-    %increment // n = opcode - 0x60 + 1
-    // stack: n, is_push_opcode
-    MUL
-    // stack: bytes_to_skip
-%endmacro
+code_bytes_to_skip:
+    %rep 96
+        BYTES 0 // 0x00-0x5f
+    %endrep
+
+    BYTES 1
+    BYTES 2
+    BYTES 3
+    BYTES 4
+    BYTES 5
+    BYTES 6
+    BYTES 7
+    BYTES 8
+    BYTES 9
+    BYTES 10
+    BYTES 11
+    BYTES 12
+    BYTES 13
+    BYTES 14
+    BYTES 15
+    BYTES 16
+    BYTES 17
+    BYTES 18
+    BYTES 19
+    BYTES 20
+    BYTES 21
+    BYTES 22
+    BYTES 23
+    BYTES 24
+    BYTES 25
+    BYTES 26
+    BYTES 27
+    BYTES 28
+    BYTES 29
+    BYTES 30
+    BYTES 31
+    BYTES 32
+
+    %rep 128
+        BYTES 0 // 0x80-0xff
+    %endrep
