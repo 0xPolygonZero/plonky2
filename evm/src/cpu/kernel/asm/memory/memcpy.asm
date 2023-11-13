@@ -55,8 +55,8 @@ global memcpy_bytes:
     // Handle small case
     DUP7
     // stack: count, DST, SRC, count, retdest
-    %lt_const(0x20)
-    // stack: count < 32, DST, SRC, count, retdest
+    %lt_const(0x21)
+    // stack: count <= 32, DST, SRC, count, retdest
     %jumpi(memcpy_bytes_finish)
     
     // We will pack 32 bytes into a U256 from the source, and then unpack it at the destination.
