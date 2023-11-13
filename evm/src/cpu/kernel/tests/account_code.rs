@@ -323,7 +323,9 @@ fn sload() -> Result<()> {
 
     // This code is similar to the one in add11_yml's contract, but we pop the added value
     // and carry out an SLOAD instead of an SSTORE.
-    let code = [0x60, 0x01, 0x60, 0x01, 0x01, 0x50, 0x60, 0x00, 0x54, 0x00];
+    let code = [
+        0x60, 0x01, 0x60, 0x01, 0x01, 0x50, 0x60, 0x00, 0x54, 0x60, 0x03, 0x00,
+    ];
     let code_hash = keccak(code);
 
     let account_before = AccountRlp {
@@ -350,9 +352,22 @@ fn sload() -> Result<()> {
     prepare_interpreter_all_accounts(&mut interpreter, trie_inputs, addr, &code)?;
 
     interpreter.run()?;
-    // We check that no value was found.
+
+    assert_eq!(interpreter.stack().len(), 2, "Stack length should be 2");
+
+    // The last step in the provided code pushes the value 3.
+    let pushed_val = interpreter.pop();
+    assert_eq!(
+        pushed_val,
+        3.into(),
+        "The last pushed values is 3, but we the stack contains {:?}",
+        pushed_val
+    );
+
+    // We check that no value was found in the storage trie.
     let value = interpreter.pop();
     assert_eq!(value, 0.into());
+
     // Now, execute mpt_hash_state_trie. We check that the state trie has not changed.
     let mpt_hash_state_trie = KERNEL.global_labels["mpt_hash_state_trie"];
     interpreter.generation_state.registers.program_counter = mpt_hash_state_trie;

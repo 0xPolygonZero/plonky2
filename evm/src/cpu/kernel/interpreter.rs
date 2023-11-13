@@ -1038,7 +1038,7 @@ impl<'a> Interpreter<'a> {
         let new_program_counter =
             u256_to_usize(handler_addr).map_err(|_| anyhow!("The program counter is too large"))?;
 
-        let syscall_info = U256::from(self.generation_state.registers.program_counter + 1)
+        let syscall_info = U256::from(self.generation_state.registers.program_counter)
             + U256::from((self.generation_state.registers.is_kernel as usize) << 32)
             + (U256::from(self.generation_state.registers.gas_used) << 192);
         self.generation_state.registers.program_counter = new_program_counter;
@@ -1048,7 +1048,6 @@ impl<'a> Interpreter<'a> {
         self.generation_state.registers.gas_used = 0;
         self.push(syscall_info);
 
-        self.run().map_err(|_| anyhow!("Syscall failed"))?;
         Ok(())
     }
 
