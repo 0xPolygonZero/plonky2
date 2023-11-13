@@ -149,7 +149,11 @@ after_constructor:
     POP
 
     // EIP-3541: Reject new contract code starting with the 0xEF byte
-    PUSH 0 %mload_current(@SEGMENT_RETURNDATA) %eq_const(0xEF) %jumpi(create_first_byte_ef)
+    PUSH @SEGMENT_RETURNDATA
+    GET_CONTEXT
+    %build_address_no_offset
+    MLOAD_GENERAL
+    %eq_const(0xEF) %jumpi(create_first_byte_ef)
 
     // Charge gas for the code size.
     // stack: leftover_gas, success, address, kexit_info
