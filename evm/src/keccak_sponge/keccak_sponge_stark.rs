@@ -231,7 +231,7 @@ pub(crate) struct KeccakSpongeOp {
 
 /// Structure representing the `KeccakSponge` STARK, which carries out the sponge permutation.
 #[derive(Copy, Clone, Default)]
-pub struct KeccakSpongeStark<F, const D: usize> {
+pub(crate) struct KeccakSpongeStark<F, const D: usize> {
     f: PhantomData<F>,
 }
 

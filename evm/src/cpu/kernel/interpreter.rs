@@ -42,7 +42,7 @@ impl MemoryState {
     }
 }
 
-pub struct Interpreter<'a> {
+pub(crate) struct Interpreter<'a> {
     pub(crate) kernel_mode: bool,
     jumpdests: Vec<usize>,
     pub(crate) context: usize,
@@ -54,7 +54,7 @@ pub struct Interpreter<'a> {
     opcode_count: [usize; 0x100],
 }
 
-pub fn run_interpreter(
+pub(crate) fn run_interpreter(
     initial_offset: usize,
     initial_stack: Vec<U256>,
 ) -> anyhow::Result<Interpreter<'static>> {
@@ -67,14 +67,14 @@ pub fn run_interpreter(
 }
 
 #[derive(Clone)]
-pub struct InterpreterMemoryInitialization {
+pub(crate) struct InterpreterMemoryInitialization {
     pub label: String,
     pub stack: Vec<U256>,
     pub segment: Segment,
     pub memory: Vec<(usize, Vec<U256>)>,
 }
 
-pub fn run_interpreter_with_memory(
+pub(crate) fn run_interpreter_with_memory(
     memory_init: InterpreterMemoryInitialization,
 ) -> anyhow::Result<Interpreter<'static>> {
     let label = KERNEL.global_labels[&memory_init.label];
@@ -93,7 +93,7 @@ pub fn run_interpreter_with_memory(
     Ok(interpreter)
 }
 
-pub fn run<'a>(
+pub(crate) fn run<'a>(
     code: &'a [u8],
     initial_offset: usize,
     initial_stack: Vec<U256>,
@@ -293,7 +293,7 @@ impl<'a> Interpreter<'a> {
             .content
     }
 
-    pub fn extract_kernel_memory(self, segment: Segment, range: Range<usize>) -> Vec<U256> {
+    pub(crate) fn extract_kernel_memory(self, segment: Segment, range: Range<usize>) -> Vec<U256> {
         let mut output: Vec<U256> = vec![];
         for i in range {
             let term = self

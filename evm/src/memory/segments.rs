@@ -1,4 +1,3 @@
-#[allow(dead_code)]
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Ord, PartialOrd, Debug)]
 pub enum Segment {
     /// Contains EVM bytecode.
@@ -160,7 +159,6 @@ impl Segment {
         }
     }
 
-    #[allow(dead_code)]
     pub(crate) fn bit_range(&self) -> usize {
         match self {
             Segment::Code => 8,

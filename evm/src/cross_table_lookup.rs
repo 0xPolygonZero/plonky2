@@ -60,7 +60,7 @@ use crate::stark::Stark;
 /// - a vector of `(usize, F)` corresponding to the column number and the associated multiplicand
 /// - the constant of the linear combination.
 #[derive(Clone, Debug)]
-pub struct Column<F: Field> {
+pub(crate) struct Column<F: Field> {
     linear_combination: Vec<(usize, F)>,
     next_row_linear_combination: Vec<(usize, F)>,
     constant: F,
@@ -68,7 +68,7 @@ pub struct Column<F: Field> {
 
 impl<F: Field> Column<F> {
     /// Returns the representation of a single column in the current row.
-    pub fn single(c: usize) -> Self {
+    pub(crate) fn single(c: usize) -> Self {
         Self {
             linear_combination: vec![(c, F::ONE)],
             next_row_linear_combination: vec![],
@@ -77,14 +77,14 @@ impl<F: Field> Column<F> {
     }
 
     /// Returns multiple single columns in the current row.
-    pub fn singles<I: IntoIterator<Item = impl Borrow<usize>>>(
+    pub(crate) fn singles<I: IntoIterator<Item = impl Borrow<usize>>>(
         cs: I,
     ) -> impl Iterator<Item = Self> {
         cs.into_iter().map(|c| Self::single(*c.borrow()))
     }
 
     /// Returns the representation of a single column in the next row.
-    pub fn single_next_row(c: usize) -> Self {
+    pub(crate) fn single_next_row(c: usize) -> Self {
         Self {
             linear_combination: vec![],
             next_row_linear_combination: vec![(c, F::ONE)],
@@ -93,14 +93,14 @@ impl<F: Field> Column<F> {
     }
 
     /// Returns multiple single columns for the next row.
-    pub fn singles_next_row<I: IntoIterator<Item = impl Borrow<usize>>>(
+    pub(crate) fn singles_next_row<I: IntoIterator<Item = impl Borrow<usize>>>(
         cs: I,
     ) -> impl Iterator<Item = Self> {
         cs.into_iter().map(|c| Self::single_next_row(*c.borrow()))
     }
 
     /// Returns a linear combination corresponding to a constant.
-    pub fn constant(constant: F) -> Self {
+    pub(crate) fn constant(constant: F) -> Self {
         Self {
             linear_combination: vec![],
             next_row_linear_combination: vec![],
@@ -109,17 +109,17 @@ impl<F: Field> Column<F> {
     }
 
     /// Returns a linear combination corresponding to 0.
-    pub fn zero() -> Self {
+    pub(crate) fn zero() -> Self {
         Self::constant(F::ZERO)
     }
 
     /// Returns a linear combination corresponding to 1.
-    pub fn one() -> Self {
+    pub(crate) fn one() -> Self {
         Self::constant(F::ONE)
     }
 
     /// Given an iterator of `(usize, F)` and a constant, returns the association linear combination of columns for the current row.
-    pub fn linear_combination_with_constant<I: IntoIterator<Item = (usize, F)>>(
+    pub(crate) fn linear_combination_with_constant<I: IntoIterator<Item = (usize, F)>>(
         iter: I,
         constant: F,
     ) -> Self {
@@ -138,7 +138,9 @@ impl<F: Field> Column<F> {
     }
 
     /// Given an iterator of `(usize, F)` and a constant, returns the associated linear combination of columns for the current and the next rows.
-    pub fn linear_combination_and_next_row_with_constant<I: IntoIterator<Item = (usize, F)>>(
+    pub(crate) fn linear_combination_and_next_row_with_constant<
+        I: IntoIterator<Item = (usize, F)>,
+    >(
         iter: I,
         next_row_iter: I,
         constant: F,
@@ -166,19 +168,19 @@ impl<F: Field> Column<F> {
     }
 
     /// Returns a linear combination of columns, with no additional constant.
-    pub fn linear_combination<I: IntoIterator<Item = (usize, F)>>(iter: I) -> Self {
+    pub(crate) fn linear_combination<I: IntoIterator<Item = (usize, F)>>(iter: I) -> Self {
         Self::linear_combination_with_constant(iter, F::ZERO)
     }
 
     /// Given an iterator of columns (c_0, ..., c_n) containing bits in little endian order:
     /// returns the representation of c_0 + 2 * c_1 + ... + 2^n * c_n.
-    pub fn le_bits<I: IntoIterator<Item = impl Borrow<usize>>>(cs: I) -> Self {
+    pub(crate) fn le_bits<I: IntoIterator<Item = impl Borrow<usize>>>(cs: I) -> Self {
         Self::linear_combination(cs.into_iter().map(|c| *c.borrow()).zip(F::TWO.powers()))
     }
 
     /// Given an iterator of columns (c_0, ..., c_n) containing bytes in little endian order:
     /// returns the representation of c_0 + 256 * c_1 + ... + 256^n * c_n.
-    pub fn le_bytes<I: IntoIterator<Item = impl Borrow<usize>>>(cs: I) -> Self {
+    pub(crate) fn le_bytes<I: IntoIterator<Item = impl Borrow<usize>>>(cs: I) -> Self {
         Self::linear_combination(
             cs.into_iter()
                 .map(|c| *c.borrow())
@@ -187,12 +189,12 @@ impl<F: Field> Column<F> {
     }
 
     /// Given an iterator of columns, returns the representation of their sum.
-    pub fn sum<I: IntoIterator<Item = impl Borrow<usize>>>(cs: I) -> Self {
+    pub(crate) fn sum<I: IntoIterator<Item = impl Borrow<usize>>>(cs: I) -> Self {
         Self::linear_combination(cs.into_iter().map(|c| *c.borrow()).zip(repeat(F::ONE)))
     }
 
     /// Given the column values for the current row, returns the evaluation of the linear combination.
-    pub fn eval<FE, P, const D: usize>(&self, v: &[P]) -> P
+    pub(crate) fn eval<FE, P, const D: usize>(&self, v: &[P]) -> P
     where
         FE: FieldExtension<D, BaseField = F>,
         P: PackedField<Scalar = FE>,
@@ -205,7 +207,7 @@ impl<F: Field> Column<F> {
     }
 
     /// Given the column values for the current and next rows, evaluates the current and next linear combinations and returns their sum.
-    pub fn eval_with_next<FE, P, const D: usize>(&self, v: &[P], next_v: &[P]) -> P
+    pub(crate) fn eval_with_next<FE, P, const D: usize>(&self, v: &[P], next_v: &[P]) -> P
     where
         FE: FieldExtension<D, BaseField = F>,
         P: PackedField<Scalar = FE>,
@@ -223,7 +225,7 @@ impl<F: Field> Column<F> {
     }
 
     /// Evaluate on a row of a table given in column-major form.
-    pub fn eval_table(&self, table: &[PolynomialValues<F>], row: usize) -> F {
+    pub(crate) fn eval_table(&self, table: &[PolynomialValues<F>], row: usize) -> F {
         let mut res = self
             .linear_combination
             .iter()
@@ -245,7 +247,7 @@ impl<F: Field> Column<F> {
     }
 
     /// Circuit version of `eval`: Given a row's targets, returns their linear combination.
-    pub fn eval_circuit<const D: usize>(
+    pub(crate) fn eval_circuit<const D: usize>(
         &self,
         builder: &mut CircuitBuilder<F, D>,
         v: &[ExtensionTarget<D>],
@@ -269,7 +271,7 @@ impl<F: Field> Column<F> {
 
     /// Circuit version of `eval_with_next`:
     /// Given the targets of the current and next row, returns the sum of their linear combinations.
-    pub fn eval_with_next_circuit<const D: usize>(
+    pub(crate) fn eval_with_next_circuit<const D: usize>(
         &self,
         builder: &mut CircuitBuilder<F, D>,
         v: &[ExtensionTarget<D>],
@@ -304,7 +306,7 @@ impl<F: Field> Column<F> {
 /// `filter_column` is used to determine the rows to select in `Table`.
 /// `columns` represents linear combinations of the columns of `Table`.
 #[derive(Clone, Debug)]
-pub struct TableWithColumns<F: Field> {
+pub(crate) struct TableWithColumns<F: Field> {
     table: Table,
     columns: Vec<Column<F>>,
     pub(crate) filter_column: Option<Column<F>>,
@@ -312,7 +314,11 @@ pub struct TableWithColumns<F: Field> {
 
 impl<F: Field> TableWithColumns<F> {
     /// Generates a new `TableWithColumns` given a `Table`, a linear combination of columns `columns` and a `filter_column`.
-    pub fn new(table: Table, columns: Vec<Column<F>>, filter_column: Option<Column<F>>) -> Self {
+    pub(crate) fn new(
+        table: Table,
+        columns: Vec<Column<F>>,
+        filter_column: Option<Column<F>>,
+    ) -> Self {
         Self {
             table,
             columns,
@@ -324,7 +330,7 @@ impl<F: Field> TableWithColumns<F> {
 /// Cross-table lookup data consisting in the lookup table (`looked_table`) and all the tables that look into `looked_table` (`looking_tables`).
 /// Each `looking_table` corresponds to a STARK's table whose rows have been filtered out and whose columns have been through a linear combination (see `eval_table`). The concatenation of those smaller tables should result in the `looked_table`.
 #[derive(Clone)]
-pub struct CrossTableLookup<F: Field> {
+pub(crate) struct CrossTableLookup<F: Field> {
     /// Column linear combinations for all tables that are looking into the current table.
     pub(crate) looking_tables: Vec<TableWithColumns<F>>,
     /// Column linear combination for the current table.
@@ -334,7 +340,7 @@ pub struct CrossTableLookup<F: Field> {
 impl<F: Field> CrossTableLookup<F> {
     /// Creates a new `CrossTableLookup` given some looking tables and a looked table.
     /// All tables should have the same width.
-    pub fn new(
+    pub(crate) fn new(
         looking_tables: Vec<TableWithColumns<F>>,
         looked_table: TableWithColumns<F>,
     ) -> Self {
@@ -361,7 +367,7 @@ impl<F: Field> CrossTableLookup<F> {
 
 /// Cross-table lookup data for one table.
 #[derive(Clone, Default)]
-pub struct CtlData<F: Field> {
+pub(crate) struct CtlData<F: Field> {
     /// Data associated with all Z(x) polynomials for one table.
     pub(crate) zs_columns: Vec<CtlZData<F>>,
 }
@@ -381,17 +387,17 @@ pub(crate) struct CtlZData<F: Field> {
 
 impl<F: Field> CtlData<F> {
     /// Returns the number of cross-table lookup polynomials.
-    pub fn len(&self) -> usize {
+    pub(crate) fn len(&self) -> usize {
         self.zs_columns.len()
     }
 
     /// Returns whether there are no cross-table lookups.
-    pub fn is_empty(&self) -> bool {
+    pub(crate) fn is_empty(&self) -> bool {
         self.zs_columns.is_empty()
     }
 
     /// Returns all the cross-table lookup polynomials.
-    pub fn z_polys(&self) -> Vec<PolynomialValues<F>> {
+    pub(crate) fn z_polys(&self) -> Vec<PolynomialValues<F>> {
         self.zs_columns
             .iter()
             .map(|zs_columns| zs_columns.z.clone())
@@ -452,7 +458,7 @@ pub(crate) struct GrandProductChallengeSet<T: Copy + Eq + PartialEq + Debug> {
 }
 
 impl GrandProductChallengeSet<Target> {
-    pub fn to_buffer(&self, buffer: &mut Vec<u8>) -> IoResult<()> {
+    pub(crate) fn to_buffer(&self, buffer: &mut Vec<u8>) -> IoResult<()> {
         buffer.write_usize(self.challenges.len())?;
         for challenge in &self.challenges {
             buffer.write_target(challenge.beta)?;
@@ -461,7 +467,7 @@ impl GrandProductChallengeSet<Target> {
         Ok(())
     }
 
-    pub fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
+    pub(crate) fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
         let length = buffer.read_usize()?;
         let mut challenges = Vec::with_capacity(length);
         for _ in 0..length {
@@ -616,7 +622,7 @@ fn partial_products<F: Field>(
 
 /// Data necessary to check the cross-table lookups of a given table.
 #[derive(Clone)]
-pub struct CtlCheckVars<'a, F, FE, P, const D2: usize>
+pub(crate) struct CtlCheckVars<'a, F, FE, P, const D2: usize>
 where
     F: Field,
     FE: FieldExtension<D2, BaseField = F>,
@@ -741,7 +747,7 @@ pub(crate) fn eval_cross_table_lookup_checks<F, FE, P, S, const D: usize, const 
 
 /// Circuit version of `CtlCheckVars`. Data necessary to check the cross-table lookups of a given table.
 #[derive(Clone)]
-pub struct CtlCheckVarsTarget<'a, F: Field, const D: usize> {
+pub(crate) struct CtlCheckVarsTarget<'a, F: Field, const D: usize> {
     /// Evaluation of the trace polynomials at point `zeta`.
     pub(crate) local_z: ExtensionTarget<D>,
     /// Evaluation of the trace polynomials at point `g * zeta`.

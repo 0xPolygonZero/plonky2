@@ -21,7 +21,7 @@ pub type MemValue<T> = [T; memory::VALUE_LIMBS];
 /// View of the columns required for one memory channel.
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct MemoryChannelView<T: Copy> {
+pub(crate) struct MemoryChannelView<T: Copy> {
     /// 1 if this row includes a memory operation in the `i`th channel of the memory bus, otherwise
     /// 0.
     pub used: T,
@@ -40,7 +40,7 @@ pub struct MemoryChannelView<T: Copy> {
 /// View of all the columns in `CpuStark`.
 #[repr(C)]
 #[derive(Clone, Copy, Eq, PartialEq, Debug)]
-pub struct CpuColumnsView<T: Copy> {
+pub(crate) struct CpuColumnsView<T: Copy> {
     /// Filter. 1 if the row is part of bootstrapping the kernel code, 0 otherwise.
     pub is_bootstrap_kernel: T,
 

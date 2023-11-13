@@ -26,14 +26,14 @@ use crate::stark::Stark;
 /// Structure containing all STARKs and the cross-table lookups.
 #[derive(Clone)]
 pub struct AllStark<F: RichField + Extendable<D>, const D: usize> {
-    pub arithmetic_stark: ArithmeticStark<F, D>,
-    pub byte_packing_stark: BytePackingStark<F, D>,
-    pub cpu_stark: CpuStark<F, D>,
-    pub keccak_stark: KeccakStark<F, D>,
-    pub keccak_sponge_stark: KeccakSpongeStark<F, D>,
-    pub logic_stark: LogicStark<F, D>,
-    pub memory_stark: MemoryStark<F, D>,
-    pub cross_table_lookups: Vec<CrossTableLookup<F>>,
+    pub(crate) arithmetic_stark: ArithmeticStark<F, D>,
+    pub(crate) byte_packing_stark: BytePackingStark<F, D>,
+    pub(crate) cpu_stark: CpuStark<F, D>,
+    pub(crate) keccak_stark: KeccakStark<F, D>,
+    pub(crate) keccak_sponge_stark: KeccakSpongeStark<F, D>,
+    pub(crate) logic_stark: LogicStark<F, D>,
+    pub(crate) memory_stark: MemoryStark<F, D>,
+    pub(crate) cross_table_lookups: Vec<CrossTableLookup<F>>,
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> Default for AllStark<F, D> {
