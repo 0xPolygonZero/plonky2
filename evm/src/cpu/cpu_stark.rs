@@ -228,16 +228,16 @@ pub(crate) fn ctl_data_partial_memory<F: Field>() -> Vec<Column<F>> {
 }
 
 /// CTL filter for code read and write operations.
-pub fn ctl_filter_code_memory<F: Field>() -> Column<F> {
+pub(crate) fn ctl_filter_code_memory<F: Field>() -> Column<F> {
     Column::sum(COL_MAP.op.iter())
 }
 
 /// CTL filter for General Purpose memory read and write operations.
-pub fn ctl_filter_gp_memory<F: Field>(channel: usize) -> Column<F> {
+pub(crate) fn ctl_filter_gp_memory<F: Field>(channel: usize) -> Column<F> {
     Column::single(COL_MAP.mem_channels[channel].used)
 }
 
-pub fn ctl_filter_partial_memory<F: Field>() -> Column<F> {
+pub(crate) fn ctl_filter_partial_memory<F: Field>() -> Column<F> {
     Column::single(COL_MAP.partial_channel.used)
 }
 
