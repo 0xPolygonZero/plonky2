@@ -89,7 +89,7 @@ sstore_after_refund:
     EQ %jumpi(sstore_noop)
 
     // stack: current_value, slot, value, kexit_info
-    DUP1 DUP2 %address %journal_add_storage_change
+    DUP1 DUP3 %address %journal_add_storage_change
     // stack: current_value, slot, value, kexit_info
     %jumpi(existing_slot)
 
@@ -100,7 +100,6 @@ sstore_after_refund:
     // First we write the value to SMT data, and get a pointer to it.
     %get_trie_data_size
     // stack: value_ptr, slot, value, kexit_info
-global yoooo:
     PUSH 0 %append_to_trie_data // For the key.
     // stack: value_ptr, slot, value, kexit_info
     SWAP2
