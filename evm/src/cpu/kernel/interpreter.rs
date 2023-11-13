@@ -9,17 +9,22 @@ use ethereum_types::{U256, U512};
 use keccak_hash::keccak;
 use plonky2::field::goldilocks_field::GoldilocksField;
 
+use super::assembler::BYTES_PER_OFFSET;
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::constants::context_metadata::ContextMetadata;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
 use crate::cpu::kernel::constants::txn_fields::NormalizedTxnField;
+use crate::cpu::stack_bounds::MAX_USER_STACK_SIZE;
 use crate::extension_tower::BN_BASE;
 use crate::generation::prover_input::ProverInputFn;
 use crate::generation::state::GenerationState;
 use crate::generation::GenerationInputs;
 use crate::memory::segments::Segment;
-use crate::witness::gas::{G_BASE, G_HIGH, G_JUMPDEST, G_LOW, G_MID, G_VERYLOW, KERNEL_ONLY_INSTR};
+use crate::util::u256_to_usize;
+use crate::witness::gas::gas_to_charge;
 use crate::witness::memory::{MemoryAddress, MemoryContextState, MemorySegmentState, MemoryState};
+use crate::witness::operation::Operation;
+use crate::witness::transition::decode;
 use crate::witness::util::stack_peek;
 
 type F = GoldilocksField;
@@ -38,7 +43,7 @@ impl MemoryState {
 }
 
 pub(crate) struct Interpreter<'a> {
-    kernel_mode: bool,
+    pub(crate) kernel_mode: bool,
     jumpdests: Vec<usize>,
     pub(crate) context: usize,
     pub(crate) generation_state: GenerationState<F>,
@@ -154,7 +159,10 @@ impl<'a> Interpreter<'a> {
     }
 
     fn code(&self) -> &MemorySegmentState {
-        &self.generation_state.memory.contexts[self.context].segments[Segment::Code as usize]
+        // The context is 0 if we are in kernel mode.
+        &self.generation_state.memory.contexts
+            [(1 - self.generation_state.registers.is_kernel as usize) * self.context]
+            .segments[Segment::Code as usize]
     }
 
     fn code_slice(&self, n: usize) -> Vec<u8> {
@@ -368,7 +376,7 @@ impl<'a> Interpreter<'a> {
             0x20 => self.run_keccak256(),                               // "KECCAK256",
             0x21 => self.run_keccak_general(),                          // "KECCAK_GENERAL",
             0x30 => self.run_address(),                                 // "ADDRESS",
-            0x31 => todo!(),                                            // "BALANCE",
+            0x31 => self.run_syscall(opcode, 1, false)?,                // "BALANCE",
             0x32 => self.run_origin(),                                  // "ORIGIN",
             0x33 => self.run_caller(),                                  // "CALLER",
             0x34 => self.run_callvalue(),                               // "CALLVALUE",
@@ -378,12 +386,12 @@ impl<'a> Interpreter<'a> {
             0x38 => self.run_codesize(),                                // "CODESIZE",
             0x39 => self.run_codecopy(),                                // "CODECOPY",
             0x3a => self.run_gasprice(),                                // "GASPRICE",
-            0x3b => todo!(),                                            // "EXTCODESIZE",
-            0x3c => todo!(),                                            // "EXTCODECOPY",
+            0x3b => self.run_syscall(opcode, 1, false)?,                // "EXTCODESIZE",
+            0x3c => self.run_syscall(opcode, 4, false)?,                // "EXTCODECOPY",
             0x3d => self.run_returndatasize(),                          // "RETURNDATASIZE",
             0x3e => self.run_returndatacopy(),                          // "RETURNDATACOPY",
-            0x3f => todo!(),                                            // "EXTCODEHASH",
-            0x40 => todo!(),                                            // "BLOCKHASH",
+            0x3f => self.run_syscall(opcode, 1, false)?,                // "EXTCODEHASH",
+            0x40 => self.run_syscall(opcode, 1, false)?,                // "BLOCKHASH",
             0x41 => self.run_coinbase(),                                // "COINBASE",
             0x42 => self.run_timestamp(),                               // "TIMESTAMP",
             0x43 => self.run_number(),                                  // "NUMBER",
@@ -396,44 +404,44 @@ impl<'a> Interpreter<'a> {
             0x51 => self.run_mload(),                                   // "MLOAD",
             0x52 => self.run_mstore(),                                  // "MSTORE",
             0x53 => self.run_mstore8(),                                 // "MSTORE8",
-            0x54 => todo!(),                                            // "SLOAD",
-            0x55 => todo!(),                                            // "SSTORE",
+            0x54 => self.run_syscall(opcode, 1, false)?,                // "SLOAD",
+            0x55 => self.run_syscall(opcode, 2, false)?,                // "SSTORE",
             0x56 => self.run_jump(),                                    // "JUMP",
             0x57 => self.run_jumpi(),                                   // "JUMPI",
             0x58 => self.run_pc(),                                      // "PC",
             0x59 => self.run_msize(),                                   // "MSIZE",
-            0x5a => todo!(),                                            // "GAS",
+            0x5a => self.run_syscall(opcode, 0, true)?,                 // "GAS",
             0x5b => self.run_jumpdest(),                                // "JUMPDEST",
             x if (0x5f..0x80).contains(&x) => self.run_push(x - 0x5f),  // "PUSH"
             x if (0x80..0x90).contains(&x) => self.run_dup(x - 0x7f),   // "DUP"
             x if (0x90..0xa0).contains(&x) => self.run_swap(x - 0x8f)?, // "SWAP"
-            0xa0 => todo!(),                                            // "LOG0",
-            0xa1 => todo!(),                                            // "LOG1",
-            0xa2 => todo!(),                                            // "LOG2",
-            0xa3 => todo!(),                                            // "LOG3",
-            0xa4 => todo!(),                                            // "LOG4",
+            0xa0 => self.run_syscall(opcode, 2, false)?,                // "LOG0",
+            0xa1 => self.run_syscall(opcode, 3, false)?,                // "LOG1",
+            0xa2 => self.run_syscall(opcode, 4, false)?,                // "LOG2",
+            0xa3 => self.run_syscall(opcode, 5, false)?,                // "LOG3",
+            0xa4 => self.run_syscall(opcode, 6, false)?,                // "LOG4",
             0xa5 => bail!(
                 "Executed PANIC, stack={:?}, memory={:?}",
                 self.stack(),
                 self.get_kernel_general_memory()
             ), // "PANIC",
             0xee => self.run_mstore_32bytes(),                          // "MSTORE_32BYTES",
-            0xf0 => todo!(),                                            // "CREATE",
-            0xf1 => todo!(),                                            // "CALL",
-            0xf2 => todo!(),                                            // "CALLCODE",
-            0xf3 => todo!(),                                            // "RETURN",
-            0xf4 => todo!(),                                            // "DELEGATECALL",
-            0xf5 => todo!(),                                            // "CREATE2",
+            0xf0 => self.run_syscall(opcode, 3, false)?,                // "CREATE",
+            0xf1 => self.run_syscall(opcode, 7, false)?,                // "CALL",
+            0xf2 => self.run_syscall(opcode, 7, false)?,                // "CALLCODE",
+            0xf3 => self.run_syscall(opcode, 2, false)?,                // "RETURN",
+            0xf4 => self.run_syscall(opcode, 6, false)?,                // "DELEGATECALL",
+            0xf5 => self.run_syscall(opcode, 4, false)?,                // "CREATE2",
             0xf6 => self.run_get_context(),                             // "GET_CONTEXT",
             0xf7 => self.run_set_context(),                             // "SET_CONTEXT",
             0xf8 => self.run_mload_32bytes(),                           // "MLOAD_32BYTES",
             0xf9 => self.run_exit_kernel(),                             // "EXIT_KERNEL",
-            0xfa => todo!(),                                            // "STATICCALL",
+            0xfa => self.run_syscall(opcode, 6, false)?,                // "STATICCALL",
             0xfb => self.run_mload_general(),                           // "MLOAD_GENERAL",
             0xfc => self.run_mstore_general(),                          // "MSTORE_GENERAL",
-            0xfd => todo!(),                                            // "REVERT",
+            0xfd => self.run_syscall(opcode, 2, false)?,                // "REVERT",
             0xfe => bail!("Executed INVALID"),                          // "INVALID",
-            0xff => todo!(),                                            // "SELFDESTRUCT",
+            0xff => self.run_syscall(opcode, 1, false)?,                // "SELFDESTRUCT",
             _ => bail!("Unrecognized opcode {}.", opcode),
         };
 
@@ -446,107 +454,10 @@ impl<'a> Interpreter<'a> {
             println!("At {label}");
         }
 
-        let gas_cost = match opcode {
-            0x00 => KERNEL_ONLY_INSTR,                   // "STOP",
-            0x01 => G_VERYLOW,                           // "ADD",
-            0x02 => G_LOW,                               // "MUL",
-            0x03 => G_VERYLOW,                           // "SUB",
-            0x04 => G_LOW,                               // "DIV",
-            0x05 => G_LOW,                               // "SDIV",
-            0x06 => G_LOW,                               // "MOD",
-            0x07 => G_LOW,                               // "SMOD",
-            0x08 => G_MID,                               // "ADDMOD",
-            0x09 => G_MID,                               // "MULMOD",
-            0x0a => KERNEL_ONLY_INSTR,                   // "EXP",
-            0x0b => KERNEL_ONLY_INSTR,                   // "SIGNEXTEND",
-            0x0c => KERNEL_ONLY_INSTR,                   // "ADDFP254",
-            0x0d => KERNEL_ONLY_INSTR,                   // "MULFP254",
-            0x0e => KERNEL_ONLY_INSTR,                   // "SUBFP254",
-            0x0f => KERNEL_ONLY_INSTR,                   // "SUBMOD",
-            0x10 => G_VERYLOW,                           // "LT",
-            0x11 => G_VERYLOW,                           // "GT",
-            0x12 => G_VERYLOW,                           // "SLT",
-            0x13 => G_VERYLOW,                           // "SGT",
-            0x14 => G_VERYLOW,                           // "EQ",
-            0x15 => G_VERYLOW,                           // "ISZERO",
-            0x16 => G_VERYLOW,                           // "AND",
-            0x17 => G_VERYLOW,                           // "OR",
-            0x18 => G_VERYLOW,                           // "XOR",
-            0x19 => G_VERYLOW,                           // "NOT",
-            0x1a => G_VERYLOW,                           // "BYTE",
-            0x1b => G_VERYLOW,                           // "SHL",
-            0x1c => G_VERYLOW,                           // "SHR",
-            0x1d => G_VERYLOW,                           // "SAR",
-            0x20 => KERNEL_ONLY_INSTR,                   // "KECCAK256",
-            0x21 => KERNEL_ONLY_INSTR,                   // "KECCAK_GENERAL",
-            0x30 => KERNEL_ONLY_INSTR,                   // "ADDRESS",
-            0x31 => KERNEL_ONLY_INSTR,                   // "BALANCE",
-            0x32 => KERNEL_ONLY_INSTR,                   // "ORIGIN",
-            0x33 => KERNEL_ONLY_INSTR,                   // "CALLER",
-            0x34 => KERNEL_ONLY_INSTR,                   // "CALLVALUE",
-            0x35 => KERNEL_ONLY_INSTR,                   // "CALLDATALOAD",
-            0x36 => KERNEL_ONLY_INSTR,                   // "CALLDATASIZE",
-            0x37 => KERNEL_ONLY_INSTR,                   // "CALLDATACOPY",
-            0x38 => KERNEL_ONLY_INSTR,                   // "CODESIZE",
-            0x39 => KERNEL_ONLY_INSTR,                   // "CODECOPY",
-            0x3a => KERNEL_ONLY_INSTR,                   // "GASPRICE",
-            0x3b => KERNEL_ONLY_INSTR,                   // "EXTCODESIZE",
-            0x3c => KERNEL_ONLY_INSTR,                   // "EXTCODECOPY",
-            0x3d => KERNEL_ONLY_INSTR,                   // "RETURNDATASIZE",
-            0x3e => KERNEL_ONLY_INSTR,                   // "RETURNDATACOPY",
-            0x3f => KERNEL_ONLY_INSTR,                   // "EXTCODEHASH",
-            0x40 => KERNEL_ONLY_INSTR,                   // "BLOCKHASH",
-            0x41 => KERNEL_ONLY_INSTR,                   // "COINBASE",
-            0x42 => KERNEL_ONLY_INSTR,                   // "TIMESTAMP",
-            0x43 => KERNEL_ONLY_INSTR,                   // "NUMBER",
-            0x44 => KERNEL_ONLY_INSTR,                   // "DIFFICULTY",
-            0x45 => KERNEL_ONLY_INSTR,                   // "GASLIMIT",
-            0x46 => KERNEL_ONLY_INSTR,                   // "CHAINID",
-            0x48 => KERNEL_ONLY_INSTR,                   // "BASEFEE",
-            0x49 => KERNEL_ONLY_INSTR,                   // "PROVER_INPUT",
-            0x50 => G_BASE,                              // "POP",
-            0x51 => KERNEL_ONLY_INSTR,                   // "MLOAD",
-            0x52 => KERNEL_ONLY_INSTR,                   // "MSTORE",
-            0x53 => KERNEL_ONLY_INSTR,                   // "MSTORE8",
-            0x54 => KERNEL_ONLY_INSTR,                   // "SLOAD",
-            0x55 => KERNEL_ONLY_INSTR,                   // "SSTORE",
-            0x56 => G_MID,                               // "JUMP",
-            0x57 => G_HIGH,                              // "JUMPI",
-            0x58 => G_BASE,                              // "PC",
-            0x59 => KERNEL_ONLY_INSTR,                   // "MSIZE",
-            0x5a => KERNEL_ONLY_INSTR,                   // "GAS",
-            0x5b => G_JUMPDEST,                          // "JUMPDEST",
-            0x5f => G_BASE,                              // "PUSH0",
-            x if (0x60..0x80).contains(&x) => G_VERYLOW, // "PUSH"
-            x if (0x80..0x90).contains(&x) => G_VERYLOW, // "DUP"
-            x if (0x90..0xa0).contains(&x) => G_VERYLOW, // "SWAP"
-            0xa0 => KERNEL_ONLY_INSTR,                   // "LOG0",
-            0xa1 => KERNEL_ONLY_INSTR,                   // "LOG1",
-            0xa2 => KERNEL_ONLY_INSTR,                   // "LOG2",
-            0xa3 => KERNEL_ONLY_INSTR,                   // "LOG3",
-            0xa4 => KERNEL_ONLY_INSTR,                   // "LOG4",
-            0xa5 => KERNEL_ONLY_INSTR,                   // "PANIC",
-            0xee => KERNEL_ONLY_INSTR,                   // "MSTORE_32BYTES",
-            0xf0 => KERNEL_ONLY_INSTR,                   // "CREATE",
-            0xf1 => KERNEL_ONLY_INSTR,                   // "CALL",
-            0xf2 => KERNEL_ONLY_INSTR,                   // "CALLCODE",
-            0xf3 => KERNEL_ONLY_INSTR,                   // "RETURN",
-            0xf4 => KERNEL_ONLY_INSTR,                   // "DELEGATECALL",
-            0xf5 => KERNEL_ONLY_INSTR,                   // "CREATE2",
-            0xf6 => KERNEL_ONLY_INSTR,                   // "GET_CONTEXT",
-            0xf7 => KERNEL_ONLY_INSTR,                   // "SET_CONTEXT",
-            0xf8 => KERNEL_ONLY_INSTR,                   // "MLOAD_32BYTES",
-            0xf9 => KERNEL_ONLY_INSTR,                   // "EXIT_KERNEL",
-            0xfa => KERNEL_ONLY_INSTR,                   // "STATICCALL",
-            0xfb => KERNEL_ONLY_INSTR,                   // "MLOAD_GENERAL",
-            0xfc => KERNEL_ONLY_INSTR,                   // "MSTORE_GENERAL",
-            0xfd => KERNEL_ONLY_INSTR,                   // "REVERT",
-            0xfe => KERNEL_ONLY_INSTR,                   // "INVALID",
-            0xff => KERNEL_ONLY_INSTR,                   // "SELFDESTRUCT",
-            _ => KERNEL_ONLY_INSTR,
-        };
-
-        self.generation_state.registers.gas_used += gas_cost;
+        let op = decode(self.generation_state.registers, opcode)
+            // We default to prover inputs, as those are kernel-only instructions that charge nothing.
+            .unwrap_or(Operation::ProverInput);
+        self.generation_state.registers.gas_used += gas_to_charge(op);
 
         Ok(())
     }
@@ -1097,6 +1008,50 @@ impl<'a> Interpreter<'a> {
         );
     }
 
+    fn run_syscall(
+        &mut self,
+        opcode: u8,
+        stack_values_read: usize,
+        stack_len_increased: bool,
+    ) -> anyhow::Result<()> {
+        TryInto::<u64>::try_into(self.generation_state.registers.gas_used)
+            .map_err(|_| anyhow!("Gas overflow"))?;
+        if self.generation_state.registers.stack_len < stack_values_read {
+            return Err(anyhow!("Stack underflow"));
+        }
+
+        if stack_len_increased
+            && !self.generation_state.registers.is_kernel
+            && self.generation_state.registers.stack_len >= MAX_USER_STACK_SIZE
+        {
+            return Err(anyhow!("Stack overflow"));
+        };
+
+        let handler_jumptable_addr = KERNEL.global_labels["syscall_jumptable"];
+        let handler_addr = {
+            let offset = handler_jumptable_addr + (opcode as usize) * (BYTES_PER_OFFSET as usize);
+            self.get_memory_segment(Segment::Code)[offset..offset + 3]
+                .iter()
+                .fold(U256::from(0), |acc, &elt| acc * (1 << 8) + elt)
+        };
+
+        let new_program_counter =
+            u256_to_usize(handler_addr).map_err(|_| anyhow!("The program counter is too large"))?;
+
+        let syscall_info = U256::from(self.generation_state.registers.program_counter + 1)
+            + U256::from((self.generation_state.registers.is_kernel as usize) << 32)
+            + (U256::from(self.generation_state.registers.gas_used) << 192);
+        self.generation_state.registers.program_counter = new_program_counter;
+
+        self.generation_state.registers.is_kernel = true;
+        self.kernel_mode = true;
+        self.generation_state.registers.gas_used = 0;
+        self.push(syscall_info);
+
+        self.run().map_err(|_| anyhow!("Syscall failed"))?;
+        Ok(())
+    }
+
     fn run_jump(&mut self) {
         let x = self.pop().as_usize();
         self.jump_to(x);
@@ -1244,6 +1199,7 @@ impl<'a> Interpreter<'a> {
 
         self.generation_state.registers.program_counter = program_counter;
         self.generation_state.registers.is_kernel = is_kernel_mode;
+        self.kernel_mode = is_kernel_mode;
         self.generation_state.registers.gas_used = gas_used_val;
     }
 
