@@ -190,7 +190,7 @@ pub fn ctl_data_code_memory<F: Field>() -> Vec<Column<F>> {
 }
 
 /// Creates the vector of `Columns` corresponding to the contents of General Purpose channels.
-pub fn ctl_data_gp_memory<F: Field>(channel: usize) -> Vec<Column<F>> {
+pub(crate) fn ctl_data_gp_memory<F: Field>(channel: usize) -> Vec<Column<F>> {
     let channel_map = COL_MAP.mem_channels[channel];
     let mut cols: Vec<_> = Column::singles([
         channel_map.is_read,
@@ -207,7 +207,7 @@ pub fn ctl_data_gp_memory<F: Field>(channel: usize) -> Vec<Column<F>> {
     cols
 }
 
-pub fn ctl_data_partial_memory<F: Field>() -> Vec<Column<F>> {
+pub(crate) fn ctl_data_partial_memory<F: Field>() -> Vec<Column<F>> {
     let channel_map = COL_MAP.partial_channel;
     let values = COL_MAP.mem_channels[0].value;
     let mut cols: Vec<_> = Column::singles([
