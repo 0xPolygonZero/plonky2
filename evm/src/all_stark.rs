@@ -223,6 +223,11 @@ fn ctl_memory<F: Field>() -> CrossTableLookup<F> {
             Some(cpu_stark::ctl_filter_gp_memory(channel)),
         )
     });
+    let cpu_push_write_ops = TableWithColumns::new(
+        Table::Cpu,
+        cpu_stark::ctl_data_partial_memory::<F>(),
+        Some(cpu_stark::ctl_filter_partial_memory()),
+    );
     let keccak_sponge_reads = (0..KECCAK_RATE_BYTES).map(|i| {
         TableWithColumns::new(
             Table::KeccakSponge,
@@ -239,6 +244,7 @@ fn ctl_memory<F: Field>() -> CrossTableLookup<F> {
     });
     let all_lookers = iter::once(cpu_memory_code_read)
         .chain(cpu_memory_gp_ops)
+        .chain(iter::once(cpu_push_write_ops))
         .chain(keccak_sponge_reads)
         .chain(byte_packing_ops)
         .collect();

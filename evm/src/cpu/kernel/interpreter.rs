@@ -426,23 +426,23 @@ impl<'a> Interpreter<'a> {
                 self.stack(),
                 self.get_kernel_general_memory()
             ), // "PANIC",
-            0xee => self.run_mstore_32bytes(),                          // "MSTORE_32BYTES",
-            0xf0 => self.run_syscall(opcode, 3, false)?,                // "CREATE",
-            0xf1 => self.run_syscall(opcode, 7, false)?,                // "CALL",
-            0xf2 => self.run_syscall(opcode, 7, false)?,                // "CALLCODE",
-            0xf3 => self.run_syscall(opcode, 2, false)?,                // "RETURN",
-            0xf4 => self.run_syscall(opcode, 6, false)?,                // "DELEGATECALL",
-            0xf5 => self.run_syscall(opcode, 4, false)?,                // "CREATE2",
-            0xf6 => self.run_get_context(),                             // "GET_CONTEXT",
-            0xf7 => self.run_set_context(),                             // "SET_CONTEXT",
-            0xf8 => self.run_mload_32bytes(),                           // "MLOAD_32BYTES",
-            0xf9 => self.run_exit_kernel(),                             // "EXIT_KERNEL",
-            0xfa => self.run_syscall(opcode, 6, false)?,                // "STATICCALL",
-            0xfb => self.run_mload_general(),                           // "MLOAD_GENERAL",
-            0xfc => self.run_mstore_general(),                          // "MSTORE_GENERAL",
-            0xfd => self.run_syscall(opcode, 2, false)?,                // "REVERT",
-            0xfe => bail!("Executed INVALID"),                          // "INVALID",
-            0xff => self.run_syscall(opcode, 1, false)?,                // "SELFDESTRUCT",
+            x if (0xc0..0xe0).contains(&x) => self.run_mstore_32bytes(x - 0xc0 + 1), // "MSTORE_32BYTES",
+            0xf0 => self.run_syscall(opcode, 3, false)?,                             // "CREATE",
+            0xf1 => self.run_syscall(opcode, 7, false)?,                             // "CALL",
+            0xf2 => self.run_syscall(opcode, 7, false)?,                             // "CALLCODE",
+            0xf3 => self.run_syscall(opcode, 2, false)?,                             // "RETURN",
+            0xf4 => self.run_syscall(opcode, 6, false)?, // "DELEGATECALL",
+            0xf5 => self.run_syscall(opcode, 4, false)?, // "CREATE2",
+            0xf6 => self.run_get_context(),              // "GET_CONTEXT",
+            0xf7 => self.run_set_context(),              // "SET_CONTEXT",
+            0xf8 => self.run_mload_32bytes(),            // "MLOAD_32BYTES",
+            0xf9 => self.run_exit_kernel(),              // "EXIT_KERNEL",
+            0xfa => self.run_syscall(opcode, 6, false)?, // "STATICCALL",
+            0xfb => self.run_mload_general(),            // "MLOAD_GENERAL",
+            0xfc => self.run_mstore_general(),           // "MSTORE_GENERAL",
+            0xfd => self.run_syscall(opcode, 2, false)?, // "REVERT",
+            0xfe => bail!("Executed INVALID"),           // "INVALID",
+            0xff => self.run_syscall(opcode, 1, false)?, // "SELFDESTRUCT",
             _ => bail!("Unrecognized opcode {}.", opcode),
         };
 
@@ -1177,25 +1177,24 @@ impl<'a> Interpreter<'a> {
     }
 
     fn run_mstore_general(&mut self) {
+        let value = self.pop();
         let context = self.pop().as_usize();
         let segment = Segment::all()[self.pop().as_usize()];
         let offset = self.pop().as_usize();
-        let value = self.pop();
         self.generation_state
             .memory
             .mstore_general(context, segment, offset, value);
     }
 
-    fn run_mstore_32bytes(&mut self) {
+    fn run_mstore_32bytes(&mut self, n: u8) {
         let context = self.pop().as_usize();
         let segment = Segment::all()[self.pop().as_usize()];
         let offset = self.pop().as_usize();
         let value = self.pop();
-        let len = self.pop().as_usize();
 
         let mut bytes = vec![0; 32];
         value.to_little_endian(&mut bytes);
-        bytes.resize(len, 0);
+        bytes.resize(n as usize, 0);
         bytes.reverse();
 
         for (i, &byte) in bytes.iter().enumerate() {
@@ -1203,6 +1202,8 @@ impl<'a> Interpreter<'a> {
                 .memory
                 .mstore_general(context, segment, offset + i, byte.into());
         }
+
+        self.push(U256::from(offset + n as usize));
     }
 
     fn run_exit_kernel(&mut self) {
@@ -1455,7 +1456,38 @@ fn get_mnemonic(opcode: u8) -> &'static str {
         0xa3 => "LOG3",
         0xa4 => "LOG4",
         0xa5 => "PANIC",
-        0xee => "MSTORE_32BYTES",
+        0xc0 => "MSTORE_32_BYTES_1",
+        0xc1 => "MSTORE_32_BYTES_2",
+        0xc2 => "MSTORE_32_BYTES_3",
+        0xc3 => "MSTORE_32_BYTES_4",
+        0xc4 => "MSTORE_32_BYTES_5",
+        0xc5 => "MSTORE_32_BYTES_6",
+        0xc6 => "MSTORE_32_BYTES_7",
+        0xc7 => "MSTORE_32_BYTES_8",
+        0xc8 => "MSTORE_32_BYTES_9",
+        0xc9 => "MSTORE_32_BYTES_10",
+        0xca => "MSTORE_32_BYTES_11",
+        0xcb => "MSTORE_32_BYTES_12",
+        0xcc => "MSTORE_32_BYTES_13",
+        0xcd => "MSTORE_32_BYTES_14",
+        0xce => "MSTORE_32_BYTES_15",
+        0xcf => "MSTORE_32_BYTES_16",
+        0xd0 => "MSTORE_32_BYTES_17",
+        0xd1 => "MSTORE_32_BYTES_18",
+        0xd2 => "MSTORE_32_BYTES_19",
+        0xd3 => "MSTORE_32_BYTES_20",
+        0xd4 => "MSTORE_32_BYTES_21",
+        0xd5 => "MSTORE_32_BYTES_22",
+        0xd6 => "MSTORE_32_BYTES_23",
+        0xd7 => "MSTORE_32_BYTES_24",
+        0xd8 => "MSTORE_32_BYTES_25",
+        0xd9 => "MSTORE_32_BYTES_26",
+        0xda => "MSTORE_32_BYTES_27",
+        0xdb => "MSTORE_32_BYTES_28",
+        0xdc => "MSTORE_32_BYTES_29",
+        0xdd => "MSTORE_32_BYTES_30",
+        0xde => "MSTORE_32_BYTES_31",
+        0xdf => "MSTORE_32_BYTES_32",
         0xf0 => "CREATE",
         0xf1 => "CALL",
         0xf2 => "CALLCODE",

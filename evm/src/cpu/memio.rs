@@ -11,10 +11,16 @@ use crate::cpu::membus::NUM_GP_CHANNELS;
 use crate::cpu::stack;
 use crate::memory::segments::Segment;
 
-fn get_addr<T: Copy>(lv: &CpuColumnsView<T>) -> (T, T, T) {
+fn get_addr_load<T: Copy>(lv: &CpuColumnsView<T>) -> (T, T, T) {
     let addr_context = lv.mem_channels[0].value[0];
     let addr_segment = lv.mem_channels[1].value[0];
     let addr_virtual = lv.mem_channels[2].value[0];
+    (addr_context, addr_segment, addr_virtual)
+}
+fn get_addr_store<T: Copy>(lv: &CpuColumnsView<T>) -> (T, T, T) {
+    let addr_context = lv.mem_channels[1].value[0];
+    let addr_segment = lv.mem_channels[2].value[0];
+    let addr_virtual = lv.mem_channels[3].value[0];
     (addr_context, addr_segment, addr_virtual)
 }
 
@@ -27,7 +33,7 @@ fn eval_packed_load<P: PackedField>(
     // The opcode for MLOAD_GENERAL is 0xfb. If the operation is MLOAD_GENERAL, lv.opcode_bits[0] = 1.
     let filter = lv.op.m_op_general * lv.opcode_bits[0];
 
-    let (addr_context, addr_segment, addr_virtual) = get_addr(lv);
+    let (addr_context, addr_segment, addr_virtual) = get_addr_load(lv);
 
     // Check that we are loading the correct value from the correct address.
     let load_channel = lv.mem_channels[3];
@@ -64,7 +70,7 @@ fn eval_ext_circuit_load<F: RichField + Extendable<D>, const D: usize>(
     let mut filter = lv.op.m_op_general;
     filter = builder.mul_extension(filter, lv.opcode_bits[0]);
 
-    let (addr_context, addr_segment, addr_virtual) = get_addr(lv);
+    let (addr_context, addr_segment, addr_virtual) = get_addr_load(lv);
 
     // Check that we are loading the correct value from the correct channel.
     let load_channel = lv.mem_channels[3];
@@ -90,7 +96,7 @@ fn eval_ext_circuit_load<F: RichField + Extendable<D>, const D: usize>(
     }
 
     // Disable remaining memory channels, if any.
-    for &channel in &lv.mem_channels[4..NUM_GP_CHANNELS] {
+    for &channel in &lv.mem_channels[4..] {
         let constr = builder.mul_extension(filter, channel.used);
         yield_constr.constraint(builder, constr);
     }
@@ -114,22 +120,19 @@ fn eval_packed_store<P: PackedField>(
 ) {
     let filter = lv.op.m_op_general * (lv.opcode_bits[0] - P::ONES);
 
-    let (addr_context, addr_segment, addr_virtual) = get_addr(lv);
+    let (addr_context, addr_segment, addr_virtual) = get_addr_store(lv);
 
-    // Check that we are storing the correct value at the correct address.
-    let value_channel = lv.mem_channels[3];
-    let store_channel = lv.mem_channels[4];
+    // The value will be checked with the CTL.
+    let store_channel = lv.partial_channel;
+
     yield_constr.constraint(filter * (store_channel.used - P::ONES));
     yield_constr.constraint(filter * store_channel.is_read);
     yield_constr.constraint(filter * (store_channel.addr_context - addr_context));
     yield_constr.constraint(filter * (store_channel.addr_segment - addr_segment));
     yield_constr.constraint(filter * (store_channel.addr_virtual - addr_virtual));
-    for (value_limb, store_limb) in izip!(value_channel.value, store_channel.value) {
-        yield_constr.constraint(filter * (value_limb - store_limb));
-    }
 
     // Disable remaining memory channels, if any.
-    for &channel in &lv.mem_channels[5..] {
+    for &channel in &lv.mem_channels[4..] {
         yield_constr.constraint(filter * channel.used);
     }
 
@@ -172,6 +175,7 @@ fn eval_packed_store<P: PackedField>(
     );
     let addr_virtual = nv.stack_len - P::ONES;
     yield_constr.constraint_transition(new_filter * (top_read_channel.addr_virtual - addr_virtual));
+
     // If stack_len == 4 or MLOAD, disable the channel.
     yield_constr.constraint(
         lv.op.m_op_general * (lv.general.stack().stack_inv_aux - P::ONES) * top_read_channel.used,
@@ -190,11 +194,10 @@ fn eval_ext_circuit_store<F: RichField + Extendable<D>, const D: usize>(
     let filter =
         builder.mul_sub_extension(lv.op.m_op_general, lv.opcode_bits[0], lv.op.m_op_general);
 
-    let (addr_context, addr_segment, addr_virtual) = get_addr(lv);
+    let (addr_context, addr_segment, addr_virtual) = get_addr_store(lv);
 
-    // Check that we are storing the correct value at the correct address.
-    let value_channel = lv.mem_channels[3];
-    let store_channel = lv.mem_channels[4];
+    // The value will be checked with the CTL.
+    let store_channel = lv.partial_channel;
     {
         let constr = builder.mul_sub_extension(filter, store_channel.used, filter);
         yield_constr.constraint(builder, constr);
@@ -215,14 +218,9 @@ fn eval_ext_circuit_store<F: RichField + Extendable<D>, const D: usize>(
         let constr = builder.mul_extension(filter, diff);
         yield_constr.constraint(builder, constr);
     }
-    for (value_limb, store_limb) in izip!(value_channel.value, store_channel.value) {
-        let diff = builder.sub_extension(value_limb, store_limb);
-        let constr = builder.mul_extension(filter, diff);
-        yield_constr.constraint(builder, constr);
-    }
 
     // Disable remaining memory channels, if any.
-    for &channel in &lv.mem_channels[5..] {
+    for &channel in &lv.mem_channels[4..] {
         let constr = builder.mul_extension(filter, channel.used);
         yield_constr.constraint(builder, constr);
     }

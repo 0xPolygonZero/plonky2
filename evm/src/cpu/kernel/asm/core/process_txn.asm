@@ -145,12 +145,12 @@ global process_contract_creation_txn:
     // stack: new_ctx, address, retdest
 
     // Store constructor code length
-    %mload_txn_field(@TXN_FIELD_DATA_LEN)
-    // stack: data_len, new_ctx, address, retdest
     PUSH @CTX_METADATA_CODE_SIZE
     PUSH @SEGMENT_CONTEXT_METADATA
-    // stack: segment, offset, data_len, new_ctx, address, retdest
-    DUP4 // new_ctx
+    // stack: segment, offset, new_ctx, address, retdest
+    DUP3 // new_ctx
+    %mload_txn_field(@TXN_FIELD_DATA_LEN)
+    // stack: data_len, new_ctx, segment, offset, new_ctx, address, retdest
     MSTORE_GENERAL
     // stack: new_ctx, address, retdest
 

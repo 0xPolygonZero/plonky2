@@ -39,6 +39,18 @@ pub(crate) struct MemoryChannelView<T: Copy> {
 
 /// View of all the columns in `CpuStark`.
 #[repr(C)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+// A more lightweight channel, sharing values with the 0-th memory channel
+// (which contains the top of the stack).
+pub(crate) struct PartialMemoryChannelView<T: Copy> {
+    pub used: T,
+    pub is_read: T,
+    pub addr_context: T,
+    pub addr_segment: T,
+    pub addr_virtual: T,
+}
+
+#[repr(C)]
 #[derive(Clone, Copy, Eq, PartialEq, Debug)]
 pub(crate) struct CpuColumnsView<T: Copy> {
     /// Filter. 1 if the row is part of bootstrapping the kernel code, 0 otherwise.
@@ -82,8 +94,11 @@ pub(crate) struct CpuColumnsView<T: Copy> {
     /// CPU clock.
     pub(crate) clock: T,
 
-    /// Memory bus channels in the CPU. Each channel is comprised of 13 columns.
+    /// Memory bus channels in the CPU.
+    /// Full channels are comprised of 13 columns.
     pub mem_channels: [MemoryChannelView<T>; NUM_GP_CHANNELS],
+    /// Partial channel is only comprised of 5 columns.
+    pub(crate) partial_channel: PartialMemoryChannelView<T>,
 }
 
 /// Total number of columns in `CpuStark`.

@@ -274,11 +274,16 @@ min_stack_len_for_opcode:
     BYTES 4  // 0xa2, LOG2
     BYTES 5  // 0xa3, LOG3
     BYTES 6  // 0xa4, LOG4
-    %rep 11 // 0xa5-0xaf, invalid
+
+    %rep 27 // 0xa5-0xbf, invalid
         BYTES 0
     %endrep
 
-    %rep 64 // 0xb0-0xef, invalid
+    %rep 32 // 0xc0-0xdf, MSTORE_32BYTES
+        BYTES 4
+    %endrep
+    
+    %rep 16 // 0xe0-0xef, invalid
         BYTES 0
     %endrep
 

@@ -33,7 +33,7 @@ return_after_gas:
 
     // Store the return data size in the parent context's metadata.
     %stack (parent_ctx, kexit_info, offset, size) ->
-        (parent_ctx, @SEGMENT_CONTEXT_METADATA, @CTX_METADATA_RETURNDATA_SIZE, size, offset, size, parent_ctx, kexit_info)
+        (size, parent_ctx, @SEGMENT_CONTEXT_METADATA, @CTX_METADATA_RETURNDATA_SIZE, offset, size, parent_ctx, kexit_info)
     MSTORE_GENERAL
     // stack: offset, size, parent_ctx, kexit_info
 
@@ -133,7 +133,7 @@ revert_after_gas:
 
     // Store the return data size in the parent context's metadata.
     %stack (parent_ctx, kexit_info, offset, size) ->
-        (parent_ctx, @SEGMENT_CONTEXT_METADATA, @CTX_METADATA_RETURNDATA_SIZE, size, offset, size, parent_ctx, kexit_info)
+        (size, parent_ctx, @SEGMENT_CONTEXT_METADATA, @CTX_METADATA_RETURNDATA_SIZE, offset, size, parent_ctx, kexit_info)
     MSTORE_GENERAL
     // stack: offset, size, parent_ctx, kexit_info
 

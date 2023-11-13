@@ -11,12 +11,14 @@ use plonky2::iop::ext_target::ExtensionTarget;
 
 use super::columns::CpuColumnsView;
 use super::halt;
+use super::membus::NUM_GP_CHANNELS;
 use crate::all_stark::Table;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::{COL_MAP, NUM_CPU_COLUMNS};
 use crate::cpu::{
-    bootstrap_kernel, clock, contextops, control_flow, decode, dup_swap, gas, jumps, membus, memio,
-    modfp254, pc, push0, shift, simple_logic, stack, stack_bounds, syscalls_exceptions,
+    bootstrap_kernel, byte_unpacking, clock, contextops, control_flow, decode, dup_swap, gas,
+    jumps, membus, memio, modfp254, pc, push0, shift, simple_logic, stack, stack_bounds,
+    syscalls_exceptions,
 };
 use crate::cross_table_lookup::{Column, TableWithColumns};
 use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
@@ -32,7 +34,7 @@ pub(crate) fn ctl_data_keccak_sponge<F: Field>() -> Vec<Column<F>> {
     // GP channel 1: stack[-2] = segment
     // GP channel 2: stack[-3] = virt
     // GP channel 3: stack[-4] = len
-    // GP channel 4: pushed = outputs
+    // Next GP channel 0: pushed = outputs
     let context = Column::single(COL_MAP.mem_channels[0].value[0]);
     let segment = Column::single(COL_MAP.mem_channels[1].value[0]);
     let virt = Column::single(COL_MAP.mem_channels[2].value[0]);
@@ -128,12 +130,18 @@ pub(crate) fn ctl_data_byte_unpacking<F: Field>() -> Vec<Column<F>> {
     // GP channel 1: stack[-2] = segment
     // GP channel 2: stack[-3] = virt
     // GP channel 3: stack[-4] = val
-    // GP channel 4: stack[-5] = len
+    // Next GP channel 0: pushed = new_offset (virt + len)
     let context = Column::single(COL_MAP.mem_channels[0].value[0]);
     let segment = Column::single(COL_MAP.mem_channels[1].value[0]);
     let virt = Column::single(COL_MAP.mem_channels[2].value[0]);
     let val = Column::singles(COL_MAP.mem_channels[3].value);
-    let len = Column::single(COL_MAP.mem_channels[4].value[0]);
+
+    // len can be reconstructed as new_offset - virt.
+    let len = Column::linear_combination_and_next_row_with_constant(
+        [(COL_MAP.mem_channels[2].value[0], -F::ONE)],
+        [(COL_MAP.mem_channels[0].value[0], F::ONE)],
+        F::ZERO,
+    );
 
     let num_channels = F::from_canonical_usize(NUM_CHANNELS);
     let timestamp = Column::linear_combination([(COL_MAP.clock, num_channels)]);
@@ -199,6 +207,26 @@ pub(crate) fn ctl_data_gp_memory<F: Field>(channel: usize) -> Vec<Column<F>> {
     cols
 }
 
+pub(crate) fn ctl_data_partial_memory<F: Field>() -> Vec<Column<F>> {
+    let channel_map = COL_MAP.partial_channel;
+    let values = COL_MAP.mem_channels[0].value;
+    let mut cols: Vec<_> = Column::singles([
+        channel_map.is_read,
+        channel_map.addr_context,
+        channel_map.addr_segment,
+        channel_map.addr_virtual,
+    ])
+    .collect();
+
+    cols.extend(Column::singles(values));
+
+    cols.push(mem_time_and_channel(
+        MEM_GP_CHANNELS_IDX_START + NUM_GP_CHANNELS,
+    ));
+
+    cols
+}
+
 /// CTL filter for code read and write operations.
 pub(crate) fn ctl_filter_code_memory<F: Field>() -> Column<F> {
     Column::sum(COL_MAP.op.iter())
@@ -207,6 +235,10 @@ pub(crate) fn ctl_filter_code_memory<F: Field>() -> Column<F> {
 /// CTL filter for General Purpose memory read and write operations.
 pub(crate) fn ctl_filter_gp_memory<F: Field>(channel: usize) -> Column<F> {
     Column::single(COL_MAP.mem_channels[channel].used)
+}
+
+pub(crate) fn ctl_filter_partial_memory<F: Field>() -> Column<F> {
+    Column::single(COL_MAP.partial_channel.used)
 }
 
 /// Structure representing the CPU Stark.
@@ -238,6 +270,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
         let next_values: &CpuColumnsView<P> = next_values.borrow();
 
         bootstrap_kernel::eval_bootstrap_kernel_packed(local_values, next_values, yield_constr);
+        byte_unpacking::eval_packed(local_values, next_values, yield_constr);
         clock::eval_packed(local_values, next_values, yield_constr);
         contextops::eval_packed(local_values, next_values, yield_constr);
         control_flow::eval_packed_generic(local_values, next_values, yield_constr);
@@ -279,6 +312,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
             next_values,
             yield_constr,
         );
+        byte_unpacking::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         clock::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         contextops::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         control_flow::eval_ext_circuit(builder, local_values, next_values, yield_constr);

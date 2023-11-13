@@ -320,6 +320,7 @@ fn simulate_cpu<F: RichField + Extendable<D>, const D: usize>(
                     break;
                 }
             }
+
             log::info!("CPU trace padded to {} cycles", state.traces.clock());
 
             return Ok(());

@@ -32,7 +32,7 @@ encountered_jumpdest:
     // stack: opcode, i, ctx, code_len, retdest
     POP
     // stack: i, ctx, code_len, retdest
-    %stack (i, ctx) -> (ctx, @SEGMENT_JUMPDEST_BITS, i, 1, i, ctx)
+    %stack (i, ctx) -> (1, ctx, @SEGMENT_JUMPDEST_BITS, i, i, ctx)
     MSTORE_GENERAL
 
 continue:
