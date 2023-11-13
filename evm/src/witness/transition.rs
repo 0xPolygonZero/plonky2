@@ -33,7 +33,7 @@ fn read_code_memory<F: Field>(state: &mut GenerationState<F>, row: &mut CpuColum
     opcode
 }
 
-fn decode(registers: RegistersState, opcode: u8) -> Result<Operation, ProgramError> {
+pub(crate) fn decode(registers: RegistersState, opcode: u8) -> Result<Operation, ProgramError> {
     match (opcode, registers.is_kernel) {
         (0x00, _) => Ok(Operation::Syscall(opcode, 0, false)), // STOP
         (0x01, _) => Ok(Operation::BinaryArithmetic(arithmetic::BinaryOperator::Add)),

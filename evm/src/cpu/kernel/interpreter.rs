@@ -9,16 +9,22 @@ use ethereum_types::{U256, U512};
 use keccak_hash::keccak;
 use plonky2::field::goldilocks_field::GoldilocksField;
 
+use super::assembler::BYTES_PER_OFFSET;
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::constants::context_metadata::ContextMetadata;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
 use crate::cpu::kernel::constants::txn_fields::NormalizedTxnField;
+use crate::cpu::stack_bounds::MAX_USER_STACK_SIZE;
 use crate::extension_tower::BN_BASE;
 use crate::generation::prover_input::ProverInputFn;
 use crate::generation::state::GenerationState;
 use crate::generation::GenerationInputs;
 use crate::memory::segments::Segment;
+use crate::util::u256_to_usize;
+use crate::witness::gas::gas_to_charge;
 use crate::witness::memory::{MemoryAddress, MemoryContextState, MemorySegmentState, MemoryState};
+use crate::witness::operation::Operation;
+use crate::witness::transition::decode;
 use crate::witness::util::stack_peek;
 
 type F = GoldilocksField;
@@ -37,7 +43,7 @@ impl MemoryState {
 }
 
 pub struct Interpreter<'a> {
-    kernel_mode: bool,
+    pub(crate) kernel_mode: bool,
     jumpdests: Vec<usize>,
     pub(crate) context: usize,
     pub(crate) generation_state: GenerationState<F>,
@@ -153,7 +159,10 @@ impl<'a> Interpreter<'a> {
     }
 
     fn code(&self) -> &MemorySegmentState {
-        &self.generation_state.memory.contexts[self.context].segments[Segment::Code as usize]
+        // The context is 0 if we are in kernel mode.
+        &self.generation_state.memory.contexts
+            [(1 - self.generation_state.registers.is_kernel as usize) * self.context]
+            .segments[Segment::Code as usize]
     }
 
     fn code_slice(&self, n: usize) -> Vec<u8> {
@@ -367,7 +376,7 @@ impl<'a> Interpreter<'a> {
             0x20 => self.run_keccak256(),                               // "KECCAK256",
             0x21 => self.run_keccak_general(),                          // "KECCAK_GENERAL",
             0x30 => self.run_address(),                                 // "ADDRESS",
-            0x31 => todo!(),                                            // "BALANCE",
+            0x31 => self.run_syscall(opcode, 1, false)?,                // "BALANCE",
             0x32 => self.run_origin(),                                  // "ORIGIN",
             0x33 => self.run_caller(),                                  // "CALLER",
             0x34 => self.run_callvalue(),                               // "CALLVALUE",
@@ -377,12 +386,12 @@ impl<'a> Interpreter<'a> {
             0x38 => self.run_codesize(),                                // "CODESIZE",
             0x39 => self.run_codecopy(),                                // "CODECOPY",
             0x3a => self.run_gasprice(),                                // "GASPRICE",
-            0x3b => todo!(),                                            // "EXTCODESIZE",
-            0x3c => todo!(),                                            // "EXTCODECOPY",
+            0x3b => self.run_syscall(opcode, 1, false)?,                // "EXTCODESIZE",
+            0x3c => self.run_syscall(opcode, 4, false)?,                // "EXTCODECOPY",
             0x3d => self.run_returndatasize(),                          // "RETURNDATASIZE",
             0x3e => self.run_returndatacopy(),                          // "RETURNDATACOPY",
-            0x3f => todo!(),                                            // "EXTCODEHASH",
-            0x40 => todo!(),                                            // "BLOCKHASH",
+            0x3f => self.run_syscall(opcode, 1, false)?,                // "EXTCODEHASH",
+            0x40 => self.run_syscall(opcode, 1, false)?,                // "BLOCKHASH",
             0x41 => self.run_coinbase(),                                // "COINBASE",
             0x42 => self.run_timestamp(),                               // "TIMESTAMP",
             0x43 => self.run_number(),                                  // "NUMBER",
@@ -395,44 +404,44 @@ impl<'a> Interpreter<'a> {
             0x51 => self.run_mload(),                                   // "MLOAD",
             0x52 => self.run_mstore(),                                  // "MSTORE",
             0x53 => self.run_mstore8(),                                 // "MSTORE8",
-            0x54 => todo!(),                                            // "SLOAD",
-            0x55 => todo!(),                                            // "SSTORE",
+            0x54 => self.run_syscall(opcode, 1, false)?,                // "SLOAD",
+            0x55 => self.run_syscall(opcode, 2, false)?,                // "SSTORE",
             0x56 => self.run_jump(),                                    // "JUMP",
             0x57 => self.run_jumpi(),                                   // "JUMPI",
             0x58 => self.run_pc(),                                      // "PC",
             0x59 => self.run_msize(),                                   // "MSIZE",
-            0x5a => todo!(),                                            // "GAS",
+            0x5a => self.run_syscall(opcode, 0, true)?,                 // "GAS",
             0x5b => self.run_jumpdest(),                                // "JUMPDEST",
             x if (0x5f..0x80).contains(&x) => self.run_push(x - 0x5f),  // "PUSH"
             x if (0x80..0x90).contains(&x) => self.run_dup(x - 0x7f),   // "DUP"
             x if (0x90..0xa0).contains(&x) => self.run_swap(x - 0x8f)?, // "SWAP"
-            0xa0 => todo!(),                                            // "LOG0",
-            0xa1 => todo!(),                                            // "LOG1",
-            0xa2 => todo!(),                                            // "LOG2",
-            0xa3 => todo!(),                                            // "LOG3",
-            0xa4 => todo!(),                                            // "LOG4",
+            0xa0 => self.run_syscall(opcode, 2, false)?,                // "LOG0",
+            0xa1 => self.run_syscall(opcode, 3, false)?,                // "LOG1",
+            0xa2 => self.run_syscall(opcode, 4, false)?,                // "LOG2",
+            0xa3 => self.run_syscall(opcode, 5, false)?,                // "LOG3",
+            0xa4 => self.run_syscall(opcode, 6, false)?,                // "LOG4",
             0xa5 => bail!(
                 "Executed PANIC, stack={:?}, memory={:?}",
                 self.stack(),
                 self.get_kernel_general_memory()
             ), // "PANIC",
             x if (0xc0..0xe0).contains(&x) => self.run_mstore_32bytes(x - 0xc0 + 1), // "MSTORE_32BYTES",
-            0xf0 => todo!(),                                                         // "CREATE",
-            0xf1 => todo!(),                                                         // "CALL",
-            0xf2 => todo!(),                                                         // "CALLCODE",
-            0xf3 => todo!(),                                                         // "RETURN",
-            0xf4 => todo!(),                   // "DELEGATECALL",
-            0xf5 => todo!(),                   // "CREATE2",
-            0xf6 => self.run_get_context(),    // "GET_CONTEXT",
-            0xf7 => self.run_set_context(),    // "SET_CONTEXT",
-            0xf8 => self.run_mload_32bytes(),  // "MLOAD_32BYTES",
-            0xf9 => self.run_exit_kernel(),    // "EXIT_KERNEL",
-            0xfa => todo!(),                   // "STATICCALL",
-            0xfb => self.run_mload_general(),  // "MLOAD_GENERAL",
-            0xfc => self.run_mstore_general(), // "MSTORE_GENERAL",
-            0xfd => todo!(),                   // "REVERT",
-            0xfe => bail!("Executed INVALID"), // "INVALID",
-            0xff => todo!(),                   // "SELFDESTRUCT",
+            0xf0 => self.run_syscall(opcode, 3, false)?,                             // "CREATE",
+            0xf1 => self.run_syscall(opcode, 7, false)?,                             // "CALL",
+            0xf2 => self.run_syscall(opcode, 7, false)?,                             // "CALLCODE",
+            0xf3 => self.run_syscall(opcode, 2, false)?,                             // "RETURN",
+            0xf4 => self.run_syscall(opcode, 6, false)?, // "DELEGATECALL",
+            0xf5 => self.run_syscall(opcode, 4, false)?, // "CREATE2",
+            0xf6 => self.run_get_context(),              // "GET_CONTEXT",
+            0xf7 => self.run_set_context(),              // "SET_CONTEXT",
+            0xf8 => self.run_mload_32bytes(),            // "MLOAD_32BYTES",
+            0xf9 => self.run_exit_kernel(),              // "EXIT_KERNEL",
+            0xfa => self.run_syscall(opcode, 6, false)?, // "STATICCALL",
+            0xfb => self.run_mload_general(),            // "MLOAD_GENERAL",
+            0xfc => self.run_mstore_general(),           // "MSTORE_GENERAL",
+            0xfd => self.run_syscall(opcode, 2, false)?, // "REVERT",
+            0xfe => bail!("Executed INVALID"),           // "INVALID",
+            0xff => self.run_syscall(opcode, 1, false)?, // "SELFDESTRUCT",
             _ => bail!("Unrecognized opcode {}.", opcode),
         };
 
@@ -444,6 +453,11 @@ impl<'a> Interpreter<'a> {
         } else if let Some(label) = self.offset_label() {
             println!("At {label}");
         }
+
+        let op = decode(self.generation_state.registers, opcode)
+            // We default to prover inputs, as those are kernel-only instructions that charge nothing.
+            .unwrap_or(Operation::ProverInput);
+        self.generation_state.registers.gas_used += gas_to_charge(op);
 
         Ok(())
     }
@@ -994,6 +1008,50 @@ impl<'a> Interpreter<'a> {
         );
     }
 
+    fn run_syscall(
+        &mut self,
+        opcode: u8,
+        stack_values_read: usize,
+        stack_len_increased: bool,
+    ) -> anyhow::Result<()> {
+        TryInto::<u64>::try_into(self.generation_state.registers.gas_used)
+            .map_err(|_| anyhow!("Gas overflow"))?;
+        if self.generation_state.registers.stack_len < stack_values_read {
+            return Err(anyhow!("Stack underflow"));
+        }
+
+        if stack_len_increased
+            && !self.generation_state.registers.is_kernel
+            && self.generation_state.registers.stack_len >= MAX_USER_STACK_SIZE
+        {
+            return Err(anyhow!("Stack overflow"));
+        };
+
+        let handler_jumptable_addr = KERNEL.global_labels["syscall_jumptable"];
+        let handler_addr = {
+            let offset = handler_jumptable_addr + (opcode as usize) * (BYTES_PER_OFFSET as usize);
+            self.get_memory_segment(Segment::Code)[offset..offset + 3]
+                .iter()
+                .fold(U256::from(0), |acc, &elt| acc * (1 << 8) + elt)
+        };
+
+        let new_program_counter =
+            u256_to_usize(handler_addr).map_err(|_| anyhow!("The program counter is too large"))?;
+
+        let syscall_info = U256::from(self.generation_state.registers.program_counter + 1)
+            + U256::from((self.generation_state.registers.is_kernel as usize) << 32)
+            + (U256::from(self.generation_state.registers.gas_used) << 192);
+        self.generation_state.registers.program_counter = new_program_counter;
+
+        self.generation_state.registers.is_kernel = true;
+        self.kernel_mode = true;
+        self.generation_state.registers.gas_used = 0;
+        self.push(syscall_info);
+
+        self.run().map_err(|_| anyhow!("Syscall failed"))?;
+        Ok(())
+    }
+
     fn run_jump(&mut self) {
         let x = self.pop().as_usize();
         self.jump_to(x);
@@ -1142,6 +1200,7 @@ impl<'a> Interpreter<'a> {
 
         self.generation_state.registers.program_counter = program_counter;
         self.generation_state.registers.is_kernel = is_kernel_mode;
+        self.kernel_mode = is_kernel_mode;
         self.generation_state.registers.gas_used = gas_used_val;
     }
 

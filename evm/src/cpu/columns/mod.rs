@@ -42,7 +42,7 @@ pub struct MemoryChannelView<T: Copy> {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 // A more lightweight channel, sharing values with the 0-th memory channel
 // (which contains the top of the stack).
-pub struct PartialMemoryChannelView<T: Copy> {
+pub(crate) struct PartialMemoryChannelView<T: Copy> {
     pub used: T,
     pub is_read: T,
     pub addr_context: T,
@@ -98,7 +98,7 @@ pub struct CpuColumnsView<T: Copy> {
     /// Full channels are comprised of 13 columns.
     pub mem_channels: [MemoryChannelView<T>; NUM_GP_CHANNELS],
     /// Partial channel is only comprised of 5 columns.
-    pub partial_channel: PartialMemoryChannelView<T>,
+    pub(crate) partial_channel: PartialMemoryChannelView<T>,
 }
 
 /// Total number of columns in `CpuStark`.
