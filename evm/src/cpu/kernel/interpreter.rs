@@ -123,7 +123,8 @@ impl<'a> Interpreter<'a> {
         let mut result = Self {
             kernel_mode: true,
             jumpdests: find_jumpdests(code),
-            generation_state: GenerationState::new(GenerationInputs::default(), code).unwrap(),
+            generation_state: GenerationState::new(GenerationInputs::default(), code)
+                .expect("Default inputs are known-good"),
             prover_inputs_map: prover_inputs,
             context: 0,
             halt_offsets: vec![DEFAULT_HALT_OFFSET],
@@ -413,7 +414,7 @@ impl<'a> Interpreter<'a> {
             0x5a => self.run_syscall(opcode, 0, true)?,                 // "GAS",
             0x5b => self.run_jumpdest(),                                // "JUMPDEST",
             x if (0x5f..0x80).contains(&x) => self.run_push(x - 0x5f),  // "PUSH"
-            x if (0x80..0x90).contains(&x) => self.run_dup(x - 0x7f),   // "DUP"
+            x if (0x80..0x90).contains(&x) => self.run_dup(x - 0x7f)?,  // "DUP"
             x if (0x90..0xa0).contains(&x) => self.run_swap(x - 0x8f)?, // "SWAP"
             0xa0 => self.run_syscall(opcode, 2, false)?,                // "LOG0",
             0xa1 => self.run_syscall(opcode, 3, false)?,                // "LOG1",
@@ -502,7 +503,10 @@ impl<'a> Interpreter<'a> {
     fn run_mulfp254(&mut self) {
         let x = self.pop();
         let y = self.pop();
-        self.push(U256::try_from(x.full_mul(y) % BN_BASE).unwrap());
+        self.push(
+            U256::try_from(x.full_mul(y) % BN_BASE)
+                .expect("BN_BASE is 254 bit so the U512 fits in a U256"),
+        );
     }
 
     fn run_subfp254(&mut self) {
@@ -588,35 +592,40 @@ impl<'a> Interpreter<'a> {
     }
 
     fn run_addmod(&mut self) {
-        let x = U512::from(self.pop());
-        let y = U512::from(self.pop());
-        let z = U512::from(self.pop());
+        let x = self.pop();
+        let y = self.pop();
+        let z = self.pop();
         self.push(if z.is_zero() {
-            U256::zero()
+            z
         } else {
-            U256::try_from((x + y) % z).unwrap()
+            let (x, y, z) = (U512::from(x), U512::from(y), U512::from(z));
+            U256::try_from((x + y) % z)
+                .expect("Inputs are U256 and their sum mod a U256 fits in a U256.")
         });
     }
 
     fn run_submod(&mut self) {
-        let x = U512::from(self.pop());
-        let y = U512::from(self.pop());
-        let z = U512::from(self.pop());
+        let x = self.pop();
+        let y = self.pop();
+        let z = self.pop();
         self.push(if z.is_zero() {
-            U256::zero()
+            z
         } else {
-            U256::try_from((z + x - y) % z).unwrap()
+            let (x, y, z) = (U512::from(x), U512::from(y), U512::from(z));
+            U256::try_from((z + x - y) % z)
+                .expect("Inputs are U256 and their difference mod a U256 fits in a U256.")
         });
     }
 
     fn run_mulmod(&mut self) {
         let x = self.pop();
         let y = self.pop();
-        let z = U512::from(self.pop());
+        let z = self.pop();
         self.push(if z.is_zero() {
-            U256::zero()
+            z
         } else {
-            U256::try_from(x.full_mul(y) % z).unwrap()
+            U256::try_from(x.full_mul(y) % z)
+                .expect("Inputs are U256 and their product mod a U256 fits in a U256.")
         });
     }
 
@@ -1066,7 +1075,14 @@ impl<'a> Interpreter<'a> {
     }
 
     fn run_pc(&mut self) {
-        self.push((self.generation_state.registers.program_counter - 1).into());
+        self.push(
+            (self
+                .generation_state
+                .registers
+                .program_counter
+                .saturating_sub(1))
+            .into(),
+        );
     }
 
     fn run_msize(&mut self) {
@@ -1100,18 +1116,23 @@ impl<'a> Interpreter<'a> {
         self.push(x);
     }
 
-    fn run_dup(&mut self, n: u8) {
+    fn run_dup(&mut self, n: u8) -> anyhow::Result<()> {
         if n == 0 {
             self.push(self.stack_top());
         } else {
-            self.push(stack_peek(&self.generation_state, n as usize - 1).unwrap());
+            self.push(
+                stack_peek(&self.generation_state, n as usize - 1)
+                    .map_err(|_| anyhow!("Stack underflow."))?,
+            );
         }
+        Ok(())
     }
 
     fn run_swap(&mut self, n: u8) -> anyhow::Result<()> {
         let len = self.stack_len();
         ensure!(len > n as usize);
-        let to_swap = stack_peek(&self.generation_state, n as usize).unwrap();
+        let to_swap = stack_peek(&self.generation_state, n as usize)
+            .map_err(|_| anyhow!("Stack underflow"))?;
         self.stack_segment_mut()[len - n as usize - 1] = self.stack_top();
         self.generation_state.registers.stack_top = to_swap;
         Ok(())

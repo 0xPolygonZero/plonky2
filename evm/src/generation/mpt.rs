@@ -105,7 +105,8 @@ pub(crate) fn all_mpt_prover_inputs(trie_inputs: &TrieInputs) -> Result<Vec<U256
         .storage_tries
         .iter()
         .map(|(hashed_address, storage_trie)| {
-            let key = Nibbles::from_bytes_be(hashed_address.as_bytes()).unwrap();
+            let key = Nibbles::from_bytes_be(hashed_address.as_bytes())
+                .expect("An H256 is 32 bytes long");
             (key, storage_trie)
         })
         .collect();
