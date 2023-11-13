@@ -18,7 +18,10 @@ global revert_storage_change:
     %add_const(2)
     // stack: storage_root_ptr_ptr, storage_key, address, prev_value, retdest
     %mload_trie_data
+    // stack: storage_root_ptr, storage_key, address, prev_value, retdest
     %get_trie_data_size
+    // stack: prev_value_ptr, storage_root_ptr, storage_key, address, prev_value, retdest
+    PUSH 0 %append_to_trie_data
     DUP5 %append_to_trie_data
     %stack (prev_value_ptr, storage_root_ptr, storage_key, address, prev_value, retdest) ->
         (storage_root_ptr, storage_key, prev_value_ptr, new_storage_root, address, retdest)

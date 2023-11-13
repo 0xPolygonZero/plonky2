@@ -91,11 +91,13 @@ sstore_after_refund:
     // stack: current_value, slot, value, kexit_info
     DUP1 DUP3 %address %journal_add_storage_change
     // stack: current_value, slot, value, kexit_info
-    %jumpi(existing_slot)
 
     // If the value is zero, delete the slot from the storage SMT.
-    // stack: slot, value, kexit_info
-    DUP2 ISZERO %jumpi(sstore_delete)
+    DUP3 ISZERO %jumpi(sstore_delete)
+
+    // stack: current_value, slot, value, kexit_info
+    %jumpi(existing_slot)
+
 
     // First we write the value to SMT data, and get a pointer to it.
     %get_trie_data_size
@@ -149,8 +151,7 @@ sstore_noop:
 
 // Delete the slot from the storage SMT.
 sstore_delete:
-    // stack: slot, value, kexit_info
-    SWAP1 POP
+    %stack (current_value, slot, value, kexit_info) -> (slot, kexit_info)
     PUSH after_storage_insert SWAP1
     // stack: slot, after_storage_insert, kexit_info
     %slot_to_storage_key
