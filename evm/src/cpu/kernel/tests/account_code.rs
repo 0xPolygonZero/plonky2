@@ -322,7 +322,7 @@ fn sload() -> Result<()> {
     let addr_nibbles = Nibbles::from_bytes_be(addr_hashed.as_bytes()).unwrap();
 
     // This code is similar to the one in add11_yml's contract, but we pop the added value
-    // and carry out an SLOAD instead of an SSTORE.
+    // and carry out an SLOAD instead of an SSTORE. We also add a PUSH at the end.
     let code = [
         0x60, 0x01, 0x60, 0x01, 0x01, 0x50, 0x60, 0x00, 0x54, 0x60, 0x03, 0x00,
     ];
