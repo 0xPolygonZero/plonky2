@@ -3,7 +3,12 @@ use ethereum_types::U256;
 use rand::{thread_rng, Rng};
 
 use crate::cpu::kernel::aggregator::KERNEL;
-use crate::cpu::kernel::interpreter::{run, run_interpreter};
+use crate::cpu::kernel::interpreter::{run, run_interpreter, Interpreter};
+
+// Used to check that exponentials are correctly computed.
+fn run_exp(x: U256, y: U256) -> U256 {
+    x.overflowing_pow(y).0
+}
 
 #[test]
 fn test_exp() -> Result<()> {
@@ -15,33 +20,28 @@ fn test_exp() -> Result<()> {
 
     // Random input
     let initial_stack = vec![0xDEADBEEFu32.into(), b, a];
+    let mut interpreter = Interpreter::new_with_kernel(0, initial_stack.clone());
+
     let stack_with_kernel = run_interpreter(exp, initial_stack)?.stack().to_vec();
-    let initial_stack = vec![b, a];
-    let code = [0xa, 0x63, 0xde, 0xad, 0xbe, 0xef, 0x56]; // EXP, PUSH4 deadbeef, JUMP
-    let stack_with_opcode = run(&code, 0, initial_stack, &KERNEL.prover_inputs)?
-        .stack()
-        .to_vec();
-    assert_eq!(stack_with_kernel, stack_with_opcode);
+
+    let expected_exp = run_exp(a, b);
+    assert_eq!(stack_with_kernel, vec![expected_exp]);
 
     // 0 base
     let initial_stack = vec![0xDEADBEEFu32.into(), b, U256::zero()];
     let stack_with_kernel = run_interpreter(exp, initial_stack)?.stack().to_vec();
-    let initial_stack = vec![b, U256::zero()];
-    let code = [0xa, 0x63, 0xde, 0xad, 0xbe, 0xef, 0x56]; // EXP, PUSH4 deadbeef, JUMP
-    let stack_with_opcode = run(&code, 0, initial_stack, &KERNEL.prover_inputs)?
-        .stack()
-        .to_vec();
-    assert_eq!(stack_with_kernel, stack_with_opcode);
+
+    let expected_exp = run_exp(0.into(), b);
+    assert_eq!(stack_with_kernel, vec![expected_exp]);
 
     // 0 exponent
     let initial_stack = vec![0xDEADBEEFu32.into(), U256::zero(), a];
+    *interpreter.context_mut() = 0;
+    *interpreter.is_kernel_mut() = true;
     let stack_with_kernel = run_interpreter(exp, initial_stack)?.stack().to_vec();
-    let initial_stack = vec![U256::zero(), a];
-    let code = [0xa, 0x63, 0xde, 0xad, 0xbe, 0xef, 0x56]; // EXP, PUSH4 deadbeef, JUMP
-    let stack_with_opcode = run(&code, 0, initial_stack, &KERNEL.prover_inputs)?
-        .stack()
-        .to_vec();
-    assert_eq!(stack_with_kernel, stack_with_opcode);
+
+    let expected_exp = run_exp(a, 0.into());
+    assert_eq!(stack_with_kernel, vec![expected_exp]);
 
     Ok(())
 }
