@@ -34,7 +34,7 @@
 // Returns 1 if the account is non-existent, 0 otherwise.
 %macro is_non_existent
     // stack: addr
-    %mpt_read_state_trie ISZERO
+    %smt_read_state ISZERO
 %endmacro
 
 // Returns 1 if the account is empty, 0 otherwise.

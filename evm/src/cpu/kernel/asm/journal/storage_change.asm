@@ -15,7 +15,7 @@ global revert_storage_change:
     // stack: storage_key, address, prev_value, retdest
     PUSH 64 // storage_key has 64 nibbles
     // stack: 64, storage_key, address, prev_value, retdest
-    DUP3 %mpt_read_state_trie
+    DUP3 %smt_read_state
     DUP1 ISZERO %jumpi(panic)
     // stack: account_ptr, 64, storage_key, address, prev_value, retdest
     %add_const(2)
@@ -33,20 +33,18 @@ delete:
     %stack (slot, address, retdest) -> (slot, new_storage_root, address, retdest)
     %slot_to_storage_key
     // stack: storage_key, new_storage_root, address, retdest
-    PUSH 64 // storage_key has 64 nibbles
-    // stack: 64, storage_key, new_storage_root, address, retdest
-    DUP4 %mpt_read_state_trie
+    DUP3 %smt_read_state
     DUP1 ISZERO %jumpi(panic)
-    // stack: account_ptr, 64, storage_key, new_storage_root, address, retdest
+    // stack: account_ptr, storage_key, new_storage_root, address, retdest
     %add_const(2)
-    // stack: storage_root_ptr_ptr, 64, storage_key, new_storage_root, address, retdest
+    // stack: storage_root_ptr_ptr, storage_key, new_storage_root, address, retdest
     %mload_trie_data
-    // stack: storage_root_ptr, 64, storage_key, new_storage_root, address, retdest
-    %jump(mpt_delete)
+    // stack: storage_root_ptr, storage_key, new_storage_root, address, retdest
+    %jump(smt_delete)
 
 new_storage_root:
     // stack: new_storage_root_ptr, address, retdest
-    DUP2 %mpt_read_state_trie
+    DUP2 %smt_read_state
     // stack: account_ptr, new_storage_root_ptr, address, retdest
 
     // Update account with our new storage root pointer.

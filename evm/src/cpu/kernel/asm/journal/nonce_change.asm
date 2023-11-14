@@ -9,7 +9,7 @@ global revert_nonce_change:
     POP
     %journal_load_2
     // stack: address, prev_nonce, retdest
-    %mpt_read_state_trie
+    %smt_read_state
     // stack: nonce_ptr, prev_nonce retdest
     %mstore_trie_data
     // stack: retdest
