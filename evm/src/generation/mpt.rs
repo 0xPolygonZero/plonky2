@@ -68,7 +68,7 @@ pub(crate) fn all_mpt_prover_inputs_reversed(
 }
 
 pub(crate) fn parse_receipts(rlp: &[u8]) -> Result<Vec<U256>, ProgramError> {
-    let txn_type = match rlp.get(0).ok_or(ProgramError::InvalidRlp)? {
+    let txn_type = match rlp.first().ok_or(ProgramError::InvalidRlp)? {
         1 => 1,
         2 => 2,
         _ => 0,
