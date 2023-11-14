@@ -24,6 +24,7 @@ const KEEPS_CONTEXT: OpsColumnsView<bool> = OpsColumnsView {
     not_pop: true,
     shift: true,
     jumpdest_keccak_general: true,
+    poseidon_general: true,
     prover_input: true,
     jumps: true,
     pc_push0: true,

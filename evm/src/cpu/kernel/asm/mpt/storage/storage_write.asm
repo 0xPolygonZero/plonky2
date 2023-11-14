@@ -117,8 +117,7 @@ sstore_after_refund:
     // stack: storage_root_ptr, storage_key, value_ptr, after_storage_insert, kexit_info
     %jump(smt_insert)
 
-
-global after_storage_insert:
+after_storage_insert:
     // stack: new_storage_root_ptr, kexit_info
     %current_account_data
     // stack: account_ptr, new_storage_root_ptr, kexit_info

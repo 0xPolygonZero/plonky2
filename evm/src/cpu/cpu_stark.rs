@@ -51,6 +51,18 @@ pub fn ctl_filter_keccak_sponge<F: Field>() -> Column<F> {
     Column::single(COL_MAP.is_keccak_sponge)
 }
 
+/// Creates the vector of `Columns` corresponding to the General Purpose channels when calling Poseidon:
+/// the CPU reads the output directly from the `PoseidonStark` table.
+pub fn ctl_data_poseidon<F: Field>() -> Vec<Column<F>> {
+    // POSEIDON_GENERAL and KECCAK_GENERAL use the GP memory channels in a similar way.
+    ctl_data_keccak_sponge()
+}
+
+/// CTL filter for a call to Poseidon.
+pub fn ctl_filter_poseidon<F: Field>() -> Column<F> {
+    Column::single(COL_MAP.op.poseidon_general)
+}
+
 /// Creates the vector of `Columns` corresponding to the two inputs and
 /// one output of a binary operation.
 fn ctl_data_binops<F: Field>() -> Vec<Column<F>> {
