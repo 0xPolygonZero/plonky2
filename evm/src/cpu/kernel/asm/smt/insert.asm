@@ -112,4 +112,10 @@ after_second_leaf:
 
 smt_insert_leaf_same_key:
     // stack: node_payload_ptr, key, value_ptr, retdest
-    PANIC // Not sure if this should happen.
+    %stack (node_payload_ptr, key, value_ptr) -> (value_ptr, key, node_payload_ptr, value_ptr, node_payload_ptr, 1)
+    %mstore_trie_data // Store key
+    %mstore_trie_data // Store new value pointer
+    // stack: node_payload_ptr, 1, retdest
+    SUB
+    // stack: node_ptr, retdest
+    SWAP1 JUMP

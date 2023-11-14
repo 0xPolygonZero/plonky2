@@ -22,7 +22,12 @@
     DUP1 %mload_trie_data // codehash = account[3]
     %eq_const(@EMPTY_STRING_HASH) ISZERO %jumpi(%%error_collision)
     // stack: existing_codehash_ptr, address
-    %sub_const(3)
+    %sub_const(1)
+    %stack (storage_root_ptr, address) -> (storage_root_ptr, 0, storage_root_ptr, 2, address)
+    // Set the storage root to 0.
+    %mstore_trie_data
+    // stack: storage_root_ptr, 2, address
+    SUB
     // stack: nonce_ptr, address
     PUSH 1 SWAP1 %mstore_trie_data
     // stack: address
