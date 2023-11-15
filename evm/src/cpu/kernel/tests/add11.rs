@@ -75,7 +75,7 @@ fn prepare_interpreter(
 }
 
 #[test]
-fn test_add11() -> anyhow::Result<()> {
+fn test_add11_yml() -> anyhow::Result<()> {
     let beneficiary = hex!("2adc25665018aa1fe0e6bc666dac8fc2697ff9ba");
     let sender = hex!("a94f5374fce5edbc8e2a8697c15331677e6ebf0b");
     let to = hex!("095e7baea6a6c7c4c2dfeb977efac326af552d87");
