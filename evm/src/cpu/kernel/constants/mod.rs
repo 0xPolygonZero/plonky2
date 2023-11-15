@@ -18,7 +18,7 @@ pub(crate) mod trie_type;
 pub(crate) mod txn_fields;
 
 /// Constants that are accessible to our kernel assembly code.
-pub fn evm_constants() -> HashMap<String, U256> {
+pub(crate) fn evm_constants() -> HashMap<String, U256> {
     let mut c = HashMap::new();
 
     let hex_constants = MISC_CONSTANTS

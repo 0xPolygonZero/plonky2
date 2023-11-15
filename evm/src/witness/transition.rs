@@ -33,7 +33,7 @@ fn read_code_memory<F: Field>(state: &mut GenerationState<F>, row: &mut CpuColum
     opcode
 }
 
-fn decode(registers: RegistersState, opcode: u8) -> Result<Operation, ProgramError> {
+pub(crate) fn decode(registers: RegistersState, opcode: u8) -> Result<Operation, ProgramError> {
     match (opcode, registers.is_kernel) {
         (0x00, _) => Ok(Operation::Syscall(opcode, 0, false)), // STOP
         (0x01, _) => Ok(Operation::BinaryArithmetic(arithmetic::BinaryOperator::Add)),
@@ -134,7 +134,7 @@ fn decode(registers: RegistersState, opcode: u8) -> Result<Operation, ProgramErr
             );
             Err(ProgramError::KernelPanic)
         }
-        (0xee, true) => Ok(Operation::Mstore32Bytes),
+        (0xc0..=0xdf, true) => Ok(Operation::Mstore32Bytes(opcode - 0xc0 + 1)),
         (0xf0, _) => Ok(Operation::Syscall(opcode, 3, false)), // CREATE
         (0xf1, _) => Ok(Operation::Syscall(opcode, 7, false)), // CALL
         (0xf2, _) => Ok(Operation::Syscall(opcode, 7, false)), // CALLCODE
@@ -179,7 +179,7 @@ fn fill_op_flag<F: Field>(op: Operation, row: &mut CpuColumnsView<F>) {
         Operation::Pc | Operation::Push(0) => &mut flags.pc_push0,
         Operation::GetContext | Operation::SetContext => &mut flags.context_op,
         Operation::Mload32Bytes => &mut flags.mload_32bytes,
-        Operation::Mstore32Bytes => &mut flags.mstore_32bytes,
+        Operation::Mstore32Bytes(_) => &mut flags.mstore_32bytes,
         Operation::ExitKernel => &mut flags.exit_kernel,
         Operation::MloadGeneral | Operation::MstoreGeneral => &mut flags.m_op_general,
     } = F::ONE;
@@ -211,7 +211,7 @@ fn get_op_special_length(op: Operation) -> Option<usize> {
         Operation::Jumpi => JUMPI_OP,
         Operation::GetContext | Operation::SetContext => None,
         Operation::Mload32Bytes => STACK_BEHAVIORS.mload_32bytes,
-        Operation::Mstore32Bytes => STACK_BEHAVIORS.mstore_32bytes,
+        Operation::Mstore32Bytes(_) => STACK_BEHAVIORS.mstore_32bytes,
         Operation::ExitKernel => STACK_BEHAVIORS.exit_kernel,
         Operation::MloadGeneral | Operation::MstoreGeneral => STACK_BEHAVIORS.m_op_general,
     };
@@ -258,7 +258,7 @@ fn perform_op<F: Field>(
         Operation::GetContext => generate_get_context(state, row)?,
         Operation::SetContext => generate_set_context(state, row)?,
         Operation::Mload32Bytes => generate_mload_32bytes(state, row)?,
-        Operation::Mstore32Bytes => generate_mstore_32bytes(state, row)?,
+        Operation::Mstore32Bytes(n) => generate_mstore_32bytes(n, state, row)?,
         Operation::ExitKernel => generate_exit_kernel(state, row)?,
         Operation::MloadGeneral => generate_mload_general(state, row)?,
         Operation::MstoreGeneral => generate_mstore_general(state, row)?,

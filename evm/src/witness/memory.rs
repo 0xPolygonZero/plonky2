@@ -6,9 +6,10 @@ use crate::cpu::membus::{NUM_CHANNELS, NUM_GP_CHANNELS};
 pub enum MemoryChannel {
     Code,
     GeneralPurpose(usize),
+    PartialChannel,
 }
 
-use MemoryChannel::{Code, GeneralPurpose};
+use MemoryChannel::{Code, GeneralPurpose, PartialChannel};
 
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
 use crate::memory::segments::Segment;
@@ -17,19 +18,20 @@ use crate::witness::errors::ProgramError;
 use crate::witness::errors::ProgramError::MemoryError;
 
 impl MemoryChannel {
-    pub fn index(&self) -> usize {
+    pub(crate) fn index(&self) -> usize {
         match *self {
             Code => 0,
             GeneralPurpose(n) => {
                 assert!(n < NUM_GP_CHANNELS);
                 n + 1
             }
+            PartialChannel => NUM_GP_CHANNELS + 1,
         }
     }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
-pub struct MemoryAddress {
+pub(crate) struct MemoryAddress {
     pub(crate) context: usize,
     pub(crate) segment: usize,
     pub(crate) virt: usize,
@@ -79,7 +81,7 @@ pub enum MemoryOpKind {
 }
 
 #[derive(Clone, Copy, Debug)]
-pub struct MemoryOp {
+pub(crate) struct MemoryOp {
     /// true if this is an actual memory operation, or false if it's a padding row.
     pub filter: bool,
     pub timestamp: usize,
@@ -101,7 +103,7 @@ pub static DUMMY_MEMOP: MemoryOp = MemoryOp {
 };
 
 impl MemoryOp {
-    pub fn new(
+    pub(crate) fn new(
         channel: MemoryChannel,
         clock: usize,
         address: MemoryAddress,
@@ -139,19 +141,19 @@ impl MemoryOp {
 }
 
 #[derive(Clone, Debug)]
-pub struct MemoryState {
+pub(crate) struct MemoryState {
     pub(crate) contexts: Vec<MemoryContextState>,
 }
 
 impl MemoryState {
-    pub fn new(kernel_code: &[u8]) -> Self {
+    pub(crate) fn new(kernel_code: &[u8]) -> Self {
         let code_u256s = kernel_code.iter().map(|&x| x.into()).collect();
         let mut result = Self::default();
         result.contexts[0].segments[Segment::Code as usize].content = code_u256s;
         result
     }
 
-    pub fn apply_ops(&mut self, ops: &[MemoryOp]) {
+    pub(crate) fn apply_ops(&mut self, ops: &[MemoryOp]) {
         for &op in ops {
             let MemoryOp {
                 address,
@@ -165,7 +167,7 @@ impl MemoryState {
         }
     }
 
-    pub fn get(&self, address: MemoryAddress) -> U256 {
+    pub(crate) fn get(&self, address: MemoryAddress) -> U256 {
         if address.context >= self.contexts.len() {
             return U256::zero();
         }
@@ -182,7 +184,7 @@ impl MemoryState {
         val
     }
 
-    pub fn set(&mut self, address: MemoryAddress, val: U256) {
+    pub(crate) fn set(&mut self, address: MemoryAddress, val: U256) {
         while address.context >= self.contexts.len() {
             self.contexts.push(MemoryContextState::default());
         }

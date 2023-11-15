@@ -7,7 +7,7 @@ use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer
 use crate::cpu::columns::CpuColumnsView;
 
 /// General-purpose memory channels; they can read and write to all contexts/segments/addresses.
-pub const NUM_GP_CHANNELS: usize = 5;
+pub const NUM_GP_CHANNELS: usize = 4;
 
 /// Indices for code and general purpose memory channels.
 pub mod channel_indices {
@@ -33,7 +33,7 @@ pub mod channel_indices {
 pub const NUM_CHANNELS: usize = channel_indices::GP.end;
 
 /// Evaluates constraints regarding the membus.
-pub fn eval_packed<P: PackedField>(
+pub(crate) fn eval_packed<P: PackedField>(
     lv: &CpuColumnsView<P>,
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
@@ -41,17 +41,21 @@ pub fn eval_packed<P: PackedField>(
     // It should be 0 if in kernel mode and `lv.context` if in user mode.
     // Note: This doesn't need to be filtered to CPU cycles, as this should also be satisfied
     // during Kernel bootstrapping.
+
     yield_constr.constraint(lv.code_context - (P::ONES - lv.is_kernel_mode) * lv.context);
 
     // Validate `channel.used`. It should be binary.
     for channel in lv.mem_channels {
         yield_constr.constraint(channel.used * (channel.used - P::ONES));
     }
+
+    // Validate `partial_channel.used`. It should be binary.
+    yield_constr.constraint(lv.partial_channel.used * (lv.partial_channel.used - P::ONES));
 }
 
 /// Circuit version of `eval_packed`.
 /// Evaluates constraints regarding the membus.
-pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
+pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
     lv: &CpuColumnsView<ExtensionTarget<D>>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
@@ -67,6 +71,16 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     // Validate `channel.used`. It should be binary.
     for channel in lv.mem_channels {
         let constr = builder.mul_sub_extension(channel.used, channel.used, channel.used);
+        yield_constr.constraint(builder, constr);
+    }
+
+    // Validate `partial_channel.used`. It should be binary.
+    {
+        let constr = builder.mul_sub_extension(
+            lv.partial_channel.used,
+            lv.partial_channel.used,
+            lv.partial_channel.used,
+        );
         yield_constr.constraint(builder, constr);
     }
 }

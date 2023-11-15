@@ -110,7 +110,7 @@ where
     C: GenericConfig<D, F = F>,
     C::Hasher: AlgebraicHasher<F>,
 {
-    pub fn to_buffer(
+    pub(crate) fn to_buffer(
         &self,
         buffer: &mut Vec<u8>,
         gate_serializer: &dyn GateSerializer<F, D>,
@@ -124,7 +124,7 @@ where
         Ok(())
     }
 
-    pub fn from_buffer(
+    pub(crate) fn from_buffer(
         buffer: &mut Buffer,
         gate_serializer: &dyn GateSerializer<F, D>,
         generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,

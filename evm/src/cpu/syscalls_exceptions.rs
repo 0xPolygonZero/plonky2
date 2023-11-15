@@ -20,7 +20,7 @@ const BYTES_PER_OFFSET: usize = crate::cpu::kernel::assembler::BYTES_PER_OFFSET 
 const_assert!(BYTES_PER_OFFSET < NUM_GP_CHANNELS); // Reserve one channel for stack push
 
 /// Evaluates constraints for syscalls and exceptions.
-pub fn eval_packed<P: PackedField>(
+pub(crate) fn eval_packed<P: PackedField>(
     lv: &CpuColumnsView<P>,
     nv: &CpuColumnsView<P>,
     yield_constr: &mut ConstraintConsumer<P>,
@@ -82,8 +82,8 @@ pub fn eval_packed<P: PackedField>(
         yield_constr.constraint(filter_exception * (channel.addr_virtual - limb_address_exception));
     }
 
-    // Disable unused channels (the last channel is used to push to the stack)
-    for channel in &lv.mem_channels[BYTES_PER_OFFSET + 1..NUM_GP_CHANNELS - 1] {
+    // Disable unused channels
+    for channel in &lv.mem_channels[BYTES_PER_OFFSET + 1..NUM_GP_CHANNELS] {
         yield_constr.constraint(total_filter * channel.used);
     }
 
@@ -124,7 +124,7 @@ pub fn eval_packed<P: PackedField>(
 
 /// Circuit version of `eval_packed`.
 /// Evaluates constraints for syscalls and exceptions.
-pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
+pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
     lv: &CpuColumnsView<ExtensionTarget<D>>,
     nv: &CpuColumnsView<ExtensionTarget<D>>,
@@ -239,7 +239,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     }
 
     // Disable unused channels (the last channel is used to push to the stack)
-    for channel in &lv.mem_channels[BYTES_PER_OFFSET + 1..NUM_GP_CHANNELS - 1] {
+    for channel in &lv.mem_channels[BYTES_PER_OFFSET + 1..NUM_GP_CHANNELS] {
         let constr = builder.mul_extension(total_filter, channel.used);
         yield_constr.constraint(builder, constr);
     }

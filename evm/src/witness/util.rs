@@ -5,7 +5,7 @@ use super::memory::DUMMY_MEMOP;
 use crate::byte_packing::byte_packing_stark::BytePackingOp;
 use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::kernel::keccak_util::keccakf_u8s;
-use crate::cpu::membus::{NUM_CHANNELS, NUM_GP_CHANNELS};
+use crate::cpu::membus::NUM_CHANNELS;
 use crate::cpu::stack_bounds::MAX_USER_STACK_SIZE;
 use crate::generation::state::GenerationState;
 use crate::keccak_sponge::columns::{KECCAK_RATE_BYTES, KECCAK_WIDTH_BYTES};
@@ -91,18 +91,13 @@ pub(crate) fn push_with_write<F: Field>(
             Segment::Stack,
             state.registers.stack_len - 1,
         );
-        let res = mem_write_gp_log_and_fill(
-            NUM_GP_CHANNELS - 1,
-            address,
-            state,
-            row,
-            state.registers.stack_top,
-        );
+        let res = mem_write_partial_log_and_fill(address, state, row, state.registers.stack_top);
         Some(res)
     };
     push_no_write(state, val);
     if let Some(log) = write {
         state.traces.push_memory(log);
+        row.partial_channel.used = F::ONE;
     }
     Ok(())
 }
@@ -196,6 +191,25 @@ pub(crate) fn mem_write_gp_log_and_fill<F: Field>(
         channel.value[2 * i] = F::from_canonical_u32(limb as u32);
         channel.value[2 * i + 1] = F::from_canonical_u32((limb >> 32) as u32);
     }
+
+    op
+}
+
+pub(crate) fn mem_write_partial_log_and_fill<F: Field>(
+    address: MemoryAddress,
+    state: &GenerationState<F>,
+    row: &mut CpuColumnsView<F>,
+    val: U256,
+) -> MemoryOp {
+    let op = mem_write_log(MemoryChannel::PartialChannel, address, state, val);
+
+    let channel = &mut row.partial_channel;
+    assert!(channel.used.is_zero());
+    channel.used = F::ONE;
+    channel.is_read = F::ZERO;
+    channel.addr_context = F::from_canonical_usize(address.context);
+    channel.addr_segment = F::from_canonical_usize(address.segment);
+    channel.addr_virtual = F::from_canonical_usize(address.virt);
 
     op
 }
