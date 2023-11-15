@@ -36,8 +36,8 @@ use crate::cross_table_lookup::{
 use crate::generation::GenerationInputs;
 use crate::get_challenges::observe_public_values_target;
 use crate::proof::{
-    BlockHashesTarget, BlockMetadataTarget, ExtraBlockDataTarget, PublicValues, PublicValuesTarget,
-    StarkProofWithMetadata, TrieRootsTarget,
+    BlockHashesTarget, BlockMetadataTarget, ExtraBlockData, ExtraBlockDataTarget, PublicValues,
+    PublicValuesTarget, StarkProofWithMetadata, TrieRootsTarget,
 };
 use crate::prover::prove;
 use crate::recursive_verifier::{
@@ -963,9 +963,10 @@ where
         &self,
         lhs_is_agg: bool,
         lhs_proof: &ProofWithPublicInputs<F, C, D>,
+        lhs_public_values: PublicValues,
         rhs_is_agg: bool,
         rhs_proof: &ProofWithPublicInputs<F, C, D>,
-        public_values: PublicValues,
+        rhs_public_values: PublicValues,
     ) -> anyhow::Result<(ProofWithPublicInputs<F, C, D>, PublicValues)> {
         let mut agg_inputs = PartialWitness::new();
 
@@ -982,17 +983,34 @@ where
             &self.aggregation.circuit.verifier_only,
         );
 
+        // Aggregates both `PublicValues` from the provided proofs into a single one.
+        let agg_public_values = PublicValues {
+            trie_roots_before: lhs_public_values.trie_roots_before,
+            trie_roots_after: rhs_public_values.trie_roots_after,
+            extra_block_data: ExtraBlockData {
+                genesis_state_trie_root: lhs_public_values.extra_block_data.genesis_state_trie_root,
+                txn_number_before: lhs_public_values.extra_block_data.txn_number_before,
+                txn_number_after: rhs_public_values.extra_block_data.txn_number_after,
+                gas_used_before: lhs_public_values.extra_block_data.gas_used_before,
+                gas_used_after: rhs_public_values.extra_block_data.gas_used_after,
+                block_bloom_before: lhs_public_values.extra_block_data.block_bloom_before,
+                block_bloom_after: rhs_public_values.extra_block_data.block_bloom_after,
+            },
+            block_metadata: rhs_public_values.block_metadata,
+            block_hashes: rhs_public_values.block_hashes,
+        };
+
         set_public_value_targets(
             &mut agg_inputs,
             &self.aggregation.public_values,
-            &public_values,
+            &agg_public_values,
         )
         .map_err(|_| {
             anyhow::Error::msg("Invalid conversion when setting public values targets.")
         })?;
 
         let aggregation_proof = self.aggregation.circuit.prove(agg_inputs)?;
-        Ok((aggregation_proof, public_values))
+        Ok((aggregation_proof, agg_public_values))
     }
 
     pub fn verify_aggregation(
