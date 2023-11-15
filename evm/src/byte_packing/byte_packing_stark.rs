@@ -68,12 +68,11 @@ pub(crate) fn ctl_looked_data<F: Field>() -> Vec<Column<F>> {
     // obtain the corresponding limb.
     let outputs: Vec<Column<F>> = (0..8)
         .map(|i| {
-            let range = (value_bytes(i * 4)..value_bytes(i * 4) + 4).collect_vec();
+            let range = (value_bytes(i * 4)..value_bytes(i * 4) + 4);
             Column::linear_combination(
                 range
-                    .iter()
                     .enumerate()
-                    .map(|(j, &c)| (c, F::from_canonical_u64(1 << (8 * j)))),
+                    .map(|(j, c)| (c, F::from_canonical_u64(1 << (8 * j)))),
             )
         })
         .collect();

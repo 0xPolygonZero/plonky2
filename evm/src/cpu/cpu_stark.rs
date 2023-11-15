@@ -157,6 +157,33 @@ pub(crate) fn ctl_filter_byte_unpacking<F: Field>() -> Column<F> {
     Column::single(COL_MAP.op.mstore_32bytes)
 }
 
+/// Creates the vector of `Columns` corresponding to the contents of the CPU registers when performing a `PUSH`.
+/// `PUSH` internal reads are done by calling `BytePackingStark`.
+pub(crate) fn ctl_data_byte_packing_push<F: Field>() -> Vec<Column<F>> {
+    let context = Column::single(COL_MAP.code_context);
+    let segment = Column::constant(F::from_canonical_usize(Segment::Code as usize));
+    // The initial offset if `pc + 1`.
+    let virt =
+        Column::linear_combination_with_constant([(COL_MAP.program_counter, F::ONE)], F::ONE);
+    let val = Column::singles_next_row(COL_MAP.mem_channels[0].value);
+
+    // We fetch the length from the `PUSH` opcode lower bits, that indicate `len - 1`.
+    let len = Column::le_bits_with_constant(&COL_MAP.opcode_bits[0..5], F::ONE);
+
+    let num_channels = F::from_canonical_usize(NUM_CHANNELS);
+    let timestamp = Column::linear_combination([(COL_MAP.clock, num_channels)]);
+
+    let mut res = vec![context, segment, virt, len, timestamp];
+    res.extend(val);
+
+    res
+}
+
+/// CTL filter for the `PUSH` operation.
+pub(crate) fn ctl_filter_byte_packing_push<F: Field>() -> Column<F> {
+    Column::single(COL_MAP.op.push)
+}
+
 /// Index of the memory channel storing code.
 pub const MEM_CODE_CHANNEL_IDX: usize = 0;
 /// Index of the first general purpose memory channel.
