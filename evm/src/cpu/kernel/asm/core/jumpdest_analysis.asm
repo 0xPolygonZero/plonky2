@@ -18,26 +18,24 @@ loop:
     MLOAD_GENERAL
     // stack: opcode, i, ctx, code_len, retdest
 
-    DUP1 %eq_const(0x5b)
-    // stack: opcode == JUMPDEST, opcode, i, ctx, code_len, retdest
-    %jumpi(encountered_jumpdest)
+    DUP1 
+    // Slightly more efficient than `%eq_const(0x5b) ISZERO`
+    PUSH 0x5b
+    SUB
+    // stack: opcode != JUMPDEST, opcode, i, ctx, code_len, retdest
+    %jumpi(continue)
 
-    // stack: opcode, i, ctx, code_len, retdest
-    %code_bytes_to_skip
-    // stack: bytes_to_skip, i, ctx, code_len, retdest
-    ADD
-    %jump(continue)
-
-encountered_jumpdest:
-    // stack: opcode, i, ctx, code_len, retdest
-    POP
-    // stack: i, ctx, code_len, retdest
-    %stack (i, ctx) -> (1, ctx, @SEGMENT_JUMPDEST_BITS, i, i, ctx)
+    // stack: JUMPDEST, i, ctx, code_len, retdest
+    %stack (JUMPDEST, i, ctx) -> (1, ctx, @SEGMENT_JUMPDEST_BITS, i, JUMPDEST, i, ctx)
     MSTORE_GENERAL
 
 continue:
+    // stack: opcode, i, ctx, code_len, retdest
+    %add_const(code_bytes_to_skip)
+    %mload_kernel_code
+    // stack: bytes_to_skip, i, ctx, code_len, retdest
+    ADD
     // stack: i, ctx, code_len, retdest
-    %increment
     %jump(loop)
 
 return:
@@ -45,20 +43,49 @@ return:
     %pop3
     JUMP
 
-// Determines how many bytes to skip, if any, based on the opcode we read.
-// If we read a PUSH<n> opcode, we skip over n bytes, otherwise we skip 0.
+// Determines how many bytes away is the next opcode, based on the opcode we read.
+// If we read a PUSH<n> opcode, next opcode is in n + 1 bytes, otherwise it's the next one.
 //
 // Note that the range of PUSH opcodes is [0x60, 0x80). I.e. PUSH1 is 0x60
 // and PUSH32 is 0x7f.
-%macro code_bytes_to_skip
-    // stack: opcode
-    %sub_const(0x60)
-    // stack: opcode - 0x60
-    DUP1 %lt_const(0x20)
-    // stack: is_push_opcode, opcode - 0x60
-    SWAP1
-    %increment // n = opcode - 0x60 + 1
-    // stack: n, is_push_opcode
-    MUL
-    // stack: bytes_to_skip
-%endmacro
+code_bytes_to_skip:
+    %rep 96
+        BYTES 1 // 0x00-0x5f
+    %endrep
+
+    BYTES 2
+    BYTES 3
+    BYTES 4
+    BYTES 5
+    BYTES 6
+    BYTES 7
+    BYTES 8
+    BYTES 9
+    BYTES 10
+    BYTES 11
+    BYTES 12
+    BYTES 13
+    BYTES 14
+    BYTES 15
+    BYTES 16
+    BYTES 17
+    BYTES 18
+    BYTES 19
+    BYTES 20
+    BYTES 21
+    BYTES 22
+    BYTES 23
+    BYTES 24
+    BYTES 25
+    BYTES 26
+    BYTES 27
+    BYTES 28
+    BYTES 29
+    BYTES 30
+    BYTES 31
+    BYTES 32
+    BYTES 33
+
+    %rep 128
+        BYTES 1 // 0x80-0xff
+    %endrep
