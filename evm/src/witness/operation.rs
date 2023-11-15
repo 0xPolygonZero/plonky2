@@ -14,7 +14,7 @@ use crate::cpu::kernel::assembler::BYTES_PER_OFFSET;
 use crate::cpu::kernel::constants::context_metadata::ContextMetadata;
 use crate::cpu::membus::NUM_GP_CHANNELS;
 use crate::cpu::simple_logic::eq_iszero::generate_pinv_diff;
-use crate::cpu::stack_bounds::MAX_USER_STACK_SIZE;
+use crate::cpu::stack::MAX_USER_STACK_SIZE;
 use crate::extension_tower::BN_BASE;
 use crate::generation::state::GenerationState;
 use crate::memory::segments::Segment;
@@ -953,7 +953,7 @@ pub(crate) fn generate_exception<F: Field>(
     let disallowed_len = F::from_canonical_usize(MAX_USER_STACK_SIZE + 1);
     let diff = row.stack_len - disallowed_len;
     if let Some(inv) = diff.try_inverse() {
-        row.stack_len_bounds_aux = inv;
+        row.general.stack_mut().stack_len_bounds_aux = inv;
     } else {
         // This is a stack overflow that should have been caught earlier.
         return Err(ProgramError::InterpreterError);
@@ -987,6 +987,24 @@ pub(crate) fn generate_exception<F: Field>(
         );
         state.traces.push_memory(mem_op);
         state.registers.is_stack_top_read = false;
+    }
+
+    if state.registers.check_overflow {
+        if state.registers.is_kernel {
+            row.general.stack_mut().stack_len_bounds_aux = F::ZERO;
+        } else {
+            let clock = state.traces.clock();
+            let last_row = &mut state.traces.cpu[clock - 1];
+            let disallowed_len = F::from_canonical_usize(MAX_USER_STACK_SIZE + 1);
+            let diff = row.stack_len - disallowed_len;
+            if let Some(inv) = diff.try_inverse() {
+                last_row.general.stack_mut().stack_len_bounds_aux = inv;
+            } else {
+                // This is a stack overflow that should have been caught earlier.
+                return Err(ProgramError::InterpreterError);
+            }
+        }
+        state.registers.check_overflow = false;
     }
 
     row.general.exception_mut().exc_code_bits = [

@@ -8,9 +8,9 @@ use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::constants::context_metadata::ContextMetadata;
 use crate::cpu::stack::{
-    EQ_STACK_BEHAVIOR, IS_ZERO_STACK_BEHAVIOR, JUMPI_OP, JUMP_OP, STACK_BEHAVIORS,
+    EQ_STACK_BEHAVIOR, IS_ZERO_STACK_BEHAVIOR, JUMPI_OP, JUMP_OP, MAX_USER_STACK_SIZE,
+    STACK_BEHAVIORS,
 };
-use crate::cpu::stack_bounds::MAX_USER_STACK_SIZE;
 use crate::generation::state::GenerationState;
 use crate::memory::segments::Segment;
 use crate::witness::errors::ProgramError;
@@ -227,11 +227,25 @@ fn get_op_special_length(op: Operation) -> Option<usize> {
     }
 }
 
+// These operations might trigger a stack overflow, typically those pushing without popping.
+// Kernel-only pushing instructions aren't considered; they can't overflow.
+fn might_overflow_op(op: Operation) -> bool {
+    match op {
+        Operation::Pc | Operation::Push(0) => true,
+        Operation::Push(_) => true,
+        // SWAP doesn't, but share a flag with DUP.
+        Operation::Dup(_) | Operation::Swap(_) => true,
+        // Doesn't directly push, but the syscall it's returning from might.
+        Operation::ExitKernel => true,
+        _ => false,
+    }
+}
+
 fn perform_op<F: Field>(
     state: &mut GenerationState<F>,
     op: Operation,
     row: CpuColumnsView<F>,
-) -> Result<(), ProgramError> {
+) -> Result<Operation, ProgramError> {
     match op {
         Operation::Push(n) => generate_push(n, state, row)?,
         Operation::Dup(n) => generate_dup(n, state, row)?,
@@ -291,7 +305,7 @@ fn perform_op<F: Field>(
         }
     }
 
-    Ok(())
+    Ok(op)
 }
 
 /// Row that has the correct values for system registers and the code channel, but is otherwise
@@ -314,7 +328,9 @@ fn base_row<F: Field>(state: &mut GenerationState<F>) -> (CpuColumnsView<F>, u8)
     (row, opcode)
 }
 
-fn try_perform_instruction<F: Field>(state: &mut GenerationState<F>) -> Result<(), ProgramError> {
+fn try_perform_instruction<F: Field>(
+    state: &mut GenerationState<F>,
+) -> Result<Operation, ProgramError> {
     let (mut row, opcode) = base_row(state);
     let op = decode(state.registers, opcode)?;
 
@@ -351,17 +367,22 @@ fn try_perform_instruction<F: Field>(state: &mut GenerationState<F>) -> Result<(
         state.registers.is_stack_top_read = false;
     }
 
-    if state.registers.is_kernel {
-        row.stack_len_bounds_aux = F::ZERO;
-    } else {
-        let disallowed_len = F::from_canonical_usize(MAX_USER_STACK_SIZE + 1);
-        let diff = row.stack_len - disallowed_len;
-        if let Some(inv) = diff.try_inverse() {
-            row.stack_len_bounds_aux = inv;
+    if state.registers.check_overflow {
+        if state.registers.is_kernel {
+            row.general.stack_mut().stack_len_bounds_aux = F::ZERO;
         } else {
-            // This is a stack overflow that should have been caught earlier.
-            return Err(ProgramError::InterpreterError);
+            let clock = state.traces.clock();
+            let last_row = &mut state.traces.cpu[clock - 1];
+            let disallowed_len = F::from_canonical_usize(MAX_USER_STACK_SIZE + 1);
+            let diff = row.stack_len - disallowed_len;
+            if let Some(inv) = diff.try_inverse() {
+                last_row.general.stack_mut().stack_len_bounds_aux = inv;
+            } else {
+                // This is a stack overflow that should have been caught earlier.
+                return Err(ProgramError::InterpreterError);
+            }
         }
+        state.registers.check_overflow = false;
     }
 
     // Might write in general CPU columns when it shouldn't, but the correct values will
@@ -439,10 +460,13 @@ pub(crate) fn transition<F: Field>(state: &mut GenerationState<F>) -> anyhow::Re
     let result = try_perform_instruction(state);
 
     match result {
-        Ok(()) => {
+        Ok(op) => {
             state
                 .memory
                 .apply_ops(state.traces.mem_ops_since(checkpoint.traces));
+            if might_overflow_op(op) {
+                state.registers.check_overflow = true;
+            }
             Ok(())
         }
         Err(e) => {
