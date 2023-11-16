@@ -110,7 +110,6 @@ pub(crate) fn eval_packed<P: PackedField>(
     // Check the kernel mode, for syscalls only
     yield_constr.constraint(filter_syscall * (output[1] - lv.is_kernel_mode));
     yield_constr.constraint(total_filter * (output[6] - lv.gas));
-    // TODO: Range check `output[6]`.
     yield_constr.constraint(total_filter * output[7]); // High limb of gas is zero.
 
     // Zero the rest of that register
@@ -299,7 +298,6 @@ pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
         let constr = builder.mul_extension(total_filter, diff);
         yield_constr.constraint(builder, constr);
     }
-    // TODO: Range check `output[6]`.
     {
         // High limb of gas is zero.
         let constr = builder.mul_extension(total_filter, output[7]);
