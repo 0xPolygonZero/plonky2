@@ -385,7 +385,7 @@ pub(crate) struct TrieRootsTarget {
 
 impl TrieRootsTarget {
     /// Number of `Target`s required for all trie hashes.
-    pub const SIZE: usize = 24;
+    pub(crate) const SIZE: usize = 24;
 
     /// Extracts trie hash `Target`s for all tries from the provided public input `Target`s.
     /// The provided `pis` should start with the trie hashes.
@@ -469,7 +469,7 @@ pub(crate) struct BlockMetadataTarget {
 
 impl BlockMetadataTarget {
     /// Number of `Target`s required for the block metadata.
-    pub const SIZE: usize = 85;
+    pub(crate) const SIZE: usize = 85;
 
     /// Extracts block metadata `Target`s from the provided public input `Target`s.
     /// The provided `pis` should start with the block metadata.

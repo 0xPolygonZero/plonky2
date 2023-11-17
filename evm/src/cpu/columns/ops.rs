@@ -53,7 +53,7 @@ pub(crate) struct OpsColumnsView<T: Copy> {
 
 /// Number of columns in Cpu Stark.
 /// `u8` is guaranteed to have a `size_of` of 1.
-pub const NUM_OPS_COLUMNS: usize = size_of::<OpsColumnsView<u8>>();
+pub(crate) const NUM_OPS_COLUMNS: usize = size_of::<OpsColumnsView<u8>>();
 
 impl<T: Copy> From<[T; NUM_OPS_COLUMNS]> for OpsColumnsView<T> {
     fn from(value: [T; NUM_OPS_COLUMNS]) -> Self {

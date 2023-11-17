@@ -21,7 +21,7 @@ pub trait FieldExt:
     fn inv(self) -> Self;
 }
 
-pub const BN_BASE: U256 = U256([
+pub(crate) const BN_BASE: U256 = U256([
     0x3c208c16d87cfd47,
     0x97816a916871ca8d,
     0xb85045b68181585d,
@@ -114,7 +114,7 @@ impl Div for BN254 {
     }
 }
 
-pub const BLS_BASE: U512 = U512([
+pub(crate) const BLS_BASE: U512 = U512([
     0xb9feffffffffaaab,
     0x1eabfffeb153ffff,
     0x6730d2a0f6b0f624,
