@@ -15,4 +15,4 @@ Each row therefore contains the following columns:
 
 Note that we need all three flags because we need to be able to distinguish between an operation row and a padding row -- where all flags are set to 0.
 
-The subdivision into bits is required for the two inputs as the table carries out bitwise operations. The result, on the other hand, is represented in 32-bit limbs because it is checked against the cpu, which stores values in the same way. 
+The subdivision into bits is required for the two inputs as the table carries out bitwise operations. The result, on the other hand, is represented in 32-bit limbs since we do not need individual bits and can therefore save the remaining 248 columns. Moreover, the output is checked against the cpu, which stores values in the same way. 
