@@ -1,4 +1,33 @@
 \subsection{Byte Packing}
 \label{byte-packing}
 
-TODO
+The BytePacking STARK module is used for reading and writing to memory non-empty byte sequences of length at most 32.
+The "packing" term highlights that reading a sequence in memory will pack the bytes into an EVM word (i.e. U256), while
+the "unpacking" operation consists in breaking down an EVM word into its byte sequence and writing it in memory.
+
+This allows faster memory copies between two memory locations, as well as faster memory reset
+(see \href{memcpy.asm}{https://github.com/0xPolygonZero/plonky2/blob/main/evm/src/cpu/kernel/asm/memory/memcpy.asm} and 
+\href{memset.asm}{https://github.com/0xPolygonZero/plonky2/blob/main/evm/src/cpu/kernel/asm/memory/memset.asm} modules).
+
+The BytePackingStark table will have $\ell$ rows per packing/unpacking operation, where $0 < \ell \leq 32$ is the length of the sequence being processed.
+
+Each row contains the following columns:
+\begin{enumerate}
+    \item 5 columns containing information on the initial memory address from which the sequence starts
+    (namely a flag differentiating read and write operations, address context, segment and offset values, as well as timestamp),
+    \item $f_{\texttt{end}}$, a flag indicating the end of a sequence,
+    \item 32 columns $b_i$ indicating the index of the byte being read/written at a given row,
+    \item 32 columns $v_i$ indicating the values of the bytes that have been read/written during a sequence,
+    \item 2 columns $r_i$ needed for range-checking the the byte values.
+\end{enumerate}
+
+
+TODO: endianness, connection to memory and CPU, difference between byte and value registers
+
+
+
+\paragraph*{Note on range-check:} Range-checking is necessary whenever we do a memory unpacking operation that will
+write values to memory. These values are constrained by the range-check to be actual bytes, i.e. fitting between 0 and 255 included.
+While range-checking values being read from memory is not necessary, because we use the same ``byte_values'' columns for both read
+and write operations, this extra condition is enforced throughout the whole trace regardless of the operation type.
+
