@@ -9,8 +9,8 @@ To explain how this table is structured, we first need to detail how the permuta
 Let:
 \begin{itemize}
     \item $S$ be the sponge width ($S=25$ in our case)
-    \item $NUM\_ROUNDS$ be the number of Keccak rounds (24 in our case)
-    \item $RC$ a vector of round constants of size $NUM\_ROUNDS$
+    \item $\texttt{NUM\_ROUNDS}$ be the number of Keccak rounds ($\texttt{NUM\_ROUNDS} = 24$)
+    \item $RC$ a vector of round constants of size  $\texttt{NUM\_ROUNDS}$
     \item $I$ be the input of the permutation, comprised of $S$ 64-bit elements
 \end{itemize}    
 
@@ -22,7 +22,7 @@ Then, for each round $i$, we proceed as follows:
     \item First, we define $C[x] := \texttt{xor}_{i=0}^4 A[x, i]$. We store $C$ as bits in the table. This is because we need to apply a rotation on its elements' bits and carry out \texttt{ xor } operations in the next step.
     \item Then, we store a second vector $C'$ in bits, such that: $$C'[x, z] = C[x, z] \texttt{ xor } C[x-1, z] \texttt{ xor } C[x+1, z-1]$$. 
     \item We then need to store the updated value of $A$: $$A'[x, y] = A[x, y] \texttt{ xor } C[x, y] \texttt{ xor } C'[x, y]$$ Note that this is equivalent to the equation in the official Keccak-f description: $$A'[x, y] = A[x, y] \texttt{ xor } C[x-1, z] \texttt{ xor } C[x+1, z-1]$$.
-    \item The previous three points correspond to the $\theta$ step in Keccak-f. We can now move on the the $\rho$ and $\pi$ steps. These steps are written as: $$B[y, 2\times x + 3 \times y] := \texttt{rot}(A'[x, y], r[x, y])$$ where $\texttt{rot(a, s)}$ is the bitwise cyclic shift operation, and $r$ is the matrix of rotation offsets. We do not need to store $B$: $B$'s bits are only a permutation of $A'$'s bits. 
+    \item The previous three points correspond to the $\theta$ step in Keccak-f. We can now move on to the $\rho$ and $\pi$ steps. These steps are written as: $$B[y, 2\times x + 3 \times y] := \texttt{rot}(A'[x, y], r[x, y])$$ where $\texttt{rot(a, s)}$ is the bitwise cyclic shift operation, and $r$ is the matrix of rotation offsets. We do not need to store $B$: $B$'s bits are only a permutation of $A'$'s bits. 
     \item The $\chi$ step updates the state once again, and we store the new values: $$A''[x, y] := B[x, y] \texttt{ xor } (\texttt{not }B[x+1, y] \texttt{ and } B[x+2, y])$$ Because of the way we carry out constraints (as explained below), we do not need to store the individual bits for $A''$: we only need the 32-bit limbs.
     \item The final step, $\iota$, consists in updating the first element of the state as follows: $$A'''[0, 0] = A''[0, 0] \texttt{ xor } RC[i]$$ where $$A'''[x, y] = A''[x, y] \forall (x, y) \neq (0, 0)$$ Since only the first element is updated, we only need to store $A'''[0, 0]$ of this updated state. The remaining elements are fetched from $A''$. However, because of the bitwise $\texttt{xor}$ operation, we do need columns for the bits of $A''[0, 0]$.  
 \end{enumerate}
@@ -36,7 +36,7 @@ It is also important to note that all bitwise logic operations ($\texttt{ xor }$
 \subsubsection{Columns}
 Using the notations from the previous section, we can now list the columns in the table:
 \begin{enumerate}
-    \item $NUM\_ROUNDS = 24$ columns $c_i$ to determine which round is currently being computed. $c_i = 1$ when we are in the $i$-th round, and 0 otherwise. These columns' purpose is to ensure that the correct round constants are used at each round.
+    \item $\texttt{NUM\_ROUND}S = 24$ columns $c_i$ to determine which round is currently being computed. $c_i = 1$ when we are in the $i$-th round, and 0 otherwise. These columns' purpose is to ensure that the correct round constants are used at each round.
     \item $1$ column $t$ which stores the timestamp at which the Keccak operation was called in the cpu. This column enables us to ensure that inputs and outputs are consistent between the cpu, keccak-sponge and keccak-f tables.
     \item $5 \times 5 \times 2 = 50 $columns to store the elements of $A$. As a reminder, each 64-bit element is divided into two 32-bit limbs, and $A$ comprises $S = 25$ elements.
     \item $5 \times 64 = 320$ columns to store the bits of the vector $C$.
