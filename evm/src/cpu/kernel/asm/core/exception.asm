@@ -1,4 +1,5 @@
 // These exception codes are arbitrary and assigned by us.
+// Note that exceptions can only be triggered in user mode.
 global exception_jumptable:
     // exception 0: out of gas
     JUMPTABLE exc_out_of_gas
