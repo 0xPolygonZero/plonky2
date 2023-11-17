@@ -3,7 +3,7 @@ use ethereum_types::U256;
 use crate::cpu::membus::{NUM_CHANNELS, NUM_GP_CHANNELS};
 
 #[derive(Clone, Copy, Debug)]
-pub enum MemoryChannel {
+pub(crate) enum MemoryChannel {
     Code,
     GeneralPurpose(usize),
     PartialChannel,
@@ -75,7 +75,7 @@ impl MemoryAddress {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum MemoryOpKind {
+pub(crate) enum MemoryOpKind {
     Read,
     Write,
 }
@@ -90,7 +90,7 @@ pub(crate) struct MemoryOp {
     pub value: U256,
 }
 
-pub static DUMMY_MEMOP: MemoryOp = MemoryOp {
+pub(crate) static DUMMY_MEMOP: MemoryOp = MemoryOp {
     filter: false,
     timestamp: 0,
     address: MemoryAddress {

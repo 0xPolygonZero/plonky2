@@ -18,7 +18,7 @@ use super::columns::COL_MAP;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::CpuColumnsView;
 
-pub const MAX_USER_STACK_SIZE: usize = 1024;
+pub(crate) const MAX_USER_STACK_SIZE: usize = 1024;
 
 /// Evaluates constraints to check for stack overflows.
 pub(crate) fn eval_packed<P: PackedField>(

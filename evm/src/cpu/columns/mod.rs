@@ -103,7 +103,7 @@ pub(crate) struct CpuColumnsView<T: Copy> {
 
 /// Total number of columns in `CpuStark`.
 /// `u8` is guaranteed to have a `size_of` of 1.
-pub const NUM_CPU_COLUMNS: usize = size_of::<CpuColumnsView<u8>>();
+pub(crate) const NUM_CPU_COLUMNS: usize = size_of::<CpuColumnsView<u8>>();
 
 impl<F: Field> Default for CpuColumnsView<F> {
     fn default() -> Self {
@@ -175,4 +175,4 @@ const fn make_col_map() -> CpuColumnsView<usize> {
 }
 
 /// Mapping between [0..NUM_CPU_COLUMNS-1] and the CPU columns.
-pub const COL_MAP: CpuColumnsView<usize> = make_col_map();
+pub(crate) const COL_MAP: CpuColumnsView<usize> = make_col_map();

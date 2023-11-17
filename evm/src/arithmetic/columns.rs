@@ -2,7 +2,7 @@
 
 use std::ops::Range;
 
-pub const LIMB_BITS: usize = 16;
+pub(crate) const LIMB_BITS: usize = 16;
 const EVM_REGISTER_BITS: usize = 256;
 
 /// Return the number of LIMB_BITS limbs that are in an EVM
@@ -20,7 +20,7 @@ const fn n_limbs() -> usize {
 }
 
 /// Number of LIMB_BITS limbs that are in on EVM register-sized number.
-pub const N_LIMBS: usize = n_limbs();
+pub(crate) const N_LIMBS: usize = n_limbs();
 
 pub(crate) const IS_ADD: usize = 0;
 pub(crate) const IS_MUL: usize = IS_ADD + 1;
@@ -112,4 +112,4 @@ pub(crate) const RANGE_COUNTER: usize = START_SHARED_COLS + NUM_SHARED_COLS;
 pub(crate) const RC_FREQUENCIES: usize = RANGE_COUNTER + 1;
 
 /// Number of columns in `ArithmeticStark`.
-pub const NUM_ARITH_COLUMNS: usize = START_SHARED_COLS + NUM_SHARED_COLS + 2;
+pub(crate) const NUM_ARITH_COLUMNS: usize = START_SHARED_COLS + NUM_SHARED_COLS + 2;
