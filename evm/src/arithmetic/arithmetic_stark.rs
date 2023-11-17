@@ -116,7 +116,7 @@ pub(crate) fn ctl_arithmetic_rows<F: Field>() -> TableWithColumns<F> {
 
 /// Structure representing the `Arithmetic` STARK, which carries out all the arithmetic operations.
 #[derive(Copy, Clone, Default)]
-pub struct ArithmeticStark<F, const D: usize> {
+pub(crate) struct ArithmeticStark<F, const D: usize> {
     pub f: PhantomData<F>,
 }
 

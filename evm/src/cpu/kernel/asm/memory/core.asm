@@ -102,6 +102,7 @@
     // stack: segment, offset, value
     GET_CONTEXT
     // stack: context, segment, offset, value
+    %stack(context, segment, offset, value) -> (value, context, segment, offset)
     MSTORE_GENERAL
     // stack: (empty)
 %endmacro
@@ -171,6 +172,7 @@
     // stack: segment, offset, value
     GET_CONTEXT
     // stack: context, segment, offset, value
+    %stack(context, segment, offset, value) -> (value, context, segment, offset)
     MSTORE_GENERAL
     // stack: (empty)
 %endmacro
@@ -222,6 +224,7 @@
     // stack: segment, offset, value
     PUSH 0 // kernel has context 0
     // stack: context, segment, offset, value
+    %stack(context, segment, offset, value) -> (value, context, segment, offset)
     MSTORE_GENERAL
     // stack: (empty)
 %endmacro
@@ -235,6 +238,7 @@
     // stack: segment, offset, value
     PUSH 0 // kernel has context 0
     // stack: context, segment, offset, value
+    %stack(context, segment, offset, value) -> (value, context, segment, offset)
     MSTORE_GENERAL
     // stack: (empty)
 %endmacro

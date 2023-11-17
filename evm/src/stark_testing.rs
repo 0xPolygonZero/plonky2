@@ -18,7 +18,11 @@ const WITNESS_SIZE: usize = 1 << 5;
 
 /// Tests that the constraints imposed by the given STARK are low-degree by applying them to random
 /// low-degree witness polynomials.
-pub fn test_stark_low_degree<F: RichField + Extendable<D>, S: Stark<F, D>, const D: usize>(
+pub(crate) fn test_stark_low_degree<
+    F: RichField + Extendable<D>,
+    S: Stark<F, D>,
+    const D: usize,
+>(
     stark: S,
 ) -> Result<()> {
     let rate_bits = log2_ceil(stark.constraint_degree() + 1);
@@ -70,7 +74,7 @@ pub fn test_stark_low_degree<F: RichField + Extendable<D>, S: Stark<F, D>, const
 }
 
 /// Tests that the circuit constraints imposed by the given STARK are coherent with the native constraints.
-pub fn test_stark_circuit_constraints<
+pub(crate) fn test_stark_circuit_constraints<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
     S: Stark<F, D>,

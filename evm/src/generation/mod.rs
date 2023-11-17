@@ -46,7 +46,8 @@ pub struct GenerationInputs {
     pub gas_used_after: U256,
     pub block_bloom_after: [U256; 8],
 
-    pub signed_txns: Vec<Vec<u8>>,
+    // A None would yield an empty proof, otherwise this contains the encoding of a transaction.
+    pub signed_txn: Option<Vec<u8>>,
     // Withdrawal pairs `(addr, amount)`. At the end of the txs, `amount` is added to `addr`'s balance. See EIP-4895.
     pub withdrawals: Vec<(Address, U256)>,
     pub tries: TrieInputs,
@@ -122,7 +123,7 @@ fn apply_metadata_and_tries_memops<F: RichField + Extendable<D>, const D: usize>
         (GlobalMetadata::TxnNumberBefore, inputs.txn_number_before),
         (
             GlobalMetadata::TxnNumberAfter,
-            inputs.txn_number_before + inputs.signed_txns.len(),
+            inputs.txn_number_before + if inputs.signed_txn.is_some() { 1 } else { 0 },
         ),
         (
             GlobalMetadata::StateTrieRootDigestBefore,
@@ -306,10 +307,7 @@ fn simulate_cpu<F: RichField + Extendable<D>, const D: usize>(
             row.context = F::from_canonical_usize(state.registers.context);
             row.program_counter = F::from_canonical_usize(pc);
             row.is_kernel_mode = F::ONE;
-            row.gas = [
-                F::from_canonical_u32(state.registers.gas_used as u32),
-                F::from_canonical_u32((state.registers.gas_used >> 32) as u32),
-            ];
+            row.gas = F::from_canonical_u64(state.registers.gas_used);
             row.stack_len = F::from_canonical_usize(state.registers.stack_len);
 
             loop {
@@ -319,6 +317,7 @@ fn simulate_cpu<F: RichField + Extendable<D>, const D: usize>(
                     break;
                 }
             }
+
             log::info!("CPU trace padded to {} cycles", state.traces.clock());
 
             return Ok(());

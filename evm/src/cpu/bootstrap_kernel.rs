@@ -47,8 +47,9 @@ pub(crate) fn generate_bootstrap_kernel<F: Field>(state: &mut GenerationState<F>
     final_cpu_row.mem_channels[1].value[0] = F::from_canonical_usize(Segment::Code as usize); // segment
     final_cpu_row.mem_channels[2].value[0] = F::ZERO; // virt
     final_cpu_row.mem_channels[3].value[0] = F::from_canonical_usize(KERNEL.code.len()); // len
-    final_cpu_row.mem_channels[4].value = KERNEL.code_hash.map(F::from_canonical_u32);
-    final_cpu_row.mem_channels[4].value.reverse();
+
+    // The resulting hash will be written later in mem_channel[0] of the first CPU row, and will be checked
+    // with the CTL.
     keccak_sponge_log(
         state,
         MemoryAddress::new(0, Segment::Code, 0),
@@ -71,13 +72,14 @@ pub(crate) fn eval_bootstrap_kernel_packed<F: Field, P: PackedField<Scalar = F>>
     next_values: &CpuColumnsView<P>,
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
-    // IS_BOOTSTRAP_KERNEL must have an init value of 1, a final value of 0, and a delta in {0, -1}.
+    // IS_BOOTSTRAP_KERNEL must have an init value of 1, a final value of 0,
+    // and a delta = current.is_bootstrap - next.is_bootstrap in {0, 1}.
     let local_is_bootstrap = local_values.is_bootstrap_kernel;
     let next_is_bootstrap = next_values.is_bootstrap_kernel;
     yield_constr.constraint_first_row(local_is_bootstrap - P::ONES);
     yield_constr.constraint_last_row(local_is_bootstrap);
-    let delta_is_bootstrap = next_is_bootstrap - local_is_bootstrap;
-    yield_constr.constraint_transition(delta_is_bootstrap * (delta_is_bootstrap + P::ONES));
+    let delta_is_bootstrap = local_is_bootstrap - next_is_bootstrap;
+    yield_constr.constraint_transition(delta_is_bootstrap * (delta_is_bootstrap - P::ONES));
 
     // If this is a bootloading row and the i'th memory channel is used, it must have the right
     // address, name context = 0, segment = Code, virt = clock * NUM_GP_CHANNELS + i.
@@ -90,6 +92,7 @@ pub(crate) fn eval_bootstrap_kernel_packed<F: Field, P: PackedField<Scalar = F>>
             + F::from_canonical_usize(i);
         yield_constr.constraint(filter * (channel.addr_virtual - expected_virt));
     }
+    yield_constr.constraint(local_is_bootstrap * local_values.partial_channel.used);
 
     // If this is the final bootstrap row (i.e. delta_is_bootstrap = 1), check that
     // - all memory channels are disabled
@@ -97,16 +100,29 @@ pub(crate) fn eval_bootstrap_kernel_packed<F: Field, P: PackedField<Scalar = F>>
     for channel in local_values.mem_channels.iter() {
         yield_constr.constraint_transition(delta_is_bootstrap * channel.used);
     }
+    yield_constr.constraint(delta_is_bootstrap * local_values.partial_channel.used);
     for (&expected, actual) in KERNEL
         .code_hash
         .iter()
         .rev()
-        .zip(local_values.mem_channels.last().unwrap().value)
+        .zip(next_values.mem_channels[0].value)
     {
         let expected = P::from(F::from_canonical_u32(expected));
         let diff = expected - actual;
         yield_constr.constraint_transition(delta_is_bootstrap * diff);
     }
+
+    // In addition, validate `is_keccak_sponge`. It must be binary, and be 1 either at the final
+    // boostrap row or during a KECCAK_GENERAL instruction. At the final CPU row, it should be 0.
+    yield_constr
+        .constraint(local_values.is_keccak_sponge * (local_values.is_keccak_sponge - P::ONES));
+    yield_constr.constraint_transition(
+        local_values.is_keccak_sponge
+            - (delta_is_bootstrap
+                + local_values.op.jumpdest_keccak_general
+                    * (P::ONES - local_values.opcode_bits[1])),
+    );
+    yield_constr.constraint_last_row(local_values.is_keccak_sponge);
 }
 
 /// Circuit version of `eval_bootstrap_kernel_packed`.
@@ -119,15 +135,16 @@ pub(crate) fn eval_bootstrap_kernel_ext_circuit<F: RichField + Extendable<D>, co
 ) {
     let one = builder.one_extension();
 
-    // IS_BOOTSTRAP_KERNEL must have an init value of 1, a final value of 0, and a delta in {0, -1}.
+    // IS_BOOTSTRAP_KERNEL must have an init value of 1, a final value of 0,
+    // and a delta = current.is_bootstrap - next.is_bootstrap in {0, 1}.
     let local_is_bootstrap = local_values.is_bootstrap_kernel;
     let next_is_bootstrap = next_values.is_bootstrap_kernel;
     let constraint = builder.sub_extension(local_is_bootstrap, one);
     yield_constr.constraint_first_row(builder, constraint);
     yield_constr.constraint_last_row(builder, local_is_bootstrap);
-    let delta_is_bootstrap = builder.sub_extension(next_is_bootstrap, local_is_bootstrap);
+    let delta_is_bootstrap = builder.sub_extension(local_is_bootstrap, next_is_bootstrap);
     let constraint =
-        builder.mul_add_extension(delta_is_bootstrap, delta_is_bootstrap, delta_is_bootstrap);
+        builder.mul_sub_extension(delta_is_bootstrap, delta_is_bootstrap, delta_is_bootstrap);
     yield_constr.constraint_transition(builder, constraint);
 
     // If this is a bootloading row and the i'th memory channel is used, it must have the right
@@ -151,6 +168,10 @@ pub(crate) fn eval_bootstrap_kernel_ext_circuit<F: RichField + Extendable<D>, co
         let constraint = builder.mul_extension(filter, virt_diff);
         yield_constr.constraint(builder, constraint);
     }
+    {
+        let constr = builder.mul_extension(local_is_bootstrap, local_values.partial_channel.used);
+        yield_constr.constraint(builder, constr);
+    }
 
     // If this is the final bootstrap row (i.e. delta_is_bootstrap = 1), check that
     // - all memory channels are disabled
@@ -159,15 +180,46 @@ pub(crate) fn eval_bootstrap_kernel_ext_circuit<F: RichField + Extendable<D>, co
         let constraint = builder.mul_extension(delta_is_bootstrap, channel.used);
         yield_constr.constraint_transition(builder, constraint);
     }
+    {
+        let constr = builder.mul_extension(delta_is_bootstrap, local_values.partial_channel.used);
+        yield_constr.constraint(builder, constr);
+    }
+
     for (&expected, actual) in KERNEL
         .code_hash
         .iter()
         .rev()
-        .zip(local_values.mem_channels.last().unwrap().value)
+        .zip(next_values.mem_channels[0].value)
     {
         let expected = builder.constant_extension(F::Extension::from_canonical_u32(expected));
         let diff = builder.sub_extension(expected, actual);
         let constraint = builder.mul_extension(delta_is_bootstrap, diff);
         yield_constr.constraint_transition(builder, constraint);
+    }
+
+    // In addition, validate `is_keccak_sponge`. It must be binary, and be 1 either at the final
+    // boostrap row or during a KECCAK_GENERAL instruction. At the final CPU row, it should be 0.
+    {
+        let constr = builder.mul_sub_extension(
+            local_values.is_keccak_sponge,
+            local_values.is_keccak_sponge,
+            local_values.is_keccak_sponge,
+        );
+        yield_constr.constraint(builder, constr);
+    }
+    {
+        let minus_is_keccak_general = builder.mul_sub_extension(
+            local_values.op.jumpdest_keccak_general,
+            local_values.opcode_bits[1],
+            local_values.op.jumpdest_keccak_general,
+        );
+        let computed_is_keccak_sponge =
+            builder.sub_extension(delta_is_bootstrap, minus_is_keccak_general);
+        let constr =
+            builder.sub_extension(local_values.is_keccak_sponge, computed_is_keccak_sponge);
+        yield_constr.constraint_transition(builder, constr);
+    }
+    {
+        yield_constr.constraint_last_row(builder, local_values.is_keccak_sponge);
     }
 }

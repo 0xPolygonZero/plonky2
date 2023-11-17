@@ -6,6 +6,7 @@ use super::memory::{MemoryOp, MemoryOpKind};
 use super::util::fill_channel_with_value;
 use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::kernel::aggregator::KERNEL;
+use crate::cpu::kernel::constants::context_metadata::ContextMetadata;
 use crate::cpu::stack::{
     EQ_STACK_BEHAVIOR, IS_ZERO_STACK_BEHAVIOR, JUMPI_OP, JUMP_OP, STACK_BEHAVIORS,
 };
@@ -33,7 +34,7 @@ fn read_code_memory<F: Field>(state: &mut GenerationState<F>, row: &mut CpuColum
     opcode
 }
 
-fn decode(registers: RegistersState, opcode: u8) -> Result<Operation, ProgramError> {
+pub(crate) fn decode(registers: RegistersState, opcode: u8) -> Result<Operation, ProgramError> {
     match (opcode, registers.is_kernel) {
         (0x00, _) => Ok(Operation::Syscall(opcode, 0, false)), // STOP
         (0x01, _) => Ok(Operation::BinaryArithmetic(arithmetic::BinaryOperator::Add)),
@@ -134,7 +135,7 @@ fn decode(registers: RegistersState, opcode: u8) -> Result<Operation, ProgramErr
             );
             Err(ProgramError::KernelPanic)
         }
-        (0xee, true) => Ok(Operation::Mstore32Bytes),
+        (0xc0..=0xdf, true) => Ok(Operation::Mstore32Bytes(opcode - 0xc0 + 1)),
         (0xf0, _) => Ok(Operation::Syscall(opcode, 3, false)), // CREATE
         (0xf1, _) => Ok(Operation::Syscall(opcode, 7, false)), // CALL
         (0xf2, _) => Ok(Operation::Syscall(opcode, 7, false)), // CALLCODE
@@ -179,7 +180,7 @@ fn fill_op_flag<F: Field>(op: Operation, row: &mut CpuColumnsView<F>) {
         Operation::Pc | Operation::Push(0) => &mut flags.pc_push0,
         Operation::GetContext | Operation::SetContext => &mut flags.context_op,
         Operation::Mload32Bytes => &mut flags.mload_32bytes,
-        Operation::Mstore32Bytes => &mut flags.mstore_32bytes,
+        Operation::Mstore32Bytes(_) => &mut flags.mstore_32bytes,
         Operation::ExitKernel => &mut flags.exit_kernel,
         Operation::MloadGeneral | Operation::MstoreGeneral => &mut flags.m_op_general,
     } = F::ONE;
@@ -211,7 +212,7 @@ fn get_op_special_length(op: Operation) -> Option<usize> {
         Operation::Jumpi => JUMPI_OP,
         Operation::GetContext | Operation::SetContext => None,
         Operation::Mload32Bytes => STACK_BEHAVIORS.mload_32bytes,
-        Operation::Mstore32Bytes => STACK_BEHAVIORS.mstore_32bytes,
+        Operation::Mstore32Bytes(_) => STACK_BEHAVIORS.mstore_32bytes,
         Operation::ExitKernel => STACK_BEHAVIORS.exit_kernel,
         Operation::MloadGeneral | Operation::MstoreGeneral => STACK_BEHAVIORS.m_op_general,
     };
@@ -258,7 +259,7 @@ fn perform_op<F: Field>(
         Operation::GetContext => generate_get_context(state, row)?,
         Operation::SetContext => generate_set_context(state, row)?,
         Operation::Mload32Bytes => generate_mload_32bytes(state, row)?,
-        Operation::Mstore32Bytes => generate_mstore_32bytes(state, row)?,
+        Operation::Mstore32Bytes(n) => generate_mstore_32bytes(n, state, row)?,
         Operation::ExitKernel => generate_exit_kernel(state, row)?,
         Operation::MloadGeneral => generate_mload_general(state, row)?,
         Operation::MstoreGeneral => generate_mstore_general(state, row)?,
@@ -273,6 +274,23 @@ fn perform_op<F: Field>(
 
     state.registers.gas_used += gas_to_charge(op);
 
+    let gas_limit_address = MemoryAddress {
+        context: state.registers.context,
+        segment: Segment::ContextMetadata as usize,
+        virt: ContextMetadata::GasLimit as usize,
+    };
+    if !state.registers.is_kernel {
+        let gas_limit = TryInto::<u64>::try_into(state.memory.get(gas_limit_address));
+        match gas_limit {
+            Ok(limit) => {
+                if state.registers.gas_used > limit {
+                    return Err(ProgramError::OutOfGas);
+                }
+            }
+            Err(_) => return Err(ProgramError::IntegerTooLarge),
+        }
+    }
+
     Ok(())
 }
 
@@ -285,10 +303,7 @@ fn base_row<F: Field>(state: &mut GenerationState<F>) -> (CpuColumnsView<F>, u8)
     row.context = F::from_canonical_usize(state.registers.context);
     row.program_counter = F::from_canonical_usize(state.registers.program_counter);
     row.is_kernel_mode = F::from_bool(state.registers.is_kernel);
-    row.gas = [
-        F::from_canonical_u32(state.registers.gas_used as u32),
-        F::from_canonical_u32((state.registers.gas_used >> 32) as u32),
-    ];
+    row.gas = F::from_canonical_u64(state.registers.gas_used);
     row.stack_len = F::from_canonical_usize(state.registers.stack_len);
     fill_channel_with_value(&mut row, 0, state.registers.stack_top);
 

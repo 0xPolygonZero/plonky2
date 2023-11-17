@@ -68,12 +68,11 @@ pub(crate) fn ctl_looked_data<F: Field>() -> Vec<Column<F>> {
     // obtain the corresponding limb.
     let outputs: Vec<Column<F>> = (0..8)
         .map(|i| {
-            let range = (value_bytes(i * 4)..value_bytes(i * 4) + 4).collect_vec();
+            let range = (value_bytes(i * 4)..value_bytes(i * 4) + 4);
             Column::linear_combination(
                 range
-                    .iter()
                     .enumerate()
-                    .map(|(j, &c)| (c, F::from_canonical_u64(1 << (8 * j)))),
+                    .map(|(j, c)| (c, F::from_canonical_u64(1 << (8 * j)))),
             )
         })
         .collect();
@@ -91,7 +90,7 @@ pub(crate) fn ctl_looked_data<F: Field>() -> Vec<Column<F>> {
 }
 
 /// CTL filter for the `BytePackingStark` looked table.
-pub fn ctl_looked_filter<F: Field>() -> Column<F> {
+pub(crate) fn ctl_looked_filter<F: Field>() -> Column<F> {
     // The CPU table is only interested in our sequence end rows,
     // since those contain the final limbs of our packed int.
     Column::single(SEQUENCE_END)
@@ -136,7 +135,7 @@ pub(crate) struct BytePackingOp {
 }
 
 #[derive(Copy, Clone, Default)]
-pub struct BytePackingStark<F, const D: usize> {
+pub(crate) struct BytePackingStark<F, const D: usize> {
     pub(crate) f: PhantomData<F>,
 }
 

@@ -200,11 +200,6 @@ fn eval_packed_set<P: PackedField>(
         yield_constr.constraint(lv.op.context_op * lv.general.stack().stack_inv_aux_2 * limb);
     }
 
-    // Unused channels.
-    for i in 4..NUM_GP_CHANNELS {
-        let channel = lv.mem_channels[i];
-        yield_constr.constraint(filter * channel.used);
-    }
     yield_constr.constraint(filter * new_top_channel.used);
 }
 
@@ -324,12 +319,6 @@ fn eval_ext_circuit_set<F: RichField + Extendable<D>, const D: usize>(
         yield_constr.constraint(builder, constr);
     }
 
-    // Unused channels.
-    for i in 4..NUM_GP_CHANNELS {
-        let channel = lv.mem_channels[i];
-        let constr = builder.mul_extension(filter, channel.used);
-        yield_constr.constraint(builder, constr);
-    }
     {
         let constr = builder.mul_extension(filter, new_top_channel.used);
         yield_constr.constraint(builder, constr);
@@ -337,7 +326,7 @@ fn eval_ext_circuit_set<F: RichField + Extendable<D>, const D: usize>(
 }
 
 /// Evaluates the constraints for the GET and SET opcodes.
-pub fn eval_packed<P: PackedField>(
+pub(crate) fn eval_packed<P: PackedField>(
     lv: &CpuColumnsView<P>,
     nv: &CpuColumnsView<P>,
     yield_constr: &mut ConstraintConsumer<P>,
@@ -376,7 +365,7 @@ pub fn eval_packed<P: PackedField>(
 
 /// Circuit version of èval_packed`.
 /// Evaluates the constraints for the GET and SET opcodes.
-pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
+pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     lv: &CpuColumnsView<ExtensionTarget<D>>,
     nv: &CpuColumnsView<ExtensionTarget<D>>,

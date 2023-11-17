@@ -104,7 +104,7 @@ after_serializing_access_list:
 
     // Store a `1` in front of the RLP
     %decrement
-    %stack (pos) -> (0, @SEGMENT_RLP_RAW, pos, 1, pos)
+    %stack (pos) -> (1, 0, @SEGMENT_RLP_RAW, pos, pos)
     MSTORE_GENERAL
     // stack: pos, rlp_len, retdest
 
