@@ -11,7 +11,7 @@ Each row of the memory table corresponds to a single memory operation (a read or
   \item $v$, the value being read or written
   \item $\tau$, the timestamp of the operation
 \end{enumerate}
-The memory table should be ordered by $(a, \tau)$. Note that the correctness of memory could be checked as follows:
+The memory table should be ordered by $(a, \tau)$. Note that the correctness of the memory could be checked as follows:
 \begin{enumerate}
   \item Verify the ordering by checking that $(a_i, \tau_i) \leq (a_{i+1}, \tau_{i+1})$ for each consecutive pair.
   \item Enumerate the purportedly-ordered log while tracking the ``current'' value of $v$, which is initially zero.\footnote{EVM memory is zero-initialized.}
