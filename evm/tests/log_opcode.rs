@@ -20,7 +20,7 @@ use plonky2_evm::fixed_recursive_verifier::AllRecursiveCircuits;
 use plonky2_evm::generation::mpt::transaction_testing::{AddressOption, LegacyTransactionRlp};
 use plonky2_evm::generation::mpt::{AccountRlp, LegacyReceiptRlp, LogRlp};
 use plonky2_evm::generation::{GenerationInputs, TrieInputs};
-use plonky2_evm::proof::{BlockHashes, BlockMetadata, ExtraBlockData, PublicValues, TrieRoots};
+use plonky2_evm::proof::{BlockHashes, BlockMetadata, TrieRoots};
 use plonky2_evm::prover::prove;
 use plonky2_evm::verifier::verify_proof;
 use plonky2_evm::Node;
@@ -459,20 +459,20 @@ fn test_log_with_aggreg() -> anyhow::Result<()> {
     // Preprocess all circuits.
     let all_circuits = AllRecursiveCircuits::<F, C, D>::new(
         &all_stark,
-        &[16..17, 12..14, 17..18, 14..15, 9..11, 12..13, 19..20],
+        &[16..17, 17..19, 17..18, 14..15, 10..11, 12..13, 19..20],
         &config,
     );
 
     let mut timing = TimingTree::new("prove root first", log::Level::Info);
-    let (root_proof_first, first_public_values) =
+    let (root_proof_first, public_values_first) =
         all_circuits.prove_root(&all_stark, &config, inputs_first, &mut timing)?;
 
     timing.filter(Duration::from_millis(100)).print();
     all_circuits.verify_root(root_proof_first.clone())?;
 
     // The output bloom filter, gas used and transaction number are fed to the next transaction, so the two proofs can be correctly aggregated.
-    let block_bloom_second = first_public_values.extra_block_data.block_bloom_after;
-    let gas_used_second = first_public_values.extra_block_data.gas_used_after;
+    let block_bloom_second = public_values_first.extra_block_data.block_bloom_after;
+    let gas_used_second = public_values_first.extra_block_data.gas_used_after;
 
     // Prove second transaction. In this second transaction, the code with logs is executed.
 
@@ -602,36 +602,19 @@ fn test_log_with_aggreg() -> anyhow::Result<()> {
     };
 
     let mut timing = TimingTree::new("prove root second", log::Level::Info);
-    let (root_proof, public_values) =
+    let (root_proof_second, public_values_second) =
         all_circuits.prove_root(&all_stark, &config, inputs, &mut timing)?;
     timing.filter(Duration::from_millis(100)).print();
 
-    all_circuits.verify_root(root_proof.clone())?;
+    all_circuits.verify_root(root_proof_second.clone())?;
 
-    // Update public values for the aggregation.
-    let agg_public_values = PublicValues {
-        trie_roots_before: first_public_values.trie_roots_before,
-        trie_roots_after: public_values.trie_roots_after,
-        extra_block_data: ExtraBlockData {
-            genesis_state_trie_root,
-            txn_number_before: first_public_values.extra_block_data.txn_number_before,
-            txn_number_after: public_values.extra_block_data.txn_number_after,
-            gas_used_before: first_public_values.extra_block_data.gas_used_before,
-            gas_used_after: public_values.extra_block_data.gas_used_after,
-            block_bloom_before: first_public_values.extra_block_data.block_bloom_before,
-            block_bloom_after: public_values.extra_block_data.block_bloom_after,
-        },
-        block_metadata: public_values.block_metadata,
-        block_hashes: public_values.block_hashes,
-    };
-
-    // We can duplicate the proofs here because the state hasn't mutated.
     let (agg_proof, updated_agg_public_values) = all_circuits.prove_aggregation(
         false,
         &root_proof_first,
+        public_values_first,
         false,
-        &root_proof,
-        agg_public_values,
+        &root_proof_second,
+        public_values_second,
     )?;
     all_circuits.verify_aggregation(&agg_proof)?;
     let (block_proof, _block_public_values) =

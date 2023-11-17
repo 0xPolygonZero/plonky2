@@ -6,6 +6,7 @@ use super::memory::{MemoryOp, MemoryOpKind};
 use super::util::fill_channel_with_value;
 use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::kernel::aggregator::KERNEL;
+use crate::cpu::kernel::constants::context_metadata::ContextMetadata;
 use crate::cpu::stack::{
     EQ_STACK_BEHAVIOR, IS_ZERO_STACK_BEHAVIOR, JUMPI_OP, JUMP_OP, STACK_BEHAVIORS,
 };
@@ -273,6 +274,23 @@ fn perform_op<F: Field>(
 
     state.registers.gas_used += gas_to_charge(op);
 
+    let gas_limit_address = MemoryAddress {
+        context: state.registers.context,
+        segment: Segment::ContextMetadata as usize,
+        virt: ContextMetadata::GasLimit as usize,
+    };
+    if !state.registers.is_kernel {
+        let gas_limit = TryInto::<u64>::try_into(state.memory.get(gas_limit_address));
+        match gas_limit {
+            Ok(limit) => {
+                if state.registers.gas_used > limit {
+                    return Err(ProgramError::OutOfGas);
+                }
+            }
+            Err(_) => return Err(ProgramError::IntegerTooLarge),
+        }
+    }
+
     Ok(())
 }
 
@@ -285,10 +303,7 @@ fn base_row<F: Field>(state: &mut GenerationState<F>) -> (CpuColumnsView<F>, u8)
     row.context = F::from_canonical_usize(state.registers.context);
     row.program_counter = F::from_canonical_usize(state.registers.program_counter);
     row.is_kernel_mode = F::from_bool(state.registers.is_kernel);
-    row.gas = [
-        F::from_canonical_u32(state.registers.gas_used as u32),
-        F::from_canonical_u32((state.registers.gas_used >> 32) as u32),
-    ];
+    row.gas = F::from_canonical_u64(state.registers.gas_used);
     row.stack_len = F::from_canonical_usize(state.registers.stack_len);
     fill_channel_with_value(&mut row, 0, state.registers.stack_top);
 

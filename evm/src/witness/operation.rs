@@ -449,23 +449,26 @@ pub(crate) fn generate_push<F: Field>(
     }
     let initial_offset = state.registers.program_counter + 1;
 
+    let base_address = MemoryAddress::new(code_context, Segment::Code, initial_offset);
     // First read val without going through `mem_read_with_log` type methods, so we can pass it
     // to stack_push_log_and_fill.
     let bytes = (0..num_bytes)
         .map(|i| {
             state
                 .memory
-                .get(MemoryAddress::new(
-                    code_context,
-                    Segment::Code,
-                    initial_offset + i,
-                ))
+                .get(MemoryAddress {
+                    virt: base_address.virt + i,
+                    ..base_address
+                })
                 .low_u32() as u8
         })
         .collect_vec();
 
     let val = U256::from_big_endian(&bytes);
     push_with_write(state, &mut row, val)?;
+
+    byte_packing_log(state, base_address, bytes);
+
     state.traces.push_cpu(row);
 
     Ok(())
@@ -678,7 +681,7 @@ pub(crate) fn generate_syscall<F: Field>(
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
-    if TryInto::<u64>::try_into(state.registers.gas_used).is_err() {
+    if TryInto::<u32>::try_into(state.registers.gas_used).is_err() {
         return Err(ProgramError::GasLimitError);
     }
 
@@ -783,7 +786,7 @@ pub(crate) fn generate_exit_kernel<F: Field>(
     assert!(is_kernel_mode_val == 0 || is_kernel_mode_val == 1);
     let is_kernel_mode = is_kernel_mode_val != 0;
     let gas_used_val = kexit_info.0[3];
-    if TryInto::<u64>::try_into(gas_used_val).is_err() {
+    if TryInto::<u32>::try_into(gas_used_val).is_err() {
         return Err(ProgramError::GasLimitError);
     }
 
@@ -941,7 +944,7 @@ pub(crate) fn generate_exception<F: Field>(
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
-    if TryInto::<u64>::try_into(state.registers.gas_used).is_err() {
+    if TryInto::<u32>::try_into(state.registers.gas_used).is_err() {
         return Err(ProgramError::GasLimitError);
     }
 

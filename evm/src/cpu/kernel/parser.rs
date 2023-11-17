@@ -4,7 +4,7 @@ use ethereum_types::U256;
 use pest::iterators::Pair;
 use pest::Parser;
 
-use super::ast::StackPlaceholder;
+use super::ast::{BytesTarget, StackPlaceholder};
 use crate::cpu::kernel::ast::{File, Item, PushTarget, StackReplacement};
 
 /// Parses EVM assembly code.
@@ -38,7 +38,7 @@ fn parse_item(item: Pair<Rule>) -> Item {
         Rule::macro_label_decl => {
             Item::MacroLabelDeclaration(item.into_inner().next().unwrap().as_str().into())
         }
-        Rule::bytes_item => Item::Bytes(item.into_inner().map(parse_literal_u8).collect()),
+        Rule::bytes_item => Item::Bytes(item.into_inner().map(parse_bytes_target).collect()),
         Rule::jumptable_item => {
             Item::Jumptable(item.into_inner().map(|i| i.as_str().into()).collect())
         }
@@ -163,6 +163,16 @@ fn parse_push_target(target: Pair<Rule>) -> PushTarget {
         }
         Rule::variable => PushTarget::MacroVar(inner.into_inner().next().unwrap().as_str().into()),
         Rule::constant => PushTarget::Constant(inner.into_inner().next().unwrap().as_str().into()),
+        _ => panic!("Unexpected {:?}", inner.as_rule()),
+    }
+}
+
+fn parse_bytes_target(target: Pair<Rule>) -> BytesTarget {
+    assert_eq!(target.as_rule(), Rule::bytes_target);
+    let inner = target.into_inner().next().unwrap();
+    match inner.as_rule() {
+        Rule::literal => BytesTarget::Literal(parse_literal_u8(inner)),
+        Rule::constant => BytesTarget::Constant(inner.into_inner().next().unwrap().as_str().into()),
         _ => panic!("Unexpected {:?}", inner.as_rule()),
     }
 }
