@@ -75,8 +75,8 @@ pub(crate) struct CpuColumnsView<T: Copy> {
     /// If CPU cycle: We're in kernel (privileged) mode.
     pub is_kernel_mode: T,
 
-    /// If CPU cycle: Gas counter, split in two 32-bit limbs in little-endian order.
-    pub gas: [T; 2],
+    /// If CPU cycle: Gas counter.
+    pub gas: T,
 
     /// If CPU cycle: flags for EVM instructions (a few cannot be shared; see the comments in
     /// `OpsColumnsView`).
