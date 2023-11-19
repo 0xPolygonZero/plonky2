@@ -8,7 +8,7 @@ use std::time::Instant;
 
 use hashbrown::{HashMap, HashSet};
 use itertools::Itertools;
-use log::{debug, info, Level};
+use log::{debug, info, warn, Level};
 use plonky2_util::ceil_div_usize;
 
 use crate::field::cosets::get_unique_coset_shifts;
@@ -915,11 +915,22 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
-    /// Builds a "full circuit", with both prover and verifier data.
     pub fn build_with_options<C: GenericConfig<D, F = F>>(
-        mut self,
+        self,
         commit_to_sigma: bool,
     ) -> CircuitData<F, C, D> {
+        let (circuit_data, success) = self.try_build_with_options(commit_to_sigma);
+        if !success {
+            panic!("Failed to build circuit");
+        }
+        circuit_data
+    }
+
+    /// Builds a "full circuit", with both prover and verifier data.
+    pub fn try_build_with_options<C: GenericConfig<D, F = F>>(
+        mut self,
+        commit_to_sigma: bool,
+    ) -> (CircuitData<F, C, D>, bool) {
         let mut timing = TimingTree::new("preprocess", Level::Trace);
 
         #[cfg(feature = "std")]
@@ -1125,8 +1136,14 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             num_lookup_selectors,
             luts: self.luts,
         };
+
+        let mut success = true;
+
         if let Some(goal_data) = self.goal_common_data {
-            assert_eq!(goal_data, common, "The expected circuit data passed to cyclic recursion method did not match the actual circuit");
+            if goal_data != common {
+                warn!("The expected circuit data passed to cyclic recursion method did not match the actual circuit");
+                success = false;
+            }
         }
 
         let prover_only = ProverOnlyCircuitData::<F, C, D> {
@@ -1151,11 +1168,14 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         timing.print();
         #[cfg(feature = "std")]
         debug!("Building circuit took {}s", start.elapsed().as_secs_f32());
-        CircuitData {
-            prover_only,
-            verifier_only,
-            common,
-        }
+        (
+            CircuitData {
+                prover_only,
+                verifier_only,
+                common,
+            },
+            success,
+        )
     }
 
     pub fn build<C: GenericConfig<D, F = F>>(self) -> CircuitData<F, C, D> {
