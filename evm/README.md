@@ -1,6 +1,9 @@
 # Recursive Stateless ZK-EVM
 
-Included here is an implementation of a stateless, recursive ZK-EVM client implemented using Plonky2. It currently supports the full Merkle-Patricia Tree and has all Shanghai opcodes implemented.
+Included here is an implementation of a stateless, recursive ZK-EVM client implemented using Plonky2. It currently supports the full Merkle-Patricia Tree and has all Shanghai opcodes implemented. This implementation is able to provide transaction level proofs which are then recursively aggregated into a block proof. This means that proofs for a block can be efficiently distributed across a cluster of computers. As these proofs use Plonky2 they are CPU and Memory bound. The ability to scale horizontally across transactions increases the total performance of the system dramatically.
+
+End-to-end workflows are currently in progress to suport this proving mode against live evm networks.
+
 
 ## Ethereum Compatibility
 
