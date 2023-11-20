@@ -7,7 +7,7 @@ End-to-end workflows are currently in progress to suport this proving mode again
 
 ## Ethereum Compatibility
 
-The aim of this module is to initially provide full ethereum compatibility. Today, all EVM tests for the Shanghai hardfork are implemented. Work is progressing on supporting the upcoming [Cancun](https://github.com/0xPolygonZero/plonky2/labels/cancun) EVM changes. Furthermore, this prover uses the full ethereum state tree and hashing modes.
+The aim of this module is to initially provide full ethereum compatibility. Today, all [EVM tests](https://github.com/0xPolygonZero/evm-tests) for the Shanghai hardfork are implemented. Work is progressing on supporting the upcoming [Cancun](https://github.com/0xPolygonZero/plonky2/labels/cancun) EVM changes. Furthermore, this prover uses the full ethereum state tree and hashing modes.
 
 ## Audits
 
