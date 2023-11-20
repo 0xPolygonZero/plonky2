@@ -34,11 +34,11 @@ const OPCODES: [(u8, usize, bool, usize); 9] = [
     // SHL and SHR flags are handled partly manually here, and partly through the Logic table CTL.
     // JUMPDEST and KECCAK_GENERAL are handled manually here.
     (0x49, 0, true, COL_MAP.op.prover_input),
-    (0x56, 1, false, COL_MAP.op.jumps),    // 0x56-0x57
-    (0x60, 5, false, COL_MAP.op.push),     // 0x60-0x7f
-    (0x80, 5, false, COL_MAP.op.dup_swap), // 0x80-0x9f
-    (0xee, 0, true, COL_MAP.op.mstore_32bytes),
-    (0xf6, 1, true, COL_MAP.op.context_op), //0xf6-0xf7
+    (0x56, 1, false, COL_MAP.op.jumps),         // 0x56-0x57
+    (0x60, 5, false, COL_MAP.op.push),          // 0x60-0x7f
+    (0x80, 5, false, COL_MAP.op.dup_swap),      // 0x80-0x9f
+    (0xc0, 5, true, COL_MAP.op.mstore_32bytes), //0xc0-0xdf
+    (0xf6, 1, true, COL_MAP.op.context_op),     //0xf6-0xf7
     (0xf8, 0, true, COL_MAP.op.mload_32bytes),
     (0xf9, 0, true, COL_MAP.op.exit_kernel),
     // MLOAD_GENERAL and MSTORE_GENERAL flags are handled manually here.
@@ -74,7 +74,7 @@ const fn bits_from_opcode(opcode: u8) -> [bool; 8] {
 }
 
 /// Evaluates the constraints for opcode decoding.
-pub fn eval_packed_generic<P: PackedField>(
+pub(crate) fn eval_packed_generic<P: PackedField>(
     lv: &CpuColumnsView<P>,
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
@@ -181,7 +181,7 @@ pub fn eval_packed_generic<P: PackedField>(
 
 /// Circuit version of `eval_packed_generic`.
 /// Evaluates the constraints for opcode decoding.
-pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
+pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
     lv: &CpuColumnsView<ExtensionTarget<D>>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,

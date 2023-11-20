@@ -1,17 +1,20 @@
 use std::collections::HashMap;
 
 use anyhow::{anyhow, Result};
+use eth_trie_utils::nibbles::Nibbles;
 use eth_trie_utils::partial_trie::{HashedPartialTrie, PartialTrie};
 use ethereum_types::{Address, BigEndianHash, H256, U256};
+use hex_literal::hex;
 use keccak_hash::keccak;
 use rand::{thread_rng, Rng};
 
 use crate::cpu::kernel::aggregator::KERNEL;
-use crate::cpu::kernel::constants::context_metadata::ContextMetadata::GasLimit;
+use crate::cpu::kernel::constants::context_metadata::ContextMetadata::{self, GasLimit};
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
 use crate::cpu::kernel::interpreter::Interpreter;
 use crate::cpu::kernel::tests::mpt::nibbles_64;
 use crate::generation::mpt::{all_mpt_prover_inputs_reversed, AccountRlp};
+use crate::generation::TrieInputs;
 use crate::memory::segments::Segment;
 use crate::Node;
 
@@ -190,5 +193,186 @@ fn test_extcodecopy() -> Result<()> {
         );
     }
 
+    Ok(())
+}
+
+/// Prepare the interpreter for storage tests by inserting all necessary accounts
+/// in the state trie, adding the code we want to context 1 and switching the context.
+fn prepare_interpreter_all_accounts(
+    interpreter: &mut Interpreter,
+    trie_inputs: TrieInputs,
+    addr: [u8; 20],
+    code: &[u8],
+) -> Result<()> {
+    // Load all MPTs.
+    let load_all_mpts = KERNEL.global_labels["load_all_mpts"];
+
+    interpreter.generation_state.registers.program_counter = load_all_mpts;
+    interpreter.push(0xDEADBEEFu32.into());
+
+    interpreter.generation_state.mpt_prover_inputs =
+        all_mpt_prover_inputs_reversed(&trie_inputs)
+            .map_err(|err| anyhow!("Invalid MPT data: {:?}", err))?;
+    interpreter.run()?;
+    assert_eq!(interpreter.stack(), vec![]);
+
+    // Switch context and initialize memory with the data we need for the tests.
+    interpreter.generation_state.registers.program_counter = 0;
+    interpreter.set_code(1, code.to_vec());
+    interpreter.generation_state.memory.contexts[1].segments[Segment::ContextMetadata as usize]
+        .set(
+            ContextMetadata::Address as usize,
+            U256::from_big_endian(&addr),
+        );
+    interpreter.generation_state.memory.contexts[1].segments[Segment::ContextMetadata as usize]
+        .set(ContextMetadata::GasLimit as usize, 100_000.into());
+    interpreter.context = 1;
+    interpreter.generation_state.registers.context = 1;
+    interpreter.generation_state.registers.is_kernel = false;
+    interpreter.kernel_mode = false;
+
+    Ok(())
+}
+
+/// Tests an SSTORE within a code similar to the contract code in add11_yml.
+#[test]
+fn sstore() -> Result<()> {
+    // We take the same `to` account as in add11_yml.
+    let addr = hex!("095e7baea6a6c7c4c2dfeb977efac326af552d87");
+
+    let addr_hashed = keccak(addr);
+
+    let addr_nibbles = Nibbles::from_bytes_be(addr_hashed.as_bytes()).unwrap();
+
+    let code = [0x60, 0x01, 0x60, 0x01, 0x01, 0x60, 0x00, 0x55, 0x00];
+    let code_hash = keccak(code);
+
+    let account_before = AccountRlp {
+        balance: 0x0de0b6b3a7640000u64.into(),
+        code_hash,
+        ..AccountRlp::default()
+    };
+
+    let mut state_trie_before = HashedPartialTrie::from(Node::Empty);
+
+    state_trie_before.insert(addr_nibbles, rlp::encode(&account_before).to_vec());
+
+    let trie_inputs = TrieInputs {
+        state_trie: state_trie_before.clone(),
+        transactions_trie: Node::Empty.into(),
+        receipts_trie: Node::Empty.into(),
+        storage_tries: vec![(addr_hashed, Node::Empty.into())],
+    };
+
+    let initial_stack = vec![];
+    let mut interpreter = Interpreter::new_with_kernel(0, initial_stack);
+
+    // Prepare the interpreter by inserting the account in the state trie.
+    prepare_interpreter_all_accounts(&mut interpreter, trie_inputs, addr, &code)?;
+
+    interpreter.run()?;
+
+    // The code should have added an element to the storage of `to_account`. We run
+    // `mpt_hash_state_trie` to check that.
+    let account_after = AccountRlp {
+        balance: 0x0de0b6b3a7640000u64.into(),
+        code_hash,
+        storage_root: HashedPartialTrie::from(Node::Leaf {
+            nibbles: Nibbles::from_h256_be(keccak([0u8; 32])),
+            value: vec![2],
+        })
+        .hash(),
+        ..AccountRlp::default()
+    };
+    // Now, execute mpt_hash_state_trie.
+    let mpt_hash_state_trie = KERNEL.global_labels["mpt_hash_state_trie"];
+    interpreter.generation_state.registers.program_counter = mpt_hash_state_trie;
+    interpreter.context = 0;
+    interpreter.generation_state.registers.context = 0;
+    interpreter.generation_state.registers.is_kernel = true;
+    interpreter.kernel_mode = true;
+    interpreter.push(0xDEADBEEFu32.into());
+    interpreter.run()?;
+
+    assert_eq!(
+        interpreter.stack().len(),
+        1,
+        "Expected 1 item on stack after hashing, found {:?}",
+        interpreter.stack()
+    );
+
+    let hash = H256::from_uint(&interpreter.stack()[0]);
+
+    let mut expected_state_trie_after = HashedPartialTrie::from(Node::Empty);
+    expected_state_trie_after.insert(addr_nibbles, rlp::encode(&account_after).to_vec());
+
+    let expected_state_trie_hash = expected_state_trie_after.hash();
+    assert_eq!(hash, expected_state_trie_hash);
+    Ok(())
+}
+
+/// Tests an SLOAD within a code similar to the contract code in add11_yml.
+#[test]
+fn sload() -> Result<()> {
+    // We take the same `to` account as in add11_yml.
+    let addr = hex!("095e7baea6a6c7c4c2dfeb977efac326af552d87");
+
+    let addr_hashed = keccak(addr);
+
+    let addr_nibbles = Nibbles::from_bytes_be(addr_hashed.as_bytes()).unwrap();
+
+    // This code is similar to the one in add11_yml's contract, but we pop the added value
+    // and carry out an SLOAD instead of an SSTORE.
+    let code = [0x60, 0x01, 0x60, 0x01, 0x01, 0x50, 0x60, 0x00, 0x54, 0x00];
+    let code_hash = keccak(code);
+
+    let account_before = AccountRlp {
+        balance: 0x0de0b6b3a7640000u64.into(),
+        code_hash,
+        ..AccountRlp::default()
+    };
+
+    let mut state_trie_before = HashedPartialTrie::from(Node::Empty);
+
+    state_trie_before.insert(addr_nibbles, rlp::encode(&account_before).to_vec());
+
+    let trie_inputs = TrieInputs {
+        state_trie: state_trie_before.clone(),
+        transactions_trie: Node::Empty.into(),
+        receipts_trie: Node::Empty.into(),
+        storage_tries: vec![(addr_hashed, Node::Empty.into())],
+    };
+
+    let initial_stack = vec![];
+    let mut interpreter = Interpreter::new_with_kernel(0, initial_stack);
+
+    // Prepare the interpreter by inserting the account in the state trie.
+    prepare_interpreter_all_accounts(&mut interpreter, trie_inputs, addr, &code)?;
+
+    interpreter.run()?;
+    // We check that no value was found.
+    let value = interpreter.pop();
+    assert_eq!(value, 0.into());
+    // Now, execute mpt_hash_state_trie. We check that the state trie has not changed.
+    let mpt_hash_state_trie = KERNEL.global_labels["mpt_hash_state_trie"];
+    interpreter.generation_state.registers.program_counter = mpt_hash_state_trie;
+    interpreter.context = 0;
+    interpreter.generation_state.registers.context = 0;
+    interpreter.generation_state.registers.is_kernel = true;
+    interpreter.kernel_mode = true;
+    interpreter.push(0xDEADBEEFu32.into());
+    interpreter.run()?;
+
+    assert_eq!(
+        interpreter.stack().len(),
+        1,
+        "Expected 1 item on stack after hashing, found {:?}",
+        interpreter.stack()
+    );
+
+    let hash = H256::from_uint(&interpreter.stack()[0]);
+
+    let expected_state_trie_hash = state_trie_before.hash();
+    assert_eq!(hash, expected_state_trie_hash);
     Ok(())
 }

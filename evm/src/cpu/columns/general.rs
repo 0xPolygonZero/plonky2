@@ -151,4 +151,4 @@ pub(crate) struct CpuStackView<T: Copy> {
 
 /// Number of columns shared by all the views of `CpuGeneralColumnsView`.
 /// `u8` is guaranteed to have a `size_of` of 1.
-pub const NUM_SHARED_COLUMNS: usize = size_of::<CpuGeneralColumnsView<u8>>();
+pub(crate) const NUM_SHARED_COLUMNS: usize = size_of::<CpuGeneralColumnsView<u8>>();

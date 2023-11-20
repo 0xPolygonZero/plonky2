@@ -11,18 +11,18 @@ global memcpy:
     // stack: count == 0, DST, SRC, count, retdest
     %jumpi(memcpy_finish)
     // stack: DST, SRC, count, retdest
+    DUP3
+    DUP3
+    DUP3
 
-    // Copy the next value.
-    DUP6
-    DUP6
-    DUP6
-    // stack: SRC, DST, SRC, count, retdest
+    // Copy the next value
+    // stack: DST, DST, SRC, count, retdest
+    DUP9
+    DUP9
+    DUP9
+    // stack: SRC, DST, DST, SRC, count, retdest
     MLOAD_GENERAL
-    // stack: value, DST, SRC, count, retdest
-    DUP4
-    DUP4
-    DUP4
-    // stack: DST, value, DST, SRC, count, retdest
+    // stack: value, DST, DST, SRC, count, retdest
     MSTORE_GENERAL
     // stack: DST, SRC, count, retdest
 
@@ -55,31 +55,29 @@ global memcpy_bytes:
     // Handle small case
     DUP7
     // stack: count, DST, SRC, count, retdest
-    %lt_const(0x20)
-    // stack: count < 32, DST, SRC, count, retdest
+    %lt_const(0x21)
+    // stack: count <= 32, DST, SRC, count, retdest
     %jumpi(memcpy_bytes_finish)
     
     // We will pack 32 bytes into a U256 from the source, and then unpack it at the destination.
     // Copy the next chunk of bytes.
     PUSH 32
-    DUP1
-    DUP8
-    DUP8
-    DUP8
-    // stack: SRC, 32, 32, DST, SRC, count, retdest
+    DUP7
+    DUP7
+    DUP7
+    // stack: SRC, 32, DST, SRC, count, retdest
     MLOAD_32BYTES
-    // stack: value, 32, DST, SRC, count, retdest
-    DUP5
-    DUP5
-    DUP5
-    // stack: DST, value, 32, DST, SRC, count, retdest
-    MSTORE_32BYTES
-    // stack: DST, SRC, count, retdest
-
+    // stack: value, DST, SRC, count, retdest
+    DUP4
+    DUP4
+    DUP4
+    // stack: DST, value, DST, SRC, count, retdest
+    MSTORE_32BYTES_32
+    // stack: new_offset, DST, SRC, count, retdest
     // Increment dst_addr by 32.
-    SWAP2
-    %add_const(0x20)
-    SWAP2
+    SWAP3
+    POP
+    // stack: DST, SRC, count, retdest
     // Increment src_addr by 32.
     SWAP5
     %add_const(0x20)
@@ -117,8 +115,9 @@ memcpy_bytes_finish:
     DUP5
     DUP5
     // stack: DST, value, count, DST, SRC, count, retdest
-    MSTORE_32BYTES
-    // stack: DST, SRC, count, retdest
+    %mstore_unpacking
+    // stack: new_offset, DST, SRC, count, retdest
+    POP
 
 memcpy_finish:
     // stack: DST, SRC, count, retdest

@@ -48,6 +48,17 @@ pub struct LegacyReceiptRlp {
     pub logs: Vec<LogRlp>,
 }
 
+impl LegacyReceiptRlp {
+    // RLP encode the receipt and prepend the tx type.
+    pub fn encode(&self, tx_type: u8) -> Vec<u8> {
+        let mut bytes = rlp::encode(self).to_vec();
+        if tx_type != 0 {
+            bytes.insert(0, tx_type);
+        }
+        bytes
+    }
+}
+
 pub(crate) fn all_mpt_prover_inputs_reversed(
     trie_inputs: &TrieInputs,
 ) -> Result<Vec<U256>, ProgramError> {
@@ -57,10 +68,24 @@ pub(crate) fn all_mpt_prover_inputs_reversed(
 }
 
 pub(crate) fn parse_receipts(rlp: &[u8]) -> Result<Vec<U256>, ProgramError> {
+    let txn_type = match rlp.first().ok_or(ProgramError::InvalidRlp)? {
+        1 => 1,
+        2 => 2,
+        _ => 0,
+    };
+
+    // If this is not a legacy transaction, we skip the leading byte.
+    let rlp = if txn_type == 0 { rlp } else { &rlp[1..] };
+
     let payload_info = PayloadInfo::from(rlp).map_err(|_| ProgramError::InvalidRlp)?;
     let decoded_receipt: LegacyReceiptRlp =
         rlp::decode(rlp).map_err(|_| ProgramError::InvalidRlp)?;
-    let mut parsed_receipt = Vec::new();
+
+    let mut parsed_receipt = if txn_type == 0 {
+        Vec::new()
+    } else {
+        vec![txn_type.into()]
+    };
 
     parsed_receipt.push(payload_info.value_len.into()); // payload_len of the entire receipt
     parsed_receipt.push((decoded_receipt.status as u8).into());
@@ -94,7 +119,8 @@ pub(crate) fn all_mpt_prover_inputs(trie_inputs: &TrieInputs) -> Result<Vec<U256
         .storage_tries
         .iter()
         .map(|(hashed_address, storage_trie)| {
-            let key = Nibbles::from_bytes_be(hashed_address.as_bytes()).unwrap();
+            let key = Nibbles::from_bytes_be(hashed_address.as_bytes())
+                .expect("An H256 is 32 bytes long");
             (key, storage_trie)
         })
         .collect();

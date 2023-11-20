@@ -1,5 +1,5 @@
 use std::borrow::Borrow;
-use std::iter::{once, repeat};
+use std::iter::{self, once, repeat};
 use std::marker::PhantomData;
 use std::mem::size_of;
 
@@ -12,6 +12,7 @@ use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::timed;
 use plonky2::util::timing::TimingTree;
+use plonky2::util::transpose;
 use plonky2_util::ceil_div_usize;
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
@@ -19,9 +20,12 @@ use crate::cpu::kernel::keccak_util::keccakf_u32s;
 use crate::cross_table_lookup::Column;
 use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
 use crate::keccak_sponge::columns::*;
+use crate::lookup::Lookup;
 use crate::stark::Stark;
-use crate::util::trace_rows_to_poly_values;
 use crate::witness::memory::MemoryAddress;
+
+/// Strict upper bound for the individual bytes range-check.
+const BYTE_RANGE_MAX: usize = 256;
 
 /// Creates the vector of `Columns` corresponding to:
 /// - the address in memory of the inputs,
@@ -41,15 +45,23 @@ pub(crate) fn ctl_looked_data<F: Field>() -> Vec<Column<F>> {
         outputs.push(cur_col);
     }
 
-    Column::singles([
-        cols.context,
-        cols.segment,
-        cols.virt,
-        cols.len,
-        cols.timestamp,
-    ])
-    .chain(outputs)
-    .collect()
+    // The length of the inputs is `already_absorbed_bytes + is_final_input_len`.
+    let len_col = Column::linear_combination(
+        iter::once((cols.already_absorbed_bytes, F::ONE)).chain(
+            cols.is_final_input_len
+                .iter()
+                .enumerate()
+                .map(|(i, &elt)| (elt, F::from_canonical_usize(i))),
+        ),
+    );
+
+    let mut res: Vec<Column<F>> =
+        Column::singles([cols.context, cols.segment, cols.virt]).collect();
+    res.push(len_col);
+    res.push(Column::single(cols.timestamp));
+    res.extend(outputs);
+
+    res
 }
 
 /// Creates the vector of `Columns` corresponding to the inputs of the Keccak sponge.
@@ -219,7 +231,7 @@ pub(crate) struct KeccakSpongeOp {
 
 /// Structure representing the `KeccakSponge` STARK, which carries out the sponge permutation.
 #[derive(Copy, Clone, Default)]
-pub struct KeccakSpongeStark<F, const D: usize> {
+pub(crate) struct KeccakSpongeStark<F, const D: usize> {
     f: PhantomData<F>,
 }
 
@@ -238,13 +250,12 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakSpongeStark<F, D> {
             self.generate_trace_rows(operations, min_rows)
         );
 
-        let trace_polys = timed!(
-            timing,
-            "convert to PolynomialValues",
-            trace_rows_to_poly_values(trace_rows)
-        );
+        let trace_row_vecs: Vec<_> = trace_rows.into_iter().map(|row| row.to_vec()).collect();
 
-        trace_polys
+        let mut trace_cols = transpose(&trace_row_vecs);
+        self.generate_range_checks(&mut trace_cols);
+
+        trace_cols.into_iter().map(PolynomialValues::new).collect()
     }
 
     /// Generates the trace rows given the vector of `KeccakSponge` operations.
@@ -397,7 +408,6 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakSpongeStark<F, D> {
         row.segment = F::from_canonical_usize(op.base_address.segment);
         row.virt = F::from_canonical_usize(op.base_address.virt);
         row.timestamp = F::from_canonical_usize(op.timestamp);
-        row.len = F::from_canonical_usize(op.input.len());
         row.already_absorbed_bytes = F::from_canonical_usize(already_absorbed_bytes);
 
         row.original_rate_u32s = sponge_state[..KECCAK_RATE_U32S]
@@ -469,6 +479,38 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakSpongeStark<F, D> {
         // The default instance has is_full_input_block = is_final_block = 0,
         // indicating that it's a dummy/padding row.
         KeccakSpongeColumnsView::default().into()
+    }
+
+    /// Expects input in *column*-major layout
+    fn generate_range_checks(&self, cols: &mut Vec<Vec<F>>) {
+        debug_assert!(cols.len() == NUM_KECCAK_SPONGE_COLUMNS);
+
+        let n_rows = cols[0].len();
+        debug_assert!(cols.iter().all(|col| col.len() == n_rows));
+
+        for i in 0..BYTE_RANGE_MAX {
+            cols[RANGE_COUNTER][i] = F::from_canonical_usize(i);
+        }
+        for i in BYTE_RANGE_MAX..n_rows {
+            cols[RANGE_COUNTER][i] = F::from_canonical_usize(BYTE_RANGE_MAX - 1);
+        }
+
+        // For each column c in cols, generate the range-check
+        // permutations and put them in the corresponding range-check
+        // columns rc_c and rc_c+1.
+        for col in 0..KECCAK_RATE_BYTES {
+            let c = get_single_block_bytes_value(col);
+            for i in 0..n_rows {
+                let x = cols[c][i].to_canonical_u64() as usize;
+                assert!(
+                    x < BYTE_RANGE_MAX,
+                    "column value {} exceeds the max range value {}",
+                    x,
+                    BYTE_RANGE_MAX
+                );
+                cols[RC_FREQUENCIES][x] += F::ONE;
+            }
+        }
     }
 }
 
@@ -584,13 +626,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakSpongeS
         yield_constr.constraint_transition(
             is_dummy * (next_values.is_full_input_block + next_is_final_block),
         );
-
-        // If this is a final block, is_final_input_len implies `len - already_absorbed == i`.
-        let offset = local_values.len - already_absorbed_bytes;
-        for (i, &is_final_len) in local_values.is_final_input_len.iter().enumerate() {
-            let entry_match = offset - P::from(FE::from_canonical_usize(i));
-            yield_constr.constraint(is_final_len * entry_match);
-        }
     }
 
     fn eval_ext_circuit(
@@ -728,20 +763,18 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakSpongeS
             builder.mul_extension(is_dummy, tmp)
         };
         yield_constr.constraint_transition(builder, constraint);
-
-        // If this is a final block, is_final_input_len implies `len - already_absorbed == i`.
-        let offset = builder.sub_extension(local_values.len, already_absorbed_bytes);
-        for (i, &is_final_len) in local_values.is_final_input_len.iter().enumerate() {
-            let index = builder.constant_extension(F::from_canonical_usize(i).into());
-            let entry_match = builder.sub_extension(offset, index);
-
-            let constraint = builder.mul_extension(is_final_len, entry_match);
-            yield_constr.constraint(builder, constraint);
-        }
     }
 
     fn constraint_degree(&self) -> usize {
         3
+    }
+
+    fn lookups(&self) -> Vec<Lookup> {
+        vec![Lookup {
+            columns: get_block_bytes_range().collect(),
+            table_column: RANGE_COUNTER,
+            frequencies_column: RC_FREQUENCIES,
+        }]
     }
 }
 

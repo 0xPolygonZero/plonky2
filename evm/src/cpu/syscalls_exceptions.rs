@@ -20,7 +20,7 @@ const BYTES_PER_OFFSET: usize = crate::cpu::kernel::assembler::BYTES_PER_OFFSET 
 const_assert!(BYTES_PER_OFFSET < NUM_GP_CHANNELS); // Reserve one channel for stack push
 
 /// Evaluates constraints for syscalls and exceptions.
-pub fn eval_packed<P: PackedField>(
+pub(crate) fn eval_packed<P: PackedField>(
     lv: &CpuColumnsView<P>,
     nv: &CpuColumnsView<P>,
     yield_constr: &mut ConstraintConsumer<P>,
@@ -82,8 +82,8 @@ pub fn eval_packed<P: PackedField>(
         yield_constr.constraint(filter_exception * (channel.addr_virtual - limb_address_exception));
     }
 
-    // Disable unused channels (the last channel is used to push to the stack)
-    for channel in &lv.mem_channels[BYTES_PER_OFFSET + 1..NUM_GP_CHANNELS - 1] {
+    // Disable unused channels
+    for channel in &lv.mem_channels[BYTES_PER_OFFSET + 1..NUM_GP_CHANNELS] {
         yield_constr.constraint(total_filter * channel.used);
     }
 
@@ -101,8 +101,7 @@ pub fn eval_packed<P: PackedField>(
     // Maintain current context
     yield_constr.constraint_transition(total_filter * (nv.context - lv.context));
     // Reset gas counter to zero.
-    yield_constr.constraint_transition(total_filter * nv.gas[0]);
-    yield_constr.constraint_transition(total_filter * nv.gas[1]);
+    yield_constr.constraint_transition(total_filter * nv.gas);
 
     let output = nv.mem_channels[0].value;
     // New top of the stack: current PC + 1 (limb 0), kernel flag (limb 1), gas counter (limbs 6 and 7).
@@ -110,9 +109,8 @@ pub fn eval_packed<P: PackedField>(
     yield_constr.constraint(filter_exception * (output[0] - lv.program_counter));
     // Check the kernel mode, for syscalls only
     yield_constr.constraint(filter_syscall * (output[1] - lv.is_kernel_mode));
-    // TODO: Range check `output[6] and output[7]`.
-    yield_constr.constraint(total_filter * (output[6] - lv.gas[0]));
-    yield_constr.constraint(total_filter * (output[7] - lv.gas[1]));
+    yield_constr.constraint(total_filter * (output[6] - lv.gas));
+    yield_constr.constraint(total_filter * output[7]); // High limb of gas is zero.
 
     // Zero the rest of that register
     // output[1] is 0 for exceptions, but not for syscalls
@@ -124,7 +122,7 @@ pub fn eval_packed<P: PackedField>(
 
 /// Circuit version of `eval_packed`.
 /// Evaluates constraints for syscalls and exceptions.
-pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
+pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
     lv: &CpuColumnsView<ExtensionTarget<D>>,
     nv: &CpuColumnsView<ExtensionTarget<D>>,
@@ -239,7 +237,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     }
 
     // Disable unused channels (the last channel is used to push to the stack)
-    for channel in &lv.mem_channels[BYTES_PER_OFFSET + 1..NUM_GP_CHANNELS - 1] {
+    for channel in &lv.mem_channels[BYTES_PER_OFFSET + 1..NUM_GP_CHANNELS] {
         let constr = builder.mul_extension(total_filter, channel.used);
         yield_constr.constraint(builder, constr);
     }
@@ -270,9 +268,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     }
     // Reset gas counter to zero.
     {
-        let constr = builder.mul_extension(total_filter, nv.gas[0]);
-        yield_constr.constraint_transition(builder, constr);
-        let constr = builder.mul_extension(total_filter, nv.gas[1]);
+        let constr = builder.mul_extension(total_filter, nv.gas);
         yield_constr.constraint_transition(builder, constr);
     }
 
@@ -297,15 +293,14 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
         let constr = builder.mul_extension(filter_syscall, diff);
         yield_constr.constraint(builder, constr);
     }
-    // TODO: Range check `output[6]` and `output[7].
     {
-        let diff = builder.sub_extension(output[6], lv.gas[0]);
+        let diff = builder.sub_extension(output[6], lv.gas);
         let constr = builder.mul_extension(total_filter, diff);
         yield_constr.constraint(builder, constr);
     }
     {
-        let diff = builder.sub_extension(output[7], lv.gas[1]);
-        let constr = builder.mul_extension(total_filter, diff);
+        // High limb of gas is zero.
+        let constr = builder.mul_extension(total_filter, output[7]);
         yield_constr.constraint(builder, constr);
     }
 

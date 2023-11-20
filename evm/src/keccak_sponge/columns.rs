@@ -1,5 +1,6 @@
 use std::borrow::{Borrow, BorrowMut};
 use std::mem::{size_of, transmute};
+use std::ops::Range;
 
 use crate::util::{indices_arr, transmute_no_compile_time_size_checks};
 
@@ -41,9 +42,6 @@ pub(crate) struct KeccakSpongeColumnsView<T: Copy> {
     /// The timestamp at which inputs should be read from memory.
     pub timestamp: T,
 
-    /// The length of the original input, in bytes.
-    pub len: T,
-
     /// The number of input bytes that have already been absorbed prior to this block.
     pub already_absorbed_bytes: T,
 
@@ -75,11 +73,35 @@ pub(crate) struct KeccakSpongeColumnsView<T: Copy> {
     /// The first part of the state of the sponge, seen as bytes, after the permutation is applied.
     /// This also represents the output digest of the Keccak sponge during the squeezing phase.
     pub updated_digest_state_bytes: [T; KECCAK_DIGEST_BYTES],
+
+    /// The counter column (used for the range check) starts from 0 and increments.
+    pub range_counter: T,
+    /// The frequencies column used in logUp.
+    pub rc_frequencies: T,
 }
 
 // `u8` is guaranteed to have a `size_of` of 1.
 /// Number of columns in `KeccakSpongeStark`.
-pub const NUM_KECCAK_SPONGE_COLUMNS: usize = size_of::<KeccakSpongeColumnsView<u8>>();
+pub(crate) const NUM_KECCAK_SPONGE_COLUMNS: usize = size_of::<KeccakSpongeColumnsView<u8>>();
+
+// Indices for LogUp range-check.
+// They are on the last registers of this table.
+pub(crate) const RC_FREQUENCIES: usize = NUM_KECCAK_SPONGE_COLUMNS - 1;
+pub(crate) const RANGE_COUNTER: usize = RC_FREQUENCIES - 1;
+
+pub(crate) const BLOCK_BYTES_START: usize =
+    6 + KECCAK_RATE_BYTES + KECCAK_RATE_U32S + KECCAK_CAPACITY_U32S;
+/// Indices for the range-checked values, i.e. the `block_bytes` section.
+// TODO: Find a better way to access those indices
+pub(crate) const fn get_block_bytes_range() -> Range<usize> {
+    BLOCK_BYTES_START..BLOCK_BYTES_START + KECCAK_RATE_BYTES
+}
+
+/// Return the index for the targeted `block_bytes` element.
+pub(crate) const fn get_single_block_bytes_value(i: usize) -> usize {
+    debug_assert!(i < KECCAK_RATE_BYTES);
+    get_block_bytes_range().start + i
+}
 
 impl<T: Copy> From<[T; NUM_KECCAK_SPONGE_COLUMNS]> for KeccakSpongeColumnsView<T> {
     fn from(value: [T; NUM_KECCAK_SPONGE_COLUMNS]) -> Self {

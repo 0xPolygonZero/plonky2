@@ -36,8 +36,8 @@ use crate::cross_table_lookup::{
 use crate::generation::GenerationInputs;
 use crate::get_challenges::observe_public_values_target;
 use crate::proof::{
-    BlockHashesTarget, BlockMetadataTarget, ExtraBlockDataTarget, PublicValues, PublicValuesTarget,
-    StarkProofWithMetadata, TrieRootsTarget,
+    BlockHashesTarget, BlockMetadataTarget, ExtraBlockData, ExtraBlockDataTarget, PublicValues,
+    PublicValuesTarget, StarkProofWithMetadata, TrieRootsTarget,
 };
 use crate::prover::prove;
 use crate::recursive_verifier::{
@@ -96,7 +96,7 @@ where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
 {
-    pub fn to_buffer(
+    fn to_buffer(
         &self,
         buffer: &mut Vec<u8>,
         gate_serializer: &dyn GateSerializer<F, D>,
@@ -114,7 +114,7 @@ where
         Ok(())
     }
 
-    pub fn from_buffer(
+    fn from_buffer(
         buffer: &mut Buffer,
         gate_serializer: &dyn GateSerializer<F, D>,
         generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
@@ -161,7 +161,7 @@ where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
 {
-    pub fn to_buffer(
+    fn to_buffer(
         &self,
         buffer: &mut Vec<u8>,
         gate_serializer: &dyn GateSerializer<F, D>,
@@ -175,7 +175,7 @@ where
         Ok(())
     }
 
-    pub fn from_buffer(
+    fn from_buffer(
         buffer: &mut Buffer,
         gate_serializer: &dyn GateSerializer<F, D>,
         generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
@@ -196,21 +196,21 @@ where
 }
 
 #[derive(Eq, PartialEq, Debug)]
-pub struct AggregationChildTarget<const D: usize> {
+struct AggregationChildTarget<const D: usize> {
     is_agg: BoolTarget,
     agg_proof: ProofWithPublicInputsTarget<D>,
     evm_proof: ProofWithPublicInputsTarget<D>,
 }
 
 impl<const D: usize> AggregationChildTarget<D> {
-    pub fn to_buffer(&self, buffer: &mut Vec<u8>) -> IoResult<()> {
+    fn to_buffer(&self, buffer: &mut Vec<u8>) -> IoResult<()> {
         buffer.write_target_bool(self.is_agg)?;
         buffer.write_target_proof_with_public_inputs(&self.agg_proof)?;
         buffer.write_target_proof_with_public_inputs(&self.evm_proof)?;
         Ok(())
     }
 
-    pub fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
+    fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
         let is_agg = buffer.read_target_bool()?;
         let agg_proof = buffer.read_target_proof_with_public_inputs()?;
         let evm_proof = buffer.read_target_proof_with_public_inputs()?;
@@ -221,7 +221,7 @@ impl<const D: usize> AggregationChildTarget<D> {
         })
     }
 
-    pub fn public_values<F: RichField + Extendable<D>>(
+    fn public_values<F: RichField + Extendable<D>>(
         &self,
         builder: &mut CircuitBuilder<F, D>,
     ) -> PublicValuesTarget {
@@ -250,7 +250,7 @@ where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
 {
-    pub fn to_buffer(
+    fn to_buffer(
         &self,
         buffer: &mut Vec<u8>,
         gate_serializer: &dyn GateSerializer<F, D>,
@@ -265,7 +265,7 @@ where
         Ok(())
     }
 
-    pub fn from_buffer(
+    fn from_buffer(
         buffer: &mut Buffer,
         gate_serializer: &dyn GateSerializer<F, D>,
         generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
@@ -663,18 +663,15 @@ where
         builder.connect(pvs.txn_number_before, lhs.txn_number_before);
         builder.connect(pvs.txn_number_after, rhs.txn_number_after);
 
-        // Connect lhs `txn_number_after` with rhs `txn_number_before`.
+        // Connect lhs `txn_number_after`with rhs `txn_number_before`.
         builder.connect(lhs.txn_number_after, rhs.txn_number_before);
 
         // Connect the gas used in public values to the lhs and rhs values correctly.
-        builder.connect(pvs.gas_used_before[0], lhs.gas_used_before[0]);
-        builder.connect(pvs.gas_used_before[1], lhs.gas_used_before[1]);
-        builder.connect(pvs.gas_used_after[0], rhs.gas_used_after[0]);
-        builder.connect(pvs.gas_used_after[1], rhs.gas_used_after[1]);
+        builder.connect(pvs.gas_used_before, lhs.gas_used_before);
+        builder.connect(pvs.gas_used_after, rhs.gas_used_after);
 
-        // Connect lhs `gas_used_after` with rhs `gas_used_before`.
-        builder.connect(lhs.gas_used_after[0], rhs.gas_used_before[0]);
-        builder.connect(lhs.gas_used_after[1], rhs.gas_used_before[1]);
+        // Connect lhs `gas_used_after`with rhs `gas_used_before`.
+        builder.connect(lhs.gas_used_after, rhs.gas_used_before);
 
         // Connect the `block_bloom` in public values to the lhs and rhs values correctly.
         for (&limb0, &limb1) in pvs.block_bloom_after.iter().zip(&rhs.block_bloom_after) {
@@ -683,7 +680,7 @@ where
         for (&limb0, &limb1) in pvs.block_bloom_before.iter().zip(&lhs.block_bloom_before) {
             builder.connect(limb0, limb1);
         }
-        // Connect lhs `block_bloom_after` with rhs `block_bloom_before`.
+        // Connect lhs `block_bloom_after`with rhs `block_bloom_before`.
         for (&limb0, &limb1) in lhs.block_bloom_after.iter().zip(&rhs.block_bloom_before) {
             builder.connect(limb0, limb1);
         }
@@ -760,7 +757,7 @@ where
     }
 
     /// Connect the 256 block hashes between two blocks
-    pub fn connect_block_hashes(
+    fn connect_block_hashes(
         builder: &mut CircuitBuilder<F, D>,
         lhs: &ProofWithPublicInputsTarget<D>,
         rhs: &ProofWithPublicInputsTarget<D>,
@@ -855,12 +852,8 @@ where
         F: RichField + Extendable<D>,
     {
         builder.connect(
-            x.block_metadata.block_gas_used[0],
-            x.extra_block_data.gas_used_after[0],
-        );
-        builder.connect(
-            x.block_metadata.block_gas_used[1],
-            x.extra_block_data.gas_used_after[1],
+            x.block_metadata.block_gas_used,
+            x.extra_block_data.gas_used_after,
         );
 
         for (&limb0, &limb1) in x
@@ -880,8 +873,7 @@ where
         // The initial number of transactions is 0.
         builder.assert_zero(x.extra_block_data.txn_number_before);
         // The initial gas used is 0.
-        builder.assert_zero(x.extra_block_data.gas_used_before[0]);
-        builder.assert_zero(x.extra_block_data.gas_used_before[1]);
+        builder.assert_zero(x.extra_block_data.gas_used_before);
 
         // The initial bloom filter is all zeroes.
         for t in x.extra_block_data.block_bloom_before {
@@ -963,9 +955,10 @@ where
         &self,
         lhs_is_agg: bool,
         lhs_proof: &ProofWithPublicInputs<F, C, D>,
+        lhs_public_values: PublicValues,
         rhs_is_agg: bool,
         rhs_proof: &ProofWithPublicInputs<F, C, D>,
-        public_values: PublicValues,
+        rhs_public_values: PublicValues,
     ) -> anyhow::Result<(ProofWithPublicInputs<F, C, D>, PublicValues)> {
         let mut agg_inputs = PartialWitness::new();
 
@@ -982,17 +975,34 @@ where
             &self.aggregation.circuit.verifier_only,
         );
 
+        // Aggregates both `PublicValues` from the provided proofs into a single one.
+        let agg_public_values = PublicValues {
+            trie_roots_before: lhs_public_values.trie_roots_before,
+            trie_roots_after: rhs_public_values.trie_roots_after,
+            extra_block_data: ExtraBlockData {
+                genesis_state_trie_root: lhs_public_values.extra_block_data.genesis_state_trie_root,
+                txn_number_before: lhs_public_values.extra_block_data.txn_number_before,
+                txn_number_after: rhs_public_values.extra_block_data.txn_number_after,
+                gas_used_before: lhs_public_values.extra_block_data.gas_used_before,
+                gas_used_after: rhs_public_values.extra_block_data.gas_used_after,
+                block_bloom_before: lhs_public_values.extra_block_data.block_bloom_before,
+                block_bloom_after: rhs_public_values.extra_block_data.block_bloom_after,
+            },
+            block_metadata: rhs_public_values.block_metadata,
+            block_hashes: rhs_public_values.block_hashes,
+        };
+
         set_public_value_targets(
             &mut agg_inputs,
             &self.aggregation.public_values,
-            &public_values,
+            &agg_public_values,
         )
         .map_err(|_| {
             anyhow::Error::msg("Invalid conversion when setting public values targets.")
         })?;
 
         let aggregation_proof = self.aggregation.circuit.prove(agg_inputs)?;
-        Ok((aggregation_proof, public_values))
+        Ok((aggregation_proof, agg_public_values))
     }
 
     pub fn verify_aggregation(
@@ -1103,7 +1113,7 @@ where
     C: GenericConfig<D, F = F>,
     C::Hasher: AlgebraicHasher<F>,
 {
-    pub fn to_buffer(
+    fn to_buffer(
         &self,
         buffer: &mut Vec<u8>,
         gate_serializer: &dyn GateSerializer<F, D>,
@@ -1117,7 +1127,7 @@ where
         Ok(())
     }
 
-    pub fn from_buffer(
+    fn from_buffer(
         buffer: &mut Buffer,
         gate_serializer: &dyn GateSerializer<F, D>,
         generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
@@ -1195,7 +1205,7 @@ where
     C: GenericConfig<D, F = F>,
     C::Hasher: AlgebraicHasher<F>,
 {
-    pub fn to_buffer(
+    fn to_buffer(
         &self,
         buffer: &mut Vec<u8>,
         gate_serializer: &dyn GateSerializer<F, D>,
@@ -1222,7 +1232,7 @@ where
         Ok(())
     }
 
-    pub fn from_buffer(
+    fn from_buffer(
         buffer: &mut Buffer,
         gate_serializer: &dyn GateSerializer<F, D>,
         generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
