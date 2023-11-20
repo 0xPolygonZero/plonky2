@@ -75,8 +75,27 @@ return_31: POP PUSH 31 SWAP1 JUMP
 return_32: POP PUSH 32 SWAP1 JUMP
 
 // Convenience macro to call num_bytes and return where we left off.
-%macro num_bytes
+%macro num_bytes_old
     %stack (x) -> (x, %%after)
     %jump(num_bytes)
 %%after:
 %endmacro
+
+// stack: x, retdest
+// stack: num_bytes
+%macro num_bytes
+    PROVER_INPUT(num_bits)
+    %stack (u_num_bits, x) -> (u_num_bits, x, u_num_bits)
+    %sub_const(1)
+    SHR
+    // stack: 1, u_num_bits
+    %assert_eq_const(1)
+    // convert number of bits to number of bytes
+    %add_const(7)
+    %shr_const(3)
+%endmacro
+
+
+    
+
+

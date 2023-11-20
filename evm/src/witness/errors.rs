@@ -35,4 +35,5 @@ pub enum ProverInputError {
     InvalidMptInput,
     InvalidInput,
     InvalidFunction,
+    NumBitsError,
 }
