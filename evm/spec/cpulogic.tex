@@ -13,9 +13,9 @@ The kernel is in charge of the proving logic. This section aims at providing a h
 
 We prove one transaction at a time. These proofs can later be aggregated recursively to prove a block. Proof aggregation is however not in the scope of this section. Here, we assume that we have an initial state of the EVM, and we wish to prove that a single transaction was correctly executed, leading to a correct update of the state.
 
-Since we proceed one transaction at a time, a few intermediary values need to be provided by the prover. Indeed, to prove that the registers in the EVM state are currently updated, we need to have access to their initial values. When aggregating proofs, we can also constrain those values to match from one transaction to the next. Let us consider the example of the transaction number. Let $n$ be the number of transactions executed so far in the current block. If the current proof is not a dummy one (we are indeed executing a transaction), then the transaction number should be updated: $n := n+1$. Otherwise, the number reamins unchanged. We can easily constrain this update. When aggregating the previous transaction proof ($lhs$) with the current one ($rhs$), we also need to check that the output transaction number of $lhs$ is the same as the input transaction number of $rhs$. 
+Since we process one transaction at a time, a few intermediary values need to be provided by the prover. Indeed, to prove that the registers in the EVM state are correctly updated, we need to have access to their initial values. When aggregating proofs, we can also constrain those values to match from one transaction to the next. Let us consider the example of the transaction number. Let $n$ be the number of transactions executed so far in the current block. If the current proof is not a dummy one (we are indeed executing a transaction), then the transaction number should be updated: $n := n+1$. Otherwise, the number remains unchanged. We can easily constrain this update. When aggregating the previous transaction proof ($lhs$) with the current one ($rhs$), we also need to check that the output transaction number of $lhs$ is the same as the input transaction number of $rhs$. 
 
-Those prover inputs are stored in memory prior to entering the kernel, and are used in the kernel to assert correct updates. The list of prover inputs necessary to the kernel is the following:
+Those prover provided values are stored in memory prior to entering the kernel, and are used in the kernel to assert correct updates. The list of prover provided values necessary to the kernel is the following:
 \begin{enumerate}
     \item the previous transaction number: $t_n$,
     \item the gas used before executing the current transaction: $g\_u_0$,
@@ -23,16 +23,16 @@ Those prover inputs are stored in memory prior to entering the kernel, and are u
     \item the block bloom filter before executing the current transaction: $b\_f_0$
     \item the block bloom filter after executing the current transaction: $b\_f_1$,
     \item the state, transaction and receipts MPTs before executing the current transaction: $\texttt{tries}_0$,
-    \item the state, transaction and receipts MPTs after executing the current transaction: $\texttt{tries}_1$,
     \item the hash of all MPTs before executing the current transaction: $\texttt{digests}_0$,
-    \item the hash of all MPTs after executing the current transaction: $\texttt{digests}_1$.
+    \item the hash of all MPTs after executing the current transaction: $\texttt{digests}_1$,
+    \item the RLP encoding of the transaction.
 \end{enumerate}
 
 \paragraph*{Initialization:} The first step consists in initializing:
 \begin{itemize}
     \item The shift table: it maps the number of bit shifts $s$ with its shifted value $1 << s$. Note that $0 \leq s \leq 255$.
     \item The block bloom filter: the current block bloom filter is initialized with $b\_f_0$.
-    \item The initial MPTs: the initial state, transaction and receipt tries $\texttt{tries}_0$ are loaded from memory and hashed. The hashes are then compared to $digests\_0$.
+    \item The initial MPTs: the initial state, transaction and receipt tries $\texttt{tries}_0$ are loaded from memory and hashed. The hashes are then compared to $\texttt{digests}\_0$.
     \item We load the transaction number $t\_n$ and the current gas used $g\_u_0$ from memory.
 \end{itemize}
 
