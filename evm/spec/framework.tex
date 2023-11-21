@@ -33,13 +33,13 @@ At this point we have reduced $n$ to a \texttt{u64}. This partial reduction is a
 
 \subsection{Cross-table lookups}
 \label{ctl}
-The various STARK tables carry out indepedent operations, but on shared values. We need to check that the shared values are identical in all the STARKs that require them. This is where cross-table lookups (CTLs) come in handy. 
+The various STARK tables carry out independent operations, but on shared values. We need to check that the shared values are identical in all the STARKs that require them. This is where cross-table lookups (CTLs) come in handy. 
 
 Suppose STARK $S_1$ requires an operation -- say $Op$ -- that is carried out by another STARK $S_2$. Then $S_1$ writes the input and output of $Op$ in its own table, and provides the inputs to $S_2$. $S_2$ also writes the inputs and outputs in its rows, and the table's constraints check that $Op$ is carried out correctly. We then need to ensure that the inputs and outputs are the same in $S_1$ and $S_2$.
 
-In other words, we need to ensure that the rows -- reduced to the inputs and outputs -- of $S_1$ calling $Op$ are permutations of the rows of $S_2$ that carry out $Op$.
+In other words, we need to ensure that the rows -- reduced to the input and output columns -- of $S_1$ calling $Op$ are permutations of the rows of $S_2$ that carry out $Op$.
 
-To prove this, the first step is to only select the rows of interest in $S_1$ and $S_2$, and filter out the rest. Let $f_1$ be the filter for $S_1$ and $f_2$ the filter for $S_2$. $f_1$ and $f_2$ are constrained to be in $\{0, 1\}$. $f_1 = 1$ (resp. $f_2 = 1$) whenever the row at hand carries out $Op$ in $S_1$ (resp. in $S_2$), and 0 otherwise. Let also $(\alpha, \beta)$ be two challenges.
+To prove this, the first step is to only select the rows of interest in $S_1$ and $S_2$, and filter out the rest. Let $f^1$ be the filter for $S_1$ and $f^2$ the filter for $S_2$. $f^1$ and $f^2$ are constrained to be in $\{0, 1\}$. $f^1 = 1$ (resp. $f^2 = 1$) whenever the row at hand carries out $Op$ in $S_1$ (resp. in $S_2$), and 0 otherwise. Let also $(\alpha, \beta)$ be two random challenges.
 
 The idea is to create subtables $S_1'$ and $S_2'$ of $S_1$ and $S_2$ respectively, such that $f^1 = 1$ and $f^2 = 1$ for all their rows. The columns in the subtables are limited to the ones whose values must be identical (the inputs and outputs of $Op$ in our example).
 
@@ -50,22 +50,24 @@ The prover defines a ``running product'' $Z$ for $S_1'$ such that:
   Z^{S_1}_{n-1} = 1 \\
   Z^{S_1}_{i+1} = Z^{S_1}_i \cdot [f^1_i \cdot \Big(\sum_{j=0}^{m-1} \alpha^j \cdot c^{1, j}_i + \beta \Big) + (1 - f^1_i)]
 \end{gather*}
-Similarly, the prover constructs a running product $Z^{S_2}$for $S_2$. Note that $Z$ is computed ``upside down'': we start with $Z_{n-1} = 1$ and the final product is in $Z_1$. 
+The second equation ``selects'' the terms of interest thanks to $f^1$ and filters out the rest.
 
-On top of the constraints to check that the running products were correctly constructed, the verifier checks that $Z^{S_1}_1 = Z^{S_2}_1$.
+Similarly, the prover constructs a running product $Z^{S_2}$for $S_2$. Note that $Z$ is computed ``upside down'': we start with $Z_{n-1} = 1$ and the final product is in $Z_0$. 
+
+On top of the constraints to check that the running products were correctly constructed, the verifier checks that $Z^{S_1}_0 = Z^{S_2}_0$.
 This ensures that the columns in $S_1'$ and the columns in $S_2'$ are permutations of each other.
 
 To sum up, for each STARK $S$, the prover:
 \begin{enumerate}
   \item constructs a running product $P_i^l$ for each table looking into $S$ (called looking products here),
   \item constructs a running product $P^S$ for $S$ (called looked product here),
-  \item sends the final value for each running product $P_{i, j}^l$ and $P^S_1$ to the verifier,
+  \item sends the final value for each running product $P_{i, 0}^l$ and $P^S_0$ to the verifier,
   \item sends a commitment to $P_i^l$  and $P^S$ to the verifier.
 \end{enumerate}
 Then, for each STARK $S$, the verifier:
 \begin{enumerate}
-  \item computes the product $P = \prod_i P_{i, l}^l$,
-  \item checks that $P = P^S_1$,
+  \item computes the product $P = \prod_i P_{i, 0}^l$,
+  \item checks that $P = P^S_0$,
   \item checks that each $P_i^l$  and $P^S$ was correctly constructed.
 \end{enumerate}
 
@@ -75,7 +77,7 @@ In most cases, tables deal with U256 words, split into 32-bit limbs (to avoid ov
 \subsubsection{What to range-check?}
 One can note that every element that ever appears on the stack has been pushed. Therefore, enforcing a range-check on pushed elements is enough to range-check all elements on the stack. Similarly, all elements in memory must have been written prior, and therefore it is enough to range-check memory writes. However, range-checking the PUSH and MSTORE opcodes is not sufficient.
 \begin{enumerate}
-  \item Pushes and memory writes are range-checked in ``BytePackingStark''.
+  \item Pushes and memory writes for ``MSTORE\_32BYTES'' are range-checked in ``BytePackingStark''.
   \item Syscalls, exceptions and prover inputs are range-checked in ``ArithmeticStark''.
   \item The inputs and outputs of binary and ternary arithmetic operations are range-checked in ``ArithmeticStark''.
   \item The inputs' bits of logic operations are checked to be either 1 or 0 in ``LogicStark''. Since ``LogicStark'' only deals with bitwise operations, this is enough to have range-checked outputs as well.
@@ -83,9 +85,10 @@ One can note that every element that ever appears on the stack has been pushed. 
 \end{enumerate}
 Note that some operations do not require a range-check:
 \begin{enumerate}
+  \item ``MSTORE\_GENERAL'' read the value to write from the stack. Thus, the written value was already range-checked by a previous push.
   \item ``EQ'' reads two -- already range-checked -- elements on the stack, and checks they are equal. The output is either 0 or 1, and does therefore not need to be checked.
   \item ``NOT'' reads one -- already range-checked -- element. The result is constrained to be equal to $\texttt{0xFFFFFFFF} - \texttt{input}$, which implicitly enforces the range check.
-  \item ``PC'': the program counter cannot be greater than $2^{32}$ in user mode. Moreover, in kernel mode, one can only jump to valid jump destinations. These two points implicitly enforce $PC$'s range check.
+  \item ``PC'': the program counter cannot be greater than $2^{32}$ in user mode. Indeed, the user code cannot be longer than $2^{32}$, and jumps are constrainted to be JUMPDESTs. Moreover, in kernel mode, every jump is towards a location within the kernel, and the kernel code is smaller than $2^{32}$. These two points implicitly enforce $PC$'s range check.
   \item ``GET\_CONTEXT'', ``DUP'' and ``SWAP'' all read and push values that were already written in memory. The pushed values were therefore already range-checked.
 \end{enumerate}
 Range-checks are performed on the range $[0, 2^{16} - 1]$, to limit the trace length.
