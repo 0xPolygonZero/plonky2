@@ -1035,7 +1035,8 @@ where
         } else {
             // Initialize genesis_state_trie, state_root_after and the block number for correct connection between blocks.
             // Initialize `state_root_after`.
-            let state_trie_root_after_keys = 24..32;
+            let state_trie_root_after_keys =
+                TrieRootsTarget::SIZE..TrieRootsTarget::SIZE + TrieRootsTarget::HASH_SIZE;
             let mut nonzero_pis = HashMap::new();
             for (key, &value) in state_trie_root_after_keys
                 .zip_eq(&h256_limbs::<F>(public_values.trie_roots_before.state_root))
@@ -1055,6 +1056,24 @@ where
                 public_values.extra_block_data.genesis_state_trie_root,
             )) {
                 nonzero_pis.insert(key, value);
+            }
+
+            // Initialize block hashes.
+            let block_hashes_keys = TrieRootsTarget::SIZE * 2 + BlockMetadataTarget::SIZE
+                ..TrieRootsTarget::SIZE * 2
+                    + BlockMetadataTarget::SIZE
+                    + BlockHashesTarget::BLOCK_HASHES_SIZE
+                    - 8;
+
+            for i in 0..public_values.block_hashes.prev_hashes.len() - 1 {
+                let targets = h256_limbs::<F>(public_values.block_hashes.prev_hashes[i]);
+                for j in 0..8 {
+                    nonzero_pis.insert(block_hashes_keys.start + 8 * (i + 1) + j, targets[j]);
+                }
+            }
+            let cur_targets = h256_limbs::<F>(public_values.block_hashes.prev_hashes[255]);
+            for i in 0..8 {
+                nonzero_pis.insert(block_hashes_keys.end + i, cur_targets[i]);
             }
 
             // Initialize the block number.

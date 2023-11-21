@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use env_logger::{try_init_from_env, Env, DEFAULT_FILTER_ENV};
 use eth_trie_utils::partial_trie::{HashedPartialTrie, PartialTrie};
-use ethereum_types::H256;
+use ethereum_types::{BigEndianHash, H256};
 use keccak_hash::keccak;
 use log::info;
 use plonky2::field::goldilocks_field::GoldilocksField;
@@ -47,6 +47,8 @@ fn test_empty_txn_list() -> anyhow::Result<()> {
         transactions_root: transactions_trie.hash(),
         receipts_root: receipts_trie.hash(),
     };
+    let mut initial_block_hashes = vec![H256::default(); 256];
+    initial_block_hashes[255] = H256::from_uint(&0x200.into());
     let inputs = GenerationInputs {
         signed_txn: None,
         withdrawals: vec![],
@@ -66,7 +68,7 @@ fn test_empty_txn_list() -> anyhow::Result<()> {
         block_bloom_before: [0.into(); 8],
         block_bloom_after: [0.into(); 8],
         block_hashes: BlockHashes {
-            prev_hashes: vec![H256::default(); 256],
+            prev_hashes: initial_block_hashes,
             cur_hash: H256::default(),
         },
         addresses: vec![],
