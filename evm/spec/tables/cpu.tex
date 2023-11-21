@@ -53,3 +53,23 @@ the \texttt{EQ} and the \texttt{ISZERO} instructions). When there is a need to d
     \item  8 \texttt{value} columns. EVM words are 256 bits long, and they are broken down in 8 32-bit limbs.
 \end{itemize}
 The last memory channel is a partial channel: it doesn't have its own \texttt{value} columns and shares them with the first full memory channel. This allows us to save eight columns.
+
+\paragraph*{General columns:} There are 8 shared general columns. Depending on the instruction, they are used differently:
+\begin{itemize}
+    \item  \texttt{Exceptions}: When raising an exception, the first three general columns are the bit decomposition of the exception code.
+They are used to jump to the correct exception handler.
+    \item  \texttt{Logic}: For EQ, and ISZERO operations, it's easy to check that the result is 1 if \texttt{input0} and \texttt{input1} are equal. It's more difficult
+to prove that, if the result is 0, the inputs are actually unequal. To prove it, each general column contains the modular inverse of $(\texttt{input0}_i - \texttt{input1}_i)$
+for each limb $i$ (or 0 if the limbs are equal). Then the quantity $\texttt{general}_i * (\texttt{input0}_i - \texttt{input1}_i)$ will be 1 if and only if $\texttt{general}_i$ is
+indeed the modular inverse, which is only possible if the difference is non-zero.
+    \item  \texttt{Jumps}: For jumps, we use the first two columns: \texttt{should\_jump} and \texttt{cond\_sum\_pinv}. \texttt{should\_jump} conditions whether the EVM should jump: it's
+1 for a JUMP, and $\texttt{condition} \neq 0$ for a JUMPI. To check if the condition is actually non-zero for a JUMPI, \texttt{cond\_sum\_pinv} stores the modular inverse of
+\texttt{condition} (or 0 if it's zero).
+    \item  \texttt{Shift}: For shifts, the logic differs depending on whether the displacement is lower than $2^{32}$, i.e. if it fits in a single value limb.
+To check if this is not the case, we must check that at least one of the seven high limbs is not zero. The general column \texttt{high\_limb\_sum\_inv} holds the modular inverse
+of the sum of the seven high limbs, and is used to check it's non-zero like the previous cases.
+Contrary to the logic operations, we do not need to check limbs individually: each limb has been range-checked to 32 bits, meaning that it's not possible for the sum to
+overflow and be zero if some of the limbs are non-zero.
+    \item  \texttt{Stack}: The last three columns are used by popping-only (resp. pushing-only) instructions to check if the stack is empty after (resp. was empty
+before) the instruction. We use the last columns to prevent conflicts with the other general columns. More details are provided in the stack handling section.
+\end{itemize}
