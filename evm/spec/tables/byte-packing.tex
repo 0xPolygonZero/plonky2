@@ -6,10 +6,10 @@ The "packing" term highlights that reading a sequence in memory will pack the by
 the "unpacking" operation consists in breaking down an EVM word into its byte sequence and writing it in memory.
 
 This allows faster memory copies between two memory locations, as well as faster memory reset
-(see \href{memcpy.asm}{https://github.com/0xPolygonZero/plonky2/blob/main/evm/src/cpu/kernel/asm/memory/memcpy.asm} and 
-\href{memset.asm}{https://github.com/0xPolygonZero/plonky2/blob/main/evm/src/cpu/kernel/asm/memory/memset.asm} modules).
+(see \href{https://github.com/0xPolygonZero/plonky2/blob/main/evm/src/cpu/kernel/asm/memory/memcpy.asm}{memcpy.asm} and 
+\href{https://github.com/0xPolygonZero/plonky2/blob/main/evm/src/cpu/kernel/asm/memory/memset.asm}{memset.asm} modules).
 
-The BytePackingStark table will have $\ell$ rows per packing/unpacking operation, where $0 < \ell \leq 32$ is the length of the sequence being processed.
+The `BytePackingStark' table will have $\ell$ rows per packing/unpacking operation, where $0 < \ell \leq 32$ is the length of the sequence being processed.
 
 Each row contains the following columns:
 \begin{enumerate}
@@ -17,17 +17,38 @@ Each row contains the following columns:
     (namely a flag differentiating read and write operations, address context, segment and offset values, as well as timestamp),
     \item $f_{\texttt{end}}$, a flag indicating the end of a sequence,
     \item 32 columns $b_i$ indicating the index of the byte being read/written at a given row,
-    \item 32 columns $v_i$ indicating the values of the bytes that have been read/written during a sequence,
+    \item 32 columns $v_i$ indicating the values of the bytes that have been read or written during a sequence,
     \item 2 columns $r_i$ needed for range-checking the the byte values.
 \end{enumerate}
 
+\paragraph{Notes on columns generation:}
+Whenever a byte unpacking operation is called, the value $\texttt{val}$ is read from the stack. But because there is a discrepancy in the endianness in CpuStark and MemoryStark, we need to convert $\texttt{val}$ to a byte sequence in Little-Endian. Only then do we resize it to the appropriate length, thus pruning extra zeros and higher bytes in the process. Finally, we reverse the byte order and write this new sequence into the $v_i$ columns of the table. 
 
-TODO: endianness, connection to memory and CPU, difference between byte and value registers
+Whenever the operation is a byte packing, the bytes are read one by one from memory and stored in the $v_i$ columns of the BytePackingStark table.
 
+Note that because of the different endianness on the memory and cpu sides, we generate rows starting with the final virtual address value (and the associated byte). We decrement the address at each row.
 
+The $b_i$ columns hold a boolean value. $b_i = 1$ whenever we are currently reading or writing the i-th element in the byte sequence. $b_i = 0$ otherwise.
+
+\paragraph{Cross-rable lookups:}
+The read or written bytes need to be checked against both the cpu and the memory tables. Whenever we call $\texttt{MSTORE\_32BYTES}$, $\texttt{MLOAD\_32BYTES}$ or $\texttt{PUSH}$ on the cpu side, we make use of `BytePackingStark' to make sure we are carrying out the correct operation on the correct values. For this, we check that the following values correspond:
+\begin{enumerate}
+    \item the address (comprising the context, the segment, and the virtual address),
+    \item the length of the byte sequence,
+    \item the timestamp,
+    \item the value (either written to or read from the stack)
+\end{enumerate}
+
+On the other hand, we need to make sure that we the read and write operations correspond to the values read or stored on the memory side. We therefore need a CTL for each byte, checking that the following values are identical in `MemoryStark' and `BytePackingStark':
+\begin{enumerate}
+    \item a flag indicating whether the operation is a read or a write,
+    \item the address (context, segment and virtual address),
+    \item the byte (followed by 0s to make sure the memory address contains a byte and not a U256 word),
+    \item the timestamp
+\end{enumerate}
 
 \paragraph*{Note on range-check:} Range-checking is necessary whenever we do a memory unpacking operation that will
 write values to memory. These values are constrained by the range-check to be actual bytes, i.e. fitting between 0 and 255 included.
-While range-checking values being read from memory is not necessary, because we use the same ``byte_values'' columns for both read
+While range-checking values being read from memory is not necessary, because we use the same $\texttt{byte\_values}$ columns for both read
 and write operations, this extra condition is enforced throughout the whole trace regardless of the operation type.
 
