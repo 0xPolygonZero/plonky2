@@ -2,16 +2,16 @@
 \label{cpu}
 
 The CPU is the central component of the zkEVM. Like any CPU, it reads instructions, executes them and modifies the state (its registers and the memory)
-accordingly. The constraining of some complex instructions (e.g. Keccak hashing) are delegated to the other tables.
+accordingly. The constraining of some complex instructions (e.g. Keccak hashing) is delegated to the other tables.
 This section will only briefly present the CPU and its columns. Details about the CPU logic will be provided later.
 
 \subsubsection{CPU flow}
 
 An execution run is made of three distinct parts:
 \begin{itemize}
-    \item \textbf{Bootstrapping:} The CPU starts by writing all the kernel code in memory, and hash it. The hash is then compared to a public value shared with
+    \item \textbf{Bootstrapping:} The CPU starts by writing all the kernel code in memory, and hashing it. The hash is then compared to a public value shared with
 the verifier to ensure that the kernel code is correct.
-    \item \textbf{CPU cycles:} The bulk of the execution. In each row, the CPU reads the current code at the PC address, and executes it. The current code can be the kernel code,
+    \item \textbf{CPU cycles:} The bulk of the execution. In each row, the CPU reads the current code at the program counter (PC) address, and executes it. The current code can be the kernel code,
 or whichever code is being executed in the current context (transaction code or contract code). Executing an instruction consists in modifying the registers, possibly
 performing some memory operations, and updating the PC.
 \item \textbf{Padding:} At the end of the execution, we need to pad the length to the next power of two. Halting happens when the PC reaches the special halting label
@@ -32,15 +32,13 @@ privileged instructions.
     \item \texttt{gas}: The current amount of gas used in the current context. It is eventually checked to be below the current gas limit. Must fit in 32 bits.
     \item \texttt{is\_keccak\_sponge}: Boolean indicating whether we are executing a Keccak hash. This happens whenever a \texttt{KECCAK\_GENERAL} instruction is executed, or at the last
 cycle of bootstrapping to hash the kernel code.
-    \item \texttt{clock}: Required to generate timestamps for memory operations to order them. Starts at 0 and is incremented by 1 each row.
+    \item \texttt{clock}: Required to generate timestamps for memory operations to order them. Starts at 0 and is incremented by 1 at each row.
     \item \texttt{opcode\_bits}: 8 boolean columns, which are the bit decomposition of the opcode being read at PC.
 \end{itemize}
 
-\subsubsection{CPU columns}
-
 \paragraph*{Operation flags:} Boolean flags. During CPU cycles, each row executes a single instruction, which sets one and only one operation flag. No flag is set during
 bootstrapping and padding. The decoding constraints ensure that the flag set corresponds to the opcode being read.
-There isn't a 1-to-1 correspondance between instructions and flags. For efficiency, the same flag can represent different, unrelated instructions (e.g. \texttt{eq\_iszero}, which represents
+There isn't a 1-to-1 correspondance between instructions and flags. For efficiency, the same flag can be set by different, unrelated instructions (e.g. \texttt{eq\_iszero}, which represents
 the \texttt{EQ} and the \texttt{ISZERO} instructions). When there is a need to differentiate them in constraints, we filter them with their respective opcode: since the first bit of \texttt{EQ}'s opcode
 (resp. \texttt{ISZERO}'s opcode) is 0 (resp. 1), we can filter a constraint for an EQ instruction with \texttt{eq\_iszero * (1 - opcode\_bits[0])}
 (resp. \texttt{eq\_iszero * opcode\_bits[0]}).
