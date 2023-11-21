@@ -1033,7 +1033,7 @@ where
             block_inputs
                 .set_proof_with_pis_target(&self.block.parent_block_proof, parent_block_proof);
         } else {
-            // Initialize genesis_state_trie, state_root_after and the block number for correct connection between blocks.
+            // Initialize genesis_state_trie, state_root_after, block hashes and the block number for correct connection between blocks.
             // Initialize `state_root_after`.
             let state_trie_root_after_keys =
                 TrieRootsTarget::SIZE..TrieRootsTarget::SIZE + TrieRootsTarget::HASH_SIZE;
