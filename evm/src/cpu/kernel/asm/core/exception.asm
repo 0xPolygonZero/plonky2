@@ -1,5 +1,6 @@
 // These exception codes are arbitrary and assigned by us.
-// Note that exceptions can only be triggered in user mode.
+// Note that exceptions can only be triggered in user mode. Triggering an exception
+// in kernel mode wwill fail the constraints.
 global exception_jumptable:
     // exception 0: out of gas
     JUMPTABLE exc_out_of_gas

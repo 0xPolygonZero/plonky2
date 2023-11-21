@@ -6,9 +6,9 @@ When this happens, the CPU table invokes a special instruction with a dedicated 
 Exceptions can only happen in user mode; triggering an exception in kernel mode would make the proof unverifiable.
 No matter the exception, the handling is the same:
 
--- The opcode which will trigger the exception is not executed. The operation flag set is \texttt{exception} instead of the opcode's flag.
+-- The opcode which would trigger the exception is not executed. The operation flag set is \texttt{exception} instead of the opcode's flag.
 
--- A value is pushed to the stack which contains the current program counter (to retrieve the faulty opcode) and the current value of \texttt{gas\_used}.
+-- We push a value to the stack which contains: the current program counter (to retrieve the faulty opcode), and the current value of \texttt{gas\_used}.
 The program counter is then set to the corresponding exception handler in the kernel (e.g. \texttt{exc\_out\_of\_gas}).
 
 -- The exception handler verifies that the given exception would indeed be triggered by the faulty opcode. If this is not the case (if the exception has already happened or if it doesn't happen after executing
