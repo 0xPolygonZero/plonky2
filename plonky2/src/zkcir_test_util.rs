@@ -4,23 +4,22 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
 use lazy_static::lazy_static;
-use zkcir::ir::CirBuilder;
 
 lazy_static! {
-    // Very hacky solution to get the cir that was last run. This assumes that tests are run once at a time.
-    static ref CIR: Mutex<CirBuilder> = Mutex::new(CirBuilder::new());
+    // Very hacky solution to get the cir output that was last run. This assumes that tests are run once at a time.
+    static ref CIR: Mutex<String> = Mutex::new(String::new());
 
     static ref TEST_PROJECTS_ROOT: PathBuf =
         Path::new(env!("CARGO_MANIFEST_DIR")).join("cir_test_snapshots");
 }
 
-pub fn set_cir(new_cir: CirBuilder) {
+pub fn set_cir(new_cir: String) {
     let mut data = CIR.lock().unwrap();
     *data = new_cir;
 }
 
-pub fn get_last_cir() -> CirBuilder {
-    *CIR.lock().unwrap()
+pub fn get_last_cir() -> String {
+    (*CIR.lock().unwrap().clone()).to_string()
 }
 
 pub fn test_ir_string(test_name: &str, cir: String) {

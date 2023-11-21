@@ -161,11 +161,6 @@ mod tests {
     #[test]
     fn test() {
         main().expect("Failed to run circuit");
-        let cir = get_last_cir();
-
-        test_ir_string(
-            "square_root",
-            cir.to_string().expect("Could not get cir output"),
-        );
+        test_ir_string("square_root", get_last_cir());
     }
 }

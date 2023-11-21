@@ -44,11 +44,6 @@ mod tests {
     #[test]
     fn test() {
         main().expect("Failed to run circuit");
-        let cir = get_last_cir();
-
-        test_ir_string(
-            "range_check",
-            cir.to_string().expect("Could not get cir output"),
-        );
+        test_ir_string("range_check", get_last_cir());
     }
 }

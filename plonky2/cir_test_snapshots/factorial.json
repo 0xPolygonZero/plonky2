@@ -1,5 +1,1590 @@
 {
   "config": {
     "num_wires": 135
-  }
+  },
+  "expressions": [
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "VirtualWire": {
+            "index": 0
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 1
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 0,
+            "column": 3
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 3
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 0,
+            "column": 7
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 4
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 0,
+            "column": 11
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 5
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 0,
+            "column": 15
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 6
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 0,
+            "column": 19
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 7
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 0,
+            "column": 23
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 8
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 0,
+            "column": 27
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 9
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 0,
+            "column": 31
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 10
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 0,
+            "column": 35
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 11
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 0,
+            "column": 39
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 12
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 0,
+            "column": 43
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 13
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 0,
+            "column": 47
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 14
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 0,
+            "column": 51
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 15
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 0,
+            "column": 55
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 16
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 0,
+            "column": 59
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 17
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 0,
+            "column": 63
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 18
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 0,
+            "column": 67
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 19
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 0,
+            "column": 71
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 20
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 0,
+            "column": 75
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 21
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 0,
+            "column": 79
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 22
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 1,
+            "column": 3
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 23
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 1,
+            "column": 7
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 24
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 1,
+            "column": 11
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 25
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 1,
+            "column": 15
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 26
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 1,
+            "column": 19
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 27
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 1,
+            "column": 23
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 28
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 1,
+            "column": 27
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 29
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 1,
+            "column": 31
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 30
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 1,
+            "column": 35
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 31
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 1,
+            "column": 39
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 32
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 1,
+            "column": 43
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 33
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 1,
+            "column": 47
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 34
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 1,
+            "column": 51
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 35
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 1,
+            "column": 55
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 36
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 1,
+            "column": 59
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 37
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 1,
+            "column": 63
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 38
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 1,
+            "column": 67
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 39
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 1,
+            "column": 71
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 40
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 1,
+            "column": 75
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 41
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 1,
+            "column": 79
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 42
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 2,
+            "column": 3
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 43
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 2,
+            "column": 7
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 44
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 2,
+            "column": 11
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 45
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 2,
+            "column": 15
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 46
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 2,
+            "column": 19
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 47
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 2,
+            "column": 23
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 48
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 2,
+            "column": 27
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 49
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 2,
+            "column": 31
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 50
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 2,
+            "column": 35
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 51
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 2,
+            "column": 39
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 52
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 2,
+            "column": 43
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 53
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 2,
+            "column": 47
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 54
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 2,
+            "column": 51
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 55
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 2,
+            "column": 55
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 56
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 2,
+            "column": 59
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 57
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 2,
+            "column": 63
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 58
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 2,
+            "column": 67
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 59
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 2,
+            "column": 71
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 60
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 2,
+            "column": 75
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 61
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 2,
+            "column": 79
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 62
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 3,
+            "column": 3
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 63
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 3,
+            "column": 7
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 64
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 3,
+            "column": 11
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 65
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 3,
+            "column": 15
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 66
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 3,
+            "column": 19
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 67
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 3,
+            "column": 23
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 68
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 3,
+            "column": 27
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 69
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 3,
+            "column": 31
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 70
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 3,
+            "column": 35
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 71
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 3,
+            "column": 39
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 72
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 3,
+            "column": 43
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 73
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 3,
+            "column": 47
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 74
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 3,
+            "column": 51
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 75
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 3,
+            "column": 55
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 76
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 3,
+            "column": 59
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 77
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 3,
+            "column": 63
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 78
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 3,
+            "column": 67
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 79
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 3,
+            "column": 71
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 80
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 3,
+            "column": 75
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 81
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 3,
+            "column": 79
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 82
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 4,
+            "column": 3
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 83
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 4,
+            "column": 7
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 84
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 4,
+            "column": 11
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 85
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 4,
+            "column": 15
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 86
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 4,
+            "column": 19
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 87
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 4,
+            "column": 23
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 88
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 4,
+            "column": 27
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 89
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 4,
+            "column": 31
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 90
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 4,
+            "column": 35
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 91
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 4,
+            "column": 39
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 92
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 4,
+            "column": 43
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 93
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 4,
+            "column": 47
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 94
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 4,
+            "column": 51
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 95
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 4,
+            "column": 55
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 96
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 4,
+            "column": 59
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 97
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 4,
+            "column": 63
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 98
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 4,
+            "column": 67
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 99
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 4,
+            "column": 71
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 100
+          }
+        }
+      }
+    }
+  ]
 }

@@ -1,5 +1,22 @@
 {
   "config": {
     "num_wires": 135
-  }
+  },
+  "expressions": [
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "VirtualWire": {
+            "index": 0
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 0
+          }
+        }
+      }
+    }
+  ]
 }

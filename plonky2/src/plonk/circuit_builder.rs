@@ -10,6 +10,7 @@ use hashbrown::{HashMap, HashSet};
 use itertools::Itertools;
 use log::{debug, info, Level};
 use plonky2_util::ceil_div_usize;
+use zkcir::ir::CirBuilder;
 
 use crate::field::cosets::get_unique_coset_shifts;
 use crate::field::extension::{Extendable, FieldExtension};
@@ -144,6 +145,8 @@ pub struct CircuitBuilder<F: RichField + Extendable<D>, const D: usize> {
     /// Optional verifier data that is registered as public inputs.
     /// This is used in cyclic recursion to hold the circuit's own verifier key.
     pub(crate) verifier_data_public_input: Option<VerifierCircuitTarget>,
+
+    pub cir: CirBuilder,
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
@@ -172,6 +175,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             luts: Vec::new(),
             goal_common_data: None,
             verifier_data_public_input: None,
+            cir: CirBuilder::new(),
         };
         builder.check_config();
         builder
@@ -1174,12 +1178,16 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
-    pub fn build<C: GenericConfig<D, F = F>>(self) -> CircuitData<F, C, D> {
-        let cir = zkcir::ir::CirBuilder::new().num_wires(self.config.num_wires as u64);
+    pub fn build<C: GenericConfig<D, F = F>>(mut self) -> CircuitData<F, C, D> {
+        self.cir.num_wires(self.config.num_wires as u64);
 
-        if let Ok(zkcir_circuit) = cir.to_cli_string() {
+        if let Ok(zkcir_circuit) = self.cir.to_cli_string() {
             println!("{:?}", zkcir_circuit);
-            set_cir(cir);
+            set_cir(
+                self.cir
+                    .to_string()
+                    .unwrap_or("ERROR GETTING CIR OUTPUT".to_string()),
+            );
         }
 
         self.build_with_options(true)
