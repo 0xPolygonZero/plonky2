@@ -85,10 +85,10 @@ return_32: POP PUSH 32 SWAP1 JUMP
 // stack: num_bytes
 %macro num_bytes
     PROVER_INPUT(num_bits)
-    %stack (u_num_bits, x) -> (u_num_bits, x, u_num_bits)
+    %stack (num_bits, x) -> (num_bits, x, num_bits)
     %sub_const(1)
     SHR
-    // stack: 1, u_num_bits
+    // stack: 1, num_bits
     %assert_eq_const(1)
     // convert number of bits to number of bytes
     %add_const(7)
