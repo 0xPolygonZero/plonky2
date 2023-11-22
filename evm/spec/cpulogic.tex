@@ -64,6 +64,13 @@ The data required for the MPTs are stored in the ``TrieData'' segment in memory.
 \end{itemize}
 Finally, we hash the output of the RLP encoding, stored in ``RlpRaw'' -- unless it is already a hash.
 
+\subsection{Simple opcodes VS Syscalls}
+For simplicity and efficiency, EVM opcodes are categorized into two groups: ``simple opcodes'' and ``syscalls''. Simple opcodes are generated directly in Rust, in \href{https://github.com/0xPolygonZero/plonky2/blob/main/evm/src/witness/operation.rs}{operation.rs}. Every call to a simple opcode adds exactly one row to the \href{https://github.com/0xPolygonZero/plonky2/blob/main/evm/spec/tables/cpu.tex}{cpu table}. Syscalls are more complex structures written with simple opcodes, in the kernel.
+
+Whenever we encounter a syscall, we switch to kernel mode and execute its associated code. At the end of each syscall, we run EXIT\_KERNEL, which resets the kernel mode to its state right before the syscall. It also sets the PC to point the opcode right after the syscall.
+
+Exceptions are handled differently for simple opcodes and syscalls. When necessary, simple opcodes throw an exception (see \ref{exceptions}). This activates the ``exception flag'' in the CPU and runs the exception operations. On the other hand, syscalls handle exceptions in the kernel directly.
+
 \subsection{Privileged instructions}
 
 To ease and speed-up proving time, the zkEVM supports custom, privileged instructions that can only be executed by the kernel.
@@ -126,6 +133,7 @@ TODO
 TODO
 
 \subsection{Exceptions}
+\label{exceptions}
 
 Sometimes, when executing user code (i.e. contract or transaction code), the EVM halts exceptionally (i.e. outside of a STOP, a RETURN or a REVERT).
 When this happens, the CPU table invokes a special instruction with a dedicated operation flag \texttt{exception}.
