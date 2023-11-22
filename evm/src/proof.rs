@@ -385,7 +385,8 @@ pub(crate) struct TrieRootsTarget {
 
 impl TrieRootsTarget {
     /// Number of `Target`s required for all trie hashes.
-    pub(crate) const SIZE: usize = 24;
+    pub(crate) const HASH_SIZE: usize = 8;
+    pub(crate) const SIZE: usize = Self::HASH_SIZE * 3;
 
     /// Extracts trie hash `Target`s for all tries from the provided public input `Target`s.
     /// The provided `pis` should start with the trie hashes.
