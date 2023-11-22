@@ -27,6 +27,8 @@ pub(crate) fn eval_packed<P: PackedField>(
     yield_constr.constraint(halt_state * (halt_state - P::ONES));
     // Once we reach a padding row, there must be only padding rows.
     yield_constr.constraint_transition(halt_state * (next_halt_state - P::ONES));
+    // Check that we're in kernel mode.
+    yield_constr.constraint(halt_state * (lv.is_kernel_mode - P::ONES));
 
     // Padding rows should have their memory channels disabled.
     for i in 0..NUM_GP_CHANNELS {
@@ -70,6 +72,9 @@ pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     // Once we reach a padding row, there must be only padding rows.
     let constr = builder.mul_sub_extension(halt_state, next_halt_state, halt_state);
     yield_constr.constraint_transition(builder, constr);
+    // Check that we're in kernel mode.
+    let constr = builder.mul_sub_extension(halt_state, lv.is_kernel_mode, halt_state);
+    yield_constr.constraint(builder, constr);
 
     // Padding rows should have their memory channels disabled.
     for i in 0..NUM_GP_CHANNELS {
