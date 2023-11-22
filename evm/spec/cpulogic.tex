@@ -139,24 +139,28 @@ or it could be read from memory. In either case, the instruction is responsible 
 After use, the previous top of the stack is discarded and doesn't need to be written in memory.
   \item \textbf{The instruction pushes, but doesn't pop:} The new top of the stack is stored in \texttt{next\_row.mem\_channels[0]}; it may be computed by the instruction,
 or it could be read from memory. In either case, the instruction is responsible for setting \texttt{next\_row.mem\_channels[0]}'s flags and address columns correctly.
-If the stack wasn't empty (\texttt{current\_row.stack\_len > 0}), the current top of the stack is stored with a memory read in \texttt{current\_row.partial\_channel},
-which shares its values with \texttt{current\_row}. \texttt{mem\_channels[0]} (which holds the current top of the stack). If the stack was empty, \texttt{current\_row.partial\_channel}
+If the stack wasn't empty (\texttt{current\_row.stack\_len > 0}), the instruction performs a memory read in \texttt{current\_row.partial\_ channel}. \texttt{current\_row.partial\_channel}
+shares its values with \texttt{current\_ row.mem\_channels[0]} (which holds the current top of the stack). If the stack was empty, \texttt{current\_row.partial\_channel}
 is disabled.
-  \item \textbf{The instruction pushes, but doesn't pop:} After use, the current top of the stack is discarded and doesn't need to be written in memory.
-If the stack isn't now empty (\texttt{current\_row.stack\_len > num\_pops}), the new top of the stack is set in \texttt{next\_row.mem\_channels[0]}
+  \item \textbf{The instruction pops, but doesn't push:} After use, the current top of the stack is discarded and doesn't need to be written in memory.
+If the stack isn't empty now (\texttt{current\_row.stack\_len > num\_pops}), the new top of the stack is set in \texttt{next\_row.mem\_channels[0]}
 with a memory read from the stack segment. If the stack is now empty, \texttt{next\_row.mem\_channels[0]} is disabled.
 \end{itemize}
 
 In the last two cases, there is an edge case if \texttt{current\_row.stack\_len} is equal to a \texttt{special\_len}. For a strictly pushing instruction,
-this happens if the stack is empty, and \texttt{special\_len = 0}. For a strictly popping instruction, this happens if the next stack is empty, i.e. that
+this happens if the stack is empty, and \texttt{special\_len = 0}. For a strictly popping instruction, this happens if the next stack is empty, i.e. if
 all remaining elements are popped, and \texttt{special\_len = num\_pops}. Note that we do not need to check for values below \texttt{num\_pops}, since this
 would be a stack underflow exception which is handled separately.
-The edge case is detected with the compound flag \texttt{1 - not\_special\_len * stack\_inv\_aux}, where \texttt{not\_special\_len = current\_row - special\_len}
-and \texttt{stack\_inv\_aux} is constrained to be the modular inverse of \texttt{is\_not\_special\_len} if it's non-zero, or 0 otherwise. The flag is 1
+The edge case is detected with the compound flag
+$$\texttt{1 - not\_special\_len * stack\_inv\_aux,}$$
+where $$\texttt{not\_special\_len = current\_row - special\_len}$$
+
+
+and \texttt{stack\_inv\_aux} is constrained to be the modular inverse of \texttt{not\_special\_ len} if it's non-zero, or 0 otherwise. The flag is 1
 if \texttt{stack\_len} is equal to \texttt{special\_len}, and 0 otherwise.
 
-This logic can be found in code in the \texttt{eval\_packed\_one} function of \href{https://github.com/0xPolygonZero/plonky2/blob/main/evm/src/cpu/stack.rs}{stack.rs},
-which multiplies all of the constraints with a degree 1 filter passed as argument.
+This logic can be found in code in the \texttt{eval\_packed\_one} function of \href{https://github.com/0xPolygonZero/plonky2/blob/main/evm/src/cpu/stack.rs}{stack.rs}.
+The function multiplies all of the stack constraints with the degree 1 filter associated with the current instruction.
 
 \paragraph*{Operation flag merging:}
 
@@ -178,14 +182,14 @@ this would require a Memory trace longer than $2^{32}$.
 
 \paragraph*{Stack overflow:}
 An instruction can only push at most once, meaning that an overflow occurs whenever the stack length is exactly one more than the maximum stack size ($1024+1$) in user mode.
-To ensure this, the column \texttt{stack\_len\_bounds\_aux} contains:
+To constrain this, the column \texttt{stack\_len\_bounds\_aux} contains:
 
 \begin{itemize}
   \item[--] the modular inverse of \texttt{stack\_len - 1025} if we're in user mode and \texttt{stack\_len $\neq$ 1025},
   \item[--] 0 if \texttt{stack\_len = 1025} or if we're in kernel mode.
 \end{itemize}
 Then overflow can be checked with the flag
-\texttt{(1 - is\_kernel\_mode) - stack\_len * stack\_len\_bounds\_aux}.
+$$\texttt{(1 - is\_kernel\_mode) - stack\_len * stack\_len\_bounds\_aux}.$$
 The flag is 1 if \texttt{stack\_len = 1025} and we're in user mode, and 0 otherwise.
 
 \subsection{Gas handling}
