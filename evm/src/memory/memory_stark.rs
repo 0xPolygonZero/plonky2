@@ -472,9 +472,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
             yield_constr.constraint_transition(builder, first_read_constraint);
         }
 
-        // Check the range column: First value must be 0, last row
-        // must be 2^16-1, and intermediate rows must increment by 0
-        // or 1.
+        // Check the range column: First value must be 0,
+        // and intermediate rows must increment by 1.
         let rc1 = local_values[COUNTER];
         let rc2 = next_values[COUNTER];
         yield_constr.constraint_first_row(builder, rc1);

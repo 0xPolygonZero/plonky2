@@ -433,7 +433,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
             vars.get_next_values().try_into().unwrap();
 
         // Check the range column: First value must be 0, last row
-        // must be 2^16-1, and intermediate rows must increment by 0
+        // must be 255, and intermediate rows must increment by 0
         // or 1.
         let rc1 = local_values[RANGE_COUNTER];
         let rc2 = next_values[RANGE_COUNTER];
