@@ -1059,25 +1059,18 @@ where
             }
 
             // Initialize block hashes.
-            let block_hashes_keys = TrieRootsTarget::SIZE * 2 + BlockMetadataTarget::SIZE
-                ..TrieRootsTarget::SIZE * 2
-                    + BlockMetadataTarget::SIZE
-                    + BlockHashesTarget::BLOCK_HASHES_SIZE
-                    - 8;
-
-            for i in 0..public_values.block_hashes.prev_hashes.len() - 1 {
-                let targets = h256_limbs::<F>(public_values.block_hashes.prev_hashes[i]);
-                for j in 0..8 {
-                    nonzero_pis.insert(block_hashes_keys.start + 8 * (i + 1) + j, targets[j]);
-                }
-            }
+            // Only current_hash needs to be set, as the previous hashes should be 0.
+            let block_hashes_current_start = TrieRootsTarget::SIZE * 2
+                + BlockMetadataTarget::SIZE
+                + BlockHashesTarget::BLOCK_HASHES_SIZE
+                - 8;
             let cur_targets = h256_limbs::<F>(public_values.block_hashes.prev_hashes[255]);
             for i in 0..8 {
-                nonzero_pis.insert(block_hashes_keys.end + i, cur_targets[i]);
+                nonzero_pis.insert(block_hashes_current_start + i, cur_targets[i]);
             }
 
             // Initialize the block number.
-            let block_number_key = TrieRootsTarget::SIZE * 2 + 6;
+            let block_number_key = TrieRootsTarget::SIZE * 2 + 3;
             nonzero_pis.insert(block_number_key, F::NEG_ONE);
 
             block_inputs.set_proof_with_pis_target(
