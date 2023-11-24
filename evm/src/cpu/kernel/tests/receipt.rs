@@ -434,12 +434,13 @@ fn test_mpt_insert_receipt() -> Result<()> {
 
     // stack: transaction_nb, value_ptr, retdest
     let num_nibbles = 2;
-    let initial_stack: Vec<U256> = vec![
-        retdest,
-        cur_trie_data.len().into(),
-        0x80.into(),
-        num_nibbles.into(),
-    ];
+    let initial_stack: Vec<U256> =
+        vec![
+            retdest,
+            cur_trie_data.len().into(),
+            0x80.into(),
+            num_nibbles.into(),
+        ];
     for i in 0..initial_stack.len() {
         interpreter.push(initial_stack[i]);
     }
@@ -504,12 +505,13 @@ fn test_mpt_insert_receipt() -> Result<()> {
     // Get updated TrieData segment.
     cur_trie_data = interpreter.get_memory_segment(Segment::TrieData);
     let num_nibbles = 2;
-    let initial_stack2: Vec<U256> = vec![
-        retdest,
-        cur_trie_data.len().into(),
-        0x01.into(),
-        num_nibbles.into(),
-    ];
+    let initial_stack2: Vec<U256> =
+        vec![
+            retdest,
+            cur_trie_data.len().into(),
+            0x01.into(),
+            num_nibbles.into(),
+        ];
     for i in 0..initial_stack2.len() {
         interpreter.push(initial_stack2[i]);
     }
@@ -528,9 +530,7 @@ fn test_mpt_insert_receipt() -> Result<()> {
     interpreter.run()?;
     assert_eq!(
         interpreter.stack()[0],
-        U256::from(hex!(
-            "da46cdd329bfedace32da95f2b344d314bc6f55f027d65f9f4ac04ee425e1f98"
-        ))
+        U256::from(hex!("da46cdd329bfedace32da95f2b344d314bc6f55f027d65f9f4ac04ee425e1f98"))
     );
     Ok(())
 }

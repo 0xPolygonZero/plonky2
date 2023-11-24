@@ -40,13 +40,14 @@ pub(crate) const fn reg_output_limb(i: usize) -> usize {
     reg_a_prime_prime_prime(x, y) + is_high_limb
 }
 
-const R: [[u8; 5]; 5] = [
-    [0, 36, 3, 41, 18],
-    [1, 44, 10, 45, 2],
-    [62, 6, 43, 15, 61],
-    [28, 55, 25, 21, 56],
-    [27, 20, 39, 8, 14],
-];
+const R: [[u8; 5]; 5] =
+    [
+        [0, 36, 3, 41, 18],
+        [1, 44, 10, 45, 2],
+        [62, 6, 43, 15, 61],
+        [28, 55, 25, 21, 56],
+        [27, 20, 39, 8, 14],
+    ];
 
 /// Column holding the timestamp, used to link inputs and outputs
 /// in the `KeccakSpongeStark`.

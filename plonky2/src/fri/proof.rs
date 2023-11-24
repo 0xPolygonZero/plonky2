@@ -274,13 +274,14 @@ impl<F: RichField + Extendable<D>, H: Hasher<F>, const D: usize> CompressedFriPr
         let mut steps_evals = vec![vec![]; num_reductions];
         let mut steps_proofs = vec![vec![]; num_reductions];
         let height = params.degree_bits + params.config.rate_bits;
-        let heights = reduction_arity_bits
-            .iter()
-            .scan(height, |acc, &bits| {
-                *acc -= bits;
-                Some(*acc)
-            })
-            .collect::<Vec<_>>();
+        let heights =
+            reduction_arity_bits
+                .iter()
+                .scan(height, |acc, &bits| {
+                    *acc -= bits;
+                    Some(*acc)
+                })
+                .collect::<Vec<_>>();
 
         // Holds the `evals` vectors that have already been reconstructed at each reduction depth.
         let mut evals_by_depth =

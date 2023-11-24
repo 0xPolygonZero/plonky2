@@ -27,13 +27,15 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         addend: ExtensionTarget<D>,
     ) -> ExtensionTarget<D> {
         // See if we can determine the result without adding an `ArithmeticGate`.
-        if let Some(result) = self.arithmetic_extension_special_cases(
-            const_0,
-            const_1,
-            multiplicand_0,
-            multiplicand_1,
-            addend,
-        ) {
+        if let Some(result) =
+            self.arithmetic_extension_special_cases(
+                const_0,
+                const_1,
+                multiplicand_0,
+                multiplicand_1,
+                addend,
+            )
+        {
             return result;
         }
 
@@ -621,13 +623,14 @@ mod tests {
             pw.set_extension_target(t, v);
         }
         let mul0 = builder.mul_many_extension(&ts);
-        let mul1 = {
-            let mut acc = builder.one_extension();
-            for &t in &ts {
-                acc = builder.mul_extension(acc, t);
-            }
-            acc
-        };
+        let mul1 =
+            {
+                let mut acc = builder.one_extension();
+                for &t in &ts {
+                    acc = builder.mul_extension(acc, t);
+                }
+                acc
+            };
         let mul2 = builder.constant_extension(vs.into_iter().product());
 
         builder.connect_extension(mul0, mul1);

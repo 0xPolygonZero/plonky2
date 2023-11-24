@@ -51,20 +51,21 @@ where
         "FRI total reduction arity is too large.",
     );
 
-    let trace_commitment = timed!(
-        timing,
-        "compute trace commitment",
-        PolynomialBatch::<F, C, D>::from_values(
-            // TODO: Cloning this isn't great; consider having `from_values` accept a reference,
-            // or having `compute_permutation_z_polys` read trace values from the `PolynomialBatch`.
-            trace_poly_values.clone(),
-            rate_bits,
-            false,
-            cap_height,
+    let trace_commitment =
+        timed!(
             timing,
-            None,
-        )
-    );
+            "compute trace commitment",
+            PolynomialBatch::<F, C, D>::from_values(
+                // TODO: Cloning this isn't great; consider having `from_values` accept a reference,
+                // or having `compute_permutation_z_polys` read trace values from the `PolynomialBatch`.
+                trace_poly_values.clone(),
+                rate_bits,
+                false,
+                cap_height,
+                timing,
+                None,
+            )
+        );
 
     let trace_cap = trace_commitment.merkle_tree.cap.clone();
     let mut challenger = Challenger::new();
@@ -109,15 +110,16 @@ where
     }
 
     let alphas = challenger.get_n_challenges(config.num_challenges);
-    let quotient_polys = compute_quotient_polys::<F, <F as Packable>::Packing, C, S, D>(
-        &stark,
-        &trace_commitment,
-        &permutation_zs_commitment_challenges,
-        public_inputs,
-        alphas,
-        degree_bits,
-        config,
-    );
+    let quotient_polys =
+        compute_quotient_polys::<F, <F as Packable>::Packing, C, S, D>(
+            &stark,
+            &trace_commitment,
+            &permutation_zs_commitment_challenges,
+            public_inputs,
+            alphas,
+            degree_bits,
+            config,
+        );
     let all_quotient_chunks = quotient_polys
         .into_par_iter()
         .flat_map(|mut quotient_poly| {
@@ -196,10 +198,9 @@ where
 fn compute_quotient_polys<'a, F, P, C, S, const D: usize>(
     stark: &S,
     trace_commitment: &'a PolynomialBatch<F, C, D>,
-    permutation_zs_commitment_challenges: &'a Option<(
-        PolynomialBatch<F, C, D>,
-        Vec<PermutationChallengeSet<F>>,
-    )>,
+    permutation_zs_commitment_challenges: &'a Option<
+        (PolynomialBatch<F, C, D>, Vec<PermutationChallengeSet<F>>)
+    >,
     public_inputs: &[F],
     alphas: Vec<F>,
     degree_bits: usize,
@@ -246,61 +247,67 @@ where
 
     // We will step by `P::WIDTH`, and in each iteration, evaluate the quotient polynomial at
     // a batch of `P::WIDTH` points.
-    let quotient_values = (0..size)
-        .into_par_iter()
-        .step_by(P::WIDTH)
-        .flat_map_iter(|i_start| {
-            let i_next_start = (i_start + next_step) % size;
-            let i_range = i_start..i_start + P::WIDTH;
+    let quotient_values =
+        (0..size)
+            .into_par_iter()
+            .step_by(P::WIDTH)
+            .flat_map_iter(|i_start| {
+                let i_next_start = (i_start + next_step) % size;
+                let i_range = i_start..i_start + P::WIDTH;
 
-            let x = *P::from_slice(&coset[i_range.clone()]);
-            let z_last = x - last;
-            let lagrange_basis_first = *P::from_slice(&lagrange_first.values[i_range.clone()]);
-            let lagrange_basis_last = *P::from_slice(&lagrange_last.values[i_range]);
+                let x = *P::from_slice(&coset[i_range.clone()]);
+                let z_last = x - last;
+                let lagrange_basis_first = *P::from_slice(&lagrange_first.values[i_range.clone()]);
+                let lagrange_basis_last = *P::from_slice(&lagrange_last.values[i_range]);
 
-            let mut consumer = ConstraintConsumer::new(
-                alphas.clone(),
-                z_last,
-                lagrange_basis_first,
-                lagrange_basis_last,
-            );
-            let vars = S::EvaluationFrame::from_values(
-                &get_trace_values_packed(i_start),
-                &get_trace_values_packed(i_next_start),
-                public_inputs,
-            );
-            let permutation_check_data = permutation_zs_commitment_challenges.as_ref().map(
-                |(permutation_zs_commitment, permutation_challenge_sets)| PermutationCheckVars {
-                    local_zs: permutation_zs_commitment.get_lde_values_packed(i_start, step),
-                    next_zs: permutation_zs_commitment.get_lde_values_packed(i_next_start, step),
-                    permutation_challenge_sets: permutation_challenge_sets.to_vec(),
-                },
-            );
-            eval_vanishing_poly::<F, F, P, S, D, 1>(
-                stark,
-                config,
-                &vars,
-                permutation_check_data,
-                &mut consumer,
-            );
+                let mut consumer =
+                    ConstraintConsumer::new(
+                        alphas.clone(),
+                        z_last,
+                        lagrange_basis_first,
+                        lagrange_basis_last,
+                    );
+                let vars = S::EvaluationFrame::from_values(
+                    &get_trace_values_packed(i_start),
+                    &get_trace_values_packed(i_next_start),
+                    public_inputs,
+                );
+                let permutation_check_data = permutation_zs_commitment_challenges.as_ref().map(
+                    |(permutation_zs_commitment, permutation_challenge_sets)| {
+                        PermutationCheckVars {
+                            local_zs: permutation_zs_commitment
+                                .get_lde_values_packed(i_start, step),
+                            next_zs: permutation_zs_commitment
+                                .get_lde_values_packed(i_next_start, step),
+                            permutation_challenge_sets: permutation_challenge_sets.to_vec(),
+                        }
+                    },
+                );
+                eval_vanishing_poly::<F, F, P, S, D, 1>(
+                    stark,
+                    config,
+                    &vars,
+                    permutation_check_data,
+                    &mut consumer,
+                );
 
-            let mut constraints_evals = consumer.accumulators();
-            // We divide the constraints evaluations by `Z_H(x)`.
-            let denominator_inv: P = z_h_on_coset.eval_inverse_packed(i_start);
+                let mut constraints_evals = consumer.accumulators();
+                // We divide the constraints evaluations by `Z_H(x)`.
+                let denominator_inv: P = z_h_on_coset.eval_inverse_packed(i_start);
 
-            for eval in &mut constraints_evals {
-                *eval *= denominator_inv;
-            }
+                for eval in &mut constraints_evals {
+                    *eval *= denominator_inv;
+                }
 
-            let num_challenges = alphas.len();
+                let num_challenges = alphas.len();
 
-            (0..P::WIDTH).map(move |i| {
-                (0..num_challenges)
-                    .map(|j| constraints_evals[j].as_slice()[i])
-                    .collect()
+                (0..P::WIDTH).map(move |i| {
+                    (0..num_challenges)
+                        .map(|j| constraints_evals[j].as_slice()[i])
+                        .collect()
+                })
             })
-        })
-        .collect::<Vec<_>>();
+            .collect::<Vec<_>>();
 
     transpose(&quotient_values)
         .into_par_iter()

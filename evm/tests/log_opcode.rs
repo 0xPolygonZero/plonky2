@@ -52,12 +52,13 @@ fn test_log_opcodes() -> anyhow::Result<()> {
     let to_nibbles = Nibbles::from_bytes_be(to_hashed.as_bytes()).unwrap();
 
     // For the first code transaction code, we consider two LOG opcodes. The first deals with 0 topics and empty data. The second deals with two topics, and data of length 5, stored in memory.
-    let code = [
-        0x64, 0xA1, 0xB2, 0xC3, 0xD4, 0xE5, 0x60, 0x0, 0x52, // MSTORE(0x0, 0xA1B2C3D4E5)
-        0x60, 0x0, 0x60, 0x0, 0xA0, // LOG0(0x0, 0x0)
-        0x60, 99, 0x60, 98, 0x60, 5, 0x60, 27, 0xA2, // LOG2(27, 5, 98, 99)
-        0x00,
-    ];
+    let code =
+        [
+            0x64, 0xA1, 0xB2, 0xC3, 0xD4, 0xE5, 0x60, 0x0, 0x52, // MSTORE(0x0, 0xA1B2C3D4E5)
+            0x60, 0x0, 0x60, 0x0, 0xA0, // LOG0(0x0, 0x0)
+            0x60, 99, 0x60, 98, 0x60, 5, 0x60, 27, 0xA2, // LOG2(27, 5, 98, 99)
+            0x00,
+        ];
     println!("contract: {:02x?}", code);
     let code_gas = 3 + 3 + 3 // PUSHs and MSTORE
                  + 3 + 3 + 375 // PUSHs and LOG0
@@ -156,11 +157,12 @@ fn test_log_opcodes() -> anyhow::Result<()> {
     };
 
     let sender_balance_after = sender_balance_before - gas_used * txn_gas_price;
-    let sender_account_after = AccountRlp {
-        balance: sender_balance_after.into(),
-        nonce: 1.into(),
-        ..AccountRlp::default()
-    };
+    let sender_account_after =
+        AccountRlp {
+            balance: sender_balance_after.into(),
+            nonce: 1.into(),
+            ..AccountRlp::default()
+        };
     let to_account_after = AccountRlp {
         balance: 9000000000u64.into(),
         code_hash,
@@ -203,11 +205,12 @@ fn test_log_opcodes() -> anyhow::Result<()> {
     expected_state_trie_after.insert(sender_nibbles, rlp::encode(&sender_account_after).to_vec());
     expected_state_trie_after.insert(to_nibbles, rlp::encode(&to_account_after).to_vec());
 
-    let transactions_trie: HashedPartialTrie = Node::Leaf {
-        nibbles: Nibbles::from_str("0x80").unwrap(),
-        value: txn.to_vec(),
-    }
-    .into();
+    let transactions_trie: HashedPartialTrie =
+        Node::Leaf {
+            nibbles: Nibbles::from_str("0x80").unwrap(),
+            value: txn.to_vec(),
+        }
+        .into();
 
     let trie_roots_after = TrieRoots {
         state_root: expected_state_trie_after.hash(),
@@ -273,12 +276,13 @@ fn test_log_opcodes() -> anyhow::Result<()> {
 fn test_log_with_aggreg() -> anyhow::Result<()> {
     init_logger();
 
-    let code = [
-        0x64, 0xA1, 0xB2, 0xC3, 0xD4, 0xE5, 0x60, 0x0, 0x52, // MSTORE(0x0, 0xA1B2C3D4E5)
-        0x60, 0x0, 0x60, 0x0, 0xA0, // LOG0(0x0, 0x0)
-        0x60, 99, 0x60, 98, 0x60, 5, 0x60, 27, 0xA2, // LOG2(27, 5, 98, 99)
-        0x00,
-    ];
+    let code =
+        [
+            0x64, 0xA1, 0xB2, 0xC3, 0xD4, 0xE5, 0x60, 0x0, 0x52, // MSTORE(0x0, 0xA1B2C3D4E5)
+            0x60, 0x0, 0x60, 0x0, 0xA0, // LOG0(0x0, 0x0)
+            0x60, 99, 0x60, 98, 0x60, 5, 0x60, 27, 0xA2, // LOG2(27, 5, 98, 99)
+            0x00,
+        ];
 
     let code_gas = 3 + 3 + 3 // PUSHs and MSTORE
                  + 3 + 3 + 375 // PUSHs and LOG0
@@ -342,12 +346,13 @@ fn test_log_with_aggreg() -> anyhow::Result<()> {
     );
     let genesis_state_trie_root = state_trie_before.hash();
 
-    let tries_before = TrieInputs {
-        state_trie: state_trie_before,
-        transactions_trie: Node::Empty.into(),
-        receipts_trie: Node::Empty.into(),
-        storage_tries: vec![],
-    };
+    let tries_before =
+        TrieInputs {
+            state_trie: state_trie_before,
+            transactions_trie: Node::Empty.into(),
+            receipts_trie: Node::Empty.into(),
+            storage_tries: vec![],
+        };
 
     let txn = hex!("f85f800a82520894095e7baea6a6c7c4c2dfeb977efac326af552d870a8026a0122f370ed4023a6c253350c6bfb87d7d7eb2cd86447befee99e0a26b70baec20a07100ab1b3977f2b4571202b9f4b68850858caf5469222794600b5ce1cfb348ad");
 
@@ -385,11 +390,12 @@ fn test_log_with_aggreg() -> anyhow::Result<()> {
     };
 
     let sender_balance_after = sender_balance_before - gas_price * 21000 - txn_value;
-    let sender_account_after = AccountRlp {
-        balance: sender_balance_after,
-        nonce: 1.into(),
-        ..AccountRlp::default()
-    };
+    let sender_account_after =
+        AccountRlp {
+            balance: sender_balance_after,
+            nonce: 1.into(),
+            ..AccountRlp::default()
+        };
     let to_account_after = AccountRlp {
         balance: txn_value.into(),
         ..AccountRlp::default()
@@ -424,11 +430,12 @@ fn test_log_with_aggreg() -> anyhow::Result<()> {
         rlp::encode(&receipt_0).to_vec(),
     );
 
-    let mut transactions_trie: HashedPartialTrie = Node::Leaf {
-        nibbles: Nibbles::from_str("0x80").unwrap(),
-        value: txn.to_vec(),
-    }
-    .into();
+    let mut transactions_trie: HashedPartialTrie =
+        Node::Leaf {
+            nibbles: Nibbles::from_str("0x80").unwrap(),
+            value: txn.to_vec(),
+        }
+        .into();
 
     let tries_after = TrieRoots {
         state_root: expected_state_trie_after.hash(),
@@ -501,21 +508,23 @@ fn test_log_with_aggreg() -> anyhow::Result<()> {
     };
 
     let sender_balance_after = sender_balance_after - gas_used * txn_gas_price;
-    let sender_account_after = AccountRlp {
-        balance: sender_balance_after,
-        nonce: 2.into(),
-        ..AccountRlp::default()
-    };
+    let sender_account_after =
+        AccountRlp {
+            balance: sender_balance_after,
+            nonce: 2.into(),
+            ..AccountRlp::default()
+        };
     let balance_after = to_account_after.balance;
     let to_account_after = AccountRlp {
         balance: balance_after,
         ..AccountRlp::default()
     };
-    let to_account_second_after = AccountRlp {
-        balance: to_account_second_before.balance,
-        code_hash,
-        ..AccountRlp::default()
-    };
+    let to_account_second_after =
+        AccountRlp {
+            balance: to_account_second_before.balance,
+            code_hash,
+            ..AccountRlp::default()
+        };
 
     // Update the receipt trie.
     let first_log = LogRlp {

@@ -183,9 +183,7 @@ pub trait Read {
         for a in arr.iter_mut() {
             *a = self.read_field()?;
         }
-        Ok(<F::Extension as FieldExtension<D>>::from_basefield_array(
-            arr,
-        ))
+        Ok(<F::Extension as FieldExtension<D>>::from_basefield_array(arr))
     }
 
     /// Reads a vector of elements from the field extension of `F` from `self`.
@@ -449,11 +447,12 @@ pub trait Read {
         let wires_p = self.read_merkle_proof()?;
         evals_proofs.push((wires_v, wires_p));
 
-        let zs_partial_v = self.read_field_vec(
-            config.num_challenges
-                * (1 + common_data.num_partial_products + common_data.num_lookup_polys)
-                + salt,
-        )?;
+        let zs_partial_v =
+            self.read_field_vec(
+                config.num_challenges
+                    * (1 + common_data.num_partial_products + common_data.num_lookup_polys)
+                    + salt,
+            )?;
         let zs_partial_p = self.read_merkle_proof()?;
         evals_proofs.push((zs_partial_v, zs_partial_p));
 

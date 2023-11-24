@@ -76,14 +76,16 @@ pub(crate) fn eval_vanishing_poly<F: RichField + Extendable<D>, const D: usize>(
     let mut vanishing_z_1_terms = Vec::new();
 
     // The terms checking the lookup constraints, if any.
-    let mut vanishing_all_lookup_terms = if has_lookup {
-        let num_sldc_polys = common_data.num_lookup_polys - 1;
-        Vec::with_capacity(
-            common_data.config.num_challenges * (4 + common_data.luts.len() + 2 * num_sldc_polys),
-        )
-    } else {
-        Vec::new()
-    };
+    let mut vanishing_all_lookup_terms =
+        if has_lookup {
+            let num_sldc_polys = common_data.num_lookup_polys - 1;
+            Vec::with_capacity(
+                common_data.config.num_challenges
+                    * (4 + common_data.luts.len() + 2 * num_sldc_polys),
+            )
+        } else {
+            Vec::new()
+        };
 
     // The terms checking the partial products.
     let mut vanishing_partial_products_terms = Vec::new();
@@ -214,14 +216,16 @@ pub(crate) fn eval_vanishing_poly_base_batch<F: RichField + Extendable<D>, const
     let mut vanishing_partial_products_terms = Vec::new();
 
     // The terms checking the lookup constraints.
-    let mut vanishing_all_lookup_terms = if has_lookup {
-        let num_sldc_polys = common_data.num_lookup_polys - 1;
-        Vec::with_capacity(
-            common_data.config.num_challenges * (4 + common_data.luts.len() + 2 * num_sldc_polys),
-        )
-    } else {
-        Vec::new()
-    };
+    let mut vanishing_all_lookup_terms =
+        if has_lookup {
+            let num_sldc_polys = common_data.num_lookup_polys - 1;
+            Vec::with_capacity(
+                common_data.config.num_challenges
+                    * (4 + common_data.luts.len() + 2 * num_sldc_polys),
+            )
+        } else {
+            Vec::new()
+        };
 
     let mut res_batch: Vec<Vec<F>> = Vec::with_capacity(n);
     for k in 0..n {
@@ -361,13 +365,14 @@ pub fn check_lookup_constraints<F: RichField + Extendable<D>, const D: usize>(
     let delta_challenge_b = F::Extension::from(deltas[LookupChallenges::ChallengeB as usize]);
 
     // Compute all current looked and looking combos, i.e. the combos we need for the SLDC polynomials.
-    let current_looked_combos: Vec<F::Extension> = (0..num_lut_slots)
-        .map(|s| {
-            let input_wire = vars.local_wires[LookupTableGate::wire_ith_looked_inp(s)];
-            let output_wire = vars.local_wires[LookupTableGate::wire_ith_looked_out(s)];
-            input_wire + delta_challenge_a * output_wire
-        })
-        .collect();
+    let current_looked_combos: Vec<F::Extension> =
+        (0..num_lut_slots)
+            .map(|s| {
+                let input_wire = vars.local_wires[LookupTableGate::wire_ith_looked_inp(s)];
+                let output_wire = vars.local_wires[LookupTableGate::wire_ith_looked_out(s)];
+                input_wire + delta_challenge_a * output_wire
+            })
+            .collect();
 
     let current_looking_combos: Vec<F::Extension> = (0..num_lu_slots)
         .map(|s| {
@@ -378,13 +383,14 @@ pub fn check_lookup_constraints<F: RichField + Extendable<D>, const D: usize>(
         .collect();
 
     // Compute all current lookup combos, i.e. the combos used to check that the LUT is correct.
-    let current_lookup_combos: Vec<F::Extension> = (0..num_lut_slots)
-        .map(|s| {
-            let input_wire = vars.local_wires[LookupTableGate::wire_ith_looked_inp(s)];
-            let output_wire = vars.local_wires[LookupTableGate::wire_ith_looked_out(s)];
-            input_wire + delta_challenge_b * output_wire
-        })
-        .collect();
+    let current_lookup_combos: Vec<F::Extension> =
+        (0..num_lut_slots)
+            .map(|s| {
+                let input_wire = vars.local_wires[LookupTableGate::wire_ith_looked_inp(s)];
+                let output_wire = vars.local_wires[LookupTableGate::wire_ith_looked_out(s)];
+                input_wire + delta_challenge_b * output_wire
+            })
+            .collect();
 
     // Check last LDC constraint.
     constraints.push(
@@ -599,17 +605,19 @@ pub fn check_lookup_constraints_batch<F: RichField + Extendable<D>, const D: usi
             .product();
 
         // Function which computes, given index i: prod_{j!=i}(alpha - combo_j) for Sum.
-        let lut_prod_i = |i| {
-            (poly * lut_degree..min((poly + 1) * lut_degree, num_lut_slots))
-                .map(|j| {
-                    if j != i {
-                        deltas[LookupChallenges::ChallengeAlpha as usize] - current_looked_combos[j]
-                    } else {
-                        F::ONE
-                    }
-                })
-                .product()
-        };
+        let lut_prod_i =
+            |i| {
+                (poly * lut_degree..min((poly + 1) * lut_degree, num_lut_slots))
+                    .map(|j| {
+                        if j != i {
+                            deltas[LookupChallenges::ChallengeAlpha as usize]
+                                - current_looked_combos[j]
+                        } else {
+                            F::ONE
+                        }
+                    })
+                    .product()
+            };
 
         // Function which computes, given index i: prod_{j!=i}(alpha - combo_j) for LDC.
         let lu_prod_i = |i| {
@@ -757,13 +765,14 @@ pub(crate) fn get_lut_poly_circuit<F: RichField + Extendable<D>, const D: usize>
     let b = deltas[LookupChallenges::ChallengeB as usize];
     let delta = deltas[LookupChallenges::ChallengeDelta as usize];
     let n = common_data.luts[lut_index].len();
-    let mut coeffs: Vec<Target> = common_data.luts[lut_index]
-        .iter()
-        .map(|(input, output)| {
-            let temp = builder.mul_const(F::from_canonical_u16(*output), b);
-            builder.add_const(temp, F::from_canonical_u16(*input))
-        })
-        .collect();
+    let mut coeffs: Vec<Target> =
+        common_data.luts[lut_index]
+            .iter()
+            .map(|(input, output)| {
+                let temp = builder.mul_const(F::from_canonical_u16(*output), b);
+                builder.add_const(temp, F::from_canonical_u16(*input))
+            })
+            .collect();
     for _ in n..degree {
         coeffs.push(builder.zero());
     }
@@ -817,14 +826,16 @@ pub(crate) fn eval_vanishing_poly_circuit<F: RichField + Extendable<D>, const D:
     let mut vanishing_z_1_terms = Vec::new();
 
     // The terms checking lookup constraints.
-    let mut vanishing_all_lookup_terms = if has_lookup {
-        let num_sldc_polys = common_data.num_lookup_polys - 1;
-        Vec::with_capacity(
-            common_data.config.num_challenges * (4 + common_data.luts.len() + 2 * num_sldc_polys),
-        )
-    } else {
-        Vec::new()
-    };
+    let mut vanishing_all_lookup_terms =
+        if has_lookup {
+            let num_sldc_polys = common_data.num_lookup_polys - 1;
+            Vec::with_capacity(
+                common_data.config.num_challenges
+                    * (4 + common_data.luts.len() + 2 * num_sldc_polys),
+            )
+        } else {
+            Vec::new()
+        };
 
     // The terms checking the partial products.
     let mut vanishing_partial_products_terms = Vec::new();
@@ -950,17 +961,18 @@ pub fn check_lookup_constraints_circuit<F: RichField + Extendable<D>, const D: u
         .collect::<Vec<_>>();
 
     // Computing all current looked and looking combos, i.e. the combos we need for the SLDC polynomials.
-    let current_looked_combos = (0..num_lut_slots)
-        .map(|s| {
-            let input_wire = vars.local_wires[LookupTableGate::wire_ith_looked_inp(s)];
-            let output_wire = vars.local_wires[LookupTableGate::wire_ith_looked_out(s)];
-            builder.mul_add_extension(
-                ext_deltas[LookupChallenges::ChallengeA as usize],
-                output_wire,
-                input_wire,
-            )
-        })
-        .collect::<Vec<_>>();
+    let current_looked_combos =
+        (0..num_lut_slots)
+            .map(|s| {
+                let input_wire = vars.local_wires[LookupTableGate::wire_ith_looked_inp(s)];
+                let output_wire = vars.local_wires[LookupTableGate::wire_ith_looked_out(s)];
+                builder.mul_add_extension(
+                    ext_deltas[LookupChallenges::ChallengeA as usize],
+                    output_wire,
+                    input_wire,
+                )
+            })
+            .collect::<Vec<_>>();
     let current_looking_combos = (0..num_lu_slots)
         .map(|s| {
             let input_wire = vars.local_wires[LookupGate::wire_ith_looking_inp(s)];
@@ -973,36 +985,39 @@ pub fn check_lookup_constraints_circuit<F: RichField + Extendable<D>, const D: u
         })
         .collect::<Vec<_>>();
 
-    let current_lut_subs = (0..num_lut_slots)
-        .map(|s| {
-            builder.sub_extension(
-                ext_deltas[LookupChallenges::ChallengeAlpha as usize],
-                current_looked_combos[s],
-            )
-        })
-        .collect::<Vec<_>>();
+    let current_lut_subs =
+        (0..num_lut_slots)
+            .map(|s| {
+                builder.sub_extension(
+                    ext_deltas[LookupChallenges::ChallengeAlpha as usize],
+                    current_looked_combos[s],
+                )
+            })
+            .collect::<Vec<_>>();
 
-    let current_lu_subs = (0..num_lu_slots)
-        .map(|s| {
-            builder.sub_extension(
-                ext_deltas[LookupChallenges::ChallengeAlpha as usize],
-                current_looking_combos[s],
-            )
-        })
-        .collect::<Vec<_>>();
+    let current_lu_subs =
+        (0..num_lu_slots)
+            .map(|s| {
+                builder.sub_extension(
+                    ext_deltas[LookupChallenges::ChallengeAlpha as usize],
+                    current_looking_combos[s],
+                )
+            })
+            .collect::<Vec<_>>();
 
     // Computing all current lookup combos, i.e. the combos used to check that the LUT is correct.
-    let current_lookup_combos = (0..num_lut_slots)
-        .map(|s| {
-            let input_wire = vars.local_wires[LookupTableGate::wire_ith_looked_inp(s)];
-            let output_wire = vars.local_wires[LookupTableGate::wire_ith_looked_out(s)];
-            builder.mul_add_extension(
-                ext_deltas[LookupChallenges::ChallengeB as usize],
-                output_wire,
-                input_wire,
-            )
-        })
-        .collect::<Vec<_>>();
+    let current_lookup_combos =
+        (0..num_lut_slots)
+            .map(|s| {
+                let input_wire = vars.local_wires[LookupTableGate::wire_ith_looked_inp(s)];
+                let output_wire = vars.local_wires[LookupTableGate::wire_ith_looked_out(s)];
+                builder.mul_add_extension(
+                    ext_deltas[LookupChallenges::ChallengeB as usize],
+                    output_wire,
+                    input_wire,
+                )
+            })
+            .collect::<Vec<_>>();
 
     // Check last LDC constraint.
     constraints.push(builder.mul_extension(

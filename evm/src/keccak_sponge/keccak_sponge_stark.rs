@@ -90,13 +90,14 @@ pub(crate) fn ctl_looking_keccak_outputs<F: Field>() -> Vec<Column<F>> {
 
     // We recover the 32-bit digest limbs from their corresponding bytes,
     // and then append them to the rest of the updated state limbs.
-    let digest_u32s = cols.updated_digest_state_bytes.chunks_exact(4).map(|c| {
-        Column::linear_combination(
-            c.iter()
-                .enumerate()
-                .map(|(i, &b)| (b, F::from_canonical_usize(1 << (8 * i)))),
-        )
-    });
+    let digest_u32s =
+        cols.updated_digest_state_bytes.chunks_exact(4).map(|c| {
+            Column::linear_combination(
+                c.iter()
+                    .enumerate()
+                    .map(|(i, &b)| (b, F::from_canonical_usize(1 << (8 * i)))),
+            )
+        });
 
     let mut res: Vec<_> = digest_u32s.collect();
 
@@ -737,11 +738,12 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakSpongeS
         {
             let mut current_after = current_bytes_after[0];
             for i in 1..4 {
-                current_after = builder.mul_const_add_extension(
-                    F::from_canonical_usize(1 << (8 * i)),
-                    current_bytes_after[i],
-                    current_after,
-                );
+                current_after =
+                    builder.mul_const_add_extension(
+                        F::from_canonical_usize(1 << (8 * i)),
+                        current_bytes_after[i],
+                        current_after,
+                    );
             }
             let diff = builder.sub_extension(*next_before, current_after);
             let constraint = builder.mul_extension(is_full_input_block, diff);
@@ -851,15 +853,16 @@ mod tests {
         let input = vec![1, 2, 3];
         let expected_output = keccak(&input);
 
-        let op = KeccakSpongeOp {
-            base_address: MemoryAddress {
-                context: 0,
-                segment: Segment::Code as usize,
-                virt: 0,
-            },
-            timestamp: 0,
-            input,
-        };
+        let op =
+            KeccakSpongeOp {
+                base_address: MemoryAddress {
+                    context: 0,
+                    segment: Segment::Code as usize,
+                    virt: 0,
+                },
+                timestamp: 0,
+                input,
+            };
         let stark = S::default();
         let rows = stark.generate_rows_for_op(op);
         assert_eq!(rows.len(), 1);

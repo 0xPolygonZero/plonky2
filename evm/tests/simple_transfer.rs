@@ -50,11 +50,12 @@ fn test_simple_transfer() -> anyhow::Result<()> {
     };
     let to_account_before = AccountRlp::default();
 
-    let state_trie_before = Node::Leaf {
-        nibbles: sender_nibbles,
-        value: rlp::encode(&sender_account_before).to_vec(),
-    }
-    .into();
+    let state_trie_before =
+        Node::Leaf {
+            nibbles: sender_nibbles,
+            value: rlp::encode(&sender_account_before).to_vec(),
+        }
+        .into();
 
     let tries_before = TrieInputs {
         state_trie: state_trie_before,
@@ -83,37 +84,39 @@ fn test_simple_transfer() -> anyhow::Result<()> {
     let mut contract_code = HashMap::new();
     contract_code.insert(keccak(vec![]), vec![]);
 
-    let expected_state_trie_after: HashedPartialTrie = {
-        let txdata_gas = 2 * 16;
-        let gas_used = 21_000 + txdata_gas;
+    let expected_state_trie_after: HashedPartialTrie =
+        {
+            let txdata_gas = 2 * 16;
+            let gas_used = 21_000 + txdata_gas;
 
-        let sender_account_after = AccountRlp {
-            balance: sender_account_before.balance - value - gas_used * 10,
-            nonce: sender_account_before.nonce + 1,
-            ..sender_account_before
-        };
-        let to_account_after = AccountRlp {
-            balance: value,
-            ..to_account_before
-        };
+            let sender_account_after = AccountRlp {
+                balance: sender_account_before.balance - value - gas_used * 10,
+                nonce: sender_account_before.nonce + 1,
+                ..sender_account_before
+            };
+            let to_account_after = AccountRlp {
+                balance: value,
+                ..to_account_before
+            };
 
-        let mut children = core::array::from_fn(|_| Node::Empty.into());
-        children[sender_nibbles.get_nibble(0) as usize] = Node::Leaf {
-            nibbles: sender_nibbles.truncate_n_nibbles_front(1),
-            value: rlp::encode(&sender_account_after).to_vec(),
-        }
-        .into();
-        children[to_nibbles.get_nibble(0) as usize] = Node::Leaf {
-            nibbles: to_nibbles.truncate_n_nibbles_front(1),
-            value: rlp::encode(&to_account_after).to_vec(),
-        }
-        .into();
-        Node::Branch {
-            children,
-            value: vec![],
-        }
-        .into()
-    };
+            let mut children = core::array::from_fn(|_| Node::Empty.into());
+            children[sender_nibbles.get_nibble(0) as usize] =
+                Node::Leaf {
+                    nibbles: sender_nibbles.truncate_n_nibbles_front(1),
+                    value: rlp::encode(&sender_account_after).to_vec(),
+                }
+                .into();
+            children[to_nibbles.get_nibble(0) as usize] = Node::Leaf {
+                nibbles: to_nibbles.truncate_n_nibbles_front(1),
+                value: rlp::encode(&to_account_after).to_vec(),
+            }
+            .into();
+            Node::Branch {
+                children,
+                value: vec![],
+            }
+            .into()
+        };
 
     let receipt_0 = LegacyReceiptRlp {
         status: true,
@@ -126,36 +129,38 @@ fn test_simple_transfer() -> anyhow::Result<()> {
         Nibbles::from_str("0x80").unwrap(),
         rlp::encode(&receipt_0).to_vec(),
     );
-    let transactions_trie: HashedPartialTrie = Node::Leaf {
-        nibbles: Nibbles::from_str("0x80").unwrap(),
-        value: txn.to_vec(),
-    }
-    .into();
+    let transactions_trie: HashedPartialTrie =
+        Node::Leaf {
+            nibbles: Nibbles::from_str("0x80").unwrap(),
+            value: txn.to_vec(),
+        }
+        .into();
 
     let trie_roots_after = TrieRoots {
         state_root: expected_state_trie_after.hash(),
         transactions_root: transactions_trie.hash(),
         receipts_root: receipts_trie.hash(),
     };
-    let inputs = GenerationInputs {
-        signed_txn: Some(txn.to_vec()),
-        withdrawals: vec![],
-        tries: tries_before,
-        trie_roots_after,
-        contract_code,
-        genesis_state_trie_root: HashedPartialTrie::from(Node::Empty).hash(),
-        block_metadata,
-        txn_number_before: 0.into(),
-        gas_used_before: 0.into(),
-        gas_used_after: 21032.into(),
-        block_bloom_before: [0.into(); 8],
-        block_bloom_after: [0.into(); 8],
-        block_hashes: BlockHashes {
-            prev_hashes: vec![H256::default(); 256],
-            cur_hash: H256::default(),
-        },
-        addresses: vec![],
-    };
+    let inputs =
+        GenerationInputs {
+            signed_txn: Some(txn.to_vec()),
+            withdrawals: vec![],
+            tries: tries_before,
+            trie_roots_after,
+            contract_code,
+            genesis_state_trie_root: HashedPartialTrie::from(Node::Empty).hash(),
+            block_metadata,
+            txn_number_before: 0.into(),
+            gas_used_before: 0.into(),
+            gas_used_after: 21032.into(),
+            block_bloom_before: [0.into(); 8],
+            block_bloom_after: [0.into(); 8],
+            block_hashes: BlockHashes {
+                prev_hashes: vec![H256::default(); 256],
+                cur_hash: H256::default(),
+            },
+            addresses: vec![],
+        };
 
     let mut timing = TimingTree::new("prove", log::Level::Debug);
     let proof = prove::<F, C, D>(&all_stark, &config, inputs, &mut timing)?;

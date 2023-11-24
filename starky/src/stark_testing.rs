@@ -122,13 +122,14 @@ pub fn test_stark_circuit_constraints<
     pw.set_extension_target(lagrange_last_t, lagrange_last);
 
     let vars = S::EvaluationFrameTarget::from_values(&locals_t, &nexts_t, &pis_t);
-    let mut consumer = RecursiveConstraintConsumer::<F, D>::new(
-        builder.zero_extension(),
-        alphas_t,
-        z_last_t,
-        lagrange_first_t,
-        lagrange_last_t,
-    );
+    let mut consumer =
+        RecursiveConstraintConsumer::<F, D>::new(
+            builder.zero_extension(),
+            alphas_t,
+            z_last_t,
+            lagrange_first_t,
+            lagrange_last_t,
+        );
     stark.eval_ext_circuit(&mut builder, &vars, &mut consumer);
     let circuit_eval = consumer.accumulators()[0];
     let native_eval_t = builder.constant_extension(native_eval);

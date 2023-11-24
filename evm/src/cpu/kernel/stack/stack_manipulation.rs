@@ -128,10 +128,11 @@ fn shortest_path(
         }
 
         for op in next_ops(&node.stack, &dst, &unique_push_targets) {
-            let neighbor = match op.apply_to(node.stack.clone()) {
-                Some(n) => n,
-                None => continue,
-            };
+            let neighbor =
+                match op.apply_to(node.stack.clone()) {
+                    Some(n) => n,
+                    None => continue,
+                };
 
             let cost = node.cost + op.cost();
             let entry = node_info.entry(neighbor.clone());

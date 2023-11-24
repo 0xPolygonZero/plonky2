@@ -222,9 +222,7 @@ pub(crate) fn mpt_prover_inputs_state_trie(
         }
         Node::Branch { children, value } => {
             if !value.is_empty() {
-                return Err(ProgramError::ProverInputError(
-                    ProverInputError::InvalidMptInput,
-                ));
+                return Err(ProgramError::ProverInputError(ProverInputError::InvalidMptInput));
             }
             prover_inputs.push(U256::zero()); // value_present = 0
 

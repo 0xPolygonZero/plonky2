@@ -71,15 +71,15 @@ impl<F: RichField + Extendable<D> + Poseidon, const D: usize> PoseidonMdsGate<F,
         let mut res = builder.zero_ext_algebra();
 
         for i in 0..SPONGE_WIDTH {
-            let coeff = builder.constant_extension(F::Extension::from_canonical_u64(
-                <F as Poseidon>::MDS_MATRIX_CIRC[i],
-            ));
+            let coeff = builder.constant_extension(
+                F::Extension::from_canonical_u64(<F as Poseidon>::MDS_MATRIX_CIRC[i])
+            );
             res = builder.scalar_mul_add_ext_algebra(coeff, v[(i + r) % SPONGE_WIDTH], res);
         }
         {
-            let coeff = builder.constant_extension(F::Extension::from_canonical_u64(
-                <F as Poseidon>::MDS_MATRIX_DIAG[r],
-            ));
+            let coeff = builder.constant_extension(
+                F::Extension::from_canonical_u64(<F as Poseidon>::MDS_MATRIX_DIAG[r])
+            );
             res = builder.scalar_mul_add_ext_algebra(coeff, v[r], res);
         }
 
@@ -228,9 +228,9 @@ impl<F: RichField + Extendable<D> + Poseidon, const D: usize> SimpleGenerator<F,
 
     fn dependencies(&self) -> Vec<Target> {
         (0..SPONGE_WIDTH)
-            .flat_map(|i| {
-                Target::wires_from_range(self.row, PoseidonMdsGate::<F, D>::wires_input(i))
-            })
+            .flat_map(
+                |i| Target::wires_from_range(self.row, PoseidonMdsGate::<F, D>::wires_input(i))
+            )
             .collect()
     }
 

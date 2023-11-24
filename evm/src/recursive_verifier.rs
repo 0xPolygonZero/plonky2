@@ -257,10 +257,9 @@ where
         num_lookup_columns,
     );
 
-    let init_challenger_state_target =
-        <C::Hasher as AlgebraicHasher<F>>::AlgebraicPermutation::new(std::iter::from_fn(|| {
-            Some(builder.add_virtual_public_input())
-        }));
+    let init_challenger_state_target = <C::Hasher as AlgebraicHasher<F>>::AlgebraicPermutation::new(
+        std::iter::from_fn(|| Some(builder.add_virtual_public_input())),
+    );
     let mut challenger =
         RecursiveChallenger::<F, C::Hasher, D>::from_state(init_challenger_state_target);
     let challenges =
@@ -303,9 +302,8 @@ where
 pub(crate) fn add_common_recursion_gates<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
 ) {
-    builder.add_gate_to_gate_set(GateRef::new(ExponentiationGate::new_from_config(
-        &builder.config,
-    )));
+    builder
+        .add_gate_to_gate_set(GateRef::new(ExponentiationGate::new_from_config(&builder.config)));
 }
 
 /// Recursively verifies an inner proof.
@@ -356,13 +354,14 @@ fn verify_stark_proof_with_challenges_circuit<
     );
 
     let num_lookup_columns = stark.num_lookup_helper_columns(inner_config);
-    let lookup_challenges = (num_lookup_columns > 0).then(|| {
-        ctl_challenges
-            .challenges
-            .iter()
-            .map(|ch| ch.beta)
-            .collect::<Vec<_>>()
-    });
+    let lookup_challenges =
+        (num_lookup_columns > 0).then(|| {
+            ctl_challenges
+                .challenges
+                .iter()
+                .map(|ch| ch.beta)
+                .collect::<Vec<_>>()
+        });
 
     let lookup_vars = stark.uses_lookups().then(|| LookupCheckVarsTarget {
         local_values: auxiliary_polys[..num_lookup_columns].to_vec(),
@@ -885,12 +884,13 @@ pub(crate) fn set_trie_roots_target<F, W, const D: usize>(
         );
     }
 
-    for (i, limb) in trie_roots
-        .transactions_root
-        .into_uint()
-        .0
-        .into_iter()
-        .enumerate()
+    for (i, limb) in
+        trie_roots
+            .transactions_root
+            .into_uint()
+            .0
+            .into_iter()
+            .enumerate()
     {
         witness.set_target(
             trie_roots_target.transactions_root[2 * i],

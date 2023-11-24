@@ -114,16 +114,17 @@ impl Div for BN254 {
     }
 }
 
-pub(crate) const BLS_BASE: U512 = U512([
-    0xb9feffffffffaaab,
-    0x1eabfffeb153ffff,
-    0x6730d2a0f6b0f624,
-    0x64774b84f38512bf,
-    0x4b1ba7b6434bacd7,
-    0x1a0111ea397fe69a,
-    0x0,
-    0x0,
-]);
+pub(crate) const BLS_BASE: U512 =
+    U512([
+        0xb9feffffffffaaab,
+        0x1eabfffeb153ffff,
+        0x6730d2a0f6b0f624,
+        0x64774b84f38512bf,
+        0x4b1ba7b6434bacd7,
+        0x1a0111ea397fe69a,
+        0x0,
+        0x0,
+    ]);
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub(crate) struct BLS381 {
@@ -211,15 +212,18 @@ impl Mul for BLS381 {
         let z00 = BLS381 {
             val: x0.saturating_mul(y0) % BLS_BASE,
         };
-        let z01 = BLS381 {
-            val: x0.saturating_mul(y1),
-        };
-        let z10 = BLS381 {
-            val: x1.saturating_mul(y0),
-        };
-        let z11 = BLS381 {
-            val: x1.saturating_mul(y1),
-        };
+        let z01 =
+            BLS381 {
+                val: x0.saturating_mul(y1),
+            };
+        let z10 =
+            BLS381 {
+                val: x1.saturating_mul(y0),
+            };
+        let z11 =
+            BLS381 {
+                val: x1.saturating_mul(y1),
+            };
 
         z00 + (z01 + z10).lsh_256() + z11.lsh_512()
     }
@@ -355,15 +359,17 @@ impl<T: FieldExt> Fp2<T> {
 }
 
 impl<T: FieldExt> FieldExt for Fp2<T> {
-    const ZERO: Fp2<T> = Fp2 {
-        re: T::ZERO,
-        im: T::ZERO,
-    };
+    const ZERO: Fp2<T> =
+        Fp2 {
+            re: T::ZERO,
+            im: T::ZERO,
+        };
 
-    const UNIT: Fp2<T> = Fp2 {
-        re: T::UNIT,
-        im: T::ZERO,
-    };
+    const UNIT: Fp2<T> =
+        Fp2 {
+            re: T::UNIT,
+            im: T::ZERO,
+        };
 
     fn new(val: usize) -> Fp2<T> {
         Fp2 {
@@ -410,188 +416,189 @@ impl Adj for Fp2<BN254> {
         }
     }
 
-    const FROB_T: [[Fp2<BN254>; 6]; 2] = [
+    const FROB_T: [[Fp2<BN254>; 6]; 2] =
         [
-            Fp2 {
-                re: BN254 { val: U256::one() },
-                im: BN254 { val: U256::zero() },
-            },
-            Fp2 {
-                re: BN254 {
-                    val: U256([
-                        0x99e39557176f553d,
-                        0xb78cc310c2c3330c,
-                        0x4c0bec3cf559b143,
-                        0x2fb347984f7911f7,
-                    ]),
+            [
+                Fp2 {
+                    re: BN254 { val: U256::one() },
+                    im: BN254 { val: U256::zero() },
                 },
-                im: BN254 {
-                    val: U256([
-                        0x1665d51c640fcba2,
-                        0x32ae2a1d0b7c9dce,
-                        0x4ba4cc8bd75a0794,
-                        0x16c9e55061ebae20,
-                    ]),
-                },
-            },
-            Fp2 {
-                re: BN254 {
-                    val: U256([
-                        0xe4bd44e5607cfd48,
-                        0xc28f069fbb966e3d,
-                        0x5e6dd9e7e0acccb0,
-                        0x30644e72e131a029,
-                    ]),
-                },
-                im: BN254 { val: U256::zero() },
-            },
-            Fp2 {
-                re: BN254 {
-                    val: U256([
-                        0x7b746ee87bdcfb6d,
-                        0x805ffd3d5d6942d3,
-                        0xbaff1c77959f25ac,
-                        0x0856e078b755ef0a,
-                    ]),
-                },
-                im: BN254 {
-                    val: U256([
-                        0x380cab2baaa586de,
-                        0x0fdf31bf98ff2631,
-                        0xa9f30e6dec26094f,
-                        0x04f1de41b3d1766f,
-                    ]),
-                },
-            },
-            Fp2 {
-                re: BN254 {
-                    val: U256([
-                        0x5763473177fffffe,
-                        0xd4f263f1acdb5c4f,
-                        0x59e26bcea0d48bac,
-                        0x0,
-                    ]),
-                },
-                im: BN254 { val: U256::zero() },
-            },
-            Fp2 {
-                re: BN254 {
-                    val: U256([
-                        0x62e913ee1dada9e4,
-                        0xf71614d4b0b71f3a,
-                        0x699582b87809d9ca,
-                        0x28be74d4bb943f51,
-                    ]),
-                },
-                im: BN254 {
-                    val: U256([
-                        0xedae0bcec9c7aac7,
-                        0x54f40eb4c3f6068d,
-                        0xc2b86abcbe01477a,
-                        0x14a88ae0cb747b99,
-                    ]),
-                },
-            },
-        ],
-        [
-            Fp2 {
-                re: BN254 { val: U256::one() },
-                im: BN254 { val: U256::zero() },
-            },
-            Fp2 {
-                re: {
-                    BN254 {
+                Fp2 {
+                    re: BN254 {
                         val: U256([
-                            0x848a1f55921ea762,
-                            0xd33365f7be94ec72,
-                            0x80f3c0b75a181e84,
-                            0x05b54f5e64eea801,
+                            0x99e39557176f553d,
+                            0xb78cc310c2c3330c,
+                            0x4c0bec3cf559b143,
+                            0x2fb347984f7911f7,
                         ]),
-                    }
-                },
-                im: {
-                    BN254 {
+                    },
+                    im: BN254 {
                         val: U256([
-                            0xc13b4711cd2b8126,
-                            0x3685d2ea1bdec763,
-                            0x9f3a80b03b0b1c92,
-                            0x2c145edbe7fd8aee,
+                            0x1665d51c640fcba2,
+                            0x32ae2a1d0b7c9dce,
+                            0x4ba4cc8bd75a0794,
+                            0x16c9e55061ebae20,
                         ]),
-                    }
+                    },
                 },
-            },
-            Fp2 {
-                re: {
-                    BN254 {
-                        val: U256([
-                            0x5763473177fffffe,
-                            0xd4f263f1acdb5c4f,
-                            0x59e26bcea0d48bac,
-                            0x0,
-                        ]),
-                    }
-                },
-                im: { BN254 { val: U256::zero() } },
-            },
-            Fp2 {
-                re: {
-                    BN254 {
-                        val: U256([
-                            0x0e1a92bc3ccbf066,
-                            0xe633094575b06bcb,
-                            0x19bee0f7b5b2444e,
-                            0xbc58c6611c08dab,
-                        ]),
-                    }
-                },
-                im: {
-                    BN254 {
-                        val: U256([
-                            0x5fe3ed9d730c239f,
-                            0xa44a9e08737f96e5,
-                            0xfeb0f6ef0cd21d04,
-                            0x23d5e999e1910a12,
-                        ]),
-                    }
-                },
-            },
-            Fp2 {
-                re: {
-                    BN254 {
+                Fp2 {
+                    re: BN254 {
                         val: U256([
                             0xe4bd44e5607cfd48,
                             0xc28f069fbb966e3d,
                             0x5e6dd9e7e0acccb0,
                             0x30644e72e131a029,
                         ]),
-                    }
+                    },
+                    im: BN254 { val: U256::zero() },
                 },
-                im: { BN254 { val: U256::zero() } },
-            },
-            Fp2 {
-                re: {
-                    BN254 {
+                Fp2 {
+                    re: BN254 {
                         val: U256([
-                            0xa97bda050992657f,
-                            0xde1afb54342c724f,
-                            0x1d9da40771b6f589,
-                            0x1ee972ae6a826a7d,
+                            0x7b746ee87bdcfb6d,
+                            0x805ffd3d5d6942d3,
+                            0xbaff1c77959f25ac,
+                            0x0856e078b755ef0a,
                         ]),
-                    }
-                },
-                im: {
-                    BN254 {
+                    },
+                    im: BN254 {
                         val: U256([
-                            0x5721e37e70c255c9,
-                            0x54326430418536d1,
-                            0xd2b513cdbb257724,
-                            0x10de546ff8d4ab51,
+                            0x380cab2baaa586de,
+                            0x0fdf31bf98ff2631,
+                            0xa9f30e6dec26094f,
+                            0x04f1de41b3d1766f,
                         ]),
-                    }
+                    },
                 },
-            },
-        ],
-    ];
+                Fp2 {
+                    re: BN254 {
+                        val: U256([
+                            0x5763473177fffffe,
+                            0xd4f263f1acdb5c4f,
+                            0x59e26bcea0d48bac,
+                            0x0,
+                        ]),
+                    },
+                    im: BN254 { val: U256::zero() },
+                },
+                Fp2 {
+                    re: BN254 {
+                        val: U256([
+                            0x62e913ee1dada9e4,
+                            0xf71614d4b0b71f3a,
+                            0x699582b87809d9ca,
+                            0x28be74d4bb943f51,
+                        ]),
+                    },
+                    im: BN254 {
+                        val: U256([
+                            0xedae0bcec9c7aac7,
+                            0x54f40eb4c3f6068d,
+                            0xc2b86abcbe01477a,
+                            0x14a88ae0cb747b99,
+                        ]),
+                    },
+                },
+            ],
+            [
+                Fp2 {
+                    re: BN254 { val: U256::one() },
+                    im: BN254 { val: U256::zero() },
+                },
+                Fp2 {
+                    re: {
+                        BN254 {
+                            val: U256([
+                                0x848a1f55921ea762,
+                                0xd33365f7be94ec72,
+                                0x80f3c0b75a181e84,
+                                0x05b54f5e64eea801,
+                            ]),
+                        }
+                    },
+                    im: {
+                        BN254 {
+                            val: U256([
+                                0xc13b4711cd2b8126,
+                                0x3685d2ea1bdec763,
+                                0x9f3a80b03b0b1c92,
+                                0x2c145edbe7fd8aee,
+                            ]),
+                        }
+                    },
+                },
+                Fp2 {
+                    re: {
+                        BN254 {
+                            val: U256([
+                                0x5763473177fffffe,
+                                0xd4f263f1acdb5c4f,
+                                0x59e26bcea0d48bac,
+                                0x0,
+                            ]),
+                        }
+                    },
+                    im: { BN254 { val: U256::zero() } },
+                },
+                Fp2 {
+                    re: {
+                        BN254 {
+                            val: U256([
+                                0x0e1a92bc3ccbf066,
+                                0xe633094575b06bcb,
+                                0x19bee0f7b5b2444e,
+                                0xbc58c6611c08dab,
+                            ]),
+                        }
+                    },
+                    im: {
+                        BN254 {
+                            val: U256([
+                                0x5fe3ed9d730c239f,
+                                0xa44a9e08737f96e5,
+                                0xfeb0f6ef0cd21d04,
+                                0x23d5e999e1910a12,
+                            ]),
+                        }
+                    },
+                },
+                Fp2 {
+                    re: {
+                        BN254 {
+                            val: U256([
+                                0xe4bd44e5607cfd48,
+                                0xc28f069fbb966e3d,
+                                0x5e6dd9e7e0acccb0,
+                                0x30644e72e131a029,
+                            ]),
+                        }
+                    },
+                    im: { BN254 { val: U256::zero() } },
+                },
+                Fp2 {
+                    re: {
+                        BN254 {
+                            val: U256([
+                                0xa97bda050992657f,
+                                0xde1afb54342c724f,
+                                0x1d9da40771b6f589,
+                                0x1ee972ae6a826a7d,
+                            ]),
+                        }
+                    },
+                    im: {
+                        BN254 {
+                            val: U256([
+                                0x5721e37e70c255c9,
+                                0x54326430418536d1,
+                                0xd2b513cdbb257724,
+                                0x10de546ff8d4ab51,
+                            ]),
+                        }
+                    },
+                },
+            ],
+        ];
 
     const FROB_Z: [Fp2<BN254>; 12] = [
         Fp2 {

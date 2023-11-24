@@ -66,16 +66,17 @@ pub(crate) fn ctl_looked_data<F: Field>() -> Vec<Column<F>> {
     // being read/written from the underlying byte values. For each,
     // we pack 4 consecutive bytes and shift them accordingly to
     // obtain the corresponding limb.
-    let outputs: Vec<Column<F>> = (0..8)
-        .map(|i| {
-            let range = (value_bytes(i * 4)..value_bytes(i * 4) + 4);
-            Column::linear_combination(
-                range
-                    .enumerate()
-                    .map(|(j, c)| (c, F::from_canonical_u64(1 << (8 * j)))),
-            )
-        })
-        .collect();
+    let outputs: Vec<Column<F>> =
+        (0..8)
+            .map(|i| {
+                let range = (value_bytes(i * 4)..value_bytes(i * 4) + 4);
+                Column::linear_combination(
+                    range
+                        .enumerate()
+                        .map(|(j, c)| (c, F::from_canonical_u64(1 << (8 * j)))),
+                )
+            })
+            .collect();
 
     // This will correspond to the actual sequence length when the `SEQUENCE_END` flag is on.
     let sequence_len: Column<F> = Column::linear_combination(

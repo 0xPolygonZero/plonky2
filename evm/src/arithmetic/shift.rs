@@ -246,11 +246,12 @@ mod tests {
                     U256::from(lv[ai].to_canonical_u64()) + full_input * U256::from(1 << 16);
             }
 
-            let output = if is_shl {
-                full_input << shift
-            } else {
-                full_input >> shift
-            };
+            let output =
+                if is_shl {
+                    full_input << shift
+                } else {
+                    full_input >> shift
+                };
 
             generate(&mut lv, &mut nv, is_shl, shift, full_input, output);
 

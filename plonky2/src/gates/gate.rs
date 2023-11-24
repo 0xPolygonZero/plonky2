@@ -63,11 +63,12 @@ pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + S
             .map(|w| F::Extension::from_basefield(*w))
             .collect::<Vec<_>>();
         let public_inputs_hash = &vars_base.public_inputs_hash;
-        let vars = EvaluationVars {
-            local_constants,
-            local_wires,
-            public_inputs_hash,
-        };
+        let vars =
+            EvaluationVars {
+                local_constants,
+                local_wires,
+                public_inputs_hash,
+            };
         let values = self.eval_unfiltered(vars);
 
         // Each value should be in the base field, i.e. only the degree-zero part should be nonzero.
@@ -159,13 +160,14 @@ pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + S
         num_lookup_selectors: usize,
         combined_gate_constraints: &mut [ExtensionTarget<D>],
     ) {
-        let filter = compute_filter_circuit(
-            builder,
-            row,
-            group_range,
-            vars.local_constants[selector_index],
-            num_selectors > 1,
-        );
+        let filter =
+            compute_filter_circuit(
+                builder,
+                row,
+                group_range,
+                vars.local_constants[selector_index],
+                num_selectors > 1,
+            );
         vars.remove_prefix(num_selectors);
         vars.remove_prefix(num_lookup_selectors);
         let my_constraints = self.eval_unfiltered_circuit(builder, vars);

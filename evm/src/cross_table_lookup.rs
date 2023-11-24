@@ -613,11 +613,12 @@ fn partial_products<F: Field>(
     let degree = trace[0].len();
     let mut res = Vec::with_capacity(degree);
     for i in (0..degree).rev() {
-        let filter = if let Some(column) = filter_column {
-            column.eval_table(trace, i)
-        } else {
-            F::ONE
-        };
+        let filter =
+            if let Some(column) = filter_column {
+                column.eval_table(trace, i)
+            } else {
+                F::ONE
+            };
         if filter.is_one() {
             let evals = columns
                 .iter()

@@ -171,11 +171,12 @@ pub(crate) fn selector_polynomials<F: RichField + Extendable<D>, const D: usize>
         let i = index(gate_ref.0.id());
         let gr = group(i);
         for g in 0..groups.len() {
-            polynomials[g].values[j] = if g == gr {
-                F::from_canonical_usize(i)
-            } else {
-                unused
-            };
+            polynomials[g].values[j] =
+                if g == gr {
+                    F::from_canonical_usize(i)
+                } else {
+                    unused
+                };
         }
     }
 

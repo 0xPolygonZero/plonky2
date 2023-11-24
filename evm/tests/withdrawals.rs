@@ -44,17 +44,18 @@ fn test_withdrawals() -> anyhow::Result<()> {
     // Just one withdrawal.
     let withdrawals = vec![(H160(random()), U256(random()))];
 
-    let state_trie_after = {
-        let mut trie = HashedPartialTrie::from(Node::Empty);
-        let addr_state_key = keccak(withdrawals[0].0);
-        let addr_nibbles = Nibbles::from_bytes_be(addr_state_key.as_bytes()).unwrap();
-        let account = AccountRlp {
-            balance: withdrawals[0].1,
-            ..AccountRlp::default()
+    let state_trie_after =
+        {
+            let mut trie = HashedPartialTrie::from(Node::Empty);
+            let addr_state_key = keccak(withdrawals[0].0);
+            let addr_nibbles = Nibbles::from_bytes_be(addr_state_key.as_bytes()).unwrap();
+            let account = AccountRlp {
+                balance: withdrawals[0].1,
+                ..AccountRlp::default()
+            };
+            trie.insert(addr_nibbles, rlp::encode(&account).to_vec());
+            trie
         };
-        trie.insert(addr_nibbles, rlp::encode(&account).to_vec());
-        trie
-    };
 
     let trie_roots_after = TrieRoots {
         state_root: state_trie_after.hash(),
@@ -62,30 +63,31 @@ fn test_withdrawals() -> anyhow::Result<()> {
         receipts_root: receipts_trie.hash(),
     };
 
-    let inputs = GenerationInputs {
-        signed_txn: None,
-        withdrawals,
-        tries: TrieInputs {
-            state_trie: state_trie_before,
-            transactions_trie,
-            receipts_trie,
-            storage_tries,
-        },
-        trie_roots_after,
-        contract_code,
-        genesis_state_trie_root: HashedPartialTrie::from(Node::Empty).hash(),
-        block_metadata,
-        txn_number_before: 0.into(),
-        gas_used_before: 0.into(),
-        gas_used_after: 0.into(),
-        block_bloom_before: [0.into(); 8],
-        block_bloom_after: [0.into(); 8],
-        block_hashes: BlockHashes {
-            prev_hashes: vec![H256::default(); 256],
-            cur_hash: H256::default(),
-        },
-        addresses: vec![],
-    };
+    let inputs =
+        GenerationInputs {
+            signed_txn: None,
+            withdrawals,
+            tries: TrieInputs {
+                state_trie: state_trie_before,
+                transactions_trie,
+                receipts_trie,
+                storage_tries,
+            },
+            trie_roots_after,
+            contract_code,
+            genesis_state_trie_root: HashedPartialTrie::from(Node::Empty).hash(),
+            block_metadata,
+            txn_number_before: 0.into(),
+            gas_used_before: 0.into(),
+            gas_used_after: 0.into(),
+            block_bloom_before: [0.into(); 8],
+            block_bloom_after: [0.into(); 8],
+            block_hashes: BlockHashes {
+                prev_hashes: vec![H256::default(); 256],
+                cur_hash: H256::default(),
+            },
+            addresses: vec![],
+        };
 
     let mut timing = TimingTree::new("prove", log::Level::Debug);
     let proof = prove::<F, C, D>(&all_stark, &config, inputs, &mut timing)?;

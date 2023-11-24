@@ -50,12 +50,13 @@ pub(crate) fn get_outputs<F: Field>(
         }
         let state_key_h256 = H256::from_uint(&state_key_nibbles.try_into_u256().unwrap());
 
-        let addr_or_state_key =
-            if let Some(address) = state.state_key_to_address.get(&state_key_h256) {
-                AddressOrStateKey::Address(*address)
-            } else {
-                AddressOrStateKey::StateKey(state_key_h256)
-            };
+        let addr_or_state_key = if let Some(address) =
+            state.state_key_to_address.get(&state_key_h256)
+        {
+            AddressOrStateKey::Address(*address)
+        } else {
+            AddressOrStateKey::StateKey(state_key_h256)
+        };
 
         let account_output = account_trie_record_to_output(state, account)?;
         accounts.insert(addr_or_state_key, account_output);

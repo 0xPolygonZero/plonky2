@@ -791,14 +791,15 @@ impl<'a> Interpreter<'a> {
         assert_ne!(segment, Segment::MainMemory, "Call KECCAK256 instead.");
         let offset = self.pop().as_usize();
         let size = self.pop().as_usize();
-        let bytes = (offset..offset + size)
-            .map(|i| {
-                self.generation_state
-                    .memory
-                    .mload_general(context, segment, i)
-                    .byte(0)
-            })
-            .collect::<Vec<_>>();
+        let bytes =
+            (offset..offset + size)
+                .map(|i| {
+                    self.generation_state
+                        .memory
+                        .mload_general(context, segment, i)
+                        .byte(0)
+                })
+                .collect::<Vec<_>>();
         println!("Hashing {:?}", &bytes);
         let hash = keccak(bytes);
         self.push(U256::from_big_endian(hash.as_bytes()));
@@ -1164,14 +1165,15 @@ impl<'a> Interpreter<'a> {
         let segment = Segment::all()[self.pop().as_usize()];
         let offset = self.pop().as_usize();
         let len = self.pop().as_usize();
-        let bytes: Vec<u8> = (0..len)
-            .map(|i| {
-                self.generation_state
-                    .memory
-                    .mload_general(context, segment, offset + i)
-                    .low_u32() as u8
-            })
-            .collect();
+        let bytes: Vec<u8> =
+            (0..len)
+                .map(|i| {
+                    self.generation_state
+                        .memory
+                        .mload_general(context, segment, offset + i)
+                        .low_u32() as u8
+                })
+                .collect();
         let value = U256::from_big_endian(&bytes);
         self.push(value);
     }

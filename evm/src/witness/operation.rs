@@ -134,16 +134,17 @@ pub(crate) fn generate_keccak_general<F: Field>(
     let len = u256_to_usize(len)?;
 
     let base_address = MemoryAddress::new_u256s(context, segment, base_virt)?;
-    let input = (0..len)
-        .map(|i| {
-            let address = MemoryAddress {
-                virt: base_address.virt.saturating_add(i),
-                ..base_address
-            };
-            let val = state.memory.get(address);
-            val.low_u32() as u8
-        })
-        .collect_vec();
+    let input =
+        (0..len)
+            .map(|i| {
+                let address = MemoryAddress {
+                    virt: base_address.virt.saturating_add(i),
+                    ..base_address
+                };
+                let val = state.memory.get(address);
+                val.low_u32() as u8
+            })
+            .collect_vec();
     log::debug!("Hashing {:?}", input);
 
     let hash = keccak(&input);
@@ -217,12 +218,13 @@ pub(crate) fn generate_jump<F: Field>(
         .try_into()
         .map_err(|_| ProgramError::InvalidJumpDestination)?;
 
-    let (jumpdest_bit, jumpdest_bit_log) = mem_read_gp_with_log_and_fill(
-        NUM_GP_CHANNELS - 1,
-        MemoryAddress::new(state.registers.context, Segment::JumpdestBits, dst as usize),
-        state,
-        &mut row,
-    );
+    let (jumpdest_bit, jumpdest_bit_log) =
+        mem_read_gp_with_log_and_fill(
+            NUM_GP_CHANNELS - 1,
+            MemoryAddress::new(state.registers.context, Segment::JumpdestBits, dst as usize),
+            state,
+            &mut row,
+        );
 
     row.mem_channels[1].value[0] = F::ONE;
 
@@ -283,16 +285,17 @@ pub(crate) fn generate_jumpi<F: Field>(
         state.registers.program_counter += 1;
     }
 
-    let (jumpdest_bit, jumpdest_bit_log) = mem_read_gp_with_log_and_fill(
-        NUM_GP_CHANNELS - 1,
-        MemoryAddress::new(
-            state.registers.context,
-            Segment::JumpdestBits,
-            dst.low_u32() as usize,
-        ),
-        state,
-        &mut row,
-    );
+    let (jumpdest_bit, jumpdest_bit_log) =
+        mem_read_gp_with_log_and_fill(
+            NUM_GP_CHANNELS - 1,
+            MemoryAddress::new(
+                state.registers.context,
+                Segment::JumpdestBits,
+                dst.low_u32() as usize,
+            ),
+            state,
+            &mut row,
+        );
     if !should_jump || state.registers.is_kernel {
         // Don't actually do the read, just set the address, etc.
         let channel = &mut row.mem_channels[NUM_GP_CHANNELS - 1];
@@ -493,11 +496,12 @@ pub(crate) fn generate_dup<F: Field>(
         return Err(ProgramError::StackUnderflow);
     }
     let stack_top = state.registers.stack_top;
-    let address = MemoryAddress::new(
-        state.registers.context,
-        Segment::Stack,
-        state.registers.stack_len - 1,
-    );
+    let address =
+        MemoryAddress::new(
+            state.registers.context,
+            Segment::Stack,
+            state.registers.stack_len - 1,
+        );
     let log_push = mem_write_gp_log_and_fill(1, address, state, &mut row, stack_top);
     state.traces.push_memory(log_push);
 
@@ -594,10 +598,11 @@ pub(crate) fn generate_iszero<F: Field>(
 ) -> Result<(), ProgramError> {
     let [(x, _)] = stack_pop_with_log_and_fill::<1, _>(state, &mut row)?;
     let is_zero = x.is_zero();
-    let result = {
-        let t: u64 = is_zero.into();
-        t.into()
-    };
+    let result =
+        {
+            let t: u64 = is_zero.into();
+            t.into()
+        };
 
     generate_pinv_diff(x, U256::zero(), &mut row);
 
@@ -732,13 +737,14 @@ pub(crate) fn generate_syscall<F: Field>(
     // next_row's `mem_channels[0]` which contains the next top of the stack.
     // Our goal here is to range-check the gas, contained in syscall_info,
     // stored in the next stack top.
-    let range_check_op = arithmetic::Operation::range_check(
-        state.registers.stack_top,
-        handler_addr0,
-        handler_addr1,
-        U256::from(opcode),
-        syscall_info,
-    );
+    let range_check_op =
+        arithmetic::Operation::range_check(
+            state.registers.stack_top,
+            handler_addr0,
+            handler_addr1,
+            U256::from(opcode),
+            syscall_info,
+        );
     // Set registers before pushing to the stack; in particular, we need to set kernel mode so we
     // can't incorrectly trigger a stack overflow. However, note that we have to do it _after_ we
     // make `syscall_info`, which should contain the old values.
@@ -978,13 +984,14 @@ pub(crate) fn generate_exception<F: Field>(
             virt: state.registers.stack_len - 1,
         };
 
-        let mem_op = MemoryOp::new(
-            GeneralPurpose(0),
-            state.traces.clock(),
-            address,
-            MemoryOpKind::Read,
-            state.registers.stack_top,
-        );
+        let mem_op =
+            MemoryOp::new(
+                GeneralPurpose(0),
+                state.traces.clock(),
+                address,
+                MemoryOpKind::Read,
+                state.registers.stack_top,
+            );
         state.traces.push_memory(mem_op);
         state.registers.is_stack_top_read = false;
     }

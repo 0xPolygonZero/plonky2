@@ -51,15 +51,15 @@ fn process_type_0_txn() -> Result<()> {
     assert_eq!(interpreter.get_txn_field(YParity), 1.into());
     assert_eq!(
         interpreter.get_txn_field(R),
-        U256::from_big_endian(&hex!(
-            "7c5c61ed975ebd286f6b027b8c504842e50a47d318e1e801719dd744fe93e6c6"
-        ))
+        U256::from_big_endian(
+            &hex!("7c5c61ed975ebd286f6b027b8c504842e50a47d318e1e801719dd744fe93e6c6")
+        )
     );
     assert_eq!(
         interpreter.get_txn_field(S),
-        U256::from_big_endian(&hex!(
-            "1e7b5119b57dd54e175ff2f055c91f3ab1b53eba0b2c184f347cdff0e745aca2"
-        ))
+        U256::from_big_endian(
+            &hex!("1e7b5119b57dd54e175ff2f055c91f3ab1b53eba0b2c184f347cdff0e745aca2")
+        )
     );
 
     Ok(())

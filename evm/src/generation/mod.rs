@@ -152,16 +152,17 @@ fn apply_metadata_and_tries_memops<F: RichField + Extendable<D>, const D: usize>
     ];
 
     let channel = MemoryChannel::GeneralPurpose(0);
-    let mut ops = fields
-        .map(|(field, val)| {
-            mem_write_log(
-                channel,
-                MemoryAddress::new(0, Segment::GlobalMetadata, field as usize),
-                state,
-                val,
-            )
-        })
-        .to_vec();
+    let mut ops =
+        fields
+            .map(|(field, val)| {
+                mem_write_log(
+                    channel,
+                    MemoryAddress::new(0, Segment::GlobalMetadata, field as usize),
+                    state,
+                    val,
+                )
+            })
+            .to_vec();
 
     // Write the block's final block bloom filter.
     ops.extend((0..8).map(|i| {

@@ -209,13 +209,14 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakStark<F, D> {
         let val_lo = row[reg_a_prime_prime(0, 0)].to_canonical_u64();
         let val_hi = row[reg_a_prime_prime(0, 0) + 1].to_canonical_u64();
         let val = val_lo | (val_hi << 32);
-        let bit_values: Vec<u64> = (0..64)
-            .scan(val, |acc, _| {
-                let tmp = *acc & 1;
-                *acc >>= 1;
-                Some(tmp)
-            })
-            .collect();
+        let bit_values: Vec<u64> =
+            (0..64)
+                .scan(val, |acc, _| {
+                    let tmp = *acc & 1;
+                    *acc >>= 1;
+                    Some(tmp)
+                })
+                .collect();
         for i in 0..64 {
             row[reg_a_prime_prime_0_0_bit(i)] = F::from_canonical_u64(bit_values[i]);
         }
@@ -584,15 +585,17 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakStark<F
             reduce_with_powers_ext_circuit(builder, &bits_lo, two);
         let computed_a_prime_prime_prime_0_0_hi =
             reduce_with_powers_ext_circuit(builder, &bits_hi, two);
-        let diff = builder.sub_extension(
-            computed_a_prime_prime_prime_0_0_lo,
-            a_prime_prime_prime_0_0_lo,
-        );
+        let diff =
+            builder.sub_extension(
+                computed_a_prime_prime_prime_0_0_lo,
+                a_prime_prime_prime_0_0_lo,
+            );
         yield_constr.constraint(builder, diff);
-        let diff = builder.sub_extension(
-            computed_a_prime_prime_prime_0_0_hi,
-            a_prime_prime_prime_0_0_hi,
-        );
+        let diff =
+            builder.sub_extension(
+                computed_a_prime_prime_prime_0_0_hi,
+                a_prime_prime_prime_0_0_hi,
+            );
         yield_constr.constraint(builder, diff);
 
         // Enforce that this round's output equals the next round's input.
@@ -726,18 +729,19 @@ mod tests {
         // or having `compute_permutation_z_polys` read trace values from the `PolynomialBatch`.
         let cloned_trace_poly_values = timed!(timing, "clone", trace_poly_values.clone());
 
-        let trace_commitments = timed!(
-            timing,
-            "compute trace commitment",
-            PolynomialBatch::<F, C, D>::from_values(
-                cloned_trace_poly_values,
-                config.fri_config.rate_bits,
-                false,
-                config.fri_config.cap_height,
-                &mut timing,
-                None,
-            )
-        );
+        let trace_commitments =
+            timed!(
+                timing,
+                "compute trace commitment",
+                PolynomialBatch::<F, C, D>::from_values(
+                    cloned_trace_poly_values,
+                    config.fri_config.rate_bits,
+                    false,
+                    config.fri_config.cap_height,
+                    &mut timing,
+                    None,
+                )
+            );
         let degree = 1 << trace_commitments.degree_log;
 
         // Fake CTL data.

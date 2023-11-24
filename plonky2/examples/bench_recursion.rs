@@ -398,10 +398,7 @@ fn parse_hex_u64(src: &str) -> Result<u64, ParseIntError> {
 
 fn parse_range_usize(src: &str) -> Result<RangeInclusive<usize>, ParseIntError> {
     if let Some((left, right)) = src.split_once("..=") {
-        Ok(RangeInclusive::new(
-            usize::from_str(left)?,
-            usize::from_str(right)?,
-        ))
+        Ok(RangeInclusive::new(usize::from_str(left)?, usize::from_str(right)?))
     } else if let Some((left, right)) = src.split_once("..") {
         Ok(RangeInclusive::new(
             usize::from_str(left)?,

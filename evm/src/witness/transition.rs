@@ -44,26 +44,14 @@ pub(crate) fn decode(registers: RegistersState, opcode: u8) -> Result<Operation,
         (0x05, _) => Ok(Operation::Syscall(opcode, 2, false)), // SDIV
         (0x06, _) => Ok(Operation::BinaryArithmetic(arithmetic::BinaryOperator::Mod)),
         (0x07, _) => Ok(Operation::Syscall(opcode, 2, false)), // SMOD
-        (0x08, _) => Ok(Operation::TernaryArithmetic(
-            arithmetic::TernaryOperator::AddMod,
-        )),
-        (0x09, _) => Ok(Operation::TernaryArithmetic(
-            arithmetic::TernaryOperator::MulMod,
-        )),
+        (0x08, _) => Ok(Operation::TernaryArithmetic(arithmetic::TernaryOperator::AddMod)),
+        (0x09, _) => Ok(Operation::TernaryArithmetic(arithmetic::TernaryOperator::MulMod)),
         (0x0a, _) => Ok(Operation::Syscall(opcode, 2, false)), // EXP
         (0x0b, _) => Ok(Operation::Syscall(opcode, 2, false)), // SIGNEXTEND
-        (0x0c, true) => Ok(Operation::BinaryArithmetic(
-            arithmetic::BinaryOperator::AddFp254,
-        )),
-        (0x0d, true) => Ok(Operation::BinaryArithmetic(
-            arithmetic::BinaryOperator::MulFp254,
-        )),
-        (0x0e, true) => Ok(Operation::BinaryArithmetic(
-            arithmetic::BinaryOperator::SubFp254,
-        )),
-        (0x0f, true) => Ok(Operation::TernaryArithmetic(
-            arithmetic::TernaryOperator::SubMod,
-        )),
+        (0x0c, true) => Ok(Operation::BinaryArithmetic(arithmetic::BinaryOperator::AddFp254)),
+        (0x0d, true) => Ok(Operation::BinaryArithmetic(arithmetic::BinaryOperator::MulFp254)),
+        (0x0e, true) => Ok(Operation::BinaryArithmetic(arithmetic::BinaryOperator::SubFp254)),
+        (0x0f, true) => Ok(Operation::TernaryArithmetic(arithmetic::TernaryOperator::SubMod)),
         (0x10, _) => Ok(Operation::BinaryArithmetic(arithmetic::BinaryOperator::Lt)),
         (0x11, _) => Ok(Operation::BinaryArithmetic(arithmetic::BinaryOperator::Gt)),
         (0x12, _) => Ok(Operation::Syscall(opcode, 2, false)), // SLT
@@ -74,9 +62,7 @@ pub(crate) fn decode(registers: RegistersState, opcode: u8) -> Result<Operation,
         (0x17, _) => Ok(Operation::BinaryLogic(logic::Op::Or)),
         (0x18, _) => Ok(Operation::BinaryLogic(logic::Op::Xor)),
         (0x19, _) => Ok(Operation::Not),
-        (0x1a, _) => Ok(Operation::BinaryArithmetic(
-            arithmetic::BinaryOperator::Byte,
-        )),
+        (0x1a, _) => Ok(Operation::BinaryArithmetic(arithmetic::BinaryOperator::Byte)),
         (0x1b, _) => Ok(Operation::BinaryArithmetic(arithmetic::BinaryOperator::Shl)),
         (0x1c, _) => Ok(Operation::BinaryArithmetic(arithmetic::BinaryOperator::Shr)),
         (0x1d, _) => Ok(Operation::Syscall(opcode, 2, false)), // SAR
@@ -337,13 +323,14 @@ fn try_perform_instruction<F: Field>(state: &mut GenerationState<F>) -> Result<(
             virt: state.registers.stack_len - 1,
         };
 
-        let mem_op = MemoryOp::new(
-            GeneralPurpose(0),
-            state.traces.clock(),
-            address,
-            MemoryOpKind::Read,
-            state.registers.stack_top,
-        );
+        let mem_op =
+            MemoryOp::new(
+                GeneralPurpose(0),
+                state.traces.clock(),
+                address,
+                MemoryOpKind::Read,
+                state.registers.stack_top,
+            );
         state.traces.push_memory(mem_op);
         state.registers.is_stack_top_read = false;
     }

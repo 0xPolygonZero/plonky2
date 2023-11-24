@@ -179,10 +179,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D> for Loo
     }
 
     fn dependencies(&self) -> Vec<Target> {
-        vec![Target::wire(
-            self.row,
-            LookupGate::wire_ith_looking_inp(self.slot_nb),
-        )]
+        vec![Target::wire(self.row, LookupGate::wire_ith_looking_inp(self.slot_nb))]
     }
 
     fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {

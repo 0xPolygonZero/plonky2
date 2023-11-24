@@ -59,12 +59,13 @@ fn test_state_trie(
     // Ignore any storage_root; see documentation note.
     account.storage_root = HashedPartialTrie::from(Node::Empty).hash();
 
-    let trie_inputs = TrieInputs {
-        state_trie: state_trie.clone(),
-        transactions_trie: Default::default(),
-        receipts_trie: Default::default(),
-        storage_tries: vec![],
-    };
+    let trie_inputs =
+        TrieInputs {
+            state_trie: state_trie.clone(),
+            transactions_trie: Default::default(),
+            receipts_trie: Default::default(),
+            storage_tries: vec![],
+        };
     let load_all_mpts = KERNEL.global_labels["load_all_mpts"];
     let mpt_insert_state_trie = KERNEL.global_labels["mpt_insert_state_trie"];
     let mpt_delete = KERNEL.global_labels["mpt_delete"];

@@ -47,17 +47,18 @@ const OPCODES: [(u8, usize, bool, usize); 9] = [
 /// List of combined opcodes requiring a special handling.
 /// Each index in the list corresponds to an arbitrary combination
 /// of opcodes defined in evm/src/cpu/columns/ops.rs.
-const COMBINED_OPCODES: [usize; 9] = [
-    COL_MAP.op.logic_op,
-    COL_MAP.op.fp254_op,
-    COL_MAP.op.binary_op,
-    COL_MAP.op.ternary_op,
-    COL_MAP.op.shift,
-    COL_MAP.op.m_op_general,
-    COL_MAP.op.jumpdest_keccak_general,
-    COL_MAP.op.not_pop,
-    COL_MAP.op.pc_push0,
-];
+const COMBINED_OPCODES: [usize; 9] =
+    [
+        COL_MAP.op.logic_op,
+        COL_MAP.op.fp254_op,
+        COL_MAP.op.binary_op,
+        COL_MAP.op.ternary_op,
+        COL_MAP.op.shift,
+        COL_MAP.op.m_op_general,
+        COL_MAP.op.jumpdest_keccak_general,
+        COL_MAP.op.not_pop,
+        COL_MAP.op.pc_push0,
+    ];
 
 /// Break up an opcode (which is 8 bits long) into its eight bits.
 const fn bits_from_opcode(opcode: u8) -> [bool; 8] {
@@ -115,18 +116,18 @@ pub(crate) fn eval_packed_generic<P: PackedField>(
             true => P::ONES - kernel_mode,
         };
         // 0 if all the opcode bits match, and something in {1, ..., 8}, otherwise.
-        let opcode_mismatch: P = lv
-            .opcode_bits
-            .into_iter()
-            .zip(bits_from_opcode(oc))
-            .rev()
-            .take(8 - block_length)
-            .map(|(row_bit, flag_bit)| match flag_bit {
-                // 1 if the bit does not match, and 0 otherwise
-                false => row_bit,
-                true => P::ONES - row_bit,
-            })
-            .sum();
+        let opcode_mismatch: P =
+            lv.opcode_bits
+                .into_iter()
+                .zip(bits_from_opcode(oc))
+                .rev()
+                .take(8 - block_length)
+                .map(|(row_bit, flag_bit)| match flag_bit {
+                    // 1 if the bit does not match, and 0 otherwise
+                    false => row_bit,
+                    true => P::ONES - row_bit,
+                })
+                .sum();
 
         // If unavailable + opcode_mismatch is 0, then the opcode bits all match and we are in the
         // correct mode.

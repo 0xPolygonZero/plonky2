@@ -71,12 +71,13 @@ impl<F: RichField + Extendable<D>, const D: usize> CosetInterpolationGate<F, D> 
         // Minimizing the degree this way allows the gate to be in a larger selector group
         let degree = (n_points - 2) / (n_intermediates + 1) + 2;
 
-        let barycentric_weights = barycentric_weights(
-            &F::two_adic_subgroup(subgroup_bits)
-                .into_iter()
-                .map(|x| (x, F::ZERO))
-                .collect::<Vec<_>>(),
-        );
+        let barycentric_weights =
+            barycentric_weights(
+                &F::two_adic_subgroup(subgroup_bits)
+                    .into_iter()
+                    .map(|x| (x, F::ZERO))
+                    .collect::<Vec<_>>(),
+            );
 
         Self {
             subgroup_bits,
@@ -223,14 +224,15 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for CosetInterpola
 
             let start_index = 1 + (self.degree() - 1) * (i + 1);
             let end_index = (start_index + self.degree() - 1).min(self.num_points());
-            (computed_eval, computed_prod) = partial_interpolate_ext_algebra(
-                &domain[start_index..end_index],
-                &values[start_index..end_index],
-                &weights[start_index..end_index],
-                shifted_evaluation_point,
-                intermediate_eval,
-                intermediate_prod,
-            );
+            (computed_eval, computed_prod) =
+                partial_interpolate_ext_algebra(
+                    &domain[start_index..end_index],
+                    &values[start_index..end_index],
+                    &weights[start_index..end_index],
+                    shifted_evaluation_point,
+                    intermediate_eval,
+                    intermediate_prod,
+                );
         }
 
         let evaluation_value = vars.get_local_ext_algebra(self.wires_evaluation_value());
@@ -415,12 +417,13 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D>
     }
 
     fn dependencies(&self) -> Vec<Target> {
-        let local_target = |column| {
-            Target::Wire(Wire {
-                row: self.row,
-                column,
-            })
-        };
+        let local_target =
+            |column| {
+                Target::Wire(Wire {
+                    row: self.row,
+                    column,
+                })
+            };
 
         let local_targets = |columns: Range<usize>| columns.map(local_target);
 

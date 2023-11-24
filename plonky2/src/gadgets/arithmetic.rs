@@ -127,11 +127,12 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         } else {
             None
         };
-        let second_term_const = if second_term_zero {
-            Some(F::ZERO)
-        } else {
-            addend_const.map(|x| x * const_1)
-        };
+        let second_term_const =
+            if second_term_zero {
+                Some(F::ZERO)
+            } else {
+                addend_const.map(|x| x * const_1)
+            };
         if let (Some(x), Some(y)) = (first_term_const, second_term_const) {
             return Some(self.constant(x + y));
         }
@@ -292,13 +293,14 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             // We can arithmetize this as:
             //     product *= 1 + bit (base^pow - 1)
             //     product = (base^pow - 1) product bit + product
-            product = self.arithmetic(
-                base.exp_u64(pow as u64) - F::ONE,
-                F::ONE,
-                product,
-                bit.target,
-                product,
-            )
+            product =
+                self.arithmetic(
+                    base.exp_u64(pow as u64) - F::ONE,
+                    F::ONE,
+                    product,
+                    bit.target,
+                    product,
+                )
         }
         product
     }

@@ -91,30 +91,31 @@ where
     let cap_height = config.fri_config.cap_height;
 
     // For each STARK, we compute the polynomial commitments for the polynomials interpolating its trace.
-    let trace_commitments = timed!(
-        timing,
-        "compute all trace commitments",
-        trace_poly_values
-            .iter()
-            .zip_eq(Table::all())
-            .map(|(trace, table)| {
-                timed!(
-                    timing,
-                    &format!("compute trace commitment for {:?}", table),
-                    PolynomialBatch::<F, C, D>::from_values(
-                        // TODO: Cloning this isn't great; consider having `from_values` accept a reference,
-                        // or having `compute_permutation_z_polys` read trace values from the `PolynomialBatch`.
-                        trace.clone(),
-                        rate_bits,
-                        false,
-                        cap_height,
+    let trace_commitments =
+        timed!(
+            timing,
+            "compute all trace commitments",
+            trace_poly_values
+                .iter()
+                .zip_eq(Table::all())
+                .map(|(trace, table)| {
+                    timed!(
                         timing,
-                        None,
+                        &format!("compute trace commitment for {:?}", table),
+                        PolynomialBatch::<F, C, D>::from_values(
+                            // TODO: Cloning this isn't great; consider having `from_values` accept a reference,
+                            // or having `compute_permutation_z_polys` read trace values from the `PolynomialBatch`.
+                            trace.clone(),
+                            rate_bits,
+                            false,
+                            cap_height,
+                            timing,
+                            None,
+                        )
                     )
-                )
-            })
-            .collect::<Vec<_>>()
-    );
+                })
+                .collect::<Vec<_>>()
+        );
 
     // Get the Merkle caps for all trace commitments and observe them.
     let trace_caps = trace_commitments
@@ -336,13 +337,14 @@ where
     let init_challenger_state = challenger.compact();
 
     let constraint_degree = stark.constraint_degree();
-    let lookup_challenges = stark.uses_lookups().then(|| {
-        ctl_challenges
-            .challenges
-            .iter()
-            .map(|ch| ch.beta)
-            .collect::<Vec<_>>()
-    });
+    let lookup_challenges =
+        stark.uses_lookups().then(|| {
+            ctl_challenges
+                .challenges
+                .iter()
+                .map(|ch| ch.beta)
+                .collect::<Vec<_>>()
+        });
     let lookups = stark.lookups();
     let lookup_helper_columns = timed!(
         timing,
@@ -376,18 +378,19 @@ where
     assert!(!auxiliary_polys.is_empty(), "No CTL?");
 
     // Get the polynomial commitments for all auxiliary polynomials.
-    let auxiliary_polys_commitment = timed!(
-        timing,
-        "compute auxiliary polynomials commitment",
-        PolynomialBatch::from_values(
-            auxiliary_polys,
-            rate_bits,
-            false,
-            config.fri_config.cap_height,
+    let auxiliary_polys_commitment =
+        timed!(
             timing,
-            None,
-        )
-    );
+            "compute auxiliary polynomials commitment",
+            PolynomialBatch::from_values(
+                auxiliary_polys,
+                rate_bits,
+                false,
+                config.fri_config.cap_height,
+                timing,
+                None,
+            )
+        );
 
     let auxiliary_polys_cap = auxiliary_polys_commitment.merkle_tree.cap.clone();
     challenger.observe_cap(&auxiliary_polys_cap);
@@ -486,25 +489,27 @@ where
         &quotient_commitment,
     ];
 
-    let opening_proof = timed!(
-        timing,
-        "compute openings proof",
-        PolynomialBatch::prove_openings(
-            &stark.fri_instance(zeta, g, ctl_data.len(), config),
-            &initial_merkle_trees,
-            challenger,
-            &fri_params,
+    let opening_proof =
+        timed!(
             timing,
-        )
-    );
+            "compute openings proof",
+            PolynomialBatch::prove_openings(
+                &stark.fri_instance(zeta, g, ctl_data.len(), config),
+                &initial_merkle_trees,
+                challenger,
+                &fri_params,
+                timing,
+            )
+        );
 
-    let proof = StarkProof {
-        trace_cap: trace_commitment.merkle_tree.cap.clone(),
-        auxiliary_polys_cap,
-        quotient_polys_cap,
-        openings,
-        opening_proof,
-    };
+    let proof =
+        StarkProof {
+            trace_cap: trace_commitment.merkle_tree.cap.clone(),
+            auxiliary_polys_cap,
+            quotient_polys_cap,
+            openings,
+            opening_proof,
+        };
     Ok(StarkProofWithMetadata {
         init_challenger_state,
         proof,

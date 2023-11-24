@@ -381,13 +381,14 @@ where
             &all_stark.cross_table_lookups,
             stark_config,
         );
-        let keccak = RecursiveCircuitsForTable::new(
-            Table::Keccak,
-            &all_stark.keccak_stark,
-            degree_bits_ranges[Table::Keccak as usize].clone(),
-            &all_stark.cross_table_lookups,
-            stark_config,
-        );
+        let keccak =
+            RecursiveCircuitsForTable::new(
+                Table::Keccak,
+                &all_stark.keccak_stark,
+                degree_bits_ranges[Table::Keccak as usize].clone(),
+                &all_stark.cross_table_lookups,
+                stark_config,
+            );
         let keccak_sponge = RecursiveCircuitsForTable::new(
             Table::KeccakSponge,
             &all_stark.keccak_sponge_stark,
@@ -395,30 +396,33 @@ where
             &all_stark.cross_table_lookups,
             stark_config,
         );
-        let logic = RecursiveCircuitsForTable::new(
-            Table::Logic,
-            &all_stark.logic_stark,
-            degree_bits_ranges[Table::Logic as usize].clone(),
-            &all_stark.cross_table_lookups,
-            stark_config,
-        );
-        let memory = RecursiveCircuitsForTable::new(
-            Table::Memory,
-            &all_stark.memory_stark,
-            degree_bits_ranges[Table::Memory as usize].clone(),
-            &all_stark.cross_table_lookups,
-            stark_config,
-        );
+        let logic =
+            RecursiveCircuitsForTable::new(
+                Table::Logic,
+                &all_stark.logic_stark,
+                degree_bits_ranges[Table::Logic as usize].clone(),
+                &all_stark.cross_table_lookups,
+                stark_config,
+            );
+        let memory =
+            RecursiveCircuitsForTable::new(
+                Table::Memory,
+                &all_stark.memory_stark,
+                degree_bits_ranges[Table::Memory as usize].clone(),
+                &all_stark.cross_table_lookups,
+                stark_config,
+            );
 
-        let by_table = [
-            arithmetic,
-            byte_packing,
-            cpu,
-            keccak,
-            keccak_sponge,
-            logic,
-            memory,
-        ];
+        let by_table =
+            [
+                arithmetic,
+                byte_packing,
+                cpu,
+                keccak,
+                keccak_sponge,
+                logic,
+                memory,
+            ];
         let root = Self::create_root_circuit(&by_table, stark_config);
         let aggregation = Self::create_aggregation_circuit(&root);
         let block = Self::create_block_circuit(&aggregation);
@@ -938,9 +942,7 @@ where
             &self.root.public_values,
             &all_proof.public_values,
         )
-        .map_err(|_| {
-            anyhow::Error::msg("Invalid conversion when setting public values targets.")
-        })?;
+        .map_err(|_| anyhow::Error::msg("Invalid conversion when setting public values targets."))?;
 
         let root_proof = self.root.circuit.prove(root_inputs)?;
 
@@ -997,9 +999,7 @@ where
             &self.aggregation.public_values,
             &agg_public_values,
         )
-        .map_err(|_| {
-            anyhow::Error::msg("Invalid conversion when setting public values targets.")
-        })?;
+        .map_err(|_| anyhow::Error::msg("Invalid conversion when setting public values targets."))?;
 
         let aggregation_proof = self.aggregation.circuit.prove(agg_inputs)?;
         Ok((aggregation_proof, agg_public_values))
@@ -1052,9 +1052,9 @@ where
                     + BlockMetadataTarget::SIZE
                     + BlockHashesTarget::BLOCK_HASHES_SIZE
                     + 8;
-            for (key, &value) in genesis_state_trie_keys.zip_eq(&h256_limbs::<F>(
-                public_values.extra_block_data.genesis_state_trie_root,
-            )) {
+            for (key, &value) in genesis_state_trie_keys
+                .zip_eq(&h256_limbs::<F>(public_values.extra_block_data.genesis_state_trie_root))
+            {
                 nonzero_pis.insert(key, value);
             }
 
@@ -1096,9 +1096,9 @@ where
             .set_verifier_data_target(&self.block.cyclic_vk, &self.block.circuit.verifier_only);
 
         set_public_value_targets(&mut block_inputs, &self.block.public_values, &public_values)
-            .map_err(|_| {
-                anyhow::Error::msg("Invalid conversion when setting public values targets.")
-            })?;
+            .map_err(
+                |_| anyhow::Error::msg("Invalid conversion when setting public values targets.")
+            )?;
 
         let block_proof = self.block.circuit.prove(block_inputs)?;
         Ok((block_proof, public_values))

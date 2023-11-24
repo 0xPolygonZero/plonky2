@@ -228,11 +228,12 @@ where
     let lookup_polys =
         compute_all_lookup_polys(&witness, &deltas, prover_data, common_data, has_lookup);
 
-    let zs_partial_products_lookups = if has_lookup {
-        [zs_partial_products, lookup_polys].concat()
-    } else {
-        zs_partial_products
-    };
+    let zs_partial_products_lookups =
+        if has_lookup {
+            [zs_partial_products, lookup_polys].concat()
+        } else {
+            zs_partial_products
+        };
 
     let partial_products_zs_and_lookup_commitment = timed!(
         timing,
@@ -396,33 +397,34 @@ fn wires_permutation_partial_products_and_zs<
     let subgroup = &prover_data.subgroup;
     let k_is = &common_data.k_is;
     let num_prods = common_data.num_partial_products;
-    let all_quotient_chunk_products = subgroup
-        .par_iter()
-        .enumerate()
-        .map(|(i, &x)| {
-            let s_sigmas = &prover_data.sigmas[i];
-            let numerators = (0..common_data.config.num_routed_wires).map(|j| {
-                let wire_value = witness.get_wire(i, j);
-                let k_i = k_is[j];
-                let s_id = k_i * x;
-                wire_value + beta * s_id + gamma
-            });
-            let denominators = (0..common_data.config.num_routed_wires)
-                .map(|j| {
+    let all_quotient_chunk_products =
+        subgroup
+            .par_iter()
+            .enumerate()
+            .map(|(i, &x)| {
+                let s_sigmas = &prover_data.sigmas[i];
+                let numerators = (0..common_data.config.num_routed_wires).map(|j| {
                     let wire_value = witness.get_wire(i, j);
-                    let s_sigma = s_sigmas[j];
-                    wire_value + beta * s_sigma + gamma
-                })
-                .collect::<Vec<_>>();
-            let denominator_invs = F::batch_multiplicative_inverse(&denominators);
-            let quotient_values = numerators
-                .zip(denominator_invs)
-                .map(|(num, den_inv)| num * den_inv)
-                .collect::<Vec<_>>();
+                    let k_i = k_is[j];
+                    let s_id = k_i * x;
+                    wire_value + beta * s_id + gamma
+                });
+                let denominators = (0..common_data.config.num_routed_wires)
+                    .map(|j| {
+                        let wire_value = witness.get_wire(i, j);
+                        let s_sigma = s_sigmas[j];
+                        wire_value + beta * s_sigma + gamma
+                    })
+                    .collect::<Vec<_>>();
+                let denominator_invs = F::batch_multiplicative_inverse(&denominators);
+                let quotient_values = numerators
+                    .zip(denominator_invs)
+                    .map(|(num, den_inv)| num * den_inv)
+                    .collect::<Vec<_>>();
 
-            quotient_chunk_products(&quotient_values, degree)
-        })
-        .collect::<Vec<_>>();
+                quotient_chunk_products(&quotient_values, degree)
+            })
+            .collect::<Vec<_>>();
 
     let mut z_x = F::ONE;
     let mut all_partial_products_and_zs = Vec::with_capacity(all_quotient_chunk_products.len());
@@ -641,34 +643,35 @@ fn compute_quotient_polys<
     // These values are used to produce the final RE constraints for each lut,
     // and are the same each time in check_lookup_constraints_batched.
     // lut_poly_evals[i][j] gives the eval for the i'th challenge and the j'th lookup table
-    let lut_re_poly_evals: Vec<Vec<F>> = if has_lookup {
-        let num_lut_slots = LookupTableGate::num_slots(&common_data.config);
-        (0..num_challenges)
-            .map(move |i| {
-                let cur_deltas = &deltas[NUM_COINS_LOOKUP * i..NUM_COINS_LOOKUP * (i + 1)];
-                let cur_challenge_delta = cur_deltas[LookupChallenges::ChallengeDelta as usize];
+    let lut_re_poly_evals: Vec<Vec<F>> =
+        if has_lookup {
+            let num_lut_slots = LookupTableGate::num_slots(&common_data.config);
+            (0..num_challenges)
+                .map(move |i| {
+                    let cur_deltas = &deltas[NUM_COINS_LOOKUP * i..NUM_COINS_LOOKUP * (i + 1)];
+                    let cur_challenge_delta = cur_deltas[LookupChallenges::ChallengeDelta as usize];
 
-                (LookupSelectors::StartEnd as usize..common_data.num_lookup_selectors)
-                    .map(|r| {
-                        let lut_row_number = ceil_div_usize(
-                            common_data.luts[r - LookupSelectors::StartEnd as usize].len(),
-                            num_lut_slots,
-                        );
+                    (LookupSelectors::StartEnd as usize..common_data.num_lookup_selectors)
+                        .map(|r| {
+                            let lut_row_number = ceil_div_usize(
+                                common_data.luts[r - LookupSelectors::StartEnd as usize].len(),
+                                num_lut_slots,
+                            );
 
-                        get_lut_poly(
-                            common_data,
-                            r - LookupSelectors::StartEnd as usize,
-                            cur_deltas,
-                            num_lut_slots * lut_row_number,
-                        )
-                        .eval(cur_challenge_delta)
-                    })
-                    .collect()
-            })
-            .collect()
-    } else {
-        vec![]
-    };
+                            get_lut_poly(
+                                common_data,
+                                r - LookupSelectors::StartEnd as usize,
+                                cur_deltas,
+                                num_lut_slots * lut_row_number,
+                            )
+                            .eval(cur_challenge_delta)
+                        })
+                        .collect()
+                })
+                .collect()
+        } else {
+            vec![]
+        };
 
     let lut_re_poly_evals_refs: Vec<&[F]> =
         lut_re_poly_evals.iter().map(|v| v.as_slice()).collect();
@@ -762,12 +765,13 @@ fn compute_quotient_polys<
                 }
             }
 
-            let vars_batch = EvaluationVarsBaseBatch::new(
-                xs_batch.len(),
-                &local_constants_batch,
-                &local_wires_batch,
-                public_inputs_hash,
-            );
+            let vars_batch =
+                EvaluationVarsBaseBatch::new(
+                    xs_batch.len(),
+                    &local_constants_batch,
+                    &local_wires_batch,
+                    public_inputs_hash,
+                );
 
             let mut quotient_values_batch = eval_vanishing_poly_base_batch::<F, D>(
                 common_data,

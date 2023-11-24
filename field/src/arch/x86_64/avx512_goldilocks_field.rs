@@ -371,16 +371,18 @@ unsafe fn interleave1(x: __m512i, y: __m512i) -> (__m512i, __m512i) {
     (a, b)
 }
 
-const INTERLEAVE2_IDX_A: __m512i = unsafe {
-    transmute([
-        0o00u64, 0o01u64, 0o10u64, 0o11u64, 0o04u64, 0o05u64, 0o14u64, 0o15u64,
-    ])
-};
-const INTERLEAVE2_IDX_B: __m512i = unsafe {
-    transmute([
-        0o02u64, 0o03u64, 0o12u64, 0o13u64, 0o06u64, 0o07u64, 0o16u64, 0o17u64,
-    ])
-};
+const INTERLEAVE2_IDX_A: __m512i =
+    unsafe {
+        transmute([
+            0o00u64, 0o01u64, 0o10u64, 0o11u64, 0o04u64, 0o05u64, 0o14u64, 0o15u64,
+        ])
+    };
+const INTERLEAVE2_IDX_B: __m512i =
+    unsafe {
+        transmute([
+            0o02u64, 0o03u64, 0o12u64, 0o13u64, 0o06u64, 0o07u64, 0o16u64, 0o17u64,
+        ])
+    };
 
 #[inline]
 unsafe fn interleave2(x: __m512i, y: __m512i) -> (__m512i, __m512i) {

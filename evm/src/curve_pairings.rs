@@ -109,12 +109,13 @@ pub trait CyclicGroup {
 ///     (x, y): (BN254, BN254) | y^2 = x^3 + 2
 // with generator given by (1, 2)
 impl CyclicGroup for Curve<BN254> {
-    const GENERATOR: Curve<BN254> = Curve {
-        x: BN254 { val: U256::one() },
-        y: BN254 {
-            val: U256([2, 0, 0, 0]),
-        },
-    };
+    const GENERATOR: Curve<BN254> =
+        Curve {
+            x: BN254 { val: U256::one() },
+            y: BN254 {
+                val: U256([2, 0, 0, 0]),
+            },
+        };
 }
 
 impl<T> Mul<i32> for Curve<T>

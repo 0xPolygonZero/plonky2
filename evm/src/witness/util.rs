@@ -108,13 +108,14 @@ pub(crate) fn mem_read_with_log<F: Field>(
     state: &GenerationState<F>,
 ) -> (U256, MemoryOp) {
     let val = state.memory.get(address);
-    let op = MemoryOp::new(
-        channel,
-        state.traces.clock(),
-        address,
-        MemoryOpKind::Read,
-        val,
-    );
+    let op =
+        MemoryOp::new(
+            channel,
+            state.traces.clock(),
+            address,
+            MemoryOpKind::Read,
+            val,
+        );
     (val, op)
 }
 

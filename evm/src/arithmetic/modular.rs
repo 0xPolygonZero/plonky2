@@ -785,26 +785,28 @@ pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let addmul_filter = builder.add_extension(add_filter, mul_filter);
 
     // constr_poly has 2*N_LIMBS limbs
-    let submod_constr_poly = submod_constr_poly_ext_circuit(
-        lv,
-        nv,
-        builder,
-        yield_constr,
-        sub_filter,
-        output,
-        modulus,
-        quo_input,
-    );
-    let modular_constr_poly = modular_constr_poly_ext_circuit(
-        lv,
-        nv,
-        builder,
-        yield_constr,
-        addmul_filter,
-        output,
-        modulus,
-        quo_input,
-    );
+    let submod_constr_poly =
+        submod_constr_poly_ext_circuit(
+            lv,
+            nv,
+            builder,
+            yield_constr,
+            sub_filter,
+            output,
+            modulus,
+            quo_input,
+        );
+    let modular_constr_poly =
+        modular_constr_poly_ext_circuit(
+            lv,
+            nv,
+            builder,
+            yield_constr,
+            addmul_filter,
+            output,
+            modulus,
+            quo_input,
+        );
     let input0 = read_value(lv, MODULAR_INPUT_0);
     let input1 = read_value(lv, MODULAR_INPUT_1);
 
@@ -839,14 +841,15 @@ mod tests {
     use crate::extension_tower::BN_BASE;
 
     const N_RND_TESTS: usize = 1000;
-    const MODULAR_OPS: [usize; 6] = [
-        IS_ADDMOD,
-        IS_SUBMOD,
-        IS_MULMOD,
-        IS_ADDFP254,
-        IS_SUBFP254,
-        IS_MULFP254,
-    ];
+    const MODULAR_OPS: [usize; 6] =
+        [
+            IS_ADDMOD,
+            IS_SUBMOD,
+            IS_MULMOD,
+            IS_ADDFP254,
+            IS_SUBFP254,
+            IS_MULFP254,
+        ];
 
     // TODO: Should be able to refactor this test to apply to all operations.
     #[test]

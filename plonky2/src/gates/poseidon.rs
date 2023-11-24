@@ -489,9 +489,7 @@ impl<F: RichField + Extendable<D> + Poseidon, const D: usize> SimpleGenerator<F,
             state = <F as Poseidon>::mds_partial_layer_fast_field(&state, r);
         }
         out_buffer.set_wire(
-            local_wire(PoseidonGate::<F, D>::wire_partial_sbox(
-                poseidon::N_PARTIAL_ROUNDS - 1,
-            )),
+            local_wire(PoseidonGate::<F, D>::wire_partial_sbox(poseidon::N_PARTIAL_ROUNDS - 1)),
             state[0],
         );
         state[0] = <F as Poseidon>::sbox_monomial(state[0]);

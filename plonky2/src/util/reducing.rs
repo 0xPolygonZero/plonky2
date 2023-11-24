@@ -141,10 +141,11 @@ impl<const D: usize> ReducingFactorTarget<D> {
             return self.reduce_arithmetic(&terms_ext, builder);
         }
 
-        let max_coeffs_len = ReducingGate::<D>::max_coeffs_len(
-            builder.config.num_wires,
-            builder.config.num_routed_wires,
-        );
+        let max_coeffs_len =
+            ReducingGate::<D>::max_coeffs_len(
+                builder.config.num_wires,
+                builder.config.num_routed_wires,
+            );
         self.count += l as u64;
         let zero = builder.zero();
         let zero_ext = builder.zero_extension();

@@ -181,9 +181,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D>
 
     fn dependencies(&self) -> Vec<Target> {
         ArithmeticExtensionGate::<D>::wires_ith_multiplicand_0(self.i)
-            .chain(ArithmeticExtensionGate::<D>::wires_ith_multiplicand_1(
-                self.i,
-            ))
+            .chain(ArithmeticExtensionGate::<D>::wires_ith_multiplicand_1(self.i))
             .chain(ArithmeticExtensionGate::<D>::wires_ith_addend(self.i))
             .map(|i| Target::wire(self.row, i))
             .collect()
@@ -195,12 +193,10 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D>
             witness.get_extension_target(t)
         };
 
-        let multiplicand_0 = extract_extension(
-            ArithmeticExtensionGate::<D>::wires_ith_multiplicand_0(self.i),
-        );
-        let multiplicand_1 = extract_extension(
-            ArithmeticExtensionGate::<D>::wires_ith_multiplicand_1(self.i),
-        );
+        let multiplicand_0 =
+            extract_extension(ArithmeticExtensionGate::<D>::wires_ith_multiplicand_0(self.i));
+        let multiplicand_1 =
+            extract_extension(ArithmeticExtensionGate::<D>::wires_ith_multiplicand_1(self.i));
         let addend = extract_extension(ArithmeticExtensionGate::<D>::wires_ith_addend(self.i));
 
         let output_target = ExtensionTarget::from_range(

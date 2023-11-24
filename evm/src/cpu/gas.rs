@@ -48,22 +48,23 @@ fn eval_packed_accumulate<P: PackedField>(
 ) {
     // Is it an instruction that we constrain here?
     // I.e., does it always cost a constant amount of gas?
-    let filter: P = SIMPLE_OPCODES
-        .into_iter()
-        .enumerate()
-        .filter_map(|(i, maybe_cost)| {
-            // Add flag `lv.op[i]` to the sum if `SIMPLE_OPCODES[i]` is `Some`.
-            maybe_cost.map(|_| lv.op[i])
-        })
-        .sum();
+    let filter: P =
+        SIMPLE_OPCODES
+            .into_iter()
+            .enumerate()
+            .filter_map(|(i, maybe_cost)| {
+                // Add flag `lv.op[i]` to the sum if `SIMPLE_OPCODES[i]` is `Some`.
+                maybe_cost.map(|_| lv.op[i])
+            })
+            .sum();
 
     // How much gas did we use?
     let gas_used: P = SIMPLE_OPCODES
         .into_iter()
         .enumerate()
-        .filter_map(|(i, maybe_cost)| {
-            maybe_cost.map(|cost| P::Scalar::from_canonical_u32(cost) * lv.op[i])
-        })
+        .filter_map(
+            |(i, maybe_cost)| maybe_cost.map(|cost| P::Scalar::from_canonical_u32(cost) * lv.op[i])
+        )
         .sum();
 
     let constr = nv.gas - (lv.gas + gas_used);
@@ -146,16 +147,17 @@ fn eval_ext_circuit_accumulate<F: RichField + Extendable<D>, const D: usize>(
 ) {
     // Is it an instruction that we constrain here?
     // I.e., does it always cost a constant amount of gas?
-    let filter = SIMPLE_OPCODES.into_iter().enumerate().fold(
-        builder.zero_extension(),
-        |cumul, (i, maybe_cost)| {
-            // Add flag `lv.op[i]` to the sum if `SIMPLE_OPCODES[i]` is `Some`.
-            match maybe_cost {
-                None => cumul,
-                Some(_) => builder.add_extension(lv.op[i], cumul),
-            }
-        },
-    );
+    let filter =
+        SIMPLE_OPCODES.into_iter().enumerate().fold(
+            builder.zero_extension(),
+            |cumul, (i, maybe_cost)| {
+                // Add flag `lv.op[i]` to the sum if `SIMPLE_OPCODES[i]` is `Some`.
+                match maybe_cost {
+                    None => cumul,
+                    Some(_) => builder.add_extension(lv.op[i], cumul),
+                }
+            },
+        );
 
     // How much gas did we use?
     let gas_used = SIMPLE_OPCODES.into_iter().enumerate().fold(

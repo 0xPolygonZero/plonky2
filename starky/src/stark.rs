@@ -121,15 +121,16 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
             blinding: false,
         });
 
-        let zeta_batch = FriBatchInfo {
-            point: zeta,
-            polynomials: [
-                trace_info.clone(),
-                permutation_zs_info.clone(),
-                quotient_info,
-            ]
-            .concat(),
-        };
+        let zeta_batch =
+            FriBatchInfo {
+                point: zeta,
+                polynomials: [
+                    trace_info.clone(),
+                    permutation_zs_info.clone(),
+                    quotient_info,
+                ]
+                .concat(),
+            };
         let zeta_next_batch = FriBatchInfo {
             point: zeta.scalar_mul(g),
             polynomials: [trace_info, permutation_zs_info].concat(),
@@ -174,15 +175,16 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
             blinding: false,
         });
 
-        let zeta_batch = FriBatchInfoTarget {
-            point: zeta,
-            polynomials: [
-                trace_info.clone(),
-                permutation_zs_info.clone(),
-                quotient_info,
-            ]
-            .concat(),
-        };
+        let zeta_batch =
+            FriBatchInfoTarget {
+                point: zeta,
+                polynomials: [
+                    trace_info.clone(),
+                    permutation_zs_info.clone(),
+                    quotient_info,
+                ]
+                .concat(),
+            };
         let zeta_next = builder.mul_const_extension(g, zeta);
         let zeta_next_batch = FriBatchInfoTarget {
             point: zeta_next,

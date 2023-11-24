@@ -826,12 +826,12 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     fn constant_polys(&self) -> Vec<PolynomialValues<F>> {
-        let max_constants = self
-            .gates
-            .iter()
-            .map(|g| g.0.num_constants())
-            .max()
-            .unwrap();
+        let max_constants =
+            self.gates
+                .iter()
+                .map(|g| g.0.num_constants())
+                .max()
+                .unwrap();
         transpose(
             &self
                 .gate_instances
@@ -1016,11 +1016,12 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let subgroup = F::two_adic_subgroup(degree_bits);
 
         let k_is = get_unique_coset_shifts(degree, self.config.num_routed_wires);
-        let (sigma_vecs, forest) = timed!(
-            timing,
-            "generate sigma polynomials",
-            self.sigma_vecs(&k_is, &subgroup)
-        );
+        let (sigma_vecs, forest) =
+            timed!(
+                timing,
+                "generate sigma polynomials",
+                self.sigma_vecs(&k_is, &subgroup)
+            );
 
         // Precompute FFT roots.
         let max_fft_points = 1 << (degree_bits + max(rate_bits, log2_ceil(quotient_degree_factor)));
@@ -1080,11 +1081,12 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             indices.shrink_to_fit();
         }
 
-        let num_gate_constraints = gates
-            .iter()
-            .map(|gate| gate.0.num_constraints())
-            .max()
-            .expect("No gates?");
+        let num_gate_constraints =
+            gates
+                .iter()
+                .map(|gate| gate.0.num_constraints())
+                .max()
+                .expect("No gates?");
 
         let num_partial_products =
             num_partial_products(self.config.num_routed_wires, quotient_degree_factor);
@@ -1100,14 +1102,15 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let domain_separator = self.domain_separator.unwrap_or_default();
         let domain_separator_digest = C::Hasher::hash_pad(&domain_separator);
         // TODO: This should also include an encoding of gate constraints.
-        let circuit_digest_parts = [
-            constants_sigmas_cap.flatten(),
-            domain_separator_digest.to_vec(),
-            vec![
-                F::from_canonical_usize(degree_bits),
-                /* Add other circuit data here */
-            ],
-        ];
+        let circuit_digest_parts =
+            [
+                constants_sigmas_cap.flatten(),
+                domain_separator_digest.to_vec(),
+                vec![
+                    F::from_canonical_usize(degree_bits),
+                    /* Add other circuit data here */
+                ],
+            ];
         let circuit_digest = C::Hasher::hash_no_pad(&circuit_digest_parts.concat());
 
         let common = CommonCircuitData {

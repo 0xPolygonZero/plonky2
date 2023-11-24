@@ -124,9 +124,9 @@ impl<F: RichField + Extendable<D>, const D: usize> PackedEvaluableBase<F, D> for
         vars: EvaluationVarsBasePacked<P>,
         mut yield_constr: StridedConstraintConsumer<P>,
     ) {
-        yield_constr.many((0..self.num_consts).map(|i| {
-            vars.local_constants[self.const_input(i)] - vars.local_wires[self.wire_output(i)]
-        }));
+        yield_constr.many((0..self.num_consts).map(
+            |i| vars.local_constants[self.const_input(i)] - vars.local_wires[self.wire_output(i)]
+        ));
     }
 }
 

@@ -123,15 +123,16 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
         let quotient_info =
             FriPolynomialInfo::from_range(QUOTIENT_ORACLE_INDEX, 0..num_quotient_polys);
 
-        let zeta_batch = FriBatchInfo {
-            point: zeta,
-            polynomials: [
-                trace_info.clone(),
-                auxiliary_polys_info.clone(),
-                quotient_info,
-            ]
-            .concat(),
-        };
+        let zeta_batch =
+            FriBatchInfo {
+                point: zeta,
+                polynomials: [
+                    trace_info.clone(),
+                    auxiliary_polys_info.clone(),
+                    quotient_info,
+                ]
+                .concat(),
+            };
         let zeta_next_batch = FriBatchInfo {
             point: zeta.scalar_mul(g),
             polynomials: [trace_info, auxiliary_polys_info].concat(),
@@ -183,15 +184,16 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
         let quotient_info =
             FriPolynomialInfo::from_range(QUOTIENT_ORACLE_INDEX, 0..num_quotient_polys);
 
-        let zeta_batch = FriBatchInfoTarget {
-            point: zeta,
-            polynomials: [
-                trace_info.clone(),
-                auxiliary_polys_info.clone(),
-                quotient_info,
-            ]
-            .concat(),
-        };
+        let zeta_batch =
+            FriBatchInfoTarget {
+                point: zeta,
+                polynomials: [
+                    trace_info.clone(),
+                    auxiliary_polys_info.clone(),
+                    quotient_info,
+                ]
+                .concat(),
+            };
         let zeta_next = builder.mul_const_extension(g, zeta);
         let zeta_next_batch = FriBatchInfoTarget {
             point: zeta_next,

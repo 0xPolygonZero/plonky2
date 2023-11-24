@@ -411,9 +411,9 @@ impl TrieRootsTarget {
         tr1: Self,
     ) -> Self {
         Self {
-            state_root: core::array::from_fn(|i| {
-                builder.select(condition, tr0.state_root[i], tr1.state_root[i])
-            }),
+            state_root: core::array::from_fn(
+                |i| builder.select(condition, tr0.state_root[i], tr1.state_root[i])
+            ),
             transactions_root: core::array::from_fn(|i| {
                 builder.select(
                     condition,
@@ -421,9 +421,9 @@ impl TrieRootsTarget {
                     tr1.transactions_root[i],
                 )
             }),
-            receipts_root: core::array::from_fn(|i| {
-                builder.select(condition, tr0.receipts_root[i], tr1.receipts_root[i])
-            }),
+            receipts_root: core::array::from_fn(
+                |i| builder.select(condition, tr0.receipts_root[i], tr1.receipts_root[i])
+            ),
         }
     }
 
@@ -519,18 +519,18 @@ impl BlockMetadataTarget {
             block_timestamp: builder.select(condition, bm0.block_timestamp, bm1.block_timestamp),
             block_number: builder.select(condition, bm0.block_number, bm1.block_number),
             block_difficulty: builder.select(condition, bm0.block_difficulty, bm1.block_difficulty),
-            block_random: core::array::from_fn(|i| {
-                builder.select(condition, bm0.block_random[i], bm1.block_random[i])
-            }),
+            block_random: core::array::from_fn(
+                |i| builder.select(condition, bm0.block_random[i], bm1.block_random[i])
+            ),
             block_gaslimit: builder.select(condition, bm0.block_gaslimit, bm1.block_gaslimit),
             block_chain_id: builder.select(condition, bm0.block_chain_id, bm1.block_chain_id),
-            block_base_fee: core::array::from_fn(|i| {
-                builder.select(condition, bm0.block_base_fee[i], bm1.block_base_fee[i])
-            }),
+            block_base_fee: core::array::from_fn(
+                |i| builder.select(condition, bm0.block_base_fee[i], bm1.block_base_fee[i])
+            ),
             block_gas_used: builder.select(condition, bm0.block_gas_used, bm1.block_gas_used),
-            block_bloom: core::array::from_fn(|i| {
-                builder.select(condition, bm0.block_bloom[i], bm1.block_bloom[i])
-            }),
+            block_bloom: core::array::from_fn(
+                |i| builder.select(condition, bm0.block_bloom[i], bm1.block_bloom[i])
+            ),
         }
     }
 
@@ -600,12 +600,12 @@ impl BlockHashesTarget {
         bm1: Self,
     ) -> Self {
         Self {
-            prev_hashes: core::array::from_fn(|i| {
-                builder.select(condition, bm0.prev_hashes[i], bm1.prev_hashes[i])
-            }),
-            cur_hash: core::array::from_fn(|i| {
-                builder.select(condition, bm0.cur_hash[i], bm1.cur_hash[i])
-            }),
+            prev_hashes: core::array::from_fn(
+                |i| builder.select(condition, bm0.prev_hashes[i], bm1.prev_hashes[i])
+            ),
+            cur_hash: core::array::from_fn(
+                |i| builder.select(condition, bm0.cur_hash[i], bm1.cur_hash[i])
+            ),
         }
     }
 
@@ -774,10 +774,11 @@ where
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> StarkProof<F, C, D> {
     /// Recover the length of the trace from a STARK proof and a STARK config.
     pub fn recover_degree_bits(&self, config: &StarkConfig) -> usize {
-        let initial_merkle_proof = &self.opening_proof.query_round_proofs[0]
-            .initial_trees_proof
-            .evals_proofs[0]
-            .1;
+        let initial_merkle_proof =
+            &self.opening_proof.query_round_proofs[0]
+                .initial_trees_proof
+                .evals_proofs[0]
+                .1;
         let lde_bits = config.fri_config.cap_height + initial_merkle_proof.siblings.len();
         lde_bits - config.fri_config.rate_bits
     }
@@ -834,10 +835,11 @@ impl<const D: usize> StarkProofTarget<D> {
 
     /// Recover the length of the trace from a STARK proof and a STARK config.
     pub(crate) fn recover_degree_bits(&self, config: &StarkConfig) -> usize {
-        let initial_merkle_proof = &self.opening_proof.query_round_proofs[0]
-            .initial_trees_proof
-            .evals_proofs[0]
-            .1;
+        let initial_merkle_proof =
+            &self.opening_proof.query_round_proofs[0]
+                .initial_trees_proof
+                .evals_proofs[0]
+                .1;
         let lde_bits = config.fri_config.cap_height + initial_merkle_proof.siblings.len();
         lde_bits - config.fri_config.rate_bits
     }
@@ -902,12 +904,13 @@ impl<F: RichField + Extendable<D>, const D: usize> StarkOpeningSet<F, D> {
                 .collect::<Vec<_>>()
         };
         // Batch evaluates polynomials at a base field point `z`.
-        let eval_commitment_base = |z: F, c: &PolynomialBatch<F, C, D>| {
-            c.polynomials
-                .par_iter()
-                .map(|p| p.eval(z))
-                .collect::<Vec<_>>()
-        };
+        let eval_commitment_base =
+            |z: F, c: &PolynomialBatch<F, C, D>| {
+                c.polynomials
+                    .par_iter()
+                    .map(|p| p.eval(z))
+                    .collect::<Vec<_>>()
+            };
         // `g * zeta`.
         let zeta_next = zeta.scalar_mul(g);
         Self {

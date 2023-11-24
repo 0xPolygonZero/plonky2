@@ -37,10 +37,11 @@ pub struct StarkProof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, 
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> StarkProof<F, C, D> {
     /// Recover the length of the trace from a STARK proof and a STARK config.
     pub fn recover_degree_bits(&self, config: &StarkConfig) -> usize {
-        let initial_merkle_proof = &self.opening_proof.query_round_proofs[0]
-            .initial_trees_proof
-            .evals_proofs[0]
-            .1;
+        let initial_merkle_proof =
+            &self.opening_proof.query_round_proofs[0]
+                .initial_trees_proof
+                .evals_proofs[0]
+                .1;
         let lde_bits = config.fri_config.cap_height + initial_merkle_proof.siblings.len();
         lde_bits - config.fri_config.rate_bits
     }
@@ -57,10 +58,11 @@ pub struct StarkProofTarget<const D: usize> {
 impl<const D: usize> StarkProofTarget<D> {
     /// Recover the length of the trace from a STARK proof and a STARK config.
     pub fn recover_degree_bits(&self, config: &StarkConfig) -> usize {
-        let initial_merkle_proof = &self.opening_proof.query_round_proofs[0]
-            .initial_trees_proof
-            .evals_proofs[0]
-            .1;
+        let initial_merkle_proof =
+            &self.opening_proof.query_round_proofs[0]
+                .initial_trees_proof
+                .evals_proofs[0]
+                .1;
         let lde_bits = config.fri_config.cap_height + initial_merkle_proof.siblings.len();
         lde_bits - config.fri_config.rate_bits
     }
@@ -201,14 +203,15 @@ impl<const D: usize> StarkOpeningSetTarget<D> {
                 .copied()
                 .collect_vec(),
         };
-        let zeta_next_batch = FriOpeningBatchTarget {
-            values: self
-                .next_values
-                .iter()
-                .chain(self.permutation_zs_next.iter().flatten())
-                .copied()
-                .collect_vec(),
-        };
+        let zeta_next_batch =
+            FriOpeningBatchTarget {
+                values: self
+                    .next_values
+                    .iter()
+                    .chain(self.permutation_zs_next.iter().flatten())
+                    .copied()
+                    .collect_vec(),
+            };
         FriOpeningsTarget {
             batches: vec![zeta_batch, zeta_next_batch],
         }

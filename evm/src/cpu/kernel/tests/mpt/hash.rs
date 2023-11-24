@@ -13,12 +13,13 @@ use crate::Node;
 
 #[test]
 fn mpt_hash_empty() -> Result<()> {
-    let trie_inputs = TrieInputs {
-        state_trie: Default::default(),
-        transactions_trie: Default::default(),
-        receipts_trie: Default::default(),
-        storage_tries: vec![],
-    };
+    let trie_inputs =
+        TrieInputs {
+            state_trie: Default::default(),
+            transactions_trie: Default::default(),
+            receipts_trie: Default::default(),
+            storage_tries: vec![],
+        };
 
     test_state_trie(trie_inputs)
 }

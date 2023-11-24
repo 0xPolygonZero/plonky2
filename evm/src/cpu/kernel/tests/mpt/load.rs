@@ -17,12 +17,13 @@ use crate::Node;
 
 #[test]
 fn load_all_mpts_empty() -> Result<()> {
-    let trie_inputs = TrieInputs {
-        state_trie: Default::default(),
-        transactions_trie: Default::default(),
-        receipts_trie: Default::default(),
-        storage_tries: vec![],
-    };
+    let trie_inputs =
+        TrieInputs {
+            state_trie: Default::default(),
+            transactions_trie: Default::default(),
+            receipts_trie: Default::default(),
+            storage_tries: vec![],
+        };
 
     let load_all_mpts = KERNEL.global_labels["load_all_mpts"];
 
@@ -259,15 +260,16 @@ fn load_mpt_txn_trie() -> Result<()> {
 
     let txn = hex!("f860010a830186a094095e7baea6a6c7c4c2dfeb977efac326af552e89808025a04a223955b0bd3827e3740a9a427d0ea43beb5bafa44a0204bf0a3306c8219f7ba0502c32d78f233e9e7ce9f5df3b576556d5d49731e0678fd5a068cdf359557b5b").to_vec();
 
-    let trie_inputs = TrieInputs {
-        state_trie: Default::default(),
-        transactions_trie: HashedPartialTrie::from(Node::Leaf {
-            nibbles: Nibbles::from_str("0x80").unwrap(),
-            value: txn.clone(),
-        }),
-        receipts_trie: Default::default(),
-        storage_tries: vec![],
-    };
+    let trie_inputs =
+        TrieInputs {
+            state_trie: Default::default(),
+            transactions_trie: HashedPartialTrie::from(Node::Leaf {
+                nibbles: Nibbles::from_str("0x80").unwrap(),
+                value: txn.clone(),
+            }),
+            receipts_trie: Default::default(),
+            storage_tries: vec![],
+        };
 
     let initial_stack = vec![0xDEADBEEFu32.into()];
     let mut interpreter = Interpreter::new_with_kernel(load_all_mpts, initial_stack);

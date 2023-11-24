@@ -284,12 +284,13 @@ mod tests {
         lv[IS_LT] = F::ZERO;
         lv[IS_GT] = F::ZERO;
 
-        let mut constrant_consumer = ConstraintConsumer::new(
-            vec![GoldilocksField(2), GoldilocksField(3), GoldilocksField(5)],
-            F::ONE,
-            F::ONE,
-            F::ONE,
-        );
+        let mut constrant_consumer =
+            ConstraintConsumer::new(
+                vec![GoldilocksField(2), GoldilocksField(3), GoldilocksField(5)],
+                F::ONE,
+                F::ONE,
+                F::ONE,
+            );
         eval_packed_generic(&lv, &mut constrant_consumer);
         for &acc in &constrant_consumer.constraint_accs {
             assert_eq!(acc, F::ZERO);

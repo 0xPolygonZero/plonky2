@@ -39,10 +39,11 @@ pub(crate) fn read_trie<V>(
     read_value: fn(&[U256]) -> Result<V, ProgramError>,
 ) -> Result<HashMap<Nibbles, V>, ProgramError> {
     let mut res = HashMap::new();
-    let empty_nibbles = Nibbles {
-        count: 0,
-        packed: U512::zero(),
-    };
+    let empty_nibbles =
+        Nibbles {
+            count: 0,
+            packed: U512::zero(),
+        };
     read_trie_helper::<V>(memory, ptr, read_value, empty_nibbles, &mut res)?;
     Ok(res)
 }

@@ -237,13 +237,14 @@ fn ctl_memory<F: Field>() -> CrossTableLookup<F> {
         cpu_stark::ctl_data_partial_memory::<F>(),
         Some(cpu_stark::ctl_filter_partial_memory()),
     );
-    let keccak_sponge_reads = (0..KECCAK_RATE_BYTES).map(|i| {
-        TableWithColumns::new(
-            Table::KeccakSponge,
-            keccak_sponge_stark::ctl_looking_memory(i),
-            Some(keccak_sponge_stark::ctl_looking_memory_filter(i)),
-        )
-    });
+    let keccak_sponge_reads =
+        (0..KECCAK_RATE_BYTES).map(|i| {
+            TableWithColumns::new(
+                Table::KeccakSponge,
+                keccak_sponge_stark::ctl_looking_memory(i),
+                Some(keccak_sponge_stark::ctl_looking_memory_filter(i)),
+            )
+        });
     let byte_packing_ops = (0..32).map(|i| {
         TableWithColumns::new(
             Table::BytePacking,

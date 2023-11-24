@@ -48,11 +48,9 @@ fn test_insert_accessed_addresses() -> Result<()> {
     interpreter.run()?;
     assert_eq!(interpreter.stack(), &[U256::zero()]);
     assert_eq!(
-        interpreter.generation_state.memory.get(MemoryAddress::new(
-            0,
-            GlobalMetadata,
-            AccessedAddressesLen as usize
-        )),
+        interpreter.generation_state.memory.get(
+            MemoryAddress::new(0, GlobalMetadata, AccessedAddressesLen as usize)
+        ),
         U256::from(n)
     );
 
@@ -73,11 +71,9 @@ fn test_insert_accessed_addresses() -> Result<()> {
     interpreter.run()?;
     assert_eq!(interpreter.stack(), &[U256::one()]);
     assert_eq!(
-        interpreter.generation_state.memory.get(MemoryAddress::new(
-            0,
-            GlobalMetadata,
-            AccessedAddressesLen as usize
-        )),
+        interpreter.generation_state.memory.get(
+            MemoryAddress::new(0, GlobalMetadata, AccessedAddressesLen as usize)
+        ),
         U256::from(n + 1)
     );
     assert_eq!(
@@ -140,11 +136,9 @@ fn test_insert_accessed_storage_keys() -> Result<()> {
     interpreter.run()?;
     assert_eq!(interpreter.stack(), &[storage_key_in_list.2, U256::zero()]);
     assert_eq!(
-        interpreter.generation_state.memory.get(MemoryAddress::new(
-            0,
-            GlobalMetadata,
-            AccessedStorageKeysLen as usize
-        )),
+        interpreter.generation_state.memory.get(
+            MemoryAddress::new(0, GlobalMetadata, AccessedStorageKeysLen as usize)
+        ),
         U256::from(3 * n)
     );
 
@@ -181,11 +175,9 @@ fn test_insert_accessed_storage_keys() -> Result<()> {
         &[storage_key_not_in_list.2, U256::one()]
     );
     assert_eq!(
-        interpreter.generation_state.memory.get(MemoryAddress::new(
-            0,
-            GlobalMetadata,
-            AccessedStorageKeysLen as usize
-        )),
+        interpreter.generation_state.memory.get(
+            MemoryAddress::new(0, GlobalMetadata, AccessedStorageKeysLen as usize)
+        ),
         U256::from(3 * (n + 1))
     );
     assert_eq!(

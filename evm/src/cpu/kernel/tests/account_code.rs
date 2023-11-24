@@ -56,9 +56,7 @@ fn prepare_interpreter(
     interpreter.run()?;
     assert_eq!(interpreter.stack(), vec![]);
 
-    let k = nibbles_64(U256::from_big_endian(
-        keccak(address.to_fixed_bytes()).as_bytes(),
-    ));
+    let k = nibbles_64(U256::from_big_endian(keccak(address.to_fixed_bytes()).as_bytes()));
     // Next, execute mpt_insert_state_trie.
     interpreter.generation_state.registers.program_counter = mpt_insert_state_trie;
     let trie_data = interpreter.get_trie_data_mut();
@@ -247,11 +245,12 @@ fn sstore() -> Result<()> {
     let code = [0x60, 0x01, 0x60, 0x01, 0x01, 0x60, 0x00, 0x55, 0x00];
     let code_hash = keccak(code);
 
-    let account_before = AccountRlp {
-        balance: 0x0de0b6b3a7640000u64.into(),
-        code_hash,
-        ..AccountRlp::default()
-    };
+    let account_before =
+        AccountRlp {
+            balance: 0x0de0b6b3a7640000u64.into(),
+            code_hash,
+            ..AccountRlp::default()
+        };
 
     let mut state_trie_before = HashedPartialTrie::from(Node::Empty);
 
@@ -326,11 +325,12 @@ fn sload() -> Result<()> {
     let code = [0x60, 0x01, 0x60, 0x01, 0x01, 0x50, 0x60, 0x00, 0x54, 0x00];
     let code_hash = keccak(code);
 
-    let account_before = AccountRlp {
-        balance: 0x0de0b6b3a7640000u64.into(),
-        code_hash,
-        ..AccountRlp::default()
-    };
+    let account_before =
+        AccountRlp {
+            balance: 0x0de0b6b3a7640000u64.into(),
+            code_hash,
+            ..AccountRlp::default()
+        };
 
     let mut state_trie_before = HashedPartialTrie::from(Node::Empty);
 

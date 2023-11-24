@@ -24,9 +24,10 @@ pub struct HashOut<F: Field> {
 }
 
 impl<F: Field> HashOut<F> {
-    pub const ZERO: Self = Self {
-        elements: [F::ZERO; NUM_HASH_OUT_ELTS],
-    };
+    pub const ZERO: Self =
+        Self {
+            elements: [F::ZERO; NUM_HASH_OUT_ELTS],
+        };
 
     // TODO: Switch to a TryFrom impl.
     pub fn from_vec(elements: Vec<F>) -> Self {

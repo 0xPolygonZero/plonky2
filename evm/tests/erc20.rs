@@ -101,57 +101,61 @@ fn test_erc20() -> anyhow::Result<()> {
         .map(|v| (keccak(v.clone()), v))
         .into();
 
-    let expected_state_trie_after: HashedPartialTrie = {
-        let mut state_trie_after = HashedPartialTrie::from(Node::Empty);
-        let sender_account = sender_account();
-        let sender_account_after = AccountRlp {
-            nonce: sender_account.nonce + 1,
-            balance: sender_account.balance - gas_used * 0xa,
-            ..sender_account
-        };
-        state_trie_after.insert(sender_nibbles, rlp::encode(&sender_account_after).to_vec());
-        state_trie_after.insert(giver_nibbles, rlp::encode(&giver_account()).to_vec());
-        let token_account_after = AccountRlp {
-            storage_root: token_storage_after().hash(),
-            ..token_account()
-        };
-        state_trie_after.insert(token_nibbles, rlp::encode(&token_account_after).to_vec());
+    let expected_state_trie_after: HashedPartialTrie =
+        {
+            let mut state_trie_after = HashedPartialTrie::from(Node::Empty);
+            let sender_account = sender_account();
+            let sender_account_after = AccountRlp {
+                nonce: sender_account.nonce + 1,
+                balance: sender_account.balance - gas_used * 0xa,
+                ..sender_account
+            };
+            state_trie_after.insert(sender_nibbles, rlp::encode(&sender_account_after).to_vec());
+            state_trie_after.insert(giver_nibbles, rlp::encode(&giver_account()).to_vec());
+            let token_account_after =
+                AccountRlp {
+                    storage_root: token_storage_after().hash(),
+                    ..token_account()
+                };
+            state_trie_after.insert(token_nibbles, rlp::encode(&token_account_after).to_vec());
 
-        state_trie_after
-    };
+            state_trie_after
+        };
 
-    let receipt_0 = LegacyReceiptRlp {
-        status: true,
-        cum_gas_used: gas_used,
-        bloom: bloom_bytes().to_vec().into(),
-        logs: vec![LogRlp {
-            address: H160::from_str("0x5fbdb2315678afecb367f032d93f642f64180aa3").unwrap(),
-            topics: vec![
-                H256::from_str(
-                    "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
-                )
-                .unwrap(),
-                H256::from_str(
-                    "0x000000000000000000000000e7f1725e7734ce288f8367e1bb143e90bb3f0512",
-                )
-                .unwrap(),
-                H256::from_str(
-                    "0x0000000000000000000000001f9090aae28b8a3dceadf281b0f12828e676c326",
-                )
-                .unwrap(),
-            ],
-            data: hex!("0000000000000000000000000000000000000000000000056bc75e2d63100000")
-                .to_vec()
-                .into(),
-        }],
-    };
+    let receipt_0 =
+        LegacyReceiptRlp {
+            status: true,
+            cum_gas_used: gas_used,
+            bloom: bloom_bytes().to_vec().into(),
+            logs: vec![LogRlp {
+                address: H160::from_str("0x5fbdb2315678afecb367f032d93f642f64180aa3").unwrap(),
+                topics: vec![
+                    H256::from_str(
+                        "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+                    )
+                    .unwrap(),
+                    H256::from_str(
+                        "0x000000000000000000000000e7f1725e7734ce288f8367e1bb143e90bb3f0512",
+                    )
+                    .unwrap(),
+                    H256::from_str(
+                        "0x0000000000000000000000001f9090aae28b8a3dceadf281b0f12828e676c326",
+                    )
+                    .unwrap(),
+                ],
+                data: hex!("0000000000000000000000000000000000000000000000056bc75e2d63100000")
+                    .to_vec()
+                    .into(),
+            }],
+        };
     let mut receipts_trie = HashedPartialTrie::from(Node::Empty);
     receipts_trie.insert(Nibbles::from_str("0x80").unwrap(), receipt_0.encode(2));
-    let transactions_trie: HashedPartialTrie = Node::Leaf {
-        nibbles: Nibbles::from_str("0x80").unwrap(),
-        value: txn.to_vec(),
-    }
-    .into();
+    let transactions_trie: HashedPartialTrie =
+        Node::Leaf {
+            nibbles: Nibbles::from_str("0x80").unwrap(),
+            value: txn.to_vec(),
+        }
+        .into();
 
     let trie_roots_after = TrieRoots {
         state_root: expected_state_trie_after.hash(),

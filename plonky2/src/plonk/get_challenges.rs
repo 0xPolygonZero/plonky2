@@ -233,9 +233,10 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
                 }
                 fri_inferred_elements.push(old_eval);
                 let arity = 1 << arity_bits;
-                let mut evals = self.proof.opening_proof.query_round_proofs.steps[i][&coset_index]
-                    .evals
-                    .clone();
+                let mut evals =
+                    self.proof.opening_proof.query_round_proofs.steps[i][&coset_index]
+                        .evals
+                        .clone();
                 let x_index_within_coset = x_index & (arity - 1);
                 evals.insert(x_index_within_coset, old_eval);
                 old_eval = compute_evaluation(

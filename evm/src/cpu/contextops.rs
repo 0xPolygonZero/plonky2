@@ -215,12 +215,10 @@ fn eval_ext_circuit_set<F: RichField + Extendable<D>, const D: usize>(
     let stack_top = lv.mem_channels[0].value;
     let write_old_sp_channel = lv.mem_channels[1];
     let read_new_sp_channel = lv.mem_channels[2];
-    let ctx_metadata_segment = builder.constant_extension(F::Extension::from_canonical_u32(
-        Segment::ContextMetadata as u32,
-    ));
-    let stack_size_field = builder.constant_extension(F::Extension::from_canonical_u32(
-        ContextMetadata::StackSize as u32,
-    ));
+    let ctx_metadata_segment = builder
+        .constant_extension(F::Extension::from_canonical_u32(Segment::ContextMetadata as u32));
+    let stack_size_field = builder
+        .constant_extension(F::Extension::from_canonical_u32(ContextMetadata::StackSize as u32));
     let one = builder.one_extension();
     let local_sp_dec = builder.sub_extension(lv.stack_len, one);
 

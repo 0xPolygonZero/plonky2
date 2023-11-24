@@ -71,16 +71,17 @@ pub(crate) fn verify_stark_proof_with_challenges<
     let (l_0, l_last) = eval_l_0_and_l_last(degree_bits, challenges.stark_zeta);
     let last = F::primitive_root_of_unity(degree_bits).inverse();
     let z_last = challenges.stark_zeta - last.into();
-    let mut consumer = ConstraintConsumer::<F::Extension>::new(
-        challenges
-            .stark_alphas
-            .iter()
-            .map(|&alpha| F::Extension::from_basefield(alpha))
-            .collect::<Vec<_>>(),
-        z_last,
-        l_0,
-        l_last,
-    );
+    let mut consumer =
+        ConstraintConsumer::<F::Extension>::new(
+            challenges
+                .stark_alphas
+                .iter()
+                .map(|&alpha| F::Extension::from_basefield(alpha))
+                .collect::<Vec<_>>(),
+            z_last,
+            l_0,
+            l_last,
+        );
     let permutation_data = stark.uses_permutation_args().then(|| PermutationCheckVars {
         local_zs: permutation_zs.as_ref().unwrap().clone(),
         next_zs: permutation_zs_next.as_ref().unwrap().clone(),

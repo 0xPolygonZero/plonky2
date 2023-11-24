@@ -102,10 +102,7 @@ impl<F: Extendable<4>> Field for QuarticExtension<F> {
         let a_pow_r = a_pow_r_minus_1 * *self;
         debug_assert!(FieldExtension::<4>::is_in_basefield(&a_pow_r));
 
-        Some(FieldExtension::<4>::scalar_mul(
-            &a_pow_r_minus_1,
-            a_pow_r.0[0].inverse(),
-        ))
+        Some(FieldExtension::<4>::scalar_mul(&a_pow_r_minus_1, a_pow_r.0[0].inverse()))
     }
 
     fn from_noncanonical_biguint(n: BigUint) -> Self {

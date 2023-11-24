@@ -20,22 +20,26 @@ pub struct PlonkOracle {
 }
 
 impl PlonkOracle {
-    pub const CONSTANTS_SIGMAS: PlonkOracle = PlonkOracle {
-        index: 0,
-        blinding: false,
-    };
-    pub const WIRES: PlonkOracle = PlonkOracle {
-        index: 1,
-        blinding: true,
-    };
-    pub const ZS_PARTIAL_PRODUCTS: PlonkOracle = PlonkOracle {
-        index: 2,
-        blinding: true,
-    };
-    pub const QUOTIENT: PlonkOracle = PlonkOracle {
-        index: 3,
-        blinding: true,
-    };
+    pub const CONSTANTS_SIGMAS: PlonkOracle =
+        PlonkOracle {
+            index: 0,
+            blinding: false,
+        };
+    pub const WIRES: PlonkOracle =
+        PlonkOracle {
+            index: 1,
+            blinding: true,
+        };
+    pub const ZS_PARTIAL_PRODUCTS: PlonkOracle =
+        PlonkOracle {
+            index: 2,
+            blinding: true,
+        };
+    pub const QUOTIENT: PlonkOracle =
+        PlonkOracle {
+            index: 3,
+            blinding: true,
+        };
 }
 
 pub fn salt_size(salted: bool) -> usize {

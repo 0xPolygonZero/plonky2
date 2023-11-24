@@ -28,12 +28,13 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         );
         let public_inputs_hash =
             self.hash_n_to_hash_no_pad::<C::InnerHasher>(proof_with_pis.public_inputs.clone());
-        let challenges = proof_with_pis.get_challenges::<F, C>(
-            self,
-            public_inputs_hash,
-            inner_verifier_data.circuit_digest,
-            inner_common_data,
-        );
+        let challenges =
+            proof_with_pis.get_challenges::<F, C>(
+                self,
+                public_inputs_hash,
+                inner_verifier_data.circuit_digest,
+                inner_common_data,
+            );
 
         self.verify_proof_with_challenges::<C>(
             &proof_with_pis.proof,
@@ -320,15 +321,16 @@ mod tests {
         assert_eq!(common_data.degree_bits(), 12);
 
         // A standard recursive proof.
-        let (proof, vd, common_data) = recursive_proof::<F, C, C, D>(
-            proof,
-            vd,
-            common_data,
-            &standard_config,
-            None,
-            false,
-            false,
-        )?;
+        let (proof, vd, common_data) =
+            recursive_proof::<F, C, C, D>(
+                proof,
+                vd,
+                common_data,
+                &standard_config,
+                None,
+                false,
+                false,
+            )?;
         assert_eq!(common_data.degree_bits(), 12);
 
         // A high-rate recursive proof, designed to be verifiable with fewer routed wires.
@@ -341,15 +343,16 @@ mod tests {
             },
             ..standard_config
         };
-        let (proof, vd, common_data) = recursive_proof::<F, C, C, D>(
-            proof,
-            vd,
-            common_data,
-            &high_rate_config,
-            None,
-            true,
-            true,
-        )?;
+        let (proof, vd, common_data) =
+            recursive_proof::<F, C, C, D>(
+                proof,
+                vd,
+                common_data,
+                &high_rate_config,
+                None,
+                true,
+                true,
+            )?;
         assert_eq!(common_data.degree_bits(), 12);
 
         // A final proof, optimized for size.
@@ -364,15 +367,16 @@ mod tests {
             },
             ..high_rate_config
         };
-        let (proof, vd, common_data) = recursive_proof::<F, KC, C, D>(
-            proof,
-            vd,
-            common_data,
-            &final_config,
-            None,
-            true,
-            true,
-        )?;
+        let (proof, vd, common_data) =
+            recursive_proof::<F, KC, C, D>(
+                proof,
+                vd,
+                common_data,
+                &final_config,
+                None,
+                true,
+                true,
+            )?;
         assert_eq!(common_data.degree_bits(), 12, "final proof too large");
 
         test_serialization(&proof, &vd, &common_data)?;
@@ -402,11 +406,12 @@ mod tests {
         Ok(())
     }
 
-    type Proof<F, C, const D: usize> = (
-        ProofWithPublicInputs<F, C, D>,
-        VerifierOnlyCircuitData<C, D>,
-        CommonCircuitData<F, D>,
-    );
+    type Proof<F, C, const D: usize> =
+        (
+            ProofWithPublicInputs<F, C, D>,
+            VerifierOnlyCircuitData<C, D>,
+            CommonCircuitData<F, D>,
+        );
 
     /// Creates a dummy proof which should have roughly `num_dummy_gates` gates.
     fn dummy_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(

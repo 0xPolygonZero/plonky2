@@ -86,11 +86,12 @@ impl<F: RichField> PlonkyPermutation<F> for KeccakPermutation<F> {
             .filter(|&word| word < F::ORDER)
             .map(F::from_canonical_u64);
 
-        self.state = hash_onion_elems
-            .take(SPONGE_WIDTH)
-            .collect_vec()
-            .try_into()
-            .unwrap();
+        self.state =
+            hash_onion_elems
+                .take(SPONGE_WIDTH)
+                .collect_vec()
+                .try_into()
+                .unwrap();
     }
 
     fn squeeze(&self) -> &[F] {

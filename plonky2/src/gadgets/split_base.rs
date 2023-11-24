@@ -179,16 +179,17 @@ mod tests {
         let zero = builder._false();
         let one = builder._true();
 
-        let y = builder.le_sum(
-            (0..30)
-                .scan(n, |acc, _| {
-                    let tmp = *acc % 2;
-                    *acc /= 2;
-                    Some(if tmp == 1 { one } else { zero })
-                })
-                .collect::<Vec<_>>()
-                .iter(),
-        );
+        let y =
+            builder.le_sum(
+                (0..30)
+                    .scan(n, |acc, _| {
+                        let tmp = *acc % 2;
+                        *acc /= 2;
+                        Some(if tmp == 1 { one } else { zero })
+                    })
+                    .collect::<Vec<_>>()
+                    .iter(),
+            );
 
         builder.connect(x, y);
 

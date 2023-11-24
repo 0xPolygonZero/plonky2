@@ -131,17 +131,18 @@ pub(crate) fn eval_packed_generic_mul<P: PackedField>(
 
     let base = P::Scalar::from_canonical_u64(1 << LIMB_BITS);
 
-    let aux_limbs = {
-        // MUL_AUX_INPUT was offset by 2^20 in generation, so we undo
-        // that here
-        let offset = P::Scalar::from_canonical_u64(AUX_COEFF_ABS_MAX as u64);
-        let mut aux_limbs = read_value::<N_LIMBS, _>(lv, MUL_AUX_INPUT_LO);
-        let aux_limbs_hi = &lv[MUL_AUX_INPUT_HI];
-        for (lo, &hi) in aux_limbs.iter_mut().zip(aux_limbs_hi) {
-            *lo += hi * base - offset;
-        }
-        aux_limbs
-    };
+    let aux_limbs =
+        {
+            // MUL_AUX_INPUT was offset by 2^20 in generation, so we undo
+            // that here
+            let offset = P::Scalar::from_canonical_u64(AUX_COEFF_ABS_MAX as u64);
+            let mut aux_limbs = read_value::<N_LIMBS, _>(lv, MUL_AUX_INPUT_LO);
+            let aux_limbs_hi = &lv[MUL_AUX_INPUT_HI];
+            for (lo, &hi) in aux_limbs.iter_mut().zip(aux_limbs_hi) {
+                *lo += hi * base - offset;
+            }
+            aux_limbs
+        };
 
     // Constraint poly holds the coefficients of the polynomial that
     // must be identically zero for this multiplication to be

@@ -95,15 +95,16 @@ fn mpt_insert_extension_nonoverlapping_keys() -> Result<()> {
         value: test_account_1_rlp(),
     }
     .into();
-    let state_trie = Node::Extension {
-        nibbles: 0xABC_u64.into(),
-        child: Node::Branch {
-            children,
-            value: test_account_1_rlp(),
+    let state_trie =
+        Node::Extension {
+            nibbles: 0xABC_u64.into(),
+            child: Node::Branch {
+                children,
+                value: test_account_1_rlp(),
+            }
+            .into(),
         }
-        .into(),
-    }
-    .into();
+        .into();
     test_state_trie(state_trie, nibbles_64(0x12345), test_account_2())
 }
 
@@ -119,15 +120,16 @@ fn mpt_insert_extension_insert_key_extends_node_key() -> Result<()> {
         value: test_account_1_rlp(),
     }
     .into();
-    let state_trie = Node::Extension {
-        nibbles: 0xA_u64.into(),
-        child: Node::Branch {
-            children,
-            value: test_account_1_rlp(),
+    let state_trie =
+        Node::Extension {
+            nibbles: 0xA_u64.into(),
+            child: Node::Branch {
+                children,
+                value: test_account_1_rlp(),
+            }
+            .into(),
         }
-        .into(),
-    }
-    .into();
+        .into();
     test_state_trie(state_trie, nibbles_64(0xABCDEF), test_account_2())
 }
 
@@ -162,12 +164,13 @@ fn test_state_trie(
     // Ignore any storage_root; see documentation note.
     account.storage_root = HashedPartialTrie::from(Node::Empty).hash();
 
-    let trie_inputs = TrieInputs {
-        state_trie: state_trie.clone(),
-        transactions_trie: Default::default(),
-        receipts_trie: Default::default(),
-        storage_tries: vec![],
-    };
+    let trie_inputs =
+        TrieInputs {
+            state_trie: state_trie.clone(),
+            transactions_trie: Default::default(),
+            receipts_trie: Default::default(),
+            storage_tries: vec![],
+        };
     let load_all_mpts = KERNEL.global_labels["load_all_mpts"];
     let mpt_insert_state_trie = KERNEL.global_labels["mpt_insert_state_trie"];
     let mpt_hash_state_trie = KERNEL.global_labels["mpt_hash_state_trie"];

@@ -115,14 +115,15 @@ fn test_empty_txn_list() -> anyhow::Result<()> {
     all_circuits.verify_root(root_proof.clone())?;
 
     // We can duplicate the proofs here because the state hasn't mutated.
-    let (agg_proof, public_values) = all_circuits.prove_aggregation(
-        false,
-        &root_proof,
-        public_values.clone(),
-        false,
-        &root_proof,
-        public_values,
-    )?;
+    let (agg_proof, public_values) =
+        all_circuits.prove_aggregation(
+            false,
+            &root_proof,
+            public_values.clone(),
+            false,
+            &root_proof,
+            public_values,
+        )?;
     all_circuits.verify_aggregation(&agg_proof)?;
 
     let (block_proof, _) = all_circuits.prove_block(None, &agg_proof, public_values)?;

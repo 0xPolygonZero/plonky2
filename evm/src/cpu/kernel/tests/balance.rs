@@ -43,9 +43,7 @@ fn prepare_interpreter(
     interpreter.run()?;
     assert_eq!(interpreter.stack(), vec![]);
 
-    let k = nibbles_64(U256::from_big_endian(
-        keccak(address.to_fixed_bytes()).as_bytes(),
-    ));
+    let k = nibbles_64(U256::from_big_endian(keccak(address.to_fixed_bytes()).as_bytes()));
     // Next, execute mpt_insert_state_trie.
     interpreter.generation_state.registers.program_counter = mpt_insert_state_trie;
     let trie_data = interpreter.get_trie_data_mut();

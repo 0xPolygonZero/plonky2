@@ -318,24 +318,26 @@ pub(crate) fn verify_stark_proof_with_challenges<
     let (l_0, l_last) = eval_l_0_and_l_last(degree_bits, challenges.stark_zeta);
     let last = F::primitive_root_of_unity(degree_bits).inverse();
     let z_last = challenges.stark_zeta - last.into();
-    let mut consumer = ConstraintConsumer::<F::Extension>::new(
-        challenges
-            .stark_alphas
-            .iter()
-            .map(|&alpha| F::Extension::from_basefield(alpha))
-            .collect::<Vec<_>>(),
-        z_last,
-        l_0,
-        l_last,
-    );
+    let mut consumer =
+        ConstraintConsumer::<F::Extension>::new(
+            challenges
+                .stark_alphas
+                .iter()
+                .map(|&alpha| F::Extension::from_basefield(alpha))
+                .collect::<Vec<_>>(),
+            z_last,
+            l_0,
+            l_last,
+        );
     let num_lookup_columns = stark.num_lookup_helper_columns(config);
-    let lookup_challenges = (num_lookup_columns > 0).then(|| {
-        ctl_challenges
-            .challenges
-            .iter()
-            .map(|ch| ch.beta)
-            .collect::<Vec<_>>()
-    });
+    let lookup_challenges =
+        (num_lookup_columns > 0).then(|| {
+            ctl_challenges
+                .challenges
+                .iter()
+                .map(|ch| ch.beta)
+                .collect::<Vec<_>>()
+        });
 
     let lookup_vars = stark.uses_lookups().then(|| LookupCheckVars {
         local_values: auxiliary_polys[..num_lookup_columns].to_vec(),
@@ -468,88 +470,89 @@ pub(crate) mod testutils {
         F: RichField + Extendable<D>,
     {
         // Add metadata and tries writes.
-        let fields = [
-            (
-                GlobalMetadata::BlockBeneficiary,
-                U256::from_big_endian(&public_values.block_metadata.block_beneficiary.0),
-            ),
-            (
-                GlobalMetadata::BlockTimestamp,
-                public_values.block_metadata.block_timestamp,
-            ),
-            (
-                GlobalMetadata::BlockNumber,
-                public_values.block_metadata.block_number,
-            ),
-            (
-                GlobalMetadata::BlockRandom,
-                public_values.block_metadata.block_random.into_uint(),
-            ),
-            (
-                GlobalMetadata::BlockDifficulty,
-                public_values.block_metadata.block_difficulty,
-            ),
-            (
-                GlobalMetadata::BlockGasLimit,
-                public_values.block_metadata.block_gaslimit,
-            ),
-            (
-                GlobalMetadata::BlockChainId,
-                public_values.block_metadata.block_chain_id,
-            ),
-            (
-                GlobalMetadata::BlockBaseFee,
-                public_values.block_metadata.block_base_fee,
-            ),
-            (
-                GlobalMetadata::BlockCurrentHash,
-                h2u(public_values.block_hashes.cur_hash),
-            ),
-            (
-                GlobalMetadata::BlockGasUsed,
-                public_values.block_metadata.block_gas_used,
-            ),
-            (
-                GlobalMetadata::TxnNumberBefore,
-                public_values.extra_block_data.txn_number_before,
-            ),
-            (
-                GlobalMetadata::TxnNumberAfter,
-                public_values.extra_block_data.txn_number_after,
-            ),
-            (
-                GlobalMetadata::BlockGasUsedBefore,
-                public_values.extra_block_data.gas_used_before,
-            ),
-            (
-                GlobalMetadata::BlockGasUsedAfter,
-                public_values.extra_block_data.gas_used_after,
-            ),
-            (
-                GlobalMetadata::StateTrieRootDigestBefore,
-                h2u(public_values.trie_roots_before.state_root),
-            ),
-            (
-                GlobalMetadata::TransactionTrieRootDigestBefore,
-                h2u(public_values.trie_roots_before.transactions_root),
-            ),
-            (
-                GlobalMetadata::ReceiptTrieRootDigestBefore,
-                h2u(public_values.trie_roots_before.receipts_root),
-            ),
-            (
-                GlobalMetadata::StateTrieRootDigestAfter,
-                h2u(public_values.trie_roots_after.state_root),
-            ),
-            (
-                GlobalMetadata::TransactionTrieRootDigestAfter,
-                h2u(public_values.trie_roots_after.transactions_root),
-            ),
-            (
-                GlobalMetadata::ReceiptTrieRootDigestAfter,
-                h2u(public_values.trie_roots_after.receipts_root),
-            ),
-        ];
+        let fields =
+            [
+                (
+                    GlobalMetadata::BlockBeneficiary,
+                    U256::from_big_endian(&public_values.block_metadata.block_beneficiary.0),
+                ),
+                (
+                    GlobalMetadata::BlockTimestamp,
+                    public_values.block_metadata.block_timestamp,
+                ),
+                (
+                    GlobalMetadata::BlockNumber,
+                    public_values.block_metadata.block_number,
+                ),
+                (
+                    GlobalMetadata::BlockRandom,
+                    public_values.block_metadata.block_random.into_uint(),
+                ),
+                (
+                    GlobalMetadata::BlockDifficulty,
+                    public_values.block_metadata.block_difficulty,
+                ),
+                (
+                    GlobalMetadata::BlockGasLimit,
+                    public_values.block_metadata.block_gaslimit,
+                ),
+                (
+                    GlobalMetadata::BlockChainId,
+                    public_values.block_metadata.block_chain_id,
+                ),
+                (
+                    GlobalMetadata::BlockBaseFee,
+                    public_values.block_metadata.block_base_fee,
+                ),
+                (
+                    GlobalMetadata::BlockCurrentHash,
+                    h2u(public_values.block_hashes.cur_hash),
+                ),
+                (
+                    GlobalMetadata::BlockGasUsed,
+                    public_values.block_metadata.block_gas_used,
+                ),
+                (
+                    GlobalMetadata::TxnNumberBefore,
+                    public_values.extra_block_data.txn_number_before,
+                ),
+                (
+                    GlobalMetadata::TxnNumberAfter,
+                    public_values.extra_block_data.txn_number_after,
+                ),
+                (
+                    GlobalMetadata::BlockGasUsedBefore,
+                    public_values.extra_block_data.gas_used_before,
+                ),
+                (
+                    GlobalMetadata::BlockGasUsedAfter,
+                    public_values.extra_block_data.gas_used_after,
+                ),
+                (
+                    GlobalMetadata::StateTrieRootDigestBefore,
+                    h2u(public_values.trie_roots_before.state_root),
+                ),
+                (
+                    GlobalMetadata::TransactionTrieRootDigestBefore,
+                    h2u(public_values.trie_roots_before.transactions_root),
+                ),
+                (
+                    GlobalMetadata::ReceiptTrieRootDigestBefore,
+                    h2u(public_values.trie_roots_before.receipts_root),
+                ),
+                (
+                    GlobalMetadata::StateTrieRootDigestAfter,
+                    h2u(public_values.trie_roots_after.state_root),
+                ),
+                (
+                    GlobalMetadata::TransactionTrieRootDigestAfter,
+                    h2u(public_values.trie_roots_after.transactions_root),
+                ),
+                (
+                    GlobalMetadata::ReceiptTrieRootDigestAfter,
+                    h2u(public_values.trie_roots_after.receipts_root),
+                ),
+            ];
 
         let segment = F::from_canonical_u32(Segment::GlobalMetadata as u32);
         let mut extra_looking_rows = Vec::new();

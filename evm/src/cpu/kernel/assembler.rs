@@ -44,9 +44,9 @@ impl Kernel {
         prover_inputs: HashMap<usize, ProverInputFn>,
     ) -> Self {
         let code_hash_bytes = keccak(&code).0;
-        let code_hash_be = core::array::from_fn(|i| {
-            u32::from_le_bytes(core::array::from_fn(|j| code_hash_bytes[i * 4 + j]))
-        });
+        let code_hash_be = core::array::from_fn(
+            |i| u32::from_le_bytes(core::array::from_fn(|j| code_hash_bytes[i * 4 + j]))
+        );
         let code_hash = code_hash_be.map(u32::from_be);
         let ordered_labels = global_labels
             .keys()
@@ -295,16 +295,16 @@ fn inline_constants(body: Vec<Item>, constants: &HashMap<String, U256>) -> Vec<I
                     .collect();
                 Item::Bytes(targets)
             } else if let Item::StackManipulation(from, to) = item {
-                let to = to
-                    .into_iter()
-                    .map(|replacement| {
-                        if let StackReplacement::Constant(c) = replacement {
-                            StackReplacement::Literal(resolve_const(c))
-                        } else {
-                            replacement
-                        }
-                    })
-                    .collect();
+                let to =
+                    to.into_iter()
+                        .map(|replacement| {
+                            if let StackReplacement::Constant(c) = replacement {
+                                StackReplacement::Literal(resolve_const(c))
+                            } else {
+                                replacement
+                            }
+                        })
+                        .collect();
                 Item::StackManipulation(from, to)
             } else {
                 item
@@ -457,18 +457,19 @@ mod tests {
             ],
         };
 
-        let file_2 = File {
-            body: vec![
-                Item::GlobalLabelDeclaration("function_2".to_string()),
-                Item::StandardOp("JUMPDEST".to_string()),
-                Item::StandardOp("DIV".to_string()),
-                Item::LocalLabelDeclaration("mylabel".to_string()),
-                Item::StandardOp("JUMPDEST".to_string()),
-                Item::StandardOp("MOD".to_string()),
-                Item::Push(PushTarget::Label("mylabel".to_string())),
-                Item::StandardOp("JUMP".to_string()),
-            ],
-        };
+        let file_2 =
+            File {
+                body: vec![
+                    Item::GlobalLabelDeclaration("function_2".to_string()),
+                    Item::StandardOp("JUMPDEST".to_string()),
+                    Item::StandardOp("DIV".to_string()),
+                    Item::LocalLabelDeclaration("mylabel".to_string()),
+                    Item::StandardOp("JUMPDEST".to_string()),
+                    Item::StandardOp("MOD".to_string()),
+                    Item::Push(PushTarget::Label("mylabel".to_string())),
+                    Item::StandardOp("JUMP".to_string()),
+                ],
+            };
 
         let expected_code = vec![
             get_opcode("JUMPDEST"),
@@ -499,32 +500,35 @@ mod tests {
     #[test]
     #[should_panic]
     fn global_label_collision() {
-        let file_1 = File {
-            body: vec![
-                Item::GlobalLabelDeclaration("foo".to_string()),
-                Item::StandardOp("JUMPDEST".to_string()),
-            ],
-        };
-        let file_2 = File {
-            body: vec![
-                Item::GlobalLabelDeclaration("foo".to_string()),
-                Item::StandardOp("JUMPDEST".to_string()),
-            ],
-        };
+        let file_1 =
+            File {
+                body: vec![
+                    Item::GlobalLabelDeclaration("foo".to_string()),
+                    Item::StandardOp("JUMPDEST".to_string()),
+                ],
+            };
+        let file_2 =
+            File {
+                body: vec![
+                    Item::GlobalLabelDeclaration("foo".to_string()),
+                    Item::StandardOp("JUMPDEST".to_string()),
+                ],
+            };
         assemble(vec![file_1, file_2], HashMap::new(), false);
     }
 
     #[test]
     #[should_panic]
     fn local_label_collision() {
-        let file = File {
-            body: vec![
-                Item::LocalLabelDeclaration("foo".to_string()),
-                Item::StandardOp("JUMPDEST".to_string()),
-                Item::LocalLabelDeclaration("foo".to_string()),
-                Item::StandardOp("ADD".to_string()),
-            ],
-        };
+        let file =
+            File {
+                body: vec![
+                    Item::LocalLabelDeclaration("foo".to_string()),
+                    Item::StandardOp("JUMPDEST".to_string()),
+                    Item::LocalLabelDeclaration("foo".to_string()),
+                    Item::StandardOp("ADD".to_string()),
+                ],
+            };
         assemble(vec![file], HashMap::new(), false);
     }
 
@@ -598,12 +602,13 @@ mod tests {
 
     #[test]
     fn overloaded_macros() {
-        let kernel = parse_and_assemble(&[
-            "%macro push(x) PUSH $x %endmacro",
-            "%macro push(x, y) PUSH $x PUSH $y %endmacro",
-            "%push(5)",
-            "%push(6, 7)",
-        ]);
+        let kernel =
+            parse_and_assemble(&[
+                "%macro push(x) PUSH $x %endmacro",
+                "%macro push(x, y) PUSH $x PUSH $y %endmacro",
+                "%push(5)",
+                "%push(6, 7)",
+            ]);
         let push1 = get_push_opcode(1);
         assert_eq!(kernel.code, vec![push1, 5, push1, 6, push1, 7]);
     }
@@ -703,10 +708,11 @@ mod tests {
         let pop = get_opcode("POP");
         let push1 = get_push_opcode(1);
 
-        let kernel = parse_and_assemble(&[
-            "%macro set_top(x) %stack (a) -> ($x) %endmacro",
-            "%set_top(42)",
-        ]);
+        let kernel =
+            parse_and_assemble(&[
+                "%macro set_top(x) %stack (a) -> ($x) %endmacro",
+                "%set_top(42)",
+            ]);
         assert_eq!(kernel.code, vec![pop, push1, 42]);
     }
 

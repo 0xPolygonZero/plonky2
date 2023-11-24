@@ -110,36 +110,38 @@ fn test_selfdestruct() -> anyhow::Result<()> {
         Nibbles::from_str("0x80").unwrap(),
         rlp::encode(&receipt_0).to_vec(),
     );
-    let transactions_trie: HashedPartialTrie = Node::Leaf {
-        nibbles: Nibbles::from_str("0x80").unwrap(),
-        value: txn.to_vec(),
-    }
-    .into();
+    let transactions_trie: HashedPartialTrie =
+        Node::Leaf {
+            nibbles: Nibbles::from_str("0x80").unwrap(),
+            value: txn.to_vec(),
+        }
+        .into();
 
     let trie_roots_after = TrieRoots {
         state_root: expected_state_trie_after.hash(),
         transactions_root: transactions_trie.hash(),
         receipts_root: receipts_trie.hash(),
     };
-    let inputs = GenerationInputs {
-        signed_txn: Some(txn.to_vec()),
-        withdrawals: vec![],
-        tries: tries_before,
-        trie_roots_after,
-        contract_code,
-        genesis_state_trie_root: HashedPartialTrie::from(Node::Empty).hash(),
-        block_metadata,
-        txn_number_before: 0.into(),
-        gas_used_before: 0.into(),
-        gas_used_after: 26002.into(),
-        block_bloom_before: [0.into(); 8],
-        block_bloom_after: [0.into(); 8],
-        block_hashes: BlockHashes {
-            prev_hashes: vec![H256::default(); 256],
-            cur_hash: H256::default(),
-        },
-        addresses: vec![],
-    };
+    let inputs =
+        GenerationInputs {
+            signed_txn: Some(txn.to_vec()),
+            withdrawals: vec![],
+            tries: tries_before,
+            trie_roots_after,
+            contract_code,
+            genesis_state_trie_root: HashedPartialTrie::from(Node::Empty).hash(),
+            block_metadata,
+            txn_number_before: 0.into(),
+            gas_used_before: 0.into(),
+            gas_used_after: 26002.into(),
+            block_bloom_before: [0.into(); 8],
+            block_bloom_after: [0.into(); 8],
+            block_hashes: BlockHashes {
+                prev_hashes: vec![H256::default(); 256],
+                cur_hash: H256::default(),
+            },
+            addresses: vec![],
+        };
 
     let mut timing = TimingTree::new("prove", log::Level::Debug);
     let proof = prove::<F, C, D>(&all_stark, &config, inputs, &mut timing)?;

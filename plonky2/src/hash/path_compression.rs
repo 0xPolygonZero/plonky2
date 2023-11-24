@@ -30,9 +30,10 @@ pub(crate) fn compress_merkle_proofs<F: RichField, H: Hasher<F>>(
     }
     // For each proof collect all the unknown proof elements.
     for (&i, p) in indices.iter().zip(proofs) {
-        let mut compressed_proof = MerkleProof {
-            siblings: Vec::new(),
-        };
+        let mut compressed_proof =
+            MerkleProof {
+                siblings: Vec::new(),
+            };
         let mut index = i + num_leaves;
         for &sibling in &p.siblings {
             let sibling_index = index ^ 1;
@@ -95,9 +96,10 @@ pub(crate) fn decompress_merkle_proofs<F: RichField, H: Hasher<F>>(
     }
     // For every index, go up the tree by querying `seen` to get node values.
     for &i in leaves_indices {
-        let mut decompressed_proof = MerkleProof {
-            siblings: Vec::new(),
-        };
+        let mut decompressed_proof =
+            MerkleProof {
+                siblings: Vec::new(),
+            };
         let mut index = i + num_leaves;
         for _ in 0..height - cap_height {
             let sibling_index = index ^ 1;

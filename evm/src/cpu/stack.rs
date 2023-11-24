@@ -364,13 +364,14 @@ pub(crate) fn eval_ext_circuit_one<F: RichField + Extendable<D>, const D: usize>
                 yield_constr.constraint(builder, constr);
             }
             {
-                let constr = builder.arithmetic_extension(
-                    F::ONE,
-                    -F::from_canonical_u64(Segment::Stack as u64),
-                    filter,
-                    channel.addr_segment,
-                    filter,
-                );
+                let constr =
+                    builder.arithmetic_extension(
+                        F::ONE,
+                        -F::from_canonical_u64(Segment::Stack as u64),
+                        filter,
+                        channel.addr_segment,
+                        filter,
+                    );
                 yield_constr.constraint(builder, constr);
             }
             // Remember that the first read (`i == 1`) is for the second stack element at `stack[stack_len - 1]`.
@@ -421,13 +422,14 @@ pub(crate) fn eval_ext_circuit_one<F: RichField + Extendable<D>, const D: usize>
                 yield_constr.constraint_transition(builder, constr);
             }
             {
-                let constr = builder.arithmetic_extension(
-                    F::ONE,
-                    -F::from_canonical_u64(Segment::Stack as u64),
-                    new_filter,
-                    channel.addr_segment,
-                    new_filter,
-                );
+                let constr =
+                    builder.arithmetic_extension(
+                        F::ONE,
+                        -F::from_canonical_u64(Segment::Stack as u64),
+                        new_filter,
+                        channel.addr_segment,
+                        new_filter,
+                    );
                 yield_constr.constraint_transition(builder, constr);
             }
             {
