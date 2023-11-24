@@ -23,7 +23,7 @@ global hex_prefix_rlp:
     // the byte is its own RLP encoding.
     // stack: hp_len, rlp_pos, num_nibbles, packed_nibbles, terminated, retdest
     POP
-global first_byte_new:
+global first_byte:
     // stack: rlp_pos, num_nibbles, packed_nibbles, terminated, retdest
     // get the first nibble, if num_nibbles is odd, or zero otherwise
     SWAP2
@@ -101,7 +101,7 @@ global debug_before_write_rlp_med_new:
         (rlp_pos, num_nibbles, packed_nibbles, terminated, retdest) ->
         (rlp_pos, num_nibbles, packed_nibbles, terminated, remaining_bytes, num_nibbles, packed_nibbles, retdest)
 
-    %jump(first_byte_new)
+    %jump(first_byte)
 
 global rlp_header_large_new:
     // stack: hp_len, rlp_pos, num_nibbles, packed_nibbles, terminated, retdest
@@ -124,5 +124,5 @@ global rlp_header_large_new:
         (rlp_pos, num_nibbles, packed_nibbles, terminated, retdest) ->
         (rlp_pos, num_nibbles, packed_nibbles, terminated, remaining_bytes, num_nibbles, packed_nibbles, retdest)
 
-    %jump(first_byte_new)
+    %jump(first_byte)
 

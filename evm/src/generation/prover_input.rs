@@ -228,10 +228,10 @@ impl<F: Field> GenerationState<F> {
     fn run_num_bits(&mut self) -> Result<U256, ProgramError> {
         let value = stack_peek(self, 0)?;
         if value.is_zero() {
-            return Err(ProgramError::ProverInputError(NumBitsError));
+            Err(ProgramError::ProverInputError(NumBitsError))
         } else {
             let num_bits = value.bits();
-            return Ok(num_bits.into());
+            Ok(num_bits.into())
         }
     }
 }
