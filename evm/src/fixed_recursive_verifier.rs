@@ -663,14 +663,14 @@ where
         builder.connect(pvs.txn_number_before, lhs.txn_number_before);
         builder.connect(pvs.txn_number_after, rhs.txn_number_after);
 
-        // Connect lhs `txn_number_after`with rhs `txn_number_before`.
+        // Connect lhs `txn_number_after` with rhs `txn_number_before`.
         builder.connect(lhs.txn_number_after, rhs.txn_number_before);
 
         // Connect the gas used in public values to the lhs and rhs values correctly.
         builder.connect(pvs.gas_used_before, lhs.gas_used_before);
         builder.connect(pvs.gas_used_after, rhs.gas_used_after);
 
-        // Connect lhs `gas_used_after`with rhs `gas_used_before`.
+        // Connect lhs `gas_used_after` with rhs `gas_used_before`.
         builder.connect(lhs.gas_used_after, rhs.gas_used_before);
 
         // Connect the `block_bloom` in public values to the lhs and rhs values correctly.
@@ -680,7 +680,8 @@ where
         for (&limb0, &limb1) in pvs.block_bloom_before.iter().zip(&lhs.block_bloom_before) {
             builder.connect(limb0, limb1);
         }
-        // Connect lhs `block_bloom_after`with rhs `block_bloom_before`.
+
+        // Connect lhs `block_bloom_after` with rhs `block_bloom_before`.
         for (&limb0, &limb1) in lhs.block_bloom_after.iter().zip(&rhs.block_bloom_before) {
             builder.connect(limb0, limb1);
         }
