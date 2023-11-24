@@ -31,7 +31,10 @@ fn test_empty_txn_list() -> anyhow::Result<()> {
     let all_stark = AllStark::<F, D>::default();
     let config = StarkConfig::standard_fast_config();
 
-    let block_metadata = BlockMetadata::default();
+    let block_metadata = BlockMetadata {
+        block_number: 1.into(),
+        ..Default::default()
+    };
 
     let state_trie = HashedPartialTrie::from(Node::Empty);
     let transactions_trie = HashedPartialTrie::from(Node::Empty);

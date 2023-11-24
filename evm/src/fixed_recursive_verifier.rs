@@ -819,7 +819,7 @@ where
         let has_not_parent_block = builder.sub(one, has_parent_block.target);
 
         // Check that the genesis block number is 0.
-        let gen_block_constr = builder.mul(has_not_parent_block, rhs.block_metadata.block_number);
+        let gen_block_constr = builder.mul(has_not_parent_block, lhs.block_metadata.block_number);
         builder.assert_zero(gen_block_constr);
 
         // Check that the genesis block has the predetermined state trie root in `ExtraBlockData`.
@@ -1079,7 +1079,7 @@ where
 
             // Initialize the block number.
             let block_number_key = TrieRootsTarget::SIZE * 2 + 3;
-            nonzero_pis.insert(block_number_key, F::NEG_ONE);
+            nonzero_pis.insert(block_number_key, F::ZERO);
 
             block_inputs.set_proof_with_pis_target(
                 &self.block.parent_block_proof,
