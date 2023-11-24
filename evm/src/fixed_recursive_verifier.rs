@@ -1067,7 +1067,18 @@ where
             }
 
             // Initialize block hashes.
-            // Only current_hash needs to be set, as the previous hashes should be 0.
+            let block_hashes_keys = TrieRootsTarget::SIZE * 2 + BlockMetadataTarget::SIZE
+                ..TrieRootsTarget::SIZE * 2
+                    + BlockMetadataTarget::SIZE
+                    + BlockHashesTarget::BLOCK_HASHES_SIZE
+                    - 8;
+
+            for i in 0..public_values.block_hashes.prev_hashes.len() - 1 {
+                let targets = h256_limbs::<F>(public_values.block_hashes.prev_hashes[i]);
+                for j in 0..8 {
+                    nonzero_pis.insert(block_hashes_keys.start + 8 * (i + 1) + j, targets[j]);
+                }
+            }
             let block_hashes_current_start = TrieRootsTarget::SIZE * 2
                 + BlockMetadataTarget::SIZE
                 + BlockHashesTarget::BLOCK_HASHES_SIZE
