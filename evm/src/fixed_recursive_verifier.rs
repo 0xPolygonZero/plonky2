@@ -1039,9 +1039,11 @@ where
             if public_values.trie_roots_before.state_root
                 != public_values.extra_block_data.genesis_state_trie_root
             {
-                return Err(anyhow::Error::msg(
-                    "Inconsistent pre-state for first block with genesis state.",
-                ));
+                return Err(anyhow::Error::msg(format!(
+                    "Inconsistent pre-state for first block {:?} with genesis state {:?}.",
+                    public_values.trie_roots_before.state_root,
+                    public_values.extra_block_data.genesis_state_trie_root,
+                )));
             }
             // Initialize `state_root_after`.
             let state_trie_root_after_keys =
