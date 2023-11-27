@@ -4,7 +4,7 @@ The \emph{EVM World state} is a representation of the different accounts at a pa
 
 For each transaction we need to show that the prover knows preimages of the hashed initial and final EVM states.  When the kernel starts execution, it stores these three tries within the {\tt Segment::TrieData} segment. The prover loads the initial tries from the inputs into memory. Subsequently, the tries are modified during transaction execution, inserting new nodes or deleting existing nodes. 
 
-A MPT is composed of five different nodes: branch, extension, leaf, empty and digest nodes. Branch and leaf nodes might contain a payload whose format depends on the particular trie. The nodes are encoded, primarily using RLP encoding and Hex-prefix encoding (see \cite{yellowpaper} App. B and C, respectively). The resulting encoding is then hashed, following a strategy similar to that of normal Merkle trees, to generate the trie hashes.
+An MPT is composed of five different nodes: branch, extension, leaf, empty and digest nodes. Branch and leaf nodes might contain a payload whose format depends on the particular trie. The nodes are encoded, primarily using RLP encoding and Hex-prefix encoding (see \cite{yellowpaper} App. B and C, respectively). The resulting encoding is then hashed, following a strategy similar to that of normal Merkle trees, to generate the trie hashes.
 
 Insertion and deletion is performed in the same way as other MPT implementations, however we don't modify the MPT in memory but create a new one with the modifications. In the rest of this section we describe how the MPTs are represented in memory, how they are given as input, and how MPTs are hashed.
 
