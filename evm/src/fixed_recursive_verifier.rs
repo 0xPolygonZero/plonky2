@@ -1034,7 +1034,8 @@ where
             block_inputs
                 .set_proof_with_pis_target(&self.block.parent_block_proof, parent_block_proof);
         } else {
-            // Initialize genesis_state_trie, state_root_after, block hashes and the block number for correct connection between blocks.
+            // Initialize genesis_state_trie, state_root_after, and the previous block hashes for correct connection between blocks.
+            // Block number does not need to be initialized as genesis block is constrained to have number 0.
 
             if public_values.trie_roots_before.state_root
                 != public_values.extra_block_data.genesis_state_trie_root
@@ -1090,11 +1091,6 @@ where
             for i in 0..8 {
                 nonzero_pis.insert(block_hashes_current_start + i, cur_targets[i]);
             }
-
-            // Initialize the block number.
-            // We skip `block_beneficiary` (5 `Target`s) and `block_timestamp`.
-            let block_number_key = TrieRootsTarget::SIZE * 2 + 6;
-            nonzero_pis.insert(block_number_key, F::ZERO);
 
             block_inputs.set_proof_with_pis_target(
                 &self.block.parent_block_proof,
