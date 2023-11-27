@@ -2,7 +2,7 @@
 \label{tries}
 The \emph{EVM World state} is a representation of the different accounts at a particular time, as well as the last processed transactions together with their receipts. The world state is represented using \emph{Merkle Patricia Tries} (MPTs) \cite[App.~D]{yellowpaper}, and there are three different tries: the state trie, the transaction trie and the receipt trie.
 
-For each transaction we need to show that the prover knows preimages of the hashed initial and final EVM states.  At the onset of its execution, the kernel stores these three tries within the {\tt Segment::TrieData} segment. The prover loads the initial tries from the inputs into the memory. Subsequently, the tries are modified during transaction execution, inserting new nodes or the deleting of existing nodes. 
+For each transaction we need to show that the prover knows preimages of the hashed initial and final EVM states.  When the kernel starts execution, it stores these three tries within the {\tt Segment::TrieData} segment. The prover loads the initial tries from the inputs into memory. Subsequently, the tries are modified during transaction execution, inserting new nodes or deleting existing nodes. 
 
 A MPT is composed of five different nodes: branch, extension, leaf, empty and digest nodes. Branch and leaf nodes might contain a payload whose format depends on the particular trie. The nodes are encoded, primarily using RLP encoding and Hex-prefix encoding (see \cite{yellowpaper} App. B and C, respectively). The resulting encoding is then hashed, following a strategy similar to that of normal Merkle trees, to generate the trie hashes.
 
