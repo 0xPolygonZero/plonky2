@@ -1092,7 +1092,8 @@ where
             }
 
             // Initialize the block number.
-            let block_number_key = TrieRootsTarget::SIZE * 2 + 3;
+            // We skip `block_beneficiary` (5 `Target`s) and `block_timestamp`.
+            let block_number_key = TrieRootsTarget::SIZE * 2 + 6;
             nonzero_pis.insert(block_number_key, F::ZERO);
 
             block_inputs.set_proof_with_pis_target(
