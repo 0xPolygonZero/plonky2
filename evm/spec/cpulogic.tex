@@ -53,17 +53,6 @@ Finally, once the three MPTs have been updated, we need to carry out final check
 \end{itemize}
 Once those final checks are performed, the program halts.
 
-\paragraph{MPT hashing:}
-MPTs are a complex structure in the kernel, and we will not delve into all of its aspects. Here, we only explain how the hashing works, since it is part of the initialization and final checks. 
-The data required for the MPTs are stored in the ``TrieData'' segment in memory. Whenever we need to hash an MPT, we recover the information from the ``TrieData'' segment and write it in the correct format in the ``RlpRaw'' segment. We start by getting the node type. If the node is a hash node, we simply return its value. Otherwise, we RLP encode the node recursively:
-\begin{itemize}
-    \item If it is an empty node, the encoding is $\texttt{0x80}$.
-    \item If it is a branch node, we encode the node's value and append it to the RLP tape. Then, we encode each of the children and append the encodings to the RLP tape.
-    \item If it is an extension node, we RLP encode its child and hex prefix it.
-    \item If it is a leaf, we RLP encode it depending on the type of trie, and hex prefix the encoding. Note that for a receipt leaf, the encoding is RLP($\texttt{type} || \texttt{RLP(receipt)})$. In the case of a transaction, their RLP encoding is already provided by the input, so we simply load it from memory.
-\end{itemize}
-Finally, we hash the output of the RLP encoding, stored in ``RlpRaw'' -- unless it is already a hash.
-
 \subsection{Simple opcodes VS Syscalls}
 For simplicity and efficiency, EVM opcodes are categorized into two groups: ``simple opcodes'' and ``syscalls''. Simple opcodes are generated directly in Rust, in \href{https://github.com/0xPolygonZero/plonky2/blob/main/evm/src/witness/operation.rs}{operation.rs}. Every call to a simple opcode adds exactly one row to the \href{https://github.com/0xPolygonZero/plonky2/blob/main/evm/spec/tables/cpu.tex}{cpu table}. Syscalls are more complex structures written with simple opcodes, in the kernel.
 
