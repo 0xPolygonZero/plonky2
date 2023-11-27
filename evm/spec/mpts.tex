@@ -91,4 +91,4 @@ The payloads in turn are RLP encoded as follows
 	\end{enumerate}
 \end{description}
 
-Once a node is encoded is written on the {\tt Segment::RlpRaw} segment as a sequence of bytes. Then the RLP encoded data is hashed if the length of the data is more than 32 bytes. Otherwise we return the encoding. Further details can be found in the \href{https://github.com/0xPolygonZero/plonky2/tree/main/evm/src/cpu/mpt/hash}{mpt hash folder}.
+Once a node is encoded it is written to the {\tt Segment::RlpRaw} segment as a sequence of bytes. Then the RLP encoded data is hashed if the length of the data is more than 32 bytes. Otherwise we return the encoding. Further details can be found in the \href{https://github.com/0xPolygonZero/plonky2/tree/main/evm/src/cpu/mpt/hash}{mpt hash folder}.
