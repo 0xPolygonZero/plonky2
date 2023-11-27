@@ -915,6 +915,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
+    /// Builds a "full circuit", with both prover and verifier data.
     pub fn build_with_options<C: GenericConfig<D, F = F>>(
         self,
         commit_to_sigma: bool,
@@ -926,7 +927,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         circuit_data
     }
 
-    /// Builds a "full circuit", with both prover and verifier data.
     pub fn try_build_with_options<C: GenericConfig<D, F = F>>(
         mut self,
         commit_to_sigma: bool,
