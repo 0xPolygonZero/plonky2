@@ -77,9 +77,12 @@ fn test_empty_txn_list() -> anyhow::Result<()> {
         addresses: vec![],
     };
 
-    let all_circuits = AllRecursiveCircuits::<F, C, D>::new(
+    // Initialize the preprocessed circuits for the zkEVM.
+    // The provided ranges are the minimal ones to prove an empty list, except the one of the CPU
+    // that is wrong for testing purposes, see below.
+    let mut all_circuits = AllRecursiveCircuits::<F, C, D>::new(
         &all_stark,
-        &[16..17, 11..12, 15..16, 14..15, 9..11, 12..13, 18..19], // Minimal ranges to prove an empty list
+        &[16..17, 11..12, 12..13, 14..15, 10..11, 12..13, 18..19],
         &config,
     );
 
@@ -110,6 +113,20 @@ fn test_empty_txn_list() -> anyhow::Result<()> {
 
         assert_eq!(all_circuits, all_circuits_from_bytes);
     }
+
+    let mut timing = TimingTree::new("prove", log::Level::Info);
+    // We're missing some preprocessed circuits.
+    assert!(all_circuits
+        .prove_root(&all_stark, &config, inputs.clone(), &mut timing)
+        .is_err());
+
+    // Expand the preprocessed circuits.
+    // We pass an empty range if we don't want to add different table sizes.
+    all_circuits.expand(
+        &all_stark,
+        &[0..0, 0..0, 15..16, 0..0, 0..0, 0..0, 0..0],
+        &StarkConfig::standard_fast_config(),
+    );
 
     let mut timing = TimingTree::new("prove", log::Level::Info);
     let (root_proof, public_values) =

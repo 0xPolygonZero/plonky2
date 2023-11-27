@@ -430,6 +430,72 @@ where
         }
     }
 
+    /// Expand the preprocessed STARK table circuits with the provided ranges.
+    ///
+    /// If a range for a given table is contained within the current one, this will be a no-op.
+    /// Otherwise, it will add the circuits for the missing table sizes, and regenerate the upper circuits.
+    pub fn expand(
+        &mut self,
+        all_stark: &AllStark<F, D>,
+        degree_bits_ranges: &[Range<usize>; NUM_TABLES],
+        stark_config: &StarkConfig,
+    ) {
+        self.by_table[Table::Arithmetic as usize].expand(
+            Table::Arithmetic,
+            &all_stark.arithmetic_stark,
+            degree_bits_ranges[Table::Arithmetic as usize].clone(),
+            &all_stark.cross_table_lookups,
+            stark_config,
+        );
+        self.by_table[Table::BytePacking as usize].expand(
+            Table::BytePacking,
+            &all_stark.byte_packing_stark,
+            degree_bits_ranges[Table::BytePacking as usize].clone(),
+            &all_stark.cross_table_lookups,
+            stark_config,
+        );
+        self.by_table[Table::Cpu as usize].expand(
+            Table::Cpu,
+            &all_stark.cpu_stark,
+            degree_bits_ranges[Table::Cpu as usize].clone(),
+            &all_stark.cross_table_lookups,
+            stark_config,
+        );
+        self.by_table[Table::Keccak as usize].expand(
+            Table::Keccak,
+            &all_stark.keccak_stark,
+            degree_bits_ranges[Table::Keccak as usize].clone(),
+            &all_stark.cross_table_lookups,
+            stark_config,
+        );
+        self.by_table[Table::KeccakSponge as usize].expand(
+            Table::KeccakSponge,
+            &all_stark.keccak_sponge_stark,
+            degree_bits_ranges[Table::KeccakSponge as usize].clone(),
+            &all_stark.cross_table_lookups,
+            stark_config,
+        );
+        self.by_table[Table::Logic as usize].expand(
+            Table::Logic,
+            &all_stark.logic_stark,
+            degree_bits_ranges[Table::Logic as usize].clone(),
+            &all_stark.cross_table_lookups,
+            stark_config,
+        );
+        self.by_table[Table::Memory as usize].expand(
+            Table::Memory,
+            &all_stark.memory_stark,
+            degree_bits_ranges[Table::Memory as usize].clone(),
+            &all_stark.cross_table_lookups,
+            stark_config,
+        );
+
+        // Regenerate the upper circuits.
+        self.root = Self::create_root_circuit(&self.by_table, stark_config);
+        self.aggregation = Self::create_aggregation_circuit(&self.root);
+        self.block = Self::create_block_circuit(&self.aggregation);
+    }
+
     fn create_root_circuit(
         by_table: &[RecursiveCircuitsForTable<F, C, D>; NUM_TABLES],
         stark_config: &StarkConfig,
@@ -1199,6 +1265,32 @@ where
             })
             .collect();
         Self { by_stark_size }
+    }
+
+    fn expand<S: Stark<F, D>>(
+        &mut self,
+        table: Table,
+        stark: &S,
+        degree_bits_range: Range<usize>,
+        all_ctls: &[CrossTableLookup<F>],
+        stark_config: &StarkConfig,
+    ) {
+        let new_ranges = degree_bits_range
+            .filter(|degree_bits| !self.by_stark_size.contains_key(degree_bits))
+            .collect_vec();
+
+        for degree_bits in new_ranges {
+            self.by_stark_size.insert(
+                degree_bits,
+                RecursiveCircuitsForTableSize::new::<S>(
+                    table,
+                    stark,
+                    degree_bits,
+                    all_ctls,
+                    stark_config,
+                ),
+            );
+        }
     }
 
     /// For each initial `degree_bits`, get the final circuit at the end of that shrinking chain.
