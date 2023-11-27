@@ -185,9 +185,9 @@ pub(crate) fn ctl_filter_byte_packing_push<F: Field>() -> Column<F> {
 }
 
 /// Index of the memory channel storing code.
-pub const MEM_CODE_CHANNEL_IDX: usize = 0;
+pub(crate) const MEM_CODE_CHANNEL_IDX: usize = 0;
 /// Index of the first general purpose memory channel.
-pub const MEM_GP_CHANNELS_IDX_START: usize = MEM_CODE_CHANNEL_IDX + 1;
+pub(crate) const MEM_GP_CHANNELS_IDX_START: usize = MEM_CODE_CHANNEL_IDX + 1;
 
 /// Make the time/channel column for memory lookups.
 fn mem_time_and_channel<F: Field>(channel: usize) -> Column<F> {

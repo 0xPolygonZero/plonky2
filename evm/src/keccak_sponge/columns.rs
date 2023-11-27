@@ -82,7 +82,7 @@ pub(crate) struct KeccakSpongeColumnsView<T: Copy> {
 
 // `u8` is guaranteed to have a `size_of` of 1.
 /// Number of columns in `KeccakSpongeStark`.
-pub const NUM_KECCAK_SPONGE_COLUMNS: usize = size_of::<KeccakSpongeColumnsView<u8>>();
+pub(crate) const NUM_KECCAK_SPONGE_COLUMNS: usize = size_of::<KeccakSpongeColumnsView<u8>>();
 
 // Indices for LogUp range-check.
 // They are on the last registers of this table.
