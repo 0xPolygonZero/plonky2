@@ -10,7 +10,7 @@ Insertion and deletion is performed in the same way as other MPT implementations
 
 \subsection{Internal memory format}
 
-The tries are stored in the kernel memory, specifically in the {\tt Segment:TrieData} segment. Each node type is stored as
+The tries are stored in kernel memory, specifically in the {\tt Segment:TrieData} segment. Each node type is stored as
 \begin{enumerate}
   \item An empty node is encoded as $(\texttt{MPT\_NODE\_EMPTY})$.
   \item A branch node is encoded as $(\texttt{MPT\_NODE\_BRANCH}, c_1, \dots, c_{16}, v)$, where each $c_i$ is a pointer to a child node, and $v$ is a pointer to a value. If a branch node has no associated value, then $v = 0$, i.e. the null pointer.
