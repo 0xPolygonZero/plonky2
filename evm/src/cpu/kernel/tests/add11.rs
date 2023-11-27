@@ -186,18 +186,23 @@ fn test_add11_yml() -> anyhow::Result<()> {
         transactions_root: transactions_trie.hash(),
         receipts_root: receipts_trie.hash(),
     };
-    interpreter.generation_state.memory.contexts[0].segments[Segment::GlobalMetadata as usize].set(
-        GlobalMetadata::StateTrieRootDigestAfter as usize,
-        h2u(trie_roots_after.state_root),
-    );
-    interpreter.generation_state.memory.contexts[0].segments[Segment::GlobalMetadata as usize].set(
-        GlobalMetadata::TransactionTrieRootDigestAfter as usize,
-        h2u(trie_roots_after.transactions_root),
-    );
-    interpreter.generation_state.memory.contexts[0].segments[Segment::GlobalMetadata as usize].set(
-        GlobalMetadata::ReceiptTrieRootDigestAfter as usize,
-        h2u(trie_roots_after.receipts_root),
-    );
+
+    // Set trie roots after the transaction was executed.
+    let metadata_to_set = [
+        (
+            GlobalMetadata::StateTrieRootDigestAfter,
+            h2u(trie_roots_after.state_root),
+        ),
+        (
+            GlobalMetadata::TransactionTrieRootDigestAfter,
+            h2u(trie_roots_after.transactions_root),
+        ),
+        (
+            GlobalMetadata::ReceiptTrieRootDigestAfter,
+            h2u(trie_roots_after.receipts_root),
+        ),
+    ];
+    interpreter.set_global_metadata_multi_fields(&metadata_to_set);
 
     let route_txn_label = KERNEL.global_labels["hash_initial_tries"];
     // Switch context and initialize memory with the data we need for the tests.
