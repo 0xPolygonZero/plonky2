@@ -186,7 +186,7 @@ fn test_extcodecopy() -> Result<()> {
     assert!(interpreter.stack().is_empty());
     // Check that the code was correctly copied to memory.
     for i in 0..size {
-        let memory = interpreter.generation_state.memory.contexts[interpreter.context()].segments
+        let memory = interpreter.generation_state.memory.contexts[context].segments
             [Segment::MainMemory as usize]
             .get(dest_offset + i);
         assert_eq!(
@@ -228,8 +228,8 @@ fn prepare_interpreter_all_accounts(
         );
     interpreter.generation_state.memory.contexts[1].segments[Segment::ContextMetadata as usize]
         .set(ContextMetadata::GasLimit as usize, 100_000.into());
-    *interpreter.context_mut() = 1;
-    *interpreter.is_kernel_mut() = false;
+    interpreter.set_context(1);
+    interpreter.set_is_kernel(false);
     interpreter.generation_state.memory.set(
         MemoryAddress::new(
             1,
@@ -308,10 +308,8 @@ fn sstore() -> Result<()> {
     // Now, execute mpt_hash_state_trie.
     let mpt_hash_state_trie = KERNEL.global_labels["mpt_hash_state_trie"];
     interpreter.generation_state.registers.program_counter = mpt_hash_state_trie;
-    *interpreter.context_mut() = 0;
-    interpreter.generation_state.registers.context = 0;
-    interpreter.generation_state.registers.is_kernel = true;
-    *interpreter.is_kernel_mut() = true;
+    interpreter.set_is_kernel(true);
+    interpreter.set_context(0);
     interpreter.push(0xDEADBEEFu32.into());
     interpreter.run()?;
 
@@ -383,10 +381,8 @@ fn sload() -> Result<()> {
     // Now, execute mpt_hash_state_trie. We check that the state trie has not changed.
     let mpt_hash_state_trie = KERNEL.global_labels["mpt_hash_state_trie"];
     interpreter.generation_state.registers.program_counter = mpt_hash_state_trie;
-    *interpreter.context_mut() = 0;
-    interpreter.generation_state.registers.context = 0;
-    interpreter.generation_state.registers.is_kernel = true;
-    *interpreter.is_kernel_mut() = true;
+    interpreter.set_is_kernel(true);
+    interpreter.set_context(0);
     interpreter.push(0xDEADBEEFu32.into());
     interpreter.run()?;
 

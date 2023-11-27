@@ -123,10 +123,12 @@ impl<'a> Interpreter<'a> {
             generation_state: GenerationState::new(GenerationInputs::default(), code)
                 .expect("Default inputs are known-good"),
             prover_inputs_map: prover_inputs,
+            // `DEFAULT_HALT_OFFSET` is used as a halting point for the interpreter,
+            // while the label ``halt`` is the halting label in the kernel.
             halt_offsets: vec![DEFAULT_HALT_OFFSET, KERNEL.global_labels["halt"]],
             debug_offsets: vec![],
             running: false,
-            opcode_count: [0; 0x100],
+            opcode_count: [0; 256],
         };
         result.generation_state.registers.program_counter = initial_offset;
         let initial_stack_len = initial_stack.len();
@@ -195,6 +197,13 @@ impl<'a> Interpreter<'a> {
     pub(crate) fn set_global_metadata_field(&mut self, field: GlobalMetadata, value: U256) {
         self.generation_state.memory.contexts[0].segments[Segment::GlobalMetadata as usize]
             .set(field as usize, value)
+    }
+
+    pub(crate) fn set_global_metadata_multi_fields(&mut self, metadata: &[(GlobalMetadata, U256)]) {
+        for &(field, value) in metadata {
+            self.generation_state.memory.contexts[0].segments[Segment::GlobalMetadata as usize]
+                .set(field as usize, value);
+        }
     }
 
     pub(crate) fn get_trie_data(&self) -> &[U256] {
@@ -278,20 +287,24 @@ impl<'a> Interpreter<'a> {
     }
 
     pub(crate) fn stack(&self) -> Vec<U256> {
-        let mut stack = self.generation_state.memory.contexts[self.context()].segments
-            [Segment::Stack as usize]
-            .content
-            .clone();
-
-        if self.stack_len() > 0 {
-            stack.truncate(self.stack_len() - 1);
-            stack.push(self.stack_top());
-        } else {
-            stack = vec![];
+        match self.stack_len().cmp(&1) {
+            Ordering::Greater => {
+                let mut stack = self.generation_state.memory.contexts[self.context()].segments
+                    [Segment::Stack as usize]
+                    .content
+                    .clone();
+                stack.truncate(self.stack_len() - 1);
+                stack.push(self.stack_top());
+                stack
+            }
+            Ordering::Equal => {
+                vec![self.stack_top()]
+            }
+            Ordering::Less => {
+                vec![]
+            }
         }
-        stack
     }
-
     fn stack_segment_mut(&mut self) -> &mut Vec<U256> {
         let context = self.context();
         &mut self.generation_state.memory.contexts[context].segments[Segment::Stack as usize]
@@ -708,7 +721,7 @@ impl<'a> Interpreter<'a> {
             + (U256::from(self.generation_state.registers.gas_used) << 192);
         self.generation_state.registers.program_counter = new_program_counter;
 
-        *self.is_kernel_mut() = true;
+        self.set_is_kernel(true);
         self.generation_state.registers.gas_used = 0;
         self.push(syscall_info);
 
@@ -764,14 +777,12 @@ impl<'a> Interpreter<'a> {
 
     fn run_dup(&mut self, n: u8) -> anyhow::Result<()> {
         assert!(n > 0);
-        if n == 1 {
-            self.push(self.stack_top());
-        } else {
-            self.push(
-                stack_peek(&self.generation_state, n as usize - 1)
-                    .map_err(|_| anyhow!("Stack underflow."))?,
-            );
-        }
+
+        self.push(
+            stack_peek(&self.generation_state, n as usize - 1)
+                .map_err(|_| anyhow!("Stack underflow."))?,
+        );
+
         Ok(())
     }
 
@@ -810,7 +821,7 @@ impl<'a> Interpreter<'a> {
                 .content[new_sp - 1];
             self.generation_state.registers.stack_top = new_stack_top;
         }
-        *self.context_mut() = new_ctx;
+        self.set_context(new_ctx);
         self.generation_state.registers.stack_len = new_sp;
     }
 
@@ -887,7 +898,7 @@ impl<'a> Interpreter<'a> {
         }
 
         self.generation_state.registers.program_counter = program_counter;
-        *self.is_kernel_mut() = is_kernel_mode;
+        self.set_is_kernel(is_kernel_mode);
         self.generation_state.registers.gas_used = gas_used_val;
     }
 
@@ -903,16 +914,19 @@ impl<'a> Interpreter<'a> {
         self.generation_state.registers.is_kernel
     }
 
-    pub(crate) fn is_kernel_mut(&mut self) -> &mut bool {
-        &mut self.generation_state.registers.is_kernel
+    pub(crate) fn set_is_kernel(&mut self, is_kernel: bool) {
+        self.generation_state.registers.is_kernel = is_kernel
     }
 
     pub(crate) fn context(&self) -> usize {
         self.generation_state.registers.context
     }
 
-    pub(crate) fn context_mut(&mut self) -> &mut usize {
-        &mut self.generation_state.registers.context
+    pub(crate) fn set_context(&mut self, context: usize) {
+        if context == 0 {
+            assert!(self.is_kernel());
+        }
+        self.generation_state.registers.context = context;
     }
 }
 
@@ -1237,8 +1251,8 @@ mod tests {
         interpreter.generation_state.memory.contexts[1].segments[Segment::ContextMetadata as usize]
             .set(ContextMetadata::GasLimit as usize, 100_000.into());
         // Set context and kernel mode.
-        *interpreter.context_mut() = 1;
-        *interpreter.is_kernel_mut() = false;
+        interpreter.set_context(1);
+        interpreter.set_is_kernel(false);
         // Set memory necessary to sys_stop.
         interpreter.generation_state.memory.set(
             MemoryAddress::new(

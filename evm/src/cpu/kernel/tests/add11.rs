@@ -40,30 +40,32 @@ fn prepare_interpreter(
     assert_eq!(interpreter.stack(), vec![]);
 
     // Set necessary `GlobalMetadata`.
-    interpreter.generation_state.memory.contexts[0].segments[Segment::GlobalMetadata as usize].set(
-        GlobalMetadata::StateTrieRootDigestBefore as usize,
-        h2u(trie_inputs.state_trie.hash()),
-    );
-    interpreter.generation_state.memory.contexts[0].segments[Segment::GlobalMetadata as usize].set(
-        GlobalMetadata::TransactionTrieRootDigestBefore as usize,
-        h2u(trie_inputs.transactions_trie.hash()),
-    );
-    interpreter.generation_state.memory.contexts[0].segments[Segment::GlobalMetadata as usize].set(
-        GlobalMetadata::ReceiptTrieRootDigestBefore as usize,
-        h2u(trie_inputs.receipts_trie.hash()),
-    );
-    interpreter.generation_state.memory.contexts[0].segments[Segment::GlobalMetadata as usize]
-        .set(GlobalMetadata::TxnNumberAfter as usize, 1.into());
-    interpreter.generation_state.memory.contexts[0].segments[Segment::GlobalMetadata as usize]
-        .set(GlobalMetadata::BlockGasUsedAfter as usize, 0xa868u64.into());
-    interpreter.generation_state.memory.contexts[0].segments[Segment::GlobalMetadata as usize]
-        .set(GlobalMetadata::BlockGasLimit as usize, 1_000_000.into());
-    interpreter.generation_state.memory.contexts[0].segments[Segment::GlobalMetadata as usize]
-        .set(GlobalMetadata::BlockBaseFee as usize, 10.into());
-    interpreter.generation_state.memory.contexts[0].segments[Segment::GlobalMetadata as usize].set(
-        GlobalMetadata::BlockBeneficiary as usize,
-        U256::from_big_endian(&Address::from(hex!("2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")).0),
-    );
+    let global_metadata_to_set = [
+        (
+            GlobalMetadata::StateTrieRootDigestBefore,
+            h2u(trie_inputs.state_trie.hash()),
+        ),
+        (
+            GlobalMetadata::TransactionTrieRootDigestBefore,
+            h2u(trie_inputs.transactions_trie.hash()),
+        ),
+        (
+            GlobalMetadata::ReceiptTrieRootDigestBefore,
+            h2u(trie_inputs.receipts_trie.hash()),
+        ),
+        (GlobalMetadata::TxnNumberAfter, 1.into()),
+        (GlobalMetadata::BlockGasUsedAfter, 0xa868u64.into()),
+        (GlobalMetadata::BlockGasLimit, 1_000_000.into()),
+        (GlobalMetadata::BlockBaseFee, 10.into()),
+        (
+            GlobalMetadata::BlockBeneficiary,
+            U256::from_big_endian(
+                &Address::from(hex!("2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")).0,
+            ),
+        ),
+    ];
+
+    interpreter.set_global_metadata_multi_fields(&global_metadata_to_set);
 
     // Set contract code and transaction.
     interpreter.generation_state.inputs.contract_code = contract_code;
@@ -202,7 +204,7 @@ fn test_add11_yml() -> anyhow::Result<()> {
     interpreter.generation_state.registers.program_counter = route_txn_label;
     interpreter.generation_state.memory.contexts[0].segments[Segment::ContextMetadata as usize]
         .set(ContextMetadata::GasLimit as usize, 1_000_000.into());
-    *interpreter.is_kernel_mut() = true;
+    interpreter.set_is_kernel(true);
     interpreter.run()?;
 
     Ok(())
