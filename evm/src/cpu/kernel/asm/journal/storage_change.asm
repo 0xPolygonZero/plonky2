@@ -13,19 +13,20 @@ global revert_storage_change:
     // stack: address, slot, prev_value, retdest
     SWAP1 %slot_to_storage_key
     // stack: storage_key, address, prev_value, retdest
-    PUSH 64 // storage_key has 64 nibbles
-    // stack: 64, storage_key, address, prev_value, retdest
-    DUP3 %smt_read_state
+    DUP2 %smt_read_state
     DUP1 ISZERO %jumpi(panic)
-    // stack: account_ptr, 64, storage_key, address, prev_value, retdest
+    // stack: account_ptr, storage_key, address, prev_value, retdest
     %add_const(2)
-    // stack: storage_root_ptr_ptr, 64, storage_key, address, prev_value, retdest
+    // stack: storage_root_ptr_ptr, storage_key, address, prev_value, retdest
     %mload_trie_data
+    // stack: storage_root_ptr, storage_key, address, prev_value, retdest
     %get_trie_data_size
-    DUP6 %append_to_trie_data
-    %stack (prev_value_ptr, storage_root_ptr, num_nibbles, storage_key, address, prev_value, retdest) ->
-        (storage_root_ptr, num_nibbles, storage_key, prev_value_ptr, new_storage_root, address, retdest)
-    %jump(mpt_insert)
+    // stack: prev_value_ptr, storage_root_ptr, storage_key, address, prev_value, retdest
+    PUSH 0 %append_to_trie_data
+    DUP5 %append_to_trie_data
+    %stack (prev_value_ptr, storage_root_ptr, storage_key, address, prev_value, retdest) ->
+        (storage_root_ptr, storage_key, prev_value_ptr, new_storage_root, address, retdest)
+    %jump(smt_insert)
 
 delete:
     // stack: address, slot, prev_value, retdest

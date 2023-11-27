@@ -37,7 +37,6 @@ fn test_empty_txn_list() -> anyhow::Result<()> {
     let state_smt = Smt::empty();
     let transactions_trie = HashedPartialTrie::from(Node::Empty);
     let receipts_trie = HashedPartialTrie::from(Node::Empty);
-    let storage_tries = vec![];
 
     let mut contract_code = HashMap::new();
     contract_code.insert(keccak(vec![]), vec![]);
@@ -50,11 +49,11 @@ fn test_empty_txn_list() -> anyhow::Result<()> {
     };
     let inputs = GenerationInputs {
         signed_txns: vec![],
+        withdrawals: vec![],
         tries: TrieInputs {
             state_smt: state_smt.serialize(),
             transactions_trie,
             receipts_trie,
-            storage_tries,
         },
         trie_roots_after,
         contract_code,

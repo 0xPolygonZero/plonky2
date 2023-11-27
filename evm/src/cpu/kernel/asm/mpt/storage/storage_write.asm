@@ -89,12 +89,15 @@ sstore_after_refund:
     EQ %jumpi(sstore_noop)
 
     // stack: current_value, slot, value, kexit_info
-    DUP2 %address %journal_add_storage_change
-    // stack: slot, value, kexit_info
+    DUP1 DUP3 %address %journal_add_storage_change
+    // stack: current_value, slot, value, kexit_info
 
     // If the value is zero, delete the slot from the storage SMT.
-    // stack: slot, value, kexit_info
-    DUP2 ISZERO %jumpi(sstore_delete)
+    DUP3 ISZERO %jumpi(sstore_delete)
+
+    // stack: current_value, slot, value, kexit_info
+    %jumpi(existing_slot)
+
 
     // First we write the value to SMT data, and get a pointer to it.
     %get_trie_data_size
@@ -126,6 +129,20 @@ after_storage_insert:
     // stack: kexit_info
     EXIT_KERNEL
 
+existing_slot:
+    // stack: slot, value, kexit_info
+    %slot_to_storage_key
+    // stack: storage_key, value, kexit_info
+    %current_storage_smt
+    // stack: storage_root_ptr, storage_key, value, kexit_info
+    %stack (storage_root_ptr, storage_key) -> (storage_root_ptr, storage_key, existing_slot_after_read)
+    %jump(smt_read)
+existing_slot_after_read:
+    // stack: value_ptr, value, kexit_info
+    %mstore_trie_data
+    // stack: kexit_info
+    EXIT_KERNEL
+
 sstore_noop:
     // stack: current_value, slot, value, kexit_info
     %pop3
@@ -133,8 +150,7 @@ sstore_noop:
 
 // Delete the slot from the storage SMT.
 sstore_delete:
-    // stack: slot, value, kexit_info
-    SWAP1 POP
+    %stack (current_value, slot, value, kexit_info) -> (slot, kexit_info)
     PUSH after_storage_insert SWAP1
     // stack: slot, after_storage_insert, kexit_info
     %slot_to_storage_key

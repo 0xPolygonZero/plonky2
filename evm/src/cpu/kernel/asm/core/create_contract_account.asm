@@ -22,8 +22,18 @@
     DUP1 %mload_trie_data // codehash = account[3]
     %eq_const(@EMPTY_STRING_HASH) ISZERO %jumpi(%%error_collision)
     // stack: existing_codehash_ptr, address
-    %sub_const(2) %mload_trie_data // balance = account[1]
-    %jump(%%do_insert)
+    %sub_const(1)
+    %stack (storage_root_ptr, address) -> (storage_root_ptr, 0, storage_root_ptr, 2, address)
+    // Set the storage root to 0.
+    %mstore_trie_data
+    // stack: storage_root_ptr, 2, address
+    SUB
+    // stack: nonce_ptr, address
+    PUSH 1 SWAP1 %mstore_trie_data
+    // stack: address
+    PUSH 0 SWAP1 %journal_add_nonce_change
+    PUSH 0 // success
+    %jump(%%end)
 
 %%add_account:
     // stack: existing_balance, address
@@ -34,6 +44,7 @@
     %get_trie_data_size
     // stack: account_ptr, new_acct_value, address
     PUSH 0 DUP4 %journal_add_nonce_change
+    PUSH 0 %append_to_trie_data // key placeholder
     PUSH 1 %append_to_trie_data // nonce = 1
     // stack: account_ptr, new_acct_value, address
     SWAP1 %append_to_trie_data // balance = new_acct_value

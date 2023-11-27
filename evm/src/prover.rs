@@ -483,7 +483,7 @@ where
         "Opening point is in the subgroup."
     );
 
-    // Compute all openings: evaluate all commited polynomials at `zeta` and, when necessary, at `g * zeta`.
+    // Compute all openings: evaluate all committed polynomials at `zeta` and, when necessary, at `g * zeta`.
     let openings = StarkOpeningSet::new(
         zeta,
         g,

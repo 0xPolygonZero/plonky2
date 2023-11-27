@@ -26,7 +26,6 @@ fn test_state_smt(smt: Smt, k: U256, account: Account) -> Result<()> {
         state_smt: smt.serialize(),
         transactions_trie: Default::default(),
         receipts_trie: Default::default(),
-        storage_tries: vec![],
     };
     let load_all_mpts = KERNEL.global_labels["load_all_mpts"];
     let smt_insert_state = KERNEL.global_labels["smt_insert_state"];

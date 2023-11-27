@@ -45,6 +45,7 @@ impl<F: Field> GenerationState<F> {
             "current_hash" => self.run_current_hash(),
             "account_code" => self.run_account_code(input_fn),
             "bignum_modmul" => self.run_bignum_modmul(),
+            "withdrawal" => self.run_withdrawal(),
             _ => Err(ProgramError::ProverInputError(InvalidFunction)),
         }
     }
@@ -232,6 +233,13 @@ impl<F: Field> GenerationState<F> {
         let rem = prod - m_biguint * &quo;
 
         (biguint_to_mem_vec(rem), biguint_to_mem_vec(quo))
+    }
+
+    /// Withdrawal data.
+    fn run_withdrawal(&mut self) -> Result<U256, ProgramError> {
+        self.withdrawal_prover_inputs
+            .pop()
+            .ok_or(ProgramError::ProverInputError(OutOfWithdrawalData))
     }
 }
 

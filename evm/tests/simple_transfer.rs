@@ -62,7 +62,6 @@ fn test_simple_transfer() -> anyhow::Result<()> {
         state_smt: state_smt_before.serialize(),
         transactions_trie: HashedPartialTrie::from(Node::Empty),
         receipts_trie: HashedPartialTrie::from(Node::Empty),
-        storage_tries: vec![],
     };
 
     // Generated using a little py-evm script.
@@ -130,6 +129,7 @@ fn test_simple_transfer() -> anyhow::Result<()> {
     };
     let inputs = GenerationInputs {
         signed_txns: vec![txn.to_vec()],
+        withdrawals: vec![],
         tries: tries_before,
         trie_roots_after,
         contract_code,

@@ -78,7 +78,6 @@ fn test_four_transactions() -> anyhow::Result<()> {
         state_smt: state_smt_before.serialize(),
         transactions_trie: Node::Empty.into(),
         receipts_trie: Node::Empty.into(),
-        storage_tries: vec![],
     };
 
     // Generated using a little py-evm script.
@@ -179,6 +178,7 @@ fn test_four_transactions() -> anyhow::Result<()> {
     };
     let inputs = GenerationInputs {
         signed_txns: vec![txn1.to_vec(), txn2.to_vec(), txn3.to_vec(), txn4.to_vec()],
+        withdrawals: vec![],
         tries: tries_before,
         trie_roots_after,
         genesis_state_trie_root: HashedPartialTrie::from(Node::Empty).hash(),

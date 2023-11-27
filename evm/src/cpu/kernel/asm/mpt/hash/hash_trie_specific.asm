@@ -99,7 +99,7 @@ global encode_account:
 global encode_txn:
     // stack: rlp_pos, value_ptr, retdest
     
-    // Load the txn_rlp_len which is at the beginnig of value_ptr
+    // Load the txn_rlp_len which is at the beginning of value_ptr
     DUP2 %mload_trie_data
     // stack: txn_rlp_len, rlp_pos, value_ptr, retdest
     SWAP2 %increment

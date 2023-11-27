@@ -46,6 +46,17 @@ pub struct LegacyReceiptRlp {
     pub logs: Vec<LogRlp>,
 }
 
+impl LegacyReceiptRlp {
+    // RLP encode the receipt and prepend the tx type.
+    pub fn encode(&self, tx_type: u8) -> Vec<u8> {
+        let mut bytes = rlp::encode(self).to_vec();
+        if tx_type != 0 {
+            bytes.insert(0, tx_type);
+        }
+        bytes
+    }
+}
+
 pub(crate) fn state_smt_prover_inputs_reversed(trie_inputs: &TrieInputs) -> Vec<U256> {
     let mut inputs = state_smt_prover_inputs(trie_inputs);
     inputs.reverse();

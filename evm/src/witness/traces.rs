@@ -70,6 +70,7 @@ impl<T: Copy> Traces<T> {
                         BinaryOperator::Div | BinaryOperator::Mod => 2,
                         _ => 1,
                     },
+                    Operation::RangeCheckOperation { .. } => 1,
                 })
                 .sum(),
             byte_packing_len: self.byte_packing_ops.iter().map(|op| op.bytes.len()).sum(),

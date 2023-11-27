@@ -48,6 +48,8 @@ pub struct GenerationInputs {
     pub block_bloom_after: [U256; 8],
 
     pub signed_txns: Vec<Vec<u8>>,
+    // Withdrawal pairs `(addr, amount)`. At the end of the txs, `amount` is added to `addr`'s balance. See EIP-4895.
+    pub withdrawals: Vec<(Address, U256)>,
     pub tries: TrieInputs,
     /// Expected trie roots after the transactions are executed.
     pub trie_roots_after: TrieRoots,
@@ -83,10 +85,6 @@ pub struct TrieInputs {
     /// A partial version of the receipt trie prior to these transactions. It should include all nodes
     /// that will be accessed by these transactions.
     pub receipts_trie: HashedPartialTrie,
-
-    /// A partial version of each storage trie prior to these transactions. It should include all
-    /// storage tries, and nodes therein, that will be accessed by these transactions.
-    pub storage_tries: Vec<(H256, HashedPartialTrie)>,
 }
 
 impl Default for TrieInputs {
@@ -96,7 +94,6 @@ impl Default for TrieInputs {
             state_smt: vec![U256::zero(); 4],
             transactions_trie: Default::default(),
             receipts_trie: Default::default(),
-            storage_tries: vec![],
         }
     }
 }

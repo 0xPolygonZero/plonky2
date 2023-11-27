@@ -134,7 +134,7 @@ pub trait Read {
     /// Reads a `usize` value from `self`.
     #[inline]
     fn read_usize(&mut self) -> IoResult<usize> {
-        let mut buf = [0; std::mem::size_of::<u64>()];
+        let mut buf = [0; core::mem::size_of::<u64>()];
         self.read_exact(&mut buf)?;
         Ok(u64::from_le_bytes(buf) as usize)
     }

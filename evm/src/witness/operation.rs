@@ -234,7 +234,22 @@ pub(crate) fn generate_prover_input<F: Field>(
     let pc = state.registers.program_counter;
     let input_fn = &KERNEL.prover_inputs[&pc];
     let input = state.prover_input(input_fn)?;
+    let opcode = 0x49.into();
+    // `ArithmeticStark` range checks `mem_channels[0]`, which contains
+    // the top of the stack, `mem_channels[1]`, `mem_channels[2]` and
+    // next_row's `mem_channels[0]` which contains the next top of the stack.
+    // Our goal here is to range-check the input, in the next stack top.
+    let range_check_op = arithmetic::Operation::range_check(
+        state.registers.stack_top,
+        U256::from(0),
+        U256::from(0),
+        opcode,
+        input,
+    );
+
     push_with_write(state, &mut row, input)?;
+
+    state.traces.push_arithmetic(range_check_op);
     state.traces.push_cpu(row);
     Ok(())
 }
@@ -772,10 +787,24 @@ pub(crate) fn generate_syscall<F: Field>(
     let handler_addr = (handler_addr0 << 16) + (handler_addr1 << 8) + handler_addr2;
     let new_program_counter = u256_to_usize(handler_addr)?;
 
+    let gas = U256::from(state.registers.gas_used);
+
     let syscall_info = U256::from(state.registers.program_counter + 1)
         + (U256::from(u64::from(state.registers.is_kernel)) << 32)
-        + (U256::from(state.registers.gas_used) << 192);
+        + (gas << 192);
 
+    // `ArithmeticStark` range checks `mem_channels[0]`, which contains
+    // the top of the stack, `mem_channels[1]`, `mem_channels[2]` and
+    // next_row's `mem_channels[0]` which contains the next top of the stack.
+    // Our goal here is to range-check the gas, contained in syscall_info,
+    // stored in the next stack top.
+    let range_check_op = arithmetic::Operation::range_check(
+        state.registers.stack_top,
+        handler_addr0,
+        handler_addr1,
+        U256::from(opcode),
+        syscall_info,
+    );
     // Set registers before pushing to the stack; in particular, we need to set kernel mode so we
     // can't incorrectly trigger a stack overflow. However, note that we have to do it _after_ we
     // make `syscall_info`, which should contain the old values.
@@ -787,6 +816,7 @@ pub(crate) fn generate_syscall<F: Field>(
 
     log::debug!("Syscall to {}", KERNEL.offset_name(new_program_counter));
 
+    state.traces.push_arithmetic(range_check_op);
     state.traces.push_memory(log_in0);
     state.traces.push_memory(log_in1);
     state.traces.push_memory(log_in2);
@@ -1055,9 +1085,27 @@ pub(crate) fn generate_exception<F: Field>(
     let handler_addr = (handler_addr0 << 16) + (handler_addr1 << 8) + handler_addr2;
     let new_program_counter = u256_to_usize(handler_addr)?;
 
-    let exc_info =
-        U256::from(state.registers.program_counter) + (U256::from(state.registers.gas_used) << 192);
+    let gas = U256::from(state.registers.gas_used);
 
+    let exc_info = U256::from(state.registers.program_counter) + (gas << 192);
+
+    // Get the opcode so we can provide it to the range_check operation.
+    let code_context = state.registers.code_context();
+    let address = MemoryAddress::new(code_context, Segment::Code, state.registers.program_counter);
+    let opcode = state.memory.get(address);
+
+    // `ArithmeticStark` range checks `mem_channels[0]`, which contains
+    // the top of the stack, `mem_channels[1]`, `mem_channels[2]` and
+    // next_row's `mem_channels[0]` which contains the next top of the stack.
+    // Our goal here is to range-check the gas, contained in syscall_info,
+    // stored in the next stack top.
+    let range_check_op = arithmetic::Operation::range_check(
+        state.registers.stack_top,
+        handler_addr0,
+        handler_addr1,
+        opcode,
+        exc_info,
+    );
     // Set registers before pushing to the stack; in particular, we need to set kernel mode so we
     // can't incorrectly trigger a stack overflow. However, note that we have to do it _after_ we
     // make `exc_info`, which should contain the old values.
@@ -1068,7 +1116,7 @@ pub(crate) fn generate_exception<F: Field>(
     push_with_write(state, &mut row, exc_info)?;
 
     log::debug!("Exception to {}", KERNEL.offset_name(new_program_counter));
-
+    state.traces.push_arithmetic(range_check_op);
     state.traces.push_memory(log_in0);
     state.traces.push_memory(log_in1);
     state.traces.push_memory(log_in2);
