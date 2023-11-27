@@ -63,7 +63,7 @@ The payload of state and receipt tries is given in the natural sequential way. T
 
 \subsection{Encoding and Hashing}
 
-Encoding is recursively performed starting from the trie root. Leaf, branch and extension nodes are encoded as the RLP encoding of list containing the hex prefix encoding of the node key as well as
+Encoding is done recursively starting from the trie root. Leaf, branch and extension nodes are encoded as the RLP encoding of list containing the hex prefix encoding of the node key as well as
 
 \begin{description}
 	\item[Leaf Node:] the encoding of the the payload,
