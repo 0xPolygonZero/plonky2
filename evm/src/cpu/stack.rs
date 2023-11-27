@@ -19,7 +19,7 @@ pub(crate) const MAX_USER_STACK_SIZE: usize = 1024;
 // which can happen after a non-kernel-only, non-popping, pushing instruction/syscall.
 // The check uses `stack_len_bounds_aux`, which is either 0 if next row's `stack_len` is 1025 or
 // next row is in kernel mode, or the inverse of `nv.stack_len - 1025` otherwise.
-const MIGHT_OVERFLOW: OpsColumnsView<bool> = OpsColumnsView {
+pub(crate) const MIGHT_OVERFLOW: OpsColumnsView<bool> = OpsColumnsView {
     binary_op: false,
     ternary_op: false,
     fp254_op: false,

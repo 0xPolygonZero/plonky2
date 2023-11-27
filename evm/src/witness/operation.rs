@@ -24,6 +24,7 @@ use crate::witness::errors::ProgramError;
 use crate::witness::errors::ProgramError::MemoryError;
 use crate::witness::memory::{MemoryAddress, MemoryChannel, MemoryOp, MemoryOpKind};
 use crate::witness::operation::MemoryChannel::GeneralPurpose;
+use crate::witness::transition::fill_stack_fields;
 use crate::witness::util::{
     keccak_sponge_log, mem_read_gp_with_log_and_fill, mem_write_gp_log_and_fill,
     stack_pop_with_log_and_fill,
@@ -950,62 +951,12 @@ pub(crate) fn generate_exception<F: Field>(
 
     row.op.exception = F::ONE;
 
-    let disallowed_len = F::from_canonical_usize(MAX_USER_STACK_SIZE + 1);
-    let diff = row.stack_len - disallowed_len;
-    if let Some(inv) = diff.try_inverse() {
-        row.general.stack_mut().stack_len_bounds_aux = inv;
-    } else {
-        // This is a stack overflow that should have been caught earlier.
-        return Err(ProgramError::InterpreterError);
-    }
-
     if let Some(inv) = row.stack_len.try_inverse() {
         row.general.stack_mut().stack_inv = inv;
         row.general.stack_mut().stack_inv_aux = F::ONE;
     }
 
-    if state.registers.is_stack_top_read {
-        let channel = &mut row.mem_channels[0];
-        channel.used = F::ONE;
-        channel.is_read = F::ONE;
-        channel.addr_context = F::from_canonical_usize(state.registers.context);
-        channel.addr_segment = F::from_canonical_usize(Segment::Stack as usize);
-        channel.addr_virtual = F::from_canonical_usize(state.registers.stack_len - 1);
-
-        let address = MemoryAddress {
-            context: state.registers.context,
-            segment: Segment::Stack as usize,
-            virt: state.registers.stack_len - 1,
-        };
-
-        let mem_op = MemoryOp::new(
-            GeneralPurpose(0),
-            state.traces.clock(),
-            address,
-            MemoryOpKind::Read,
-            state.registers.stack_top,
-        );
-        state.traces.push_memory(mem_op);
-        state.registers.is_stack_top_read = false;
-    }
-
-    if state.registers.check_overflow {
-        if state.registers.is_kernel {
-            row.general.stack_mut().stack_len_bounds_aux = F::ZERO;
-        } else {
-            let clock = state.traces.clock();
-            let last_row = &mut state.traces.cpu[clock - 1];
-            let disallowed_len = F::from_canonical_usize(MAX_USER_STACK_SIZE + 1);
-            let diff = row.stack_len - disallowed_len;
-            if let Some(inv) = diff.try_inverse() {
-                last_row.general.stack_mut().stack_len_bounds_aux = inv;
-            } else {
-                // This is a stack overflow that should have been caught earlier.
-                return Err(ProgramError::InterpreterError);
-            }
-        }
-        state.registers.check_overflow = false;
-    }
+    fill_stack_fields(state, &mut row);
 
     row.general.exception_mut().exc_code_bits = [
         F::from_bool(exc_code & 1 != 0),
