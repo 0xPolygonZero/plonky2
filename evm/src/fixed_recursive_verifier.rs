@@ -663,14 +663,14 @@ where
         builder.connect(pvs.txn_number_before, lhs.txn_number_before);
         builder.connect(pvs.txn_number_after, rhs.txn_number_after);
 
-        // Connect lhs `txn_number_after`with rhs `txn_number_before`.
+        // Connect lhs `txn_number_after` with rhs `txn_number_before`.
         builder.connect(lhs.txn_number_after, rhs.txn_number_before);
 
         // Connect the gas used in public values to the lhs and rhs values correctly.
         builder.connect(pvs.gas_used_before, lhs.gas_used_before);
         builder.connect(pvs.gas_used_after, rhs.gas_used_after);
 
-        // Connect lhs `gas_used_after`with rhs `gas_used_before`.
+        // Connect lhs `gas_used_after` with rhs `gas_used_before`.
         builder.connect(lhs.gas_used_after, rhs.gas_used_before);
 
         // Connect the `block_bloom` in public values to the lhs and rhs values correctly.
@@ -680,7 +680,8 @@ where
         for (&limb0, &limb1) in pvs.block_bloom_before.iter().zip(&lhs.block_bloom_before) {
             builder.connect(limb0, limb1);
         }
-        // Connect lhs `block_bloom_after`with rhs `block_bloom_before`.
+
+        // Connect lhs `block_bloom_after` with rhs `block_bloom_before`.
         for (&limb0, &limb1) in lhs.block_bloom_after.iter().zip(&rhs.block_bloom_before) {
             builder.connect(limb0, limb1);
         }
@@ -819,7 +820,7 @@ where
         let has_not_parent_block = builder.sub(one, has_parent_block.target);
 
         // Check that the genesis block number is 0.
-        let gen_block_constr = builder.mul(has_not_parent_block, rhs.block_metadata.block_number);
+        let gen_block_constr = builder.mul(has_not_parent_block, lhs.block_metadata.block_number);
         builder.assert_zero(gen_block_constr);
 
         // Check that the genesis block has the predetermined state trie root in `ExtraBlockData`.
@@ -1033,7 +1034,18 @@ where
             block_inputs
                 .set_proof_with_pis_target(&self.block.parent_block_proof, parent_block_proof);
         } else {
-            // Initialize genesis_state_trie, state_root_after, block hashes and the block number for correct connection between blocks.
+            // Initialize genesis_state_trie, state_root_after, and the previous block hashes for correct connection between blocks.
+            // Block number does not need to be initialized as genesis block is constrained to have number 0.
+
+            if public_values.trie_roots_before.state_root
+                != public_values.extra_block_data.genesis_state_trie_root
+            {
+                return Err(anyhow::Error::msg(format!(
+                    "Inconsistent pre-state for first block {:?} with genesis state {:?}.",
+                    public_values.trie_roots_before.state_root,
+                    public_values.extra_block_data.genesis_state_trie_root,
+                )));
+            }
             // Initialize `state_root_after`.
             let state_trie_root_after_keys =
                 TrieRootsTarget::SIZE..TrieRootsTarget::SIZE + TrieRootsTarget::HASH_SIZE;
@@ -1071,14 +1083,14 @@ where
                     nonzero_pis.insert(block_hashes_keys.start + 8 * (i + 1) + j, targets[j]);
                 }
             }
+            let block_hashes_current_start = TrieRootsTarget::SIZE * 2
+                + BlockMetadataTarget::SIZE
+                + BlockHashesTarget::BLOCK_HASHES_SIZE
+                - 8;
             let cur_targets = h256_limbs::<F>(public_values.block_hashes.prev_hashes[255]);
             for i in 0..8 {
-                nonzero_pis.insert(block_hashes_keys.end + i, cur_targets[i]);
+                nonzero_pis.insert(block_hashes_current_start + i, cur_targets[i]);
             }
-
-            // Initialize the block number.
-            let block_number_key = TrieRootsTarget::SIZE * 2 + 6;
-            nonzero_pis.insert(block_number_key, F::NEG_ONE);
 
             block_inputs.set_proof_with_pis_target(
                 &self.block.parent_block_proof,
