@@ -71,8 +71,8 @@ pub(crate) struct CpuColumnsView<T: Copy> {
     /// If CPU cycle: We're in kernel (privileged) mode.
     pub is_kernel_mode: T,
 
-    /// If CPU cycle: Gas counter, split in two 32-bit limbs in little-endian order.
-    pub gas: [T; 2],
+    /// If CPU cycle: Gas counter.
+    pub gas: T,
 
     /// If CPU cycle: flags for EVM instructions (a few cannot be shared; see the comments in
     /// `OpsColumnsView`).
@@ -99,7 +99,7 @@ pub(crate) struct CpuColumnsView<T: Copy> {
 
 /// Total number of columns in `CpuStark`.
 /// `u8` is guaranteed to have a `size_of` of 1.
-pub const NUM_CPU_COLUMNS: usize = size_of::<CpuColumnsView<u8>>();
+pub(crate) const NUM_CPU_COLUMNS: usize = size_of::<CpuColumnsView<u8>>();
 
 impl<F: Field> Default for CpuColumnsView<F> {
     fn default() -> Self {
@@ -171,4 +171,4 @@ const fn make_col_map() -> CpuColumnsView<usize> {
 }
 
 /// Mapping between [0..NUM_CPU_COLUMNS-1] and the CPU columns.
-pub const COL_MAP: CpuColumnsView<usize> = make_col_map();
+pub(crate) const COL_MAP: CpuColumnsView<usize> = make_col_map();

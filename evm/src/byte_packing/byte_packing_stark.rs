@@ -311,6 +311,17 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
         let local_values: &[P; NUM_COLUMNS] = vars.get_local_values().try_into().unwrap();
         let next_values: &[P; NUM_COLUMNS] = vars.get_next_values().try_into().unwrap();
 
+        // Check the range column: First value must be 0, last row
+        // must be 255, and intermediate rows must increment by 0
+        // or 1.
+        let rc1 = local_values[RANGE_COUNTER];
+        let rc2 = next_values[RANGE_COUNTER];
+        yield_constr.constraint_first_row(rc1);
+        let incr = rc2 - rc1;
+        yield_constr.constraint_transition(incr * incr - incr);
+        let range_max = P::Scalar::from_canonical_u64((BYTE_RANGE_MAX - 1) as u64);
+        yield_constr.constraint_last_row(rc1 - range_max);
+
         let one = P::ONES;
 
         // We filter active columns by summing all the byte indices.
@@ -420,6 +431,20 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
             vars.get_local_values().try_into().unwrap();
         let next_values: &[ExtensionTarget<D>; NUM_COLUMNS] =
             vars.get_next_values().try_into().unwrap();
+
+        // Check the range column: First value must be 0, last row
+        // must be 255, and intermediate rows must increment by 0
+        // or 1.
+        let rc1 = local_values[RANGE_COUNTER];
+        let rc2 = next_values[RANGE_COUNTER];
+        yield_constr.constraint_first_row(builder, rc1);
+        let incr = builder.sub_extension(rc2, rc1);
+        let t = builder.mul_sub_extension(incr, incr, incr);
+        yield_constr.constraint_transition(builder, t);
+        let range_max =
+            builder.constant_extension(F::Extension::from_canonical_usize(BYTE_RANGE_MAX - 1));
+        let t = builder.sub_extension(rc1, range_max);
+        yield_constr.constraint_last_row(builder, t);
 
         // We filter active columns by summing all the byte indices.
         // Constraining each of them to be boolean is done later on below.
