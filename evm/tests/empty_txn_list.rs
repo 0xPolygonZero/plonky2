@@ -146,7 +146,11 @@ fn test_empty_txn_list() -> anyhow::Result<()> {
     all_circuits.verify_aggregation(&agg_proof)?;
 
     let (block_proof, _) = all_circuits.prove_block(None, &agg_proof, public_values)?;
-    all_circuits.verify_block(&block_proof)
+    all_circuits.verify_block(&block_proof)?;
+
+    // Get the verifier associated to these preprocessed circuits, and have it verify the block_proof.
+    let verifier = all_circuits.final_verifier_data();
+    verifier.verify(block_proof)
 }
 
 fn init_logger() {
