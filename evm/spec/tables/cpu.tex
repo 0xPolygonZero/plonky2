@@ -31,7 +31,6 @@ but change the code context, which is where the instructions are read from.
     \item \texttt{code\_context}: Indicates in which context the code to execute resides. It's equal to \texttt{context} in user mode, but is always 0 in kernel mode.
     \item \texttt{program\_counter}: The address of the instruction to be read and executed.
     \item \texttt{stack\_len}: The current length of the stack.
-    \item \texttt{stack\_len\_bounds\_aux}: Helper column used to check that the stack doesn't overflow in user mode.
     \item \texttt{is\_kernel\_mode}: Boolean indicating whether we are in kernel (i.e. privileged) mode. This means we are executing kernel code, and we have access to
 privileged instructions.
     \item \texttt{gas}: The current amount of gas used in the current context. It is eventually checked to be below the current gas limit. Must fit in 32 bits.
@@ -73,6 +72,7 @@ To check if this is not the case, we must check that at least one of the seven h
 of the sum of the seven high limbs, and is used to check it's non-zero like the previous cases.
 Contrary to the logic operations, we do not need to check limbs individually: each limb has been range-checked to 32 bits, meaning that it's not possible for the sum to
 overflow and be zero if some of the limbs are non-zero.
-    \item  \texttt{Stack}: The last three columns are used by popping-only (resp. pushing-only) instructions to check if the stack is empty after (resp. was empty
-before) the instruction. We use the last columns to prevent conflicts with the other general columns. More details are provided in the stack handling section.
+    \item  \texttt{Stack}: \texttt{stack\_inv}, \texttt{stack\_inv\_aux} and \texttt{stack\_inv\_aux\_2} are used by popping-only (resp. pushing-only) instructions to check if the stack is empty after (resp. was empty
+before) the instruction. \texttt{stack\_len\_bounds\_ aux} is used to check that the stack doesn't overflow in user mode. We use the last four columns to prevent conflicts with the other general columns.
+See \ref{stackhandling} for more details.
 \end{itemize}
