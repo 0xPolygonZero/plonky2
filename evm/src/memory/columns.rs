@@ -35,8 +35,11 @@ pub(crate) const CONTEXT_FIRST_CHANGE: usize = VALUE_START + VALUE_LIMBS;
 pub(crate) const SEGMENT_FIRST_CHANGE: usize = CONTEXT_FIRST_CHANGE + 1;
 pub(crate) const VIRTUAL_FIRST_CHANGE: usize = SEGMENT_FIRST_CHANGE + 1;
 
+// Used to zero-initialize (or not) the memory.
+pub(crate) const NON_KERNEL_CODE_FIRST_READ: usize = VIRTUAL_FIRST_CHANGE + 1;
+
 // We use a range check to enforce the ordering.
-pub(crate) const RANGE_CHECK: usize = VIRTUAL_FIRST_CHANGE + 1;
+pub(crate) const RANGE_CHECK: usize = NON_KERNEL_CODE_FIRST_READ + 1;
 /// The counter column (used for the range check) starts from 0 and increments.
 pub(crate) const COUNTER: usize = RANGE_CHECK + 1;
 /// The frequencies column used in logUp.

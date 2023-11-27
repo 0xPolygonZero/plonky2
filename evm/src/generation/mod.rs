@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use anyhow::anyhow;
 use eth_trie_utils::partial_trie::{HashedPartialTrie, PartialTrie};
 use ethereum_types::{Address, BigEndianHash, H256, U256};
+use itertools::enumerate;
 use plonky2::field::extension::Extendable;
 use plonky2::field::polynomial::PolynomialValues;
 use plonky2::hash::hash_types::RichField;
@@ -16,7 +17,6 @@ use GlobalMetadata::{
 
 use crate::all_stark::{AllStark, NUM_TABLES};
 use crate::config::StarkConfig;
-use crate::cpu::bootstrap_kernel::generate_bootstrap_kernel;
 use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
@@ -149,6 +149,17 @@ fn apply_metadata_and_tries_memops<F: RichField + Extendable<D>, const D: usize>
             GlobalMetadata::ReceiptTrieRootDigestAfter,
             h2u(trie_roots_after.receipts_root),
         ),
+        (
+            GlobalMetadata::KernelHash,
+            KERNEL
+                .code_hash
+                .iter()
+                .enumerate()
+                .fold(0.into(), |acc, (i, &elt)| {
+                    acc + (U256::from(elt) << (224 - 32 * i))
+                }),
+        ),
+        (GlobalMetadata::KernelLen, KERNEL.code.len().into()),
     ];
 
     let channel = MemoryChannel::GeneralPurpose(0);
@@ -216,6 +227,19 @@ fn apply_metadata_and_tries_memops<F: RichField + Extendable<D>, const D: usize>
     state.traces.memory_ops.extend(ops);
 }
 
+fn initialize_kernel_code<F: RichField + Extendable<D>, const D: usize>(
+    state: &mut GenerationState<F>,
+) {
+    for (i, &byte) in enumerate(KERNEL.code.iter()) {
+        let address = MemoryAddress {
+            context: 0,
+            segment: 0,
+            virt: i,
+        };
+        state.memory.set(address, byte.into());
+    }
+}
+
 pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
     all_stark: &AllStark<F, D>,
     inputs: GenerationInputs,
@@ -231,7 +255,7 @@ pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
 
     apply_metadata_and_tries_memops(&mut state, &inputs);
 
-    generate_bootstrap_kernel::<F>(&mut state);
+    initialize_kernel_code(&mut state);
 
     timed!(timing, "simulate CPU", simulate_cpu(&mut state)?);
 

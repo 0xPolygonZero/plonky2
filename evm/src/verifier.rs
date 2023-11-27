@@ -13,6 +13,7 @@ use plonky2::plonk::plonk_common::reduce_with_powers;
 use crate::all_stark::{AllStark, Table, NUM_TABLES};
 use crate::config::StarkConfig;
 use crate::constraint_consumer::ConstraintConsumer;
+use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
 use crate::cross_table_lookup::{
     verify_cross_table_lookups, CtlCheckVars, GrandProductChallenge, GrandProductChallengeSet,
@@ -234,6 +235,17 @@ where
             GlobalMetadata::ReceiptTrieRootDigestAfter,
             h2u(public_values.trie_roots_after.receipts_root),
         ),
+        (
+            GlobalMetadata::KernelHash,
+            KERNEL
+                .code_hash
+                .iter()
+                .enumerate()
+                .fold(0.into(), |acc, (i, &elt)| {
+                    acc + (U256::from(elt) << (224 - 32 * i))
+                }),
+        ),
+        (GlobalMetadata::KernelLen, KERNEL.code.len().into()),
     ];
 
     let segment = F::from_canonical_u32(Segment::GlobalMetadata as u32);

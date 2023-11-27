@@ -16,9 +16,8 @@ use crate::all_stark::Table;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::{COL_MAP, NUM_CPU_COLUMNS};
 use crate::cpu::{
-    bootstrap_kernel, byte_unpacking, clock, contextops, control_flow, decode, dup_swap, gas,
-    jumps, membus, memio, modfp254, pc, push0, shift, simple_logic, stack, stack_bounds,
-    syscalls_exceptions,
+    byte_unpacking, clock, contextops, control_flow, decode, dup_swap, gas, jumps, membus, memio,
+    modfp254, pc, push0, shift, simple_logic, stack, stack_bounds, syscalls_exceptions,
 };
 use crate::cross_table_lookup::{Column, TableWithColumns};
 use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
@@ -296,7 +295,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
         let next_values: &[P; NUM_CPU_COLUMNS] = vars.get_next_values().try_into().unwrap();
         let next_values: &CpuColumnsView<P> = next_values.borrow();
 
-        bootstrap_kernel::eval_bootstrap_kernel_packed(local_values, next_values, yield_constr);
         byte_unpacking::eval_packed(local_values, next_values, yield_constr);
         clock::eval_packed(local_values, next_values, yield_constr);
         contextops::eval_packed(local_values, next_values, yield_constr);
@@ -333,12 +331,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
             vars.get_next_values().try_into().unwrap();
         let next_values: &CpuColumnsView<ExtensionTarget<D>> = next_values.borrow();
 
-        bootstrap_kernel::eval_bootstrap_kernel_ext_circuit(
-            builder,
-            local_values,
-            next_values,
-            yield_constr,
-        );
         byte_unpacking::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         clock::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         contextops::eval_ext_circuit(builder, local_values, next_values, yield_constr);

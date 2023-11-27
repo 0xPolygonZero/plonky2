@@ -20,8 +20,8 @@ pub(crate) fn eval_packed<P: PackedField>(
     let is_cpu_cycle: P = COL_MAP.op.iter().map(|&col_i| lv[col_i]).sum();
     let is_cpu_cycle_next: P = COL_MAP.op.iter().map(|&col_i| nv[col_i]).sum();
 
-    let halt_state = P::ONES - lv.is_bootstrap_kernel - is_cpu_cycle;
-    let next_halt_state = P::ONES - nv.is_bootstrap_kernel - is_cpu_cycle_next;
+    let halt_state = P::ONES - is_cpu_cycle;
+    let next_halt_state = P::ONES - is_cpu_cycle_next;
 
     // The halt flag must be boolean.
     yield_constr.constraint(halt_state * (halt_state - P::ONES));
@@ -61,10 +61,8 @@ pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let is_cpu_cycle = builder.add_many_extension(COL_MAP.op.iter().map(|&col_i| lv[col_i]));
     let is_cpu_cycle_next = builder.add_many_extension(COL_MAP.op.iter().map(|&col_i| nv[col_i]));
 
-    let halt_state = builder.add_extension(lv.is_bootstrap_kernel, is_cpu_cycle);
-    let halt_state = builder.sub_extension(one, halt_state);
-    let next_halt_state = builder.add_extension(nv.is_bootstrap_kernel, is_cpu_cycle_next);
-    let next_halt_state = builder.sub_extension(one, next_halt_state);
+    let halt_state = builder.sub_extension(one, is_cpu_cycle);
+    let next_halt_state = builder.sub_extension(one, is_cpu_cycle_next);
 
     // The halt flag must be boolean.
     let constr = builder.mul_sub_extension(halt_state, halt_state, halt_state);

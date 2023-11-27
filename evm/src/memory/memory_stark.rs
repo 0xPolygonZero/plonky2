@@ -19,8 +19,8 @@ use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
 use crate::lookup::Lookup;
 use crate::memory::columns::{
     value_limb, ADDR_CONTEXT, ADDR_SEGMENT, ADDR_VIRTUAL, CONTEXT_FIRST_CHANGE, COUNTER, FILTER,
-    FREQUENCIES, IS_READ, NUM_COLUMNS, RANGE_CHECK, SEGMENT_FIRST_CHANGE, TIMESTAMP,
-    VIRTUAL_FIRST_CHANGE,
+    FREQUENCIES, IS_READ, NON_KERNEL_CODE_FIRST_READ, NUM_COLUMNS, RANGE_CHECK,
+    SEGMENT_FIRST_CHANGE, TIMESTAMP, VIRTUAL_FIRST_CHANGE,
 };
 use crate::memory::VALUE_LIMBS;
 use crate::stark::Stark;
@@ -92,6 +92,7 @@ pub(crate) fn generate_first_change_flags_and_rc<F: RichField>(
         let next_segment = next_row[ADDR_SEGMENT];
         let next_virt = next_row[ADDR_VIRTUAL];
         let next_timestamp = next_row[TIMESTAMP];
+        let next_is_read = next_row[IS_READ];
 
         let context_changed = context != next_context;
         let segment_changed = segment != next_segment;
@@ -122,6 +123,11 @@ pub(crate) fn generate_first_change_flags_and_rc<F: RichField>(
             "Range check of {} is too large. Bug in fill_gaps?",
             row[RANGE_CHECK]
         );
+
+        let address_changed =
+            row[CONTEXT_FIRST_CHANGE] + row[SEGMENT_FIRST_CHANGE] + row[VIRTUAL_FIRST_CHANGE];
+        row[NON_KERNEL_CODE_FIRST_READ] =
+            address_changed * next_is_read * (next_context + next_segment);
     }
 }
 
@@ -325,24 +331,23 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
             + address_unchanged * (next_timestamp - timestamp);
         yield_constr.constraint_transition(range_check - computed_range_check);
 
+        // Validate non_kernel_first_read. It's 1 iff the next line is a read at a new address, not in the kernel code segment.
+        let non_kernel_code_first_read = local_values[NON_KERNEL_CODE_FIRST_READ];
+        yield_constr.constraint_transition(
+            non_kernel_code_first_read
+                - not_address_unchanged * next_is_read * (next_addr_context + next_addr_segment),
+        );
+
         // Enumerate purportedly-ordered log.
-        // We assume that memory is initialized with 0. This means that if the first operation of a new address
-        // is a read, then its value must be 0.
+        // For any other segment than the kernel code, we assume that memory is initialized with 0. This means that if
+        // the first operation of a new address is a read, then its value must be 0.
+        // The kernel code is pre-initialized; the correctness of the values are checked with a hash.
         for i in 0..8 {
             yield_constr.constraint_transition(
                 next_is_read * address_unchanged * (next_values_limbs[i] - value_limbs[i]),
             );
-            yield_constr
-                .constraint_transition(next_is_read * not_address_unchanged * next_values_limbs[i]);
+            yield_constr.constraint_transition(non_kernel_code_first_read * next_values_limbs[i]);
         }
-
-        // Check the range column: First value must be 0,
-        // and intermediate rows must increment by 1.
-        let rc1 = local_values[COUNTER];
-        let rc2 = next_values[COUNTER];
-        yield_constr.constraint_first_row(rc1);
-        let incr = rc2 - rc1;
-        yield_constr.constraint_transition(incr - P::Scalar::ONES);
     }
 
     fn eval_ext_circuit(
@@ -471,15 +476,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
             let first_read_constraint = builder.mul_extension(first_read_value, next_is_read);
             yield_constr.constraint_transition(builder, first_read_constraint);
         }
-
-        // Check the range column: First value must be 0,
-        // and intermediate rows must increment by 1.
-        let rc1 = local_values[COUNTER];
-        let rc2 = next_values[COUNTER];
-        yield_constr.constraint_first_row(builder, rc1);
-        let incr = builder.sub_extension(rc2, rc1);
-        let t = builder.sub_extension(incr, one);
-        yield_constr.constraint_transition(builder, t);
     }
 
     fn constraint_degree(&self) -> usize {
