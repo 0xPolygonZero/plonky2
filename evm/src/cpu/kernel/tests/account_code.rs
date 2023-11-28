@@ -16,6 +16,7 @@ use crate::cpu::kernel::tests::mpt::nibbles_64;
 use crate::generation::mpt::{all_mpt_prover_inputs_reversed, AccountRlp};
 use crate::generation::TrieInputs;
 use crate::memory::segments::Segment;
+use crate::witness::memory::MemoryAddress;
 use crate::Node;
 
 // Test account with a given code hash.
@@ -146,19 +147,20 @@ fn test_extcodecopy() -> Result<()> {
     // Prepare the interpreter by inserting the account in the state trie.
     prepare_interpreter(&mut interpreter, address, &account)?;
 
-    interpreter.generation_state.memory.contexts[interpreter.context].segments
+    let context = interpreter.context();
+    interpreter.generation_state.memory.contexts[context].segments
         [Segment::ContextMetadata as usize]
-        .set(GasLimit as usize, U256::from(1000000000000u64) << 192);
+        .set(GasLimit as usize, U256::from(1000000000000u64));
 
     let extcodecopy = KERNEL.global_labels["sys_extcodecopy"];
 
     // Put random data in main memory and the `KernelAccountCode` segment for realism.
     let mut rng = thread_rng();
     for i in 0..2000 {
-        interpreter.generation_state.memory.contexts[interpreter.context].segments
+        interpreter.generation_state.memory.contexts[context].segments
             [Segment::MainMemory as usize]
             .set(i, U256::from(rng.gen::<u8>()));
-        interpreter.generation_state.memory.contexts[interpreter.context].segments
+        interpreter.generation_state.memory.contexts[context].segments
             [Segment::KernelAccountCode as usize]
             .set(i, U256::from(rng.gen::<u8>()));
     }
@@ -176,7 +178,7 @@ fn test_extcodecopy() -> Result<()> {
     interpreter.push(offset.into());
     interpreter.push(dest_offset.into());
     interpreter.push(U256::from_big_endian(address.as_bytes()));
-    interpreter.push(0xDEADBEEFu32.into()); // kexit_info
+    interpreter.push((0xDEADBEEFu64 + (1 << 32)).into()); // kexit_info
     interpreter.generation_state.inputs.contract_code =
         HashMap::from([(keccak(&code), code.clone())]);
     interpreter.run()?;
@@ -184,7 +186,7 @@ fn test_extcodecopy() -> Result<()> {
     assert!(interpreter.stack().is_empty());
     // Check that the code was correctly copied to memory.
     for i in 0..size {
-        let memory = interpreter.generation_state.memory.contexts[interpreter.context].segments
+        let memory = interpreter.generation_state.memory.contexts[context].segments
             [Segment::MainMemory as usize]
             .get(dest_offset + i);
         assert_eq!(
@@ -226,10 +228,24 @@ fn prepare_interpreter_all_accounts(
         );
     interpreter.generation_state.memory.contexts[1].segments[Segment::ContextMetadata as usize]
         .set(ContextMetadata::GasLimit as usize, 100_000.into());
-    interpreter.context = 1;
-    interpreter.generation_state.registers.context = 1;
-    interpreter.generation_state.registers.is_kernel = false;
-    interpreter.kernel_mode = false;
+    interpreter.set_context(1);
+    interpreter.set_is_kernel(false);
+    interpreter.generation_state.memory.set(
+        MemoryAddress::new(
+            1,
+            Segment::ContextMetadata,
+            ContextMetadata::ParentProgramCounter as usize,
+        ),
+        0xdeadbeefu32.into(),
+    );
+    interpreter.generation_state.memory.set(
+        MemoryAddress::new(
+            1,
+            Segment::ContextMetadata,
+            ContextMetadata::ParentContext as usize,
+        ),
+        1.into(),
+    );
 
     Ok(())
 }
@@ -272,6 +288,11 @@ fn sstore() -> Result<()> {
 
     interpreter.run()?;
 
+    // The first two elements in the stack are `success` and `leftover_gas`,
+    // returned by the `sys_stop` opcode.
+    interpreter.pop();
+    interpreter.pop();
+
     // The code should have added an element to the storage of `to_account`. We run
     // `mpt_hash_state_trie` to check that.
     let account_after = AccountRlp {
@@ -287,10 +308,8 @@ fn sstore() -> Result<()> {
     // Now, execute mpt_hash_state_trie.
     let mpt_hash_state_trie = KERNEL.global_labels["mpt_hash_state_trie"];
     interpreter.generation_state.registers.program_counter = mpt_hash_state_trie;
-    interpreter.context = 0;
-    interpreter.generation_state.registers.context = 0;
-    interpreter.generation_state.registers.is_kernel = true;
-    interpreter.kernel_mode = true;
+    interpreter.set_is_kernel(true);
+    interpreter.set_context(0);
     interpreter.push(0xDEADBEEFu32.into());
     interpreter.run()?;
 
@@ -353,6 +372,11 @@ fn sload() -> Result<()> {
 
     interpreter.run()?;
 
+    // The first two elements in the stack are `success` and `leftover_gas`,
+    // returned by the `sys_stop` opcode.
+    interpreter.pop();
+    interpreter.pop();
+
     // The SLOAD in the provided code should return 0, since
     // the storage trie is empty. The last step in the code
     // pushes the value 3.
@@ -362,10 +386,8 @@ fn sload() -> Result<()> {
     // Now, execute mpt_hash_state_trie. We check that the state trie has not changed.
     let mpt_hash_state_trie = KERNEL.global_labels["mpt_hash_state_trie"];
     interpreter.generation_state.registers.program_counter = mpt_hash_state_trie;
-    interpreter.context = 0;
-    interpreter.generation_state.registers.context = 0;
-    interpreter.generation_state.registers.is_kernel = true;
-    interpreter.kernel_mode = true;
+    interpreter.set_is_kernel(true);
+    interpreter.set_context(0);
     interpreter.push(0xDEADBEEFu32.into());
     interpreter.run()?;
 
