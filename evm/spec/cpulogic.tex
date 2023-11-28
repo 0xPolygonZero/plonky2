@@ -114,6 +114,7 @@ ecAdd, ecMul and ecPairing precompiles.
 
 
 \subsection{Stack handling}
+\label{stackhandling}
 
 \subsubsection{Top of the stack}
 
@@ -187,6 +188,9 @@ To constrain this, the column \texttt{stack\_len\_bounds\_aux} contains:
 Then overflow can be checked with the flag
 $$\texttt{(1 - is\_kernel\_mode) - stack\_len * stack\_len\_bounds\_aux}.$$
 The flag is 1 if \texttt{stack\_len = 1025} and we're in user mode, and 0 otherwise.
+
+Because \texttt{stack\_len\_bounds\_aux} is a shared general column, we only check this constraint after an instruction that can actually trigger an overflow,
+i.e. a pushing, non-popping instruction.
 
 \subsection{Gas handling}
 
