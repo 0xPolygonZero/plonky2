@@ -1,10 +1,10 @@
 //! This crate enforces the correctness of reading and writing sequences
 //! of bytes in Big-Endian ordering from and to the memory.
 //!
-//! The trace layout consists in one row for an `N` byte sequence (where `N` > 0).
+//! The trace layout consists in one row for an `N` byte sequence (where 32 ≥ `N` > 0).
 //!
 //! At each row the `i`-th byte flag will be activated to indicate a sequence of
-//! length i.
+//! length i+1.
 //!
 //! The length of a sequence can be retrieved for CTLs as:
 //!
@@ -171,16 +171,13 @@ impl<F: RichField + Extendable<D>, const D: usize> BytePackingStark<F, D> {
         ops: Vec<BytePackingOp>,
         min_rows: usize,
     ) -> Vec<[F; NUM_COLUMNS]> {
-        let base_len: usize = ops
-            .iter()
-            .map(|op| if !op.bytes.is_empty() { 1 } else { 0 })
-            .sum();
+        let base_len: usize = ops.iter().map(|op| usize::from(!op.bytes.is_empty())).sum();
         let num_rows = core::cmp::max(base_len.max(BYTE_RANGE_MAX), min_rows).next_power_of_two();
         let mut rows = Vec::with_capacity(num_rows);
 
         for op in ops {
-            if let Some(row) = self.generate_row_for_op(op) {
-                rows.push(row);
+            if !op.bytes.is_empty() {
+                rows.push(self.generate_row_for_op(op));
             }
         }
 
@@ -191,7 +188,7 @@ impl<F: RichField + Extendable<D>, const D: usize> BytePackingStark<F, D> {
         rows
     }
 
-    fn generate_row_for_op(&self, op: BytePackingOp) -> Option<[F; NUM_COLUMNS]> {
+    fn generate_row_for_op(&self, op: BytePackingOp) -> [F; NUM_COLUMNS] {
         let BytePackingOp {
             is_read,
             base_address,
@@ -216,17 +213,13 @@ impl<F: RichField + Extendable<D>, const D: usize> BytePackingStark<F, D> {
 
         row[TIMESTAMP] = F::from_canonical_usize(timestamp);
 
-        if !bytes.is_empty() {
-            row[index_len(bytes.len() - 1)] = F::ONE;
+        row[index_len(bytes.len() - 1)] = F::ONE;
 
-            for (i, &byte) in bytes.iter().rev().enumerate() {
-                row[value_bytes(i)] = F::from_canonical_u8(byte);
-            }
-
-            Some(row)
-        } else {
-            None
+        for (i, &byte) in bytes.iter().rev().enumerate() {
+            row[value_bytes(i)] = F::from_canonical_u8(byte);
         }
+
+        row
     }
 
     fn generate_padding_row(&self) -> [F; NUM_COLUMNS] {

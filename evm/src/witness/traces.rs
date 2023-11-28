@@ -72,7 +72,7 @@ impl<T: Copy> Traces<T> {
             byte_packing_len: self
                 .byte_packing_ops
                 .iter()
-                .map(|op| if !op.bytes.is_empty() { 1 } else { 0 })
+                .map(|op| usize::from(!op.bytes.is_empty()))
                 .sum(),
             cpu_len: self.cpu.len(),
             keccak_len: self.keccak_inputs.len() * keccak::keccak_stark::NUM_ROUNDS,
