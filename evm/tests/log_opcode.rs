@@ -354,7 +354,7 @@ fn test_log_with_aggreg() -> anyhow::Result<()> {
     let block_metadata = BlockMetadata {
         block_beneficiary: Address::from(beneficiary),
         block_timestamp: 0x03e8.into(),
-        block_number: 0.into(),
+        block_number: 1.into(),
         block_difficulty: 0x020000.into(),
         block_gaslimit: 0x445566u32.into(),
         block_chain_id: 1.into(),
@@ -459,7 +459,7 @@ fn test_log_with_aggreg() -> anyhow::Result<()> {
     // Preprocess all circuits.
     let all_circuits = AllRecursiveCircuits::<F, C, D>::new(
         &all_stark,
-        &[16..17, 17..19, 17..18, 14..15, 10..11, 12..13, 19..20],
+        &[16..17, 15..16, 17..18, 14..15, 10..11, 12..13, 19..20],
         &config,
     );
 
