@@ -125,7 +125,7 @@ impl<'a> Interpreter<'a> {
                 .expect("Default inputs are known-good"),
             prover_inputs_map: prover_inputs,
             // `DEFAULT_HALT_OFFSET` is used as a halting point for the interpreter,
-            // while the label ``halt`` is the halting label in the kernel.
+            // while the label `halt` is the halting label in the kernel.
             halt_offsets: vec![DEFAULT_HALT_OFFSET, KERNEL.global_labels["halt"]],
             debug_offsets: vec![],
             running: false,
