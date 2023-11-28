@@ -19,8 +19,8 @@ use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
 use crate::lookup::Lookup;
 use crate::memory::columns::{
     value_limb, ADDR_CONTEXT, ADDR_SEGMENT, ADDR_VIRTUAL, CONTEXT_FIRST_CHANGE, COUNTER, FILTER,
-    FREQUENCIES, IS_READ, NON_KERNEL_CODE_FIRST_READ, NUM_COLUMNS, RANGE_CHECK,
-    SEGMENT_FIRST_CHANGE, TIMESTAMP, VIRTUAL_FIRST_CHANGE,
+    FREQUENCIES, IS_READ, NEW_FIRST_READ, NUM_COLUMNS, RANGE_CHECK, SEGMENT_FIRST_CHANGE,
+    TIMESTAMP, VIRTUAL_FIRST_CHANGE,
 };
 use crate::memory::VALUE_LIMBS;
 use crate::stark::Stark;
@@ -126,8 +126,7 @@ pub(crate) fn generate_first_change_flags_and_rc<F: RichField>(
 
         let address_changed =
             row[CONTEXT_FIRST_CHANGE] + row[SEGMENT_FIRST_CHANGE] + row[VIRTUAL_FIRST_CHANGE];
-        row[NON_KERNEL_CODE_FIRST_READ] =
-            address_changed * next_is_read * (next_context + next_segment);
+        row[NEW_FIRST_READ] = address_changed * next_is_read;
     }
 }
 
@@ -331,22 +330,23 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
             + address_unchanged * (next_timestamp - timestamp);
         yield_constr.constraint_transition(range_check - computed_range_check);
 
-        // Validate non_kernel_first_read. It's 1 iff the next line is a read at a new address, not in the kernel code segment.
-        let non_kernel_code_first_read = local_values[NON_KERNEL_CODE_FIRST_READ];
-        yield_constr.constraint_transition(
-            non_kernel_code_first_read
-                - not_address_unchanged * next_is_read * (next_addr_context + next_addr_segment),
-        );
+        // Validate new_first_read. It's 1 iff the address changed and the first operation at the new address is a read.
+        let new_first_read = local_values[NEW_FIRST_READ];
+        yield_constr.constraint_transition(new_first_read - not_address_unchanged * next_is_read);
 
-        // Enumerate purportedly-ordered log.
-        // For any other segment than the kernel code, we assume that memory is initialized with 0. This means that if
-        // the first operation of a new address is a read, then its value must be 0.
-        // The kernel code is pre-initialized; the correctness of the values are checked with a hash.
         for i in 0..8 {
+            // Enumerate purportedly-ordered log.
             yield_constr.constraint_transition(
                 next_is_read * address_unchanged * (next_values_limbs[i] - value_limbs[i]),
             );
-            yield_constr.constraint_transition(non_kernel_code_first_read * next_values_limbs[i]);
+            // For any segment in non-zero contexts, we assume that memory is initialized with 0. This means that if
+            // the first operation of a new address is a read, then its value must be 0.
+            yield_constr
+                .constraint_transition(next_addr_context * new_first_read * next_values_limbs[i]);
+            // For any segment outside the code segment, memory is initialized with 0. Note that the previous constraint
+            // ensure that only the code segment at context 0 is not zero-initialized.
+            yield_constr
+                .constraint_transition(next_addr_segment * new_first_read * next_values_limbs[i]);
         }
     }
 
@@ -463,18 +463,32 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
         let range_check_diff = builder.sub_extension(range_check, computed_range_check);
         yield_constr.constraint_transition(builder, range_check_diff);
 
-        // Enumerate purportedly-ordered log.
+        // Validate new_first_read. It's 1 iff the address changed and the first operation at the new address is a read.
+        let new_first_read = local_values[NEW_FIRST_READ];
+        let computed_new_first_read = builder.mul_extension(not_address_unchanged, next_is_read);
+        let new_first_read_constraint =
+            builder.sub_extension(new_first_read, computed_new_first_read);
+        yield_constr.constraint_transition(builder, new_first_read_constraint);
+
         // We assume that memory is initialized with 0. This means that if the first operation of a new address
         // is a read, then its value must be 0.
         for i in 0..8 {
+            // Enumerate purportedly-ordered log.
             let value_diff = builder.sub_extension(next_values_limbs[i], value_limbs[i]);
             let zero_if_read = builder.mul_extension(address_unchanged, value_diff);
             let read_constraint = builder.mul_extension(next_is_read, zero_if_read);
             yield_constr.constraint_transition(builder, read_constraint);
-            let first_read_value =
-                builder.mul_extension(next_values_limbs[i], not_address_unchanged);
-            let first_read_constraint = builder.mul_extension(first_read_value, next_is_read);
-            yield_constr.constraint_transition(builder, first_read_constraint);
+            // For any segment in non-zero contexts, we assume that memory is initialized with 0. This means that if
+            // the first operation of a new address is a read, then its value must be 0.
+            let first_read_value = builder.mul_extension(next_values_limbs[i], new_first_read);
+            let first_read_user_context_constraint =
+                builder.mul_extension(next_addr_context, first_read_value);
+            yield_constr.constraint_transition(builder, first_read_user_context_constraint);
+            // For any segment outside the code segment, memory is initialized with 0. Note that the previous constraint
+            // ensure that only the code segment at context 0 is not zero-initialized.
+            let kernel_context_initializing_constraint =
+                builder.mul_extension(next_addr_segment, first_read_value);
+            yield_constr.constraint_transition(builder, kernel_context_initializing_constraint);
         }
     }
 
