@@ -59,21 +59,21 @@ first_byte:
 remaining_bytes:
     // stack: rlp_pos, num_nibbles, packed_nibbles, retdest
     SWAP2
-    PUSH 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
-    // stack: 1^256, packed_nibbles, num_nibbles, rlp_pos, ret_dest
+    PUSH @U256_MAX
+    // stack: U256_MAX, packed_nibbles, num_nibbles, rlp_pos, ret_dest
     SWAP1 SWAP2 DUP1
     %mod_const(2)
-    // stack: parity, num_nibbles, 1^256, packed_nibbles, rlp_pos, ret_dest
+    // stack: parity, num_nibbles, U256_MAX, packed_nibbles, rlp_pos, ret_dest
     SWAP1 SUB DUP1
-    // stack: num_nibbles - parity, num_nibbles - parity, 1^256, packed_nibbles, rlp_pos, ret_dest
+    // stack: num_nibbles - parity, num_nibbles - parity, U256_MAX, packed_nibbles, rlp_pos, ret_dest
     %div_const(2)
-    // stack: remaining_bytes, num_nibbles - parity, 1^256, packed_nibbles, rlp_pos, ret_dest
+    // stack: remaining_bytes, num_nibbles - parity, U256_MAX, packed_nibbles, rlp_pos, ret_dest
     SWAP2 SWAP1
-    // stack: num_nibbles - parity, 1^256, remaining_bytes, packed_nibbles, rlp_pos, ret_dest
+    // stack: num_nibbles - parity, U256_MAX, remaining_bytes, packed_nibbles, rlp_pos, ret_dest
     %mul_const(4)
-    // stack: 4*(num_nibbles - parity), 1^256, remaining_bytes, packed_nibbles, rlp_pos, ret_dest
+    // stack: 4*(num_nibbles - parity), U256_MAX, remaining_bytes, packed_nibbles, rlp_pos, ret_dest
     PUSH 256 SUB
-    // stack: 256 - 4*(num_nibbles - parity), 1^256, remaining_bytes, packed_nibbles, rlp_pos, ret_dest
+    // stack: 256 - 4*(num_nibbles - parity), U256_MAX, remaining_bytes, packed_nibbles, rlp_pos, ret_dest
     SHR
     // stack mask, remaining_bytes, packed_nibbles, rlp_pos, ret_dest
     SWAP1 SWAP2
