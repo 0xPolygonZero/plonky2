@@ -27,16 +27,15 @@ fn prepare_interpreter(
     trie_inputs: TrieInputs,
     transaction: &[u8],
     contract_code: HashMap<H256, Vec<u8>>,
-) -> Result<()> {
+) {
     let load_all_mpts = KERNEL.global_labels["load_all_mpts"];
 
     interpreter.generation_state.registers.program_counter = load_all_mpts;
     interpreter.push(0xDEADBEEFu32.into());
 
     interpreter.generation_state.mpt_prover_inputs =
-        all_mpt_prover_inputs_reversed(&trie_inputs)
-            .map_err(|err| anyhow!("Invalid MPT data: {:?}", err))?;
-    interpreter.run()?;
+        all_mpt_prover_inputs_reversed(&trie_inputs).expect("Invalid MPT data.");
+    interpreter.run().expect("MPT loading failed.");
     assert_eq!(interpreter.stack(), vec![]);
 
     // Set necessary `GlobalMetadata`.
@@ -73,11 +72,10 @@ fn prepare_interpreter(
     interpreter.generation_state.inputs.signed_txn = Some(transaction.to_vec());
     let rlp_prover_inputs = all_rlp_prover_inputs_reversed(transaction);
     interpreter.generation_state.rlp_prover_inputs = rlp_prover_inputs;
-    Ok(())
 }
 
 #[test]
-fn test_add11_yml() -> anyhow::Result<()> {
+fn test_add11_yml() {
     let beneficiary = hex!("2adc25665018aa1fe0e6bc666dac8fc2697ff9ba");
     let sender = hex!("a94f5374fce5edbc8e2a8697c15331677e6ebf0b");
     let to = hex!("095e7baea6a6c7c4c2dfeb977efac326af552d87");
@@ -131,7 +129,7 @@ fn test_add11_yml() -> anyhow::Result<()> {
     let initial_stack = vec![];
     let mut interpreter = Interpreter::new_with_kernel(0, initial_stack);
 
-    prepare_interpreter(&mut interpreter, tries_before.clone(), &txn, contract_code)?;
+    prepare_interpreter(&mut interpreter, tries_before.clone(), &txn, contract_code);
     let expected_state_trie_after = {
         let beneficiary_account_after = AccountRlp {
             nonce: 1.into(),
@@ -210,7 +208,5 @@ fn test_add11_yml() -> anyhow::Result<()> {
     interpreter.generation_state.memory.contexts[0].segments[Segment::ContextMetadata as usize]
         .set(ContextMetadata::GasLimit as usize, 1_000_000.into());
     interpreter.set_is_kernel(true);
-    interpreter.run()?;
-
-    Ok(())
+    interpreter.run().expect("Proving add11 failed.");
 }

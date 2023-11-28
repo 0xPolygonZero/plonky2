@@ -21,6 +21,7 @@ use crate::generation::state::GenerationState;
 use crate::generation::GenerationInputs;
 use crate::memory::segments::Segment;
 use crate::util::u256_to_usize;
+use crate::witness::errors::ProgramError;
 use crate::witness::gas::gas_to_charge;
 use crate::witness::memory::{MemoryAddress, MemoryContextState, MemorySegmentState, MemoryState};
 use crate::witness::operation::Operation;
@@ -294,11 +295,16 @@ impl<'a> Interpreter<'a> {
                     .content
                     .clone();
                 stack.truncate(self.stack_len() - 1);
-                stack.push(self.stack_top());
+                stack.push(
+                    self.stack_top()
+                        .expect("The stack is checked to be nonempty"),
+                );
                 stack
             }
             Ordering::Equal => {
-                vec![self.stack_top()]
+                vec![self
+                    .stack_top()
+                    .expect("The stack is checked to be nonempty")]
             }
             Ordering::Less => {
                 vec![]
@@ -325,7 +331,9 @@ impl<'a> Interpreter<'a> {
 
     pub(crate) fn push(&mut self, x: U256) {
         if self.stack_len() > 0 {
-            let top = self.stack_top();
+            let top = self
+                .stack_top()
+                .expect("The stack is checked to be nonempty");
             let cur_len = self.stack_len();
             let stack_addr = MemoryAddress::new(self.context(), Segment::Stack, cur_len - 1);
             self.generation_state.memory.set(stack_addr, top);
@@ -792,7 +800,9 @@ impl<'a> Interpreter<'a> {
         let to_swap = stack_peek(&self.generation_state, n as usize)
             .map_err(|_| anyhow!("Stack underflow"))?;
         let old_value = self.stack_segment_mut()[len - n as usize - 1];
-        self.stack_segment_mut()[len - n as usize - 1] = self.stack_top();
+        self.stack_segment_mut()[len - n as usize - 1] = self
+            .stack_top()
+            .expect("The stack is checked to be nonempty.");
         self.generation_state.registers.stack_top = to_swap;
         Ok(())
     }
@@ -906,8 +916,12 @@ impl<'a> Interpreter<'a> {
         self.generation_state.registers.stack_len
     }
 
-    pub(crate) fn stack_top(&self) -> U256 {
-        self.generation_state.registers.stack_top
+    pub(crate) fn stack_top(&self) -> anyhow::Result<U256> {
+        if self.stack_len() > 0 {
+            Ok(self.generation_state.registers.stack_top)
+        } else {
+            Err(anyhow!("Stack underflow"))
+        }
     }
 
     pub(crate) fn is_kernel(&self) -> bool {
