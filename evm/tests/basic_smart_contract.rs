@@ -151,7 +151,7 @@ fn test_basic_smart_contract() -> anyhow::Result<()> {
         receipts_root: receipts_trie.hash(),
     };
     let inputs = GenerationInputs {
-        signed_txns: vec![txn.to_vec()],
+        signed_txn: Some(txn.to_vec()),
         withdrawals: vec![],
         tries: tries_before,
         trie_roots_after,

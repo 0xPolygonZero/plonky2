@@ -107,7 +107,11 @@ pub(crate) const STACK_BEHAVIORS: OpsColumnsView<Option<StackBehavior>> = OpsCol
         pushes: true,
         disable_other_channels: true,
     }),
-    push: None, // TODO
+    push: Some(StackBehavior {
+        num_pops: 0,
+        pushes: true,
+        disable_other_channels: true,
+    }),
     dup_swap: None,
     context_op: None,
     mload_32bytes: Some(StackBehavior {
@@ -116,8 +120,8 @@ pub(crate) const STACK_BEHAVIORS: OpsColumnsView<Option<StackBehavior>> = OpsCol
         disable_other_channels: false,
     }),
     mstore_32bytes: Some(StackBehavior {
-        num_pops: 5,
-        pushes: false,
+        num_pops: 4,
+        pushes: true,
         disable_other_channels: false,
     }),
     exit_kernel: Some(StackBehavior {
@@ -177,6 +181,9 @@ pub(crate) fn eval_packed_one<P: PackedField>(
             yield_constr.constraint(filter * (channel.addr_virtual - addr_virtual));
         }
 
+        // You can't have a write of the top of the stack, so you disable the corresponding flag.
+        yield_constr.constraint(filter * lv.partial_channel.used);
+
         // If you also push, you don't need to read the new top of the stack.
         // If you don't:
         // - if the stack isn't empty after the pops, you read the new top from an extra pop.
@@ -211,8 +218,9 @@ pub(crate) fn eval_packed_one<P: PackedField>(
     else if stack_behavior.pushes {
         // If len > 0...
         let new_filter = lv.stack_len * filter;
-        // You write the previous top of the stack in memory, in the last channel.
-        let channel = lv.mem_channels[NUM_GP_CHANNELS - 1];
+        // You write the previous top of the stack in memory, in the partial channel.
+        // The value will be checked with the CTL.
+        let channel = lv.partial_channel;
         yield_constr.constraint(new_filter * (channel.used - P::ONES));
         yield_constr.constraint(new_filter * channel.is_read);
         yield_constr.constraint(new_filter * (channel.addr_context - lv.context));
@@ -222,9 +230,6 @@ pub(crate) fn eval_packed_one<P: PackedField>(
         );
         let addr_virtual = lv.stack_len - P::ONES;
         yield_constr.constraint(new_filter * (channel.addr_virtual - addr_virtual));
-        for (limb_ch, limb_top) in channel.value.iter().zip(lv.mem_channels[0].value.iter()) {
-            yield_constr.constraint(new_filter * (*limb_ch - *limb_top));
-        }
         // Else you disable the channel.
         yield_constr.constraint(
             filter
@@ -243,11 +248,14 @@ pub(crate) fn eval_packed_one<P: PackedField>(
         {
             yield_constr.constraint(filter * (*limb_old - *limb_new));
         }
+
+        // You can't have a write of the top of the stack, so you disable the corresponding flag.
+        yield_constr.constraint(filter * lv.partial_channel.used);
     }
 
     // Unused channels
     if stack_behavior.disable_other_channels {
-        // The first channel contains (or not) the top od the stack and is constrained elsewhere.
+        // The first channel contains (or not) the top of the stack and is constrained elsewhere.
         for i in max(1, stack_behavior.num_pops)..NUM_GP_CHANNELS - (stack_behavior.pushes as usize)
         {
             let channel = lv.mem_channels[i];
@@ -262,7 +270,7 @@ pub(crate) fn eval_packed_one<P: PackedField>(
 }
 
 /// Evaluates constraints for all opcodes' `StackBehavior`s.
-pub fn eval_packed<P: PackedField>(
+pub(crate) fn eval_packed<P: PackedField>(
     lv: &CpuColumnsView<P>,
     nv: &CpuColumnsView<P>,
     yield_constr: &mut ConstraintConsumer<P>,
@@ -384,6 +392,12 @@ pub(crate) fn eval_ext_circuit_one<F: RichField + Extendable<D>, const D: usize>
             }
         }
 
+        // You can't have a write of the top of the stack, so you disable the corresponding flag.
+        {
+            let constr = builder.mul_extension(filter, lv.partial_channel.used);
+            yield_constr.constraint(builder, constr);
+        }
+
         // If you also push, you don't need to read the new top of the stack.
         // If you don't:
         // - if the stack isn't empty after the pops, you read the new top from an extra pop.
@@ -448,7 +462,8 @@ pub(crate) fn eval_ext_circuit_one<F: RichField + Extendable<D>, const D: usize>
         // If len > 0...
         let new_filter = builder.mul_extension(lv.stack_len, filter);
         // You write the previous top of the stack in memory, in the last channel.
-        let channel = lv.mem_channels[NUM_GP_CHANNELS - 1];
+        // The value will be checked with the CTL
+        let channel = lv.partial_channel;
         {
             let constr = builder.mul_sub_extension(new_filter, channel.used, new_filter);
             yield_constr.constraint(builder, constr);
@@ -476,11 +491,6 @@ pub(crate) fn eval_ext_circuit_one<F: RichField + Extendable<D>, const D: usize>
         {
             let diff = builder.sub_extension(channel.addr_virtual, lv.stack_len);
             let constr = builder.arithmetic_extension(F::ONE, F::ONE, new_filter, diff, new_filter);
-            yield_constr.constraint(builder, constr);
-        }
-        for (limb_ch, limb_top) in channel.value.iter().zip(lv.mem_channels[0].value.iter()) {
-            let diff = builder.sub_extension(*limb_ch, *limb_top);
-            let constr = builder.mul_extension(new_filter, diff);
             yield_constr.constraint(builder, constr);
         }
         // Else you disable the channel.
@@ -514,11 +524,17 @@ pub(crate) fn eval_ext_circuit_one<F: RichField + Extendable<D>, const D: usize>
                 yield_constr.constraint(builder, constr);
             }
         }
+
+        // You can't have a write of the top of the stack, so you disable the corresponding flag.
+        {
+            let constr = builder.mul_extension(filter, lv.partial_channel.used);
+            yield_constr.constraint(builder, constr);
+        }
     }
 
     // Unused channels
     if stack_behavior.disable_other_channels {
-        // The first channel contains (or not) the top od the stack and is constrained elsewhere.
+        // The first channel contains (or not) the top of the stack and is constrained elsewhere.
         for i in max(1, stack_behavior.num_pops)..NUM_GP_CHANNELS - (stack_behavior.pushes as usize)
         {
             let channel = lv.mem_channels[i];
@@ -540,7 +556,7 @@ pub(crate) fn eval_ext_circuit_one<F: RichField + Extendable<D>, const D: usize>
 
 /// Circuti version of `eval_packed`.
 /// Evaluates constraints for all opcodes' `StackBehavior`s.
-pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
+pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
     lv: &CpuColumnsView<ExtensionTarget<D>>,
     nv: &CpuColumnsView<ExtensionTarget<D>>,

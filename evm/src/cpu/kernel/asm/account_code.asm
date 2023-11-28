@@ -101,12 +101,12 @@ load_code_loop:
     DUP2 DUP2 EQ
     // stack: i == code_size, i, code_size, codehash, ctx, segment, retdest
     %jumpi(load_code_check)
+    DUP1
+    // stack: i, i, code_size, codehash, ctx, segment, retdest
+    DUP6 // segment
+    DUP6 // context
     PROVER_INPUT(account_code::get)
-    // stack: opcode, i, code_size, codehash, ctx, segment, retdest
-    DUP2
-    // stack: i, opcode, i, code_size, codehash, ctx, segment, retdest
-    DUP7 // segment
-    DUP7 // context
+    // stack: opcode, context, segment, i, i, code_size, codehash, ctx, segment, retdest
     MSTORE_GENERAL
     // stack: i, code_size, codehash, ctx, segment, retdest
     %increment

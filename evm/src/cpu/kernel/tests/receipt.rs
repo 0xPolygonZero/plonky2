@@ -588,7 +588,7 @@ fn test_bloom_two_logs() -> Result<()> {
     Ok(())
 }
 
-pub fn logs_bloom_bytes_fn(logs_list: Vec<(Vec<u8>, Vec<Vec<u8>>)>) -> [u8; 256] {
+fn logs_bloom_bytes_fn(logs_list: Vec<(Vec<u8>, Vec<Vec<u8>>)>) -> [u8; 256] {
     // The first element of logs_list.
     let mut bloom = [0_u8; 256];
 

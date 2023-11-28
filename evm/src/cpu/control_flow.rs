@@ -44,7 +44,7 @@ pub(crate) fn get_start_pc<F: Field>() -> F {
 }
 
 /// Evaluates the constraints related to the flow of instructions.
-pub fn eval_packed_generic<P: PackedField>(
+pub(crate) fn eval_packed_generic<P: PackedField>(
     lv: &CpuColumnsView<P>,
     nv: &CpuColumnsView<P>,
     yield_constr: &mut ConstraintConsumer<P>,
@@ -84,7 +84,7 @@ pub fn eval_packed_generic<P: PackedField>(
 
 /// Circuit version of `eval_packed`.
 /// Evaluates the constraints related to the flow of instructions.
-pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
+pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
     lv: &CpuColumnsView<ExtensionTarget<D>>,
     nv: &CpuColumnsView<ExtensionTarget<D>>,

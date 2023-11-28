@@ -7,7 +7,7 @@ use crate::util::transmute_no_compile_time_size_checks;
 /// Structure representing the flags for the various opcodes.
 #[repr(C)]
 #[derive(Clone, Copy, Eq, PartialEq, Debug)]
-pub struct OpsColumnsView<T: Copy> {
+pub(crate) struct OpsColumnsView<T: Copy> {
     /// Combines ADD, MUL, SUB, DIV, MOD, LT, GT and BYTE flags.
     pub binary_op: T,
     /// Combines ADDMOD, MULMOD and SUBMOD flags.
@@ -55,7 +55,7 @@ pub struct OpsColumnsView<T: Copy> {
 
 /// Number of columns in Cpu Stark.
 /// `u8` is guaranteed to have a `size_of` of 1.
-pub const NUM_OPS_COLUMNS: usize = size_of::<OpsColumnsView<u8>>();
+pub(crate) const NUM_OPS_COLUMNS: usize = size_of::<OpsColumnsView<u8>>();
 
 impl<T: Copy> From<[T; NUM_OPS_COLUMNS]> for OpsColumnsView<T> {
     fn from(value: [T; NUM_OPS_COLUMNS]) -> Self {

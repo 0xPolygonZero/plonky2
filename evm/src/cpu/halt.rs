@@ -12,7 +12,7 @@ use crate::cpu::columns::{CpuColumnsView, COL_MAP};
 use crate::cpu::membus::NUM_GP_CHANNELS;
 
 /// Evaluates constraints for the `halt` flag.
-pub fn eval_packed<P: PackedField>(
+pub(crate) fn eval_packed<P: PackedField>(
     lv: &CpuColumnsView<P>,
     nv: &CpuColumnsView<P>,
     yield_constr: &mut ConstraintConsumer<P>,
@@ -27,6 +27,8 @@ pub fn eval_packed<P: PackedField>(
     yield_constr.constraint(halt_state * (halt_state - P::ONES));
     // Once we reach a padding row, there must be only padding rows.
     yield_constr.constraint_transition(halt_state * (next_halt_state - P::ONES));
+    // Check that we're in kernel mode.
+    yield_constr.constraint(halt_state * (lv.is_kernel_mode - P::ONES));
 
     // Padding rows should have their memory channels disabled.
     for i in 0..NUM_GP_CHANNELS {
@@ -48,7 +50,7 @@ pub fn eval_packed<P: PackedField>(
 
 /// Circuit version of `eval_packed`.
 /// Evaluates constraints for the `halt` flag.
-pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
+pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
     lv: &CpuColumnsView<ExtensionTarget<D>>,
     nv: &CpuColumnsView<ExtensionTarget<D>>,
@@ -70,6 +72,9 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     // Once we reach a padding row, there must be only padding rows.
     let constr = builder.mul_sub_extension(halt_state, next_halt_state, halt_state);
     yield_constr.constraint_transition(builder, constr);
+    // Check that we're in kernel mode.
+    let constr = builder.mul_sub_extension(halt_state, lv.is_kernel_mode, halt_state);
+    yield_constr.constraint(builder, constr);
 
     // Padding rows should have their memory channels disabled.
     for i in 0..NUM_GP_CHANNELS {

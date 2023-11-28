@@ -32,7 +32,7 @@ use crate::witness::memory::{MemoryAddress, MemoryOp};
 /// - the address in memory of the element being read/written,
 /// - the value being read/written,
 /// - the timestamp at which the element is read/written.
-pub fn ctl_data<F: Field>() -> Vec<Column<F>> {
+pub(crate) fn ctl_data<F: Field>() -> Vec<Column<F>> {
     let mut res =
         Column::singles([IS_READ, ADDR_CONTEXT, ADDR_SEGMENT, ADDR_VIRTUAL]).collect_vec();
     res.extend(Column::singles((0..8).map(value_limb)));
@@ -41,12 +41,12 @@ pub fn ctl_data<F: Field>() -> Vec<Column<F>> {
 }
 
 /// CTL filter for memory operations.
-pub fn ctl_filter<F: Field>() -> Column<F> {
+pub(crate) fn ctl_filter<F: Field>() -> Column<F> {
     Column::single(FILTER)
 }
 
 #[derive(Copy, Clone, Default)]
-pub struct MemoryStark<F, const D: usize> {
+pub(crate) struct MemoryStark<F, const D: usize> {
     pub(crate) f: PhantomData<F>,
 }
 
@@ -76,7 +76,9 @@ impl MemoryOp {
 }
 
 /// Generates the `_FIRST_CHANGE` columns and the `RANGE_CHECK` column in the trace.
-pub fn generate_first_change_flags_and_rc<F: RichField>(trace_rows: &mut [[F; NUM_COLUMNS]]) {
+pub(crate) fn generate_first_change_flags_and_rc<F: RichField>(
+    trace_rows: &mut [[F; NUM_COLUMNS]],
+) {
     let num_ops = trace_rows.len();
     for idx in 0..num_ops - 1 {
         let row = trace_rows[idx].as_slice();
@@ -333,6 +335,14 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
             yield_constr
                 .constraint_transition(next_is_read * not_address_unchanged * next_values_limbs[i]);
         }
+
+        // Check the range column: First value must be 0,
+        // and intermediate rows must increment by 1.
+        let rc1 = local_values[COUNTER];
+        let rc2 = next_values[COUNTER];
+        yield_constr.constraint_first_row(rc1);
+        let incr = rc2 - rc1;
+        yield_constr.constraint_transition(incr - P::Scalar::ONES);
     }
 
     fn eval_ext_circuit(
@@ -461,6 +471,15 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
             let first_read_constraint = builder.mul_extension(first_read_value, next_is_read);
             yield_constr.constraint_transition(builder, first_read_constraint);
         }
+
+        // Check the range column: First value must be 0,
+        // and intermediate rows must increment by 1.
+        let rc1 = local_values[COUNTER];
+        let rc2 = next_values[COUNTER];
+        yield_constr.constraint_first_row(builder, rc1);
+        let incr = builder.sub_extension(rc2, rc1);
+        let t = builder.sub_extension(incr, one);
+        yield_constr.constraint_transition(builder, t);
     }
 
     fn constraint_degree(&self) -> usize {

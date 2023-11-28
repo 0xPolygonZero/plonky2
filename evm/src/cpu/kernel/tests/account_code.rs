@@ -1,18 +1,25 @@
 use std::collections::HashMap;
 
 use anyhow::{anyhow, Result};
+use eth_trie_utils::nibbles::Nibbles;
 use ethereum_types::{Address, BigEndianHash, H256, U256};
+use hex_literal::hex;
 use keccak_hash::keccak;
 use rand::{random, thread_rng, Rng};
 use smt_utils::account::Account;
+use smt_utils::bits::Bits;
 use smt_utils::smt::Smt;
 
 use crate::cpu::kernel::aggregator::KERNEL;
-use crate::cpu::kernel::constants::context_metadata::ContextMetadata::GasLimit;
+use crate::cpu::kernel::constants::context_metadata::ContextMetadata::{self, GasLimit};
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
 use crate::cpu::kernel::interpreter::Interpreter;
-use crate::generation::mpt::{all_mpt_prover_inputs_reversed, state_smt_prover_inputs_reversed};
+use crate::generation::mpt::{
+    all_mpt_prover_inputs_reversed, state_smt_prover_inputs_reversed, AccountRlp,
+};
+use crate::generation::TrieInputs;
 use crate::memory::segments::Segment;
+use crate::Node;
 
 // Test account with a given code hash.
 fn test_account(code: &[u8]) -> Account {
@@ -185,5 +192,186 @@ fn test_extcodecopy() -> Result<()> {
         );
     }
 
+    Ok(())
+}
+
+/// Prepare the interpreter for storage tests by inserting all necessary accounts
+/// in the state trie, adding the code we want to context 1 and switching the context.
+fn prepare_interpreter_all_accounts(
+    interpreter: &mut Interpreter,
+    trie_inputs: TrieInputs,
+    addr: [u8; 20],
+    code: &[u8],
+) -> Result<()> {
+    // Load all MPTs.
+    let load_all_mpts = KERNEL.global_labels["load_all_mpts"];
+
+    interpreter.generation_state.registers.program_counter = load_all_mpts;
+    interpreter.push(0xDEADBEEFu32.into());
+
+    interpreter.generation_state.state_smt_prover_inputs =
+        state_smt_prover_inputs_reversed(&trie_inputs);
+    interpreter.generation_state.mpt_prover_inputs =
+        all_mpt_prover_inputs_reversed(&trie_inputs)
+            .map_err(|err| anyhow!("Invalid MPT data: {:?}", err))?;
+    interpreter.run()?;
+    assert_eq!(interpreter.stack(), vec![]);
+
+    // Switch context and initialize memory with the data we need for the tests.
+    interpreter.generation_state.registers.program_counter = 0;
+    interpreter.set_code(1, code.to_vec());
+    interpreter.generation_state.memory.contexts[1].segments[Segment::ContextMetadata as usize]
+        .set(
+            ContextMetadata::Address as usize,
+            U256::from_big_endian(&addr),
+        );
+    interpreter.generation_state.memory.contexts[1].segments[Segment::ContextMetadata as usize]
+        .set(ContextMetadata::GasLimit as usize, 100_000.into());
+    interpreter.context = 1;
+    interpreter.generation_state.registers.context = 1;
+    interpreter.generation_state.registers.is_kernel = false;
+    interpreter.kernel_mode = false;
+
+    Ok(())
+}
+
+/// Tests an SSTORE within a code similar to the contract code in add11_yml.
+#[test]
+fn sstore() -> Result<()> {
+    // We take the same `to` account as in add11_yml.
+    let addr = hex!("095e7baea6a6c7c4c2dfeb977efac326af552d87");
+
+    let addr_hashed = keccak(addr);
+    let addr_bits = Bits::from(addr_hashed);
+
+    let code = [0x60, 0x01, 0x60, 0x01, 0x01, 0x60, 0x00, 0x55, 0x00];
+    let code_hash = keccak(code);
+
+    let account_before = Account {
+        balance: 0x0de0b6b3a7640000u64.into(),
+        code_hash,
+        ..Account::default()
+    };
+
+    let mut state_trie_before = Smt::empty();
+
+    state_trie_before.insert(addr_bits, account_before.into());
+
+    let trie_inputs = TrieInputs {
+        state_smt: state_trie_before.serialize(),
+        transactions_trie: Node::Empty.into(),
+        receipts_trie: Node::Empty.into(),
+    };
+
+    let initial_stack = vec![];
+    let mut interpreter = Interpreter::new_with_kernel(0, initial_stack);
+
+    // Prepare the interpreter by inserting the account in the state trie.
+    prepare_interpreter_all_accounts(&mut interpreter, trie_inputs, addr, &code)?;
+
+    interpreter.run()?;
+
+    // The code should have added an element to the storage of `to_account`. We run
+    // `smt_hash_state` to check that.
+    let account_after = Account {
+        balance: 0x0de0b6b3a7640000u64.into(),
+        code_hash,
+        storage_smt: Smt::new([(keccak([0u8; 32]).into(), 2.into())]).unwrap(),
+        ..Account::default()
+    };
+    // Now, execute smt_hash_state.
+    let smt_hash_state = KERNEL.global_labels["smt_hash_state"];
+    interpreter.generation_state.registers.program_counter = smt_hash_state;
+    interpreter.context = 0;
+    interpreter.generation_state.registers.context = 0;
+    interpreter.generation_state.registers.is_kernel = true;
+    interpreter.kernel_mode = true;
+    interpreter.push(0xDEADBEEFu32.into());
+    interpreter.run()?;
+
+    assert_eq!(
+        interpreter.stack().len(),
+        1,
+        "Expected 1 item on stack after hashing, found {:?}",
+        interpreter.stack()
+    );
+
+    let hash = H256::from_uint(&interpreter.stack()[0]);
+
+    let mut expected_state_trie_after = Smt::empty();
+    expected_state_trie_after.insert(addr_bits, account_after.into());
+
+    let expected_state_trie_hash = expected_state_trie_after.root;
+    assert_eq!(hash, expected_state_trie_hash);
+    Ok(())
+}
+
+/// Tests an SLOAD within a code similar to the contract code in add11_yml.
+#[test]
+fn sload() -> Result<()> {
+    // We take the same `to` account as in add11_yml.
+    let addr = hex!("095e7baea6a6c7c4c2dfeb977efac326af552d87");
+
+    let addr_hashed = keccak(addr);
+    let addr_bits = Bits::from(addr_hashed);
+
+    // This code is similar to the one in add11_yml's contract, but we pop the added value
+    // and carry out an SLOAD instead of an SSTORE. We also add a PUSH at the end.
+    let code = [
+        0x60, 0x01, 0x60, 0x01, 0x01, 0x50, 0x60, 0x00, 0x54, 0x60, 0x03, 0x00,
+    ];
+    let code_hash = keccak(code);
+
+    let account_before = Account {
+        balance: 0x0de0b6b3a7640000u64.into(),
+        code_hash,
+        ..Account::default()
+    };
+
+    let mut state_trie_before = Smt::empty();
+
+    state_trie_before.insert(addr_bits, account_before.into());
+
+    let trie_inputs = TrieInputs {
+        state_smt: state_trie_before.serialize(),
+        transactions_trie: Node::Empty.into(),
+        receipts_trie: Node::Empty.into(),
+    };
+
+    let initial_stack = vec![];
+    let mut interpreter = Interpreter::new_with_kernel(0, initial_stack);
+
+    // Prepare the interpreter by inserting the account in the state trie.
+    prepare_interpreter_all_accounts(&mut interpreter, trie_inputs, addr, &code)?;
+
+    interpreter.run()?;
+
+    // The SLOAD in the provided code should return 0, since
+    // the storage trie is empty. The last step in the code
+    // pushes the value 3.
+    assert_eq!(interpreter.stack(), vec![0x0.into(), 0x3.into()]);
+    interpreter.pop();
+    interpreter.pop();
+    // Now, execute smt_hash_state. We check that the state trie has not changed.
+    let smt_hash_state = KERNEL.global_labels["smt_hash_state"];
+    interpreter.generation_state.registers.program_counter = smt_hash_state;
+    interpreter.context = 0;
+    interpreter.generation_state.registers.context = 0;
+    interpreter.generation_state.registers.is_kernel = true;
+    interpreter.kernel_mode = true;
+    interpreter.push(0xDEADBEEFu32.into());
+    interpreter.run()?;
+
+    assert_eq!(
+        interpreter.stack().len(),
+        1,
+        "Expected 1 item on stack after hashing, found {:?}",
+        interpreter.stack()
+    );
+
+    let hash = H256::from_uint(&interpreter.stack()[0]);
+
+    let expected_state_trie_hash = state_trie_before.root;
+    assert_eq!(hash, expected_state_trie_hash);
     Ok(())
 }

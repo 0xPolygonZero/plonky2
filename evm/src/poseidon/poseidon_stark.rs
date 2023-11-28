@@ -26,7 +26,7 @@ use crate::stark::Stark;
 use crate::util::trace_rows_to_poly_values;
 use crate::witness::memory::MemoryAddress;
 
-pub fn ctl_looked_data<F: Field>() -> Vec<Column<F>> {
+pub(crate) fn ctl_looked_data<F: Field>() -> Vec<Column<F>> {
     let cols = POSEIDON_COL_MAP;
     let outputs: Vec<Column<F>> = Column::singles(cols.digest).collect();
     let mut res: Vec<_> = Column::singles([
@@ -41,11 +41,11 @@ pub fn ctl_looked_data<F: Field>() -> Vec<Column<F>> {
     res
 }
 
-pub fn ctl_looked_filter<F: Field>() -> Column<F> {
+pub(crate) fn ctl_looked_filter<F: Field>() -> Column<F> {
     Column::sum(POSEIDON_COL_MAP.is_final_input_len)
 }
 
-pub fn ctl_looking_memory<F: Field>(i: usize) -> Vec<Column<F>> {
+pub(crate) fn ctl_looking_memory<F: Field>(i: usize) -> Vec<Column<F>> {
     let cols = POSEIDON_COL_MAP;
     let mut res = vec![Column::constant(F::ONE)]; // is_read
 
@@ -72,7 +72,7 @@ pub fn ctl_looking_memory<F: Field>(i: usize) -> Vec<Column<F>> {
     res
 }
 
-pub fn ctl_looking_memory_filter<F: Field>(i: usize) -> Column<F> {
+pub(crate) fn ctl_looking_memory_filter<F: Field>(i: usize) -> Column<F> {
     let cols = POSEIDON_COL_MAP;
     if i == POSEIDON_SPONGE_RATE - 1 {
         Column::single(cols.is_full_input_block)
@@ -297,7 +297,7 @@ impl<F: RichField + Extendable<D>, const D: usize> PoseidonStark<F, D> {
             .copy_from_slice(&state[POSEIDON_DIGEST..POSEIDON_SPONGE_WIDTH]);
     }
 
-    pub fn generate_trace(
+    pub(crate) fn generate_trace(
         &self,
         operations: Vec<PoseidonOp>,
         min_rows: usize,

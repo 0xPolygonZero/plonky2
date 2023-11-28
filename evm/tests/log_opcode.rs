@@ -20,7 +20,7 @@ use plonky2_evm::fixed_recursive_verifier::AllRecursiveCircuits;
 use plonky2_evm::generation::mpt::transaction_testing::{AddressOption, LegacyTransactionRlp};
 use plonky2_evm::generation::mpt::{LegacyReceiptRlp, LogRlp};
 use plonky2_evm::generation::{GenerationInputs, TrieInputs};
-use plonky2_evm::proof::{BlockHashes, BlockMetadata, ExtraBlockData, PublicValues, TrieRoots};
+use plonky2_evm::proof::{BlockHashes, BlockMetadata, TrieRoots};
 use plonky2_evm::prover::prove;
 use plonky2_evm::verifier::verify_proof;
 use plonky2_evm::Node;
@@ -228,7 +228,7 @@ fn test_log_opcodes() -> anyhow::Result<()> {
             .unwrap(),
     ];
     let inputs = GenerationInputs {
-        signed_txns: vec![txn.to_vec()],
+        signed_txn: Some(txn.to_vec()),
         withdrawals: vec![],
         tries: tries_before,
         trie_roots_after,
@@ -348,7 +348,7 @@ fn test_log_with_aggreg() -> anyhow::Result<()> {
     let block_metadata = BlockMetadata {
         block_beneficiary: Address::from(beneficiary),
         block_timestamp: 0x03e8.into(),
-        block_number: 0.into(),
+        block_number: 1.into(),
         block_difficulty: 0x020000.into(),
         block_gaslimit: 0x445566u32.into(),
         block_chain_id: 1.into(),
@@ -427,7 +427,7 @@ fn test_log_with_aggreg() -> anyhow::Result<()> {
     };
 
     let inputs_first = GenerationInputs {
-        signed_txns: vec![txn.to_vec()],
+        signed_txn: Some(txn.to_vec()),
         withdrawals: vec![],
         tries: tries_before,
         trie_roots_after: tries_after,
@@ -454,15 +454,15 @@ fn test_log_with_aggreg() -> anyhow::Result<()> {
     );
 
     let mut timing = TimingTree::new("prove root first", log::Level::Info);
-    let (root_proof_first, first_public_values) =
+    let (root_proof_first, public_values_first) =
         all_circuits.prove_root(&all_stark, &config, inputs_first, &mut timing)?;
 
     timing.filter(Duration::from_millis(100)).print();
     all_circuits.verify_root(root_proof_first.clone())?;
 
     // The output bloom filter, gas used and transaction number are fed to the next transaction, so the two proofs can be correctly aggregated.
-    let block_bloom_second = first_public_values.extra_block_data.block_bloom_after;
-    let gas_used_second = first_public_values.extra_block_data.gas_used_after;
+    let block_bloom_second = public_values_first.extra_block_data.block_bloom_after;
+    let gas_used_second = public_values_first.extra_block_data.gas_used_after;
 
     // Prove second transaction. In this second transaction, the code with logs is executed.
 
@@ -567,7 +567,7 @@ fn test_log_with_aggreg() -> anyhow::Result<()> {
         U256::from_dec_str("2722259584404615024560450425766186844160").unwrap(),
     ];
     let inputs = GenerationInputs {
-        signed_txns: vec![txn_2.to_vec()],
+        signed_txn: Some(txn_2.to_vec()),
         withdrawals: vec![],
         tries: tries_before,
         trie_roots_after,
@@ -587,36 +587,19 @@ fn test_log_with_aggreg() -> anyhow::Result<()> {
     };
 
     let mut timing = TimingTree::new("prove root second", log::Level::Info);
-    let (root_proof, public_values) =
+    let (root_proof_second, public_values_second) =
         all_circuits.prove_root(&all_stark, &config, inputs, &mut timing)?;
     timing.filter(Duration::from_millis(100)).print();
 
-    all_circuits.verify_root(root_proof.clone())?;
+    all_circuits.verify_root(root_proof_second.clone())?;
 
-    // Update public values for the aggregation.
-    let agg_public_values = PublicValues {
-        trie_roots_before: first_public_values.trie_roots_before,
-        trie_roots_after: public_values.trie_roots_after,
-        extra_block_data: ExtraBlockData {
-            genesis_state_trie_root,
-            txn_number_before: first_public_values.extra_block_data.txn_number_before,
-            txn_number_after: public_values.extra_block_data.txn_number_after,
-            gas_used_before: first_public_values.extra_block_data.gas_used_before,
-            gas_used_after: public_values.extra_block_data.gas_used_after,
-            block_bloom_before: first_public_values.extra_block_data.block_bloom_before,
-            block_bloom_after: public_values.extra_block_data.block_bloom_after,
-        },
-        block_metadata: public_values.block_metadata,
-        block_hashes: public_values.block_hashes,
-    };
-
-    // We can duplicate the proofs here because the state hasn't mutated.
     let (agg_proof, updated_agg_public_values) = all_circuits.prove_aggregation(
         false,
         &root_proof_first,
+        public_values_first,
         false,
-        &root_proof,
-        agg_public_values,
+        &root_proof_second,
+        public_values_second,
     )?;
     all_circuits.verify_aggregation(&agg_proof)?;
     let (block_proof, _block_public_values) =
@@ -736,181 +719,6 @@ fn test_txn_and_receipt_trie_hash() -> anyhow::Result<()> {
     );
 
     Ok(())
-}
-
-#[test]
-#[ignore] // Too slow to run on CI.
-fn test_two_txn() -> anyhow::Result<()> {
-    init_logger();
-
-    let all_stark = AllStark::<F, D>::default();
-    let config = StarkConfig::standard_fast_config();
-
-    let beneficiary = hex!("2adc25665018aa1fe0e6bc666dac8fc2697ff9ba");
-    let sender = hex!("af1276cbb260bb13deddb4209ae99ae6e497f446");
-    // Private key: DCDFF53B4F013DBCDC717F89FE3BF4D8B10512AAE282B48E01D7530470382701
-    let to = hex!("095e7baea6a6c7c4c2dfeb977efac326af552d87");
-
-    let beneficiary_state_key = keccak(beneficiary);
-    let sender_state_key = keccak(sender);
-    let to_hashed = keccak(to);
-
-    let beneficiary_bits = beneficiary_state_key.into();
-    let sender_bits = sender_state_key.into();
-    let to_bits = to_hashed.into();
-
-    // Set accounts before the transaction.
-    let beneficiary_account_before = Account {
-        nonce: 1,
-        ..Account::default()
-    };
-
-    let sender_balance_before = 50000000000000000u64;
-    let sender_account_before = Account {
-        balance: sender_balance_before.into(),
-        ..Account::default()
-    };
-    let to_account_before = Account {
-        ..Account::default()
-    };
-
-    // Initialize the state trie with three accounts.
-    let state_smt_before = Smt::new([
-        (beneficiary_bits, beneficiary_account_before.clone().into()),
-        (sender_bits, sender_account_before.clone().into()),
-        (to_bits, to_account_before.clone().into()),
-    ])
-    .unwrap();
-
-    let tries_before = TrieInputs {
-        state_smt: state_smt_before.serialize(),
-        transactions_trie: Node::Empty.into(),
-        receipts_trie: Node::Empty.into(),
-    };
-
-    // Prove two simple transfers.
-    let gas_price = 10;
-    let txn_value = 0x11c37937e08000u64;
-    let txn_0 = hex!("f866800a82520894095e7baea6a6c7c4c2dfeb977efac326af552d878711c37937e080008026a01fcd0ce88ac7600698a771f206df24b70e67981b6f107bd7c1c24ea94f113bcba00d87cc5c7afc2988e4ff200b5a0c7016b0d5498bbc692065ca983fcbbfe02555");
-    let txn_1 = hex!("f866010a82520894095e7baea6a6c7c4c2dfeb977efac326af552d878711c37937e080008026a0d8123f5f537bd3a67283f67eb136f7accdfc4ef012cfbfd3fb1d0ac7fd01b96fa004666d9feef90a1eb568570374dd19977d4da231b289d769e6f95105c06fd672");
-
-    let block_metadata = BlockMetadata {
-        block_beneficiary: Address::from(beneficiary),
-        block_timestamp: 0x03e8.into(),
-        block_number: 1.into(),
-        block_difficulty: 0x020000.into(),
-        block_random: H256::from_uint(&0x020000.into()),
-        block_gaslimit: 0xffffffffu32.into(),
-        block_chain_id: 1.into(),
-        block_base_fee: 0xa.into(),
-        block_gas_used: 0.into(),
-        block_bloom: [0.into(); 8],
-    };
-
-    let mut contract_code = HashMap::new();
-    contract_code.insert(keccak(vec![]), vec![]);
-
-    // Update accounts
-    let beneficiary_account_after = Account {
-        nonce: 1,
-        ..Account::default()
-    };
-
-    let sender_balance_after = sender_balance_before - gas_price * 21000 * 2 - txn_value * 2;
-    let sender_account_after = Account {
-        balance: sender_balance_after.into(),
-        nonce: 2,
-        ..Account::default()
-    };
-    let to_account_after = Account {
-        balance: (2 * txn_value).into(),
-        ..Account::default()
-    };
-
-    // Update the state trie.
-    let expected_state_smt_after = Smt::new([
-        (beneficiary_bits, beneficiary_account_after.into()),
-        (sender_bits, sender_account_after.into()),
-        (to_bits, to_account_after.into()),
-    ])
-    .unwrap();
-
-    // Compute new receipt trie.
-    let mut receipts_trie = HashedPartialTrie::from(Node::Empty);
-
-    let receipt_0 = LegacyReceiptRlp {
-        status: true,
-        cum_gas_used: 21000u64.into(),
-        bloom: [0x00; 256].to_vec().into(),
-        logs: vec![],
-    };
-
-    let receipt_1 = LegacyReceiptRlp {
-        status: true,
-        cum_gas_used: 42000u64.into(),
-        bloom: [0x00; 256].to_vec().into(),
-        logs: vec![],
-    };
-
-    receipts_trie.insert(
-        Nibbles::from_str("0x80").unwrap(),
-        rlp::encode(&receipt_0).to_vec(),
-    );
-
-    receipts_trie.insert(
-        Nibbles::from_str("0x01").unwrap(),
-        rlp::encode(&receipt_1).to_vec(),
-    );
-
-    let mut transactions_trie: HashedPartialTrie = Node::Leaf {
-        nibbles: Nibbles::from_str("0x80").unwrap(),
-        value: txn_0.to_vec(),
-    }
-    .into();
-
-    transactions_trie.insert(Nibbles::from_str("0x01").unwrap(), txn_1.to_vec());
-
-    let trie_roots_after = TrieRoots {
-        state_root: expected_state_smt_after.root,
-        transactions_root: transactions_trie.hash(),
-        receipts_root: receipts_trie.hash(),
-    };
-    let inputs = GenerationInputs {
-        signed_txns: vec![txn_0.to_vec(), txn_1.to_vec()],
-        withdrawals: vec![],
-        tries: tries_before,
-        trie_roots_after,
-        contract_code,
-        genesis_state_trie_root: HashedPartialTrie::from(Node::Empty).hash(),
-        block_metadata,
-        txn_number_before: 0.into(),
-        gas_used_before: 0.into(),
-        gas_used_after: 42000u64.into(),
-        block_bloom_before: [0.into(); 8],
-        block_bloom_after: [0.into(); 8],
-        block_hashes: BlockHashes {
-            prev_hashes: vec![H256::default(); 256],
-            cur_hash: H256::default(),
-        },
-        addresses: vec![],
-    };
-
-    let mut timing = TimingTree::new("prove", log::Level::Debug);
-    let proof = prove::<F, C, D>(&all_stark, &config, inputs, &mut timing)?;
-    timing.filter(Duration::from_millis(100)).print();
-
-    // Assert trie roots.
-    assert_eq!(
-        proof.public_values.trie_roots_after.state_root,
-        expected_state_smt_after.root
-    );
-
-    assert_eq!(
-        proof.public_values.trie_roots_after.receipts_root,
-        receipts_trie.hash()
-    );
-
-    verify_proof(&all_stark, proof, &config)
 }
 
 fn init_logger() {

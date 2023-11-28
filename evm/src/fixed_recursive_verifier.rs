@@ -15,7 +15,7 @@ use plonky2::iop::target::{BoolTarget, Target};
 use plonky2::iop::witness::{PartialWitness, WitnessWrite};
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::circuit_data::{
-    CircuitConfig, CircuitData, CommonCircuitData, VerifierCircuitTarget,
+    CircuitConfig, CircuitData, CommonCircuitData, VerifierCircuitData, VerifierCircuitTarget,
 };
 use plonky2::plonk::config::{AlgebraicHasher, GenericConfig};
 use plonky2::plonk::proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget};
@@ -36,8 +36,8 @@ use crate::cross_table_lookup::{
 use crate::generation::GenerationInputs;
 use crate::get_challenges::observe_public_values_target;
 use crate::proof::{
-    BlockHashesTarget, BlockMetadataTarget, ExtraBlockDataTarget, PublicValues, PublicValuesTarget,
-    StarkProofWithMetadata, TrieRootsTarget,
+    BlockHashesTarget, BlockMetadataTarget, ExtraBlockData, ExtraBlockDataTarget, PublicValues,
+    PublicValuesTarget, StarkProofWithMetadata, TrieRootsTarget,
 };
 use crate::prover::prove;
 use crate::recursive_verifier::{
@@ -96,7 +96,7 @@ where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
 {
-    pub fn to_buffer(
+    fn to_buffer(
         &self,
         buffer: &mut Vec<u8>,
         gate_serializer: &dyn GateSerializer<F, D>,
@@ -114,7 +114,7 @@ where
         Ok(())
     }
 
-    pub fn from_buffer(
+    fn from_buffer(
         buffer: &mut Buffer,
         gate_serializer: &dyn GateSerializer<F, D>,
         generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
@@ -161,7 +161,7 @@ where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
 {
-    pub fn to_buffer(
+    fn to_buffer(
         &self,
         buffer: &mut Vec<u8>,
         gate_serializer: &dyn GateSerializer<F, D>,
@@ -175,7 +175,7 @@ where
         Ok(())
     }
 
-    pub fn from_buffer(
+    fn from_buffer(
         buffer: &mut Buffer,
         gate_serializer: &dyn GateSerializer<F, D>,
         generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
@@ -196,21 +196,21 @@ where
 }
 
 #[derive(Eq, PartialEq, Debug)]
-pub struct AggregationChildTarget<const D: usize> {
+struct AggregationChildTarget<const D: usize> {
     is_agg: BoolTarget,
     agg_proof: ProofWithPublicInputsTarget<D>,
     evm_proof: ProofWithPublicInputsTarget<D>,
 }
 
 impl<const D: usize> AggregationChildTarget<D> {
-    pub fn to_buffer(&self, buffer: &mut Vec<u8>) -> IoResult<()> {
+    fn to_buffer(&self, buffer: &mut Vec<u8>) -> IoResult<()> {
         buffer.write_target_bool(self.is_agg)?;
         buffer.write_target_proof_with_public_inputs(&self.agg_proof)?;
         buffer.write_target_proof_with_public_inputs(&self.evm_proof)?;
         Ok(())
     }
 
-    pub fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
+    fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
         let is_agg = buffer.read_target_bool()?;
         let agg_proof = buffer.read_target_proof_with_public_inputs()?;
         let evm_proof = buffer.read_target_proof_with_public_inputs()?;
@@ -221,7 +221,7 @@ impl<const D: usize> AggregationChildTarget<D> {
         })
     }
 
-    pub fn public_values<F: RichField + Extendable<D>>(
+    fn public_values<F: RichField + Extendable<D>>(
         &self,
         builder: &mut CircuitBuilder<F, D>,
     ) -> PublicValuesTarget {
@@ -250,7 +250,7 @@ where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
 {
-    pub fn to_buffer(
+    fn to_buffer(
         &self,
         buffer: &mut Vec<u8>,
         gate_serializer: &dyn GateSerializer<F, D>,
@@ -265,7 +265,7 @@ where
         Ok(())
     }
 
-    pub fn from_buffer(
+    fn from_buffer(
         buffer: &mut Buffer,
         gate_serializer: &dyn GateSerializer<F, D>,
         generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
@@ -436,6 +436,78 @@ where
             block,
             by_table,
         }
+    }
+
+    /// Expand the preprocessed STARK table circuits with the provided ranges.
+    ///
+    /// If a range for a given table is contained within the current one, this will be a no-op.
+    /// Otherwise, it will add the circuits for the missing table sizes, and regenerate the upper circuits.
+    pub fn expand(
+        &mut self,
+        all_stark: &AllStark<F, D>,
+        degree_bits_ranges: &[Range<usize>; NUM_TABLES],
+        stark_config: &StarkConfig,
+    ) {
+        self.by_table[Table::Arithmetic as usize].expand(
+            Table::Arithmetic,
+            &all_stark.arithmetic_stark,
+            degree_bits_ranges[Table::Arithmetic as usize].clone(),
+            &all_stark.cross_table_lookups,
+            stark_config,
+        );
+        self.by_table[Table::BytePacking as usize].expand(
+            Table::BytePacking,
+            &all_stark.byte_packing_stark,
+            degree_bits_ranges[Table::BytePacking as usize].clone(),
+            &all_stark.cross_table_lookups,
+            stark_config,
+        );
+        self.by_table[Table::Cpu as usize].expand(
+            Table::Cpu,
+            &all_stark.cpu_stark,
+            degree_bits_ranges[Table::Cpu as usize].clone(),
+            &all_stark.cross_table_lookups,
+            stark_config,
+        );
+        self.by_table[Table::Keccak as usize].expand(
+            Table::Keccak,
+            &all_stark.keccak_stark,
+            degree_bits_ranges[Table::Keccak as usize].clone(),
+            &all_stark.cross_table_lookups,
+            stark_config,
+        );
+        self.by_table[Table::KeccakSponge as usize].expand(
+            Table::KeccakSponge,
+            &all_stark.keccak_sponge_stark,
+            degree_bits_ranges[Table::KeccakSponge as usize].clone(),
+            &all_stark.cross_table_lookups,
+            stark_config,
+        );
+        self.by_table[Table::Logic as usize].expand(
+            Table::Logic,
+            &all_stark.logic_stark,
+            degree_bits_ranges[Table::Logic as usize].clone(),
+            &all_stark.cross_table_lookups,
+            stark_config,
+        );
+        self.by_table[Table::Memory as usize].expand(
+            Table::Memory,
+            &all_stark.memory_stark,
+            degree_bits_ranges[Table::Memory as usize].clone(),
+            &all_stark.cross_table_lookups,
+            stark_config,
+        );
+
+        // Regenerate the upper circuits.
+        self.root = Self::create_root_circuit(&self.by_table, stark_config);
+        self.aggregation = Self::create_aggregation_circuit(&self.root);
+        self.block = Self::create_block_circuit(&self.aggregation);
+    }
+
+    /// Outputs the `VerifierCircuitData` needed to verify any block proof
+    /// generated by an honest prover.
+    pub fn final_verifier_data(&self) -> VerifierCircuitData<F, C, D> {
+        self.block.circuit.verifier_data()
     }
 
     fn create_root_circuit(
@@ -675,14 +747,11 @@ where
         builder.connect(lhs.txn_number_after, rhs.txn_number_before);
 
         // Connect the gas used in public values to the lhs and rhs values correctly.
-        builder.connect(pvs.gas_used_before[0], lhs.gas_used_before[0]);
-        builder.connect(pvs.gas_used_before[1], lhs.gas_used_before[1]);
-        builder.connect(pvs.gas_used_after[0], rhs.gas_used_after[0]);
-        builder.connect(pvs.gas_used_after[1], rhs.gas_used_after[1]);
+        builder.connect(pvs.gas_used_before, lhs.gas_used_before);
+        builder.connect(pvs.gas_used_after, rhs.gas_used_after);
 
         // Connect lhs `gas_used_after` with rhs `gas_used_before`.
-        builder.connect(lhs.gas_used_after[0], rhs.gas_used_before[0]);
-        builder.connect(lhs.gas_used_after[1], rhs.gas_used_before[1]);
+        builder.connect(lhs.gas_used_after, rhs.gas_used_before);
 
         // Connect the `block_bloom` in public values to the lhs and rhs values correctly.
         for (&limb0, &limb1) in pvs.block_bloom_after.iter().zip(&rhs.block_bloom_after) {
@@ -691,6 +760,7 @@ where
         for (&limb0, &limb1) in pvs.block_bloom_before.iter().zip(&lhs.block_bloom_before) {
             builder.connect(limb0, limb1);
         }
+
         // Connect lhs `block_bloom_after` with rhs `block_bloom_before`.
         for (&limb0, &limb1) in lhs.block_bloom_after.iter().zip(&rhs.block_bloom_before) {
             builder.connect(limb0, limb1);
@@ -768,7 +838,7 @@ where
     }
 
     /// Connect the 256 block hashes between two blocks
-    pub fn connect_block_hashes(
+    fn connect_block_hashes(
         builder: &mut CircuitBuilder<F, D>,
         lhs: &ProofWithPublicInputsTarget<D>,
         rhs: &ProofWithPublicInputsTarget<D>,
@@ -830,7 +900,7 @@ where
         let has_not_parent_block = builder.sub(one, has_parent_block.target);
 
         // Check that the genesis block number is 0.
-        let gen_block_constr = builder.mul(has_not_parent_block, rhs.block_metadata.block_number);
+        let gen_block_constr = builder.mul(has_not_parent_block, lhs.block_metadata.block_number);
         builder.assert_zero(gen_block_constr);
 
         // Check that the genesis block has the predetermined state trie root in `ExtraBlockData`.
@@ -863,12 +933,8 @@ where
         F: RichField + Extendable<D>,
     {
         builder.connect(
-            x.block_metadata.block_gas_used[0],
-            x.extra_block_data.gas_used_after[0],
-        );
-        builder.connect(
-            x.block_metadata.block_gas_used[1],
-            x.extra_block_data.gas_used_after[1],
+            x.block_metadata.block_gas_used,
+            x.extra_block_data.gas_used_after,
         );
 
         for (&limb0, &limb1) in x
@@ -888,8 +954,7 @@ where
         // The initial number of transactions is 0.
         builder.assert_zero(x.extra_block_data.txn_number_before);
         // The initial gas used is 0.
-        builder.assert_zero(x.extra_block_data.gas_used_before[0]);
-        builder.assert_zero(x.extra_block_data.gas_used_before[1]);
+        builder.assert_zero(x.extra_block_data.gas_used_before);
 
         // The initial bloom filter is all zeroes.
         for t in x.extra_block_data.block_bloom_before {
@@ -971,9 +1036,10 @@ where
         &self,
         lhs_is_agg: bool,
         lhs_proof: &ProofWithPublicInputs<F, C, D>,
+        lhs_public_values: PublicValues,
         rhs_is_agg: bool,
         rhs_proof: &ProofWithPublicInputs<F, C, D>,
-        public_values: PublicValues,
+        rhs_public_values: PublicValues,
     ) -> anyhow::Result<(ProofWithPublicInputs<F, C, D>, PublicValues)> {
         let mut agg_inputs = PartialWitness::new();
 
@@ -990,17 +1056,34 @@ where
             &self.aggregation.circuit.verifier_only,
         );
 
+        // Aggregates both `PublicValues` from the provided proofs into a single one.
+        let agg_public_values = PublicValues {
+            trie_roots_before: lhs_public_values.trie_roots_before,
+            trie_roots_after: rhs_public_values.trie_roots_after,
+            extra_block_data: ExtraBlockData {
+                genesis_state_trie_root: lhs_public_values.extra_block_data.genesis_state_trie_root,
+                txn_number_before: lhs_public_values.extra_block_data.txn_number_before,
+                txn_number_after: rhs_public_values.extra_block_data.txn_number_after,
+                gas_used_before: lhs_public_values.extra_block_data.gas_used_before,
+                gas_used_after: rhs_public_values.extra_block_data.gas_used_after,
+                block_bloom_before: lhs_public_values.extra_block_data.block_bloom_before,
+                block_bloom_after: rhs_public_values.extra_block_data.block_bloom_after,
+            },
+            block_metadata: rhs_public_values.block_metadata,
+            block_hashes: rhs_public_values.block_hashes,
+        };
+
         set_public_value_targets(
             &mut agg_inputs,
             &self.aggregation.public_values,
-            &public_values,
+            &agg_public_values,
         )
         .map_err(|_| {
             anyhow::Error::msg("Invalid conversion when setting public values targets.")
         })?;
 
         let aggregation_proof = self.aggregation.circuit.prove(agg_inputs)?;
-        Ok((aggregation_proof, public_values))
+        Ok((aggregation_proof, agg_public_values))
     }
 
     pub fn verify_aggregation(
@@ -1031,9 +1114,21 @@ where
             block_inputs
                 .set_proof_with_pis_target(&self.block.parent_block_proof, parent_block_proof);
         } else {
-            // Initialize genesis_state_trie, state_root_after and the block number for correct connection between blocks.
+            // Initialize genesis_state_trie, state_root_after, and the previous block hashes for correct connection between blocks.
+            // Block number does not need to be initialized as genesis block is constrained to have number 0.
+
+            if public_values.trie_roots_before.state_root
+                != public_values.extra_block_data.genesis_state_trie_root
+            {
+                return Err(anyhow::Error::msg(format!(
+                    "Inconsistent pre-state for first block {:?} with genesis state {:?}.",
+                    public_values.trie_roots_before.state_root,
+                    public_values.extra_block_data.genesis_state_trie_root,
+                )));
+            }
             // Initialize `state_root_after`.
-            let state_trie_root_after_keys = 24..32;
+            let state_trie_root_after_keys =
+                TrieRootsTarget::SIZE..TrieRootsTarget::SIZE + TrieRootsTarget::HASH_SIZE;
             let mut nonzero_pis = HashMap::new();
             for (key, &value) in state_trie_root_after_keys
                 .zip_eq(&h256_limbs::<F>(public_values.trie_roots_before.state_root))
@@ -1055,9 +1150,27 @@ where
                 nonzero_pis.insert(key, value);
             }
 
-            // Initialize the block number.
-            let block_number_key = TrieRootsTarget::SIZE * 2 + 6;
-            nonzero_pis.insert(block_number_key, F::NEG_ONE);
+            // Initialize block hashes.
+            let block_hashes_keys = TrieRootsTarget::SIZE * 2 + BlockMetadataTarget::SIZE
+                ..TrieRootsTarget::SIZE * 2
+                    + BlockMetadataTarget::SIZE
+                    + BlockHashesTarget::BLOCK_HASHES_SIZE
+                    - 8;
+
+            for i in 0..public_values.block_hashes.prev_hashes.len() - 1 {
+                let targets = h256_limbs::<F>(public_values.block_hashes.prev_hashes[i]);
+                for j in 0..8 {
+                    nonzero_pis.insert(block_hashes_keys.start + 8 * (i + 1) + j, targets[j]);
+                }
+            }
+            let block_hashes_current_start = TrieRootsTarget::SIZE * 2
+                + BlockMetadataTarget::SIZE
+                + BlockHashesTarget::BLOCK_HASHES_SIZE
+                - 8;
+            let cur_targets = h256_limbs::<F>(public_values.block_hashes.prev_hashes[255]);
+            for i in 0..8 {
+                nonzero_pis.insert(block_hashes_current_start + i, cur_targets[i]);
+            }
 
             block_inputs.set_proof_with_pis_target(
                 &self.block.parent_block_proof,
@@ -1111,7 +1224,7 @@ where
     C: GenericConfig<D, F = F>,
     C::Hasher: AlgebraicHasher<F>,
 {
-    pub fn to_buffer(
+    fn to_buffer(
         &self,
         buffer: &mut Vec<u8>,
         gate_serializer: &dyn GateSerializer<F, D>,
@@ -1125,7 +1238,7 @@ where
         Ok(())
     }
 
-    pub fn from_buffer(
+    fn from_buffer(
         buffer: &mut Buffer,
         gate_serializer: &dyn GateSerializer<F, D>,
         generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
@@ -1168,6 +1281,32 @@ where
         Self { by_stark_size }
     }
 
+    fn expand<S: Stark<F, D>>(
+        &mut self,
+        table: Table,
+        stark: &S,
+        degree_bits_range: Range<usize>,
+        all_ctls: &[CrossTableLookup<F>],
+        stark_config: &StarkConfig,
+    ) {
+        let new_ranges = degree_bits_range
+            .filter(|degree_bits| !self.by_stark_size.contains_key(degree_bits))
+            .collect_vec();
+
+        for degree_bits in new_ranges {
+            self.by_stark_size.insert(
+                degree_bits,
+                RecursiveCircuitsForTableSize::new::<S>(
+                    table,
+                    stark,
+                    degree_bits,
+                    all_ctls,
+                    stark_config,
+                ),
+            );
+        }
+    }
+
     /// For each initial `degree_bits`, get the final circuit at the end of that shrinking chain.
     /// Each of these final circuits should have degree `THRESHOLD_DEGREE_BITS`.
     fn final_circuits(&self) -> Vec<&CircuitData<F, C, D>> {
@@ -1203,7 +1342,7 @@ where
     C: GenericConfig<D, F = F>,
     C::Hasher: AlgebraicHasher<F>,
 {
-    pub fn to_buffer(
+    fn to_buffer(
         &self,
         buffer: &mut Vec<u8>,
         gate_serializer: &dyn GateSerializer<F, D>,
@@ -1230,7 +1369,7 @@ where
         Ok(())
     }
 
-    pub fn from_buffer(
+    fn from_buffer(
         buffer: &mut Buffer,
         gate_serializer: &dyn GateSerializer<F, D>,
         generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,

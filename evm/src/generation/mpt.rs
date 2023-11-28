@@ -72,10 +72,24 @@ pub(crate) fn all_mpt_prover_inputs_reversed(
 }
 
 pub(crate) fn parse_receipts(rlp: &[u8]) -> Result<Vec<U256>, ProgramError> {
+    let txn_type = match rlp.first().ok_or(ProgramError::InvalidRlp)? {
+        1 => 1,
+        2 => 2,
+        _ => 0,
+    };
+
+    // If this is not a legacy transaction, we skip the leading byte.
+    let rlp = if txn_type == 0 { rlp } else { &rlp[1..] };
+
     let payload_info = PayloadInfo::from(rlp).map_err(|_| ProgramError::InvalidRlp)?;
     let decoded_receipt: LegacyReceiptRlp =
         rlp::decode(rlp).map_err(|_| ProgramError::InvalidRlp)?;
-    let mut parsed_receipt = Vec::new();
+
+    let mut parsed_receipt = if txn_type == 0 {
+        Vec::new()
+    } else {
+        vec![txn_type.into()]
+    };
 
     parsed_receipt.push(payload_info.value_len.into()); // payload_len of the entire receipt
     parsed_receipt.push((decoded_receipt.status as u8).into());

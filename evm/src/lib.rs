@@ -3,6 +3,7 @@
 #![allow(clippy::too_many_arguments)]
 #![allow(clippy::type_complexity)]
 #![allow(clippy::field_reassign_with_default)]
+#![allow(unused)]
 #![feature(let_chains)]
 
 pub mod all_stark;
@@ -28,11 +29,13 @@ pub mod proof;
 pub mod prover;
 pub mod recursive_verifier;
 pub mod stark;
-pub mod stark_testing;
 pub mod util;
 pub mod vanishing_poly;
 pub mod verifier;
 pub mod witness;
+
+#[cfg(test)]
+mod stark_testing;
 
 use eth_trie_utils::partial_trie::HashedPartialTrie;
 // Set up Jemalloc

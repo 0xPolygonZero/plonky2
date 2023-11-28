@@ -1,5 +1,4 @@
 /// These are normalized transaction fields, i.e. not specific to any transaction type.
-#[allow(dead_code)]
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Ord, PartialOrd, Debug)]
 pub(crate) enum NormalizedTxnField {
     /// Whether a chain ID was present in the txn data. Type 0 transaction with v=27 or v=28 have
