@@ -224,7 +224,7 @@ impl<F: Field> GenerationState<F> {
     }
 
     /// Return the number of bits of the top of the stack or an error if
-    /// the top of the stack is zero
+    /// the top of the stack is zero or empty.
     fn run_num_bits(&mut self) -> Result<U256, ProgramError> {
         let value = stack_peek(self, 0)?;
         if value.is_zero() {

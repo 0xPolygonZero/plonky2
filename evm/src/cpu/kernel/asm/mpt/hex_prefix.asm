@@ -6,7 +6,7 @@
 // Pre stack: rlp_start_pos, num_nibbles, packed_nibbles, terminated, retdest
 // Post stack: rlp_end_pos
 global hex_prefix_rlp:
-    DUP2 %assert_lt_const(65) // TODO: The number of nibbles can't be more than 64?
+    DUP2 %assert_lt_const(65)
     
     PUSH 2 DUP3 DIV 
     // Compute the length of the hex-prefix string, in bytes:
