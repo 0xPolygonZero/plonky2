@@ -6,7 +6,7 @@ global num_bytes:
     // Non-deterministically guess the number of bits
     PROVER_INPUT(num_bits)
     %stack (num_bits, x) -> (num_bits, x, num_bits)
-    %sub_const(1)
+    %decrement
     SHR
     // stack: 1, num_bits
     %assert_eq_const(1)

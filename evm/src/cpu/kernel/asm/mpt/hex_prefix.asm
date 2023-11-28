@@ -15,15 +15,15 @@ global hex_prefix_rlp:
     // stack: hp_len, rlp_pos, num_nibbles, packed_nibbles, terminated, retdest
 
     // Write the RLP header.
-    DUP1 %gt_const(55) %jumpi(rlp_header_large_new)
-    DUP1 %gt_const(1) %jumpi(rlp_header_medium_new)
+    DUP1 %gt_const(55) %jumpi(rlp_header_large)
+    DUP1 %gt_const(1) %jumpi(rlp_header_medium)
 
     // The hex-prefix is a single byte. It must be <= 127, since its first
     // nibble only has two bits. So this is the "small" RLP string case, where
     // the byte is its own RLP encoding.
     // stack: hp_len, rlp_pos, num_nibbles, packed_nibbles, terminated, retdest
     POP
-global first_byte:
+first_byte:
     // stack: rlp_pos, num_nibbles, packed_nibbles, terminated, retdest
     // get the first nibble, if num_nibbles is odd, or zero otherwise
     SWAP2
@@ -56,7 +56,7 @@ global first_byte:
     SWAP1
     JUMP
     
-global remaining_bytes:
+remaining_bytes:
     // stack: rlp_pos, num_nibbles, packed_nibbles, retdest
     SWAP2
     PUSH 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
@@ -82,16 +82,14 @@ global remaining_bytes:
         (remaining_nibbles, remaining_bytes, rlp_pos) ->
         (rlp_pos, remaining_nibbles, remaining_bytes)
     %mstore_unpacking_rlp
-global debug_affter_mstore_unpacking:
     SWAP1
     JUMP
 
 
-global rlp_header_medium_new:
+rlp_header_medium:
     // stack: hp_len, rlp_pos, num_nibbles, packed_nibbles, terminated, retdest
     %add_const(0x80) // value = 0x80 + hp_len
     DUP2 // offset = rlp_pos
-global debug_before_write_rlp_med_new:
     %mstore_rlp
     // stack: rlp_pos, num_nibbles, packed_nibbles, terminated, retdest
     // rlp_pos += 1
@@ -103,7 +101,7 @@ global debug_before_write_rlp_med_new:
 
     %jump(first_byte)
 
-global rlp_header_large_new:
+rlp_header_large:
     // stack: hp_len, rlp_pos, num_nibbles, packed_nibbles, terminated, retdest
     // In practice hex-prefix length will never exceed 256, so the length of the
     // length will always be 1 byte in this case.
