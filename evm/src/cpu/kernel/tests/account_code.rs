@@ -322,8 +322,10 @@ fn sload() -> Result<()> {
     let addr_nibbles = Nibbles::from_bytes_be(addr_hashed.as_bytes()).unwrap();
 
     // This code is similar to the one in add11_yml's contract, but we pop the added value
-    // and carry out an SLOAD instead of an SSTORE.
-    let code = [0x60, 0x01, 0x60, 0x01, 0x01, 0x50, 0x60, 0x00, 0x54, 0x00];
+    // and carry out an SLOAD instead of an SSTORE. We also add a PUSH at the end.
+    let code = [
+        0x60, 0x01, 0x60, 0x01, 0x01, 0x50, 0x60, 0x00, 0x54, 0x60, 0x03, 0x00,
+    ];
     let code_hash = keccak(code);
 
     let account_before = AccountRlp {
@@ -350,9 +352,13 @@ fn sload() -> Result<()> {
     prepare_interpreter_all_accounts(&mut interpreter, trie_inputs, addr, &code)?;
 
     interpreter.run()?;
-    // We check that no value was found.
-    let value = interpreter.pop();
-    assert_eq!(value, 0.into());
+
+    // The SLOAD in the provided code should return 0, since
+    // the storage trie is empty. The last step in the code
+    // pushes the value 3.
+    assert_eq!(interpreter.stack(), vec![0x0.into(), 0x3.into()]);
+    interpreter.pop();
+    interpreter.pop();
     // Now, execute mpt_hash_state_trie. We check that the state trie has not changed.
     let mpt_hash_state_trie = KERNEL.global_labels["mpt_hash_state_trie"];
     interpreter.generation_state.registers.program_counter = mpt_hash_state_trie;

@@ -69,7 +69,11 @@ impl<T: Copy> Traces<T> {
                     Operation::RangeCheckOperation { .. } => 1,
                 })
                 .sum(),
-            byte_packing_len: self.byte_packing_ops.iter().map(|op| op.bytes.len()).sum(),
+            byte_packing_len: self
+                .byte_packing_ops
+                .iter()
+                .map(|op| usize::from(!op.bytes.is_empty()))
+                .sum(),
             cpu_len: self.cpu.len(),
             keccak_len: self.keccak_inputs.len() * keccak::keccak_stark::NUM_ROUNDS,
             keccak_sponge_len: self
