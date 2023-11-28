@@ -10,7 +10,7 @@ pub(crate) const IS_READ: usize = 0;
 pub(super) const LEN_INDICES_START: usize = IS_READ + 1;
 // There are `NUM_BYTES` columns used to represent the length of
 // the input byte sequence for a (un)packing operation.
-// index_len(i) is 1 iff the length is i.
+// index_len(i) is 1 iff the length is i+1.
 pub(crate) const fn index_len(i: usize) -> usize {
     debug_assert!(i < NUM_BYTES);
     LEN_INDICES_START + i
