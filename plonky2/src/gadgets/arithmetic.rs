@@ -214,23 +214,25 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn mul(&mut self, x: Target, y: Target) -> Target {
         // x * y = 1 * x * y + 0 * x
 
-        self.cir.add_expression(Expression::BinaryOperator {
-            lhs: match x {
-                Target::Wire(w) => Box::new(Expression::Wire {
-                    row: w.row,
-                    column: w.column,
-                }),
-                Target::VirtualTarget { index } => Box::new(Expression::VirtualWire { index }),
-            },
-            binop: BinOp::Multiply,
-            rhs: match y {
-                Target::Wire(w) => Box::new(Expression::Wire {
-                    row: w.row,
-                    column: w.column,
-                }),
-                Target::VirtualTarget { index } => Box::new(Expression::VirtualWire { index }),
-            },
-        });
+        if self.cir_mutex.try_lock().is_ok() {
+            self.cir.add_expression(Expression::BinaryOperator {
+                lhs: match x {
+                    Target::Wire(w) => Box::new(Expression::Wire {
+                        row: w.row,
+                        column: w.column,
+                    }),
+                    Target::VirtualTarget { index } => Box::new(Expression::VirtualWire { index }),
+                },
+                binop: BinOp::Multiply,
+                rhs: match y {
+                    Target::Wire(w) => Box::new(Expression::Wire {
+                        row: w.row,
+                        column: w.column,
+                    }),
+                    Target::VirtualTarget { index } => Box::new(Expression::VirtualWire { index }),
+                },
+            });
+        }
 
         self.arithmetic(F::ONE, F::ZERO, x, y, x)
     }

@@ -3,6 +3,7 @@ use alloc::sync::Arc;
 use alloc::vec;
 use alloc::vec::Vec;
 use core::cmp::max;
+use std::sync::Mutex;
 #[cfg(feature = "std")]
 use std::time::Instant;
 
@@ -147,6 +148,13 @@ pub struct CircuitBuilder<F: RichField + Extendable<D>, const D: usize> {
     pub(crate) verifier_data_public_input: Option<VerifierCircuitTarget>,
 
     pub cir: CirBuilder,
+
+    /// Prevents other functions from writing to cir. Useful when a higher level function calls a lower level function which
+    /// would both otherwise write to cir, but we only want the top level function to write to cir to reduce complexity and duplicate
+    /// logic.
+    ///
+    /// The wrapped value is meaningless.
+    pub cir_mutex: Mutex<bool>,
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
@@ -176,6 +184,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             goal_common_data: None,
             verifier_data_public_input: None,
             cir: CirBuilder::new(),
+            cir_mutex: Mutex::new(true),
         };
         builder.check_config();
         builder

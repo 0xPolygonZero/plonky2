@@ -2,5 +2,29 @@
   "config": {
     "num_wires": 135
   },
-  "expressions": []
+  "expressions": [
+    {
+      "Verify": {
+        "BinaryOperator": {
+          "lhs": {
+            "VirtualWire": {
+              "index": 0
+            }
+          },
+          "binop": "Equal",
+          "rhs": {
+            "BinaryOperator": {
+              "lhs": {
+                "Int": 2
+              },
+              "binop": "Exponent",
+              "rhs": {
+                "Int": 6
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
 }
