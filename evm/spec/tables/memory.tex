@@ -14,9 +14,10 @@ Each row of the memory table corresponds to a single memory operation (a read or
 The memory table should be ordered by $(a, \tau)$. Note that the correctness of the memory could be checked as follows:
 \begin{enumerate}
   \item Verify the ordering by checking that $(a_i, \tau_i) \leq (a_{i+1}, \tau_{i+1})$ for each consecutive pair.
-  \item Enumerate the purportedly-ordered log while tracking the ``current'' value of $v$, which is initially zero.\footnote{EVM memory is zero-initialized.}
+  \item Enumerate the purportedly-ordered log while tracking the ``current'' value of $v$. 
   \begin{enumerate}
-    \item Upon observing an address which doesn't match that of the previous row, if the operation is a read, check that  $v = 0$.
+    \item Upon observing an address which doesn't match that of the previous row, if the address is zero-initialized
+  and if the operation is a read, check that  $v = 0$.
     \item Upon observing a write, don't constrain $v$.
     \item Upon observing a read at timestamp $\tau_i$ which isn't the first operation at this address, check that $v_i = v_{i-1}$.
   \end{enumerate}
@@ -64,6 +65,15 @@ Since a memory channel can only hold at most one memory operation, every CPU mem
 Note that it doesn't mean that all memory operations have unique timestamps. There are two exceptions:
 
 \begin{itemize}
-  \item Before bootstrapping, we write some global metadata in memory. These extra operations are done at timestamp $\tau = 0$.
+  \item Before the CPU cycles, we write some global metadata in memory. These extra operations are done at timestamp $\tau = 0$.
   \item Some tables other than CPU can generate memory operations, like KeccakSponge. When this happens, these operations all have the timestamp of the CPU row of the instruction which invoked the table (for KeccakSponge, KECCAK\_GENERAL).
+\end{itemize}
+
+\subsubsection{Memory initialization}
+
+By default, all memory is zero-initialized. However, to save numerous writes, we allow some specific segments to be initialized with arbitrary values.
+
+\begin{itemize}
+  \item The read-only kernel code (in segment 0, context 0) is initialized with its correct values. It's checked by hashing the segment and verifying
+that the hash value matches a verifyer-provided one.
 \end{itemize}
