@@ -21,8 +21,8 @@ timing = ["std"]
 ahash = { version = "0.8.3", default-features = false, features = ["compile-time-rng"] } # NOTE: Be sure to keep this version the same as the dependency in `hashbrown`.
 anyhow = { version = "1.0.40", default-features = false }
 hashbrown = { version = "0.14.0", default-features = false, features = ["ahash", "serde"] } # NOTE: When upgrading, see `ahash` dependency.
+keccak-hash = { version = "0.10.0", default-features = false }
 itertools = { version = "0.11.0", default-features = false }
-keccak-hash = { version = "0.8.0", default-features = false }
 log = { version = "0.4.14", default-features = false }
 plonky2_maybe_rayon = { path = "../maybe_rayon", default-features = false }
 num = { version = "0.4", default-features = false, features = ["rand"] }
@@ -40,7 +40,7 @@ getrandom = { version = "0.2", default-features = false, features = ["js"] }
 
 [dev-dependencies]
 criterion = { version = "0.5.1", default-features = false }
-env_logger = { version = "0.9.0", default-features = false }
+env_logger = { version = "0.10.0", default-features = false }
 num_cpus = { version = "1.14.0", default-features = false }
 rand = { version = "0.8.4", default-features = false, features = ["getrandom"] }
 rand_chacha = { version = "0.3.1", default-features = false }
@@ -68,6 +68,14 @@ name = "hashing"
 harness = false
 
 [[bench]]
+name = "poseidon_prove"
+harness = false
+
+[[bench]]
+name = "poseidon2_prove"
+harness = false
+
+[[bench]]
 name = "merkle"
 harness = false
 
@@ -78,3 +86,10 @@ harness = false
 [[bench]]
 name = "reverse_index_bits"
 harness = false
+
+
+[profile.release]
+incremental = true
+lto = "fat"
+debug = true
+opt-level=3

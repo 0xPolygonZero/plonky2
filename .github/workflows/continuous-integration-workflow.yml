@@ -1,6 +1,7 @@
 name: Continuous Integration
 
 on:
+  merge_group: {}
   push:
     branches: [main]
   pull_request:
@@ -54,17 +55,6 @@ jobs:
         with:
           command: check
           args: --manifest-path starky/Cargo.toml
-        env:
-          RUSTFLAGS: -Copt-level=3 -Cdebug-assertions -Coverflow-checks=y -Cdebuginfo=0
-          RUST_LOG: 1
-          CARGO_INCREMENTAL: 1
-          RUST_BACKTRACE: 1
-
-      - name: Check in evm subdirectory
-        uses: actions-rs/cargo@v1
-        with:
-          command: check
-          args: --manifest-path evm/Cargo.toml
         env:
           RUSTFLAGS: -Copt-level=3 -Cdebug-assertions -Coverflow-checks=y -Cdebuginfo=0
           RUST_LOG: 1

@@ -16,7 +16,6 @@ pub trait StarkEvaluationFrame<T: Copy + Clone + Default, U: Copy + Clone + Defa
     fn get_next_values(&self) -> &[T];
 
     fn get_public_inputs(&self) -> &[U];
-
     /// Outputs a new evaluation frame from the provided local and next values.
     ///
     /// **NOTE**: Concrete implementations of this method SHOULD ensure that

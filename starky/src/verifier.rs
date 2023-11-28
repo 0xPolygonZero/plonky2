@@ -123,6 +123,7 @@ pub(crate) fn verify_stark_proof_with_challenges<
             challenges.stark_zeta,
             F::primitive_root_of_unity(degree_bits),
             config,
+            None,
         ),
         &proof.openings.to_fri_openings(),
         &challenges.fri_challenges,

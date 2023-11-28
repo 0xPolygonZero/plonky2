@@ -2,8 +2,11 @@ use alloc::vec;
 use alloc::vec::Vec;
 use core::marker::PhantomData;
 
+#[cfg(std)]
+use backtrace::Backtrace;
 use plonky2::field::extension::Extendable;
 use plonky2::field::packed::PackedField;
+use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::iop::target::Target;
@@ -28,6 +31,9 @@ pub struct ConstraintConsumer<P: PackedField> {
     /// The evaluation of the Lagrange basis polynomial which is nonzero at the point associated
     /// with the last trace row, and zero at other points in the subgroup.
     lagrange_basis_last: P,
+
+    ///  debug constraints
+    debug_api: bool,
 }
 
 impl<P: PackedField> ConstraintConsumer<P> {
@@ -43,6 +49,7 @@ impl<P: PackedField> ConstraintConsumer<P> {
             z_last,
             lagrange_basis_first,
             lagrange_basis_last,
+            debug_api: false,
         }
     }
 
@@ -51,12 +58,24 @@ impl<P: PackedField> ConstraintConsumer<P> {
     }
 
     /// Add one constraint valid on all rows except the last.
+    ///
+    /// Leaves degree unchanged.
     pub fn constraint_transition(&mut self, constraint: P) {
         self.constraint(constraint * self.z_last);
     }
 
     /// Add one constraint on all rows.
+    #[allow(clippy::collapsible_if)]
     pub fn constraint(&mut self, constraint: P) {
+        #[cfg(std)]
+        if std::intrinsics::unlikely(self.debug_api) {
+            if !constraint.is_zeros() {
+                println!(
+                    "ConstraintConsumer - DEBUG trace (non-zero-constraint): {:?}",
+                    Backtrace::new()
+                );
+            }
+        }
         for (&alpha, acc) in self.alphas.iter().zip(&mut self.constraint_accs) {
             *acc *= alpha;
             *acc += constraint;
@@ -65,14 +84,35 @@ impl<P: PackedField> ConstraintConsumer<P> {
 
     /// Add one constraint, but first multiply it by a filter such that it will only apply to the
     /// first row of the trace.
+    ///
+    /// Increases degree by 1.
     pub fn constraint_first_row(&mut self, constraint: P) {
         self.constraint(constraint * self.lagrange_basis_first);
     }
 
     /// Add one constraint, but first multiply it by a filter such that it will only apply to the
     /// last row of the trace.
+    ///
+    /// Increases degree by 1.
     pub fn constraint_last_row(&mut self, constraint: P) {
         self.constraint(constraint * self.lagrange_basis_last);
+    }
+
+    pub fn new_debug_api(is_first: bool, is_last: bool) -> Self {
+        let convert = |b: bool| P::from(P::Scalar::from_bool(b));
+        Self {
+            constraint_accs: vec![P::ZEROS],
+            alphas: vec![P::Scalar::ONE],
+            z_last: convert(!is_last),
+            lagrange_basis_first: convert(is_first),
+            lagrange_basis_last: convert(is_last),
+            debug_api: true,
+        }
+    }
+
+    pub fn debug_api_has_constraint_failed(&self) -> bool {
+        assert!(self.debug_api);
+        !self.constraint_accs.iter().all(|e| e.is_zeros())
     }
 }
 

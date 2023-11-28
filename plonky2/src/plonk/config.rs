@@ -3,7 +3,7 @@ use alloc::vec::Vec;
 use core::fmt::Debug;
 
 use serde::de::DeserializeOwned;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::field::extension::quadratic::QuadraticExtension;
 use crate::field::extension::{Extendable, FieldExtension};
@@ -12,6 +12,7 @@ use crate::hash::hash_types::{HashOut, RichField};
 use crate::hash::hashing::PlonkyPermutation;
 use crate::hash::keccak::KeccakHash;
 use crate::hash::poseidon::PoseidonHash;
+use crate::hash::poseidon2::Poseidon2Hash;
 use crate::iop::target::{BoolTarget, Target};
 use crate::plonk::circuit_builder::CircuitBuilder;
 
@@ -85,7 +86,7 @@ pub trait AlgebraicHasher<F: RichField>: Hasher<F, Hash = HashOut<F>> {
 
 /// Generic configuration trait.
 pub trait GenericConfig<const D: usize>:
-    Debug + Clone + Sync + Sized + Send + Eq + PartialEq
+    Debug + Clone + Sync + Sized + Send + Eq + PartialEq + Serialize + DeserializeOwned
 {
     /// Main field.
     type F: RichField + Extendable<D, Extension = Self::FE>;
@@ -98,7 +99,7 @@ pub trait GenericConfig<const D: usize>:
 }
 
 /// Configuration using Poseidon over the Goldilocks field.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct PoseidonGoldilocksConfig;
 impl GenericConfig<2> for PoseidonGoldilocksConfig {
     type F = GoldilocksField;
@@ -107,8 +108,18 @@ impl GenericConfig<2> for PoseidonGoldilocksConfig {
     type InnerHasher = PoseidonHash;
 }
 
+/// Configuration using Poseidon2 over the Goldilocks field.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
+pub struct Poseidon2GoldilocksConfig;
+impl GenericConfig<2> for Poseidon2GoldilocksConfig {
+    type F = GoldilocksField;
+    type FE = QuadraticExtension<Self::F>;
+    type Hasher = Poseidon2Hash;
+    type InnerHasher = Poseidon2Hash;
+}
+
 /// Configuration using truncated Keccak over the Goldilocks field.
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct KeccakGoldilocksConfig;
 impl GenericConfig<2> for KeccakGoldilocksConfig {
     type F = GoldilocksField;
