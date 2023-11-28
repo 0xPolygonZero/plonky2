@@ -36,7 +36,7 @@ pub(crate) const MIGHT_OVERFLOW: OpsColumnsView<bool> = OpsColumnsView {
     context_op: false,
     mload_32bytes: false,
     mstore_32bytes: false,
-    exit_kernel: true,
+    exit_kernel: true, // Doesn't directly push, but the syscall it's returning from might.
     m_op_general: false,
     syscall: false,
     exception: false,
