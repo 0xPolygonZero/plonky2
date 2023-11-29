@@ -149,16 +149,7 @@ fn apply_metadata_and_tries_memops<F: RichField + Extendable<D>, const D: usize>
             GlobalMetadata::ReceiptTrieRootDigestAfter,
             h2u(trie_roots_after.receipts_root),
         ),
-        (
-            GlobalMetadata::KernelHash,
-            KERNEL
-                .code_hash
-                .iter()
-                .enumerate()
-                .fold(0.into(), |acc, (i, &elt)| {
-                    acc + (U256::from(elt) << (224 - 32 * i))
-                }),
-        ),
+        (GlobalMetadata::KernelHash, h2u(KERNEL.code_hash)),
         (GlobalMetadata::KernelLen, KERNEL.code.len().into()),
     ];
 

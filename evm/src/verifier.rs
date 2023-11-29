@@ -235,16 +235,7 @@ where
             GlobalMetadata::ReceiptTrieRootDigestAfter,
             h2u(public_values.trie_roots_after.receipts_root),
         ),
-        (
-            GlobalMetadata::KernelHash,
-            KERNEL
-                .code_hash
-                .iter()
-                .enumerate()
-                .fold(0.into(), |acc, (i, &elt)| {
-                    acc + (U256::from(elt) << (224 - 32 * i))
-                }),
-        ),
+        (GlobalMetadata::KernelHash, h2u(KERNEL.code_hash)),
         (GlobalMetadata::KernelLen, KERNEL.code.len().into()),
     ];
 
@@ -561,6 +552,8 @@ pub(crate) mod testutils {
                 GlobalMetadata::ReceiptTrieRootDigestAfter,
                 h2u(public_values.trie_roots_after.receipts_root),
             ),
+            (GlobalMetadata::KernelHash, h2u(KERNEL.code_hash)),
+            (GlobalMetadata::KernelLen, KERNEL.code.len().into()),
         ];
 
         let segment = F::from_canonical_u32(Segment::GlobalMetadata as u32);

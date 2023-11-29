@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::time::Instant;
 
-use ethereum_types::U256;
+use ethereum_types::{H256, U256};
 use itertools::{izip, Itertools};
 use keccak_hash::keccak;
 use log::debug;
@@ -26,9 +26,8 @@ pub(crate) const BYTES_PER_OFFSET: u8 = 3;
 pub struct Kernel {
     pub(crate) code: Vec<u8>,
 
-    /// Computed using `hash_kernel`. It is encoded as `u32` limbs for convenience, since we deal
-    /// with `u32` limbs in our Keccak table.
-    pub(crate) code_hash: [u32; 8],
+    /// Computed using `hash_kernel`.
+    pub(crate) code_hash: H256,
 
     pub(crate) global_labels: HashMap<String, usize>,
     pub(crate) ordered_labels: Vec<String>,
@@ -43,11 +42,7 @@ impl Kernel {
         global_labels: HashMap<String, usize>,
         prover_inputs: HashMap<usize, ProverInputFn>,
     ) -> Self {
-        let code_hash_bytes = keccak(&code).0;
-        let code_hash_be = core::array::from_fn(|i| {
-            u32::from_le_bytes(core::array::from_fn(|j| code_hash_bytes[i * 4 + j]))
-        });
-        let code_hash = code_hash_be.map(u32::from_be);
+        let code_hash = keccak(&code);
         let ordered_labels = global_labels
             .keys()
             .cloned()
