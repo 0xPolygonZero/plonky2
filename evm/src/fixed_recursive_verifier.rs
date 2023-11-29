@@ -41,9 +41,9 @@ use crate::proof::{
 };
 use crate::prover::prove;
 use crate::recursive_verifier::{
-    add_common_recursion_gates, add_virtual_public_values,
-    get_memory_extra_looking_products_circuit, recursive_stark_circuit, set_public_value_targets,
-    PlonkWrapperCircuit, PublicInputs, StarkWrapperCircuit,
+    add_common_recursion_gates, add_virtual_public_values, get_memory_extra_looking_sum_circuit,
+    recursive_stark_circuit, set_public_value_targets, PlonkWrapperCircuit, PublicInputs,
+    StarkWrapperCircuit,
 };
 use crate::stark::Stark;
 use crate::util::h256_limbs;
@@ -565,15 +565,15 @@ where
             }
         }
 
-        // Extra products to add to the looked last value.
+        // Extra sums to add to the looked last value.
         // Only necessary for the Memory values.
-        let mut extra_looking_products =
-            vec![vec![builder.one(); stark_config.num_challenges]; NUM_TABLES];
+        let mut extra_looking_sums =
+            vec![vec![builder.zero(); stark_config.num_challenges]; NUM_TABLES];
 
         // Memory
-        extra_looking_products[Table::Memory as usize] = (0..stark_config.num_challenges)
+        extra_looking_sums[Table::Memory as usize] = (0..stark_config.num_challenges)
             .map(|c| {
-                get_memory_extra_looking_products_circuit(
+                get_memory_extra_looking_sum_circuit(
                     &mut builder,
                     &public_values,
                     ctl_challenges.challenges[c],
@@ -586,7 +586,7 @@ where
             &mut builder,
             all_cross_table_lookups(),
             pis.map(|p| p.ctl_zs_first),
-            extra_looking_products,
+            extra_looking_sums,
             stark_config,
         );
 

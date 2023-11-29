@@ -633,7 +633,7 @@ mod tests {
 
     use crate::config::StarkConfig;
     use crate::cross_table_lookup::{
-        CtlData, CtlZData, GrandProductChallenge, GrandProductChallengeSet,
+        Column, CtlData, CtlZData, GrandProductChallenge, GrandProductChallengeSet,
     };
     use crate::keccak::columns::reg_output_limb;
     use crate::keccak::keccak_stark::{KeccakStark, NUM_INPUTS, NUM_ROUNDS};
@@ -748,7 +748,7 @@ mod tests {
                 gamma: F::ZERO,
             },
             columns: vec![],
-            filter_column: None,
+            filter_column: Some(Column::constant(F::ZERO)),
         };
         let ctl_data = CtlData {
             zs_columns: vec![ctl_z_data.clone(); config.num_challenges],
