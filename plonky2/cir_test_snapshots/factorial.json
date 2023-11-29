@@ -7,29 +7,15 @@
       "BinaryOperator": {
         "lhs": {
           "VirtualWire": {
-            "index": 0
+            "index": 0,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 1
-          }
-        }
-      }
-    },
-    {
-      "BinaryOperator": {
-        "lhs": {
-          "Wire": {
-            "row": 0,
-            "column": 3
-          }
-        },
-        "binop": "Multiply",
-        "rhs": {
-          "VirtualWire": {
-            "index": 3
+            "index": 1,
+            "value": null
           }
         }
       }
@@ -39,29 +25,15 @@
         "lhs": {
           "Wire": {
             "row": 0,
-            "column": 7
+            "column": 3,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 4
-          }
-        }
-      }
-    },
-    {
-      "BinaryOperator": {
-        "lhs": {
-          "Wire": {
-            "row": 0,
-            "column": 11
-          }
-        },
-        "binop": "Multiply",
-        "rhs": {
-          "VirtualWire": {
-            "index": 5
+            "index": 3,
+            "value": null
           }
         }
       }
@@ -71,29 +43,15 @@
         "lhs": {
           "Wire": {
             "row": 0,
-            "column": 15
+            "column": 7,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 6
-          }
-        }
-      }
-    },
-    {
-      "BinaryOperator": {
-        "lhs": {
-          "Wire": {
-            "row": 0,
-            "column": 19
-          }
-        },
-        "binop": "Multiply",
-        "rhs": {
-          "VirtualWire": {
-            "index": 7
+            "index": 4,
+            "value": null
           }
         }
       }
@@ -103,29 +61,15 @@
         "lhs": {
           "Wire": {
             "row": 0,
-            "column": 23
+            "column": 11,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 8
-          }
-        }
-      }
-    },
-    {
-      "BinaryOperator": {
-        "lhs": {
-          "Wire": {
-            "row": 0,
-            "column": 27
-          }
-        },
-        "binop": "Multiply",
-        "rhs": {
-          "VirtualWire": {
-            "index": 9
+            "index": 5,
+            "value": null
           }
         }
       }
@@ -135,29 +79,15 @@
         "lhs": {
           "Wire": {
             "row": 0,
-            "column": 31
+            "column": 15,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 10
-          }
-        }
-      }
-    },
-    {
-      "BinaryOperator": {
-        "lhs": {
-          "Wire": {
-            "row": 0,
-            "column": 35
-          }
-        },
-        "binop": "Multiply",
-        "rhs": {
-          "VirtualWire": {
-            "index": 11
+            "index": 6,
+            "value": null
           }
         }
       }
@@ -167,29 +97,15 @@
         "lhs": {
           "Wire": {
             "row": 0,
-            "column": 39
+            "column": 19,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 12
-          }
-        }
-      }
-    },
-    {
-      "BinaryOperator": {
-        "lhs": {
-          "Wire": {
-            "row": 0,
-            "column": 43
-          }
-        },
-        "binop": "Multiply",
-        "rhs": {
-          "VirtualWire": {
-            "index": 13
+            "index": 7,
+            "value": null
           }
         }
       }
@@ -199,29 +115,15 @@
         "lhs": {
           "Wire": {
             "row": 0,
-            "column": 47
+            "column": 23,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 14
-          }
-        }
-      }
-    },
-    {
-      "BinaryOperator": {
-        "lhs": {
-          "Wire": {
-            "row": 0,
-            "column": 51
-          }
-        },
-        "binop": "Multiply",
-        "rhs": {
-          "VirtualWire": {
-            "index": 15
+            "index": 8,
+            "value": null
           }
         }
       }
@@ -231,29 +133,15 @@
         "lhs": {
           "Wire": {
             "row": 0,
-            "column": 55
+            "column": 27,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 16
-          }
-        }
-      }
-    },
-    {
-      "BinaryOperator": {
-        "lhs": {
-          "Wire": {
-            "row": 0,
-            "column": 59
-          }
-        },
-        "binop": "Multiply",
-        "rhs": {
-          "VirtualWire": {
-            "index": 17
+            "index": 9,
+            "value": null
           }
         }
       }
@@ -263,29 +151,15 @@
         "lhs": {
           "Wire": {
             "row": 0,
-            "column": 63
+            "column": 31,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 18
-          }
-        }
-      }
-    },
-    {
-      "BinaryOperator": {
-        "lhs": {
-          "Wire": {
-            "row": 0,
-            "column": 67
-          }
-        },
-        "binop": "Multiply",
-        "rhs": {
-          "VirtualWire": {
-            "index": 19
+            "index": 10,
+            "value": null
           }
         }
       }
@@ -295,13 +169,15 @@
         "lhs": {
           "Wire": {
             "row": 0,
-            "column": 71
+            "column": 35,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 20
+            "index": 11,
+            "value": null
           }
         }
       }
@@ -311,13 +187,15 @@
         "lhs": {
           "Wire": {
             "row": 0,
-            "column": 75
+            "column": 39,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 21
+            "index": 12,
+            "value": null
           }
         }
       }
@@ -327,13 +205,177 @@
         "lhs": {
           "Wire": {
             "row": 0,
-            "column": 79
+            "column": 43,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 22
+            "index": 13,
+            "value": null
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 0,
+            "column": 47,
+            "value": null
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 14,
+            "value": null
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 0,
+            "column": 51,
+            "value": null
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 15,
+            "value": null
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 0,
+            "column": 55,
+            "value": null
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 16,
+            "value": null
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 0,
+            "column": 59,
+            "value": null
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 17,
+            "value": null
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 0,
+            "column": 63,
+            "value": null
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 18,
+            "value": null
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 0,
+            "column": 67,
+            "value": null
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 19,
+            "value": null
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 0,
+            "column": 71,
+            "value": null
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 20,
+            "value": null
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 0,
+            "column": 75,
+            "value": null
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 21,
+            "value": null
+          }
+        }
+      }
+    },
+    {
+      "BinaryOperator": {
+        "lhs": {
+          "Wire": {
+            "row": 0,
+            "column": 79,
+            "value": null
+          }
+        },
+        "binop": "Multiply",
+        "rhs": {
+          "VirtualWire": {
+            "index": 22,
+            "value": null
           }
         }
       }
@@ -343,13 +385,15 @@
         "lhs": {
           "Wire": {
             "row": 1,
-            "column": 3
+            "column": 3,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 23
+            "index": 23,
+            "value": null
           }
         }
       }
@@ -359,13 +403,15 @@
         "lhs": {
           "Wire": {
             "row": 1,
-            "column": 7
+            "column": 7,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 24
+            "index": 24,
+            "value": null
           }
         }
       }
@@ -375,13 +421,15 @@
         "lhs": {
           "Wire": {
             "row": 1,
-            "column": 11
+            "column": 11,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 25
+            "index": 25,
+            "value": null
           }
         }
       }
@@ -391,13 +439,15 @@
         "lhs": {
           "Wire": {
             "row": 1,
-            "column": 15
+            "column": 15,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 26
+            "index": 26,
+            "value": null
           }
         }
       }
@@ -407,13 +457,15 @@
         "lhs": {
           "Wire": {
             "row": 1,
-            "column": 19
+            "column": 19,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 27
+            "index": 27,
+            "value": null
           }
         }
       }
@@ -423,13 +475,15 @@
         "lhs": {
           "Wire": {
             "row": 1,
-            "column": 23
+            "column": 23,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 28
+            "index": 28,
+            "value": null
           }
         }
       }
@@ -439,13 +493,15 @@
         "lhs": {
           "Wire": {
             "row": 1,
-            "column": 27
+            "column": 27,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 29
+            "index": 29,
+            "value": null
           }
         }
       }
@@ -455,13 +511,15 @@
         "lhs": {
           "Wire": {
             "row": 1,
-            "column": 31
+            "column": 31,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 30
+            "index": 30,
+            "value": null
           }
         }
       }
@@ -471,13 +529,15 @@
         "lhs": {
           "Wire": {
             "row": 1,
-            "column": 35
+            "column": 35,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 31
+            "index": 31,
+            "value": null
           }
         }
       }
@@ -487,13 +547,15 @@
         "lhs": {
           "Wire": {
             "row": 1,
-            "column": 39
+            "column": 39,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 32
+            "index": 32,
+            "value": null
           }
         }
       }
@@ -503,13 +565,15 @@
         "lhs": {
           "Wire": {
             "row": 1,
-            "column": 43
+            "column": 43,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 33
+            "index": 33,
+            "value": null
           }
         }
       }
@@ -519,13 +583,15 @@
         "lhs": {
           "Wire": {
             "row": 1,
-            "column": 47
+            "column": 47,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 34
+            "index": 34,
+            "value": null
           }
         }
       }
@@ -535,13 +601,15 @@
         "lhs": {
           "Wire": {
             "row": 1,
-            "column": 51
+            "column": 51,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 35
+            "index": 35,
+            "value": null
           }
         }
       }
@@ -551,13 +619,15 @@
         "lhs": {
           "Wire": {
             "row": 1,
-            "column": 55
+            "column": 55,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 36
+            "index": 36,
+            "value": null
           }
         }
       }
@@ -567,13 +637,15 @@
         "lhs": {
           "Wire": {
             "row": 1,
-            "column": 59
+            "column": 59,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 37
+            "index": 37,
+            "value": null
           }
         }
       }
@@ -583,13 +655,15 @@
         "lhs": {
           "Wire": {
             "row": 1,
-            "column": 63
+            "column": 63,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 38
+            "index": 38,
+            "value": null
           }
         }
       }
@@ -599,13 +673,15 @@
         "lhs": {
           "Wire": {
             "row": 1,
-            "column": 67
+            "column": 67,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 39
+            "index": 39,
+            "value": null
           }
         }
       }
@@ -615,13 +691,15 @@
         "lhs": {
           "Wire": {
             "row": 1,
-            "column": 71
+            "column": 71,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 40
+            "index": 40,
+            "value": null
           }
         }
       }
@@ -631,13 +709,15 @@
         "lhs": {
           "Wire": {
             "row": 1,
-            "column": 75
+            "column": 75,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 41
+            "index": 41,
+            "value": null
           }
         }
       }
@@ -647,13 +727,15 @@
         "lhs": {
           "Wire": {
             "row": 1,
-            "column": 79
+            "column": 79,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 42
+            "index": 42,
+            "value": null
           }
         }
       }
@@ -663,13 +745,15 @@
         "lhs": {
           "Wire": {
             "row": 2,
-            "column": 3
+            "column": 3,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 43
+            "index": 43,
+            "value": null
           }
         }
       }
@@ -679,13 +763,15 @@
         "lhs": {
           "Wire": {
             "row": 2,
-            "column": 7
+            "column": 7,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 44
+            "index": 44,
+            "value": null
           }
         }
       }
@@ -695,13 +781,15 @@
         "lhs": {
           "Wire": {
             "row": 2,
-            "column": 11
+            "column": 11,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 45
+            "index": 45,
+            "value": null
           }
         }
       }
@@ -711,13 +799,15 @@
         "lhs": {
           "Wire": {
             "row": 2,
-            "column": 15
+            "column": 15,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 46
+            "index": 46,
+            "value": null
           }
         }
       }
@@ -727,13 +817,15 @@
         "lhs": {
           "Wire": {
             "row": 2,
-            "column": 19
+            "column": 19,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 47
+            "index": 47,
+            "value": null
           }
         }
       }
@@ -743,13 +835,15 @@
         "lhs": {
           "Wire": {
             "row": 2,
-            "column": 23
+            "column": 23,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 48
+            "index": 48,
+            "value": null
           }
         }
       }
@@ -759,13 +853,15 @@
         "lhs": {
           "Wire": {
             "row": 2,
-            "column": 27
+            "column": 27,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 49
+            "index": 49,
+            "value": null
           }
         }
       }
@@ -775,13 +871,15 @@
         "lhs": {
           "Wire": {
             "row": 2,
-            "column": 31
+            "column": 31,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 50
+            "index": 50,
+            "value": null
           }
         }
       }
@@ -791,13 +889,15 @@
         "lhs": {
           "Wire": {
             "row": 2,
-            "column": 35
+            "column": 35,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 51
+            "index": 51,
+            "value": null
           }
         }
       }
@@ -807,13 +907,15 @@
         "lhs": {
           "Wire": {
             "row": 2,
-            "column": 39
+            "column": 39,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 52
+            "index": 52,
+            "value": null
           }
         }
       }
@@ -823,13 +925,15 @@
         "lhs": {
           "Wire": {
             "row": 2,
-            "column": 43
+            "column": 43,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 53
+            "index": 53,
+            "value": null
           }
         }
       }
@@ -839,13 +943,15 @@
         "lhs": {
           "Wire": {
             "row": 2,
-            "column": 47
+            "column": 47,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 54
+            "index": 54,
+            "value": null
           }
         }
       }
@@ -855,13 +961,15 @@
         "lhs": {
           "Wire": {
             "row": 2,
-            "column": 51
+            "column": 51,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 55
+            "index": 55,
+            "value": null
           }
         }
       }
@@ -871,13 +979,15 @@
         "lhs": {
           "Wire": {
             "row": 2,
-            "column": 55
+            "column": 55,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 56
+            "index": 56,
+            "value": null
           }
         }
       }
@@ -887,13 +997,15 @@
         "lhs": {
           "Wire": {
             "row": 2,
-            "column": 59
+            "column": 59,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 57
+            "index": 57,
+            "value": null
           }
         }
       }
@@ -903,13 +1015,15 @@
         "lhs": {
           "Wire": {
             "row": 2,
-            "column": 63
+            "column": 63,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 58
+            "index": 58,
+            "value": null
           }
         }
       }
@@ -919,13 +1033,15 @@
         "lhs": {
           "Wire": {
             "row": 2,
-            "column": 67
+            "column": 67,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 59
+            "index": 59,
+            "value": null
           }
         }
       }
@@ -935,13 +1051,15 @@
         "lhs": {
           "Wire": {
             "row": 2,
-            "column": 71
+            "column": 71,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 60
+            "index": 60,
+            "value": null
           }
         }
       }
@@ -951,13 +1069,15 @@
         "lhs": {
           "Wire": {
             "row": 2,
-            "column": 75
+            "column": 75,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 61
+            "index": 61,
+            "value": null
           }
         }
       }
@@ -967,13 +1087,15 @@
         "lhs": {
           "Wire": {
             "row": 2,
-            "column": 79
+            "column": 79,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 62
+            "index": 62,
+            "value": null
           }
         }
       }
@@ -983,13 +1105,15 @@
         "lhs": {
           "Wire": {
             "row": 3,
-            "column": 3
+            "column": 3,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 63
+            "index": 63,
+            "value": null
           }
         }
       }
@@ -999,13 +1123,15 @@
         "lhs": {
           "Wire": {
             "row": 3,
-            "column": 7
+            "column": 7,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 64
+            "index": 64,
+            "value": null
           }
         }
       }
@@ -1015,13 +1141,15 @@
         "lhs": {
           "Wire": {
             "row": 3,
-            "column": 11
+            "column": 11,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 65
+            "index": 65,
+            "value": null
           }
         }
       }
@@ -1031,13 +1159,15 @@
         "lhs": {
           "Wire": {
             "row": 3,
-            "column": 15
+            "column": 15,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 66
+            "index": 66,
+            "value": null
           }
         }
       }
@@ -1047,13 +1177,15 @@
         "lhs": {
           "Wire": {
             "row": 3,
-            "column": 19
+            "column": 19,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 67
+            "index": 67,
+            "value": null
           }
         }
       }
@@ -1063,13 +1195,15 @@
         "lhs": {
           "Wire": {
             "row": 3,
-            "column": 23
+            "column": 23,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 68
+            "index": 68,
+            "value": null
           }
         }
       }
@@ -1079,13 +1213,15 @@
         "lhs": {
           "Wire": {
             "row": 3,
-            "column": 27
+            "column": 27,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 69
+            "index": 69,
+            "value": null
           }
         }
       }
@@ -1095,13 +1231,15 @@
         "lhs": {
           "Wire": {
             "row": 3,
-            "column": 31
+            "column": 31,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 70
+            "index": 70,
+            "value": null
           }
         }
       }
@@ -1111,13 +1249,15 @@
         "lhs": {
           "Wire": {
             "row": 3,
-            "column": 35
+            "column": 35,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 71
+            "index": 71,
+            "value": null
           }
         }
       }
@@ -1127,13 +1267,15 @@
         "lhs": {
           "Wire": {
             "row": 3,
-            "column": 39
+            "column": 39,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 72
+            "index": 72,
+            "value": null
           }
         }
       }
@@ -1143,13 +1285,15 @@
         "lhs": {
           "Wire": {
             "row": 3,
-            "column": 43
+            "column": 43,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 73
+            "index": 73,
+            "value": null
           }
         }
       }
@@ -1159,13 +1303,15 @@
         "lhs": {
           "Wire": {
             "row": 3,
-            "column": 47
+            "column": 47,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 74
+            "index": 74,
+            "value": null
           }
         }
       }
@@ -1175,13 +1321,15 @@
         "lhs": {
           "Wire": {
             "row": 3,
-            "column": 51
+            "column": 51,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 75
+            "index": 75,
+            "value": null
           }
         }
       }
@@ -1191,13 +1339,15 @@
         "lhs": {
           "Wire": {
             "row": 3,
-            "column": 55
+            "column": 55,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 76
+            "index": 76,
+            "value": null
           }
         }
       }
@@ -1207,13 +1357,15 @@
         "lhs": {
           "Wire": {
             "row": 3,
-            "column": 59
+            "column": 59,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 77
+            "index": 77,
+            "value": null
           }
         }
       }
@@ -1223,13 +1375,15 @@
         "lhs": {
           "Wire": {
             "row": 3,
-            "column": 63
+            "column": 63,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 78
+            "index": 78,
+            "value": null
           }
         }
       }
@@ -1239,13 +1393,15 @@
         "lhs": {
           "Wire": {
             "row": 3,
-            "column": 67
+            "column": 67,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 79
+            "index": 79,
+            "value": null
           }
         }
       }
@@ -1255,13 +1411,15 @@
         "lhs": {
           "Wire": {
             "row": 3,
-            "column": 71
+            "column": 71,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 80
+            "index": 80,
+            "value": null
           }
         }
       }
@@ -1271,13 +1429,15 @@
         "lhs": {
           "Wire": {
             "row": 3,
-            "column": 75
+            "column": 75,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 81
+            "index": 81,
+            "value": null
           }
         }
       }
@@ -1287,13 +1447,15 @@
         "lhs": {
           "Wire": {
             "row": 3,
-            "column": 79
+            "column": 79,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 82
+            "index": 82,
+            "value": null
           }
         }
       }
@@ -1303,13 +1465,15 @@
         "lhs": {
           "Wire": {
             "row": 4,
-            "column": 3
+            "column": 3,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 83
+            "index": 83,
+            "value": null
           }
         }
       }
@@ -1319,13 +1483,15 @@
         "lhs": {
           "Wire": {
             "row": 4,
-            "column": 7
+            "column": 7,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 84
+            "index": 84,
+            "value": null
           }
         }
       }
@@ -1335,13 +1501,15 @@
         "lhs": {
           "Wire": {
             "row": 4,
-            "column": 11
+            "column": 11,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 85
+            "index": 85,
+            "value": null
           }
         }
       }
@@ -1351,13 +1519,15 @@
         "lhs": {
           "Wire": {
             "row": 4,
-            "column": 15
+            "column": 15,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 86
+            "index": 86,
+            "value": null
           }
         }
       }
@@ -1367,13 +1537,15 @@
         "lhs": {
           "Wire": {
             "row": 4,
-            "column": 19
+            "column": 19,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 87
+            "index": 87,
+            "value": null
           }
         }
       }
@@ -1383,13 +1555,15 @@
         "lhs": {
           "Wire": {
             "row": 4,
-            "column": 23
+            "column": 23,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 88
+            "index": 88,
+            "value": null
           }
         }
       }
@@ -1399,13 +1573,15 @@
         "lhs": {
           "Wire": {
             "row": 4,
-            "column": 27
+            "column": 27,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 89
+            "index": 89,
+            "value": null
           }
         }
       }
@@ -1415,13 +1591,15 @@
         "lhs": {
           "Wire": {
             "row": 4,
-            "column": 31
+            "column": 31,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 90
+            "index": 90,
+            "value": null
           }
         }
       }
@@ -1431,13 +1609,15 @@
         "lhs": {
           "Wire": {
             "row": 4,
-            "column": 35
+            "column": 35,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 91
+            "index": 91,
+            "value": null
           }
         }
       }
@@ -1447,13 +1627,15 @@
         "lhs": {
           "Wire": {
             "row": 4,
-            "column": 39
+            "column": 39,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 92
+            "index": 92,
+            "value": null
           }
         }
       }
@@ -1463,13 +1645,15 @@
         "lhs": {
           "Wire": {
             "row": 4,
-            "column": 43
+            "column": 43,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 93
+            "index": 93,
+            "value": null
           }
         }
       }
@@ -1479,13 +1663,15 @@
         "lhs": {
           "Wire": {
             "row": 4,
-            "column": 47
+            "column": 47,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 94
+            "index": 94,
+            "value": null
           }
         }
       }
@@ -1495,13 +1681,15 @@
         "lhs": {
           "Wire": {
             "row": 4,
-            "column": 51
+            "column": 51,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 95
+            "index": 95,
+            "value": null
           }
         }
       }
@@ -1511,13 +1699,15 @@
         "lhs": {
           "Wire": {
             "row": 4,
-            "column": 55
+            "column": 55,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 96
+            "index": 96,
+            "value": null
           }
         }
       }
@@ -1527,13 +1717,15 @@
         "lhs": {
           "Wire": {
             "row": 4,
-            "column": 59
+            "column": 59,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 97
+            "index": 97,
+            "value": null
           }
         }
       }
@@ -1543,13 +1735,15 @@
         "lhs": {
           "Wire": {
             "row": 4,
-            "column": 63
+            "column": 63,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 98
+            "index": 98,
+            "value": null
           }
         }
       }
@@ -1559,13 +1753,15 @@
         "lhs": {
           "Wire": {
             "row": 4,
-            "column": 67
+            "column": 67,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 99
+            "index": 99,
+            "value": null
           }
         }
       }
@@ -1575,13 +1771,15 @@
         "lhs": {
           "Wire": {
             "row": 4,
-            "column": 71
+            "column": 71,
+            "value": null
           }
         },
         "binop": "Multiply",
         "rhs": {
           "VirtualWire": {
-            "index": 100
+            "index": 100,
+            "value": null
           }
         }
       }

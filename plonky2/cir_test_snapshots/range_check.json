@@ -8,7 +8,8 @@
         "BinaryOperator": {
           "lhs": {
             "VirtualWire": {
-              "index": 0
+              "index": 0,
+              "value": null
             }
           },
           "binop": "LessThan",

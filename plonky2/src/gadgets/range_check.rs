@@ -20,12 +20,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             self.cir.add_expression(ast::Expression::Verify(Box::new(
                 ast::Expression::BinaryOperator {
                     lhs: match &x {
-                        Target::Wire(wire) => Box::new(ast::Expression::Wire {
-                            row: wire.row,
-                            column: wire.column,
-                        }),
+                        Target::Wire(wire) => {
+                            Box::new(ast::Expression::Wire(ast::Wire::new(wire.row, wire.column)))
+                        }
                         Target::VirtualTarget { index } => {
-                            Box::new(ast::Expression::VirtualWire { index: *index })
+                            Box::new(ast::Expression::VirtualWire(ast::VirtualWire::new(*index)))
                         }
                     },
                     binop: ast::BinOp::LessThan,
