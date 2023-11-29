@@ -11,7 +11,7 @@
               "index": 0
             }
           },
-          "binop": "Equal",
+          "binop": "LessThan",
           "rhs": {
             "BinaryOperator": {
               "lhs": {

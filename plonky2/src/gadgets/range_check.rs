@@ -28,7 +28,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                             Box::new(ast::Expression::VirtualWire { index: *index })
                         }
                     },
-                    binop: ast::BinOp::Equal,
+                    binop: ast::BinOp::LessThan,
                     rhs: Box::new(ast::Expression::BinaryOperator {
                         lhs: Box::new(ast::Expression::Int(2)),
                         binop: ast::BinOp::Exponent,
