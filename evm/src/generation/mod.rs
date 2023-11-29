@@ -233,7 +233,7 @@ fn initialize_kernel_code<F: RichField + Extendable<D>, const D: usize>(
     for (i, &byte) in enumerate(KERNEL.code.iter()) {
         let address = MemoryAddress {
             context: 0,
-            segment: 0,
+            segment: Segment::Code as usize,
             virt: i,
         };
         state.memory.set(address, byte.into());

@@ -348,6 +348,14 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
             yield_constr
                 .constraint_transition(next_addr_segment * new_first_read * next_values_limbs[i]);
         }
+
+        // Check the range column: First value must be 0,
+        // and intermediate rows must increment by 1.
+        let rc1 = local_values[COUNTER];
+        let rc2 = next_values[COUNTER];
+        yield_constr.constraint_first_row(rc1);
+        let incr = rc2 - rc1;
+        yield_constr.constraint_transition(incr - P::Scalar::ONES);
     }
 
     fn eval_ext_circuit(
@@ -490,6 +498,15 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
                 builder.mul_extension(next_addr_segment, first_read_value);
             yield_constr.constraint_transition(builder, kernel_context_initializing_constraint);
         }
+
+        // Check the range column: First value must be 0,
+        // and intermediate rows must increment by 1.
+        let rc1 = local_values[COUNTER];
+        let rc2 = next_values[COUNTER];
+        yield_constr.constraint_first_row(builder, rc1);
+        let incr = builder.sub_extension(rc2, rc1);
+        let t = builder.sub_extension(incr, one);
+        yield_constr.constraint_transition(builder, t);
     }
 
     fn constraint_degree(&self) -> usize {
