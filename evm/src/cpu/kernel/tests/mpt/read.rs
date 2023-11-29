@@ -30,10 +30,18 @@ fn mpt_read() -> Result<()> {
 
     // Now, execute mpt_read on the state trie.
     interpreter.generation_state.registers.program_counter = mpt_read;
-    interpreter.push(0xdeadbeefu32.into());
-    interpreter.push(0xABCDEFu64.into());
-    interpreter.push(6.into());
-    interpreter.push(interpreter.get_global_metadata_field(GlobalMetadata::StateTrieRoot));
+    interpreter
+        .push(0xdeadbeefu32.into())
+        .expect("The stack should not overflow");
+    interpreter
+        .push(0xABCDEFu64.into())
+        .expect("The stack should not overflow");
+    interpreter
+        .push(6.into())
+        .expect("The stack should not overflow");
+    interpreter
+        .push(interpreter.get_global_metadata_field(GlobalMetadata::StateTrieRoot))
+        .expect("The stack should not overflow");
     interpreter.run()?;
 
     assert_eq!(interpreter.stack().len(), 1);

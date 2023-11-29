@@ -35,7 +35,9 @@ fn prepare_interpreter(
     let trie_inputs = Default::default();
 
     interpreter.generation_state.registers.program_counter = load_all_mpts;
-    interpreter.push(0xDEADBEEFu32.into());
+    interpreter
+        .push(0xDEADBEEFu32.into())
+        .expect("The stack should not overflow");
 
     interpreter.generation_state.mpt_prover_inputs =
         all_mpt_prover_inputs_reversed(&trie_inputs)
@@ -64,9 +66,15 @@ fn prepare_interpreter(
     trie_data.push(account.code_hash.into_uint());
     let trie_data_len = trie_data.len().into();
     interpreter.set_global_metadata_field(GlobalMetadata::TrieDataSize, trie_data_len);
-    interpreter.push(0xDEADBEEFu32.into());
-    interpreter.push(value_ptr.into()); // value_ptr
-    interpreter.push(k.try_into_u256().unwrap()); // key
+    interpreter
+        .push(0xDEADBEEFu32.into())
+        .expect("The stack should not overflow");
+    interpreter
+        .push(value_ptr.into())
+        .expect("The stack should not overflow"); // value_ptr
+    interpreter
+        .push(k.try_into_u256().unwrap())
+        .expect("The stack should not overflow"); // key
 
     interpreter.run()?;
     assert_eq!(
@@ -78,7 +86,9 @@ fn prepare_interpreter(
 
     // Now, execute mpt_hash_state_trie.
     interpreter.generation_state.registers.program_counter = mpt_hash_state_trie;
-    interpreter.push(0xDEADBEEFu32.into());
+    interpreter
+        .push(0xDEADBEEFu32.into())
+        .expect("The stack should not overflow");
     interpreter.run()?;
 
     assert_eq!(
@@ -109,10 +119,14 @@ fn test_balance() -> Result<()> {
 
     // Test `balance`
     interpreter.generation_state.registers.program_counter = KERNEL.global_labels["balance"];
-    interpreter.pop();
+    interpreter.pop().expect("The stack should not be empty");
     assert!(interpreter.stack().is_empty());
-    interpreter.push(0xDEADBEEFu32.into());
-    interpreter.push(U256::from_big_endian(address.as_bytes()));
+    interpreter
+        .push(0xDEADBEEFu32.into())
+        .expect("The stack should not overflow");
+    interpreter
+        .push(U256::from_big_endian(address.as_bytes()))
+        .expect("The stack should not overflow");
     interpreter.run()?;
 
     assert_eq!(interpreter.stack(), vec![balance]);
