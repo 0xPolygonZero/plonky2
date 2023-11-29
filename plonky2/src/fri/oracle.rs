@@ -55,7 +55,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 {
     /// Creates a list polynomial commitment for the polynomials interpolating the values in `values`.
     pub fn from_values(
-        values: Vec<PolynomialValues<F>>,
+        values: &[PolynomialValues<F>],
         rate_bits: usize,
         blinding: bool,
         cap_height: usize,
@@ -65,7 +65,11 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         let coeffs = timed!(
             timing,
             "IFFT",
-            values.into_par_iter().map(|v| v.ifft()).collect::<Vec<_>>()
+            values
+                .into_par_iter()
+                .cloned()
+                .map(|v| v.ifft())
+                .collect::<Vec<_>>()
         );
 
         Self::from_coeffs(
