@@ -2,8 +2,8 @@ global main:
     // First, hash the kernel code
     %mload_global_metadata(@GLOBAL_METADATA_KERNEL_LEN)
     PUSH 0
-    DUP1
-    DUP1
+    PUSH 0
+    PUSH 0
     // stack: context, segment, virt, len
     KECCAK_GENERAL
     // stack: hash
