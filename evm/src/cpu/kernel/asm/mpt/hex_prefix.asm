@@ -52,7 +52,7 @@ first_byte:
     DUP2
     %mstore_rlp
     %increment
-    // stack: rlp_pos, retdest
+    // stack: rlp_pos', retdest
     SWAP1
     JUMP
     
@@ -75,7 +75,7 @@ remaining_bytes:
     PUSH 256 SUB
     // stack: 256 - 4*(num_nibbles - parity), U256_MAX, remaining_bytes, packed_nibbles, rlp_pos, ret_dest
     SHR
-    // stack mask, remaining_bytes, packed_nibbles, rlp_pos, ret_dest
+    // stack: mask, remaining_bytes, packed_nibbles, rlp_pos, ret_dest
     SWAP1 SWAP2
     AND
     %stack
@@ -114,7 +114,7 @@ rlp_header_large:
     DUP2 %increment // offset = rlp_pos + 1
     %mstore_rlp
 
-    // stack rlp_pos, num_nibbles, packed_nibbles, terminated, retdest
+    // stack: rlp_pos, num_nibbles, packed_nibbles, terminated, retdest
     // rlp_pos += 2
     %add_const(2)
 
