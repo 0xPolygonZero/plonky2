@@ -1031,6 +1031,8 @@ where
                 txn_number_after: rhs_public_values.extra_block_data.txn_number_after,
                 gas_used_before: lhs_public_values.extra_block_data.gas_used_before,
                 gas_used_after: rhs_public_values.extra_block_data.gas_used_after,
+                trie_data_len: lhs_public_values.extra_block_data.trie_data_len,
+                trie_root_ptrs: lhs_public_values.extra_block_data.trie_root_ptrs,
             },
             block_metadata: rhs_public_values.block_metadata,
             block_hashes: rhs_public_values.block_hashes,

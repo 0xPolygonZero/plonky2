@@ -14,14 +14,18 @@ global main:
     // Initialise the shift table
     %shift_table_init
 
-    // Second, load all MPT data from the prover.
-    PUSH hash_initial_tries
-    %jump(load_all_mpts)
-
 global hash_initial_tries:
-    %mpt_hash_state_trie   %mload_global_metadata(@GLOBAL_METADATA_STATE_TRIE_DIGEST_BEFORE)    %assert_eq
+    // We compute the length of the trie data segment in `mpt_hash` so that we
+    // can check the value provided by the prover.
+    PUSH 1 // Initial length
+    %mpt_hash_state_trie  %mload_global_metadata(@GLOBAL_METADATA_STATE_TRIE_DIGEST_BEFORE)    %assert_eq
+    // stack: trie_data_len
     %mpt_hash_txn_trie     %mload_global_metadata(@GLOBAL_METADATA_TXN_TRIE_DIGEST_BEFORE)      %assert_eq
+    // stack: trie_data_len
     %mpt_hash_receipt_trie %mload_global_metadata(@GLOBAL_METADATA_RECEIPT_TRIE_DIGEST_BEFORE)  %assert_eq
+    // stack: trie_data_full_len
+    %mload_global_metadata(@GLOBAL_METADATA_TRIE_DATA_SIZE)
+    %assert_eq
 
 global start_txn:
     // stack: (empty)
@@ -64,7 +68,10 @@ global hash_final_tries:
     %mload_global_metadata(@GLOBAL_METADATA_BLOCK_GAS_USED_AFTER) %assert_eq
     DUP3 %mload_global_metadata(@GLOBAL_METADATA_TXN_NUMBER_AFTER) %assert_eq
     %pop3
+    PUSH 1 // initial trie data length 
     %mpt_hash_state_trie   %mload_global_metadata(@GLOBAL_METADATA_STATE_TRIE_DIGEST_AFTER)     %assert_eq
     %mpt_hash_txn_trie     %mload_global_metadata(@GLOBAL_METADATA_TXN_TRIE_DIGEST_AFTER)       %assert_eq
     %mpt_hash_receipt_trie %mload_global_metadata(@GLOBAL_METADATA_RECEIPT_TRIE_DIGEST_AFTER)   %assert_eq
+    // We don't need the trie data length here.
+    POP
     %jump(halt)

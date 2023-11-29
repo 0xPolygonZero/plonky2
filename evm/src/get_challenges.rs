@@ -109,6 +109,10 @@ fn observe_extra_block_data<
     challenger.observe_element(u256_to_u32(extra_data.txn_number_after)?);
     challenger.observe_element(u256_to_u32(extra_data.gas_used_before)?);
     challenger.observe_element(u256_to_u32(extra_data.gas_used_after)?);
+    challenger.observe_element(u256_to_u32(extra_data.trie_data_len)?);
+    for i in 0..3 {
+        challenger.observe_element(u256_to_u32(extra_data.trie_root_ptrs[i])?);
+    }
 
     Ok(())
 }
@@ -128,6 +132,10 @@ fn observe_extra_block_data_target<
     challenger.observe_element(extra_data.txn_number_after);
     challenger.observe_element(extra_data.gas_used_before);
     challenger.observe_element(extra_data.gas_used_after);
+    challenger.observe_element(extra_data.trie_data_len);
+    for i in 0..3 {
+        challenger.observe_element(extra_data.trie_root_ptrs[i]);
+    }
 }
 
 fn observe_block_hashes<

@@ -470,6 +470,10 @@ pub(crate) fn get_memory_extra_looking_sum_circuit<F: RichField + Extendable<D>,
             GlobalMetadata::TxnNumberAfter as usize,
             public_values.extra_block_data.txn_number_after,
         ),
+        (
+            GlobalMetadata::TrieDataSize as usize,
+            public_values.extra_block_data.trie_data_len,
+        ),
     ];
 
     let beneficiary_random_base_fee_cur_hash_fields: [(usize, &[Target]); 4] = [
@@ -499,6 +503,25 @@ pub(crate) fn get_memory_extra_looking_sum_circuit<F: RichField + Extendable<D>,
 
     beneficiary_random_base_fee_cur_hash_fields.map(|(field, targets)| {
         sum = add_data_write(builder, challenge, sum, metadata_segment, field, targets);
+    });
+
+    // Add trie root pointers writes.
+    let trie_root_ptr_fields = [
+        (
+            GlobalMetadata::StateTrieRoot as usize,
+            public_values.extra_block_data.trie_root_ptrs[0],
+        ),
+        (
+            GlobalMetadata::TransactionTrieRoot as usize,
+            public_values.extra_block_data.trie_root_ptrs[1],
+        ),
+        (
+            GlobalMetadata::ReceiptTrieRoot as usize,
+            public_values.extra_block_data.trie_root_ptrs[2],
+        ),
+    ];
+    trie_root_ptr_fields.map(|(field, target)| {
+        sum = add_data_write(builder, challenge, sum, metadata_segment, field, &[target])
     });
 
     // Add block hashes writes.
@@ -717,12 +740,16 @@ pub(crate) fn add_virtual_extra_block_data<F: RichField + Extendable<D>, const D
     let txn_number_after = builder.add_virtual_public_input();
     let gas_used_before = builder.add_virtual_public_input();
     let gas_used_after = builder.add_virtual_public_input();
+    let trie_data_len = builder.add_virtual_public_input();
+    let trie_root_ptrs = builder.add_virtual_public_input_arr();
     ExtraBlockDataTarget {
         genesis_state_trie_root,
         txn_number_before,
         txn_number_after,
         gas_used_before,
         gas_used_after,
+        trie_data_len,
+        trie_root_ptrs,
     }
 }
 
@@ -992,6 +1019,13 @@ where
     );
     witness.set_target(ed_target.gas_used_before, u256_to_u32(ed.gas_used_before)?);
     witness.set_target(ed_target.gas_used_after, u256_to_u32(ed.gas_used_after)?);
+    witness.set_target(ed_target.trie_data_len, u256_to_u32(ed.trie_data_len)?);
+    for i in 0..ed.trie_root_ptrs.len() {
+        witness.set_target(
+            ed_target.trie_root_ptrs[i],
+            u256_to_u32(ed.trie_root_ptrs[i])?,
+        );
+    }
 
     Ok(())
 }

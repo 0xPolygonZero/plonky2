@@ -237,6 +237,22 @@ where
         ),
         (GlobalMetadata::KernelHash, h2u(KERNEL.code_hash)),
         (GlobalMetadata::KernelLen, KERNEL.code.len().into()),
+        (
+            GlobalMetadata::TrieDataSize,
+            public_values.extra_block_data.trie_data_len,
+        ),
+        (
+            GlobalMetadata::StateTrieRoot,
+            public_values.extra_block_data.trie_root_ptrs[0],
+        ),
+        (
+            GlobalMetadata::TransactionTrieRoot,
+            public_values.extra_block_data.trie_root_ptrs[1],
+        ),
+        (
+            GlobalMetadata::ReceiptTrieRoot,
+            public_values.extra_block_data.trie_root_ptrs[2],
+        ),
     ];
 
     let segment = F::from_canonical_u32(Segment::GlobalMetadata as u32);

@@ -6,7 +6,6 @@ use plonky2::field::types::Field;
 
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::constants::context_metadata::ContextMetadata;
-use crate::generation::mpt::all_mpt_prover_inputs_reversed;
 use crate::generation::rlp::all_rlp_prover_inputs_reversed;
 use crate::generation::GenerationInputs;
 use crate::memory::segments::Segment;
@@ -28,10 +27,6 @@ pub(crate) struct GenerationState<F: Field> {
     pub(crate) registers: RegistersState,
     pub(crate) memory: MemoryState,
     pub(crate) traces: Traces<F>,
-
-    /// Prover inputs containing MPT data, in reverse order so that the next input can be obtained
-    /// via `pop()`.
-    pub(crate) mpt_prover_inputs: Vec<U256>,
 
     /// Prover inputs containing RLP data, in reverse order so that the next input can be obtained
     /// via `pop()`.
@@ -61,7 +56,7 @@ impl<F: Field> GenerationState<F> {
         log::debug!("Input receipts_trie: {:?}", &inputs.tries.receipts_trie);
         log::debug!("Input storage_tries: {:?}", &inputs.tries.storage_tries);
         log::debug!("Input contract_code: {:?}", &inputs.contract_code);
-        let mpt_prover_inputs = all_mpt_prover_inputs_reversed(&inputs.tries)?;
+
         let rlp_prover_inputs =
             all_rlp_prover_inputs_reversed(inputs.signed_txn.as_ref().unwrap_or(&vec![]));
         let withdrawal_prover_inputs = all_withdrawals_prover_inputs_reversed(&inputs.withdrawals);
@@ -72,7 +67,6 @@ impl<F: Field> GenerationState<F> {
             registers: Default::default(),
             memory: MemoryState::new(kernel_code),
             traces: Traces::default(),
-            mpt_prover_inputs,
             rlp_prover_inputs,
             withdrawal_prover_inputs,
             state_key_to_address: HashMap::new(),

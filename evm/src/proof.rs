@@ -19,6 +19,7 @@ use serde::{Deserialize, Serialize};
 use crate::all_stark::NUM_TABLES;
 use crate::config::StarkConfig;
 use crate::cross_table_lookup::GrandProductChallengeSet;
+use crate::generation::mpt::TrieRootPtrs;
 
 /// A STARK proof for each table, plus some metadata used to create recursive wrapper proofs.
 #[derive(Debug, Clone)]
@@ -140,6 +141,10 @@ pub struct ExtraBlockData {
     /// The accumulated gas used after execution of the local state transition. It should
     /// match the `block_gas_used` value after execution of the last transaction in a block.
     pub gas_used_after: U256,
+    /// The length of the trie data segment before execution of the local state transition.
+    pub trie_data_len: U256,
+    /// The trie root pointers before execution of the local state transition.
+    pub trie_root_ptrs: [U256; 3],
 }
 
 /// Memory values which are public.
@@ -218,12 +223,16 @@ impl PublicValuesTarget {
             txn_number_after,
             gas_used_before,
             gas_used_after,
+            trie_data_len,
+            trie_root_ptrs,
         } = self.extra_block_data;
         buffer.write_target_array(&genesis_state_root)?;
         buffer.write_target(txn_number_before)?;
         buffer.write_target(txn_number_after)?;
         buffer.write_target(gas_used_before)?;
         buffer.write_target(gas_used_after)?;
+        buffer.write_target(trie_data_len)?;
+        buffer.write_target_array(&trie_root_ptrs)?;
 
         Ok(())
     }
@@ -266,6 +275,8 @@ impl PublicValuesTarget {
             txn_number_after: buffer.read_target()?,
             gas_used_before: buffer.read_target()?,
             gas_used_after: buffer.read_target()?,
+            trie_data_len: buffer.read_target()?,
+            trie_root_ptrs: buffer.read_target_array()?,
         };
 
         Ok(Self {
@@ -630,11 +641,15 @@ pub(crate) struct ExtraBlockDataTarget {
     /// `Target` for the accumulated gas used after execution of the local state transition. It should
     /// match the `block_gas_used` value after execution of the last transaction in a block.
     pub gas_used_after: Target,
+    /// Length of the trie data segment before execution of the the local state transition.
+    pub trie_data_len: Target,
+    /// `Target`s for the trie root pointers before the execution of the local state transition.
+    pub trie_root_ptrs: [Target; 3],
 }
 
 impl ExtraBlockDataTarget {
     /// Number of `Target`s required for the extra block data.
-    const SIZE: usize = 12;
+    const SIZE: usize = 16;
 
     /// Extracts the extra block data `Target`s from the public input `Target`s.
     /// The provided `pis` should start with the extra vblock data.
@@ -644,6 +659,8 @@ impl ExtraBlockDataTarget {
         let txn_number_after = pis[9];
         let gas_used_before = pis[10];
         let gas_used_after = pis[11];
+        let trie_data_len = pis[12];
+        let trie_root_ptrs = pis[13..16].try_into().unwrap();
 
         Self {
             genesis_state_trie_root,
@@ -651,6 +668,8 @@ impl ExtraBlockDataTarget {
             txn_number_after,
             gas_used_before,
             gas_used_after,
+            trie_data_len,
+            trie_root_ptrs,
         }
     }
 
@@ -678,6 +697,10 @@ impl ExtraBlockDataTarget {
             txn_number_after: builder.select(condition, ed0.txn_number_after, ed1.txn_number_after),
             gas_used_before: builder.select(condition, ed0.gas_used_before, ed1.gas_used_before),
             gas_used_after: builder.select(condition, ed0.gas_used_after, ed1.gas_used_after),
+            trie_data_len: builder.select(condition, ed0.trie_data_len, ed1.trie_data_len),
+            trie_root_ptrs: core::array::from_fn(|i| {
+                builder.select(condition, ed0.trie_root_ptrs[i], ed1.trie_root_ptrs[i])
+            }),
         }
     }
 
@@ -696,7 +719,11 @@ impl ExtraBlockDataTarget {
         builder.connect(ed0.txn_number_before, ed1.txn_number_before);
         builder.connect(ed0.txn_number_after, ed1.txn_number_after);
         builder.connect(ed0.gas_used_before, ed1.gas_used_before);
-        builder.connect(ed1.gas_used_after, ed1.gas_used_after);
+        builder.connect(ed0.gas_used_after, ed1.gas_used_after);
+        builder.connect(ed0.trie_data_len, ed1.trie_data_len);
+        for i in 0..3 {
+            builder.connect(ed0.trie_root_ptrs[i], ed1.trie_root_ptrs[i]);
+        }
     }
 }
 

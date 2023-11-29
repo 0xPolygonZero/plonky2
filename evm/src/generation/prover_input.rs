@@ -39,7 +39,6 @@ impl<F: Field> GenerationState<F> {
             "ff" => self.run_ff(input_fn),
             "sf" => self.run_sf(input_fn),
             "ffe" => self.run_ffe(input_fn),
-            "mpt" => self.run_mpt(),
             "rlp" => self.run_rlp(),
             "current_hash" => self.run_current_hash(),
             "account_code" => self.run_account_code(input_fn),
@@ -107,13 +106,6 @@ impl<F: Field> GenerationState<F> {
             _ => todo!(),
         };
         Ok(field.field_extension_inverse(n, f))
-    }
-
-    /// MPT data.
-    fn run_mpt(&mut self) -> Result<U256, ProgramError> {
-        self.mpt_prover_inputs
-            .pop()
-            .ok_or(ProgramError::ProverInputError(OutOfMptData))
     }
 
     /// RLP data.

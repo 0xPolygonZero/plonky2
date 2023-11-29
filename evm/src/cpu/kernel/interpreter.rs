@@ -275,6 +275,12 @@ impl<'a> Interpreter<'a> {
             code.into_iter().map(U256::from).collect();
     }
 
+    pub(crate) fn set_memory_multi_addresses(&mut self, addrs: &[(MemoryAddress, U256)]) {
+        for &(addr, val) in addrs {
+            self.generation_state.memory.set(addr, val);
+        }
+    }
+
     pub(crate) fn get_jumpdest_bits(&self, context: usize) -> Vec<bool> {
         self.generation_state.memory.contexts[context].segments[Segment::JumpdestBits as usize]
             .content
