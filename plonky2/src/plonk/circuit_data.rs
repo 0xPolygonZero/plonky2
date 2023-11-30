@@ -208,6 +208,10 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             });
         }
 
+        if let Ok(output) = zkcir_test_util::get_last_cir_data().cir.to_cli_string() {
+            println!("{output:?}");
+        }
+
         verify::<F, C, D>(proof_with_pis, &self.verifier_only, &self.common)
     }
 
