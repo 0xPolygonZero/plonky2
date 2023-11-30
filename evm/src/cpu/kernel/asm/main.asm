@@ -13,6 +13,8 @@ global main:
 
     // Initialise the shift table
     %shift_table_init
+    // Encode constant nodes
+    %initialize_rlp_segment
 
     // Encode constant nodes
     %initialize_rlp_segment

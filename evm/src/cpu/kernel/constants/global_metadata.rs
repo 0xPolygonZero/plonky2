@@ -30,68 +30,64 @@ pub(crate) enum GlobalMetadata {
     TransactionTrieRootDigestAfter = 11,
     ReceiptTrieRootDigestAfter = 12,
 
-    /// The sizes of the `TrieEncodedChild` and `TrieEncodedChildLen` buffers. In other words, the
-    /// next available offset in these buffers.
-    TrieEncodedChildSize = 13,
-
     // Block metadata.
-    BlockBeneficiary = 14,
-    BlockTimestamp = 15,
-    BlockNumber = 16,
-    BlockDifficulty = 17,
-    BlockRandom = 18,
-    BlockGasLimit = 19,
-    BlockChainId = 20,
-    BlockBaseFee = 21,
-    BlockGasUsed = 22,
+    BlockBeneficiary = 13,
+    BlockTimestamp = 14,
+    BlockNumber = 15,
+    BlockDifficulty = 16,
+    BlockRandom = 17,
+    BlockGasLimit = 18,
+    BlockChainId = 19,
+    BlockBaseFee = 20,
+    BlockGasUsed = 21,
     /// Before current transactions block values.
-    BlockGasUsedBefore = 23,
+    BlockGasUsedBefore = 22,
     /// After current transactions block values.
-    BlockGasUsedAfter = 24,
+    BlockGasUsedAfter = 23,
     /// Current block header hash
-    BlockCurrentHash = 25,
+    BlockCurrentHash = 24,
 
     /// Gas to refund at the end of the transaction.
-    RefundCounter = 26,
+    RefundCounter = 25,
     /// Length of the addresses access list.
-    AccessedAddressesLen = 27,
+    AccessedAddressesLen = 26,
     /// Length of the storage keys access list.
-    AccessedStorageKeysLen = 28,
+    AccessedStorageKeysLen = 27,
     /// Length of the self-destruct list.
-    SelfDestructListLen = 29,
+    SelfDestructListLen = 28,
     /// Length of the bloom entry buffer.
-    BloomEntryLen = 30,
+    BloomEntryLen = 29,
 
     /// Length of the journal.
-    JournalLen = 31,
+    JournalLen = 30,
     /// Length of the `JournalData` segment.
-    JournalDataLen = 32,
+    JournalDataLen = 31,
     /// Current checkpoint.
-    CurrentCheckpoint = 33,
-    TouchedAddressesLen = 34,
+    CurrentCheckpoint = 32,
+    TouchedAddressesLen = 33,
     // Gas cost for the access list in type-1 txns. See EIP-2930.
-    AccessListDataCost = 35,
+    AccessListDataCost = 34,
     // Start of the access list in the RLP for type-1 txns.
-    AccessListRlpStart = 36,
+    AccessListRlpStart = 35,
     // Length of the access list in the RLP for type-1 txns.
-    AccessListRlpLen = 37,
+    AccessListRlpLen = 36,
     // Boolean flag indicating if the txn is a contract creation txn.
-    ContractCreation = 38,
-    IsPrecompileFromEoa = 39,
-    CallStackDepth = 40,
+    ContractCreation = 37,
+    IsPrecompileFromEoa = 38,
+    CallStackDepth = 39,
     /// Transaction logs list length
-    LogsLen = 41,
-    LogsDataLen = 42,
-    LogsPayloadLen = 43,
-    TxnNumberBefore = 44,
-    TxnNumberAfter = 45,
+    LogsLen = 40,
+    LogsDataLen = 41,
+    LogsPayloadLen = 42,
+    TxnNumberBefore = 43,
+    TxnNumberAfter = 44,
 
-    KernelHash = 46,
-    KernelLen = 47,
+    KernelHash = 45,
+    KernelLen = 46,
 }
 
 impl GlobalMetadata {
-    pub(crate) const COUNT: usize = 48;
+    pub(crate) const COUNT: usize = 47;
 
     pub(crate) const fn all() -> [Self; Self::COUNT] {
         [
@@ -108,7 +104,6 @@ impl GlobalMetadata {
             Self::StateTrieRootDigestAfter,
             Self::TransactionTrieRootDigestAfter,
             Self::ReceiptTrieRootDigestAfter,
-            Self::TrieEncodedChildSize,
             Self::BlockBeneficiary,
             Self::BlockTimestamp,
             Self::BlockNumber,
@@ -162,7 +157,6 @@ impl GlobalMetadata {
             Self::StateTrieRootDigestAfter => "GLOBAL_METADATA_STATE_TRIE_DIGEST_AFTER",
             Self::TransactionTrieRootDigestAfter => "GLOBAL_METADATA_TXN_TRIE_DIGEST_AFTER",
             Self::ReceiptTrieRootDigestAfter => "GLOBAL_METADATA_RECEIPT_TRIE_DIGEST_AFTER",
-            Self::TrieEncodedChildSize => "GLOBAL_METADATA_TRIE_ENCODED_CHILD_SIZE",
             Self::BlockBeneficiary => "GLOBAL_METADATA_BLOCK_BENEFICIARY",
             Self::BlockTimestamp => "GLOBAL_METADATA_BLOCK_TIMESTAMP",
             Self::BlockNumber => "GLOBAL_METADATA_BLOCK_NUMBER",

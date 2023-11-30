@@ -1,3 +1,5 @@
+use ethereum_types::U256;
+
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Ord, PartialOrd, Debug)]
 pub(crate) enum Segment {
     /// Contains EVM bytecode.
@@ -29,46 +31,42 @@ pub(crate) enum Segment {
     RlpRaw = 12,
     /// Contains all trie data. It is owned by the kernel, so it only lives on context 0.
     TrieData = 13,
-    /// A buffer used to store the encodings of a branch node's children.
-    TrieEncodedChild = 14,
-    /// A buffer used to store the lengths of the encodings of a branch node's children.
-    TrieEncodedChildLen = 15,
     /// A table of values 2^i for i=0..255 for use with shift
     /// instructions; initialised by `kernel/asm/shift.asm::init_shift_table()`.
-    ShiftTable = 16,
-    JumpdestBits = 17,
-    EcdsaTable = 18,
-    BnWnafA = 19,
-    BnWnafB = 20,
-    BnTableQ = 21,
-    BnPairing = 22,
+    ShiftTable = 14,
+    JumpdestBits = 15,
+    EcdsaTable = 16,
+    BnWnafA = 17,
+    BnWnafB = 18,
+    BnTableQ = 19,
+    BnPairing = 20,
     /// List of addresses that have been accessed in the current transaction.
-    AccessedAddresses = 23,
+    AccessedAddresses = 21,
     /// List of storage keys that have been accessed in the current transaction.
-    AccessedStorageKeys = 24,
+    AccessedStorageKeys = 22,
     /// List of addresses that have called SELFDESTRUCT in the current transaction.
-    SelfDestructList = 25,
+    SelfDestructList = 23,
     /// Contains the bloom filter of a transaction.
-    TxnBloom = 26,
+    TxnBloom = 24,
     /// Contains the bloom filter present in the block header.
-    GlobalBlockBloom = 27,
+    GlobalBlockBloom = 25,
     /// List of log pointers pointing to the LogsData segment.
-    Logs = 28,
-    LogsData = 29,
+    Logs = 26,
+    LogsData = 27,
     /// Journal of state changes. List of pointers to `JournalData`. Length in `GlobalMetadata`.
-    Journal = 30,
-    JournalData = 31,
-    JournalCheckpoints = 32,
+    Journal = 28,
+    JournalData = 29,
+    JournalCheckpoints = 30,
     /// List of addresses that have been touched in the current transaction.
-    TouchedAddresses = 33,
+    TouchedAddresses = 31,
     /// List of checkpoints for the current context. Length in `ContextMetadata`.
-    ContextCheckpoints = 34,
+    ContextCheckpoints = 32,
     /// List of 256 previous block hashes.
-    BlockHashes = 35,
+    BlockHashes = 33,
 }
 
 impl Segment {
-    pub(crate) const COUNT: usize = 36;
+    pub(crate) const COUNT: usize = 34;
 
     pub(crate) const fn all() -> [Self; Self::COUNT] {
         [
@@ -86,8 +84,6 @@ impl Segment {
             Self::TxnData,
             Self::RlpRaw,
             Self::TrieData,
-            Self::TrieEncodedChild,
-            Self::TrieEncodedChildLen,
             Self::ShiftTable,
             Self::JumpdestBits,
             Self::EcdsaTable,
@@ -128,8 +124,6 @@ impl Segment {
             Segment::TxnData => "SEGMENT_TXN_DATA",
             Segment::RlpRaw => "SEGMENT_RLP_RAW",
             Segment::TrieData => "SEGMENT_TRIE_DATA",
-            Segment::TrieEncodedChild => "SEGMENT_TRIE_ENCODED_CHILD",
-            Segment::TrieEncodedChildLen => "SEGMENT_TRIE_ENCODED_CHILD_LEN",
             Segment::ShiftTable => "SEGMENT_SHIFT_TABLE",
             Segment::JumpdestBits => "SEGMENT_JUMPDEST_BITS",
             Segment::EcdsaTable => "SEGMENT_KERNEL_ECDSA_TABLE",
@@ -169,8 +163,6 @@ impl Segment {
             Segment::TxnData => 8,
             Segment::RlpRaw => 8,
             Segment::TrieData => 256,
-            Segment::TrieEncodedChild => 256,
-            Segment::TrieEncodedChildLen => 6,
             Segment::ShiftTable => 256,
             Segment::JumpdestBits => 1,
             Segment::EcdsaTable => 256,
@@ -191,6 +183,19 @@ impl Segment {
             Segment::TouchedAddresses => 256,
             Segment::ContextCheckpoints => 256,
             Segment::BlockHashes => 256,
+        }
+    }
+
+    pub(crate) fn constant(&self, virt: usize) -> Option<U256> {
+        match self {
+            Segment::RlpRaw => {
+                if virt == 0xFFFFFFFF {
+                    Some(U256::from(0x80))
+                } else {
+                    None
+                }
+            }
+            _ => None,
         }
     }
 }

@@ -3,6 +3,9 @@
 global mpt_hash_state_trie:
     // stack: cur_len, retdest
     PUSH encode_account
+    PUSH debug_before_encoding_child
+    PUSH mpt_delete
+    %pop2
     %mload_global_metadata(@GLOBAL_METADATA_STATE_TRIE_ROOT)
     // stack: node_ptr, encode_account, cur_len, retdest
     %jump(mpt_hash)
@@ -100,6 +103,10 @@ global encode_account:
     DUP3
     DUP3 %add_const(2) %mload_trie_data // storage_root_ptr = value[2]
     // stack: storage_root_ptr, cur_len, rlp_pos_5, value_ptr, cur_len, retdest
+
+
+    PUSH debug_after_hash_storage_trie
+    POP
 
     // Hash storage trie.
     %mpt_hash_storage_trie

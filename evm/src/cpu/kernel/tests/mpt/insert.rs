@@ -12,11 +12,12 @@ use crate::cpu::kernel::tests::mpt::{
 };
 use crate::generation::mpt::AccountRlp;
 use crate::generation::TrieInputs;
+use crate::util::u256_to_usize;
 use crate::Node;
 
 #[test]
 fn mpt_insert_empty() -> Result<()> {
-    test_state_trie(Default::default(), nibbles_64(0xABC), test_account_2())
+    test_state_trie(Default::default(), nibbles_64(0xDEF), test_account_2())
 }
 
 #[test]
@@ -233,6 +234,7 @@ fn test_state_trie(
     let hash = H256::from_uint(&interpreter.stack()[1]);
 
     state_trie.insert(k, rlp::encode(&account).to_vec());
+
     let expected_state_trie_hash = state_trie.hash();
     assert_eq!(hash, expected_state_trie_hash);
 
