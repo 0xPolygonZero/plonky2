@@ -92,9 +92,9 @@ maybe_hash_node:
     KECCAK_GENERAL
     %stack (hash, cur_len, retdest) -> (retdest, hash, 32, cur_len)
     JUMP
-pack_small_rlp:
-    // stack: result_ptr, result_len, cur_len, retdest
-    %stack (result_ptr, result_len, cur_len)
+global pack_small_rlp:
+    // stack: result_ptr, result_len, retdest
+    %stack (result_ptr, result_len)
         -> (0, @SEGMENT_RLP_RAW, result_ptr, result_len,
             after_packed_small_rlp, result_len, cur_len)
     %jump(mload_packing)
@@ -105,10 +105,10 @@ after_packed_small_rlp:
 // RLP encode the given trie node, and return an (pointer, length) pair
 // indicating where the data lives within @SEGMENT_RLP_RAW.
 //
-// Pre stack: node_type, node_ptr, encode_value, cur_len, retdest
-// Post stack: result_ptr, result_len, cur_len
-encode_node:
-    // stack: node_type, node_ptr, encode_value, cur_len, retdest
+// Pre stack: node_type, node_ptr, encode_value, retdest
+// Post stack: result_ptr, result_len
+global encode_node:
+    // stack: node_type, node_ptr, encode_value, retdest
     // Increment node_ptr, so it points to the node payload instead of its type.
     SWAP1 %increment SWAP1
     // stack: node_type, node_payload_ptr, encode_value, cur_len, retdest
@@ -123,20 +123,13 @@ encode_node:
     PANIC
 
 global encode_node_empty:
-    // stack: node_type, node_payload_ptr, encode_value, cur_len, retdest
-    // Then length of `TrieData` is unchanged here.
+    // stack: node_type, node_payload_ptr, encode_value, retdest
     %pop3
-    // stack: cur_len, retdest
-    // An empty node is encoded as a single byte, 0x80, which is the RLP encoding of the empty string.
-    // TODO: Write this byte just once to RLP memory, then we can always return (0, 1).
-    %alloc_rlp_block
-    // stack: rlp_pos, cur_len, retdest
-    PUSH 0x80
-    // stack: 0x80, rlp_pos, cur_len, retdest
-    DUP2
-    // stack: rlp_pos, 0x80, rlp_pos, cur_len, retdest
-    %mstore_rlp
-    %stack (rlp_pos, cur_len, retdest) -> (retdest, rlp_pos, 1, cur_len)
+    PUSH 0x1000
+    %mload_kernel(@SEGMENT_RLP_RAW)
+global debug_it_should_be_128:
+    POP
+    %stack (retdest) -> (retdest, 0x1000, 1)
     JUMP
 
 global encode_node_branch:
@@ -329,3 +322,81 @@ encode_node_leaf_after_encode_value:
     %stack (rlp_prefix_start_pos, rlp_len, cur_len, retdest)
         -> (retdest, rlp_prefix_start_pos, rlp_len, cur_len)
     JUMP
+
+global encode_node_branch_new:
+    // stack: node_type, node_payload_ptr, encode_value, retdest
+    POP
+    // stack: node_payload_ptr, encode_value, retdest
+
+    //Allocate a block of RLP memory
+    %alloc_rlp_block DUP1
+    // stack: rlp_pos, node_payload_ptr, encode_value, retdest
+
+    // Call encode_or_hash_node on each child 
+    %encode_child_new(0)  %encode_child_new(1)  %encode_child_new(2)  %encode_child_new(3)
+    %encode_child_new(4)  %encode_child_new(5)  %encode_child_new(6)  %encode_child_new(7)
+    %encode_child_new(8)  %encode_child_new(9)  %encode_child_new(10) %encode_child_new(11)
+    %encode_child_new(12) %encode_child_new(13) %encode_child_new(14) %encode_child_new(15)
+
+    // stack: rlp_pos', rlp_start, node_payload_ptr, encode_value, retdest
+
+    %stack (rlp_pos, rlp_start, node_payload_ptr)
+        -> (node_payload_ptr, rlp_pos, rlp_start)
+    %add_const(16)
+    // stack: value_ptr_ptr, rlp_pos', rlp_start, encode_value, retdest
+    %mload_trie_data
+    // stack: value_ptr, rlp_pos', rlp_start, encode_value, retdest
+    DUP1 %jumpi(encode_node_branch_with_value_new)
+
+    // No value; append the empty string (0x80).
+    // stack: value_ptr, rlp_pos', rlp_start, encode_value, retdest
+    %stack (value_ptr, rlp_pos, rlp_start, encode_value) -> (rlp_pos, 0x80, rlp_pos, rlp_start)
+    %mstore_rlp
+    // stack: rlp_pos', rlp_start, retdest
+    %increment
+    // stack: rlp_pos'', rlp_start, retdest
+    %jump(encode_node_branch_prepend_prefix_new)
+encode_node_branch_with_value_new:
+    // stack: value_ptr, rlp_pos', rlp_start, encode_value, retdest
+    %stack (value_ptr, rlp_pos, rlp_start, encode_value)
+        -> (encode_value, rlp_pos, value_ptr, encode_node_branch_prepend_prefix, rlp_start)
+    JUMP // call encode_value
+encode_node_branch_prepend_prefix_new:
+    // stack: rlp_pos'', rlp_start, retdest
+    %prepend_rlp_list_prefix
+    // stack: rlp_prefix_start, rlp_len, retdest
+    %stack (rlp_prefix_start, rlp_len, retdest)
+        -> (retdest, rlp_prefix_start, rlp_len)
+    JUMP
+
+
+// Part of the encode_node_branch function. Encodes the i'th child.
+// Stores the result in SEGMENT_TRIE_ENCODED_CHILD[base + i], and its length in
+// SEGMENT_TRIE_ENCODED_CHILD_LEN[base + i].
+%macro encode_child_new(i)
+    // stack: rlp_pos, rlp_start, node_payload_ptr, encode_value, retdest
+    PUSH %%after_encode
+    DUP5 DUP5
+    // stack: node_payload_ptr, encode_value, %%after_encode, rlp_pos, rlp_start, node_payload_ptr, encode_value, retdest
+    %add_const($i) %mload_trie_data
+    // stack: child_i_ptr, encode_value, %%after_encode, rlp_pos, rlp_start, node_payload_ptr, encode_value, retdest
+    %jump(encode_or_hash_node)
+%%after_encode:
+    // stack: result, result_len, rlp_pos, rlp_start, node_payload_ptr, encode_value, retdest
+    // If result_len != 32, result is raw RLP, with an appropriate RLP prefix already.
+    SWAP1 DUP1 %sub_const(32) %jumpi(%%unpack)
+    // Otherwise, result is a hash, and we need to add the prefix 0x80 + 32 = 160.
+    // stack: result_len, result, rlp_pos, rlp_start, node_payload_ptr, encode_value, retdest
+    PUSH 160
+    DUP4 // rlp_pos
+    %mstore_rlp
+    SWAP2 %increment SWAP2 // rlp_pos += 1
+%%unpack:
+    %stack (result_len, result, rlp_pos, rlp_start, node_payload_ptr, encode_value, retdest)
+        -> (rlp_pos, result, result_len, %%after_unpacking,
+            rlp_start, node_payload_ptr, encode_value, retdest)
+    %jump(mstore_unpacking_rlp)
+%%after_unpacking:
+    // stack: rlp_pos', rlp_start, node_payload_ptr, encode_value, retdest
+%endmacro
+

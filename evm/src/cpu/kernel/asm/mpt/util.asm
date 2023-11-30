@@ -10,6 +10,16 @@
     // stack: (empty)
 %endmacro
 
+%macro initialize_rlp_segment
+    // Write the encoding of the empty node to address 0 leaving 9 bytes for a prefix
+    // TODO: Do we need a prefix?
+    PUSH 0x80
+    PUSH 0x1000
+    %mstore_rlp
+    PUSH 0x1000 // TODO: use 10?
+    %mstore_global_metadata(@GLOBAL_METADATA_RLP_DATA_SIZE)
+%endmacro
+
 %macro alloc_rlp_block
     // stack: (empty)
     %mload_global_metadata(@GLOBAL_METADATA_RLP_DATA_SIZE)
