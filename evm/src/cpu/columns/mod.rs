@@ -53,9 +53,6 @@ pub(crate) struct PartialMemoryChannelView<T: Copy> {
 #[repr(C)]
 #[derive(Clone, Copy, Eq, PartialEq, Debug)]
 pub(crate) struct CpuColumnsView<T: Copy> {
-    /// Filter. 1 if the row is part of bootstrapping the kernel code, 0 otherwise.
-    pub is_bootstrap_kernel: T,
-
     /// If CPU cycle: Current context.
     pub context: T,
 

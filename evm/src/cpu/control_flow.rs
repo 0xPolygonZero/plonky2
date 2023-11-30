@@ -51,7 +51,7 @@ pub(crate) fn eval_packed_generic<P: PackedField>(
     let is_cpu_cycle: P = COL_MAP.op.iter().map(|&col_i| lv[col_i]).sum();
     let is_cpu_cycle_next: P = COL_MAP.op.iter().map(|&col_i| nv[col_i]).sum();
 
-    let next_halt_state = P::ONES - nv.is_bootstrap_kernel - is_cpu_cycle_next;
+    let next_halt_state = P::ONES - is_cpu_cycle_next;
 
     // Once we start executing instructions, then we continue until the end of the table
     // or we reach dummy padding rows. This, along with the constraints on the first row,
@@ -94,8 +94,7 @@ pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let is_cpu_cycle = builder.add_many_extension(COL_MAP.op.iter().map(|&col_i| lv[col_i]));
     let is_cpu_cycle_next = builder.add_many_extension(COL_MAP.op.iter().map(|&col_i| nv[col_i]));
 
-    let next_halt_state = builder.add_extension(nv.is_bootstrap_kernel, is_cpu_cycle_next);
-    let next_halt_state = builder.sub_extension(one, next_halt_state);
+    let next_halt_state = builder.sub_extension(one, is_cpu_cycle_next);
 
     // Once we start executing instructions, then we continue until the end of the table
     // or we reach dummy padding rows. This, along with the constraints on the first row,
