@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use anyhow::anyhow;
 use eth_trie_utils::partial_trie::{HashedPartialTrie, PartialTrie};
 use ethereum_types::{Address, BigEndianHash, H256, U256};
+use itertools::enumerate;
 use plonky2::field::extension::Extendable;
 use plonky2::field::polynomial::PolynomialValues;
 use plonky2::hash::hash_types::RichField;
@@ -16,7 +17,6 @@ use GlobalMetadata::{
 
 use crate::all_stark::{AllStark, NUM_TABLES};
 use crate::config::StarkConfig;
-use crate::cpu::bootstrap_kernel::generate_bootstrap_kernel;
 use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
@@ -42,9 +42,7 @@ use crate::witness::util::mem_write_log;
 pub struct GenerationInputs {
     pub txn_number_before: U256,
     pub gas_used_before: U256,
-    pub block_bloom_before: [U256; 8],
     pub gas_used_after: U256,
-    pub block_bloom_after: [U256; 8],
 
     // A None would yield an empty proof, otherwise this contains the encoding of a transaction.
     pub signed_txn: Option<Vec<u8>>,
@@ -149,6 +147,8 @@ fn apply_metadata_and_tries_memops<F: RichField + Extendable<D>, const D: usize>
             GlobalMetadata::ReceiptTrieRootDigestAfter,
             h2u(trie_roots_after.receipts_root),
         ),
+        (GlobalMetadata::KernelHash, h2u(KERNEL.code_hash)),
+        (GlobalMetadata::KernelLen, KERNEL.code.len().into()),
     ];
 
     let channel = MemoryChannel::GeneralPurpose(0);
@@ -172,32 +172,7 @@ fn apply_metadata_and_tries_memops<F: RichField + Extendable<D>, const D: usize>
             metadata.block_bloom[i],
         )
     }));
-    // Write the block's bloom filter before the current transaction.
-    ops.extend(
-        (0..8)
-            .map(|i| {
-                mem_write_log(
-                    channel,
-                    MemoryAddress::new(0, Segment::GlobalBlockBloom, i + 8),
-                    state,
-                    inputs.block_bloom_before[i],
-                )
-            })
-            .collect::<Vec<_>>(),
-    );
-    // Write the block's bloom filter after the current transaction.
-    ops.extend(
-        (0..8)
-            .map(|i| {
-                mem_write_log(
-                    channel,
-                    MemoryAddress::new(0, Segment::GlobalBlockBloom, i + 16),
-                    state,
-                    inputs.block_bloom_after[i],
-                )
-            })
-            .collect::<Vec<_>>(),
-    );
+
     // Write previous block hashes.
     ops.extend(
         (0..256)
@@ -216,6 +191,19 @@ fn apply_metadata_and_tries_memops<F: RichField + Extendable<D>, const D: usize>
     state.traces.memory_ops.extend(ops);
 }
 
+fn initialize_kernel_code<F: RichField + Extendable<D>, const D: usize>(
+    state: &mut GenerationState<F>,
+) {
+    for (i, &byte) in enumerate(KERNEL.code.iter()) {
+        let address = MemoryAddress {
+            context: 0,
+            segment: Segment::Code as usize,
+            virt: i,
+        };
+        state.memory.set(address, byte.into());
+    }
+}
+
 pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
     all_stark: &AllStark<F, D>,
     inputs: GenerationInputs,
@@ -231,7 +219,7 @@ pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
 
     apply_metadata_and_tries_memops(&mut state, &inputs);
 
-    generate_bootstrap_kernel::<F>(&mut state);
+    initialize_kernel_code(&mut state);
 
     timed!(timing, "simulate CPU", simulate_cpu(&mut state)?);
 
@@ -269,8 +257,6 @@ pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
         txn_number_after,
         gas_used_before: inputs.gas_used_before,
         gas_used_after,
-        block_bloom_before: inputs.block_bloom_before,
-        block_bloom_after: inputs.block_bloom_after,
     };
 
     let public_values = PublicValues {

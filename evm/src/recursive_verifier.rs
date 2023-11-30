@@ -1,7 +1,8 @@
+use std::array::from_fn;
 use std::fmt::Debug;
 
 use anyhow::Result;
-use ethereum_types::{BigEndianHash, U256};
+use ethereum_types::{BigEndianHash, H256, U256};
 use plonky2::field::extension::Extendable;
 use plonky2::field::types::Field;
 use plonky2::fri::witness_util::set_fri_proof_target;
@@ -28,6 +29,7 @@ use plonky2_util::log2_ceil;
 use crate::all_stark::Table;
 use crate::config::StarkConfig;
 use crate::constraint_consumer::RecursiveConstraintConsumer;
+use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
 use crate::cross_table_lookup::{
     CrossTableLookup, CtlCheckVarsTarget, GrandProductChallenge, GrandProductChallengeSet,
@@ -43,7 +45,7 @@ use crate::proof::{
     TrieRootsTarget,
 };
 use crate::stark::Stark;
-use crate::util::{h256_limbs, u256_limbs, u256_to_u32, u256_to_u64};
+use crate::util::{h256_limbs, h2u, u256_limbs, u256_to_u32, u256_to_u64};
 use crate::vanishing_poly::eval_vanishing_poly_circuit;
 use crate::witness::errors::ProgramError;
 
@@ -524,27 +526,6 @@ pub(crate) fn get_memory_extra_looking_sum_circuit<F: RichField + Extendable<D>,
             &public_values.block_metadata.block_bloom[i * 8..(i + 1) * 8],
         );
     }
-    for i in 0..8 {
-        sum = add_data_write(
-            builder,
-            challenge,
-            sum,
-            bloom_segment,
-            i + 8,
-            &public_values.extra_block_data.block_bloom_before[i * 8..(i + 1) * 8],
-        );
-    }
-
-    for i in 0..8 {
-        sum = add_data_write(
-            builder,
-            challenge,
-            sum,
-            bloom_segment,
-            i + 16,
-            &public_values.extra_block_data.block_bloom_after[i * 8..(i + 1) * 8],
-        );
-    }
 
     // Add trie roots writes.
     let trie_fields = [
@@ -577,6 +558,27 @@ pub(crate) fn get_memory_extra_looking_sum_circuit<F: RichField + Extendable<D>,
     trie_fields.map(|(field, targets)| {
         sum = add_data_write(builder, challenge, sum, metadata_segment, field, &targets);
     });
+
+    // Add kernel hash and kernel length.
+    let kernel_hash_limbs = h256_limbs::<F>(KERNEL.code_hash);
+    let kernel_hash_targets: [Target; 8] = from_fn(|i| builder.constant(kernel_hash_limbs[i]));
+    sum = add_data_write(
+        builder,
+        challenge,
+        sum,
+        metadata_segment,
+        GlobalMetadata::KernelHash as usize,
+        &kernel_hash_targets,
+    );
+    let kernel_len_target = builder.constant(F::from_canonical_usize(KERNEL.code.len()));
+    sum = add_data_write(
+        builder,
+        challenge,
+        sum,
+        metadata_segment,
+        GlobalMetadata::KernelLen as usize,
+        &[kernel_len_target],
+    );
 
     sum
 }
@@ -715,16 +717,12 @@ pub(crate) fn add_virtual_extra_block_data<F: RichField + Extendable<D>, const D
     let txn_number_after = builder.add_virtual_public_input();
     let gas_used_before = builder.add_virtual_public_input();
     let gas_used_after = builder.add_virtual_public_input();
-    let block_bloom_before: [Target; 64] = builder.add_virtual_public_input_arr();
-    let block_bloom_after: [Target; 64] = builder.add_virtual_public_input_arr();
     ExtraBlockDataTarget {
         genesis_state_trie_root,
         txn_number_before,
         txn_number_after,
         gas_used_before,
         gas_used_after,
-        block_bloom_before,
-        block_bloom_after,
     }
 }
 
@@ -994,22 +992,6 @@ where
     );
     witness.set_target(ed_target.gas_used_before, u256_to_u32(ed.gas_used_before)?);
     witness.set_target(ed_target.gas_used_after, u256_to_u32(ed.gas_used_after)?);
-
-    let block_bloom_before = ed.block_bloom_before;
-    let mut block_bloom_limbs = [F::ZERO; 64];
-    for (i, limbs) in block_bloom_limbs.chunks_exact_mut(8).enumerate() {
-        limbs.copy_from_slice(&u256_limbs(block_bloom_before[i]));
-    }
-
-    witness.set_target_arr(&ed_target.block_bloom_before, &block_bloom_limbs);
-
-    let block_bloom_after = ed.block_bloom_after;
-    let mut block_bloom_limbs = [F::ZERO; 64];
-    for (i, limbs) in block_bloom_limbs.chunks_exact_mut(8).enumerate() {
-        limbs.copy_from_slice(&u256_limbs(block_bloom_after[i]));
-    }
-
-    witness.set_target_arr(&ed_target.block_bloom_after, &block_bloom_limbs);
 
     Ok(())
 }

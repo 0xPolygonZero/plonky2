@@ -45,6 +45,7 @@ impl<F: Field> GenerationState<F> {
             "account_code" => self.run_account_code(input_fn),
             "bignum_modmul" => self.run_bignum_modmul(),
             "withdrawal" => self.run_withdrawal(),
+            "num_bits" => self.run_num_bits(),
             _ => Err(ProgramError::ProverInputError(InvalidFunction)),
         }
     }
@@ -220,6 +221,18 @@ impl<F: Field> GenerationState<F> {
         self.withdrawal_prover_inputs
             .pop()
             .ok_or(ProgramError::ProverInputError(OutOfWithdrawalData))
+    }
+
+    /// Return the number of bits of the top of the stack or an error if
+    /// the top of the stack is zero or empty.
+    fn run_num_bits(&mut self) -> Result<U256, ProgramError> {
+        let value = stack_peek(self, 0)?;
+        if value.is_zero() {
+            Err(ProgramError::ProverInputError(NumBitsError))
+        } else {
+            let num_bits = value.bits();
+            Ok(num_bits.into())
+        }
     }
 }
 

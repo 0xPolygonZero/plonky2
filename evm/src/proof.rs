@@ -140,12 +140,6 @@ pub struct ExtraBlockData {
     /// The accumulated gas used after execution of the local state transition. It should
     /// match the `block_gas_used` value after execution of the last transaction in a block.
     pub gas_used_after: U256,
-    /// The accumulated bloom filter of this block prior execution of the local state transition,
-    /// starting with all zeros for the initial transaction of a block.
-    pub block_bloom_before: [U256; 8],
-    /// The accumulated bloom filter after execution of the local state transition. It should
-    /// match the `block_bloom` value after execution of the last transaction in a block.
-    pub block_bloom_after: [U256; 8],
 }
 
 /// Memory values which are public.
@@ -224,16 +218,12 @@ impl PublicValuesTarget {
             txn_number_after,
             gas_used_before,
             gas_used_after,
-            block_bloom_before,
-            block_bloom_after,
         } = self.extra_block_data;
         buffer.write_target_array(&genesis_state_root)?;
         buffer.write_target(txn_number_before)?;
         buffer.write_target(txn_number_after)?;
         buffer.write_target(gas_used_before)?;
         buffer.write_target(gas_used_after)?;
-        buffer.write_target_array(&block_bloom_before)?;
-        buffer.write_target_array(&block_bloom_after)?;
 
         Ok(())
     }
@@ -276,8 +266,6 @@ impl PublicValuesTarget {
             txn_number_after: buffer.read_target()?,
             gas_used_before: buffer.read_target()?,
             gas_used_after: buffer.read_target()?,
-            block_bloom_before: buffer.read_target_array()?,
-            block_bloom_after: buffer.read_target_array()?,
         };
 
         Ok(Self {
@@ -642,17 +630,11 @@ pub(crate) struct ExtraBlockDataTarget {
     /// `Target` for the accumulated gas used after execution of the local state transition. It should
     /// match the `block_gas_used` value after execution of the last transaction in a block.
     pub gas_used_after: Target,
-    /// `Target`s for the accumulated bloom filter of this block prior execution of the local state transition,
-    /// starting with all zeros for the initial transaction of a block.
-    pub block_bloom_before: [Target; 64],
-    /// `Target`s for the accumulated bloom filter after execution of the local state transition. It should
-    /// match the `block_bloom` value after execution of the last transaction in a block.
-    pub block_bloom_after: [Target; 64],
 }
 
 impl ExtraBlockDataTarget {
     /// Number of `Target`s required for the extra block data.
-    const SIZE: usize = 140;
+    const SIZE: usize = 12;
 
     /// Extracts the extra block data `Target`s from the public input `Target`s.
     /// The provided `pis` should start with the extra vblock data.
@@ -662,8 +644,6 @@ impl ExtraBlockDataTarget {
         let txn_number_after = pis[9];
         let gas_used_before = pis[10];
         let gas_used_after = pis[11];
-        let block_bloom_before = pis[12..76].try_into().unwrap();
-        let block_bloom_after = pis[76..140].try_into().unwrap();
 
         Self {
             genesis_state_trie_root,
@@ -671,8 +651,6 @@ impl ExtraBlockDataTarget {
             txn_number_after,
             gas_used_before,
             gas_used_after,
-            block_bloom_before,
-            block_bloom_after,
         }
     }
 
@@ -700,20 +678,6 @@ impl ExtraBlockDataTarget {
             txn_number_after: builder.select(condition, ed0.txn_number_after, ed1.txn_number_after),
             gas_used_before: builder.select(condition, ed0.gas_used_before, ed1.gas_used_before),
             gas_used_after: builder.select(condition, ed0.gas_used_after, ed1.gas_used_after),
-            block_bloom_before: core::array::from_fn(|i| {
-                builder.select(
-                    condition,
-                    ed0.block_bloom_before[i],
-                    ed1.block_bloom_before[i],
-                )
-            }),
-            block_bloom_after: core::array::from_fn(|i| {
-                builder.select(
-                    condition,
-                    ed0.block_bloom_after[i],
-                    ed1.block_bloom_after[i],
-                )
-            }),
         }
     }
 
@@ -733,12 +697,6 @@ impl ExtraBlockDataTarget {
         builder.connect(ed0.txn_number_after, ed1.txn_number_after);
         builder.connect(ed0.gas_used_before, ed1.gas_used_before);
         builder.connect(ed1.gas_used_after, ed1.gas_used_after);
-        for i in 0..64 {
-            builder.connect(ed0.block_bloom_before[i], ed1.block_bloom_before[i]);
-        }
-        for i in 0..64 {
-            builder.connect(ed0.block_bloom_after[i], ed1.block_bloom_after[i]);
-        }
     }
 }
 

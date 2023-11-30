@@ -13,6 +13,7 @@ use plonky2::plonk::plonk_common::reduce_with_powers;
 use crate::all_stark::{AllStark, Table, NUM_TABLES};
 use crate::config::StarkConfig;
 use crate::constraint_consumer::ConstraintConsumer;
+use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
 use crate::cross_table_lookup::{
     verify_cross_table_lookups, CtlCheckVars, GrandProductChallenge, GrandProductChallengeSet,
@@ -140,9 +141,9 @@ where
     )
 }
 
-/// Computes the extra sum to add to the looked value. It contains memory operations not in the CPU trace:
-/// - block metadata writes before kernel bootstrapping,
-/// - trie roots writes before kernel bootstrapping.
+/// Computes the extra product to multiply to the looked value. It contains memory operations not in the CPU trace:
+/// - block metadata writes,
+/// - trie roots writes.
 pub(crate) fn get_memory_extra_looking_sum<F, const D: usize>(
     public_values: &PublicValues,
     challenge: GrandProductChallenge<F>,
@@ -234,6 +235,8 @@ where
             GlobalMetadata::ReceiptTrieRootDigestAfter,
             h2u(public_values.trie_roots_after.receipts_root),
         ),
+        (GlobalMetadata::KernelHash, h2u(KERNEL.code_hash)),
+        (GlobalMetadata::KernelLen, KERNEL.code.len().into()),
     ];
 
     let segment = F::from_canonical_u32(Segment::GlobalMetadata as u32);
@@ -245,15 +248,6 @@ where
     for index in 0..8 {
         let val = public_values.block_metadata.block_bloom[index];
         sum = add_data_write(challenge, bloom_segment, sum, index, val);
-    }
-
-    for index in 0..8 {
-        let val = public_values.extra_block_data.block_bloom_before[index];
-        sum = add_data_write(challenge, bloom_segment, sum, index + 8, val);
-    }
-    for index in 0..8 {
-        let val = public_values.extra_block_data.block_bloom_after[index];
-        sum = add_data_write(challenge, bloom_segment, sum, index + 16, val);
     }
 
     // Add Blockhashes writes.
@@ -549,6 +543,8 @@ pub(crate) mod testutils {
                 GlobalMetadata::ReceiptTrieRootDigestAfter,
                 h2u(public_values.trie_roots_after.receipts_root),
             ),
+            (GlobalMetadata::KernelHash, h2u(KERNEL.code_hash)),
+            (GlobalMetadata::KernelLen, KERNEL.code.len().into()),
         ];
 
         let segment = F::from_canonical_u32(Segment::GlobalMetadata as u32);
@@ -563,15 +559,6 @@ pub(crate) mod testutils {
         for index in 0..8 {
             let val = public_values.block_metadata.block_bloom[index];
             extra_looking_rows.push(add_extra_looking_row(bloom_segment, index, val));
-        }
-
-        for index in 0..8 {
-            let val = public_values.extra_block_data.block_bloom_before[index];
-            extra_looking_rows.push(add_extra_looking_row(bloom_segment, index + 8, val));
-        }
-        for index in 0..8 {
-            let val = public_values.extra_block_data.block_bloom_after[index];
-            extra_looking_rows.push(add_extra_looking_row(bloom_segment, index + 16, val));
         }
 
         // Add Blockhashes writes.

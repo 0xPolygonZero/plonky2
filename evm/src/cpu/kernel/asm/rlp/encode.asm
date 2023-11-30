@@ -283,3 +283,9 @@ global mstore_unpacking_rlp:
     PUSH @SEGMENT_RLP_RAW
     PUSH 0 // context
     %jump(mstore_unpacking)
+
+%macro mstore_unpacking_rlp
+    %stack (offset, value, len) -> (offset, value, len, %%after)
+    %jump(mstore_unpacking_rlp)
+%%after:
+%endmacro
