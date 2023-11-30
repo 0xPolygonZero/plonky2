@@ -214,20 +214,7 @@ fn test_log_opcodes() -> anyhow::Result<()> {
         transactions_root: transactions_trie.hash(),
         receipts_root: receipts_trie.hash(),
     };
-    let block_bloom_after = [
-        U256::from_dec_str("392318858461667547739736838950479151006397215279002157056").unwrap(),
-        0.into(),
-        U256::from_dec_str(
-            "55213970774324510299478046898216203619608871777363092441300193790394368",
-        )
-        .unwrap(),
-        U256::from_dec_str("1361129467683753853853498429727072845824").unwrap(),
-        U256::from_dec_str("33554432").unwrap(),
-        U256::from_dec_str("98079714615416886934934209737619787760822675856605315072").unwrap(),
-        U256::from_dec_str("262144").unwrap(),
-        U256::from_dec_str("6739986666787659948666753771754908317446393422488596686587943714816")
-            .unwrap(),
-    ];
+
     let inputs = GenerationInputs {
         signed_txn: Some(txn.to_vec()),
         withdrawals: vec![],
@@ -239,8 +226,6 @@ fn test_log_opcodes() -> anyhow::Result<()> {
         txn_number_before: 0.into(),
         gas_used_before: 0.into(),
         gas_used_after: gas_used.into(),
-        block_bloom_before: [0.into(); 8],
-        block_bloom_after,
 
         block_hashes: BlockHashes {
             prev_hashes: vec![H256::default(); 256],
@@ -447,8 +432,6 @@ fn test_log_with_aggreg() -> anyhow::Result<()> {
         txn_number_before: 0.into(),
         gas_used_before: 0.into(),
         gas_used_after: 21000u64.into(),
-        block_bloom_before: [0.into(); 8],
-        block_bloom_after: [0.into(); 8],
         block_hashes: BlockHashes {
             prev_hashes: vec![H256::default(); 256],
             cur_hash: H256::default(),
@@ -459,7 +442,7 @@ fn test_log_with_aggreg() -> anyhow::Result<()> {
     // Preprocess all circuits.
     let all_circuits = AllRecursiveCircuits::<F, C, D>::new(
         &all_stark,
-        &[16..17, 15..16, 17..18, 14..15, 10..11, 12..13, 19..20],
+        &[16..17, 14..16, 16..18, 14..15, 10..11, 12..13, 19..20],
         &config,
     );
 
@@ -470,8 +453,7 @@ fn test_log_with_aggreg() -> anyhow::Result<()> {
     timing.filter(Duration::from_millis(100)).print();
     all_circuits.verify_root(root_proof_first.clone())?;
 
-    // The output bloom filter, gas used and transaction number are fed to the next transaction, so the two proofs can be correctly aggregated.
-    let block_bloom_second = public_values_first.extra_block_data.block_bloom_after;
+    // The gas used and transaction number are fed to the next transaction, so the two proofs can be correctly aggregated.
     let gas_used_second = public_values_first.extra_block_data.gas_used_after;
 
     // Prove second transaction. In this second transaction, the code with logs is executed.
@@ -565,22 +547,6 @@ fn test_log_with_aggreg() -> anyhow::Result<()> {
         receipts_root: receipts_trie.hash(),
     };
 
-    let block_bloom_final = [
-        0.into(),
-        0.into(),
-        U256::from_dec_str(
-            "55213970774324510299479508399853534522527075462195808724319849722937344",
-        )
-        .unwrap(),
-        U256::from_dec_str("1361129467683753853853498429727072845824").unwrap(),
-        U256::from_dec_str("33554432").unwrap(),
-        U256::from_dec_str("9223372036854775808").unwrap(),
-        U256::from_dec_str(
-            "3618502788666131106986593281521497120414687020801267626233049500247285563392",
-        )
-        .unwrap(),
-        U256::from_dec_str("2722259584404615024560450425766186844160").unwrap(),
-    ];
     let inputs = GenerationInputs {
         signed_txn: Some(txn_2.to_vec()),
         withdrawals: vec![],
@@ -592,8 +558,6 @@ fn test_log_with_aggreg() -> anyhow::Result<()> {
         txn_number_before: 1.into(),
         gas_used_before: gas_used_second,
         gas_used_after: receipt.cum_gas_used,
-        block_bloom_before: block_bloom_second,
-        block_bloom_after: block_bloom_final,
         block_hashes: BlockHashes {
             prev_hashes: vec![H256::default(); 256],
             cur_hash: H256::default(),

@@ -42,9 +42,7 @@ use crate::witness::util::mem_write_log;
 pub struct GenerationInputs {
     pub txn_number_before: U256,
     pub gas_used_before: U256,
-    pub block_bloom_before: [U256; 8],
     pub gas_used_after: U256,
-    pub block_bloom_after: [U256; 8],
 
     // A None would yield an empty proof, otherwise this contains the encoding of a transaction.
     pub signed_txn: Option<Vec<u8>>,
@@ -174,32 +172,7 @@ fn apply_metadata_and_tries_memops<F: RichField + Extendable<D>, const D: usize>
             metadata.block_bloom[i],
         )
     }));
-    // Write the block's bloom filter before the current transaction.
-    ops.extend(
-        (0..8)
-            .map(|i| {
-                mem_write_log(
-                    channel,
-                    MemoryAddress::new(0, Segment::GlobalBlockBloom, i + 8),
-                    state,
-                    inputs.block_bloom_before[i],
-                )
-            })
-            .collect::<Vec<_>>(),
-    );
-    // Write the block's bloom filter after the current transaction.
-    ops.extend(
-        (0..8)
-            .map(|i| {
-                mem_write_log(
-                    channel,
-                    MemoryAddress::new(0, Segment::GlobalBlockBloom, i + 16),
-                    state,
-                    inputs.block_bloom_after[i],
-                )
-            })
-            .collect::<Vec<_>>(),
-    );
+
     // Write previous block hashes.
     ops.extend(
         (0..256)
@@ -284,8 +257,6 @@ pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
         txn_number_after,
         gas_used_before: inputs.gas_used_before,
         gas_used_after,
-        block_bloom_before: inputs.block_bloom_before,
-        block_bloom_after: inputs.block_bloom_after,
     };
 
     let public_values = PublicValues {

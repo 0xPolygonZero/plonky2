@@ -744,19 +744,6 @@ where
 
         // Connect lhs `gas_used_after` with rhs `gas_used_before`.
         builder.connect(lhs.gas_used_after, rhs.gas_used_before);
-
-        // Connect the `block_bloom` in public values to the lhs and rhs values correctly.
-        for (&limb0, &limb1) in pvs.block_bloom_after.iter().zip(&rhs.block_bloom_after) {
-            builder.connect(limb0, limb1);
-        }
-        for (&limb0, &limb1) in pvs.block_bloom_before.iter().zip(&lhs.block_bloom_before) {
-            builder.connect(limb0, limb1);
-        }
-
-        // Connect lhs `block_bloom_after` with rhs `block_bloom_before`.
-        for (&limb0, &limb1) in lhs.block_bloom_after.iter().zip(&rhs.block_bloom_before) {
-            builder.connect(limb0, limb1);
-        }
     }
 
     fn add_agg_child(
@@ -928,15 +915,6 @@ where
             x.block_metadata.block_gas_used,
             x.extra_block_data.gas_used_after,
         );
-
-        for (&limb0, &limb1) in x
-            .block_metadata
-            .block_bloom
-            .iter()
-            .zip(&x.extra_block_data.block_bloom_after)
-        {
-            builder.connect(limb0, limb1);
-        }
     }
 
     fn connect_initial_values_block(builder: &mut CircuitBuilder<F, D>, x: &PublicValuesTarget)
@@ -947,11 +925,6 @@ where
         builder.assert_zero(x.extra_block_data.txn_number_before);
         // The initial gas used is 0.
         builder.assert_zero(x.extra_block_data.gas_used_before);
-
-        // The initial bloom filter is all zeroes.
-        for t in x.extra_block_data.block_bloom_before {
-            builder.assert_zero(t);
-        }
 
         // The transactions and receipts tries are empty at the beginning of the block.
         let initial_trie = HashedPartialTrie::from(Node::Empty).hash();
@@ -1058,8 +1031,6 @@ where
                 txn_number_after: rhs_public_values.extra_block_data.txn_number_after,
                 gas_used_before: lhs_public_values.extra_block_data.gas_used_before,
                 gas_used_after: rhs_public_values.extra_block_data.gas_used_after,
-                block_bloom_before: lhs_public_values.extra_block_data.block_bloom_before,
-                block_bloom_after: rhs_public_values.extra_block_data.block_bloom_after,
             },
             block_metadata: rhs_public_values.block_metadata,
             block_hashes: rhs_public_values.block_hashes,

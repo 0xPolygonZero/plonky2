@@ -250,15 +250,6 @@ where
         prod = add_data_write(challenge, bloom_segment, prod, index, val);
     }
 
-    for index in 0..8 {
-        let val = public_values.extra_block_data.block_bloom_before[index];
-        prod = add_data_write(challenge, bloom_segment, prod, index + 8, val);
-    }
-    for index in 0..8 {
-        let val = public_values.extra_block_data.block_bloom_after[index];
-        prod = add_data_write(challenge, bloom_segment, prod, index + 16, val);
-    }
-
     // Add Blockhashes writes.
     let block_hashes_segment = F::from_canonical_u32(Segment::BlockHashes as u32);
     for index in 0..256 {
@@ -568,15 +559,6 @@ pub(crate) mod testutils {
         for index in 0..8 {
             let val = public_values.block_metadata.block_bloom[index];
             extra_looking_rows.push(add_extra_looking_row(bloom_segment, index, val));
-        }
-
-        for index in 0..8 {
-            let val = public_values.extra_block_data.block_bloom_before[index];
-            extra_looking_rows.push(add_extra_looking_row(bloom_segment, index + 8, val));
-        }
-        for index in 0..8 {
-            let val = public_values.extra_block_data.block_bloom_after[index];
-            extra_looking_rows.push(add_extra_looking_row(bloom_segment, index + 16, val));
         }
 
         // Add Blockhashes writes.

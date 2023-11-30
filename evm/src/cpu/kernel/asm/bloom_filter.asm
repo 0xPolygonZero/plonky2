@@ -147,26 +147,13 @@ logs_bloom_end:
     PUSH 7 SUB
     PUSH 1 SWAP1 SHL
     // Updates the current txn bloom filter.
-    // stack: one_shifted_by_index, byte_index, byte_bit_index
-    DUP2 DUP1
-    // stack: byte_index, byte_index, one_shifted_by_index, byte_index, byte_bit_index
-    // load bloom_byte from current txn bloom filter
-    %mload_kernel(@SEGMENT_TXN_BLOOM)
-    %stack (old_bloom_byte, byte_index, one_shifted_by_index) -> (old_bloom_byte, one_shifted_by_index, byte_index, one_shifted_by_index)
-    OR
-    // stack: new_bloom_byte, byte_index, one_shifted_by_index, byte_index, byte_bit_index
-    SWAP1
-    %mstore_kernel(@SEGMENT_TXN_BLOOM)
-    // stack: one_shifted_by_index, byte_index, byte_bit_index
-
-    // Updates the block bloom filter.
     SWAP2 POP DUP1
-    %mload_kernel(@SEGMENT_BLOCK_BLOOM)
+    %mload_kernel(@SEGMENT_TXN_BLOOM)
     // stack: old_bloom_byte, byte_index, one_shifted_by_index
     DUP3 OR
     // stack: new_bloom_byte, byte_index, one_shifted_by_index
     SWAP1
-    %mstore_kernel(@SEGMENT_BLOCK_BLOOM)
+    %mstore_kernel(@SEGMENT_TXN_BLOOM)
     // stack: one_shifted_by_index
     POP
     // stack: empty

@@ -20,8 +20,6 @@ Those prover provided values are stored in memory prior to entering the kernel, 
     \item the previous transaction number: $t_n$,
     \item the gas used before executing the current transaction: $g\_u_0$,
     \item the gas used after executing the current transaction: $g\_u_1$,
-    \item the block bloom filter before executing the current transaction: $b\_f_0$
-    \item the block bloom filter after executing the current transaction: $b\_f_1$,
     \item the state, transaction and receipts MPTs before executing the current transaction: $\texttt{tries}_0$,
     \item the hash of all MPTs before executing the current transaction: $\texttt{digests}_0$,
     \item the hash of all MPTs after executing the current transaction: $\texttt{digests}_1$,
@@ -31,7 +29,6 @@ Those prover provided values are stored in memory prior to entering the kernel, 
 \paragraph*{Initialization:} The first step consists in initializing:
 \begin{itemize}
     \item The shift table: it maps the number of bit shifts $s$ with its shifted value $1 << s$. Note that $0 \leq s \leq 255$.
-    \item The block bloom filter: the current block bloom filter is initialized with $b\_f_0$.
     \item The initial MPTs: the initial state, transaction and receipt tries $\texttt{tries}_0$ are loaded from memory and hashed. The hashes are then compared to $\texttt{digests}\_0$.
     \item We load the transaction number $t\_n$ and the current gas used $g\_u_0$ from memory.
 \end{itemize}
@@ -40,7 +37,7 @@ If no transaction is provided, we can halt after this initialization. Otherwise,
 
 The processing of the transaction returns a boolean ``success'' that indicates whether the transaction was executed successfully, along with the leftover gas. 
 
-The following step is then to update the receipts MPT. Here, we update the transaction's bloom filter and the block bloom filter. We store ``success'', the leftover gas, the transaction bloom filter and the logs in memory. We also store some additional information that facilitates the RLP encoding of the receipts later.
+The following step is then to update the receipts MPT. Here, we update the transaction's bloom filter. We store ``success'', the leftover gas, the transaction bloom filter and the logs in memory. We also store some additional information that facilitates the RLP encoding of the receipts later.
 
 If there are any withdrawals, they are performed at this stage.
 
@@ -48,7 +45,6 @@ Finally, once the three MPTs have been updated, we need to carry out final check
 \begin{itemize}
     \item the gas used after the execution is equal to $g\_u_1$,
     \item the new transaction number is $n+1$ if there was a transaction,
-    \item the updated block bloom filter is equal to $b\_f_1$,
     \item the three MPTs are hashed and checked against $\texttt{digests}_1$.
 \end{itemize}
 Once those final checks are performed, the program halts.
