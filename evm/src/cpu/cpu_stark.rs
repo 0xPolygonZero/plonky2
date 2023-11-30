@@ -49,7 +49,13 @@ pub(crate) fn ctl_data_keccak_sponge<F: Field>() -> Vec<Column<F>> {
 
 /// CTL filter for a call to the Keccak sponge.
 pub(crate) fn ctl_filter_keccak_sponge<F: Field>() -> Filter<F> {
-    Filter::new_simple(Column::single(COL_MAP.is_keccak_sponge))
+    Filter::new(
+        vec![(
+            Column::single(COL_MAP.op.jumpdest_keccak_general),
+            Column::linear_combination_with_constant([(COL_MAP.opcode_bits[1], -F::ONE)], F::ONE),
+        )],
+        vec![],
+    )
 }
 
 /// Creates the vector of `Columns` corresponding to the two inputs and
