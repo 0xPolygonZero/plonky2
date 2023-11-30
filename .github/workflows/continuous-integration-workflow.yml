@@ -85,7 +85,7 @@ jobs:
   wasm32:
     name: wasm32 compatibility
     runs-on: ubuntu-latest
-    if: "! contains(toJSON(github.event.commits.*.message), '[skip-ci]')"
+    if: true
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
