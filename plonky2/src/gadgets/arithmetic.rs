@@ -16,6 +16,7 @@ use crate::iop::witness::{PartitionWitness, Witness, WitnessWrite};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::circuit_data::CommonCircuitData;
 use crate::util::serialization::{Buffer, IoResult, Read, Write};
+use crate::zkcir_test_util::target_to_ast;
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Computes `-x`.
@@ -214,29 +215,21 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn mul(&mut self, x: Target, y: Target) -> Target {
         // x * y = 1 * x * y + 0 * x
 
-        if self.cir_mutex.try_lock().is_ok() {
+        let res = self.arithmetic(F::ONE, F::ZERO, x, y, x);
+
+        if self.cir_mutex.try_lock().is_some() {
             self.cir.add_expression(Expression::BinaryOperator {
-                lhs: match x {
-                    Target::Wire(w) => Box::new(zkcir::ast::Expression::Wire(
-                        zkcir::ast::Wire::new(w.row, w.column),
-                    )),
-                    Target::VirtualTarget { index } => Box::new(
-                        zkcir::ast::Expression::VirtualWire(zkcir::ast::VirtualWire::new(index)),
-                    ),
-                },
+                lhs: Box::new(target_to_ast(x)),
                 binop: BinOp::Multiply,
-                rhs: match y {
-                    Target::Wire(w) => Box::new(zkcir::ast::Expression::Wire(
-                        zkcir::ast::Wire::new(w.row, w.column),
-                    )),
-                    Target::VirtualTarget { index } => Box::new(
-                        zkcir::ast::Expression::VirtualWire(zkcir::ast::VirtualWire::new(index)),
-                    ),
-                },
+                rhs: Box::new(target_to_ast(y)),
+                result: Some(Box::new(match res {
+                    Target::Wire(w) => zkcir::ast::Wire::new(w.row, w.column).into(),
+                    Target::VirtualTarget { index } => zkcir::ast::VirtualWire::new(index).into(),
+                })),
             });
         }
 
-        self.arithmetic(F::ONE, F::ZERO, x, y, x)
+        res
     }
 
     /// Multiply `n` `Target`s.

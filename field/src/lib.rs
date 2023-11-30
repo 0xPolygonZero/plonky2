@@ -26,6 +26,7 @@ pub mod secp256k1_base;
 pub mod secp256k1_scalar;
 pub mod types;
 pub mod zero_poly_coset;
+pub mod zkcir_rand;
 
 #[cfg(test)]
 mod field_testing;

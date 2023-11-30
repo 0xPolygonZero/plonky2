@@ -3,7 +3,6 @@ use alloc::sync::Arc;
 use alloc::vec;
 use alloc::vec::Vec;
 use core::cmp::max;
-use std::sync::Mutex;
 #[cfg(feature = "std")]
 use std::time::Instant;
 
@@ -11,6 +10,7 @@ use hashbrown::{HashMap, HashSet};
 use itertools::Itertools;
 use log::{debug, info, Level};
 use plonky2_util::ceil_div_usize;
+use spin::Mutex;
 use zkcir::ir::CirBuilder;
 
 use crate::field::cosets::get_unique_coset_shifts;
@@ -54,7 +54,7 @@ use crate::util::context_tree::ContextTree;
 use crate::util::partial_products::num_partial_products;
 use crate::util::timing::TimingTree;
 use crate::util::{log2_ceil, log2_strict, transpose, transpose_poly_values};
-use crate::zkcir_test_util::set_cir;
+use crate::zkcir_test_util::{set_last_cir_data, CirData};
 
 /// Number of random coins needed for lookups (for each challenge).
 /// A coin is a randomly sampled extension field element from the verifier,
@@ -1190,14 +1190,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn build<C: GenericConfig<D, F = F>>(mut self) -> CircuitData<F, C, D> {
         self.cir.num_wires(self.config.num_wires as u64);
 
-        if let Ok(zkcir_circuit) = self.cir.to_cli_string() {
-            println!("{:?}", zkcir_circuit);
-            set_cir(
-                self.cir
-                    .to_string()
-                    .unwrap_or("ERROR GETTING CIR OUTPUT".to_string()),
-            );
-        }
+        // Hand off cir to prover/verifier
+        set_last_cir_data(CirData {
+            cir: self.cir.to_owned(),
+        });
 
         self.build_with_options(true)
     }

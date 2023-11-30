@@ -17,6 +17,13 @@
             "index": 0,
             "value": null
           }
+        },
+        "result": {
+          "Wire": {
+            "row": 0,
+            "column": 3,
+            "value": "Random"
+          }
         }
       }
     }

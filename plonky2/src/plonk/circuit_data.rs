@@ -37,6 +37,7 @@ use crate::util::serialization::{
     Buffer, GateSerializer, IoResult, Read, WitnessGeneratorSerializer, Write,
 };
 use crate::util::timing::TimingTree;
+use crate::zkcir_test_util::{self};
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct CircuitConfig {
@@ -158,6 +159,26 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     }
 
     pub fn prove(&self, inputs: PartialWitness<F>) -> Result<ProofWithPublicInputs<F, C, D>> {
+        let mut cir_data = zkcir_test_util::get_last_cir_data();
+
+        for (target, value) in &inputs.target_values {
+            match &target {
+                Target::Wire(wire) => {
+                    cir_data.cir.set_wire_value(
+                        wire.row,
+                        wire.column,
+                        zkcir::ast::Value::RandomU64(value.to_canonical_u64()),
+                    );
+                }
+                Target::VirtualTarget { index } => {
+                    cir_data.cir.set_virtual_wire_value(
+                        *index,
+                        zkcir::ast::Value::RandomU64(value.to_canonical_u64()),
+                    );
+                }
+            }
+        }
+
         prove::<F, C, D>(
             &self.prover_only,
             &self.common,
@@ -167,6 +188,26 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     }
 
     pub fn verify(&self, proof_with_pis: ProofWithPublicInputs<F, C, D>) -> Result<()> {
+        let random_values = &plonky2_field::zkcir_rand::get_last_cir_data().random_values;
+
+        for expression in &mut zkcir_test_util::get_last_cir_data().cir.expressions {
+            expression.visit_wires(&mut |wire| {
+                if let Some(zkcir::ast::Value::U64(value)) = wire.value {
+                    if random_values.contains(&value) {
+                        wire.value = Some(zkcir::ast::Value::RandomU64(value));
+                    }
+                }
+            });
+
+            expression.visit_virtual_wires(&mut |wire| {
+                if let Some(zkcir::ast::Value::U64(value)) = wire.value {
+                    if random_values.contains(&value) {
+                        wire.value = Some(zkcir::ast::Value::RandomU64(value));
+                    }
+                }
+            });
+        }
+
         verify::<F, C, D>(proof_with_pis, &self.verifier_only, &self.common)
     }
 

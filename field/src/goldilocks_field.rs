@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::ops::Square;
 use crate::types::{Field, Field64, PrimeField, PrimeField64, Sample};
+use crate::zkcir_rand;
 
 const EPSILON: u64 = (1 << 32) - 1;
 
@@ -63,7 +64,9 @@ impl Sample for GoldilocksField {
         R: rand::RngCore + ?Sized,
     {
         use rand::Rng;
-        Self::from_canonical_u64(rng.gen_range(0..Self::ORDER))
+        let num = rng.gen_range(0..Self::ORDER);
+        zkcir_rand::get_last_cir_data().random_values.insert(num);
+        Self::from_canonical_u64(num)
     }
 }
 

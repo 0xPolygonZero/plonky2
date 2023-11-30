@@ -9,7 +9,7 @@
           "lhs": {
             "VirtualWire": {
               "index": 0,
-              "value": null
+              "value": "Random"
             }
           },
           "binop": "LessThan",
@@ -21,9 +21,11 @@
               "binop": "Exponent",
               "rhs": {
                 "Int": 6
-              }
+              },
+              "result": null
             }
-          }
+          },
+          "result": null
         }
       }
     }
