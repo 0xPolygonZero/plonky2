@@ -82,7 +82,7 @@ fn test_empty_txn_list() -> anyhow::Result<()> {
     // that is wrong for testing purposes, see below.
     let mut all_circuits = AllRecursiveCircuits::<F, C, D>::new(
         &all_stark,
-        &[16..17, 10..11, 12..13, 14..15, 9..11, 12..13, 18..19], // Minimal ranges to prove an empty list
+        &[16..17, 10..11, 11..12, 14..15, 9..11, 12..13, 17..18], // Minimal ranges to prove an empty list
         &config,
     );
 
@@ -124,7 +124,7 @@ fn test_empty_txn_list() -> anyhow::Result<()> {
     // We pass an empty range if we don't want to add different table sizes.
     all_circuits.expand(
         &all_stark,
-        &[0..0, 0..0, 15..16, 0..0, 0..0, 0..0, 0..0],
+        &[0..0, 0..0, 12..13, 0..0, 0..0, 0..0, 0..0],
         &StarkConfig::standard_fast_config(),
     );
 

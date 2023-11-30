@@ -1,7 +1,8 @@
+use std::array::from_fn;
 use std::fmt::Debug;
 
 use anyhow::Result;
-use ethereum_types::{BigEndianHash, U256};
+use ethereum_types::{BigEndianHash, H256, U256};
 use plonky2::field::extension::Extendable;
 use plonky2::field::types::Field;
 use plonky2::fri::witness_util::set_fri_proof_target;
@@ -28,6 +29,7 @@ use plonky2_util::log2_ceil;
 use crate::all_stark::Table;
 use crate::config::StarkConfig;
 use crate::constraint_consumer::RecursiveConstraintConsumer;
+use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
 use crate::cross_table_lookup::{
     CrossTableLookup, CtlCheckVarsTarget, GrandProductChallenge, GrandProductChallengeSet,
@@ -43,7 +45,7 @@ use crate::proof::{
     TrieRootsTarget,
 };
 use crate::stark::Stark;
-use crate::util::{h256_limbs, u256_limbs, u256_to_u32, u256_to_u64};
+use crate::util::{h256_limbs, h2u, u256_limbs, u256_to_u32, u256_to_u64};
 use crate::vanishing_poly::eval_vanishing_poly_circuit;
 use crate::witness::errors::ProgramError;
 
@@ -601,6 +603,27 @@ pub(crate) fn get_memory_extra_looking_products_circuit<
             &targets,
         );
     });
+
+    // Add kernel hash and kernel length.
+    let kernel_hash_limbs = h256_limbs::<F>(KERNEL.code_hash);
+    let kernel_hash_targets: [Target; 8] = from_fn(|i| builder.constant(kernel_hash_limbs[i]));
+    product = add_data_write(
+        builder,
+        challenge,
+        product,
+        metadata_segment,
+        GlobalMetadata::KernelHash as usize,
+        &kernel_hash_targets,
+    );
+    let kernel_len_target = builder.constant(F::from_canonical_usize(KERNEL.code.len()));
+    product = add_data_write(
+        builder,
+        challenge,
+        product,
+        metadata_segment,
+        GlobalMetadata::KernelLen as usize,
+        &[kernel_len_target],
+    );
 
     product
 }
