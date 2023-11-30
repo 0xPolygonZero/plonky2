@@ -102,7 +102,14 @@ where
                     timing,
                     &format!("compute trace commitment for {:?}", table),
                     PolynomialBatch::<F, C, D>::from_values(
-                        trace, rate_bits, false, cap_height, timing, None,
+                        // TODO: Cloning this isn't great; consider having `from_values` accept a reference,
+                        // or having `compute_permutation_z_polys` read trace values from the `PolynomialBatch`.
+                        trace.clone(),
+                        rate_bits,
+                        false,
+                        cap_height,
+                        timing,
+                        None,
                     )
                 )
             })
@@ -373,7 +380,7 @@ where
         timing,
         "compute auxiliary polynomials commitment",
         PolynomialBatch::from_values(
-            &auxiliary_polys,
+            auxiliary_polys,
             rate_bits,
             false,
             config.fri_config.cap_height,

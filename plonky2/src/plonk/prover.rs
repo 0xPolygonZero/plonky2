@@ -171,7 +171,7 @@ where
         timing,
         "compute wires commitment",
         PolynomialBatch::<F, C, D>::from_values(
-            &wires_values,
+            wires_values,
             config.fri_config.rate_bits,
             config.zero_knowledge && PlonkOracle::WIRES.blinding,
             config.fri_config.cap_height,
@@ -238,7 +238,7 @@ where
         timing,
         "commit to partial products, Z's and, if any, lookup polynomials",
         PolynomialBatch::from_values(
-            &zs_partial_products_lookups,
+            zs_partial_products_lookups,
             config.fri_config.rate_bits,
             config.zero_knowledge && PlonkOracle::ZS_PARTIAL_PRODUCTS.blinding,
             config.fri_config.cap_height,
