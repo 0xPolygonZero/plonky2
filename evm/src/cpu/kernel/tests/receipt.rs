@@ -265,7 +265,6 @@ fn test_receipt_bloom_filter() -> Result<()> {
     logs.extend(cur_data);
     // The Bloom filter initialization is required for this test to ensure we have the correct length for the filters. Otherwise, some trailing zeroes could be missing.
     interpreter.set_memory_segment(Segment::TxnBloom, vec![0.into(); 256]); // Initialize transaction Bloom filter.
-    interpreter.set_memory_segment(Segment::BlockBloom, vec![0.into(); 256]); // Initialize block Bloom filter.
     interpreter.set_memory_segment(Segment::LogsData, logs);
     interpreter.set_memory_segment(Segment::Logs, vec![0.into()]);
     interpreter.set_global_metadata_field(GlobalMetadata::LogsLen, U256::from(1));
@@ -327,15 +326,6 @@ fn test_receipt_bloom_filter() -> Result<()> {
 
     assert_eq!(second_bloom_bytes, second_loaded_bloom);
 
-    // Check the final block Bloom.
-    let block_bloom = hex!("00000000000000000000000000000000000000000000000000800000000000000040000000005000000000000000000000000000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000008000000000000000000000000000000000000000001000000080008000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000500000000000000000000000000000002000040000000000000000000000000000000000000000000000008000000000000000000000100000000000000000000000000020000000000008000000000000000000000000").to_vec();
-    let loaded_block_bloom: Vec<u8> = interpreter
-        .get_memory_segment(Segment::BlockBloom)
-        .into_iter()
-        .map(|elt| elt.0[0] as u8)
-        .collect();
-
-    assert_eq!(block_bloom, loaded_block_bloom);
     Ok(())
 }
 

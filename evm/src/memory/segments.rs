@@ -52,9 +52,7 @@ pub(crate) enum Segment {
     TxnBloom = 26,
     /// Contains the computed bloom filter of a block.
     BlockBloom = 27,
-    /// Contains the final block bloom, and the block bloom filters before and after the current transaction.
-    /// The first eight elements are `block_metadata.block_bloom`. The next eight are `block_bloom_before`,
-    /// and the last eight are `block_bloom_after.
+    /// Contains the final block bloom.
     GlobalBlockBloom = 28,
     /// List of log pointers pointing to the LogsData segment.
     Logs = 29,
