@@ -19,8 +19,8 @@ use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
 use crate::lookup::Lookup;
 use crate::memory::columns::{
     value_limb, ADDR_CONTEXT, ADDR_SEGMENT, ADDR_VIRTUAL, CONTEXT_FIRST_CHANGE, COUNTER, FILTER,
-    FREQUENCIES, INITIALIZE_AUX, IS_READ, NUM_COLUMNS, RANGE_CHECK, SEGMENT_FIRST_CHANGE,
-    TIMESTAMP, VIRTUAL_FIRST_CHANGE,
+    FIRST_OFFSET, FREQUENCIES, INITIALIZE_AUX, IS_READ, NUM_COLUMNS, RANGE_CHECK,
+    SEGMENT_FIRST_CHANGE, TIMESTAMP, VIRTUAL_FIRST_CHANGE,
 };
 use crate::memory::VALUE_LIMBS;
 use crate::stark::Stark;
@@ -75,7 +75,7 @@ impl MemoryOp {
     }
 }
 
-/// Generates the `_FIRST_CHANGE` columns and the `RANGE_CHECK` column in the trace.
+/// Generates the `_FIRST_CHANGE` columns, the `RANGE_CHECK` column and the `FIRST_OFFSET` column in the trace.
 pub(crate) fn generate_first_change_flags_and_rc<F: RichField>(
     trace_rows: &mut [[F; NUM_COLUMNS]],
 ) {
@@ -127,6 +127,11 @@ pub(crate) fn generate_first_change_flags_and_rc<F: RichField>(
         let address_changed =
             row[CONTEXT_FIRST_CHANGE] + row[SEGMENT_FIRST_CHANGE] + row[VIRTUAL_FIRST_CHANGE];
         row[INITIALIZE_AUX] = next_segment * address_changed * next_is_read;
+
+        let next_row = trace_rows[idx + 1].as_mut_slice();
+        if context_first_change || segment_first_change {
+            next_row[FIRST_OFFSET] = next_virt;
+        }
     }
 }
 
@@ -158,8 +163,10 @@ impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
         trace_col_vecs[COUNTER] = (0..height).map(|i| F::from_canonical_usize(i)).collect();
 
         for i in 0..height {
-            let x = trace_col_vecs[RANGE_CHECK][i].to_canonical_u64() as usize;
-            trace_col_vecs[FREQUENCIES][x] += F::ONE;
+            let x_rc = trace_col_vecs[RANGE_CHECK][i].to_canonical_u64() as usize;
+            let x_fo = trace_col_vecs[FIRST_OFFSET][i].to_canonical_u64() as usize;
+            trace_col_vecs[FREQUENCIES][x_rc] += F::ONE;
+            trace_col_vecs[FREQUENCIES][x_fo] += F::ONE;
         }
     }
 
@@ -175,7 +182,7 @@ impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
     /// reads to the same address, say at timestamps 50 and 80.
     fn fill_gaps(memory_ops: &mut Vec<MemoryOp>) {
         let max_rc = memory_ops.len().next_power_of_two() - 1;
-        for (mut curr, next) in memory_ops.clone().into_iter().tuple_windows() {
+        for (mut curr, mut next) in memory_ops.clone().into_iter().tuple_windows() {
             if curr.address.context != next.address.context
                 || curr.address.segment != next.address.segment
             {
@@ -185,6 +192,15 @@ impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
                 // Similarly, the number of possible segments is a small constant, so any gap must
                 // be small. max_rc will always be much larger, as just bootloading the kernel will
                 // trigger thousands of memory operations.
+                // However, we do check that the first address accessed is range-checkable. If not,
+                // we could start at a negative address and cheat.
+                while next.address.virt > max_rc {
+                    let mut dummy_address = next.address;
+                    dummy_address.virt -= max_rc;
+                    let dummy_read = MemoryOp::new_dummy_read(dummy_address, 0, next.value);
+                    memory_ops.push(dummy_read);
+                    next = dummy_read;
+                }
             } else if curr.address.virt != next.address.virt {
                 while next.address.virt - curr.address.virt - 1 > max_rc {
                     let mut dummy_address = curr.address;
@@ -336,6 +352,12 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
             initialize_aux - next_addr_segment * not_address_unchanged * next_is_read,
         );
 
+        // Validate next first_offset. It contains (context_first_change + segment_first_change) * next_addr_virtual.
+        let first_offset = next_values[FIRST_OFFSET];
+        yield_constr.constraint_transition(
+            first_offset - (context_first_change + segment_first_change) * next_addr_virtual,
+        );
+
         for i in 0..8 {
             // Enumerate purportedly-ordered log.
             yield_constr.constraint_transition(
@@ -483,6 +505,15 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
             builder.sub_extension(initialize_aux, computed_initialize_aux);
         yield_constr.constraint_transition(builder, new_first_read_constraint);
 
+        // Validate next first_offset. It contains (context_first_change + segment_first_change) * next_addr_virtual.
+        let first_offset = next_values[FIRST_OFFSET];
+        let context_or_segment_change =
+            builder.add_extension(context_first_change, segment_first_change);
+        let computed_first_offset =
+            builder.mul_extension(context_or_segment_change, next_addr_virtual);
+        let first_offset_constraint = builder.sub_extension(first_offset, computed_first_offset);
+        yield_constr.constraint_transition(builder, first_offset_constraint);
+
         for i in 0..8 {
             // Enumerate purportedly-ordered log.
             let value_diff = builder.sub_extension(next_values_limbs[i], value_limbs[i]);
@@ -519,7 +550,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
 
     fn lookups(&self) -> Vec<Lookup> {
         vec![Lookup {
-            columns: vec![RANGE_CHECK],
+            columns: vec![RANGE_CHECK, FIRST_OFFSET],
             table_column: COUNTER,
             frequencies_column: FREQUENCIES,
         }]
