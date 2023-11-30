@@ -53,9 +53,6 @@ pub(crate) struct PartialMemoryChannelView<T: Copy> {
 #[repr(C)]
 #[derive(Clone, Copy, Eq, PartialEq, Debug)]
 pub(crate) struct CpuColumnsView<T: Copy> {
-    /// Filter. 1 if the row is part of bootstrapping the kernel code, 0 otherwise.
-    pub is_bootstrap_kernel: T,
-
     /// If CPU cycle: Current context.
     pub context: T,
 
@@ -67,10 +64,6 @@ pub(crate) struct CpuColumnsView<T: Copy> {
 
     /// If CPU cycle: The stack length.
     pub stack_len: T,
-
-    /// If CPU cycle: A prover-provided value needed to show that the instruction does not cause the
-    /// stack to underflow or overflow.
-    pub stack_len_bounds_aux: T,
 
     /// If CPU cycle: We're in kernel (privileged) mode.
     pub is_kernel_mode: T,

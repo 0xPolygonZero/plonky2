@@ -35,4 +35,5 @@ pub enum ProverInputError {
     CodeHashNotFound,
     InvalidInput,
     InvalidFunction,
+    NumBitsError,
 }

@@ -39,9 +39,6 @@ pub(crate) fn eval_packed<P: PackedField>(
 ) {
     // Validate `lv.code_context`.
     // It should be 0 if in kernel mode and `lv.context` if in user mode.
-    // Note: This doesn't need to be filtered to CPU cycles, as this should also be satisfied
-    // during Kernel bootstrapping.
-
     yield_constr.constraint(lv.code_context - (P::ONES - lv.is_kernel_mode) * lv.context);
 
     // Validate `channel.used`. It should be binary.
@@ -62,8 +59,6 @@ pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
 ) {
     // Validate `lv.code_context`.
     // It should be 0 if in kernel mode and `lv.context` if in user mode.
-    // Note: This doesn't need to be filtered to CPU cycles, as this should also be satisfied
-    // during Kernel bootstrapping.
     let diff = builder.sub_extension(lv.context, lv.code_context);
     let constr = builder.mul_sub_extension(lv.is_kernel_mode, lv.context, diff);
     yield_constr.constraint(builder, constr);

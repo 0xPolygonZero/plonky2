@@ -1,5 +1,17 @@
 global main:
-    // First, initialise the shift table
+    // First, hash the kernel code
+    %mload_global_metadata(@GLOBAL_METADATA_KERNEL_LEN)
+    PUSH 0
+    PUSH 0
+    PUSH 0
+    // stack: context, segment, virt, len
+    KECCAK_GENERAL
+    // stack: hash
+    %mload_global_metadata(@GLOBAL_METADATA_KERNEL_HASH)
+    // stack: expected_hash, hash
+    %assert_eq
+
+    // Initialise the shift table
     %shift_table_init
 
     // Initialize the block bloom filter

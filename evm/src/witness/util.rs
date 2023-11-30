@@ -8,7 +8,7 @@ use crate::byte_packing::byte_packing_stark::BytePackingOp;
 use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::kernel::keccak_util::keccakf_u8s;
 use crate::cpu::membus::NUM_CHANNELS;
-use crate::cpu::stack_bounds::MAX_USER_STACK_SIZE;
+use crate::cpu::stack::MAX_USER_STACK_SIZE;
 use crate::generation::state::GenerationState;
 use crate::keccak_sponge::columns::{KECCAK_RATE_BYTES, KECCAK_WIDTH_BYTES};
 use crate::keccak_sponge::keccak_sponge_stark::KeccakSpongeOp;

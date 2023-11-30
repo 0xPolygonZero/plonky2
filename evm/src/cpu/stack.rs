@@ -13,6 +13,36 @@ use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::membus::NUM_GP_CHANNELS;
 use crate::memory::segments::Segment;
 
+pub(crate) const MAX_USER_STACK_SIZE: usize = 1024;
+
+// We check for stack overflows here. An overflow occurs when the stack length is 1025 in user mode,
+// which can happen after a non-kernel-only, non-popping, pushing instruction/syscall.
+// The check uses `stack_len_bounds_aux`, which is either 0 if next row's `stack_len` is 1025 or
+// next row is in kernel mode, or the inverse of `nv.stack_len - 1025` otherwise.
+pub(crate) const MIGHT_OVERFLOW: OpsColumnsView<bool> = OpsColumnsView {
+    binary_op: false,
+    ternary_op: false,
+    fp254_op: false,
+    eq_iszero: false,
+    logic_op: false,
+    not_pop: false,
+    shift: false,
+    jumpdest_keccak_general: false,
+    poseidon_general: false,
+    prover_input: false,
+    jumps: false,
+    pc_push0: true,
+    push: true,
+    dup_swap: true,
+    context_op: false,
+    mload_32bytes: false,
+    mstore_32bytes: false,
+    exit_kernel: true, // Doesn't directly push, but the syscall it's returning from might.
+    m_op_general: false,
+    syscall: false,
+    exception: false,
+};
+
 /// Structure to represent opcodes stack behaviours:
 /// - number of pops
 /// - whether the opcode(s) push
@@ -275,9 +305,21 @@ pub(crate) fn eval_packed<P: PackedField>(
     nv: &CpuColumnsView<P>,
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
-    for (op, stack_behavior) in izip!(lv.op.into_iter(), STACK_BEHAVIORS.into_iter()) {
+    for (op, stack_behavior, might_overflow) in izip!(
+        lv.op.into_iter(),
+        STACK_BEHAVIORS.into_iter(),
+        MIGHT_OVERFLOW.into_iter()
+    ) {
         if let Some(stack_behavior) = stack_behavior {
             eval_packed_one(lv, nv, op, stack_behavior, yield_constr);
+        }
+
+        if might_overflow {
+            // Check for stack overflow in the next row.
+            let diff = nv.stack_len - P::Scalar::from_canonical_usize(MAX_USER_STACK_SIZE + 1);
+            let lhs = diff * lv.general.stack().stack_len_bounds_aux;
+            let rhs = P::ONES - nv.is_kernel_mode;
+            yield_constr.constraint_transition(op * (lhs - rhs));
         }
     }
 
@@ -554,7 +596,7 @@ pub(crate) fn eval_ext_circuit_one<F: RichField + Extendable<D>, const D: usize>
     yield_constr.constraint_transition(builder, constr);
 }
 
-/// Circuti version of `eval_packed`.
+/// Circuit version of `eval_packed`.
 /// Evaluates constraints for all opcodes' `StackBehavior`s.
 pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
@@ -562,9 +604,29 @@ pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     nv: &CpuColumnsView<ExtensionTarget<D>>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
-    for (op, stack_behavior) in izip!(lv.op.into_iter(), STACK_BEHAVIORS.into_iter()) {
+    for (op, stack_behavior, might_overflow) in izip!(
+        lv.op.into_iter(),
+        STACK_BEHAVIORS.into_iter(),
+        MIGHT_OVERFLOW.into_iter()
+    ) {
         if let Some(stack_behavior) = stack_behavior {
             eval_ext_circuit_one(builder, lv, nv, op, stack_behavior, yield_constr);
+        }
+
+        if might_overflow {
+            // Check for stack overflow in the next row.
+            let diff = builder.add_const_extension(
+                nv.stack_len,
+                -F::from_canonical_usize(MAX_USER_STACK_SIZE + 1),
+            );
+            let prod = builder.mul_add_extension(
+                diff,
+                lv.general.stack().stack_len_bounds_aux,
+                nv.is_kernel_mode,
+            );
+            let rhs = builder.add_const_extension(prod, -F::ONE);
+            let constr = builder.mul_extension(op, rhs);
+            yield_constr.constraint_transition(builder, constr);
         }
     }
 
