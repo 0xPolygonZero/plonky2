@@ -59,7 +59,6 @@ fn test_process_receipt() -> Result<()> {
     );
     interpreter.set_txn_field(NormalizedTxnField::GasLimit, U256::from(5000));
     interpreter.set_memory_segment(Segment::TxnBloom, vec![0.into(); 256]);
-    interpreter.set_memory_segment(Segment::BlockBloom, vec![0.into(); 256]);
     interpreter.set_memory_segment(Segment::Logs, vec![0.into()]);
     interpreter.set_global_metadata_field(GlobalMetadata::LogsPayloadLen, 58.into());
     interpreter.set_global_metadata_field(GlobalMetadata::LogsLen, U256::from(1));
@@ -560,7 +559,6 @@ fn test_bloom_two_logs() -> Result<()> {
     ];
     let mut interpreter = Interpreter::new_with_kernel(logs_bloom, initial_stack);
     interpreter.set_memory_segment(Segment::TxnBloom, vec![0.into(); 256]); // Initialize transaction Bloom filter.
-    interpreter.set_memory_segment(Segment::BlockBloom, vec![0.into(); 256]); // Initialize block Bloom filter.
     interpreter.set_memory_segment(Segment::LogsData, logs);
     interpreter.set_memory_segment(Segment::Logs, vec![0.into(), 4.into()]);
     interpreter.set_global_metadata_field(GlobalMetadata::LogsLen, U256::from(2));

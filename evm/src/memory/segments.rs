@@ -50,27 +50,25 @@ pub(crate) enum Segment {
     SelfDestructList = 25,
     /// Contains the bloom filter of a transaction.
     TxnBloom = 26,
-    /// Contains the computed bloom filter of a block.
-    BlockBloom = 27,
-    /// Contains the final block bloom.
-    GlobalBlockBloom = 28,
+    /// Contains the bloom filter present in the block header.
+    GlobalBlockBloom = 27,
     /// List of log pointers pointing to the LogsData segment.
-    Logs = 29,
-    LogsData = 30,
+    Logs = 28,
+    LogsData = 29,
     /// Journal of state changes. List of pointers to `JournalData`. Length in `GlobalMetadata`.
-    Journal = 31,
-    JournalData = 32,
-    JournalCheckpoints = 33,
+    Journal = 30,
+    JournalData = 31,
+    JournalCheckpoints = 32,
     /// List of addresses that have been touched in the current transaction.
-    TouchedAddresses = 34,
+    TouchedAddresses = 33,
     /// List of checkpoints for the current context. Length in `ContextMetadata`.
-    ContextCheckpoints = 35,
+    ContextCheckpoints = 34,
     /// List of 256 previous block hashes.
-    BlockHashes = 36,
+    BlockHashes = 35,
 }
 
 impl Segment {
-    pub(crate) const COUNT: usize = 37;
+    pub(crate) const COUNT: usize = 36;
 
     pub(crate) fn all() -> [Self; Self::COUNT] {
         [
@@ -101,7 +99,6 @@ impl Segment {
             Self::AccessedStorageKeys,
             Self::SelfDestructList,
             Self::TxnBloom,
-            Self::BlockBloom,
             Self::GlobalBlockBloom,
             Self::Logs,
             Self::LogsData,
@@ -144,7 +141,6 @@ impl Segment {
             Segment::AccessedStorageKeys => "SEGMENT_ACCESSED_STORAGE_KEYS",
             Segment::SelfDestructList => "SEGMENT_SELFDESTRUCT_LIST",
             Segment::TxnBloom => "SEGMENT_TXN_BLOOM",
-            Segment::BlockBloom => "SEGMENT_BLOCK_BLOOM",
             Segment::GlobalBlockBloom => "SEGMENT_GLOBAL_BLOCK_BLOOM",
             Segment::Logs => "SEGMENT_LOGS",
             Segment::LogsData => "SEGMENT_LOGS_DATA",
@@ -187,7 +183,6 @@ impl Segment {
             Segment::SelfDestructList => 256,
             Segment::TxnBloom => 8,
             Segment::GlobalBlockBloom => 256,
-            Segment::BlockBloom => 8,
             Segment::Logs => 256,
             Segment::LogsData => 256,
             Segment::Journal => 256,
