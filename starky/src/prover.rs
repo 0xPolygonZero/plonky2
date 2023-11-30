@@ -55,8 +55,6 @@ where
         timing,
         "compute trace commitment",
         PolynomialBatch::<F, C, D>::from_values(
-            // TODO: Cloning this isn't great; consider having `from_values` accept a reference,
-            // or having `compute_permutation_z_polys` read trace values from the `PolynomialBatch`.
             trace_poly_values.clone(),
             rate_bits,
             false,
