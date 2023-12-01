@@ -56,7 +56,7 @@ first_byte:
     SWAP1
     JUMP
     
-global remaining_bytes:
+remaining_bytes:
     // stack: rlp_pos, num_nibbles, packed_nibbles, retdest
     SWAP2
     PUSH @U256_MAX
@@ -86,7 +86,7 @@ global remaining_bytes:
     JUMP
 
 
-global rlp_header_medium:
+rlp_header_medium:
     // stack: hp_len, rlp_pos, num_nibbles, packed_nibbles, terminated, retdest
     %add_const(0x80) // value = 0x80 + hp_len
     DUP2 // offset = rlp_pos
@@ -105,7 +105,7 @@ global rlp_header_medium:
 
     %jump(first_byte)
 
-global rlp_header_large:
+rlp_header_large:
     // stack: hp_len, rlp_pos, num_nibbles, packed_nibbles, terminated, retdest
     // In practice hex-prefix length will never exceed 256, so the length of the
     // length will always be 1 byte in this case.
