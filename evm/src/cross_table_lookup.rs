@@ -611,24 +611,48 @@ fn partial_sums<F: Field>(
 ) -> PolynomialValues<F> {
     let mut partial_sum = F::ZERO;
     let degree = trace[0].len();
+    let mut filters = Vec::with_capacity(degree);
     let mut res = Vec::with_capacity(degree);
+
     for i in (0..degree).rev() {
-        let filter = if let Some(column) = filter_column {
-            column.eval_table(trace, i)
+        if let Some(column) = filter_column {
+            let filter = column.eval_table(trace, i);
+            if filter.is_one() {
+                filters.push(true);
+            } else {
+                assert_eq!(filter, F::ZERO, "Non-binary filter?");
+                filters.push(false);
+            }
         } else {
-            F::ONE
+            filters.push(false);
         };
-        if filter.is_one() {
+
+        let combined = if filters[filters.len() - 1] {
             let evals = columns
                 .iter()
                 .map(|c| c.eval_table(trace, i))
                 .collect::<Vec<_>>();
-            partial_sum += challenge.combine(evals.iter()).inverse();
+            challenge.combine(evals.iter())
         } else {
-            assert_eq!(filter, F::ZERO, "Non-binary filter?")
+            // Dummy value. Cannot be zero since it will be batch-inverted.
+            F::ONE
         };
-        res.push(partial_sum);
+        res.push(combined);
     }
+    res = F::batch_multiplicative_inverse(&res);
+
+    if !filters[0] {
+        res[0] = F::ZERO;
+    }
+
+    for i in (1..degree) {
+        let mut cur_value = res[i - 1];
+        if filters[i] {
+            cur_value += res[i];
+        }
+        res[i] = cur_value;
+    }
+
     res.reverse();
     res.into()
 }
