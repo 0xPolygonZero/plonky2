@@ -191,19 +191,6 @@ fn apply_metadata_and_tries_memops<F: RichField + Extendable<D>, const D: usize>
     state.traces.memory_ops.extend(ops);
 }
 
-fn initialize_kernel_code<F: RichField + Extendable<D>, const D: usize>(
-    state: &mut GenerationState<F>,
-) {
-    for (i, &byte) in enumerate(KERNEL.code.iter()) {
-        let address = MemoryAddress {
-            context: 0,
-            segment: Segment::Code as usize,
-            virt: i,
-        };
-        state.memory.set(address, byte.into());
-    }
-}
-
 pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
     all_stark: &AllStark<F, D>,
     inputs: GenerationInputs,
@@ -218,8 +205,6 @@ pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
         .map_err(|err| anyhow!("Failed to parse all the initial prover inputs: {:?}", err))?;
 
     apply_metadata_and_tries_memops(&mut state, &inputs);
-
-    initialize_kernel_code(&mut state);
 
     timed!(timing, "simulate CPU", simulate_cpu(&mut state)?);
 
