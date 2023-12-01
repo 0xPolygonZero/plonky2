@@ -56,7 +56,7 @@ first_byte:
     SWAP1
     JUMP
     
-remaining_bytes:
+global remaining_bytes:
     // stack: rlp_pos, num_nibbles, packed_nibbles, retdest
     SWAP2
     PUSH @U256_MAX
@@ -86,7 +86,7 @@ remaining_bytes:
     JUMP
 
 
-rlp_header_medium:
+global rlp_header_medium:
     // stack: hp_len, rlp_pos, num_nibbles, packed_nibbles, terminated, retdest
     %add_const(0x80) // value = 0x80 + hp_len
     DUP2 // offset = rlp_pos
@@ -95,13 +95,17 @@ rlp_header_medium:
     // rlp_pos += 1
     %increment
 
-    %stack
-        (rlp_pos, num_nibbles, packed_nibbles, terminated) ->
-        (rlp_pos, num_nibbles, packed_nibbles, terminated, remaining_bytes, num_nibbles, packed_nibbles)
+    // stack: rlp_pos, num_nibbles, packed_nibbles, terminated, retdest
+    SWAP3 DUP3 DUP3
+    // stack: num_nibbles, packed_nibbles, terminated, num_nibbles, packed_nibbles, rlp_pos, retdest
+    PUSH remaining_bytes
+    // stack: remaining_bytes, num_nibbles, packed_nibbles, terminated, num_nibbles, packed_nibbles, rlp_pos, retdest
+    SWAP4 SWAP5 SWAP6
+    // stack: rlp_pos, num_nibbles, packed_nibbles, terminated, remaining_bytes, num_nibbles, packed_nibbles, retdest
 
     %jump(first_byte)
 
-rlp_header_large:
+global rlp_header_large:
     // stack: hp_len, rlp_pos, num_nibbles, packed_nibbles, terminated, retdest
     // In practice hex-prefix length will never exceed 256, so the length of the
     // length will always be 1 byte in this case.
@@ -118,9 +122,12 @@ rlp_header_large:
     // rlp_pos += 2
     %add_const(2)
 
-    %stack
-        (rlp_pos, num_nibbles, packed_nibbles, terminated) ->
-        (rlp_pos, num_nibbles, packed_nibbles, terminated, remaining_bytes, num_nibbles, packed_nibbles)
+    // stack: rlp_pos, num_nibbles, packed_nibbles, terminated, retdest
+    SWAP3 DUP3 DUP3
+    // stack: num_nibbles, packed_nibbles, terminated, num_nibbles, packed_nibbles, rlp_pos, retdest
+    PUSH remaining_bytes
+    // stack: remaining_bytes, num_nibbles, packed_nibbles, terminated, num_nibbles, packed_nibbles, rlp_pos, retdest
+    SWAP4 SWAP5 SWAP6
+    // stack: rlp_pos, num_nibbles, packed_nibbles, terminated, remaining_bytes, num_nibbles, packed_nibbles, retdest
 
     %jump(first_byte)
-
