@@ -286,15 +286,16 @@ impl StackOp {
                         panic!("Target should have been expanded already: {target:?}")
                     }
                 };
-                // This is just a rough estimate; we can update it after implementing PUSH.
-                (bytes, bytes)
+                // A PUSH takes one cycle, and 1 memory read per byte.
+                (1, bytes)
             }
             // A POP takes one cycle, and doesn't involve memory, it just decrements a pointer.
             Pop => (1, 0),
-            // A DUP takes one cycle, and a read and a write.
+            // A DUP takes one cycle, and a read and a write, unless we call DUP(0) which doesn't read to memory.
+            StackOp::Dup(0) => (1, 1),
             StackOp::Dup(_) => (1, 2),
-            // A SWAP takes one cycle with four memory ops, to read both values then write to them.
-            StackOp::Swap(_) => (1, 4),
+            // A SWAP takes one cycle with three memory ops, to read both values then write to them.
+            StackOp::Swap(_) => (1, 3),
         };
 
         let cpu_cost = cpu_rows * NUM_CPU_COLUMNS as u32;

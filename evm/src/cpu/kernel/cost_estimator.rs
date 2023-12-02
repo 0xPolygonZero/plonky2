@@ -1,3 +1,4 @@
+use super::opcodes::get_opcode;
 use crate::cpu::kernel::assembler::BYTES_PER_OFFSET;
 use crate::cpu::kernel::ast::Item;
 use crate::cpu::kernel::ast::Item::*;
@@ -32,6 +33,5 @@ fn cost_estimate_standard_op(_op: &str) -> u32 {
 }
 
 fn cost_estimate_push(num_bytes: usize) -> u32 {
-    // TODO: Once PUSH is actually implemented, check if this needs to be revised.
     num_bytes as u32
 }
