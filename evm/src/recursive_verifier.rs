@@ -420,16 +420,13 @@ fn verify_stark_proof_with_challenges_circuit<
     );
 }
 
-/// Recursive version of `get_memory_extra_looking_products`.
-pub(crate) fn get_memory_extra_looking_products_circuit<
-    F: RichField + Extendable<D>,
-    const D: usize,
->(
+/// Recursive version of `get_memory_extra_looking_sum`.
+pub(crate) fn get_memory_extra_looking_sum_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     public_values: &PublicValuesTarget,
     challenge: GrandProductChallenge<Target>,
 ) -> Target {
-    let mut product = builder.one();
+    let mut sum = builder.zero();
 
     // Add metadata writes.
     let block_fields_scalars = [
@@ -497,34 +494,20 @@ pub(crate) fn get_memory_extra_looking_products_circuit<
     let metadata_segment = builder.constant(F::from_canonical_u32(Segment::GlobalMetadata as u32));
     block_fields_scalars.map(|(field, target)| {
         // Each of those fields fit in 32 bits, hence in a single Target.
-        product = add_data_write(
-            builder,
-            challenge,
-            product,
-            metadata_segment,
-            field,
-            &[target],
-        );
+        sum = add_data_write(builder, challenge, sum, metadata_segment, field, &[target]);
     });
 
     beneficiary_random_base_fee_cur_hash_fields.map(|(field, targets)| {
-        product = add_data_write(
-            builder,
-            challenge,
-            product,
-            metadata_segment,
-            field,
-            targets,
-        );
+        sum = add_data_write(builder, challenge, sum, metadata_segment, field, targets);
     });
 
     // Add block hashes writes.
     let block_hashes_segment = builder.constant(F::from_canonical_u32(Segment::BlockHashes as u32));
     for i in 0..256 {
-        product = add_data_write(
+        sum = add_data_write(
             builder,
             challenge,
-            product,
+            sum,
             block_hashes_segment,
             i,
             &public_values.block_hashes.prev_hashes[8 * i..8 * (i + 1)],
@@ -534,10 +517,10 @@ pub(crate) fn get_memory_extra_looking_products_circuit<
     // Add block bloom filters writes.
     let bloom_segment = builder.constant(F::from_canonical_u32(Segment::GlobalBlockBloom as u32));
     for i in 0..8 {
-        product = add_data_write(
+        sum = add_data_write(
             builder,
             challenge,
-            product,
+            sum,
             bloom_segment,
             i,
             &public_values.block_metadata.block_bloom[i * 8..(i + 1) * 8],
@@ -573,44 +556,37 @@ pub(crate) fn get_memory_extra_looking_products_circuit<
     ];
 
     trie_fields.map(|(field, targets)| {
-        product = add_data_write(
-            builder,
-            challenge,
-            product,
-            metadata_segment,
-            field,
-            &targets,
-        );
+        sum = add_data_write(builder, challenge, sum, metadata_segment, field, &targets);
     });
 
     // Add kernel hash and kernel length.
     let kernel_hash_limbs = h256_limbs::<F>(KERNEL.code_hash);
     let kernel_hash_targets: [Target; 8] = from_fn(|i| builder.constant(kernel_hash_limbs[i]));
-    product = add_data_write(
+    sum = add_data_write(
         builder,
         challenge,
-        product,
+        sum,
         metadata_segment,
         GlobalMetadata::KernelHash as usize,
         &kernel_hash_targets,
     );
     let kernel_len_target = builder.constant(F::from_canonical_usize(KERNEL.code.len()));
-    product = add_data_write(
+    sum = add_data_write(
         builder,
         challenge,
-        product,
+        sum,
         metadata_segment,
         GlobalMetadata::KernelLen as usize,
         &[kernel_len_target],
     );
 
-    product
+    sum
 }
 
 fn add_data_write<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     challenge: GrandProductChallenge<Target>,
-    running_product: Target,
+    running_sum: Target,
     segment: Target,
     idx: usize,
     val: &[Target],
@@ -643,7 +619,8 @@ fn add_data_write<F: RichField + Extendable<D>, const D: usize>(
     builder.assert_one(row[12]);
 
     let combined = challenge.combine_base_circuit(builder, &row);
-    builder.mul(running_product, combined)
+    let inverse = builder.inverse(combined);
+    builder.add(running_sum, inverse)
 }
 
 fn eval_l_0_and_l_last_circuit<F: RichField + Extendable<D>, const D: usize>(
