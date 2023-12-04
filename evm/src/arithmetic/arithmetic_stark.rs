@@ -124,7 +124,7 @@ pub(crate) const RANGE_MAX: usize = 1usize << 16; // Range check strict upper bo
 
 impl<F: RichField, const D: usize> ArithmeticStark<F, D> {
     /// Expects input in *column*-major layout
-    fn generate_range_checks(&self, cols: &mut Vec<Vec<F>>) {
+    fn generate_range_checks(&self, cols: &mut [Vec<F>]) {
         debug_assert!(cols.len() == columns::NUM_ARITH_COLUMNS);
 
         let n_rows = cols[0].len();

@@ -227,7 +227,7 @@ impl<F: RichField + Extendable<D>, const D: usize> BytePackingStark<F, D> {
     }
 
     /// Expects input in *column*-major layout
-    fn generate_range_checks(&self, cols: &mut Vec<Vec<F>>) {
+    fn generate_range_checks(&self, cols: &mut [Vec<F>]) {
         debug_assert!(cols.len() == NUM_COLUMNS);
 
         let n_rows = cols[0].len();
