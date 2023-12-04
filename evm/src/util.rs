@@ -210,3 +210,25 @@ pub(crate) fn biguint_to_mem_vec(x: BigUint) -> Vec<U256> {
 pub(crate) fn h2u(h: H256) -> U256 {
     U256::from_big_endian(&h.0)
 }
+
+pub(crate) fn get_h160<F: RichField>(slice: &[F]) -> H160 {
+    H160::from_slice(
+        &slice
+            .iter()
+            .rev()
+            .map(|x| x.to_canonical_u64() as u32)
+            .flat_map(|limb| limb.to_be_bytes())
+            .collect_vec(),
+    )
+}
+
+pub(crate) fn get_h256<F: RichField>(slice: &[F]) -> H256 {
+    H256::from_slice(
+        &slice
+            .iter()
+            .rev()
+            .map(|x| x.to_canonical_u64() as u32)
+            .flat_map(|limb| limb.to_be_bytes())
+            .collect_vec(),
+    )
+}

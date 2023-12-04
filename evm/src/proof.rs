@@ -19,7 +19,7 @@ use serde::{Deserialize, Serialize};
 use crate::all_stark::NUM_TABLES;
 use crate::config::StarkConfig;
 use crate::cross_table_lookup::GrandProductChallengeSet;
-use crate::util::h2u;
+use crate::util::{get_h160, get_h256, h2u};
 
 /// A STARK proof for each table, plus some metadata used to create recursive wrapper proofs.
 #[derive(Debug, Clone)]
@@ -119,30 +119,9 @@ impl TrieRoots {
     pub fn from_public_inputs<F: RichField + Extendable<D>, const D: usize>(pis: &[F]) -> Self {
         assert!(pis.len() == TrieRootsTarget::SIZE);
 
-        let state_root = H256::from_slice(
-            &pis[0..8]
-                .iter()
-                .rev()
-                .map(|x| x.to_canonical_u64() as u32)
-                .flat_map(|limb| limb.to_be_bytes())
-                .collect_vec(),
-        );
-        let transactions_root = H256::from_slice(
-            &pis[8..16]
-                .iter()
-                .rev()
-                .map(|x| x.to_canonical_u64() as u32)
-                .flat_map(|limb| limb.to_be_bytes())
-                .collect_vec(),
-        );
-        let receipts_root = H256::from_slice(
-            &pis[16..24]
-                .iter()
-                .rev()
-                .map(|x| x.to_canonical_u64() as u32)
-                .flat_map(|limb| limb.to_be_bytes())
-                .collect_vec(),
-        );
+        let state_root = get_h256(&pis[0..8]);
+        let transactions_root = get_h256(&pis[8..16]);
+        let receipts_root = get_h256(&pis[16..24]);
 
         Self {
             state_root,
@@ -181,24 +160,8 @@ impl BlockHashes {
     pub fn from_public_inputs<F: RichField + Extendable<D>, const D: usize>(pis: &[F]) -> Self {
         assert!(pis.len() == BlockHashesTarget::SIZE);
 
-        let prev_hashes: [H256; 256] = core::array::from_fn(|i| {
-            H256::from_slice(
-                &pis[8 * i..8 + 8 * i]
-                    .iter()
-                    .rev()
-                    .map(|x| x.to_canonical_u64() as u32)
-                    .flat_map(|limb| limb.to_be_bytes())
-                    .collect_vec(),
-            )
-        });
-        let cur_hash = H256::from_slice(
-            &pis[2048..2056]
-                .iter()
-                .rev()
-                .map(|x| x.to_canonical_u64() as u32)
-                .flat_map(|limb| limb.to_be_bytes())
-                .collect_vec(),
-        );
+        let prev_hashes: [H256; 256] = core::array::from_fn(|i| get_h256(&pis[8 * i..8 + 8 * i]));
+        let cur_hash = get_h256(&pis[2048..2056]);
 
         Self {
             prev_hashes: prev_hashes.to_vec(),
@@ -237,40 +200,17 @@ impl BlockMetadata {
     pub fn from_public_inputs<F: RichField + Extendable<D>, const D: usize>(pis: &[F]) -> Self {
         assert!(pis.len() == BlockMetadataTarget::SIZE);
 
-        let block_beneficiary = H160::from_slice(
-            &pis[0..5]
-                .iter()
-                .rev()
-                .map(|x| x.to_canonical_u64() as u32)
-                .flat_map(|limb| limb.to_be_bytes())
-                .collect_vec(),
-        );
+        let block_beneficiary = get_h160(&pis[0..5]);
         let block_timestamp = pis[5].to_canonical_u64().into();
         let block_number = pis[6].to_canonical_u64().into();
         let block_difficulty = pis[7].to_canonical_u64().into();
-        let block_random = H256::from_slice(
-            &pis[8..16]
-                .iter()
-                .rev()
-                .map(|x| x.to_canonical_u64() as u32)
-                .flat_map(|limb| limb.to_be_bytes())
-                .collect_vec(),
-        );
+        let block_random = get_h256(&pis[8..16]);
         let block_gaslimit = pis[16].to_canonical_u64().into();
         let block_chain_id = pis[17].to_canonical_u64().into();
         let block_base_fee =
             (pis[18].to_canonical_u64() + (pis[19].to_canonical_u64() << 32)).into();
         let block_gas_used = pis[20].to_canonical_u64().into();
-        let block_bloom = core::array::from_fn(|i| {
-            h2u(H256::from_slice(
-                &pis[21 + 8 * i..29 + 8 * i]
-                    .iter()
-                    .rev()
-                    .map(|x| x.to_canonical_u64() as u32)
-                    .flat_map(|limb| limb.to_be_bytes())
-                    .collect_vec(),
-            ))
-        });
+        let block_bloom = core::array::from_fn(|i| h2u(get_h256(&pis[21 + 8 * i..29 + 8 * i])));
 
         Self {
             block_beneficiary,
@@ -310,14 +250,7 @@ impl ExtraBlockData {
     pub fn from_public_inputs<F: RichField + Extendable<D>, const D: usize>(pis: &[F]) -> Self {
         assert!(pis.len() == ExtraBlockDataTarget::SIZE);
 
-        let genesis_state_trie_root = H256::from_slice(
-            &pis[0..8]
-                .iter()
-                .rev()
-                .map(|x| x.to_canonical_u64() as u32)
-                .flat_map(|limb| limb.to_be_bytes())
-                .collect_vec(),
-        );
+        let genesis_state_trie_root = get_h256(&pis[0..8]);
         let txn_number_before = pis[8].to_canonical_u64().into();
         let txn_number_after = pis[9].to_canonical_u64().into();
         let gas_used_before = pis[10].to_canonical_u64().into();
