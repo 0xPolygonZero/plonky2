@@ -133,8 +133,7 @@ fn test_empty_txn_list() -> anyhow::Result<()> {
     all_circuits.verify_root(root_proof.clone())?;
 
     // Test retrieved public values from the proof public inputs.
-    let retrieved_public_values =
-        PublicValues::from_public_inputs::<F, 2>(&root_proof.public_inputs);
+    let retrieved_public_values = PublicValues::from_public_inputs(&root_proof.public_inputs);
     assert_eq!(retrieved_public_values, public_values);
 
     // We can duplicate the proofs here because the state hasn't mutated.
@@ -149,8 +148,7 @@ fn test_empty_txn_list() -> anyhow::Result<()> {
     all_circuits.verify_aggregation(&agg_proof)?;
 
     // Test retrieved public values from the proof public inputs.
-    let retrieved_public_values =
-        PublicValues::from_public_inputs::<F, 2>(&agg_proof.public_inputs);
+    let retrieved_public_values = PublicValues::from_public_inputs(&agg_proof.public_inputs);
     assert_eq!(retrieved_public_values, agg_public_values);
 
     let (block_proof, block_public_values) =
@@ -158,8 +156,7 @@ fn test_empty_txn_list() -> anyhow::Result<()> {
     all_circuits.verify_block(&block_proof)?;
 
     // Test retrieved public values from the proof public inputs.
-    let retrieved_public_values =
-        PublicValues::from_public_inputs::<F, 2>(&block_proof.public_inputs);
+    let retrieved_public_values = PublicValues::from_public_inputs(&block_proof.public_inputs);
     assert_eq!(retrieved_public_values, block_public_values);
 
     // Get the verifier associated to these preprocessed circuits, and have it verify the block_proof.

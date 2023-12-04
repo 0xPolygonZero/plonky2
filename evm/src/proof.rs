@@ -66,7 +66,7 @@ impl PublicValues {
     /// Extracts public values from the given public inputs of a proofs.
     /// Public values are always the first public inputs added to the circuit,
     /// so we can start extracting at index 0.
-    pub fn from_public_inputs<F: RichField + Extendable<D>, const D: usize>(pis: &[F]) -> Self {
+    pub fn from_public_inputs<F: RichField>(pis: &[F]) -> Self {
         assert!(
             pis.len()
                 > TrieRootsTarget::SIZE * 2
@@ -116,7 +116,7 @@ pub struct TrieRoots {
 }
 
 impl TrieRoots {
-    pub fn from_public_inputs<F: RichField + Extendable<D>, const D: usize>(pis: &[F]) -> Self {
+    pub fn from_public_inputs<F: RichField>(pis: &[F]) -> Self {
         assert!(pis.len() == TrieRootsTarget::SIZE);
 
         let state_root = get_h256(&pis[0..8]);
@@ -157,7 +157,7 @@ pub struct BlockHashes {
 }
 
 impl BlockHashes {
-    pub fn from_public_inputs<F: RichField + Extendable<D>, const D: usize>(pis: &[F]) -> Self {
+    pub fn from_public_inputs<F: RichField>(pis: &[F]) -> Self {
         assert!(pis.len() == BlockHashesTarget::SIZE);
 
         let prev_hashes: [H256; 256] = core::array::from_fn(|i| get_h256(&pis[8 * i..8 + 8 * i]));
@@ -197,7 +197,7 @@ pub struct BlockMetadata {
 }
 
 impl BlockMetadata {
-    pub fn from_public_inputs<F: RichField + Extendable<D>, const D: usize>(pis: &[F]) -> Self {
+    pub fn from_public_inputs<F: RichField>(pis: &[F]) -> Self {
         assert!(pis.len() == BlockMetadataTarget::SIZE);
 
         let block_beneficiary = get_h160(&pis[0..5]);
@@ -247,7 +247,7 @@ pub struct ExtraBlockData {
 }
 
 impl ExtraBlockData {
-    pub fn from_public_inputs<F: RichField + Extendable<D>, const D: usize>(pis: &[F]) -> Self {
+    pub fn from_public_inputs<F: RichField>(pis: &[F]) -> Self {
         assert!(pis.len() == ExtraBlockDataTarget::SIZE);
 
         let genesis_state_trie_root = get_h256(&pis[0..8]);
