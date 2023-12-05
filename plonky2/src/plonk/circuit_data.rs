@@ -64,12 +64,12 @@ impl Default for CircuitConfig {
 }
 
 impl CircuitConfig {
-    pub fn num_advice_wires(&self) -> usize {
+    pub const fn num_advice_wires(&self) -> usize {
         self.num_wires - self.num_routed_wires
     }
 
     /// A typical recursion config, without zero-knowledge, targeting ~100 bit security.
-    pub fn standard_recursion_config() -> Self {
+    pub const fn standard_recursion_config() -> Self {
         Self {
             num_wires: 135,
             num_routed_wires: 80,
@@ -442,11 +442,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CommonCircuitData<F, D> {
         self.fri_params.degree_bits
     }
 
-    pub fn degree(&self) -> usize {
+    pub const fn degree(&self) -> usize {
         1 << self.degree_bits()
     }
 
-    pub fn lde_size(&self) -> usize {
+    pub const fn lde_size(&self) -> usize {
         self.fri_params.lde_size()
     }
 
@@ -462,37 +462,37 @@ impl<F: RichField + Extendable<D>, const D: usize> CommonCircuitData<F, D> {
             .expect("No gates?")
     }
 
-    pub fn quotient_degree(&self) -> usize {
+    pub const fn quotient_degree(&self) -> usize {
         self.quotient_degree_factor * self.degree()
     }
 
     /// Range of the constants polynomials in the `constants_sigmas_commitment`.
-    pub fn constants_range(&self) -> Range<usize> {
+    pub const fn constants_range(&self) -> Range<usize> {
         0..self.num_constants
     }
 
     /// Range of the sigma polynomials in the `constants_sigmas_commitment`.
-    pub fn sigmas_range(&self) -> Range<usize> {
+    pub const fn sigmas_range(&self) -> Range<usize> {
         self.num_constants..self.num_constants + self.config.num_routed_wires
     }
 
     /// Range of the `z`s polynomials in the `zs_partial_products_commitment`.
-    pub fn zs_range(&self) -> Range<usize> {
+    pub const fn zs_range(&self) -> Range<usize> {
         0..self.config.num_challenges
     }
 
     /// Range of the partial products polynomials in the `zs_partial_products_lookup_commitment`.
-    pub fn partial_products_range(&self) -> Range<usize> {
+    pub const fn partial_products_range(&self) -> Range<usize> {
         self.config.num_challenges..(self.num_partial_products + 1) * self.config.num_challenges
     }
 
     /// Range of lookup polynomials in the `zs_partial_products_lookup_commitment`.
-    pub fn lookup_range(&self) -> RangeFrom<usize> {
+    pub const fn lookup_range(&self) -> RangeFrom<usize> {
         self.num_zs_partial_products_polys()..
     }
 
     /// Range of lookup polynomials needed for evaluation at `g * zeta`.
-    pub fn next_lookup_range(&self, i: usize) -> Range<usize> {
+    pub const fn next_lookup_range(&self, i: usize) -> Range<usize> {
         self.num_zs_partial_products_polys() + i * self.num_lookup_polys
             ..self.num_zs_partial_products_polys() + i * self.num_lookup_polys + 2
     }
@@ -573,7 +573,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CommonCircuitData<F, D> {
         )
     }
 
-    pub(crate) fn num_preprocessed_polys(&self) -> usize {
+    pub(crate) const fn num_preprocessed_polys(&self) -> usize {
         self.sigmas_range().end
     }
 
@@ -589,12 +589,12 @@ impl<F: RichField + Extendable<D>, const D: usize> CommonCircuitData<F, D> {
         )
     }
 
-    pub(crate) fn num_zs_partial_products_polys(&self) -> usize {
+    pub(crate) const fn num_zs_partial_products_polys(&self) -> usize {
         self.config.num_challenges * (1 + self.num_partial_products)
     }
 
     /// Returns the total number of lookup polynomials.
-    pub(crate) fn num_all_lookup_polys(&self) -> usize {
+    pub(crate) const fn num_all_lookup_polys(&self) -> usize {
         self.config.num_challenges * self.num_lookup_polys
     }
     fn fri_zs_polys(&self) -> Vec<FriPolynomialInfo> {
@@ -618,7 +618,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CommonCircuitData<F, D> {
                 ..self.num_zs_partial_products_polys() + self.num_all_lookup_polys(),
         )
     }
-    pub(crate) fn num_quotient_polys(&self) -> usize {
+    pub(crate) const fn num_quotient_polys(&self) -> usize {
         self.config.num_challenges * self.quotient_degree_factor
     }
 

@@ -34,7 +34,7 @@ pub(crate) enum ContextMetadata {
 impl ContextMetadata {
     pub(crate) const COUNT: usize = 14;
 
-    pub(crate) fn all() -> [Self; Self::COUNT] {
+    pub(crate) const fn all() -> [Self; Self::COUNT] {
         [
             Self::ParentContext,
             Self::ParentProgramCounter,
@@ -54,7 +54,7 @@ impl ContextMetadata {
     }
 
     /// The variable name that gets passed into kernel assembly code.
-    pub(crate) fn var_name(&self) -> &'static str {
+    pub(crate) const fn var_name(&self) -> &'static str {
         match self {
             ContextMetadata::ParentContext => "CTX_METADATA_PARENT_CONTEXT",
             ContextMetadata::ParentProgramCounter => "CTX_METADATA_PARENT_PC",

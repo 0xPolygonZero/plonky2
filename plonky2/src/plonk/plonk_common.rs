@@ -38,7 +38,7 @@ impl PlonkOracle {
     };
 }
 
-pub fn salt_size(salted: bool) -> usize {
+pub const fn salt_size(salted: bool) -> usize {
     if salted {
         SALT_SIZE
     } else {

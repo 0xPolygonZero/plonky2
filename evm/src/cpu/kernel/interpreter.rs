@@ -918,7 +918,7 @@ impl<'a> Interpreter<'a> {
         self.generation_state.registers.gas_used = gas_used_val;
     }
 
-    pub(crate) fn stack_len(&self) -> usize {
+    pub(crate) const fn stack_len(&self) -> usize {
         self.generation_state.registers.stack_len
     }
 
@@ -930,7 +930,7 @@ impl<'a> Interpreter<'a> {
         }
     }
 
-    pub(crate) fn is_kernel(&self) -> bool {
+    pub(crate) const fn is_kernel(&self) -> bool {
         self.generation_state.registers.is_kernel
     }
 
@@ -938,7 +938,7 @@ impl<'a> Interpreter<'a> {
         self.generation_state.registers.is_kernel = is_kernel
     }
 
-    pub(crate) fn context(&self) -> usize {
+    pub(crate) const fn context(&self) -> usize {
         self.generation_state.registers.context
     }
 
