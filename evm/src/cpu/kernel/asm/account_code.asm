@@ -139,13 +139,33 @@ load_code_initial_ctd:
     DUP1 ISZERO %jumpi(load_code_initial_non_existent_account)
     // Load the code non-deterministically in memory and return the length.
     PROVER_INPUT(initialize_code)
-    %stack (code_size, codehash, ctx, retdest) -> (ctx, @SEGMENT_CODE, 0, code_size, codehash, retdest, code_size)
+    %stack (code_size, codehash, ctx, retdest) -> (ctx, @SEGMENT_CODE, 0, code_size, codehash, ctx, retdest, code_size)
     // Check that the hash of the loaded code equals `codehash`.
     KECCAK_GENERAL
-    // stack: shouldbecodehash, codehash, retdest, code_size
+    // stack: shouldbecodehash, codehash, ctx, retdest, code_size
     %assert_eq
+    // Write 33 zeros after code_size for soundness.
+    %stack (ctx, retdest, code_size) -> (ctx, @SEGMENT_CODE, code_size, retdest, code_size)
+    %rep 33
+        // stack: ctx, segment, i, retdest, code_size
+        DUP3 DUP3 DUP3
+        PUSH 0
+        // stack: 0, ctx, segment, i, ctx, segment, i, retdest, code_size
+        MSTORE_GENERAL
+        // stack: ctx, segment, i, retdest, code_size
+        DUP3 %increment
+        // stack: i+1, ctx, segment, i, retdest, code_size
+        SWAP3 POP
+        // stack: ctx, segment, i+1, retdest, code_size
+    %endrep
+    // stack: ctx, segment, code_size+32, retdest, code_size
+    %pop3
     JUMP
 
 load_code_initial_non_existent_account:
-    %stack (codehash, ctx, retdest) -> (retdest, 0)
+    // Write 0 at address 0 for soundness.
+    // stack: codehash, ctx, retdest
+    %stack (codehash, ctx, retdest) -> (0, ctx, @SEGMENT_CODE, 0, retdest, 0)
+    MSTORE_GENERAL
+    // stack: retdest, 0
     JUMP
