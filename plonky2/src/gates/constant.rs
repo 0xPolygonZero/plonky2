@@ -27,7 +27,7 @@ pub struct ConstantGate {
 }
 
 impl ConstantGate {
-    pub fn new(num_consts: usize) -> Self {
+    pub const fn new(num_consts: usize) -> Self {
         Self { num_consts }
     }
 

@@ -16,7 +16,7 @@ pub(crate) enum JournalEntry {
 impl JournalEntry {
     pub(crate) const COUNT: usize = 11;
 
-    pub(crate) fn all() -> [Self; Self::COUNT] {
+    pub(crate) const fn all() -> [Self; Self::COUNT] {
         [
             Self::AccountLoaded,
             Self::AccountDestroyed,
@@ -33,7 +33,7 @@ impl JournalEntry {
     }
 
     /// The variable name that gets passed into kernel assembly code.
-    pub(crate) fn var_name(&self) -> &'static str {
+    pub(crate) const fn var_name(&self) -> &'static str {
         match self {
             Self::AccountLoaded => "JOURNAL_ENTRY_ACCOUNT_LOADED",
             Self::AccountDestroyed => "JOURNAL_ENTRY_ACCOUNT_DESTROYED",

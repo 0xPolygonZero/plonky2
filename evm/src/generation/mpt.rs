@@ -298,7 +298,7 @@ fn parse_storage_value(value_rlp: &[u8]) -> Result<Vec<U256>, ProgramError> {
     Ok(vec![value])
 }
 
-fn empty_nibbles() -> Nibbles {
+const fn empty_nibbles() -> Nibbles {
     Nibbles {
         count: 0,
         packed: U512::zero(),

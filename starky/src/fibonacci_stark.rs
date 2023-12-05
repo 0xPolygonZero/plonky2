@@ -34,7 +34,7 @@ impl<F: RichField + Extendable<D>, const D: usize> FibonacciStark<F, D> {
     // `num_rows`-th Fibonacci number.
     const PI_INDEX_RES: usize = 2;
 
-    fn new(num_rows: usize) -> Self {
+    const fn new(num_rows: usize) -> Self {
         Self {
             num_rows,
             _phantom: PhantomData,

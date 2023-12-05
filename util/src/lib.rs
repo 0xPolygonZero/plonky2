@@ -15,7 +15,7 @@ use crate::transpose_util::transpose_in_place_square;
 
 mod transpose_util;
 
-pub fn bits_u64(n: u64) -> usize {
+pub const fn bits_u64(n: u64) -> usize {
     (64 - n.leading_zeros()) as usize
 }
 
@@ -25,7 +25,7 @@ pub const fn ceil_div_usize(a: usize, b: usize) -> usize {
 
 /// Computes `ceil(log_2(n))`.
 #[must_use]
-pub fn log2_ceil(n: usize) -> usize {
+pub const fn log2_ceil(n: usize) -> usize {
     (usize::BITS - n.saturating_sub(1).leading_zeros()) as usize
 }
 

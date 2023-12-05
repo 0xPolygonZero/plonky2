@@ -187,7 +187,7 @@ fn fill_op_flag<F: Field>(op: Operation, row: &mut CpuColumnsView<F>) {
 }
 
 // Equal to the number of pops if an operation pops without pushing, and `None` otherwise.
-fn get_op_special_length(op: Operation) -> Option<usize> {
+const fn get_op_special_length(op: Operation) -> Option<usize> {
     let behavior_opt = match op {
         Operation::Push(0) | Operation::Pc => STACK_BEHAVIORS.pc_push0,
         Operation::Push(1..) => STACK_BEHAVIORS.push,
@@ -229,7 +229,7 @@ fn get_op_special_length(op: Operation) -> Option<usize> {
 
 // These operations might trigger a stack overflow, typically those pushing without popping.
 // Kernel-only pushing instructions aren't considered; they can't overflow.
-fn might_overflow_op(op: Operation) -> bool {
+const fn might_overflow_op(op: Operation) -> bool {
     match op {
         Operation::Push(1..) => MIGHT_OVERFLOW.push,
         Operation::Dup(_) | Operation::Swap(_) => MIGHT_OVERFLOW.dup_swap,

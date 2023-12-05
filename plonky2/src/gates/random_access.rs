@@ -41,7 +41,7 @@ pub struct RandomAccessGate<F: RichField + Extendable<D>, const D: usize> {
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> RandomAccessGate<F, D> {
-    fn new(num_copies: usize, bits: usize, num_extra_constants: usize) -> Self {
+    const fn new(num_copies: usize, bits: usize, num_extra_constants: usize) -> Self {
         Self {
             bits,
             num_copies,
@@ -71,7 +71,7 @@ impl<F: RichField + Extendable<D>, const D: usize> RandomAccessGate<F, D> {
     }
 
     /// Length of the list being accessed.
-    fn vec_size(&self) -> usize {
+    const fn vec_size(&self) -> usize {
         1 << self.bits
     }
 
@@ -94,7 +94,7 @@ impl<F: RichField + Extendable<D>, const D: usize> RandomAccessGate<F, D> {
         (2 + self.vec_size()) * copy + 2 + i
     }
 
-    fn start_extra_constants(&self) -> usize {
+    const fn start_extra_constants(&self) -> usize {
         (2 + self.vec_size()) * self.num_copies
     }
 
@@ -104,7 +104,7 @@ impl<F: RichField + Extendable<D>, const D: usize> RandomAccessGate<F, D> {
     }
 
     /// All above wires are routed.
-    pub fn num_routed_wires(&self) -> usize {
+    pub const fn num_routed_wires(&self) -> usize {
         self.start_extra_constants() + self.num_extra_constants
     }
 

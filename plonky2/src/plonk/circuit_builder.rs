@@ -704,7 +704,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     /// The number of (base field) `arithmetic` operations that can be performed in a single gate.
-    pub(crate) fn num_base_arithmetic_ops_per_gate(&self) -> usize {
+    pub(crate) const fn num_base_arithmetic_ops_per_gate(&self) -> usize {
         if self.config.use_base_arithmetic_gate {
             ArithmeticGate::new_from_config(&self.config).num_ops
         } else {
@@ -713,7 +713,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     /// The number of `arithmetic_extension` operations that can be performed in a single gate.
-    pub(crate) fn num_ext_arithmetic_ops_per_gate(&self) -> usize {
+    pub(crate) const fn num_ext_arithmetic_ops_per_gate(&self) -> usize {
         ArithmeticExtensionGate::<D>::new_from_config(&self.config).num_ops
     }
 
