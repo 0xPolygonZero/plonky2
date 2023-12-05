@@ -26,11 +26,11 @@ impl Default for Target {
 }
 
 impl Target {
-    pub fn wire(row: usize, column: usize) -> Self {
+    pub const fn wire(row: usize, column: usize) -> Self {
         Self::Wire(Wire { row, column })
     }
 
-    pub fn is_routable(&self, config: &CircuitConfig) -> bool {
+    pub const fn is_routable(&self, config: &CircuitConfig) -> bool {
         match self {
             Target::Wire(wire) => wire.is_routable(config),
             Target::VirtualTarget { .. } => true,
@@ -49,7 +49,7 @@ impl Target {
     }
 
     /// Conversion to an `ExtensionTarget`.
-    pub fn to_ext_target<const D: usize>(self, zero: Self) -> ExtensionTarget<D> {
+    pub const fn to_ext_target<const D: usize>(self, zero: Self) -> ExtensionTarget<D> {
         let mut arr = [zero; D];
         arr[0] = self;
         ExtensionTarget(arr)
@@ -66,7 +66,7 @@ pub struct BoolTarget {
 }
 
 impl BoolTarget {
-    pub fn new_unsafe(target: Target) -> BoolTarget {
+    pub const fn new_unsafe(target: Target) -> BoolTarget {
         BoolTarget {
             target,
             _private: (),

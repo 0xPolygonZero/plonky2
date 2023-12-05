@@ -136,7 +136,7 @@ pub(crate) fn ctl_looking_memory<F: Field>(i: usize) -> Vec<Column<F>> {
 }
 
 /// Returns the number of `KeccakSponge` tables looking into the `LogicStark`.
-pub(crate) fn num_logic_ctls() -> usize {
+pub(crate) const fn num_logic_ctls() -> usize {
     const U8S_PER_CTL: usize = 32;
     ceil_div_usize(KECCAK_RATE_BYTES, U8S_PER_CTL)
 }

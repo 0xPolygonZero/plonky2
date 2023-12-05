@@ -17,7 +17,7 @@ where
 }
 
 impl<T: FieldExt> Curve<T> {
-    pub(crate) fn unit() -> Self {
+    pub(crate) const fn unit() -> Self {
         Curve {
             x: T::ZERO,
             y: T::ZERO,
@@ -237,7 +237,7 @@ pub(crate) fn bn_cord(p1: Curve<BN254>, p2: Curve<BN254>, q: Curve<Fp2<BN254>>) 
 
 /// The tangent and cord functions output sparse Fp12 elements.
 /// This map embeds the nonzero coefficients into an Fp12.
-pub(crate) fn bn_sparse_embed(g000: BN254, g01: Fp2<BN254>, g11: Fp2<BN254>) -> Fp12<BN254> {
+pub(crate) const fn bn_sparse_embed(g000: BN254, g01: Fp2<BN254>, g11: Fp2<BN254>) -> Fp12<BN254> {
     let g0 = Fp6 {
         t0: Fp2 {
             re: g000,

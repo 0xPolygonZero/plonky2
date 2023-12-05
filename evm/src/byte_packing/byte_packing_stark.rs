@@ -222,7 +222,7 @@ impl<F: RichField + Extendable<D>, const D: usize> BytePackingStark<F, D> {
         row
     }
 
-    fn generate_padding_row(&self) -> [F; NUM_COLUMNS] {
+    const fn generate_padding_row(&self) -> [F; NUM_COLUMNS] {
         [F::ZERO; NUM_COLUMNS]
     }
 

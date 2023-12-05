@@ -2,7 +2,7 @@ use crate::packable::Packable;
 use crate::packed::PackedField;
 use crate::types::Field;
 
-fn pack_with_leftovers_split_point<P: PackedField>(slice: &[P::Scalar]) -> usize {
+const fn pack_with_leftovers_split_point<P: PackedField>(slice: &[P::Scalar]) -> usize {
     let n = slice.len();
     let n_leftover = n % P::WIDTH;
     n - n_leftover

@@ -381,7 +381,7 @@ unsafe fn add_no_canonicalize_trashing_input(x: u64, y: u64) -> u64 {
 
 #[inline(always)]
 #[cfg(not(target_arch = "x86_64"))]
-unsafe fn add_no_canonicalize_trashing_input(x: u64, y: u64) -> u64 {
+const unsafe fn add_no_canonicalize_trashing_input(x: u64, y: u64) -> u64 {
     let (res_wrapped, carry) = x.overflowing_add(y);
     // Below cannot overflow unless the assumption if x + y < 2**64 + ORDER is incorrect.
     res_wrapped + EPSILON * (carry as u64)
@@ -390,7 +390,7 @@ unsafe fn add_no_canonicalize_trashing_input(x: u64, y: u64) -> u64 {
 /// Reduces to a 64-bit value. The result might not be in canonical form; it could be in between the
 /// field order and `2^64`.
 #[inline]
-fn reduce96((x_lo, x_hi): (u64, u32)) -> GoldilocksField {
+const fn reduce96((x_lo, x_hi): (u64, u32)) -> GoldilocksField {
     let t1 = x_hi as u64 * EPSILON;
     let t2 = unsafe { add_no_canonicalize_trashing_input(x_lo, t1) };
     GoldilocksField(t2)
@@ -415,7 +415,7 @@ fn reduce128(x: u128) -> GoldilocksField {
 }
 
 #[inline]
-fn split(x: u128) -> (u64, u64) {
+const fn split(x: u128) -> (u64, u64) {
     (x as u64, (x >> 64) as u64)
 }
 
