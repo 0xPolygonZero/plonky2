@@ -26,7 +26,6 @@ use crate::cross_table_lookup::{
     GrandProductChallengeSet,
 };
 use crate::evaluation_frame::StarkEvaluationFrame;
-use crate::generation::outputs::GenerationOutputs;
 use crate::generation::{generate_traces, GenerationInputs};
 use crate::get_challenges::observe_public_values;
 use crate::lookup::{lookup_helper_columns, Lookup, LookupCheckVars};
@@ -49,30 +48,14 @@ where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
 {
-    let (proof, _outputs) = prove_with_outputs(all_stark, config, inputs, timing)?;
-    Ok(proof)
-}
-
-/// Generate traces, then create all STARK proofs. Returns information about the post-state,
-/// intended for debugging, in addition to the proof.
-pub fn prove_with_outputs<F, C, const D: usize>(
-    all_stark: &AllStark<F, D>,
-    config: &StarkConfig,
-    inputs: GenerationInputs,
-    timing: &mut TimingTree,
-) -> Result<(AllProof<F, C, D>, GenerationOutputs)>
-where
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
-{
     timed!(timing, "build kernel", Lazy::force(&KERNEL));
-    let (traces, public_values, outputs) = timed!(
+    let (traces, public_values) = timed!(
         timing,
         "generate all traces",
         generate_traces(all_stark, inputs, config, timing)?
     );
     let proof = prove_with_traces(all_stark, config, traces, public_values, timing)?;
-    Ok((proof, outputs))
+    Ok(proof)
 }
 
 /// Compute all STARK proofs.
