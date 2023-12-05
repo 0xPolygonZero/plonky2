@@ -48,8 +48,8 @@ retzero:
 %endmacro
 
 %macro extcodesize
-    %stack (address) -> (address, 0, @SEGMENT_KERNEL_ACCOUNT_CODE, %%after)
-    %jump(load_code)
+    %stack (address) -> (address, %%after)
+    %jump(extcodesize)
 %%after:
 %endmacro
 
@@ -63,11 +63,9 @@ global sys_extcodesize:
     MUL
     PUSH @GAS_WARMACCESS
     ADD
-    %stack (gas, address, kexit_info) -> (gas, kexit_info, address)
+    // stack: gas, address, kexit_info
     %charge_gas
-    // stack: kexit_info, address
 
-    SWAP1
     // stack: address, kexit_info
     %extcodesize
     // stack: code_size, kexit_info
@@ -76,9 +74,11 @@ global sys_extcodesize:
 
 global extcodesize:
     // stack: address, retdest
-    %extcodesize
-    // stack: extcodesize(address), retdest
-    SWAP1 JUMP
+    %next_context_id
+    // stack: codesize_ctx, address, retdest
+    SWAP1
+    // stack: address, codesize_ctx, retdest
+    %jump(load_code_initial)
 
 // Loads the code at `address` into memory, at the given context and segment, starting at offset 0.
 // Checks that the hash of the loaded code corresponds to the `codehash` in the state trie.
