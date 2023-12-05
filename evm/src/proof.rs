@@ -63,7 +63,7 @@ pub struct PublicValues {
 }
 
 impl PublicValues {
-    /// Extracts public values from the given public inputs of a proofs.
+    /// Extracts public values from the given public inputs of a proof.
     /// Public values are always the first public inputs added to the circuit,
     /// so we can start extracting at index 0.
     pub fn from_public_inputs<F: RichField>(pis: &[F]) -> Self {
