@@ -63,9 +63,11 @@ global sys_extcodesize:
     MUL
     PUSH @GAS_WARMACCESS
     ADD
-    // stack: gas, address, kexit_info
+    %stack (gas, address, kexit_info) -> (gas, kexit_info, address)
     %charge_gas
+    // stack: kexit_info, address
 
+    SWAP1
     // stack: address, kexit_info
     %extcodesize
     // stack: code_size, kexit_info
