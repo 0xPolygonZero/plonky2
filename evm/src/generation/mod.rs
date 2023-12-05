@@ -93,8 +93,6 @@ pub struct TrieInputs {
 fn apply_metadata_and_tries_memops<F: RichField + Extendable<D>, const D: usize>(
     state: &mut GenerationState<F>,
     inputs: &GenerationInputs,
-    trie_root_ptrs: TrieRootPtrs,
-    trie_data_len: usize,
 ) {
     let metadata = &inputs.block_metadata;
     let tries = &inputs.tries;
@@ -152,18 +150,18 @@ fn apply_metadata_and_tries_memops<F: RichField + Extendable<D>, const D: usize>
         ),
         (GlobalMetadata::KernelHash, h2u(KERNEL.code_hash)),
         (GlobalMetadata::KernelLen, KERNEL.code.len().into()),
-        (GlobalMetadata::TrieDataSize, trie_data_len.into()),
+        (GlobalMetadata::TrieDataSize, state.trie_data_len.into()),
         (
             GlobalMetadata::StateTrieRoot,
-            trie_root_ptrs.state_root_ptr.into(),
+            state.trie_root_ptrs.state_root_ptr.into(),
         ),
         (
             GlobalMetadata::TransactionTrieRoot,
-            trie_root_ptrs.txn_root_ptr.into(),
+            state.trie_root_ptrs.txn_root_ptr.into(),
         ),
         (
             GlobalMetadata::ReceiptTrieRoot,
-            trie_root_ptrs.receipt_root_ptr.into(),
+            state.trie_root_ptrs.receipt_root_ptr.into(),
         ),
     ];
 
@@ -207,21 +205,6 @@ fn apply_metadata_and_tries_memops<F: RichField + Extendable<D>, const D: usize>
     state.traces.memory_ops.extend(ops);
 }
 
-fn preinitialize_mpts<F: RichField + Extendable<D>, const D: usize>(
-    state: &mut GenerationState<F>,
-    trie_inputs: &TrieInputs,
-) -> (TrieRootPtrs, usize) {
-    let (trie_roots_ptrs, trie_data) =
-        load_all_mpts(trie_inputs).expect("Invalid MPT data for preinitialization");
-
-    for (i, data) in trie_data.iter().enumerate() {
-        let trie_addr = MemoryAddress::new(0, Segment::TrieData, i);
-        state.memory.set(trie_addr, data.into());
-    }
-
-    (trie_roots_ptrs, trie_data.len())
-}
-
 pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
     all_stark: &AllStark<F, D>,
     inputs: GenerationInputs,
@@ -235,9 +218,7 @@ pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
     let mut state = GenerationState::<F>::new(inputs.clone(), &KERNEL.code)
         .map_err(|err| anyhow!("Failed to parse all the initial prover inputs: {:?}", err))?;
 
-    let (trie_root_ptrs, trie_data_len) = preinitialize_mpts(&mut state, &inputs.tries);
-
-    apply_metadata_and_tries_memops(&mut state, &inputs, trie_root_ptrs.clone(), trie_data_len);
+    apply_metadata_and_tries_memops(&mut state, &inputs);
 
     timed!(timing, "simulate CPU", simulate_cpu(&mut state)?);
 
@@ -264,13 +245,14 @@ pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
     let gas_used_after = read_metadata(GlobalMetadata::BlockGasUsedAfter);
     let txn_number_after = read_metadata(GlobalMetadata::TxnNumberAfter);
 
+    let trie_root_ptrs = state.trie_root_ptrs;
     let extra_block_data = ExtraBlockData {
         genesis_state_trie_root: inputs.genesis_state_trie_root,
         txn_number_before: inputs.txn_number_before,
         txn_number_after,
         gas_used_before: inputs.gas_used_before,
         gas_used_after,
-        trie_data_len: trie_data_len.into(),
+        trie_data_len: state.trie_data_len.into(),
         trie_root_ptrs: [
             trie_root_ptrs.state_root_ptr.into(),
             trie_root_ptrs.txn_root_ptr.into(),

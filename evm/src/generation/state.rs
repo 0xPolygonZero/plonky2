@@ -2,8 +2,12 @@ use std::collections::HashMap;
 
 use ethereum_types::{Address, BigEndianHash, H160, H256, U256};
 use keccak_hash::keccak;
+use plonky2::field::extension::Extendable;
 use plonky2::field::types::Field;
+use plonky2::hash::hash_types::RichField;
 
+use super::mpt::{load_all_mpts, TrieRootPtrs};
+use super::TrieInputs;
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::constants::context_metadata::ContextMetadata;
 use crate::generation::rlp::all_rlp_prover_inputs_reversed;
@@ -43,9 +47,23 @@ pub(crate) struct GenerationState<F: Field> {
     /// inputs are obtained in big-endian order via `pop()`). Contains both the remainder and the
     /// quotient, in that order.
     pub(crate) bignum_modmul_result_limbs: Vec<U256>,
+
+    /// Length of the `TrieData` segment after preloading of the initial tries.
+    pub(crate) trie_data_len: usize,
+
+    pub(crate) trie_root_ptrs: TrieRootPtrs,
 }
 
 impl<F: Field> GenerationState<F> {
+    fn preinitialize_mpts(&mut self, trie_inputs: &TrieInputs) -> (TrieRootPtrs, usize) {
+        let (trie_roots_ptrs, trie_data) =
+            load_all_mpts(trie_inputs).expect("Invalid MPT data for preinitialization");
+
+        let trie_data_len = trie_data.len();
+        self.memory.contexts[0].segments[Segment::TrieData as usize].content = trie_data;
+
+        (trie_roots_ptrs, trie_data_len)
+    }
     pub(crate) fn new(inputs: GenerationInputs, kernel_code: &[u8]) -> Result<Self, ProgramError> {
         log::debug!("Input signed_txn: {:?}", &inputs.signed_txn);
         log::debug!("Input state_trie: {:?}", &inputs.tries.state_trie);
@@ -58,12 +76,12 @@ impl<F: Field> GenerationState<F> {
         log::debug!("Input contract_code: {:?}", &inputs.contract_code);
 
         let rlp_prover_inputs =
-            all_rlp_prover_inputs_reversed(inputs.signed_txn.as_ref().unwrap_or(&vec![]));
+            all_rlp_prover_inputs_reversed(inputs.clone().signed_txn.as_ref().unwrap_or(&vec![]));
         let withdrawal_prover_inputs = all_withdrawals_prover_inputs_reversed(&inputs.withdrawals);
         let bignum_modmul_result_limbs = Vec::new();
 
-        Ok(Self {
-            inputs,
+        let mut state = Self {
+            inputs: inputs.clone(),
             registers: Default::default(),
             memory: MemoryState::new(kernel_code),
             traces: Traces::default(),
@@ -71,7 +89,18 @@ impl<F: Field> GenerationState<F> {
             withdrawal_prover_inputs,
             state_key_to_address: HashMap::new(),
             bignum_modmul_result_limbs,
-        })
+            trie_data_len: 0,
+            trie_root_ptrs: TrieRootPtrs {
+                state_root_ptr: 0,
+                txn_root_ptr: 0,
+                receipt_root_ptr: 0,
+            },
+        };
+        let (trie_root_ptrs, trie_data_len) = state.preinitialize_mpts(&inputs.tries);
+
+        state.trie_data_len = trie_data_len;
+        state.trie_root_ptrs = trie_root_ptrs;
+        Ok(state)
     }
 
     /// Updates `program_counter`, and potentially adds some extra handling if we're jumping to a

@@ -26,7 +26,7 @@ pub struct AccountRlp {
     pub code_hash: H256,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct TrieRootPtrs {
     pub state_root_ptr: usize,
     pub txn_root_ptr: usize,
@@ -120,7 +120,7 @@ fn parse_storage_value(value_rlp: &[u8]) -> Result<Vec<U256>, ProgramError> {
     Ok(vec![value])
 }
 
-fn empty_nibbles() -> Nibbles {
+const fn empty_nibbles() -> Nibbles {
     Nibbles {
         count: 0,
         packed: U512::zero(),

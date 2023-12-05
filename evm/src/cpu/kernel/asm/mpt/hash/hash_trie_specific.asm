@@ -150,6 +150,8 @@ global encode_txn:
 global encode_receipt:
     // stack: rlp_pos, value_ptr, cur_len, retdest
     // First, we add 261 to the trie data length for all values before the logs besides the type.
+    // These are: the payload length, the status, cum_gas_used, the bloom filter (256 elements),
+    // the length of the logs payload and the length of the logs.
     SWAP2 %add_const(261) SWAP2
     // There is a double encoding! What we compute is:
     // either RLP(RLP(receipt)) for Legacy transactions or RLP(txn_type||RLP(receipt)) for transactions of type 1 or 2.
@@ -304,7 +306,8 @@ encode_receipt_end:
     JUMP
 
 encode_nonzero_receipt_type:
-    // We have a nonlegacy receipt, so the type is also store in the trie data segment.
+    // stack: txn_type, rlp_pos, value_ptr, cur_len, retdest
+    // We have a nonlegacy receipt, so the type is also stored in the trie data segment.
     SWAP3 %increment SWAP3
     // stack: txn_type, rlp_pos, value_ptr, cur_len, retdest
     DUP3 %increment %mload_trie_data
@@ -328,7 +331,7 @@ global encode_storage_value:
     // stack: rlp_pos, value_ptr, cur_len, retdest
     SWAP1 %mload_trie_data SWAP1
 
-    // A storage value is a scalar, so we only need to add 1 to the trie data length
+    // A storage value is a scalar, so we only need to add 1 to the trie data length.
     SWAP2 %increment SWAP2
 
     // stack: rlp_pos, value, cur_len, retdest

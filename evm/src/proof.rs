@@ -772,9 +772,9 @@ pub(crate) struct ExtraBlockDataTarget {
     /// `Target` for the accumulated gas used after execution of the local state transition. It should
     /// match the `block_gas_used` value after execution of the last transaction in a block.
     pub gas_used_after: Target,
-    /// Length of the trie data segment before execution of the the local state transition.
+    /// Length of the trie data segment before execution of the local state transition.
     pub trie_data_len: Target,
-    /// `Target`s for the trie root pointers before the execution of the local state transition.
+    /// `Target`s for the trie root pointers before execution of the local state transition.
     pub trie_root_ptrs: [Target; 3],
 }
 
