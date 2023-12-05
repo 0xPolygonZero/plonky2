@@ -19,7 +19,7 @@ use crate::cpu::{
     byte_unpacking, clock, contextops, control_flow, decode, dup_swap, gas, jumps, membus, memio,
     modfp254, pc, push0, shift, simple_logic, stack, syscalls_exceptions,
 };
-use crate::cross_table_lookup::{Column, TableWithColumns};
+use crate::cross_table_lookup::{Column, Filter, TableWithColumns};
 use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
 use crate::memory::segments::Segment;
 use crate::memory::{NUM_CHANNELS, VALUE_LIMBS};
@@ -48,8 +48,8 @@ pub(crate) fn ctl_data_keccak_sponge<F: Field>() -> Vec<Column<F>> {
 }
 
 /// CTL filter for a call to the Keccak sponge.
-pub(crate) fn ctl_filter_keccak_sponge<F: Field>() -> Column<F> {
-    Column::single(COL_MAP.is_keccak_sponge)
+pub(crate) fn ctl_filter_keccak_sponge<F: Field>() -> Filter<F> {
+    Filter::new_simple(Column::single(COL_MAP.is_keccak_sponge))
 }
 
 /// Creates the vector of `Columns` corresponding to the two inputs and
@@ -82,8 +82,8 @@ pub(crate) fn ctl_data_logic<F: Field>() -> Vec<Column<F>> {
 }
 
 /// CTL filter for logic operations.
-pub(crate) fn ctl_filter_logic<F: Field>() -> Column<F> {
-    Column::single(COL_MAP.op.logic_op)
+pub(crate) fn ctl_filter_logic<F: Field>() -> Filter<F> {
+    Filter::new_simple(Column::single(COL_MAP.op.logic_op))
 }
 
 /// Returns the `TableWithColumns` for the CPU rows calling arithmetic operations.
@@ -99,7 +99,7 @@ pub(crate) fn ctl_arithmetic_base_rows<F: Field>() -> TableWithColumns<F> {
     TableWithColumns::new(
         Table::Cpu,
         columns,
-        Some(Column::sum([
+        Some(Filter::new_simple(Column::sum([
             COL_MAP.op.binary_op,
             COL_MAP.op.fp254_op,
             COL_MAP.op.ternary_op,
@@ -107,7 +107,7 @@ pub(crate) fn ctl_arithmetic_base_rows<F: Field>() -> TableWithColumns<F> {
             COL_MAP.op.prover_input,
             COL_MAP.op.syscall,
             COL_MAP.op.exception,
-        ])),
+        ]))),
     )
 }
 
@@ -118,8 +118,8 @@ pub(crate) fn ctl_data_byte_packing<F: Field>() -> Vec<Column<F>> {
 }
 
 /// CTL filter for the `MLOAD_32BYTES` operation.
-pub(crate) fn ctl_filter_byte_packing<F: Field>() -> Column<F> {
-    Column::single(COL_MAP.op.mload_32bytes)
+pub(crate) fn ctl_filter_byte_packing<F: Field>() -> Filter<F> {
+    Filter::new_simple(Column::single(COL_MAP.op.mload_32bytes))
 }
 
 /// Creates the vector of `Columns` corresponding to the contents of General Purpose channels when calling byte unpacking.
@@ -152,8 +152,8 @@ pub(crate) fn ctl_data_byte_unpacking<F: Field>() -> Vec<Column<F>> {
 }
 
 /// CTL filter for the `MSTORE_32BYTES` operation.
-pub(crate) fn ctl_filter_byte_unpacking<F: Field>() -> Column<F> {
-    Column::single(COL_MAP.op.mstore_32bytes)
+pub(crate) fn ctl_filter_byte_unpacking<F: Field>() -> Filter<F> {
+    Filter::new_simple(Column::single(COL_MAP.op.mstore_32bytes))
 }
 
 /// Creates the vector of `Columns` corresponding to the contents of the CPU registers when performing a `PUSH`.
@@ -179,8 +179,8 @@ pub(crate) fn ctl_data_byte_packing_push<F: Field>() -> Vec<Column<F>> {
 }
 
 /// CTL filter for the `PUSH` operation.
-pub(crate) fn ctl_filter_byte_packing_push<F: Field>() -> Column<F> {
-    Column::single(COL_MAP.op.push)
+pub(crate) fn ctl_filter_byte_packing_push<F: Field>() -> Filter<F> {
+    Filter::new_simple(Column::single(COL_MAP.op.push))
 }
 
 /// Index of the memory channel storing code.
@@ -254,17 +254,17 @@ pub(crate) fn ctl_data_partial_memory<F: Field>() -> Vec<Column<F>> {
 }
 
 /// CTL filter for code read and write operations.
-pub(crate) fn ctl_filter_code_memory<F: Field>() -> Column<F> {
-    Column::sum(COL_MAP.op.iter())
+pub(crate) fn ctl_filter_code_memory<F: Field>() -> Filter<F> {
+    Filter::new_simple(Column::sum(COL_MAP.op.iter()))
 }
 
 /// CTL filter for General Purpose memory read and write operations.
-pub(crate) fn ctl_filter_gp_memory<F: Field>(channel: usize) -> Column<F> {
-    Column::single(COL_MAP.mem_channels[channel].used)
+pub(crate) fn ctl_filter_gp_memory<F: Field>(channel: usize) -> Filter<F> {
+    Filter::new_simple(Column::single(COL_MAP.mem_channels[channel].used))
 }
 
-pub(crate) fn ctl_filter_partial_memory<F: Field>() -> Column<F> {
-    Column::single(COL_MAP.partial_channel.used)
+pub(crate) fn ctl_filter_partial_memory<F: Field>() -> Filter<F> {
+    Filter::new_simple(Column::single(COL_MAP.partial_channel.used))
 }
 
 /// Structure representing the CPU Stark.

@@ -615,7 +615,7 @@ where
                         [num_lookup_columns + i],
                     challenges: zs_columns.challenge,
                     columns: &zs_columns.columns,
-                    filter_column: &zs_columns.filter_column,
+                    filter: &zs_columns.filter,
                 })
                 .collect::<Vec<_>>();
 
@@ -738,7 +738,7 @@ fn check_constraints<'a, F, C, S, const D: usize>(
                     next_z: auxiliary_subgroup_evals[i_next][num_lookup_columns + iii],
                     challenges: zs_columns.challenge,
                     columns: &zs_columns.columns,
-                    filter_column: &zs_columns.filter_column,
+                    filter: &zs_columns.filter,
                 })
                 .collect::<Vec<_>>();
             // Evaluate the polynomial combining all constraints, including those associated
