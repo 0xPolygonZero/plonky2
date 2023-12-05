@@ -36,11 +36,13 @@ The various STARK tables carry out independent operations, but on shared values.
 
 Suppose STARK $S_1$ requires an operation -- say $Op$ -- that is carried out by another STARK $S_2$. Then $S_1$ writes the input and output of $Op$ in its own table, and provides the inputs to $S_2$. $S_2$ also writes the inputs and outputs in its rows, and the table's constraints check that $Op$ is carried out correctly. We then need to ensure that the inputs and outputs are the same in $S_1$ and $S_2$.
 
-In other words, we need to ensure that the rows -- reduced to the input and output columns -- of $S_1$ calling $Op$ are permutations of the rows of $S_2$ that carry out $Op$. Our CTL protocol is also based on logUp and is similar to our range-checks.
+In other words, we need to ensure that the rows -- reduced to the input and output columns -- of $S_1$ calling $Op$ are permutations of the rows of $S_2$ that carry out $Op$. Our CTL protocol is based on logUp and is similar to our range-checks.
 
 To prove this, the first step is to only select the rows of interest in $S_1$ and $S_2$, and filter out the rest. Let $f^1$ be the filter for $S_1$ and $f^2$ the filter for $S_2$. $f^1$ and $f^2$ are constrained to be in $\{0, 1\}$. $f^1 = 1$ (resp. $f^2 = 1$) whenever the row at hand carries out $Op$ in $S_1$ (resp. in $S_2$), and 0 otherwise. Let also $(\alpha, \beta)$ be two random challenges.
 
 The idea is to create subtables $S_1'$ and $S_2'$ of $S_1$ and $S_2$ respectively, such that $f^1 = 1$ and $f^2 = 1$ for all their rows. The columns in the subtables are limited to the ones whose values must be identical (the inputs and outputs of $Op$ in our example).
+
+Note that for design and constraint reasons, filters are limited to (at most) degree 2 combinations of columns.
 
 Let $\{c^{1, i}\}_{i=1}^m$ be the columns in $S_1'$ an $\{c^{2,i}\}_{i=1}^m$ be the columns in $S_2'$.
 

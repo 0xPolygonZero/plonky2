@@ -404,7 +404,7 @@ impl<F: Field> Filter<F> {
 }
 
 /// A `Table` with a linear combination of columns and a filter.
-/// `filter_column` is used to determine the rows to select in `Table`.
+/// `filter` is used to determine the rows to select in `Table`.
 /// `columns` represents linear combinations of the columns of `Table`.
 #[derive(Clone, Debug)]
 pub(crate) struct TableWithColumns<F: Field> {
