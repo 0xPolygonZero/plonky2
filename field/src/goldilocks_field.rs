@@ -390,7 +390,7 @@ const unsafe fn add_no_canonicalize_trashing_input(x: u64, y: u64) -> u64 {
 /// Reduces to a 64-bit value. The result might not be in canonical form; it could be in between the
 /// field order and `2^64`.
 #[inline]
-const fn reduce96((x_lo, x_hi): (u64, u32)) -> GoldilocksField {
+fn reduce96((x_lo, x_hi): (u64, u32)) -> GoldilocksField {
     let t1 = x_hi as u64 * EPSILON;
     let t2 = unsafe { add_no_canonicalize_trashing_input(x_lo, t1) };
     GoldilocksField(t2)
