@@ -126,3 +126,26 @@ load_code_check:
 load_code_non_existent_account:
     %stack (codehash, ctx, segment, retdest) -> (retdest, 0)
     JUMP
+
+// Loads the code at `address` into memory, at the given context in the code segment, starting at offset 0.
+// Checks that the hash of the loaded code corresponds to the `codehash` in the state trie.
+// Pre stack: address, ctx, retdest
+// Post stack: code_size
+global load_code_initial:
+    %stack (address, ctx, retdest) -> (extcodehash, address, load_code_initial_ctd, ctx, retdest)
+    JUMP
+load_code_initial_ctd:
+    // stack: codehash, ctx, retdest
+    DUP1 ISZERO %jumpi(load_code_initial_non_existent_account)
+    // Load the code non-deterministically in memory and return the length.
+    PROVER_INPUT(initialize_code)
+    %stack (code_size, codehash, ctx, retdest) -> (ctx, @SEGMENT_CODE, 0, code_size, codehash, retdest, code_size)
+    // Check that the hash of the loaded code equals `codehash`.
+    KECCAK_GENERAL
+    // stack: shouldbecodehash, codehash, retdest, code_size
+    %assert_eq
+    JUMP
+
+load_code_initial_non_existent_account:
+    %stack (codehash, ctx, retdest) -> (retdest, 0)
+    JUMP

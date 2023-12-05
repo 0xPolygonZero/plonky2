@@ -3,7 +3,7 @@ use std::str::FromStr;
 
 use anyhow::{bail, Error};
 use ethereum_types::{BigEndianHash, H256, U256, U512};
-use itertools::Itertools;
+use itertools::{enumerate, Itertools};
 use num_bigint::BigUint;
 use plonky2::field::types::Field;
 use serde::{Deserialize, Serialize};
@@ -19,6 +19,7 @@ use crate::memory::segments::Segment::BnPairing;
 use crate::util::{biguint_to_mem_vec, mem_vec_to_biguint, u256_to_usize};
 use crate::witness::errors::ProgramError;
 use crate::witness::errors::ProverInputError::*;
+use crate::witness::memory::MemoryAddress;
 use crate::witness::util::{current_context_peek, stack_peek};
 
 /// Prover input function represented as a scoped function name.
@@ -42,6 +43,7 @@ impl<F: Field> GenerationState<F> {
             "mpt" => self.run_mpt(),
             "rlp" => self.run_rlp(),
             "current_hash" => self.run_current_hash(),
+            "initialize_code" => self.run_initialize_code(),
             "account_code" => self.run_account_code(input_fn),
             "bignum_modmul" => self.run_bignum_modmul(),
             "withdrawal" => self.run_withdrawal(),
@@ -125,6 +127,27 @@ impl<F: Field> GenerationState<F> {
 
     fn run_current_hash(&mut self) -> Result<U256, ProgramError> {
         Ok(U256::from_big_endian(&self.inputs.block_hashes.cur_hash.0))
+    }
+
+    /// Initial code loading.
+    fn run_initialize_code(&mut self) -> Result<U256, ProgramError> {
+        // Initialize the memory.
+        // Return length of code.
+        // stack: codehash, ctx, ...
+        let codehash = stack_peek(self, 0)?;
+        let context = stack_peek(self, 1)?;
+        let context = u256_to_usize(context)?;
+        let mut address = MemoryAddress::new(context, Segment::Code, 0);
+        let code = self
+            .inputs
+            .contract_code
+            .get(&H256::from_uint(&codehash))
+            .ok_or(ProgramError::ProverInputError(CodeHashNotFound))?;
+        for &byte in code {
+            self.memory.set(address, byte.into());
+            address.increment();
+        }
+        Ok(code.len().into())
     }
 
     /// Account code.

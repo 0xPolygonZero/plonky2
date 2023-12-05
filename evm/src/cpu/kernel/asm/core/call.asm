@@ -352,8 +352,8 @@ call_too_deep:
 %endmacro
 
 %macro set_new_ctx_code
-    %stack (address, new_ctx) -> (address, new_ctx, @SEGMENT_CODE, %%after, new_ctx)
-    %jump(load_code)
+    %stack (address, new_ctx) -> (address, new_ctx, %%after, new_ctx)
+    %jump(load_code_initial)
 %%after:
     %set_new_ctx_code_size
     // stack: new_ctx
