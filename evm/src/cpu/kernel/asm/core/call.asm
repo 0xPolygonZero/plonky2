@@ -353,7 +353,7 @@ call_too_deep:
 
 %macro set_new_ctx_code
     %stack (address, new_ctx) -> (address, new_ctx, %%after, new_ctx)
-    %jump(load_code_initial)
+    %jump(load_code_padded)
 %%after:
     %set_new_ctx_code_size
     // stack: new_ctx

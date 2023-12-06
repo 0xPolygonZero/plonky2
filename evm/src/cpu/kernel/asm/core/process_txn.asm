@@ -251,7 +251,7 @@ global process_message_txn:
     DUP2 // new_ctx
     %mload_txn_field(@TXN_FIELD_TO)
     // stack: address, new_ctx, process_message_txn_code_loaded, new_ctx, retdest
-    %jump(load_code_initial)
+    %jump(load_code_padded)
 
 global process_message_txn_insufficient_balance:
     // stack: retdest

@@ -43,8 +43,7 @@ impl<F: Field> GenerationState<F> {
             "mpt" => self.run_mpt(),
             "rlp" => self.run_rlp(),
             "current_hash" => self.run_current_hash(),
-            "initialize_code" => self.run_initialize_code(),
-            "account_code" => self.run_account_code(input_fn),
+            "account_code" => self.run_account_code(),
             "bignum_modmul" => self.run_bignum_modmul(),
             "withdrawal" => self.run_withdrawal(),
             "num_bits" => self.run_num_bits(),
@@ -129,10 +128,11 @@ impl<F: Field> GenerationState<F> {
         Ok(U256::from_big_endian(&self.inputs.block_hashes.cur_hash.0))
     }
 
-    /// Initial code loading.
-    fn run_initialize_code(&mut self) -> Result<U256, ProgramError> {
-        // Initialize the memory.
-        // Return length of code.
+    /// Account code loading.
+    /// Initializes the code segment of the given context with the code corresponding
+    /// to the provided hash.
+    /// Returns the length of the code.
+    fn run_account_code(&mut self) -> Result<U256, ProgramError> {
         // stack: codehash, ctx, ...
         let codehash = stack_peek(self, 0)?;
         let context = stack_peek(self, 1)?;
@@ -148,37 +148,6 @@ impl<F: Field> GenerationState<F> {
             address.increment();
         }
         Ok(code.len().into())
-    }
-
-    /// Account code.
-    fn run_account_code(&mut self, input_fn: &ProverInputFn) -> Result<U256, ProgramError> {
-        match input_fn.0[1].as_str() {
-            "length" => {
-                // Return length of code.
-                // stack: codehash, ...
-                let codehash = stack_peek(self, 0)?;
-                Ok(self
-                    .inputs
-                    .contract_code
-                    .get(&H256::from_uint(&codehash))
-                    .ok_or(ProgramError::ProverInputError(CodeHashNotFound))?
-                    .len()
-                    .into())
-            }
-            "get" => {
-                // Return `code[i]`.
-                // stack: context, segment, i, i, code_size, codehash, ...
-                let i = stack_peek(self, 2).map(u256_to_usize)??;
-                let codehash = stack_peek(self, 5)?;
-                Ok(self
-                    .inputs
-                    .contract_code
-                    .get(&H256::from_uint(&codehash))
-                    .ok_or(ProgramError::ProverInputError(CodeHashNotFound))?[i]
-                    .into())
-            }
-            _ => Err(ProgramError::ProverInputError(InvalidInput)),
-        }
     }
 
     // Bignum modular multiplication.
