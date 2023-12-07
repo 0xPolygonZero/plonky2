@@ -33,6 +33,7 @@ pub(crate) mod rlp;
 pub(crate) mod state;
 mod trie_extractor;
 
+use self::mpt::{load_all_mpts, TrieRootPtrs};
 use crate::witness::util::mem_write_log;
 
 /// Inputs needed for trace generation.
@@ -195,11 +196,6 @@ pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
 
     timed!(timing, "simulate CPU", simulate_cpu(&mut state)?);
 
-    assert!(
-        state.mpt_prover_inputs.is_empty(),
-        "All MPT data should have been consumed"
-    );
-
     log::info!(
         "Trace lengths (before padding): {:?}",
         state.traces.get_lengths()
@@ -220,6 +216,7 @@ pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
     let gas_used_after = read_metadata(GlobalMetadata::BlockGasUsedAfter);
     let txn_number_after = read_metadata(GlobalMetadata::TxnNumberAfter);
 
+    let trie_root_ptrs = state.trie_root_ptrs;
     let extra_block_data = ExtraBlockData {
         genesis_state_trie_root: inputs.genesis_state_trie_root,
         txn_number_before: inputs.txn_number_before,

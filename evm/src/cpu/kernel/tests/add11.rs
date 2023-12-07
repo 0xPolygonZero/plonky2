@@ -12,7 +12,8 @@ use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::constants::context_metadata::ContextMetadata;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
 use crate::cpu::kernel::interpreter::Interpreter;
-use crate::generation::mpt::{all_mpt_prover_inputs_reversed, AccountRlp, LegacyReceiptRlp};
+use crate::cpu::kernel::tests::account_code::initialize_mpts;
+use crate::generation::mpt::{AccountRlp, LegacyReceiptRlp};
 use crate::generation::rlp::all_rlp_prover_inputs_reversed;
 use crate::generation::TrieInputs;
 use crate::memory::segments::Segment;
@@ -28,14 +29,7 @@ fn prepare_interpreter(
     transaction: &[u8],
     contract_code: HashMap<H256, Vec<u8>>,
 ) {
-    let load_all_mpts = KERNEL.global_labels["load_all_mpts"];
-
-    interpreter.generation_state.registers.program_counter = load_all_mpts;
-    interpreter.push(0xDEADBEEFu32.into());
-
-    interpreter.generation_state.mpt_prover_inputs =
-        all_mpt_prover_inputs_reversed(&trie_inputs).expect("Invalid MPT data.");
-    interpreter.run().expect("MPT loading failed.");
+    initialize_mpts(interpreter, &trie_inputs);
     assert_eq!(interpreter.stack(), vec![]);
 
     // Set necessary `GlobalMetadata`.

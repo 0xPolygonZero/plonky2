@@ -36,10 +36,10 @@ impl<F: Field> GenerationState<F> {
     pub(crate) fn prover_input(&mut self, input_fn: &ProverInputFn) -> Result<U256, ProgramError> {
         match input_fn.0[0].as_str() {
             "no_txn" => self.no_txn(),
+            "trie_ptr" => self.run_trie_ptr(input_fn),
             "ff" => self.run_ff(input_fn),
             "sf" => self.run_sf(input_fn),
             "ffe" => self.run_ffe(input_fn),
-            "mpt" => self.run_mpt(),
             "rlp" => self.run_rlp(),
             "current_hash" => self.run_current_hash(),
             "account_code" => self.run_account_code(input_fn),
@@ -52,6 +52,16 @@ impl<F: Field> GenerationState<F> {
 
     fn no_txn(&mut self) -> Result<U256, ProgramError> {
         Ok(U256::from(self.inputs.signed_txn.is_none() as u8))
+    }
+
+    fn run_trie_ptr(&mut self, input_fn: &ProverInputFn) -> Result<U256, ProgramError> {
+        let trie = input_fn.0[1].as_str();
+        match trie {
+            "state" => Ok(U256::from(self.trie_root_ptrs.state_root_ptr)),
+            "txn" => Ok(U256::from(self.trie_root_ptrs.txn_root_ptr)),
+            "receipt" => Ok(U256::from(self.trie_root_ptrs.receipt_root_ptr)),
+            _ => Err(ProgramError::ProverInputError(InvalidInput)),
+        }
     }
 
     /// Finite field operations.
@@ -107,13 +117,6 @@ impl<F: Field> GenerationState<F> {
             _ => todo!(),
         };
         Ok(field.field_extension_inverse(n, f))
-    }
-
-    /// MPT data.
-    fn run_mpt(&mut self) -> Result<U256, ProgramError> {
-        self.mpt_prover_inputs
-            .pop()
-            .ok_or(ProgramError::ProverInputError(OutOfMptData))
     }
 
     /// RLP data.

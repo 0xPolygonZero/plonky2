@@ -76,4 +76,5 @@ By default, all memory is zero-initialized. However, to save numerous writes, we
 \begin{itemize}
   \item The read-only kernel code (in segment 0, context 0) is initialized with its correct values. It's checked by hashing the segment and verifying
 that the hash value matches a verifier-provided one.
+  \item The ``TrieData'' segment is initialized with the input tries. The stored tries are hashed and checked against the provided initial hash. Note that the length of the segment and the pointers -- within the ``TrieData'' segment -- for the three tries are provided as prover inputs. The length is then checked against a value computed when hashing the tries.
 \end{itemize}
