@@ -878,10 +878,6 @@ where
 
         let has_not_parent_block = builder.sub(one, has_parent_block.target);
 
-        // Check that the genesis block number is 0.
-        let gen_block_constr = builder.mul(has_not_parent_block, lhs.block_metadata.block_number);
-        builder.assert_zero(gen_block_constr);
-
         // Check that the genesis block has the predetermined state trie root in `ExtraBlockData`.
         Self::connect_genesis_block(builder, rhs, has_not_parent_block);
     }
@@ -1077,9 +1073,6 @@ where
             block_inputs
                 .set_proof_with_pis_target(&self.block.parent_block_proof, parent_block_proof);
         } else {
-            // Initialize genesis_state_trie, state_root_after, and the previous block hashes for correct connection between blocks.
-            // Block number does not need to be initialized as genesis block is constrained to have number 0.
-
             if public_values.trie_roots_before.state_root
                 != public_values.extra_block_data.genesis_state_trie_root
             {
@@ -1089,6 +1082,9 @@ where
                     public_values.extra_block_data.genesis_state_trie_root,
                 )));
             }
+
+            // Initialize some public inputs for correct connection between blocks.
+
             // Initialize `state_root_after`.
             let state_trie_root_after_keys =
                 TrieRootsTarget::SIZE..TrieRootsTarget::SIZE + TrieRootsTarget::HASH_SIZE;
@@ -1129,6 +1125,14 @@ where
             for i in 0..8 {
                 nonzero_pis.insert(block_hashes_current_start + i, cur_targets[i]);
             }
+
+            // Initialize the block number.
+            // Subtraction would result in invalid proof for genesis, but we can't prove the genesis block anyway.
+            let block_number_key = TrieRootsTarget::SIZE * 2 + 6;
+            nonzero_pis.insert(
+                block_number_key,
+                F::from_canonical_u64(public_values.block_metadata.block_number.low_u64() - 1),
+            );
 
             block_inputs.set_proof_with_pis_target(
                 &self.block.parent_block_proof,
