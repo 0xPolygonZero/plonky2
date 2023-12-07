@@ -3,7 +3,7 @@ use std::str::FromStr;
 
 use anyhow::{bail, Error};
 use ethereum_types::{BigEndianHash, H256, U256, U512};
-use itertools::Itertools;
+use itertools::{enumerate, Itertools};
 use num_bigint::BigUint;
 use plonky2::field::types::Field;
 use serde::{Deserialize, Serialize};
@@ -19,6 +19,7 @@ use crate::memory::segments::Segment::BnPairing;
 use crate::util::{biguint_to_mem_vec, mem_vec_to_biguint, u256_to_usize};
 use crate::witness::errors::ProgramError;
 use crate::witness::errors::ProverInputError::*;
+use crate::witness::memory::MemoryAddress;
 use crate::witness::util::{current_context_peek, stack_peek};
 
 /// Prover input function represented as a scoped function name.
@@ -42,7 +43,7 @@ impl<F: Field> GenerationState<F> {
             "ffe" => self.run_ffe(input_fn),
             "rlp" => self.run_rlp(),
             "current_hash" => self.run_current_hash(),
-            "account_code" => self.run_account_code(input_fn),
+            "account_code" => self.run_account_code(),
             "bignum_modmul" => self.run_bignum_modmul(),
             "withdrawal" => self.run_withdrawal(),
             "num_bits" => self.run_num_bits(),
@@ -130,35 +131,26 @@ impl<F: Field> GenerationState<F> {
         Ok(U256::from_big_endian(&self.inputs.block_hashes.cur_hash.0))
     }
 
-    /// Account code.
-    fn run_account_code(&mut self, input_fn: &ProverInputFn) -> Result<U256, ProgramError> {
-        match input_fn.0[1].as_str() {
-            "length" => {
-                // Return length of code.
-                // stack: codehash, ...
-                let codehash = stack_peek(self, 0)?;
-                Ok(self
-                    .inputs
-                    .contract_code
-                    .get(&H256::from_uint(&codehash))
-                    .ok_or(ProgramError::ProverInputError(CodeHashNotFound))?
-                    .len()
-                    .into())
-            }
-            "get" => {
-                // Return `code[i]`.
-                // stack: context, segment, i, i, code_size, codehash, ...
-                let i = stack_peek(self, 2).map(u256_to_usize)??;
-                let codehash = stack_peek(self, 5)?;
-                Ok(self
-                    .inputs
-                    .contract_code
-                    .get(&H256::from_uint(&codehash))
-                    .ok_or(ProgramError::ProverInputError(CodeHashNotFound))?[i]
-                    .into())
-            }
-            _ => Err(ProgramError::ProverInputError(InvalidInput)),
+    /// Account code loading.
+    /// Initializes the code segment of the given context with the code corresponding
+    /// to the provided hash.
+    /// Returns the length of the code.
+    fn run_account_code(&mut self) -> Result<U256, ProgramError> {
+        // stack: codehash, ctx, ...
+        let codehash = stack_peek(self, 0)?;
+        let context = stack_peek(self, 1)?;
+        let context = u256_to_usize(context)?;
+        let mut address = MemoryAddress::new(context, Segment::Code, 0);
+        let code = self
+            .inputs
+            .contract_code
+            .get(&H256::from_uint(&codehash))
+            .ok_or(ProgramError::ProverInputError(CodeHashNotFound))?;
+        for &byte in code {
+            self.memory.set(address, byte.into());
+            address.increment();
         }
+        Ok(code.len().into())
     }
 
     // Bignum modular multiplication.

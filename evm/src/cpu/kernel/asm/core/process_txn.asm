@@ -248,11 +248,10 @@ global process_message_txn:
     %create_context
     // stack: new_ctx, retdest
     PUSH process_message_txn_code_loaded
-    PUSH @SEGMENT_CODE
-    DUP3 // new_ctx
+    DUP2 // new_ctx
     %mload_txn_field(@TXN_FIELD_TO)
-    // stack: address, new_ctx, segment, process_message_txn_code_loaded, new_ctx, retdest
-    %jump(load_code)
+    // stack: address, new_ctx, process_message_txn_code_loaded, new_ctx, retdest
+    %jump(load_code_padded)
 
 global process_message_txn_insufficient_balance:
     // stack: retdest
