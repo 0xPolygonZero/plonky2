@@ -332,7 +332,7 @@ global encode_storage_value:
     SWAP1 %mload_trie_data SWAP1
 
     // A storage value is a scalar, so we only need to add 1 to the trie data length.
-    SWAP2 %increment SWAP2
+    SWAP2 INCREMENT SWAP2
 
     // stack: rlp_pos, value, cur_len, retdest
     // The YP says storage trie is a map "... to the RLP-encoded 256-bit integer values"

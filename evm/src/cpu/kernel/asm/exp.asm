@@ -56,9 +56,7 @@ recursion_return:
     // stack: x - 1, e % 2, exp(x * x, e / 2), x, e, retdest
     mul
     // stack: (x - 1) * (e % 2), exp(x * x, e / 2), x, e, retdest
-    push 1
-    // stack: 1, (x - 1) * (e % 2), exp(x * x, e / 2), x, e, retdest
-    add
+    %increment
     // stack: 1 + (x - 1) * (e % 2), exp(x * x, e / 2), x, e, retdest
     mul
     // stack: (1 + (x - 1) * (e % 2)) * exp(x * x, e / 2), x, e, retdest
