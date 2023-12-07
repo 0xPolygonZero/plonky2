@@ -150,19 +150,6 @@ fn apply_metadata_and_tries_memops<F: RichField + Extendable<D>, const D: usize>
         ),
         (GlobalMetadata::KernelHash, h2u(KERNEL.code_hash)),
         (GlobalMetadata::KernelLen, KERNEL.code.len().into()),
-        (GlobalMetadata::TrieDataSize, state.trie_data_len.into()),
-        (
-            GlobalMetadata::StateTrieRoot,
-            state.trie_root_ptrs.state_root_ptr.into(),
-        ),
-        (
-            GlobalMetadata::TransactionTrieRoot,
-            state.trie_root_ptrs.txn_root_ptr.into(),
-        ),
-        (
-            GlobalMetadata::ReceiptTrieRoot,
-            state.trie_root_ptrs.receipt_root_ptr.into(),
-        ),
     ];
 
     let channel = MemoryChannel::GeneralPurpose(0);
@@ -252,12 +239,6 @@ pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
         txn_number_after,
         gas_used_before: inputs.gas_used_before,
         gas_used_after,
-        trie_data_len: state.trie_data_len.into(),
-        trie_root_ptrs: [
-            trie_root_ptrs.state_root_ptr.into(),
-            trie_root_ptrs.txn_root_ptr.into(),
-            trie_root_ptrs.receipt_root_ptr.into(),
-        ],
     };
 
     let public_values = PublicValues {
