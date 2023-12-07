@@ -118,20 +118,10 @@ global load_code_padded:
     %jump(load_code)
 
 load_code_padded_ctd:
-    // stack: code_size, ctx, retdest
-    %stack (code_size, ctx, retdest) -> (ctx, @SEGMENT_CODE, code_size, retdest, code_size)
-    %rep 33
-        // stack: ctx, segment, i, retdest, code_size
-        DUP3 DUP3 DUP3
-        PUSH 0
-        // stack: 0, ctx, segment, i, ctx, segment, i, retdest, code_size
-        MSTORE_GENERAL
-        // stack: ctx, segment, i, retdest, code_size
-        DUP3 %increment
-        // stack: i+1, ctx, segment, i, retdest, code_size
-        SWAP3 POP
-        // stack: ctx, segment, i+1, retdest, code_size
-    %endrep
-    // stack: ctx, segment, code_size+32, retdest, code_size
-    %pop3
+    %stack (code_size, ctx, retdest) -> (ctx, @SEGMENT_CODE, code_size, 0, ctx, retdest, code_size)
+    MSTORE_32BYTES_32
+    // stack: last_offset, ctx, retdest, code_size
+    %stack (last_offset, ctx) -> (0, ctx, @SEGMENT_CODE, last_offset)
+    MSTORE_GENERAL
+    // stack: retdest, code_size
     JUMP
