@@ -19,6 +19,7 @@ use serde::{Deserialize, Serialize};
 use crate::all_stark::NUM_TABLES;
 use crate::config::StarkConfig;
 use crate::cross_table_lookup::GrandProductChallengeSet;
+use crate::generation::mpt::TrieRootPtrs;
 use crate::util::{get_h160, get_h256, h2u};
 
 /// A STARK proof for each table, plus some metadata used to create recursive wrapper proofs.
@@ -818,7 +819,7 @@ impl ExtraBlockDataTarget {
         builder.connect(ed0.txn_number_before, ed1.txn_number_before);
         builder.connect(ed0.txn_number_after, ed1.txn_number_after);
         builder.connect(ed0.gas_used_before, ed1.gas_used_before);
-        builder.connect(ed1.gas_used_after, ed1.gas_used_after);
+        builder.connect(ed0.gas_used_after, ed1.gas_used_after);
     }
 }
 

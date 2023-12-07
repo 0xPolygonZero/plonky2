@@ -76,4 +76,9 @@ By default, all memory is zero-initialized. However, to save numerous writes, we
 \begin{itemize}
   \item The read-only kernel code (in segment 0, context 0) is initialized with its correct values. It's checked by hashing the segment and verifying
 that the hash value matches a verifier-provided one.
+  \item The code segment (segment 0) in other contexts is initialized with externally-provided account code, then checked against the account code hash.
+If the code is meant to be executed, there is a soundness concern: if the code is malformed and ends with an incomplete PUSH, then the missing bytes must
+be 0 accordingly to the Ethereum specs. To prevent the issue, we manually write 33 zeros (at most 32 bytes for the PUSH argument, and an extra one for
+the post-PUSH PC value).
+  \item The ``TrieData'' segment is initialized with the input tries. The stored tries are hashed and checked against the provided initial hash. Note that the length of the segment and the pointers -- within the ``TrieData'' segment -- for the three tries are provided as prover inputs. The length is then checked against a value computed when hashing the tries.
 \end{itemize}

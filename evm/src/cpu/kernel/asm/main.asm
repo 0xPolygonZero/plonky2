@@ -13,15 +13,28 @@ global main:
 
     // Initialise the shift table
     %shift_table_init
-
-    // Second, load all MPT data from the prover.
-    PUSH hash_initial_tries
-    %jump(load_all_mpts)
+   
+    // Initialize the state, transaction and receipt trie root pointers.
+    PROVER_INPUT(trie_ptr::state)
+    %mstore_global_metadata(@GLOBAL_METADATA_STATE_TRIE_ROOT)
+    PROVER_INPUT(trie_ptr::txn)
+    %mstore_global_metadata(@GLOBAL_METADATA_TXN_TRIE_ROOT)
+    PROVER_INPUT(trie_ptr::receipt)
+    %mstore_global_metadata(@GLOBAL_METADATA_RECEIPT_TRIE_ROOT)
 
 global hash_initial_tries:
-    %mpt_hash_state_trie   %mload_global_metadata(@GLOBAL_METADATA_STATE_TRIE_DIGEST_BEFORE)    %assert_eq
+    // We compute the length of the trie data segment in `mpt_hash` so that we
+    // can check the value provided by the prover.
+    // We initialize the segment length with 1 because the segment contains 
+    // the null pointer `0` when the tries are empty.
+    PUSH 1
+    %mpt_hash_state_trie  %mload_global_metadata(@GLOBAL_METADATA_STATE_TRIE_DIGEST_BEFORE)    %assert_eq
+    // stack: trie_data_len
     %mpt_hash_txn_trie     %mload_global_metadata(@GLOBAL_METADATA_TXN_TRIE_DIGEST_BEFORE)      %assert_eq
+    // stack: trie_data_len
     %mpt_hash_receipt_trie %mload_global_metadata(@GLOBAL_METADATA_RECEIPT_TRIE_DIGEST_BEFORE)  %assert_eq
+    // stack: trie_data_full_len
+    %mstore_global_metadata(@GLOBAL_METADATA_TRIE_DATA_SIZE)
 
 global start_txn:
     // stack: (empty)
@@ -64,7 +77,10 @@ global hash_final_tries:
     %mload_global_metadata(@GLOBAL_METADATA_BLOCK_GAS_USED_AFTER) %assert_eq
     DUP3 %mload_global_metadata(@GLOBAL_METADATA_TXN_NUMBER_AFTER) %assert_eq
     %pop3
+    PUSH 1 // initial trie data length 
     %mpt_hash_state_trie   %mload_global_metadata(@GLOBAL_METADATA_STATE_TRIE_DIGEST_AFTER)     %assert_eq
     %mpt_hash_txn_trie     %mload_global_metadata(@GLOBAL_METADATA_TXN_TRIE_DIGEST_AFTER)       %assert_eq
     %mpt_hash_receipt_trie %mload_global_metadata(@GLOBAL_METADATA_RECEIPT_TRIE_DIGEST_AFTER)   %assert_eq
+    // We don't need the trie data length here.
+    POP
     %jump(halt)
