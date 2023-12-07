@@ -45,7 +45,7 @@ use crate::byte_packing::columns::{
     NUM_COLUMNS, RANGE_COUNTER, RC_FREQUENCIES, TIMESTAMP,
 };
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
-use crate::cross_table_lookup::Column;
+use crate::cross_table_lookup::{Column, Filter};
 use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
 use crate::lookup::Lookup;
 use crate::stark::Stark;
@@ -84,10 +84,10 @@ pub(crate) fn ctl_looked_data<F: Field>() -> Vec<Column<F>> {
 }
 
 /// CTL filter for the `BytePackingStark` looked table.
-pub(crate) fn ctl_looked_filter<F: Field>() -> Column<F> {
+pub(crate) fn ctl_looked_filter<F: Field>() -> Filter<F> {
     // The CPU table is only interested in our sequence end rows,
     // since those contain the final limbs of our packed int.
-    Column::sum((0..NUM_BYTES).map(index_len))
+    Filter::new_simple(Column::sum((0..NUM_BYTES).map(index_len)))
 }
 
 /// Column linear combination for the `BytePackingStark` table reading/writing the `i`th byte sequence from `MemoryStark`.
@@ -119,8 +119,8 @@ pub(crate) fn ctl_looking_memory<F: Field>(i: usize) -> Vec<Column<F>> {
 }
 
 /// CTL filter for reading/writing the `i`th byte of the byte sequence from/to memory.
-pub(crate) fn ctl_looking_memory_filter<F: Field>(i: usize) -> Column<F> {
-    Column::sum((i..NUM_BYTES).map(index_len))
+pub(crate) fn ctl_looking_memory_filter<F: Field>(i: usize) -> Filter<F> {
+    Filter::new_simple(Column::sum((i..NUM_BYTES).map(index_len)))
 }
 
 /// Information about a byte packing operation needed for witness generation.
@@ -222,7 +222,7 @@ impl<F: RichField + Extendable<D>, const D: usize> BytePackingStark<F, D> {
         row
     }
 
-    fn generate_padding_row(&self) -> [F; NUM_COLUMNS] {
+    const fn generate_padding_row(&self) -> [F; NUM_COLUMNS] {
         [F::ZERO; NUM_COLUMNS]
     }
 

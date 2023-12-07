@@ -17,7 +17,7 @@ use plonky2_util::ceil_div_usize;
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::kernel::keccak_util::keccakf_u32s;
-use crate::cross_table_lookup::Column;
+use crate::cross_table_lookup::{Column, Filter};
 use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
 use crate::keccak_sponge::columns::*;
 use crate::lookup::Lookup;
@@ -136,7 +136,7 @@ pub(crate) fn ctl_looking_memory<F: Field>(i: usize) -> Vec<Column<F>> {
 }
 
 /// Returns the number of `KeccakSponge` tables looking into the `LogicStark`.
-pub(crate) fn num_logic_ctls() -> usize {
+pub(crate) const fn num_logic_ctls() -> usize {
     const U8S_PER_CTL: usize = 32;
     ceil_div_usize(KECCAK_RATE_BYTES, U8S_PER_CTL)
 }
@@ -185,35 +185,41 @@ pub(crate) fn ctl_looking_logic<F: Field>(i: usize) -> Vec<Column<F>> {
 }
 
 /// CTL filter for the final block rows of the `KeccakSponge` table.
-pub(crate) fn ctl_looked_filter<F: Field>() -> Column<F> {
+pub(crate) fn ctl_looked_filter<F: Field>() -> Filter<F> {
     // The CPU table is only interested in our final-block rows, since those contain the final
     // sponge output.
-    Column::sum(KECCAK_SPONGE_COL_MAP.is_final_input_len)
+    Filter::new_simple(Column::sum(KECCAK_SPONGE_COL_MAP.is_final_input_len))
 }
 
 /// CTL filter for reading the `i`th byte of input from memory.
-pub(crate) fn ctl_looking_memory_filter<F: Field>(i: usize) -> Column<F> {
+pub(crate) fn ctl_looking_memory_filter<F: Field>(i: usize) -> Filter<F> {
     // We perform the `i`th read if either
     // - this is a full input block, or
     // - this is a final block of length `i` or greater
     let cols = KECCAK_SPONGE_COL_MAP;
     if i == KECCAK_RATE_BYTES - 1 {
-        Column::single(cols.is_full_input_block)
+        Filter::new_simple(Column::single(cols.is_full_input_block))
     } else {
-        Column::sum(once(&cols.is_full_input_block).chain(&cols.is_final_input_len[i + 1..]))
+        Filter::new_simple(Column::sum(
+            once(&cols.is_full_input_block).chain(&cols.is_final_input_len[i + 1..]),
+        ))
     }
 }
 
 /// CTL filter for looking at XORs in the logic table.
-pub(crate) fn ctl_looking_logic_filter<F: Field>() -> Column<F> {
+pub(crate) fn ctl_looking_logic_filter<F: Field>() -> Filter<F> {
     let cols = KECCAK_SPONGE_COL_MAP;
-    Column::sum(once(&cols.is_full_input_block).chain(&cols.is_final_input_len))
+    Filter::new_simple(Column::sum(
+        once(&cols.is_full_input_block).chain(&cols.is_final_input_len),
+    ))
 }
 
 /// CTL filter for looking at the input and output in the Keccak table.
-pub(crate) fn ctl_looking_keccak_filter<F: Field>() -> Column<F> {
+pub(crate) fn ctl_looking_keccak_filter<F: Field>() -> Filter<F> {
     let cols = KECCAK_SPONGE_COL_MAP;
-    Column::sum(once(&cols.is_full_input_block).chain(&cols.is_final_input_len))
+    Filter::new_simple(Column::sum(
+        once(&cols.is_full_input_block).chain(&cols.is_final_input_len),
+    ))
 }
 
 /// Information about a Keccak sponge operation needed for witness generation.

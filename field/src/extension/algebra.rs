@@ -17,11 +17,11 @@ impl<F: OEF<D>, const D: usize> ExtensionAlgebra<F, D> {
         F::ONE.into()
     }
 
-    pub fn from_basefield_array(arr: [F; D]) -> Self {
+    pub const fn from_basefield_array(arr: [F; D]) -> Self {
         Self(arr)
     }
 
-    pub fn to_basefield_array(self) -> [F; D] {
+    pub const fn to_basefield_array(self) -> [F; D] {
         self.0
     }
 

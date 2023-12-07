@@ -17,7 +17,7 @@ use crate::all_stark::Table;
 use crate::arithmetic::columns::{RANGE_COUNTER, RC_FREQUENCIES, SHARED_COLS};
 use crate::arithmetic::{addcy, byte, columns, divmod, modular, mul, Operation};
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
-use crate::cross_table_lookup::{Column, TableWithColumns};
+use crate::cross_table_lookup::{Column, Filter, TableWithColumns};
 use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
 use crate::lookup::Lookup;
 use crate::stark::Stark;
@@ -98,7 +98,9 @@ pub(crate) fn ctl_arithmetic_rows<F: Field>() -> TableWithColumns<F> {
     let mut filter_cols = COMBINED_OPS.to_vec();
     filter_cols.push((columns::IS_RANGE_CHECK, 0x01));
 
-    let filter_column = Some(Column::sum(filter_cols.iter().map(|(c, _v)| *c)));
+    let filter = Some(Filter::new_simple(Column::sum(
+        filter_cols.iter().map(|(c, _v)| *c),
+    )));
 
     let mut all_combined_cols = COMBINED_OPS.to_vec();
     all_combined_cols.push((columns::OPCODE_COL, 0x01));
@@ -110,7 +112,7 @@ pub(crate) fn ctl_arithmetic_rows<F: Field>() -> TableWithColumns<F> {
     TableWithColumns::new(
         Table::Arithmetic,
         cpu_arith_data_link(&all_combined_cols, &REGISTER_MAP),
-        filter_column,
+        filter,
     )
 }
 

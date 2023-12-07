@@ -231,7 +231,6 @@ fn test_log_opcodes() -> anyhow::Result<()> {
             prev_hashes: vec![H256::default(); 256],
             cur_hash: H256::default(),
         },
-        addresses: vec![],
     };
 
     let mut timing = TimingTree::new("prove", log::Level::Debug);
@@ -436,13 +435,12 @@ fn test_log_with_aggreg() -> anyhow::Result<()> {
             prev_hashes: vec![H256::default(); 256],
             cur_hash: H256::default(),
         },
-        addresses: vec![],
     };
 
     // Preprocess all circuits.
     let all_circuits = AllRecursiveCircuits::<F, C, D>::new(
         &all_stark,
-        &[16..17, 14..16, 16..18, 14..15, 10..11, 12..13, 19..20],
+        &[16..17, 14..16, 16..18, 14..15, 9..10, 12..13, 19..20],
         &config,
     );
 
@@ -562,7 +560,6 @@ fn test_log_with_aggreg() -> anyhow::Result<()> {
             prev_hashes: vec![H256::default(); 256],
             cur_hash: H256::default(),
         },
-        addresses: vec![],
     };
 
     let mut timing = TimingTree::new("prove root second", log::Level::Info);

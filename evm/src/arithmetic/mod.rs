@@ -91,7 +91,7 @@ impl BinaryOperator {
     }
 
     /// Maps a binary arithmetic operation to its associated flag column in the trace.
-    pub(crate) fn row_filter(&self) -> usize {
+    pub(crate) const fn row_filter(&self) -> usize {
         match self {
             BinaryOperator::Add => columns::IS_ADD,
             BinaryOperator::Mul => columns::IS_MUL,
@@ -130,7 +130,7 @@ impl TernaryOperator {
     }
 
     /// Maps a ternary arithmetic operation to its associated flag column in the trace.
-    pub(crate) fn row_filter(&self) -> usize {
+    pub(crate) const fn row_filter(&self) -> usize {
         match self {
             TernaryOperator::AddMod => columns::IS_ADDMOD,
             TernaryOperator::MulMod => columns::IS_MULMOD,
@@ -208,7 +208,7 @@ impl Operation {
         }
     }
 
-    pub(crate) fn range_check(
+    pub(crate) const fn range_check(
         input0: U256,
         input1: U256,
         input2: U256,

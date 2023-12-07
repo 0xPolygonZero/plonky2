@@ -111,6 +111,8 @@ load_code_non_existent_account:
     JUMP
 
 // Identical to load_code, but adds 33 zeros after code_size for soundness reasons.
+// If the code ends with an incomplete PUSH, we must make sure that every subsequent read is 0,
+// accordingly to the Ethereum specs.
 // Pre stack: address, ctx, retdest
 // Post stack: code_size
 global load_code_padded:

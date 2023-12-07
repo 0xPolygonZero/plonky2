@@ -1,4 +1,4 @@
-use ethereum_types::{Address, H256, U256};
+use ethereum_types::{Address, H160, H256, U256};
 use itertools::Itertools;
 use plonky2::field::extension::{Extendable, FieldExtension};
 use plonky2::fri::oracle::PolynomialBatch;
@@ -19,6 +19,8 @@ use serde::{Deserialize, Serialize};
 use crate::all_stark::NUM_TABLES;
 use crate::config::StarkConfig;
 use crate::cross_table_lookup::GrandProductChallengeSet;
+use crate::generation::mpt::TrieRootPtrs;
+use crate::util::{get_h160, get_h256, h2u};
 
 /// A STARK proof for each table, plus some metadata used to create recursive wrapper proofs.
 #[derive(Debug, Clone)]
@@ -47,7 +49,7 @@ pub(crate) struct AllProofChallenges<F: RichField + Extendable<D>, const D: usiz
 }
 
 /// Memory values which are public.
-#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize, Serialize)]
 pub struct PublicValues {
     /// Trie hashes before the execution of the local state transition
     pub trie_roots_before: TrieRoots,
@@ -61,8 +63,50 @@ pub struct PublicValues {
     pub extra_block_data: ExtraBlockData,
 }
 
+impl PublicValues {
+    /// Extracts public values from the given public inputs of a proof.
+    /// Public values are always the first public inputs added to the circuit,
+    /// so we can start extracting at index 0.
+    pub fn from_public_inputs<F: RichField>(pis: &[F]) -> Self {
+        assert!(
+            pis.len()
+                > TrieRootsTarget::SIZE * 2
+                    + BlockMetadataTarget::SIZE
+                    + BlockHashesTarget::SIZE
+                    + ExtraBlockDataTarget::SIZE
+                    - 1
+        );
+
+        let trie_roots_before = TrieRoots::from_public_inputs(&pis[0..TrieRootsTarget::SIZE]);
+        let trie_roots_after =
+            TrieRoots::from_public_inputs(&pis[TrieRootsTarget::SIZE..TrieRootsTarget::SIZE * 2]);
+        let block_metadata = BlockMetadata::from_public_inputs(
+            &pis[TrieRootsTarget::SIZE * 2..TrieRootsTarget::SIZE * 2 + BlockMetadataTarget::SIZE],
+        );
+        let block_hashes = BlockHashes::from_public_inputs(
+            &pis[TrieRootsTarget::SIZE * 2 + BlockMetadataTarget::SIZE
+                ..TrieRootsTarget::SIZE * 2 + BlockMetadataTarget::SIZE + BlockHashesTarget::SIZE],
+        );
+        let extra_block_data = ExtraBlockData::from_public_inputs(
+            &pis[TrieRootsTarget::SIZE * 2 + BlockMetadataTarget::SIZE + BlockHashesTarget::SIZE
+                ..TrieRootsTarget::SIZE * 2
+                    + BlockMetadataTarget::SIZE
+                    + BlockHashesTarget::SIZE
+                    + ExtraBlockDataTarget::SIZE],
+        );
+
+        Self {
+            trie_roots_before,
+            trie_roots_after,
+            block_metadata,
+            block_hashes,
+            extra_block_data,
+        }
+    }
+}
+
 /// Trie hashes.
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TrieRoots {
     /// State trie hash.
     pub state_root: H256,
@@ -70,6 +114,22 @@ pub struct TrieRoots {
     pub transactions_root: H256,
     /// Receipts trie hash.
     pub receipts_root: H256,
+}
+
+impl TrieRoots {
+    pub fn from_public_inputs<F: RichField>(pis: &[F]) -> Self {
+        assert!(pis.len() == TrieRootsTarget::SIZE);
+
+        let state_root = get_h256(&pis[0..8]);
+        let transactions_root = get_h256(&pis[8..16]);
+        let receipts_root = get_h256(&pis[16..24]);
+
+        Self {
+            state_root,
+            transactions_root,
+            receipts_root,
+        }
+    }
 }
 
 // There should be 256 previous hashes stored, so the default should also contain 256 values.
@@ -88,7 +148,7 @@ impl Default for BlockHashes {
 ///
 /// When the block number is less than 256, dummy values, i.e. `H256::default()`,
 /// should be used for the additional block hashes.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BlockHashes {
     /// The previous 256 hashes to the current block. The leftmost hash, i.e. `prev_hashes[0]`,
     /// is the oldest, and the rightmost, i.e. `prev_hashes[255]` is the hash of the parent block.
@@ -97,9 +157,23 @@ pub struct BlockHashes {
     pub cur_hash: H256,
 }
 
+impl BlockHashes {
+    pub fn from_public_inputs<F: RichField>(pis: &[F]) -> Self {
+        assert!(pis.len() == BlockHashesTarget::SIZE);
+
+        let prev_hashes: [H256; 256] = core::array::from_fn(|i| get_h256(&pis[8 * i..8 + 8 * i]));
+        let cur_hash = get_h256(&pis[2048..2056]);
+
+        Self {
+            prev_hashes: prev_hashes.to_vec(),
+            cur_hash,
+        }
+    }
+}
+
 /// Metadata contained in a block header. Those are identical between
 /// all state transition proofs within the same block.
-#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize, Serialize)]
 pub struct BlockMetadata {
     /// The address of this block's producer.
     pub block_beneficiary: Address,
@@ -123,9 +197,40 @@ pub struct BlockMetadata {
     pub block_bloom: [U256; 8],
 }
 
+impl BlockMetadata {
+    pub fn from_public_inputs<F: RichField>(pis: &[F]) -> Self {
+        assert!(pis.len() == BlockMetadataTarget::SIZE);
+
+        let block_beneficiary = get_h160(&pis[0..5]);
+        let block_timestamp = pis[5].to_canonical_u64().into();
+        let block_number = pis[6].to_canonical_u64().into();
+        let block_difficulty = pis[7].to_canonical_u64().into();
+        let block_random = get_h256(&pis[8..16]);
+        let block_gaslimit = pis[16].to_canonical_u64().into();
+        let block_chain_id = pis[17].to_canonical_u64().into();
+        let block_base_fee =
+            (pis[18].to_canonical_u64() + (pis[19].to_canonical_u64() << 32)).into();
+        let block_gas_used = pis[20].to_canonical_u64().into();
+        let block_bloom = core::array::from_fn(|i| h2u(get_h256(&pis[21 + 8 * i..29 + 8 * i])));
+
+        Self {
+            block_beneficiary,
+            block_timestamp,
+            block_number,
+            block_difficulty,
+            block_random,
+            block_gaslimit,
+            block_chain_id,
+            block_base_fee,
+            block_gas_used,
+            block_bloom,
+        }
+    }
+}
+
 /// Additional block data that are specific to the local transaction being proven,
 /// unlike `BlockMetadata`.
-#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize, Serialize)]
 pub struct ExtraBlockData {
     /// The state trie digest of the genesis block.
     pub genesis_state_trie_root: H256,
@@ -140,6 +245,26 @@ pub struct ExtraBlockData {
     /// The accumulated gas used after execution of the local state transition. It should
     /// match the `block_gas_used` value after execution of the last transaction in a block.
     pub gas_used_after: U256,
+}
+
+impl ExtraBlockData {
+    pub fn from_public_inputs<F: RichField>(pis: &[F]) -> Self {
+        assert!(pis.len() == ExtraBlockDataTarget::SIZE);
+
+        let genesis_state_trie_root = get_h256(&pis[0..8]);
+        let txn_number_before = pis[8].to_canonical_u64().into();
+        let txn_number_after = pis[9].to_canonical_u64().into();
+        let gas_used_before = pis[10].to_canonical_u64().into();
+        let gas_used_after = pis[11].to_canonical_u64().into();
+
+        Self {
+            genesis_state_trie_root,
+            txn_number_before,
+            txn_number_after,
+            gas_used_before,
+            gas_used_after,
+        }
+    }
 }
 
 /// Memory values which are public.
@@ -285,7 +410,7 @@ impl PublicValuesTarget {
             pis.len()
                 > TrieRootsTarget::SIZE * 2
                     + BlockMetadataTarget::SIZE
-                    + BlockHashesTarget::BLOCK_HASHES_SIZE
+                    + BlockHashesTarget::SIZE
                     + ExtraBlockDataTarget::SIZE
                     - 1
         );
@@ -303,15 +428,13 @@ impl PublicValuesTarget {
                 &pis[TrieRootsTarget::SIZE * 2 + BlockMetadataTarget::SIZE
                     ..TrieRootsTarget::SIZE * 2
                         + BlockMetadataTarget::SIZE
-                        + BlockHashesTarget::BLOCK_HASHES_SIZE],
+                        + BlockHashesTarget::SIZE],
             ),
             extra_block_data: ExtraBlockDataTarget::from_public_inputs(
-                &pis[TrieRootsTarget::SIZE * 2
-                    + BlockMetadataTarget::SIZE
-                    + BlockHashesTarget::BLOCK_HASHES_SIZE
+                &pis[TrieRootsTarget::SIZE * 2 + BlockMetadataTarget::SIZE + BlockHashesTarget::SIZE
                     ..TrieRootsTarget::SIZE * 2
                         + BlockMetadataTarget::SIZE
-                        + BlockHashesTarget::BLOCK_HASHES_SIZE
+                        + BlockHashesTarget::SIZE
                         + ExtraBlockDataTarget::SIZE],
             ),
         }
@@ -568,7 +691,7 @@ pub(crate) struct BlockHashesTarget {
 
 impl BlockHashesTarget {
     /// Number of `Target`s required for previous and current block hashes.
-    pub(crate) const BLOCK_HASHES_SIZE: usize = 2056;
+    pub(crate) const SIZE: usize = 2056;
 
     /// Extracts the previous and current block hash `Target`s from the public input `Target`s.
     /// The provided `pis` should start with the block hashes.
@@ -696,7 +819,7 @@ impl ExtraBlockDataTarget {
         builder.connect(ed0.txn_number_before, ed1.txn_number_before);
         builder.connect(ed0.txn_number_after, ed1.txn_number_after);
         builder.connect(ed0.gas_used_before, ed1.gas_used_before);
-        builder.connect(ed1.gas_used_after, ed1.gas_used_after);
+        builder.connect(ed0.gas_used_after, ed1.gas_used_after);
     }
 }
 

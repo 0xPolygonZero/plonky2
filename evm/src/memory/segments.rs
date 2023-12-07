@@ -70,7 +70,7 @@ pub(crate) enum Segment {
 impl Segment {
     pub(crate) const COUNT: usize = 36;
 
-    pub(crate) fn all() -> [Self; Self::COUNT] {
+    pub(crate) const fn all() -> [Self; Self::COUNT] {
         [
             Self::Code,
             Self::Stack,
@@ -112,7 +112,7 @@ impl Segment {
     }
 
     /// The variable name that gets passed into kernel assembly code.
-    pub(crate) fn var_name(&self) -> &'static str {
+    pub(crate) const fn var_name(&self) -> &'static str {
         match self {
             Segment::Code => "SEGMENT_CODE",
             Segment::Stack => "SEGMENT_STACK",
@@ -153,7 +153,7 @@ impl Segment {
         }
     }
 
-    pub(crate) fn bit_range(&self) -> usize {
+    pub(crate) const fn bit_range(&self) -> usize {
         match self {
             Segment::Code => 8,
             Segment::Stack => 256,

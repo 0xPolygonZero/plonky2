@@ -20,7 +20,6 @@ use crate::config::StarkConfig;
 use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
-use crate::generation::outputs::{get_outputs, GenerationOutputs};
 use crate::generation::state::GenerationState;
 use crate::memory::segments::Segment;
 use crate::proof::{BlockHashes, BlockMetadata, ExtraBlockData, PublicValues, TrieRoots};
@@ -29,12 +28,12 @@ use crate::witness::memory::{MemoryAddress, MemoryChannel};
 use crate::witness::transition::transition;
 
 pub mod mpt;
-pub mod outputs;
 pub(crate) mod prover_input;
 pub(crate) mod rlp;
 pub(crate) mod state;
 mod trie_extractor;
 
+use self::mpt::{load_all_mpts, TrieRootPtrs};
 use crate::witness::util::mem_write_log;
 
 /// Inputs needed for trace generation.
@@ -61,13 +60,6 @@ pub struct GenerationInputs {
     pub block_metadata: BlockMetadata,
 
     pub block_hashes: BlockHashes,
-
-    /// A list of known addresses in the input state trie (which itself doesn't hold addresses,
-    /// only state keys). This is only useful for debugging, so that we can return addresses in the
-    /// post-state rather than state keys. (See `GenerationOutputs`, and in particular
-    /// `AddressOrStateKey`.) If the caller is not interested in the post-state, this can be left
-    /// empty.
-    pub addresses: Vec<Address>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, Default)]
@@ -196,11 +188,7 @@ pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
     inputs: GenerationInputs,
     config: &StarkConfig,
     timing: &mut TimingTree,
-) -> anyhow::Result<(
-    [Vec<PolynomialValues<F>>; NUM_TABLES],
-    PublicValues,
-    GenerationOutputs,
-)> {
+) -> anyhow::Result<([Vec<PolynomialValues<F>>; NUM_TABLES], PublicValues)> {
     let mut state = GenerationState::<F>::new(inputs.clone(), &KERNEL.code)
         .map_err(|err| anyhow!("Failed to parse all the initial prover inputs: {:?}", err))?;
 
@@ -208,18 +196,10 @@ pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
 
     timed!(timing, "simulate CPU", simulate_cpu(&mut state)?);
 
-    assert!(
-        state.mpt_prover_inputs.is_empty(),
-        "All MPT data should have been consumed"
-    );
-
     log::info!(
         "Trace lengths (before padding): {:?}",
         state.traces.get_lengths()
     );
-
-    let outputs = get_outputs(&mut state)
-        .map_err(|err| anyhow!("Failed to generate post-state info: {:?}", err))?;
 
     let read_metadata = |field| state.memory.read_global_metadata(field);
     let trie_roots_before = TrieRoots {
@@ -236,6 +216,7 @@ pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
     let gas_used_after = read_metadata(GlobalMetadata::BlockGasUsedAfter);
     let txn_number_after = read_metadata(GlobalMetadata::TxnNumberAfter);
 
+    let trie_root_ptrs = state.trie_root_ptrs;
     let extra_block_data = ExtraBlockData {
         genesis_state_trie_root: inputs.genesis_state_trie_root,
         txn_number_before: inputs.txn_number_before,
@@ -257,7 +238,7 @@ pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
         "convert trace data to tables",
         state.traces.into_tables(all_stark, config, timing)
     );
-    Ok((tables, public_values, outputs))
+    Ok((tables, public_values))
 }
 
 fn simulate_cpu<F: RichField + Extendable<D>, const D: usize>(

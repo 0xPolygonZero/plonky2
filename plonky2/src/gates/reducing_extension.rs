@@ -23,7 +23,7 @@ pub struct ReducingExtensionGate<const D: usize> {
 }
 
 impl<const D: usize> ReducingExtensionGate<D> {
-    pub fn new(num_coeffs: usize) -> Self {
+    pub const fn new(num_coeffs: usize) -> Self {
         Self { num_coeffs }
     }
 
@@ -33,20 +33,20 @@ impl<const D: usize> ReducingExtensionGate<D> {
         ((num_routed_wires - 3 * D) / D).min((num_wires - 2 * D) / (D * 2))
     }
 
-    pub fn wires_output() -> Range<usize> {
+    pub const fn wires_output() -> Range<usize> {
         0..D
     }
-    pub fn wires_alpha() -> Range<usize> {
+    pub const fn wires_alpha() -> Range<usize> {
         D..2 * D
     }
-    pub fn wires_old_acc() -> Range<usize> {
+    pub const fn wires_old_acc() -> Range<usize> {
         2 * D..3 * D
     }
     const START_COEFFS: usize = 3 * D;
-    pub fn wires_coeff(i: usize) -> Range<usize> {
+    pub const fn wires_coeff(i: usize) -> Range<usize> {
         Self::START_COEFFS + i * D..Self::START_COEFFS + (i + 1) * D
     }
-    fn start_accs(&self) -> usize {
+    const fn start_accs(&self) -> usize {
         Self::START_COEFFS + self.num_coeffs * D
     }
     fn wires_accs(&self, i: usize) -> Range<usize> {

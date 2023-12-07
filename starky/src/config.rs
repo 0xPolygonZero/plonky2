@@ -14,7 +14,7 @@ pub struct StarkConfig {
 impl StarkConfig {
     /// A typical configuration with a rate of 2, resulting in fast but large proofs.
     /// Targets ~100 bit conjectured security.
-    pub fn standard_fast_config() -> Self {
+    pub const fn standard_fast_config() -> Self {
         Self {
             security_bits: 100,
             num_challenges: 2,

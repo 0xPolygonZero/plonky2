@@ -10,8 +10,8 @@ use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
 use crate::cpu::kernel::constants::trie_type::PartialTrieType;
 use crate::cpu::kernel::interpreter::Interpreter;
+use crate::cpu::kernel::tests::account_code::initialize_mpts;
 use crate::cpu::kernel::tests::mpt::{extension_to_leaf, test_account_1, test_account_1_rlp};
-use crate::generation::mpt::all_mpt_prover_inputs_reversed;
 use crate::generation::TrieInputs;
 use crate::Node;
 
@@ -24,17 +24,13 @@ fn load_all_mpts_empty() -> Result<()> {
         storage_tries: vec![],
     };
 
-    let load_all_mpts = KERNEL.global_labels["load_all_mpts"];
-
-    let initial_stack = vec![0xDEADBEEFu32.into()];
-    let mut interpreter = Interpreter::new_with_kernel(load_all_mpts, initial_stack);
-    interpreter.generation_state.mpt_prover_inputs =
-        all_mpt_prover_inputs_reversed(&trie_inputs)
-            .map_err(|err| anyhow!("Invalid MPT data: {:?}", err))?;
-    interpreter.run()?;
+    let initial_stack = vec![];
+    let mut interpreter = Interpreter::new_with_kernel(0, initial_stack);
+    initialize_mpts(&mut interpreter, &trie_inputs);
     assert_eq!(interpreter.stack(), vec![]);
 
-    assert_eq!(interpreter.get_trie_data(), vec![]);
+    // We need to have the first element in `TrieData` be 0.
+    assert_eq!(interpreter.get_trie_data(), vec![0.into()]);
 
     assert_eq!(
         interpreter.get_global_metadata_field(GlobalMetadata::StateTrieRoot),
@@ -65,14 +61,9 @@ fn load_all_mpts_leaf() -> Result<()> {
         storage_tries: vec![],
     };
 
-    let load_all_mpts = KERNEL.global_labels["load_all_mpts"];
-
-    let initial_stack = vec![0xDEADBEEFu32.into()];
-    let mut interpreter = Interpreter::new_with_kernel(load_all_mpts, initial_stack);
-    interpreter.generation_state.mpt_prover_inputs =
-        all_mpt_prover_inputs_reversed(&trie_inputs)
-            .map_err(|err| anyhow!("Invalid MPT data: {:?}", err))?;
-    interpreter.run()?;
+    let initial_stack = vec![];
+    let mut interpreter = Interpreter::new_with_kernel(0, initial_stack);
+    initialize_mpts(&mut interpreter, &trie_inputs);
     assert_eq!(interpreter.stack(), vec![]);
 
     let type_leaf = U256::from(PartialTrieType::Leaf as u32);
@@ -116,14 +107,9 @@ fn load_all_mpts_hash() -> Result<()> {
         storage_tries: vec![],
     };
 
-    let load_all_mpts = KERNEL.global_labels["load_all_mpts"];
-
-    let initial_stack = vec![0xDEADBEEFu32.into()];
-    let mut interpreter = Interpreter::new_with_kernel(load_all_mpts, initial_stack);
-    interpreter.generation_state.mpt_prover_inputs =
-        all_mpt_prover_inputs_reversed(&trie_inputs)
-            .map_err(|err| anyhow!("Invalid MPT data: {:?}", err))?;
-    interpreter.run()?;
+    let initial_stack = vec![];
+    let mut interpreter = Interpreter::new_with_kernel(0, initial_stack);
+    initialize_mpts(&mut interpreter, &trie_inputs);
     assert_eq!(interpreter.stack(), vec![]);
 
     let type_hash = U256::from(PartialTrieType::Hash as u32);
@@ -159,14 +145,9 @@ fn load_all_mpts_empty_branch() -> Result<()> {
         storage_tries: vec![],
     };
 
-    let load_all_mpts = KERNEL.global_labels["load_all_mpts"];
-
-    let initial_stack = vec![0xDEADBEEFu32.into()];
-    let mut interpreter = Interpreter::new_with_kernel(load_all_mpts, initial_stack);
-    interpreter.generation_state.mpt_prover_inputs =
-        all_mpt_prover_inputs_reversed(&trie_inputs)
-            .map_err(|err| anyhow!("Invalid MPT data: {:?}", err))?;
-    interpreter.run()?;
+    let initial_stack = vec![];
+    let mut interpreter = Interpreter::new_with_kernel(0, initial_stack);
+    initialize_mpts(&mut interpreter, &trie_inputs);
     assert_eq!(interpreter.stack(), vec![]);
 
     let type_branch = U256::from(PartialTrieType::Branch as u32);
@@ -216,14 +197,9 @@ fn load_all_mpts_ext_to_leaf() -> Result<()> {
         storage_tries: vec![],
     };
 
-    let load_all_mpts = KERNEL.global_labels["load_all_mpts"];
-
-    let initial_stack = vec![0xDEADBEEFu32.into()];
-    let mut interpreter = Interpreter::new_with_kernel(load_all_mpts, initial_stack);
-    interpreter.generation_state.mpt_prover_inputs =
-        all_mpt_prover_inputs_reversed(&trie_inputs)
-            .map_err(|err| anyhow!("Invalid MPT data: {:?}", err))?;
-    interpreter.run()?;
+    let initial_stack = vec![];
+    let mut interpreter = Interpreter::new_with_kernel(0, initial_stack);
+    initialize_mpts(&mut interpreter, &trie_inputs);
     assert_eq!(interpreter.stack(), vec![]);
 
     let type_extension = U256::from(PartialTrieType::Extension as u32);
@@ -255,8 +231,6 @@ fn load_all_mpts_ext_to_leaf() -> Result<()> {
 
 #[test]
 fn load_mpt_txn_trie() -> Result<()> {
-    let load_all_mpts = KERNEL.global_labels["load_all_mpts"];
-
     let txn = hex!("f860010a830186a094095e7baea6a6c7c4c2dfeb977efac326af552e89808025a04a223955b0bd3827e3740a9a427d0ea43beb5bafa44a0204bf0a3306c8219f7ba0502c32d78f233e9e7ce9f5df3b576556d5d49731e0678fd5a068cdf359557b5b").to_vec();
 
     let trie_inputs = TrieInputs {
@@ -269,12 +243,9 @@ fn load_mpt_txn_trie() -> Result<()> {
         storage_tries: vec![],
     };
 
-    let initial_stack = vec![0xDEADBEEFu32.into()];
-    let mut interpreter = Interpreter::new_with_kernel(load_all_mpts, initial_stack);
-    interpreter.generation_state.mpt_prover_inputs =
-        all_mpt_prover_inputs_reversed(&trie_inputs)
-            .map_err(|err| anyhow!("Invalid MPT data: {:?}", err))?;
-    interpreter.run()?;
+    let initial_stack = vec![];
+    let mut interpreter = Interpreter::new_with_kernel(0, initial_stack);
+    initialize_mpts(&mut interpreter, &trie_inputs);
     assert_eq!(interpreter.stack(), vec![]);
 
     let mut expected_trie_data = vec![
