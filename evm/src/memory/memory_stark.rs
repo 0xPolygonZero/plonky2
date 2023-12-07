@@ -15,7 +15,7 @@ use plonky2_maybe_rayon::*;
 
 use super::segments::Segment;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
-use crate::cross_table_lookup::Column;
+use crate::cross_table_lookup::{Column, Filter};
 use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
 use crate::lookup::Lookup;
 use crate::memory::columns::{
@@ -42,8 +42,8 @@ pub(crate) fn ctl_data<F: Field>() -> Vec<Column<F>> {
 }
 
 /// CTL filter for memory operations.
-pub(crate) fn ctl_filter<F: Field>() -> Column<F> {
-    Column::single(FILTER)
+pub(crate) fn ctl_filter<F: Field>() -> Filter<F> {
+    Filter::new_simple(Column::single(FILTER))
 }
 
 #[derive(Copy, Clone, Default)]

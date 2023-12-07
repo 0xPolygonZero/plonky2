@@ -315,27 +315,111 @@ impl<F: Field> Column<F> {
     }
 }
 
+/// Represents a CTL filter, which evaluates to 1 if the row must be considered for the CTL and 0 otherwise.
+/// It's an arbitrary degree 2 combination of columns: `products` are the degree 2 terms, and `constants` are
+/// the degree 1 terms.
+#[derive(Clone, Debug)]
+pub(crate) struct Filter<F: Field> {
+    products: Vec<(Column<F>, Column<F>)>,
+    constants: Vec<Column<F>>,
+}
+
+impl<F: Field> Filter<F> {
+    pub(crate) fn new(products: Vec<(Column<F>, Column<F>)>, constants: Vec<Column<F>>) -> Self {
+        Self {
+            products,
+            constants,
+        }
+    }
+
+    /// Returns a filter made of a single column.
+    pub(crate) fn new_simple(col: Column<F>) -> Self {
+        Self {
+            products: vec![],
+            constants: vec![col],
+        }
+    }
+
+    /// Given the column values for the current and next rows, evaluates the filter.
+    pub(crate) fn eval_filter<FE, P, const D: usize>(&self, v: &[P], next_v: &[P]) -> P
+    where
+        FE: FieldExtension<D, BaseField = F>,
+        P: PackedField<Scalar = FE>,
+    {
+        self.products
+            .iter()
+            .map(|(col1, col2)| col1.eval_with_next(v, next_v) * col2.eval_with_next(v, next_v))
+            .sum::<P>()
+            + self
+                .constants
+                .iter()
+                .map(|col| col.eval_with_next(v, next_v))
+                .sum::<P>()
+    }
+
+    /// Circuit version of `eval_filter`:
+    /// Given the column values for the current and next rows, evaluates the filter.
+    pub(crate) fn eval_filter_circuit<const D: usize>(
+        &self,
+        builder: &mut CircuitBuilder<F, D>,
+        v: &[ExtensionTarget<D>],
+        next_v: &[ExtensionTarget<D>],
+    ) -> ExtensionTarget<D>
+    where
+        F: RichField + Extendable<D>,
+    {
+        let prods = self
+            .products
+            .iter()
+            .map(|(col1, col2)| {
+                let col1_eval = col1.eval_with_next_circuit(builder, v, next_v);
+                let col2_eval = col2.eval_with_next_circuit(builder, v, next_v);
+                builder.mul_extension(col1_eval, col2_eval)
+            })
+            .collect::<Vec<_>>();
+
+        let consts = self
+            .constants
+            .iter()
+            .map(|col| col.eval_with_next_circuit(builder, v, next_v))
+            .collect::<Vec<_>>();
+
+        let prods = builder.add_many_extension(prods);
+        let consts = builder.add_many_extension(consts);
+        builder.add_extension(prods, consts)
+    }
+
+    /// Evaluate on a row of a table given in column-major form.
+    pub(crate) fn eval_table(&self, table: &[PolynomialValues<F>], row: usize) -> F {
+        self.products
+            .iter()
+            .map(|(col1, col2)| col1.eval_table(table, row) * col2.eval_table(table, row))
+            .sum::<F>()
+            + self
+                .constants
+                .iter()
+                .map(|col| col.eval_table(table, row))
+                .sum()
+    }
+}
+
 /// A `Table` with a linear combination of columns and a filter.
-/// `filter_column` is used to determine the rows to select in `Table`.
+/// `filter` is used to determine the rows to select in `Table`.
 /// `columns` represents linear combinations of the columns of `Table`.
 #[derive(Clone, Debug)]
 pub(crate) struct TableWithColumns<F: Field> {
     table: Table,
     columns: Vec<Column<F>>,
-    pub(crate) filter_column: Option<Column<F>>,
+    pub(crate) filter: Option<Filter<F>>,
 }
 
 impl<F: Field> TableWithColumns<F> {
-    /// Generates a new `TableWithColumns` given a `Table`, a linear combination of columns `columns` and a `filter_column`.
-    pub(crate) fn new(
-        table: Table,
-        columns: Vec<Column<F>>,
-        filter_column: Option<Column<F>>,
-    ) -> Self {
+    /// Generates a new `TableWithColumns` given a `Table`, a linear combination of columns `columns` and a `filter`.
+    pub(crate) fn new(table: Table, columns: Vec<Column<F>>, filter: Option<Filter<F>>) -> Self {
         Self {
             table,
             columns,
-            filter_column,
+            filter,
         }
     }
 }
@@ -395,7 +479,7 @@ pub(crate) struct CtlZData<F: Field> {
     /// Column linear combination for the current table.
     pub(crate) columns: Vec<Column<F>>,
     /// Filter column for the current table. It evaluates to either 1 or 0.
-    pub(crate) filter_column: Option<Column<F>>,
+    pub(crate) filter: Option<Filter<F>>,
 }
 
 impl<F: Field> CtlData<F> {
@@ -562,14 +646,14 @@ pub(crate) fn cross_table_lookup_data<F: RichField, const D: usize>(
                 partial_sums(
                     &trace_poly_values[table.table as usize],
                     &table.columns,
-                    &table.filter_column,
+                    &table.filter,
                     challenge,
                 )
             });
             let z_looked = partial_sums(
                 &trace_poly_values[looked_table.table as usize],
                 &looked_table.columns,
-                &looked_table.filter_column,
+                &looked_table.filter,
                 challenge,
             );
             for (table, z) in looking_tables.iter().zip(zs_looking) {
@@ -579,7 +663,7 @@ pub(crate) fn cross_table_lookup_data<F: RichField, const D: usize>(
                         z,
                         challenge,
                         columns: table.columns.clone(),
-                        filter_column: table.filter_column.clone(),
+                        filter: table.filter.clone(),
                     });
             }
             ctl_data_per_table[looked_table.table as usize]
@@ -588,7 +672,7 @@ pub(crate) fn cross_table_lookup_data<F: RichField, const D: usize>(
                     z: z_looked,
                     challenge,
                     columns: looked_table.columns.clone(),
-                    filter_column: looked_table.filter_column.clone(),
+                    filter: looked_table.filter.clone(),
                 });
         }
     }
@@ -606,7 +690,7 @@ pub(crate) fn cross_table_lookup_data<F: RichField, const D: usize>(
 fn partial_sums<F: Field>(
     trace: &[PolynomialValues<F>],
     columns: &[Column<F>],
-    filter_column: &Option<Column<F>>,
+    filter: &Option<Filter<F>>,
     challenge: GrandProductChallenge<F>,
 ) -> PolynomialValues<F> {
     let mut partial_sum = F::ZERO;
@@ -615,12 +699,12 @@ fn partial_sums<F: Field>(
     let mut res = Vec::with_capacity(degree);
 
     for i in (0..degree).rev() {
-        if let Some(column) = filter_column {
-            let filter = column.eval_table(trace, i);
-            if filter.is_one() {
+        if let Some(filter) = filter {
+            let filter_val = filter.eval_table(trace, i);
+            if filter_val.is_one() {
                 filters.push(true);
             } else {
-                assert_eq!(filter, F::ZERO, "Non-binary filter?");
+                assert_eq!(filter_val, F::ZERO, "Non-binary filter?");
                 filters.push(false);
             }
         } else {
@@ -673,8 +757,8 @@ where
     pub(crate) challenges: GrandProductChallenge<F>,
     /// Column linear combinations of the `CrossTableLookup`s.
     pub(crate) columns: &'a [Column<F>],
-    /// Column linear combination that evaluates to either 1 or 0.
-    pub(crate) filter_column: &'a Option<Column<F>>,
+    /// Filter that evaluates to either 1 or 0.
+    pub(crate) filter: &'a Option<Filter<F>>,
 }
 
 impl<'a, F: RichField + Extendable<D>, const D: usize>
@@ -714,7 +798,7 @@ impl<'a, F: RichField + Extendable<D>, const D: usize>
                         next_z: *looking_z_next,
                         challenges,
                         columns: &table.columns,
-                        filter_column: &table.filter_column,
+                        filter: &table.filter,
                     });
                 }
 
@@ -724,7 +808,7 @@ impl<'a, F: RichField + Extendable<D>, const D: usize>
                     next_z: *looked_z_next,
                     challenges,
                     columns: &looked_table.columns,
-                    filter_column: &looked_table.filter_column,
+                    filter: &looked_table.filter,
                 });
             }
         }
@@ -758,7 +842,7 @@ pub(crate) fn eval_cross_table_lookup_checks<F, FE, P, S, const D: usize, const 
             next_z,
             challenges,
             columns,
-            filter_column,
+            filter,
         } = lookup_vars;
 
         // Compute all linear combinations on the current table, and combine them using the challenge.
@@ -767,8 +851,8 @@ pub(crate) fn eval_cross_table_lookup_checks<F, FE, P, S, const D: usize, const 
             .map(|c| c.eval_with_next(local_values, next_values))
             .collect::<Vec<_>>();
         let combined = challenges.combine(evals.iter());
-        let local_filter = if let Some(column) = filter_column {
-            column.eval_with_next(local_values, next_values)
+        let local_filter = if let Some(combin) = filter {
+            combin.eval_filter(local_values, next_values)
         } else {
             P::ONES
         };
@@ -791,8 +875,8 @@ pub(crate) struct CtlCheckVarsTarget<'a, F: Field, const D: usize> {
     pub(crate) challenges: GrandProductChallenge<Target>,
     /// Column linear combinations of the `CrossTableLookup`s.
     pub(crate) columns: &'a [Column<F>],
-    /// Column linear combination that evaluates to either 1 or 0.
-    pub(crate) filter_column: &'a Option<Column<F>>,
+    /// Filter that evaluates to either 1 or 0.
+    pub(crate) filter: &'a Option<Filter<F>>,
 }
 
 impl<'a, F: Field, const D: usize> CtlCheckVarsTarget<'a, F, D> {
@@ -831,7 +915,7 @@ impl<'a, F: Field, const D: usize> CtlCheckVarsTarget<'a, F, D> {
                             next_z: *looking_z_next,
                             challenges,
                             columns: &looking_table.columns,
-                            filter_column: &looking_table.filter_column,
+                            filter: &looking_table.filter,
                         });
                     }
                 }
@@ -843,7 +927,7 @@ impl<'a, F: Field, const D: usize> CtlCheckVarsTarget<'a, F, D> {
                         next_z: *looked_z_next,
                         challenges,
                         columns: &looked_table.columns,
-                        filter_column: &looked_table.filter_column,
+                        filter: &looked_table.filter,
                     });
                 }
             }
@@ -879,12 +963,12 @@ pub(crate) fn eval_cross_table_lookup_checks_circuit<
             next_z,
             challenges,
             columns,
-            filter_column,
+            filter,
         } = lookup_vars;
 
         let one = builder.one_extension();
-        let local_filter = if let Some(column) = filter_column {
-            column.eval_circuit(builder, local_values)
+        let local_filter = if let Some(combin) = filter {
+            combin.eval_filter_circuit(builder, local_values, next_values)
         } else {
             one
         };
@@ -1060,8 +1144,8 @@ pub(crate) mod testutils {
     ) {
         let trace = &trace_poly_values[table.table as usize];
         for i in 0..trace[0].len() {
-            let filter = if let Some(column) = &table.filter_column {
-                column.eval_table(trace, i)
+            let filter = if let Some(combin) = &table.filter {
+                combin.eval_table(trace, i)
             } else {
                 F::ONE
             };
