@@ -132,12 +132,12 @@ pub(crate) fn eval_packed_generic<P: PackedField>(
         yield_constr.constraint(lv[col] * (unavailable + opcode_mismatch));
     }
 
-    let opcode_high_bits = |block_length| -> P {
+    let opcode_high_bits = |num_high_bits| -> P {
         lv.opcode_bits
             .into_iter()
             .enumerate()
             .rev()
-            .take(block_length)
+            .take(num_high_bits)
             .map(|(i, bit)| bit * P::Scalar::from_canonical_u64(1 << i))
             .sum()
     };
@@ -192,6 +192,21 @@ pub(crate) fn eval_packed_generic<P: PackedField>(
         * (opcode_full - P::Scalar::from_canonical_usize(0xf8_usize))
         * lv.op.m_op_32bytes;
     yield_constr.constraint(op_32bytes);
+}
+
+fn opcode_high_bits_circuit<F: RichField + Extendable<D>, const D: usize>(
+    builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
+    lv: &CpuColumnsView<ExtensionTarget<D>>,
+    num_high_bits: usize,
+) -> ExtensionTarget<D> {
+    lv.opcode_bits
+        .into_iter()
+        .enumerate()
+        .rev()
+        .take(num_high_bits)
+        .fold(builder.zero_extension(), |cumul, (i, bit)| {
+            builder.mul_const_add_extension(F::from_canonical_usize(1 << i), bit, cumul)
+        })
 }
 
 /// Circuit version of `eval_packed_generic`.
@@ -274,13 +289,7 @@ pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     }
 
     // Manually check lv.op.m_op_constr
-    let opcode = lv
-        .opcode_bits
-        .into_iter()
-        .rev()
-        .fold(builder.zero_extension(), |cumul, bit| {
-            builder.mul_const_add_extension(F::TWO, cumul, bit)
-        });
+    let opcode_full = opcode_high_bits_circuit(builder, lv, 8);
 
     let mload_opcode = builder.constant_extension(F::Extension::from_canonical_usize(0xfb_usize));
     let mstore_opcode = builder.constant_extension(F::Extension::from_canonical_usize(0xfc_usize));
@@ -290,8 +299,8 @@ pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let constr = builder.mul_extension(is_not_kernel_mode, lv.op.m_op_general);
     yield_constr.constraint(builder, constr);
 
-    let mload_constr = builder.sub_extension(opcode, mload_opcode);
-    let mstore_constr = builder.sub_extension(opcode, mstore_opcode);
+    let mload_constr = builder.sub_extension(opcode_full, mload_opcode);
+    let mstore_constr = builder.sub_extension(opcode_full, mstore_opcode);
     let mut m_op_constr = builder.mul_extension(mload_constr, mstore_constr);
     m_op_constr = builder.mul_extension(m_op_constr, lv.op.m_op_general);
 
@@ -313,8 +322,8 @@ pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     yield_constr.constraint(builder, constr);
 
     // Check the JUMPDEST and KERNEL_GENERAL opcodes.
-    let jumpdest_constr = builder.sub_extension(opcode, jumpdest_opcode);
-    let keccak_general_constr = builder.sub_extension(opcode, keccak_general_opcode);
+    let jumpdest_constr = builder.sub_extension(opcode_full, jumpdest_opcode);
+    let keccak_general_constr = builder.sub_extension(opcode_full, keccak_general_opcode);
     let mut jumpdest_keccak_general_constr =
         builder.mul_extension(jumpdest_constr, keccak_general_constr);
     jumpdest_keccak_general_constr = builder.mul_extension(
@@ -329,8 +338,8 @@ pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     // there is no need to constrain them in that regard.
     let pc_opcode = builder.constant_extension(F::Extension::from_canonical_usize(0x58_usize));
     let push0_opcode = builder.constant_extension(F::Extension::from_canonical_usize(0x5f_usize));
-    let pc_constr = builder.sub_extension(opcode, pc_opcode);
-    let push0_constr = builder.sub_extension(opcode, push0_opcode);
+    let pc_constr = builder.sub_extension(opcode_full, pc_opcode);
+    let push0_constr = builder.sub_extension(opcode_full, push0_opcode);
     let mut pc_push0_constr = builder.mul_extension(pc_constr, push0_constr);
     pc_push0_constr = builder.mul_extension(pc_push0_constr, lv.op.pc_push0);
     yield_constr.constraint(builder, pc_push0_constr);
@@ -341,10 +350,27 @@ pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let not_opcode = builder.constant_extension(F::Extension::from_canonical_usize(0x19_usize));
     let pop_opcode = builder.constant_extension(F::Extension::from_canonical_usize(0x50_usize));
 
-    let not_constr = builder.sub_extension(opcode, not_opcode);
-    let pop_constr = builder.sub_extension(opcode, pop_opcode);
+    let not_constr = builder.sub_extension(opcode_full, not_opcode);
+    let pop_constr = builder.sub_extension(opcode_full, pop_opcode);
 
     let mut not_pop_constr = builder.mul_extension(not_constr, pop_constr);
     not_pop_constr = builder.mul_extension(lv.op.not_pop, not_pop_constr);
     yield_constr.constraint(builder, not_pop_constr);
+
+    // Manually check lv.op.m_op_32bytes.
+    // Both are kernel-only.
+    let constr = builder.mul_extension(is_not_kernel_mode, lv.op.m_op_32bytes);
+    yield_constr.constraint(builder, constr);
+
+    // Check the MSTORE_32BYTES and MLOAD-32BYTES opcodes.
+    let opcode_high_three = opcode_high_bits_circuit(builder, lv, 3);
+    let mstore_32bytes_opcode =
+        builder.constant_extension(F::Extension::from_canonical_usize(0xc0_usize));
+    let mload_32bytes_opcode =
+        builder.constant_extension(F::Extension::from_canonical_usize(0xf8_usize));
+    let mstore_32bytes_constr = builder.sub_extension(opcode_high_three, mstore_32bytes_opcode);
+    let mload_32bytes_constr = builder.sub_extension(opcode_full, mload_32bytes_opcode);
+    let constr = builder.mul_extension(mstore_32bytes_constr, mload_32bytes_constr);
+    let constr = builder.mul_extension(constr, lv.op.m_op_32bytes);
+    yield_constr.constraint(builder, constr);
 }
