@@ -48,6 +48,7 @@ pub(crate) fn ctl_data_keccak_sponge<F: Field>() -> Vec<Column<F>> {
 }
 
 /// CTL filter for a call to the Keccak sponge.
+// KECCAK_GENERAL is differentiated from JUMPDEST by its second bit set to 0.
 pub(crate) fn ctl_filter_keccak_sponge<F: Field>() -> Filter<F> {
     Filter::new(
         vec![(
