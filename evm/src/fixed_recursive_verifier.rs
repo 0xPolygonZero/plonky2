@@ -715,18 +715,18 @@ where
         lhs: &ExtraBlockDataTarget,
         rhs: &ExtraBlockDataTarget,
     ) {
-        // Connect genesis state root values.
+        // Connect checkpoint state root values.
         for (&limb0, &limb1) in pvs
-            .genesis_state_trie_root
+            .checkpoint_state_trie_root
             .iter()
-            .zip(&rhs.genesis_state_trie_root)
+            .zip(&rhs.checkpoint_state_trie_root)
         {
             builder.connect(limb0, limb1);
         }
         for (&limb0, &limb1) in pvs
-            .genesis_state_trie_root
+            .checkpoint_state_trie_root
             .iter()
-            .zip(&lhs.genesis_state_trie_root)
+            .zip(&lhs.checkpoint_state_trie_root)
         {
             builder.connect(limb0, limb1);
         }
@@ -855,12 +855,12 @@ where
             builder.connect(limb0, limb1);
         }
 
-        // Between blocks, the genesis state trie remains unchanged.
+        // Between blocks, the checkpoint state trie remains unchanged.
         for (&limb0, limb1) in lhs
             .extra_block_data
-            .genesis_state_trie_root
+            .checkpoint_state_trie_root
             .iter()
-            .zip(rhs.extra_block_data.genesis_state_trie_root)
+            .zip(rhs.extra_block_data.checkpoint_state_trie_root)
         {
             builder.connect(limb0, limb1);
         }
@@ -878,11 +878,11 @@ where
 
         let has_not_parent_block = builder.sub(one, has_parent_block.target);
 
-        // Check that the genesis block has the predetermined state trie root in `ExtraBlockData`.
-        Self::connect_genesis_block(builder, rhs, has_not_parent_block);
+        // Check that the checkpoint block has the predetermined state trie root in `ExtraBlockData`.
+        Self::connect_checkpoint_block(builder, rhs, has_not_parent_block);
     }
 
-    fn connect_genesis_block(
+    fn connect_checkpoint_block(
         builder: &mut CircuitBuilder<F, D>,
         x: &PublicValuesTarget,
         has_not_parent_block: Target,
@@ -893,7 +893,7 @@ where
             .trie_roots_before
             .state_root
             .iter()
-            .zip(x.extra_block_data.genesis_state_trie_root)
+            .zip(x.extra_block_data.checkpoint_state_trie_root)
         {
             let mut constr = builder.sub(limb0, limb1);
             constr = builder.mul(has_not_parent_block, constr);
@@ -1022,7 +1022,9 @@ where
             trie_roots_before: lhs_public_values.trie_roots_before,
             trie_roots_after: rhs_public_values.trie_roots_after,
             extra_block_data: ExtraBlockData {
-                genesis_state_trie_root: lhs_public_values.extra_block_data.genesis_state_trie_root,
+                checkpoint_state_trie_root: lhs_public_values
+                    .extra_block_data
+                    .checkpoint_state_trie_root,
                 txn_number_before: lhs_public_values.extra_block_data.txn_number_before,
                 txn_number_after: rhs_public_values.extra_block_data.txn_number_after,
                 gas_used_before: lhs_public_values.extra_block_data.gas_used_before,
@@ -1074,18 +1076,18 @@ where
                 .set_proof_with_pis_target(&self.block.parent_block_proof, parent_block_proof);
         } else {
             if public_values.trie_roots_before.state_root
-                != public_values.extra_block_data.genesis_state_trie_root
+                != public_values.extra_block_data.checkpoint_state_trie_root
             {
                 return Err(anyhow::Error::msg(format!(
-                    "Inconsistent pre-state for first block {:?} with genesis state {:?}.",
+                    "Inconsistent pre-state for first block {:?} with checkpoint state {:?}.",
                     public_values.trie_roots_before.state_root,
-                    public_values.extra_block_data.genesis_state_trie_root,
+                    public_values.extra_block_data.checkpoint_state_trie_root,
                 )));
             }
 
-            // Initialize some public inputs for correct connection between blocks.
+            // Initialize some public inputs for correct connection between the checkpoint block and the current one.
 
-            // Initialize `state_root_after`.
+            // Initialize the checkpoint block `state_root_after`.
             let state_trie_root_after_keys =
                 TrieRootsTarget::SIZE..TrieRootsTarget::SIZE + TrieRootsTarget::HASH_SIZE;
             let mut nonzero_pis = HashMap::new();
@@ -1095,20 +1097,21 @@ where
                 nonzero_pis.insert(key, value);
             }
 
-            // Initialize the genesis state trie digest.
-            let genesis_state_trie_keys =
+            // Initialize the checkpoint block `state_root_after`.
+            let checkpoint_state_trie_keys =
                 TrieRootsTarget::SIZE * 2 + BlockMetadataTarget::SIZE + BlockHashesTarget::SIZE
                     ..TrieRootsTarget::SIZE * 2
                         + BlockMetadataTarget::SIZE
                         + BlockHashesTarget::SIZE
                         + 8;
-            for (key, &value) in genesis_state_trie_keys.zip_eq(&h256_limbs::<F>(
-                public_values.extra_block_data.genesis_state_trie_root,
+            for (key, &value) in checkpoint_state_trie_keys.zip_eq(&h256_limbs::<F>(
+                public_values.extra_block_data.checkpoint_state_trie_root,
             )) {
                 nonzero_pis.insert(key, value);
             }
 
-            // Initialize block hashes.
+            // Initialize checkpoint block hashes.
+            // These will be all zeros the initial genesis checkpoint.
             let block_hashes_keys = TrieRootsTarget::SIZE * 2 + BlockMetadataTarget::SIZE
                 ..TrieRootsTarget::SIZE * 2 + BlockMetadataTarget::SIZE + BlockHashesTarget::SIZE
                     - 8;
@@ -1126,8 +1129,8 @@ where
                 nonzero_pis.insert(block_hashes_current_start + i, cur_targets[i]);
             }
 
-            // Initialize the block number.
-            // Subtraction would result in invalid proof for genesis, but we can't prove the genesis block anyway.
+            // Initialize the checkpoint block number.
+            // Subtraction would result in invalid proof for genesis, but we shouldn't try proving this block anyway.
             let block_number_key = TrieRootsTarget::SIZE * 2 + 6;
             nonzero_pis.insert(
                 block_number_key,

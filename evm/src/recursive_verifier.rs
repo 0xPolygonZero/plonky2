@@ -712,13 +712,13 @@ pub(crate) fn add_virtual_block_hashes<F: RichField + Extendable<D>, const D: us
 pub(crate) fn add_virtual_extra_block_data<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
 ) -> ExtraBlockDataTarget {
-    let genesis_state_trie_root = builder.add_virtual_public_input_arr();
+    let checkpoint_state_trie_root = builder.add_virtual_public_input_arr();
     let txn_number_before = builder.add_virtual_public_input();
     let txn_number_after = builder.add_virtual_public_input();
     let gas_used_before = builder.add_virtual_public_input();
     let gas_used_after = builder.add_virtual_public_input();
     ExtraBlockDataTarget {
-        genesis_state_trie_root,
+        checkpoint_state_trie_root,
         txn_number_before,
         txn_number_after,
         gas_used_before,
@@ -979,8 +979,8 @@ where
     W: Witness<F>,
 {
     witness.set_target_arr(
-        &ed_target.genesis_state_trie_root,
-        &h256_limbs::<F>(ed.genesis_state_trie_root),
+        &ed_target.checkpoint_state_trie_root,
+        &h256_limbs::<F>(ed.checkpoint_state_trie_root),
     );
     witness.set_target(
         ed_target.txn_number_before,

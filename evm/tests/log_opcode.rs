@@ -221,7 +221,7 @@ fn test_log_opcodes() -> anyhow::Result<()> {
         tries: tries_before,
         trie_roots_after,
         contract_code,
-        genesis_state_trie_root: HashedPartialTrie::from(Node::Empty).hash(),
+        checkpoint_state_trie_root: HashedPartialTrie::from(Node::Empty).hash(),
         block_metadata,
         txn_number_before: 0.into(),
         gas_used_before: 0.into(),
@@ -324,7 +324,7 @@ fn test_log_with_aggreg() -> anyhow::Result<()> {
         to_second_nibbles,
         rlp::encode(&to_account_second_before).to_vec(),
     );
-    let genesis_state_trie_root = state_trie_before.hash();
+    let checkpoint_state_trie_root = state_trie_before.hash();
 
     let tries_before = TrieInputs {
         state_trie: state_trie_before,
@@ -426,7 +426,7 @@ fn test_log_with_aggreg() -> anyhow::Result<()> {
         tries: tries_before,
         trie_roots_after: tries_after,
         contract_code,
-        genesis_state_trie_root,
+        checkpoint_state_trie_root,
         block_metadata: block_metadata.clone(),
         txn_number_before: 0.into(),
         gas_used_before: 0.into(),
@@ -551,7 +551,7 @@ fn test_log_with_aggreg() -> anyhow::Result<()> {
         tries: tries_before,
         trie_roots_after,
         contract_code,
-        genesis_state_trie_root,
+        checkpoint_state_trie_root,
         block_metadata,
         txn_number_before: 1.into(),
         gas_used_before: gas_used_second,

@@ -157,7 +157,7 @@ fn add11_yml() -> anyhow::Result<()> {
         trie_roots_after,
         contract_code,
         block_metadata,
-        genesis_state_trie_root: HashedPartialTrie::from(Node::Empty).hash(),
+        checkpoint_state_trie_root: HashedPartialTrie::from(Node::Empty).hash(),
         txn_number_before: 0.into(),
         gas_used_before: 0.into(),
         gas_used_after: 0xa868u64.into(),
