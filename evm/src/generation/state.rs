@@ -48,21 +48,18 @@ pub(crate) struct GenerationState<F: Field> {
     /// quotient, in that order.
     pub(crate) bignum_modmul_result_limbs: Vec<U256>,
 
-    /// Length of the `TrieData` segment after preloading of the initial tries.
-    pub(crate) trie_data_len: usize,
-
+    /// Pointers, within the `TrieData` segment, of the three MPTs.
     pub(crate) trie_root_ptrs: TrieRootPtrs,
 }
 
 impl<F: Field> GenerationState<F> {
-    fn preinitialize_mpts(&mut self, trie_inputs: &TrieInputs) -> (TrieRootPtrs, usize) {
+    fn preinitialize_mpts(&mut self, trie_inputs: &TrieInputs) -> TrieRootPtrs {
         let (trie_roots_ptrs, trie_data) =
             load_all_mpts(trie_inputs).expect("Invalid MPT data for preinitialization");
 
-        let trie_data_len = trie_data.len();
         self.memory.contexts[0].segments[Segment::TrieData as usize].content = trie_data;
 
-        (trie_roots_ptrs, trie_data_len)
+        trie_roots_ptrs
     }
     pub(crate) fn new(inputs: GenerationInputs, kernel_code: &[u8]) -> Result<Self, ProgramError> {
         log::debug!("Input signed_txn: {:?}", &inputs.signed_txn);
@@ -89,16 +86,14 @@ impl<F: Field> GenerationState<F> {
             withdrawal_prover_inputs,
             state_key_to_address: HashMap::new(),
             bignum_modmul_result_limbs,
-            trie_data_len: 0,
             trie_root_ptrs: TrieRootPtrs {
                 state_root_ptr: 0,
                 txn_root_ptr: 0,
                 receipt_root_ptr: 0,
             },
         };
-        let (trie_root_ptrs, trie_data_len) = state.preinitialize_mpts(&inputs.tries);
+        let trie_root_ptrs = state.preinitialize_mpts(&inputs.tries);
 
-        state.trie_data_len = trie_data_len;
         state.trie_root_ptrs = trie_root_ptrs;
         Ok(state)
     }

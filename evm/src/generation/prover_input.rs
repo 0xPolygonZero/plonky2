@@ -36,7 +36,6 @@ impl<F: Field> GenerationState<F> {
     pub(crate) fn prover_input(&mut self, input_fn: &ProverInputFn) -> Result<U256, ProgramError> {
         match input_fn.0[0].as_str() {
             "no_txn" => self.no_txn(),
-            "trie_len" => self.run_trie_len(),
             "trie_ptr" => self.run_trie_ptr(input_fn),
             "ff" => self.run_ff(input_fn),
             "sf" => self.run_sf(input_fn),
@@ -53,10 +52,6 @@ impl<F: Field> GenerationState<F> {
 
     fn no_txn(&mut self) -> Result<U256, ProgramError> {
         Ok(U256::from(self.inputs.signed_txn.is_none() as u8))
-    }
-
-    fn run_trie_len(&mut self) -> Result<U256, ProgramError> {
-        Ok(U256::from(self.trie_data_len))
     }
 
     fn run_trie_ptr(&mut self, input_fn: &ProverInputFn) -> Result<U256, ProgramError> {

@@ -13,10 +13,7 @@ global main:
 
     // Initialise the shift table
     %shift_table_init
-
-    // Initialize the length of `SEGMENT_TRIE_DATA`.
-    PROVER_INPUT(trie_len)
-    %mstore_global_metadata(@GLOBAL_METADATA_TRIE_DATA_SIZE)
+   
     // Initialize the state, transaction and receipt trie root pointers.
     PROVER_INPUT(trie_ptr::state)
     %mstore_global_metadata(@GLOBAL_METADATA_STATE_TRIE_ROOT)
@@ -37,8 +34,7 @@ global hash_initial_tries:
     // stack: trie_data_len
     %mpt_hash_receipt_trie %mload_global_metadata(@GLOBAL_METADATA_RECEIPT_TRIE_DIGEST_BEFORE)  %assert_eq
     // stack: trie_data_full_len
-    %mload_global_metadata(@GLOBAL_METADATA_TRIE_DATA_SIZE)
-    %assert_eq
+    %mstore_global_metadata(@GLOBAL_METADATA_TRIE_DATA_SIZE)
 
 global start_txn:
     // stack: (empty)
