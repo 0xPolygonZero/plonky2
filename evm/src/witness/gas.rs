@@ -1,3 +1,4 @@
+use crate::cpu::kernel::aggregator::KERNEL;
 use crate::witness::operation::Operation;
 
 pub(crate) const KERNEL_ONLY_INSTR: u64 = 0;
@@ -17,6 +18,7 @@ pub(crate) const fn gas_to_charge(op: Operation) -> u64 {
         Not => G_VERYLOW,
         Syscall(_, _, _) => KERNEL_ONLY_INSTR,
         Eq => G_VERYLOW,
+        UnaryArithmetic(_) => KERNEL_ONLY_INSTR,
         BinaryLogic(_) => G_VERYLOW,
         BinaryArithmetic(Add) => G_VERYLOW,
         BinaryArithmetic(Mul) => G_LOW,

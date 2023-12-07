@@ -1,6 +1,6 @@
 //! Support for EVM instructions ADD, SUB, LT and GT
 //!
-//! This crate verifies EVM instructions ADD, SUB, LT and GT (i.e. for
+//! This crate verifies EVM instructions ADD, INCREMENT, SUB, LT and GT (i.e. for
 //! unsigned inputs). Each of these instructions can be verified using
 //! the "add with carry out" equation
 //!
@@ -10,9 +10,12 @@
 //! variables X, Y, Z and CY. Specifically,
 //!
 //! ADD: X + Y, inputs X, Y, output Z, ignore CY
+//! INCREMENT: X + 1, input X, output Z, ignore CY
 //! SUB: Z - X, inputs X, Z, output Y, ignore CY
 //!  GT: X > Z, inputs X, Z, output CY, auxiliary output Y
 //!  LT: Z < X, inputs Z, X, output CY, auxiliary output Y
+//!
+//! For INCREMENT, the second input is checked to be equal to 1 in `arithmetic_stark.rs`.
 
 use ethereum_types::U256;
 use itertools::Itertools;
@@ -39,7 +42,7 @@ pub(crate) fn generate<F: PrimeField64>(
     u256_to_array(&mut lv[INPUT_REGISTER_2], U256::zero());
 
     match filter {
-        IS_ADD => {
+        IS_ADD | IS_INCREMENT => {
             let (result, cy) = left_in.overflowing_add(right_in);
             u256_to_array(&mut lv[AUX_INPUT_REGISTER_0], U256::from(cy as u32));
             u256_to_array(&mut lv[OUTPUT_REGISTER], result);
@@ -157,6 +160,7 @@ pub(crate) fn eval_packed_generic<P: PackedField>(
     let is_sub = lv[IS_SUB];
     let is_lt = lv[IS_LT];
     let is_gt = lv[IS_GT];
+    let is_increment = lv[IS_INCREMENT];
 
     let in0 = &lv[INPUT_REGISTER_0];
     let in1 = &lv[INPUT_REGISTER_1];
@@ -165,6 +169,7 @@ pub(crate) fn eval_packed_generic<P: PackedField>(
 
     // x + y = z + w*2^256
     eval_packed_generic_addcy(yield_constr, is_add, in0, in1, out, aux, false);
+    eval_packed_generic_addcy(yield_constr, is_increment, in0, in1, out, aux, false);
     eval_packed_generic_addcy(yield_constr, is_sub, in1, out, in0, aux, false);
     eval_packed_generic_addcy(yield_constr, is_lt, in1, aux, in0, out, false);
     eval_packed_generic_addcy(yield_constr, is_gt, in0, aux, in1, out, false);
@@ -245,6 +250,7 @@ pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let is_sub = lv[IS_SUB];
     let is_lt = lv[IS_LT];
     let is_gt = lv[IS_GT];
+    let is_increment = lv[IS_INCREMENT];
 
     let in0 = &lv[INPUT_REGISTER_0];
     let in1 = &lv[INPUT_REGISTER_1];
@@ -252,6 +258,16 @@ pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let aux = &lv[AUX_INPUT_REGISTER_0];
 
     eval_ext_circuit_addcy(builder, yield_constr, is_add, in0, in1, out, aux, false);
+    eval_ext_circuit_addcy(
+        builder,
+        yield_constr,
+        is_increment,
+        in0,
+        in1,
+        out,
+        aux,
+        false,
+    );
     eval_ext_circuit_addcy(builder, yield_constr, is_sub, in1, out, in0, aux, false);
     eval_ext_circuit_addcy(builder, yield_constr, is_lt, in1, aux, in0, out, false);
     eval_ext_circuit_addcy(builder, yield_constr, is_gt, in0, aux, in1, out, false);
@@ -283,6 +299,7 @@ mod tests {
         lv[IS_SUB] = F::ZERO;
         lv[IS_LT] = F::ZERO;
         lv[IS_GT] = F::ZERO;
+        lv[IS_INCREMENT] = F::ZERO;
 
         let mut constrant_consumer = ConstraintConsumer::new(
             vec![GoldilocksField(2), GoldilocksField(3), GoldilocksField(5)],
@@ -304,7 +321,7 @@ mod tests {
         const N_ITERS: usize = 1000;
 
         for _ in 0..N_ITERS {
-            for op_filter in [IS_ADD, IS_SUB, IS_LT, IS_GT] {
+            for op_filter in [IS_ADD, IS_SUB, IS_LT, IS_GT, IS_INCREMENT] {
                 // set entire row to random 16-bit values
                 let mut lv = [F::default(); NUM_ARITH_COLUMNS]
                     .map(|_| F::from_canonical_u16(rng.gen::<u16>()));
@@ -314,6 +331,7 @@ mod tests {
                 // operation filters to zero since all are treated by
                 // the call.
                 lv[IS_ADD] = F::ZERO;
+                lv[IS_INCREMENT] = F::ZERO;
                 lv[IS_SUB] = F::ZERO;
                 lv[IS_LT] = F::ZERO;
                 lv[IS_GT] = F::ZERO;
@@ -336,7 +354,7 @@ mod tests {
                 }
 
                 let expected = match op_filter {
-                    IS_ADD => left_in.overflowing_add(right_in).0,
+                    IS_ADD | IS_INCREMENT => left_in.overflowing_add(right_in).0,
                     IS_SUB => left_in.overflowing_sub(right_in).0,
                     IS_LT => U256::from((left_in < right_in) as u8),
                     IS_GT => U256::from((left_in > right_in) as u8),

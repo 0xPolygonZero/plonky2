@@ -2,7 +2,7 @@ use ethereum_types::U256;
 use plonky2::field::types::PrimeField64;
 
 use self::columns::{
-    INPUT_REGISTER_0, INPUT_REGISTER_1, INPUT_REGISTER_2, OPCODE_COL, OUTPUT_REGISTER,
+    INPUT_REGISTER_0, INPUT_REGISTER_1, INPUT_REGISTER_2, IS_INCREMENT, OPCODE_COL, OUTPUT_REGISTER,
 };
 use self::utils::u256_to_array;
 use crate::arithmetic::columns::IS_RANGE_CHECK;
@@ -19,6 +19,24 @@ mod utils;
 
 pub mod arithmetic_stark;
 pub(crate) mod columns;
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum UnaryOperator {
+    Increment,
+}
+
+impl UnaryOperator {
+    pub(crate) fn result(&self, input: U256) -> U256 {
+        match self {
+            UnaryOperator::Increment => input.overflowing_add(U256::one()).0,
+        }
+    }
+
+    /// Maps a binary arithmetic operation to its associated flag column in the trace.
+    pub(crate) const fn row_filter(&self) -> usize {
+        columns::IS_INCREMENT
+    }
+}
 
 /// An enum representing different binary operations.
 ///
@@ -143,6 +161,11 @@ impl TernaryOperator {
 #[allow(clippy::enum_variant_names)]
 #[derive(Debug)]
 pub(crate) enum Operation {
+    UnaryOperation {
+        operator: UnaryOperator,
+        input: U256,
+        result: U256,
+    },
     BinaryOperation {
         operator: BinaryOperator,
         input0: U256,
@@ -166,6 +189,15 @@ pub(crate) enum Operation {
 }
 
 impl Operation {
+    pub(crate) fn unary(operator: UnaryOperator, input: U256) -> Self {
+        let result = operator.result(input);
+
+        Self::UnaryOperation {
+            operator,
+            input,
+            result,
+        }
+    }
     /// Creates a binary operator with given inputs.
     ///
     /// NB: This works as you would expect, EXCEPT for SHL and SHR,
@@ -227,6 +259,7 @@ impl Operation {
     /// Gets the result of an arithmetic operation.
     pub(crate) fn result(&self) -> U256 {
         match self {
+            Operation::UnaryOperation { result, .. } => *result,
             Operation::BinaryOperation { result, .. } => *result,
             Operation::TernaryOperation { result, .. } => *result,
             _ => panic!("This function should not be called for range checks."),
@@ -245,6 +278,11 @@ impl Operation {
     /// SHL and SHR operations that are simulated through MUL and DIV respectively.
     fn to_rows<F: PrimeField64>(&self) -> (Vec<F>, Option<Vec<F>>) {
         match *self {
+            Operation::UnaryOperation {
+                operator,
+                input,
+                result,
+            } => unary_ops_to_rows(operator, input, result),
             Operation::BinaryOperation {
                 operator,
                 input0,
@@ -329,6 +367,18 @@ fn binary_op_to_rows<F: PrimeField64>(
             (row, None)
         }
     }
+}
+
+fn unary_ops_to_rows<F: PrimeField64>(
+    op: UnaryOperator,
+    input0: U256,
+    result: U256,
+) -> (Vec<F>, Option<Vec<F>>) {
+    let mut row = vec![F::ZERO; columns::NUM_ARITH_COLUMNS];
+    row[op.row_filter()] = F::ONE;
+
+    addcy::generate(&mut row, op.row_filter(), input0, 1.into());
+    (row, None)
 }
 
 fn range_check_to_rows<F: PrimeField64>(

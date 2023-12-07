@@ -29,7 +29,7 @@ starts_with_one:
     // stack: len, start_loc, retdest
     %decrement
     SWAP1
-    %increment
+    INCREMENT
     SWAP1
     // stack: len-1, start_loc+1, retdest
     %jump(iszero_bignum)

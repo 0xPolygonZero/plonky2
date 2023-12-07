@@ -63,7 +63,7 @@ store_limbs:
     // stack: offset, limb[num_limbs - 1], offset, retdest, num_limbs, limb[num_limbs - 2], ..limb[0]
     %mstore_current_general
     // stack: offset, retdest, num_limbs, limb[num_limbs - 2], ..limb[0]
-    %increment
+    INCREMENT
     SWAP2
     %decrement
     SWAP2

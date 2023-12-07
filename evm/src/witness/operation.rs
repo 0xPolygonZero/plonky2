@@ -18,6 +18,7 @@ use crate::cpu::stack::MAX_USER_STACK_SIZE;
 use crate::extension_tower::BN_BASE;
 use crate::generation::state::GenerationState;
 use crate::memory::segments::Segment;
+use crate::memory::VALUE_LIMBS;
 use crate::util::u256_to_usize;
 use crate::witness::errors::MemoryError::{ContextTooLarge, SegmentTooLarge, VirtTooLarge};
 use crate::witness::errors::ProgramError;
@@ -38,6 +39,7 @@ pub(crate) enum Operation {
     Syscall(u8, usize, bool), // (syscall number, minimum stack length, increases stack length)
     Eq,
     BinaryLogic(logic::Op),
+    UnaryArithmetic(arithmetic::UnaryOperator), // (opcode, operator)
     BinaryArithmetic(arithmetic::BinaryOperator),
     TernaryArithmetic(arithmetic::TernaryOperator),
     KeccakGeneral,
@@ -74,6 +76,23 @@ pub(crate) fn generate_binary_logic_op<F: Field>(
 
     state.traces.push_logic(operation);
     state.traces.push_memory(log_in1);
+    state.traces.push_cpu(row);
+    Ok(())
+}
+
+pub(crate) fn generate_unary_arithmetic_op<F: Field>(
+    operator: arithmetic::UnaryOperator,
+    state: &mut GenerationState<F>,
+    mut row: CpuColumnsView<F>,
+) -> Result<(), ProgramError> {
+    let [(input, _)] = stack_pop_with_log_and_fill::<1, _>(state, &mut row)?;
+    let operation = arithmetic::Operation::unary(operator, input);
+
+    let channel = &mut row.mem_channels[1];
+    channel.value[0] = F::ONE;
+    push_no_write(state, operation.result());
+
+    state.traces.push_arithmetic(operation);
     state.traces.push_cpu(row);
     Ok(())
 }

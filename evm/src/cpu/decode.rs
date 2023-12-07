@@ -49,7 +49,7 @@ const OPCODES: [(u8, usize, bool, usize); 9] = [
 /// of opcodes defined in evm/src/cpu/columns/ops.rs.
 const COMBINED_OPCODES: [usize; 9] = [
     COL_MAP.op.logic_op,
-    COL_MAP.op.fp254_op,
+    COL_MAP.op.unary_fp254_op,
     COL_MAP.op.binary_op,
     COL_MAP.op.ternary_op,
     COL_MAP.op.shift,

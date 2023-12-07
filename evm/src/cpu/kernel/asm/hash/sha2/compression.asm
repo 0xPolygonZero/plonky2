@@ -92,7 +92,7 @@ compression_loop:
     // stack: a[i+1], b[i+1], c[i+1], d[i+1], e[i+1], f[i+1], g[i+1], h[i+1], num_blocks, scratch_space_addr, message_schedule_addr, i, a[0]..h[0], retdest
     DUP12
     // stack: i, a[i+1], b[i+1], c[i+1], d[i+1], e[i+1], f[i+1], g[i+1], h[i+1], num_blocks, scratch_space_addr, message_schedule_addr, i, a[0]..h[0], retdest
-    %increment
+    INCREMENT
     // stack: i+1, a[i+1], b[i+1], c[i+1], d[i+1], e[i+1], f[i+1], g[i+1], h[i+1], num_blocks, scratch_space_addr, message_schedule_addr, i, a[0]..h[0], retdest
     DUP1
     // stack: i+1, i+1, a[i+1], b[i+1], c[i+1], d[i+1], e[i+1], f[i+1], g[i+1], h[i+1], num_blocks, scratch_space_addr, message_schedule_addr, i, a[0]..h[0], retdest

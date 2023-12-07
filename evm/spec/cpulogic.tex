@@ -81,6 +81,8 @@ ecAdd, ecMul and ecPairing precompiles.
 
   \item[0x49.] \texttt{PROVER\_INPUT}. Pushes a single prover input onto the stack.
 
+  \item[0x4a.] \texttt{INCREMENT}. Pops the top element of the stack, increments it and pushes the result onto the stack. 
+
   \item[0xC0-0xDF.] \texttt{MSTORE\_32BYTES}. Pops 4 elements from the stack (successively the context, segment, and offset portions of a Memory address, and then a value), and pushes
   a new offset' onto the stack. The value is being decomposed into bytes and written to memory, starting from the reconstructed address. The new offset being pushed is computed as the
   initial address offset + the length of the byte sequence being written to memory. Note that similarly to PUSH (0x60-0x7F) instructions there are 31 MSTORE\_32BYTES instructions, each

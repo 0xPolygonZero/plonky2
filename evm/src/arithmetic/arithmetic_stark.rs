@@ -11,7 +11,7 @@ use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::util::transpose;
 use static_assertions::const_assert;
 
-use super::columns::NUM_ARITH_COLUMNS;
+use super::columns::{INPUT_REGISTER_1, NUM_ARITH_COLUMNS};
 use super::shift;
 use crate::all_stark::Table;
 use crate::arithmetic::columns::{RANGE_COUNTER, RC_FREQUENCIES, SHARED_COLS};
@@ -69,7 +69,7 @@ pub(crate) fn ctl_arithmetic_rows<F: Field>() -> TableWithColumns<F> {
     // and we use that column for scaling and the CTL checks.
     // Note that we ensure in the STARK's constraints that the
     // value in `OPCODE_COL` is 0 if `IS_RANGE_CHECK` = 0.
-    const COMBINED_OPS: [(usize, u8); 16] = [
+    const COMBINED_OPS: [(usize, u8); 17] = [
         (columns::IS_ADD, 0x01),
         (columns::IS_MUL, 0x02),
         (columns::IS_SUB, 0x03),
@@ -86,6 +86,7 @@ pub(crate) fn ctl_arithmetic_rows<F: Field>() -> TableWithColumns<F> {
         (columns::IS_BYTE, 0x1a),
         (columns::IS_SHL, 0x1b),
         (columns::IS_SHR, 0x1c),
+        (columns::IS_INCREMENT, 0x4a),
     ];
 
     const REGISTER_MAP: [Range<usize>; 4] = [
@@ -208,7 +209,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ArithmeticSta
         let lv: &[P; NUM_ARITH_COLUMNS] = vars.get_local_values().try_into().unwrap();
         let nv: &[P; NUM_ARITH_COLUMNS] = vars.get_next_values().try_into().unwrap();
 
-        // Check that `OPCODE_COL` holds 0 if the operation is not a range_check.
+        // Check that `OPCODE_COL` holds 0 if the operation is not a range_check or a unary operation.
         let opcode_constraint = (P::ONES - lv[columns::IS_RANGE_CHECK]) * lv[columns::OPCODE_COL];
         yield_constr.constraint(opcode_constraint);
 
@@ -223,9 +224,19 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ArithmeticSta
         let range_max = P::Scalar::from_canonical_u64((RANGE_MAX - 1) as u64);
         yield_constr.constraint_last_row(rc1 - range_max);
 
+        // Check that the second input is 1 for `IS_INCREMENT`:
+        // all limbs are 0 except the first, equal to 1.
+        let constraint =
+            lv[columns::IS_INCREMENT] * (lv[columns::INPUT_REGISTER_1.start] - P::ONES);
+        yield_constr.constraint(constraint);
+        for i in columns::INPUT_REGISTER_1.start + 1..columns::INPUT_REGISTER_1.end {
+            let constraint = lv[columns::IS_INCREMENT] * lv[columns::INPUT_REGISTER_1.start + i];
+            yield_constr.constraint(constraint);
+        }
+
         // Evaluate constraints for the MUL operation.
         mul::eval_packed_generic(lv, yield_constr);
-        // Evaluate constraints for ADD, SUB, LT and GT operations.
+        // Evaluate constraints for ADD, INCREMENT, SUB, LT and GT operations.
         addcy::eval_packed_generic(lv, yield_constr);
         // Evaluate constraints for DIV and MOD operations.
         divmod::eval_packed(lv, nv, yield_constr);
@@ -235,6 +246,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ArithmeticSta
         byte::eval_packed(lv, yield_constr);
         // Evaluate constraints for SHL and SHR operations.
         shift::eval_packed_generic(lv, nv, yield_constr);
+        // evauluate constraints for unary operations.
     }
 
     fn eval_ext_circuit(
@@ -272,9 +284,23 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ArithmeticSta
         let t = builder.sub_extension(rc1, range_max);
         yield_constr.constraint_last_row(builder, t);
 
+        // Check that the second input is 1 for `IS_INCREMENT`:
+        // all limbs are 0 except the first, equal to 1.
+        let constraint =
+            builder.add_const_extension(lv[columns::INPUT_REGISTER_1.start], F::NEG_ONE);
+        let constraint = builder.mul_extension(lv[columns::IS_INCREMENT], constraint);
+        yield_constr.constraint(builder, constraint);
+        for i in columns::INPUT_REGISTER_1.start + 1..columns::INPUT_REGISTER_1.end {
+            let constraint = builder.mul_extension(
+                lv[columns::IS_INCREMENT],
+                lv[columns::INPUT_REGISTER_1.start + i],
+            );
+            yield_constr.constraint(builder, constraint);
+        }
+
         // Evaluate constraints for the MUL operation.
         mul::eval_ext_circuit(builder, lv, yield_constr);
-        // Evaluate constraints for ADD, SUB, LT and GT operations.
+        // Evaluate constraints for ADD, INCREMENT, SUB, LT and GT operations.
         addcy::eval_ext_circuit(builder, lv, yield_constr);
         // Evaluate constraints for DIV and MOD operations.
         divmod::eval_ext_circuit(builder, lv, nv, yield_constr);

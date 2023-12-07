@@ -22,7 +22,7 @@ count_zeros_loop:
     // stack: zeros', i, retdest
     SWAP1
     // stack: i, zeros', retdest
-    %increment
+    INCREMENT
     // stack: i', zeros', retdest
     %jump(count_zeros_loop)
 

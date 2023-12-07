@@ -22,7 +22,8 @@ const fn n_limbs() -> usize {
 /// Number of LIMB_BITS limbs that are in on EVM register-sized number.
 pub(crate) const N_LIMBS: usize = n_limbs();
 
-pub(crate) const IS_ADD: usize = 0;
+pub(crate) const IS_INCREMENT: usize = 0;
+pub(crate) const IS_ADD: usize = IS_INCREMENT + 1;
 pub(crate) const IS_MUL: usize = IS_ADD + 1;
 pub(crate) const IS_SUB: usize = IS_MUL + 1;
 pub(crate) const IS_DIV: usize = IS_SUB + 1;

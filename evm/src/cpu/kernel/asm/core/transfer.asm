@@ -32,7 +32,7 @@ global deduct_eth:
     %mpt_read_state_trie
     // stack: account_ptr, amount, retdest
     DUP1 ISZERO %jumpi(deduct_eth_no_such_account) // If the account pointer is null, return 1.
-    %add_const(1)
+    INCREMENT
     // stack: balance_ptr, amount, retdest
     DUP1 %mload_trie_data
     // stack: balance, balance_ptr, amount, retdest
@@ -68,7 +68,7 @@ global add_eth:
     DUP1 %mpt_read_state_trie
     // stack: account_ptr, addr, amount, retdest
     DUP1 ISZERO %jumpi(add_eth_new_account) // If the account pointer is null, we need to create the account.
-    %add_const(1)
+    INCREMENT
     // stack: balance_ptr, addr, amount, retdest
     DUP1 %mload_trie_data
     // stack: balance, balance_ptr, addr, amount, retdest

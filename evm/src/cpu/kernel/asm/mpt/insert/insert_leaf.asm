@@ -37,7 +37,7 @@ global mpt_insert_leaf:
     // stack: node_payload_ptr, insert_len, insert_key, insert_value_ptr, retdest
     %stack (node_payload_ptr, insert_len, insert_key) -> (insert_len, insert_key, node_payload_ptr)
     // stack: insert_len, insert_key, node_payload_ptr, insert_value_ptr, retdest
-    DUP3 %increment %mload_trie_data
+    DUP3 INCREMENT %mload_trie_data
     // stack: node_key, insert_len, insert_key, node_payload_ptr, insert_value_ptr, retdest
     DUP4 %mload_trie_data
     // stack: node_len, node_key, insert_len, insert_key, node_payload_ptr, insert_value_ptr, retdest
@@ -141,7 +141,7 @@ node_key_continues:
     // stack: leaf_ptr, node_key_first, node_len, node_key, branch_ptr, ...
     SWAP1
     DUP5 // branch_ptr
-    %increment // Skip over node type field
+    INCREMENT // Skip over node type field
     ADD // Add node_key_first
     %mstore_trie_data
     // stack: node_len, node_key, branch_ptr, ...
@@ -165,7 +165,7 @@ insert_key_continues:
     // stack: leaf_ptr, insert_key_first, insert_len, insert_key, branch_ptr, ...
     SWAP1
     DUP5 // branch_ptr
-    %increment // Skip over node type field
+    INCREMENT // Skip over node type field
     ADD // Add insert_key_first
     %mstore_trie_data
     // stack: insert_len, insert_key, branch_ptr, ...

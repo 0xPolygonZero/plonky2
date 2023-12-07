@@ -42,11 +42,11 @@ mul_addmul_return:
     %decrement
     // stack: n-1, len, a_start_loc, bi, output_cur, retdest
     SWAP3
-    %increment
+    INCREMENT
     SWAP3
     // stack: n-1, len, a_start_loc, bi+1, output_cur, retdest
     SWAP4
-    %increment
+    INCREMENT
     SWAP4
     // stack: n-1, len, a_start_loc, bi+1, output_cur+1, retdest
     DUP1

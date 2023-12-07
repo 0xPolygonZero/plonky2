@@ -15,7 +15,7 @@ compression_loop:
         SWAP1
         DUP2
         %mstore_current_general
-        %increment
+        INCREMENT
     %endrep
 
     // stack: addr, cur_block, retdest
@@ -43,7 +43,7 @@ compression_loop:
     // stack: is_last_block * num_bytes, cur_block, is_last_block, retdest
     DUP2
     // stack: cur_block, is_last_block * num_bytes, cur_block, is_last_block, retdest
-    %increment
+    INCREMENT
     %block_size
     // stack: (cur_block + 1) * 128, is_last_block * num_bytes, cur_block, is_last_block, retdest
     DUP4
@@ -75,7 +75,7 @@ compression_loop:
         // stack: cur_message_addr, m_i, cur_message_addr, cur_block_byte, ...
         %mstore_current_general
         // stack: cur_message_addr, cur_block_byte, ...
-        %increment
+        INCREMENT
         // stack: cur_message_addr + 1, cur_block_byte, ...
         SWAP1
         // stack: cur_block_byte, cur_message_addr + 1, ...
@@ -118,7 +118,7 @@ compression_loop:
         SWAP1
         DUP2
         %mstore_current_general
-        %increment
+        INCREMENT
     %endrep
     // stack: start + 8, invert_if_last_block, t, cur_block, retdest
 
@@ -135,9 +135,9 @@ compression_loop:
         // stack: loc, IV_i, i, loc, ...
         %mstore_current_general
         // stack: i, loc, ...
-        %increment
+        INCREMENT
         SWAP1
-        %increment
+        INCREMENT
         SWAP1
         // stack: i + 1, loc + 1,...
     %endrep
@@ -169,13 +169,13 @@ compression_loop:
         // stack: loc, val ^ IV_i, i, loc, val, next_val,...
         %mstore_current_general
         // stack: i, loc, val, next_val,...
-        %increment
+        INCREMENT
         // stack: i + 1, loc, val, next_val,...
         SWAP2
         // stack: val, loc, i + 1, next_val,...
         POP
         // stack: loc, i + 1, next_val,...
-        %increment
+        INCREMENT
         // stack: loc + 1, i + 1, next_val,...
         SWAP1
         // stack: i + 1, loc + 1, next_val,...
@@ -203,11 +203,11 @@ hash_generate_return:
     // stack: h_0', h_1', h_2', h_3', h_4', h_5', h_6', h_7', cur_block, retdest
     DUP9
     // stack: cur_block, h_0', h_1', h_2', h_3', h_4', h_5', h_6', h_7', cur_block, retdest
-    %increment
+    INCREMENT
     // stack: cur_block + 1, h_0', h_1', h_2', h_3', h_4', h_5', h_6', h_7', cur_block, retdest
     SWAP9
     // stack: cur_block, h_0', h_1', h_2', h_3', h_4', h_5', h_6', h_7', cur_block + 1, retdest
-    %increment
+    INCREMENT
     // stack: cur_block + 1, h_0', h_1', h_2', h_3', h_4', h_5', h_6', h_7', cur_block + 1, retdest
     PUSH 0
     %mload_current_general

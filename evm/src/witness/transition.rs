@@ -8,8 +8,8 @@ use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::constants::context_metadata::ContextMetadata;
 use crate::cpu::stack::{
-    EQ_STACK_BEHAVIOR, IS_ZERO_STACK_BEHAVIOR, JUMPI_OP, JUMP_OP, MAX_USER_STACK_SIZE,
-    MIGHT_OVERFLOW, STACK_BEHAVIORS,
+    BASIC_UNARY_OP, EQ_STACK_BEHAVIOR, IS_ZERO_STACK_BEHAVIOR, JUMPI_OP, JUMP_OP,
+    MAX_USER_STACK_SIZE, MIGHT_OVERFLOW, STACK_BEHAVIORS,
 };
 use crate::generation::state::GenerationState;
 use crate::memory::segments::Segment;
@@ -108,6 +108,9 @@ pub(crate) fn decode(registers: RegistersState, opcode: u8) -> Result<Operation,
         (0x47, _) => Ok(Operation::Syscall(opcode, 0, true)), // SELFBALANCE
         (0x48, _) => Ok(Operation::Syscall(opcode, 0, true)), // BASEFEE
         (0x49, true) => Ok(Operation::ProverInput),
+        (0x4a, true) => Ok(Operation::UnaryArithmetic(
+            arithmetic::UnaryOperator::Increment,
+        )),
         (0x50, _) => Ok(Operation::Pop),
         (0x51, _) => Ok(Operation::Syscall(opcode, 1, false)), // MLOAD
         (0x52, _) => Ok(Operation::Syscall(opcode, 2, false)), // MSTORE
@@ -169,7 +172,8 @@ fn fill_op_flag<F: Field>(op: Operation, row: &mut CpuColumnsView<F>) {
         Operation::BinaryLogic(_) => &mut flags.logic_op,
         Operation::BinaryArithmetic(arithmetic::BinaryOperator::AddFp254)
         | Operation::BinaryArithmetic(arithmetic::BinaryOperator::MulFp254)
-        | Operation::BinaryArithmetic(arithmetic::BinaryOperator::SubFp254) => &mut flags.fp254_op,
+        | Operation::BinaryArithmetic(arithmetic::BinaryOperator::SubFp254)
+        | Operation::UnaryArithmetic(_) => &mut flags.unary_fp254_op,
         Operation::BinaryArithmetic(arithmetic::BinaryOperator::Shl)
         | Operation::BinaryArithmetic(arithmetic::BinaryOperator::Shr) => &mut flags.shift,
         Operation::BinaryArithmetic(_) => &mut flags.binary_op,
@@ -199,9 +203,8 @@ const fn get_op_special_length(op: Operation) -> Option<usize> {
         Operation::BinaryLogic(_) => STACK_BEHAVIORS.logic_op,
         Operation::BinaryArithmetic(arithmetic::BinaryOperator::AddFp254)
         | Operation::BinaryArithmetic(arithmetic::BinaryOperator::MulFp254)
-        | Operation::BinaryArithmetic(arithmetic::BinaryOperator::SubFp254) => {
-            STACK_BEHAVIORS.fp254_op
-        }
+        | Operation::BinaryArithmetic(arithmetic::BinaryOperator::SubFp254)
+        | Operation::UnaryArithmetic(_) => STACK_BEHAVIORS.unary_fp254_op,
         Operation::BinaryArithmetic(arithmetic::BinaryOperator::Shl)
         | Operation::BinaryArithmetic(arithmetic::BinaryOperator::Shr) => STACK_BEHAVIORS.shift,
         Operation::BinaryArithmetic(_) => STACK_BEHAVIORS.binary_op,
@@ -239,9 +242,8 @@ const fn might_overflow_op(op: Operation) -> bool {
         Operation::BinaryLogic(_) => MIGHT_OVERFLOW.logic_op,
         Operation::BinaryArithmetic(arithmetic::BinaryOperator::AddFp254)
         | Operation::BinaryArithmetic(arithmetic::BinaryOperator::MulFp254)
-        | Operation::BinaryArithmetic(arithmetic::BinaryOperator::SubFp254) => {
-            MIGHT_OVERFLOW.fp254_op
-        }
+        | Operation::BinaryArithmetic(arithmetic::BinaryOperator::SubFp254)
+        | Operation::UnaryArithmetic(_) => MIGHT_OVERFLOW.unary_fp254_op,
         Operation::BinaryArithmetic(arithmetic::BinaryOperator::Shl)
         | Operation::BinaryArithmetic(arithmetic::BinaryOperator::Shr) => MIGHT_OVERFLOW.shift,
         Operation::BinaryArithmetic(_) => MIGHT_OVERFLOW.binary_op,
@@ -278,6 +280,7 @@ fn perform_op<F: Field>(
         Operation::BinaryLogic(binary_logic_op) => {
             generate_binary_logic_op(binary_logic_op, state, row)?
         }
+        Operation::UnaryArithmetic(op) => generate_unary_arithmetic_op(op, state, row)?,
         Operation::BinaryArithmetic(op) => generate_binary_arithmetic_op(op, state, row)?,
         Operation::TernaryArithmetic(op) => generate_ternary_arithmetic_op(op, state, row)?,
         Operation::KeccakGeneral => generate_keccak_general(state, row)?,

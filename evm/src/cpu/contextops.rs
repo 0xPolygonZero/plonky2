@@ -18,7 +18,7 @@ use crate::memory::segments::Segment;
 const KEEPS_CONTEXT: OpsColumnsView<bool> = OpsColumnsView {
     binary_op: true,
     ternary_op: true,
-    fp254_op: true,
+    unary_fp254_op: true,
     eq_iszero: true,
     logic_op: true,
     not_pop: true,

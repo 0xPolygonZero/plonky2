@@ -35,11 +35,11 @@ add_loop:
     %mstore_current_general
     // stack: carry_new, i, a_cur_loc, b_cur_loc, retdest
     SWAP2
-    %increment
+    INCREMENT
     SWAP2
     // stack: carry_new, i, a_cur_loc + 1, b_cur_loc, retdest
     SWAP3
-    %increment
+    INCREMENT
     SWAP3
     // stack: carry_new, i, a_cur_loc + 1, b_cur_loc + 1, retdest
     SWAP1

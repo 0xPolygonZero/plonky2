@@ -28,11 +28,11 @@ global memcpy:
 
     // Increment dst_addr.
     SWAP2
-    %increment
+    INCREMENT
     SWAP2
     // Increment src_addr.
     SWAP5
-    %increment
+    INCREMENT
     SWAP5
     // Decrement count.
     SWAP6

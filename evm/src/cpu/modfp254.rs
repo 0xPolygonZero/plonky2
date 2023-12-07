@@ -5,6 +5,7 @@ use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 
+use super::stack;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::CpuColumnsView;
 
@@ -18,9 +19,10 @@ const P_LIMBS: [u32; 8] = [
 /// Evaluates constraints to check the modulus in mem_channel[2].
 pub(crate) fn eval_packed<P: PackedField>(
     lv: &CpuColumnsView<P>,
+    nv: &CpuColumnsView<P>,
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
-    let filter = lv.op.fp254_op;
+    let filter = lv.op.unary_fp254_op * (lv.opcode_bits[6] - P::ONES);
 
     // We want to use all the same logic as the usual mod operations, but without needing to read
     // the modulus from the stack. We simply constrain `mem_channels[1]` to be our prime (that's
@@ -30,6 +32,15 @@ pub(crate) fn eval_packed<P: PackedField>(
         let p_limb = P::Scalar::from_canonical_u32(p_limb);
         yield_constr.constraint(filter * (channel_limb - p_limb));
     }
+
+    // Stack constraints.
+    stack::eval_packed_one(
+        lv,
+        nv,
+        filter,
+        stack::BASIC_BINARY_OP.unwrap(),
+        yield_constr,
+    );
 }
 
 /// Circuit version of `eval_packed`.
@@ -37,9 +48,12 @@ pub(crate) fn eval_packed<P: PackedField>(
 pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
     lv: &CpuColumnsView<ExtensionTarget<D>>,
+    nv: &CpuColumnsView<ExtensionTarget<D>>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
-    let filter = lv.op.fp254_op;
+    let filter = lv.op.unary_fp254_op;
+    let diff = builder.add_const_extension(lv.opcode_bits[6], F::NEG_ONE);
+    let filter = builder.mul_extension(filter, diff);
 
     // We want to use all the same logic as the usual mod operations, but without needing to read
     // the modulus from the stack. We simply constrain `mem_channels[1]` to be our prime (that's
@@ -50,4 +64,14 @@ pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
         let constr = builder.arithmetic_extension(F::ONE, -p_limb, filter, channel_limb, filter);
         yield_constr.constraint(builder, constr);
     }
+
+    // Stack constraints.
+    stack::eval_ext_circuit_one(
+        builder,
+        lv,
+        nv,
+        filter,
+        stack::BASIC_BINARY_OP.unwrap(),
+        yield_constr,
+    );
 }

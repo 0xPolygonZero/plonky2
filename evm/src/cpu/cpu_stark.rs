@@ -108,7 +108,7 @@ pub(crate) fn ctl_arithmetic_base_rows<F: Field>() -> TableWithColumns<F> {
         columns,
         Some(Filter::new_simple(Column::sum([
             COL_MAP.op.binary_op,
-            COL_MAP.op.fp254_op,
+            COL_MAP.op.unary_fp254_op,
             COL_MAP.op.ternary_op,
             COL_MAP.op.shift,
             COL_MAP.op.prover_input,
@@ -313,7 +313,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
         jumps::eval_packed(local_values, next_values, yield_constr);
         membus::eval_packed(local_values, yield_constr);
         memio::eval_packed(local_values, next_values, yield_constr);
-        modfp254::eval_packed(local_values, yield_constr);
+        modfp254::eval_packed(local_values, next_values, yield_constr);
         pc::eval_packed(local_values, next_values, yield_constr);
         push0::eval_packed(local_values, next_values, yield_constr);
         shift::eval_packed(local_values, yield_constr);
@@ -348,7 +348,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
         jumps::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         membus::eval_ext_circuit(builder, local_values, yield_constr);
         memio::eval_ext_circuit(builder, local_values, next_values, yield_constr);
-        modfp254::eval_ext_circuit(builder, local_values, yield_constr);
+        modfp254::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         pc::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         push0::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         shift::eval_ext_circuit(builder, local_values, yield_constr);

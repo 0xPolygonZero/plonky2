@@ -61,6 +61,7 @@ impl<T: Copy> Traces<T> {
                 .arithmetic_ops
                 .iter()
                 .map(|op| match op {
+                    Operation::UnaryOperation { .. } => 1,
                     Operation::TernaryOperation { .. } => 2,
                     Operation::BinaryOperation { operator, .. } => match operator {
                         BinaryOperator::Div | BinaryOperator::Mod => 2,

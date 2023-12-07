@@ -11,7 +11,7 @@
 %macro next_context_id
     // stack: (empty)
     %mload_global_metadata(@GLOBAL_METADATA_LARGEST_CONTEXT)
-    %increment
+    INCREMENT
     // stack: new_ctx
     DUP1
     %mstore_global_metadata(@GLOBAL_METADATA_LARGEST_CONTEXT)
@@ -47,7 +47,7 @@
     DUP1 %mload_trie_data
     // stack: nonce, account_ptr
     ISZERO %not_bit %jumpi(%%false)
-    %increment DUP1 %mload_trie_data
+    INCREMENT DUP1 %mload_trie_data
     // stack: balance, balance_ptr
     ISZERO %not_bit %jumpi(%%false)
     %add_const(2) %mload_trie_data

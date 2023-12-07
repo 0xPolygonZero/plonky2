@@ -8,12 +8,12 @@ use crate::util::transmute_no_compile_time_size_checks;
 #[repr(C)]
 #[derive(Clone, Copy, Eq, PartialEq, Debug)]
 pub(crate) struct OpsColumnsView<T: Copy> {
-    /// Combines ADD, MUL, SUB, DIV, MOD, LT, GT and BYTE flags.
+    /// Combines ADD, MUL, SUB, DIV, MOD, LT, GT, BYTE and INCREMENT flags.
     pub binary_op: T,
     /// Combines ADDMOD, MULMOD and SUBMOD flags.
     pub ternary_op: T,
     /// Combines ADD_FP254, MUL_FP254 and SUB_FP254 flags.
-    pub fp254_op: T,
+    pub unary_fp254_op: T,
     /// Combines EQ and ISZERO flags.
     pub eq_iszero: T,
     /// Combines AND, OR and XOR flags.

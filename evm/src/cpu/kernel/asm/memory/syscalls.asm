@@ -41,7 +41,7 @@ global sys_mstore8:
     // stack: kexit_info, offset, value
     %charge_gas_const(@GAS_VERYLOW)
     // stack: kexit_info, offset, value
-    DUP2 %increment
+    DUP2 INCREMENT
     // stack: expanded_num_bytes, kexit_info, offset, value
     %update_mem_bytes
     // stack: kexit_info, offset, value

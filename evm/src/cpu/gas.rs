@@ -21,7 +21,7 @@ const G_HIGH: Option<u32> = Some(10);
 const SIMPLE_OPCODES: OpsColumnsView<Option<u32>> = OpsColumnsView {
     binary_op: None,  // This is handled manually below
     ternary_op: None, // This is handled manually below
-    fp254_op: KERNEL_ONLY_INSTR,
+    unary_fp254_op: KERNEL_ONLY_INSTR,
     eq_iszero: G_VERYLOW,
     logic_op: G_VERYLOW,
     not_pop: None, // This is handled manually below

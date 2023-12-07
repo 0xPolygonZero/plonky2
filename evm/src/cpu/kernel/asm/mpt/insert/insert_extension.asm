@@ -45,7 +45,7 @@ global mpt_insert_extension:
     %stack (node_child_ptr, node_payload_ptr, insert_len, insert_key)
         -> (node_payload_ptr, insert_len, insert_key, node_child_ptr)
     // stack: node_payload_ptr, insert_len, insert_key, node_child_ptr, insert_value_ptr, retdest
-    DUP1 %increment %mload_trie_data
+    DUP1 INCREMENT %mload_trie_data
     // stack: node_key, node_payload_ptr, insert_len, insert_key, node_child_ptr, insert_value_ptr, retdest
     SWAP1 %mload_trie_data
     // stack: node_len, node_key, insert_len, insert_key, node_child_ptr, insert_value_ptr, retdest
@@ -91,7 +91,7 @@ process_node_child:
     // stack: new_node_ptr, common_len, common_key, node_len, node_key, insert_len, insert_key, node_child_ptr, insert_value_ptr, retdest
     DUP8 // node_child_ptr
     DUP2 // new_node_ptr
-    %increment
+    INCREMENT
     DUP7 // node_key
     ADD
     %mstore_trie_data
@@ -123,7 +123,7 @@ node_key_continues_multiple_nibbles:
     // stack: node_key_first, ext_node_ptr, new_node_ptr, ...
     DUP3 // new_node_ptr
     ADD
-    %increment
+    INCREMENT
     // stack: new_node_ptr + node_key_first + 1, ext_node_ptr, new_node_ptr, ...
     %mstore_trie_data
     %jump(process_inserted_entry)
@@ -166,7 +166,7 @@ insert_key_continues:
     // stack: insert_key_first, leaf_node_ptr, new_node_ptr, ...
     DUP3 // new_node_ptr
     ADD
-    %increment
+    INCREMENT
     // stack: new_node_ptr + insert_key_first + 1, leaf_node_ptr, new_node_ptr, ...
     %mstore_trie_data
     %jump(maybe_add_extension_for_common_key)

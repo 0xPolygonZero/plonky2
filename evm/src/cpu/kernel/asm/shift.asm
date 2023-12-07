@@ -9,7 +9,7 @@
     %rep 255
         // stack: 2^i, context, segment, ost_i
         dup4
-        %increment
+        INCREMENT
         dup4
         dup4
         // stack: context, segment, ost_(i+1), 2^i, context, segment, ost_i

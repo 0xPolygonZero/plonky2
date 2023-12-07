@@ -22,7 +22,7 @@ global mload_packing:
 global mload_packing_u64_LE:
     // stack: context, segment, offset, retdest
     DUP3                DUP3 DUP3 MLOAD_GENERAL
-    DUP4 %add_const(1)  DUP4 DUP4 MLOAD_GENERAL %shl_const( 8) ADD
+    DUP4 INCREMENT  DUP4 DUP4 MLOAD_GENERAL %shl_const( 8) ADD
     DUP4 %add_const(2)  DUP4 DUP4 MLOAD_GENERAL %shl_const(16) ADD
     DUP4 %add_const(3)  DUP4 DUP4 MLOAD_GENERAL %shl_const(24) ADD
     DUP4 %add_const(4)  DUP4 DUP4 MLOAD_GENERAL %shl_const(32) ADD
@@ -302,7 +302,7 @@ global mstore_unpacking_u64_LE:
     %stack (context, segment, offset, value) -> (0xff, value, context, segment, offset, context, segment, offset, value)
     AND
     MSTORE_GENERAL // First byte
-    DUP3 %add_const(1)
+    DUP3 INCREMENT
     %stack (new_offset, context, segment, offset, value) -> (0xff00, value, context, segment, new_offset, context, segment, offset, value)
     AND %shr_const(8)
     MSTORE_GENERAL // Second byte

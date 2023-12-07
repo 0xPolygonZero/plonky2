@@ -21,7 +21,7 @@ iszero_loop:
     // stack: cur_val, cur_loc, end_loc, retdest
     %jumpi(neqzero)
     // stack: cur_loc, end_loc, retdest
-    %increment
+    INCREMENT
     // stack: cur_loc + 1, end_loc, retdest
     %stack (vals: 2) -> (vals, vals)
     // stack: cur_loc + 1, end_loc, cur_loc + 1, end_loc, retdest

@@ -15,7 +15,7 @@
     MLOAD_GENERAL
     // stack: c0, context, segment, offset
     DUP4
-    %increment
+    INCREMENT
     DUP4
     DUP4
     MLOAD_GENERAL

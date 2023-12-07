@@ -83,11 +83,11 @@ addmul_loop:
     // stack: i-1, carry_limb, a_cur_loc, b_cur_loc, val, retdest
     SWAP2
     // stack: a_cur_loc, carry_limb, i-1, b_cur_loc, val, retdest
-    %increment
+    INCREMENT
     // stack: a_cur_loc+1, carry_limb, i-1, b_cur_loc, val, retdest
     SWAP3
     // stack: b_cur_loc, carry_limb, i-1, a_cur_loc+1, val, retdest
-    %increment
+    INCREMENT
     // stack: b_cur_loc+1, carry_limb, i-1, a_cur_loc+1, val, retdest
     %stack (b, c, i, a) -> (c, i, a, b)
     // stack: carry_limb, i-1, a_cur_loc+1, b_cur_loc+1, val, retdest

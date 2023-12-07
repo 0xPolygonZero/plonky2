@@ -33,7 +33,7 @@ modmul_remainder_loop:
     // stack: out_loc[i], PI, i, len, a_loc, b_loc, m_loc, out_loc, s1, s2, s3, retdest
     %mstore_current_general
     // stack: i, len, a_loc, b_loc, m_loc, out_loc, s1, s2, s3, retdest
-    %increment
+    INCREMENT
     DUP2
     DUP2
     // stack: i+1, len, i+1, len, a_loc, b_loc, m_loc, out_loc, s1, s2, s3, retdest
@@ -81,7 +81,7 @@ modmul_quotient_loop:
     // stack: s1[i], PI, i, 2*len, len, a_loc, b_loc, m_loc, out_loc, s1, s2, s3, retdest
     %mstore_current_general
     // stack: i, 2*len, len, a_loc, b_loc, m_loc, out_loc, s1, s2, s3, retdest
-    %increment
+    INCREMENT
     DUP2
     DUP2
     // stack: i+1, 2*len, i+1, 2*len, len, a_loc, b_loc, m_loc, out_loc, s1, s2, s3, retdest
@@ -145,9 +145,9 @@ modmul_check_loop:
     // stack: n, i, j, retdest
     %decrement
     SWAP1
-    %increment
+    INCREMENT
     SWAP2
-    %increment
+    INCREMENT
     SWAP2
     SWAP1
     // stack: n-1, i+1, j+1, retdest

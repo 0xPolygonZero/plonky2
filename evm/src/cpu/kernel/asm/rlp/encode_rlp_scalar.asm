@@ -16,7 +16,7 @@ global encode_rlp_scalar:
     %stack (pos, scalar) -> (pos, 0x80, pos)
     %mstore_rlp
     // stack: pos, retdest
-    %increment
+    INCREMENT
     // stack: pos', retdest
     SWAP1
     JUMP
@@ -50,7 +50,7 @@ global doubly_encode_rlp_scalar:
     %stack (pos, scalar) -> (pos, 0x81, pos, 0x80, pos)
     %mstore_rlp
     // stack: pos, 0x80, pos, retdest
-    %increment
+    INCREMENT
     %mstore_rlp
     // stack: pos, retdest
     %add_const(2)
@@ -79,7 +79,7 @@ encode_rlp_scalar_small:
     // stack: pos, scalar, pos, retdest
     %mstore_rlp
     // stack: pos, retdest
-    %increment
+    INCREMENT
     // stack: pos', retdest
     SWAP1
     JUMP

@@ -38,7 +38,7 @@ precompute_table_contd:
 // Use a loop to store a*G ± b*phi(G) + c*Q ± d*phi(Q) for a,b,c,d in {0,1}^4.
 precompute_table_loop:
     // stack: i, retdest
-    DUP1 %increment %mload_kernel(@SEGMENT_KERNEL_ECDSA_TABLE)
+    DUP1 INCREMENT %mload_kernel(@SEGMENT_KERNEL_ECDSA_TABLE)
     %stack (y, i, retdest) -> (i, y, i, retdest)
     %mload_kernel(@SEGMENT_KERNEL_ECDSA_TABLE)
     PUSH precompute_table_loop_contd

@@ -66,7 +66,7 @@ global txn_after:
     // stack: success, leftover_gas, cur_cum_gas, prev_txn_counter, prev_num_nibbles, txn_counter, num_nibbles, txn_nb
     %process_receipt
     // stack: new_cum_gas, txn_counter, num_nibbles, txn_nb
-    SWAP3 %increment SWAP3
+    SWAP3 INCREMENT SWAP3
 
 global execute_withdrawals:
     // stack: cum_gas, txn_counter, num_nibbles, txn_nb

@@ -8,7 +8,7 @@ log2_floor_helper:
     %div_const(2)
     // stack: val/2, counter, retdest
     SWAP1
-    %increment
+    INCREMENT
     SWAP1
     // stack: val/2, counter + 1, retdest
     %jump(log2_floor_helper)

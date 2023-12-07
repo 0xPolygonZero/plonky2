@@ -28,7 +28,7 @@ pub(crate) fn eval_packed<P: PackedField>(
     }
 
     // Stack constraints.
-    stack::eval_packed_one(lv, nv, filter, stack::BASIC_UNARY_OP.unwrap(), yield_constr);
+    stack::eval_packed_one(lv, nv, filter, stack::BASIC_UNARY_OP, yield_constr);
 }
 
 /// Circuit version of `eval_packed`.
@@ -55,12 +55,5 @@ pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     }
 
     // Stack constraints.
-    stack::eval_ext_circuit_one(
-        builder,
-        lv,
-        nv,
-        filter,
-        stack::BASIC_UNARY_OP.unwrap(),
-        yield_constr,
-    );
+    stack::eval_ext_circuit_one(builder, lv, nv, filter, stack::BASIC_UNARY_OP, yield_constr);
 }

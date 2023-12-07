@@ -31,7 +31,7 @@ global increment_nonce:
     // stack: nonce, nonce_ptr, address, retdest
     DUP1 DUP4 %journal_add_nonce_change
     // stack: nonce, nonce_ptr, address, retdest
-    %increment
+    INCREMENT
     SWAP1
     // stack: nonce_ptr, nonce', address, retdest
     %mstore_trie_data

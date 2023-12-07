@@ -109,7 +109,7 @@ after_serializing_access_list:
     // stack: pos, rlp_len, retdest
 
     // Hash the RLP + the leading `1`
-    SWAP1 %increment SWAP1
+    SWAP1 INCREMENT SWAP1
     PUSH @SEGMENT_RLP_RAW
     PUSH 0 // context
     // stack: ADDR: 3, len, retdest

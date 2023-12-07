@@ -91,7 +91,7 @@ global sys_selfdestruct:
     // stack: 0, balance, address, recipient, kexit_info
     DUP3 %mpt_read_state_trie
     // stack: account_ptr, 0, balance, address, recipient, kexit_info
-    %add_const(1)
+    INCREMENT
     // stack: balance_ptr, 0, balance, address, recipient, kexit_info
     %mstore_trie_data
 

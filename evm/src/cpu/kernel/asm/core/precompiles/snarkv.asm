@@ -97,7 +97,7 @@ loading_loop_contd6:
     DUP3
     // stack: i, y, x, i, k, kexit_info
     %mul_const(6) %add_const(@SNARKV_INP)
-    %add_const(1)
+    INCREMENT
     %mstore_bn254_pairing
     // stack: x, i, k, kexit_info
     DUP2
@@ -105,7 +105,7 @@ loading_loop_contd6:
     %mul_const(6) %add_const(@SNARKV_INP)
     %mstore_bn254_pairing
     // stack: i, k, kexit_info
-    %increment
+    INCREMENT
     %jump(loading_loop)
 
 loading_done:

@@ -8,7 +8,7 @@
     %stack (len, addr) -> (len, addr, len)
     %mstore_kernel(@SEGMENT_SELFDESTRUCT_LIST) // Store new address at the end of the array.
     // stack: len
-    %increment
+    INCREMENT
     %mstore_global_metadata(@GLOBAL_METADATA_SELFDESTRUCT_LIST_LEN) // Store new length.
 %endmacro
 
@@ -29,7 +29,7 @@ remove_selfdestruct_list_loop:
     // stack: addr, loaded_addr, i, len, addr, retdest
     EQ %jumpi(remove_selfdestruct_list_found)
     // stack: i, len, addr, retdest
-    %increment
+    INCREMENT
     %jump(remove_selfdestruct_list_loop)
 remove_selfdestruct_list_found:
     %stack (i, len, addr, retdest) -> (len, 1, i, retdest)
@@ -54,11 +54,11 @@ delete_all_selfdestructed_addresses_loop:
     // stack: loaded_addr, i, len, retdest
     DUP1 %is_non_existent ISZERO %jumpi(bingo)
     // stack: loaded_addr, i, len, retdest
-    POP %increment %jump(delete_all_selfdestructed_addresses_loop)
+    POP INCREMENT %jump(delete_all_selfdestructed_addresses_loop)
 bingo:
     // stack: loaded_addr, i, len, retdest
     %delete_account
-    %increment %jump(delete_all_selfdestructed_addresses_loop)
+    INCREMENT %jump(delete_all_selfdestructed_addresses_loop)
 delete_all_selfdestructed_addresses_done:
     // stack: i, len, retdest
     %pop2 JUMP

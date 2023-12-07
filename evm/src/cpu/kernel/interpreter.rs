@@ -428,19 +428,20 @@ impl<'a> Interpreter<'a> {
             0x46 => self.run_syscall(opcode, 0, true)?,  // "CHAINID",
             0x47 => self.run_syscall(opcode, 0, true)?,  // SELFABALANCE,
             0x48 => self.run_syscall(opcode, 0, true)?,  // "BASEFEE",
-            0x49 => self.run_prover_input()?,            // "PROVER_INPUT",
-            0x50 => self.run_pop(),                      // "POP",
+            0x49 => self.run_prover_input()?,
+            0x4a => self.run_increment(), // "PROVER_INPUT",
+            0x50 => self.run_pop(),       // "POP",
             0x51 => self.run_syscall(opcode, 1, false)?, // "MLOAD",
             0x52 => self.run_syscall(opcode, 2, false)?, // "MSTORE",
             0x53 => self.run_syscall(opcode, 2, false)?, // "MSTORE8",
             0x54 => self.run_syscall(opcode, 1, false)?, // "SLOAD",
             0x55 => self.run_syscall(opcode, 2, false)?, // "SSTORE",
-            0x56 => self.run_jump(),                     // "JUMP",
-            0x57 => self.run_jumpi(),                    // "JUMPI",
-            0x58 => self.run_pc(),                       // "PC",
-            0x59 => self.run_syscall(opcode, 0, true)?,  // "MSIZE",
-            0x5a => self.run_syscall(opcode, 0, true)?,  // "GAS",
-            0x5b => self.run_jumpdest(),                 // "JUMPDEST",
+            0x56 => self.run_jump(),      // "JUMP",
+            0x57 => self.run_jumpi(),     // "JUMPI",
+            0x58 => self.run_pc(),        // "PC",
+            0x59 => self.run_syscall(opcode, 0, true)?, // "MSIZE",
+            0x5a => self.run_syscall(opcode, 0, true)?, // "GAS",
+            0x5b => self.run_jumpdest(),  // "JUMPDEST",
             x if (0x5f..0x80).contains(&x) => self.run_push(x - 0x5f), // "PUSH"
             x if (0x80..0x90).contains(&x) => self.run_dup(x - 0x7f)?, // "DUP"
             x if (0x90..0xa0).contains(&x) => self.run_swap(x - 0x8f)?, // "SWAP"
@@ -503,6 +504,11 @@ impl<'a> Interpreter<'a> {
         let x = self.pop();
         let y = self.pop();
         self.push(x.overflowing_add(y).0);
+    }
+
+    fn run_increment(&mut self) {
+        let x = self.pop();
+        self.push(x.overflowing_add(1.into()).0);
     }
 
     fn run_mul(&mut self) {
@@ -1089,6 +1095,7 @@ fn get_mnemonic(opcode: u8) -> &'static str {
         0x46 => "CHAINID",
         0x48 => "BASEFEE",
         0x49 => "PROVER_INPUT",
+        0x4a => "INCREMENT",
         0x50 => "POP",
         0x51 => "MLOAD",
         0x52 => "MSTORE",

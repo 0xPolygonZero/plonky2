@@ -36,7 +36,7 @@ insert_accessed_addresses_loop:
     // stack: addr, loaded_addr, i, len, addr, retdest
     EQ %jumpi(insert_accessed_addresses_found)
     // stack: i, len, addr, retdest
-    %increment
+    INCREMENT
     %jump(insert_accessed_addresses_loop)
 
 insert_address:
@@ -44,7 +44,7 @@ insert_address:
     DUP2 %journal_add_account_loaded // Add a journal entry for the loaded account.
     %mstore_kernel(@SEGMENT_ACCESSED_ADDRESSES) // Store new address at the end of the array.
     // stack: len, retdest
-    %increment
+    INCREMENT
     %mstore_global_metadata(@GLOBAL_METADATA_ACCESSED_ADDRESSES_LEN) // Store new length.
     PUSH 1 // Return 1 to indicate that the address was inserted.
     SWAP1 JUMP
@@ -70,7 +70,7 @@ remove_accessed_addresses_loop:
     // stack: addr, loaded_addr, i, len, addr, retdest
     EQ %jumpi(remove_accessed_addresses_found)
     // stack: i, len, addr, retdest
-    %increment
+    INCREMENT
     %jump(remove_accessed_addresses_loop)
 remove_accessed_addresses_found:
     %stack (i, len, addr, retdest) -> (len, 1, i, retdest)
@@ -102,7 +102,7 @@ insert_accessed_storage_keys_loop:
     %stack (i, len, addr, key, value, retdest) -> (i, len, i, len, addr, key, value, retdest)
     EQ %jumpi(insert_storage_key)
     // stack: i, len, addr, key, value, retdest
-    DUP1 %increment %mload_kernel(@SEGMENT_ACCESSED_STORAGE_KEYS)
+    DUP1 INCREMENT %mload_kernel(@SEGMENT_ACCESSED_STORAGE_KEYS)
     // stack: loaded_key, i, len, addr, key, value, retdest
     DUP2 %mload_kernel(@SEGMENT_ACCESSED_STORAGE_KEYS)
     // stack: loaded_addr, loaded_key, i, len, addr, key, value, retdest
@@ -120,14 +120,14 @@ insert_storage_key:
     // stack: i, len, addr, key, value, retdest
     DUP4 DUP4 %journal_add_storage_loaded // Add a journal entry for the loaded storage key.
     // stack: i, len, addr, key, value, retdest
-    DUP1 %increment
-    DUP1 %increment
+    DUP1 INCREMENT
+    DUP1 INCREMENT
     %stack (i_plus_2, i_plus_1, i, len, addr, key, value) -> (i, addr, i_plus_1, key, i_plus_2, value, i_plus_2, value)
     %mstore_kernel(@SEGMENT_ACCESSED_STORAGE_KEYS) // Store new address at the end of the array.
     %mstore_kernel(@SEGMENT_ACCESSED_STORAGE_KEYS) // Store new key after that
     %mstore_kernel(@SEGMENT_ACCESSED_STORAGE_KEYS) // Store new value after that
     // stack: i_plus_2, value, retdest
-    %increment
+    INCREMENT
     %mstore_global_metadata(@GLOBAL_METADATA_ACCESSED_STORAGE_KEYS_LEN) // Store new length.
     %stack (value, retdest) -> (retdest, 1, value) // Return 1 to indicate that the storage key was inserted.
     JUMP
@@ -150,7 +150,7 @@ remove_accessed_storage_keys_loop:
     %stack (i, len, addr, key, retdest) -> (i, len, i, len, addr, key, retdest)
     EQ %jumpi(panic)
     // stack: i, len, addr, key, retdest
-    DUP1 %increment %mload_kernel(@SEGMENT_ACCESSED_STORAGE_KEYS)
+    DUP1 INCREMENT %mload_kernel(@SEGMENT_ACCESSED_STORAGE_KEYS)
     // stack: loaded_key, i, len, addr, key, retdest
     DUP2 %mload_kernel(@SEGMENT_ACCESSED_STORAGE_KEYS)
     // stack: loaded_addr, loaded_key, i, len, addr, key, retdest
@@ -170,13 +170,13 @@ remove_accessed_storage_keys_found:
     // stack: len-3, i, retdest
     DUP1 %add_const(2) %mload_kernel(@SEGMENT_ACCESSED_STORAGE_KEYS)
     // stack: last_value, len-3, i, retdest
-    DUP2 %add_const(1) %mload_kernel(@SEGMENT_ACCESSED_STORAGE_KEYS)
+    DUP2 INCREMENT %mload_kernel(@SEGMENT_ACCESSED_STORAGE_KEYS)
     // stack: last_key, last_value, len-3, i, retdest
     DUP3 %mload_kernel(@SEGMENT_ACCESSED_STORAGE_KEYS)
     // stack: last_addr, last_key, last_value, len-3, i, retdest
     DUP5 %mstore_kernel(@SEGMENT_ACCESSED_STORAGE_KEYS) // Move the last tuple to the position of the removed tuple.
     // stack: last_key, last_value, len-3, i, retdest
-    DUP4 %add_const(1) %mstore_kernel(@SEGMENT_ACCESSED_STORAGE_KEYS)
+    DUP4 INCREMENT %mstore_kernel(@SEGMENT_ACCESSED_STORAGE_KEYS)
     // stack: last_value, len-3, i, retdest
     DUP3 %add_const(2) %mstore_kernel(@SEGMENT_ACCESSED_STORAGE_KEYS)
     // stack: len-3, i, retdest

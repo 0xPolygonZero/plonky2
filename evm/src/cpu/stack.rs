@@ -22,7 +22,7 @@ pub(crate) const MAX_USER_STACK_SIZE: usize = 1024;
 pub(crate) const MIGHT_OVERFLOW: OpsColumnsView<bool> = OpsColumnsView {
     binary_op: false,
     ternary_op: false,
-    fp254_op: false,
+    unary_fp254_op: false,
     eq_iszero: false,
     logic_op: false,
     not_pop: false,
@@ -54,13 +54,13 @@ pub(crate) struct StackBehavior {
 }
 
 /// `StackBehavior` for unary operations.
-pub(crate) const BASIC_UNARY_OP: Option<StackBehavior> = Some(StackBehavior {
+pub(crate) const BASIC_UNARY_OP: StackBehavior = StackBehavior {
     num_pops: 1,
     pushes: true,
     disable_other_channels: true,
-});
+};
 /// `StackBehavior` for binary operations.
-const BASIC_BINARY_OP: Option<StackBehavior> = Some(StackBehavior {
+pub(crate) const BASIC_BINARY_OP: Option<StackBehavior> = Some(StackBehavior {
     num_pops: 2,
     pushes: true,
     disable_other_channels: true,
@@ -110,8 +110,8 @@ pub(crate) const JUMPDEST_OP: StackBehavior = StackBehavior {
 pub(crate) const STACK_BEHAVIORS: OpsColumnsView<Option<StackBehavior>> = OpsColumnsView {
     binary_op: BASIC_BINARY_OP,
     ternary_op: BASIC_TERNARY_OP,
-    fp254_op: BASIC_BINARY_OP,
-    eq_iszero: None, // EQ is binary, IS_ZERO is unary.
+    unary_fp254_op: None, // Fp254 operations are binary, the rest are unary.
+    eq_iszero: None,      // EQ is binary, IS_ZERO is unary.
     logic_op: BASIC_BINARY_OP,
     not_pop: None,
     shift: Some(StackBehavior {
@@ -330,6 +330,10 @@ pub(crate) fn eval_packed<P: PackedField>(
         KECCAK_GENERAL_OP,
         yield_constr,
     );
+
+    // Constrain stack for INCREMENT.
+    let increment_filter = lv.op.unary_fp254_op * (P::ONES - lv.opcode_bits[6]);
+    eval_packed_one(lv, nv, increment_filter, BASIC_UNARY_OP, yield_constr);
 
     // Stack constraints for POP.
     // The only constraints POP has are stack constraints.
@@ -639,6 +643,18 @@ pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
         nv,
         keccak_general_filter,
         KECCAK_GENERAL_OP,
+        yield_constr,
+    );
+
+    // Constrain stack for INCREMENT.
+    let increment_filter = builder.sub_extension(one, lv.opcode_bits[6]);
+    let increment_filter = builder.mul_extension(lv.op.unary_fp254_op, increment_filter);
+    eval_ext_circuit_one(
+        builder,
+        lv,
+        nv,
+        increment_filter,
+        BASIC_UNARY_OP,
         yield_constr,
     );
 

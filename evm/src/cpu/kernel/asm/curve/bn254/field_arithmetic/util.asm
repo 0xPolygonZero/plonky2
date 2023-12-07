@@ -33,7 +33,7 @@
 %macro load_fp254_2
     // stack:       ptr
     DUP1  
-    %add_const(1)
+    INCREMENT
     // stack: ind1, ptr
     %mload_bn254_pairing
     // stack:   x1, ptr
@@ -151,7 +151,7 @@
     %mload_bn254_pairing
     // stack:                     x2, ptr
     DUP2  
-    %add_const(1)
+    INCREMENT
     // stack:               ind1, x2, ptr
     %mload_bn254_pairing
     // stack:                 x1, x2, ptr
@@ -186,7 +186,7 @@
     %mload_bn254_pairing
     // stack:             x2, x3, x4, ptr
     DUP4  
-    %add_const(1)
+    INCREMENT
     // stack:       ind1, x2, x3, x4, ptr
     %mload_bn254_pairing
     // stack:         x1, x2, x3, x4, ptr
@@ -225,7 +225,7 @@
     %mload_bn254_pairing
     // stack:           x2, x3, x4, x5
     PUSH $ptr  
-    %add_const(1)
+    INCREMENT
     // stack:     ind1, x2, x3, x4, x5
     %mload_bn254_pairing
     // stack:       x1, x2, x3, x4, x5
@@ -250,7 +250,7 @@
     %mstore_bn254_pairing
     // stack:               x1, x2, x3, ptr, x5
     DUP4  
-    %add_const(1)
+    INCREMENT
     // stack:         ind1, x1, x2, x3, ptr, x5
     %mstore_bn254_pairing
     // stack:                   x2, x3, ptr, x5
@@ -294,7 +294,7 @@
     MULFP254
     // stack:               2*x1, x2, x3, x4, ptr
     DUP5  
-    %add_const(1)
+    INCREMENT
     // stack:         ind1, 2*x1, x2, x3, x4, ptr
     %mstore_bn254_pairing
     // stack:                     x2, x3, x4, ptr
@@ -333,7 +333,7 @@
     %mstore_bn254_pairing
     // stack:           x1, x2, x3, x4, x5
     PUSH $ptr  
-    %add_const(1)
+    INCREMENT
     // stack:     ind1, x1, x2, x3, x4, x5
     %mstore_bn254_pairing
     // stack:               x2, x3, x4, x5
@@ -385,7 +385,7 @@
     %i9
     // stack:                       y5, y4
     PUSH $ptr  
-    %add_const(1)
+    INCREMENT
     // stack:                 ind1, y5, y4
     %mstore_bn254_pairing
     // stack:                           y4
@@ -910,7 +910,7 @@
     %mload_bn254_pairing
     // stack:             x02, x03, x04, x05, x06, x07, x08, x09, x10, ptr
     DUP10  
-    %add_const(1)
+    INCREMENT
     // stack:      ind01, x02, x03, x04, x05, x06, x07, x08, x09, x10, ptr
     %mload_bn254_pairing
     // stack:        x01, x02, x03, x04, x05, x06, x07, x08, x09, x10, ptr
@@ -1002,12 +1002,12 @@
     %mstore_bn254_pairing
     // stack:              src, dest
     DUP1  
-    %add_const(1)
+    INCREMENT
     // stack:       ind01, src, dest
     %mload_bn254_pairing
     // stack:         x01, src, dest
     DUP3  
-    %add_const(1)
+    INCREMENT
     // stack: ind01', x01, src, dest
     %mstore_bn254_pairing
     // stack:              src, dest

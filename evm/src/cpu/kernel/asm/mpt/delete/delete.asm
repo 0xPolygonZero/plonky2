@@ -8,7 +8,7 @@ global mpt_delete:
     DUP1 %mload_trie_data
     // stack: node_type, node_ptr, num_nibbles, key, retdest
     // Increment node_ptr, so it points to the node payload instead of its type.
-    SWAP1 %increment SWAP1
+    SWAP1 INCREMENT SWAP1
     // stack: node_type, node_payload_ptr, num_nibbles, key, retdest
 
     DUP1 %eq_const(@MPT_NODE_BRANCH)    %jumpi(mpt_delete_branch)

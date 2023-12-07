@@ -11,7 +11,7 @@ use crate::cpu::kernel::aggregator::KERNEL;
 const NATIVE_INSTRUCTIONS: [usize; 13] = [
     COL_MAP.op.binary_op,
     COL_MAP.op.ternary_op,
-    COL_MAP.op.fp254_op,
+    COL_MAP.op.unary_fp254_op,
     COL_MAP.op.eq_iszero,
     COL_MAP.op.logic_op,
     COL_MAP.op.not_pop,

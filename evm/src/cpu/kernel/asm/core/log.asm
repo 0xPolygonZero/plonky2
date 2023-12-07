@@ -106,22 +106,22 @@ global log_n_entry:
     // stack: log_ptr, logs_len, log_ptr, logs_len, address, num_topics, topics, data_len, data_offset, retdest
     %mstore_kernel(@SEGMENT_LOGS)
     // stack: log_ptr, logs_len, address, num_topics, topics, data_len, data_offset, retdest
-    SWAP1 %increment
+    SWAP1 INCREMENT
     %mstore_global_metadata(@GLOBAL_METADATA_LOGS_LEN)
     // stack: log_ptr, address, num_topics, topics, data_len, data_offset, retdest
-    %increment
+    INCREMENT
     // stack: addr_ptr, address, num_topics, topics, data_len, data_offset, retdest
     // Store the address.
     DUP2 DUP2
     %mstore_kernel(@SEGMENT_LOGS_DATA)
-    %increment
+    INCREMENT
     // stack: num_topics_ptr, address, num_topics, topics, data_len, data_offset, retdest
     SWAP1 POP
     // stack: num_topics_ptr, num_topics, topics, data_len, data_offset, retdest
     // Store num_topics.
     DUP2 DUP2
     %mstore_kernel(@SEGMENT_LOGS_DATA)
-    %increment
+    INCREMENT
     // stack: topics_ptr, num_topics, topics, data_len, data_offset, retdest
     DUP2
     // stack: num_topics, topics_ptr, num_topics, topics, data_len, data_offset, retdest
@@ -131,7 +131,7 @@ global log_n_entry:
     // Store the first topic.
     DUP3 DUP2
     %mstore_kernel(@SEGMENT_LOGS_DATA)
-    %increment
+    INCREMENT
     %stack (curr_topic_ptr, num_topics, topic1) -> (curr_topic_ptr, num_topics)
     DUP2 %eq_const(1)
     %jumpi(log_after_topics)
@@ -139,7 +139,7 @@ global log_n_entry:
     // Store the second topic.
     DUP3 DUP2
     %mstore_kernel(@SEGMENT_LOGS_DATA)
-    %increment
+    INCREMENT
     %stack (curr_topic_ptr, num_topics, topic2) -> (curr_topic_ptr, num_topics)
     DUP2 %eq_const(2)
     %jumpi(log_after_topics)
@@ -147,7 +147,7 @@ global log_n_entry:
     // Store the third topic.
     DUP3 DUP2
     %mstore_kernel(@SEGMENT_LOGS_DATA)
-    %increment
+    INCREMENT
     %stack (curr_topic_ptr, num_topics, topic3) -> (curr_topic_ptr, num_topics)
     DUP2 %eq_const(3)
     %jumpi(log_after_topics)
@@ -155,7 +155,7 @@ global log_n_entry:
     // Store the fourth topic.
     DUP3 DUP2
     %mstore_kernel(@SEGMENT_LOGS_DATA)
-    %increment
+    INCREMENT
     %stack (data_len_ptr, num_topics, topic4) -> (data_len_ptr, num_topics)
     DUP2 %eq_const(4)
     %jumpi(log_after_topics)
@@ -196,7 +196,7 @@ log_after_topics:
     // Store data_len.
     DUP3 DUP2
     %mstore_kernel(@SEGMENT_LOGS_DATA)
-    %increment
+    INCREMENT
     // stack: data_ptr, num_topics, data_len, data_offset, retdest
     SWAP1 POP
     // stack: data_ptr, data_len, data_offset, retdest
@@ -220,9 +220,9 @@ store_log_data_loop:
     DUP2
     %mstore_kernel(@SEGMENT_LOGS_DATA)
     // stack: cur_data_ptr, next_log_ptr, cur_data_offset, retdest
-    SWAP2 %increment SWAP2
+    SWAP2 INCREMENT SWAP2
     // stack: cur_data_ptr, next_log_ptr, next_data_offset, retdest
-    %increment
+    INCREMENT
     %jump(store_log_data_loop)
 
 store_log_data_loop_end:
