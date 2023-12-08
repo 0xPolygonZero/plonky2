@@ -315,7 +315,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
 
         // Check that all limbs after final length are 0.
         for i in 0..NUM_BYTES - 1 {
-            // If the length is i+1, then value_bytes(i+1),...,value_bytes(NUM_BYTES) must be 0.
+            // If the length is i+1, then value_bytes(i+1),...,value_bytes(NUM_BYTES-1) must be 0.
             for j in i + 1..NUM_BYTES {
                 yield_constr.constraint(local_values[index_len(i)] * local_values[value_bytes(j)]);
             }
@@ -378,7 +378,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
 
         // Check that all limbs after final length are 0.
         for i in 0..NUM_BYTES - 1 {
-            // If the length is i+1, then value_bytes(i+1),...,value_bytes(NUM_BYTES) must be 0.
+            // If the length is i+1, then value_bytes(i+1),...,value_bytes(NUM_BYTES-1) must be 0.
             for j in i + 1..NUM_BYTES {
                 let constr =
                     builder.mul_extension(local_values[index_len(i)], local_values[value_bytes(j)]);
