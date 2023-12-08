@@ -12,7 +12,10 @@ use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2_util::ceil_div_usize;
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
-use crate::cross_table_lookup::{Column, Filter};
+use crate::cross_table_lookup::{
+    eval_helper_columns, eval_helper_columns_circuit, get_helper_cols, Column, Filter,
+    GrandProductChallenge,
+};
 use crate::evaluation_frame::StarkEvaluationFrame;
 use crate::stark::Stark;
 
@@ -64,6 +67,21 @@ pub(crate) fn lookup_helper_columns<F: Field>(
     let num_helper_columns = lookup.num_helper_columns(constraint_degree);
     let mut helper_columns: Vec<PolynomialValues<F>> = Vec::with_capacity(num_helper_columns);
 
+    let looking_cols = lookup
+        .columns
+        .iter()
+        .map(|col| vec![col.clone()])
+        .collect::<Vec<Vec<Column<F>>>>();
+    let lookup_cols = looking_cols
+        .iter()
+        .map(|col| &col[..])
+        .collect::<Vec<&[Column<F>]>>();
+
+    let grand_challenge = GrandProductChallenge {
+        beta: F::ONE,
+        gamma: challenge,
+    };
+
     // For each batch of `constraint_degree-1` columns `fi`, compute `sum 1/(f_i+challenge)` and
     // add it to the helper columns.
     // TODO: This does one batch inversion per column. It would also be possible to do one batch inversion
@@ -74,38 +92,16 @@ pub(crate) fn lookup_helper_columns<F: Field>(
     //         h_k polynomials; instead there's a separate helper column for it (see below).
     //       * Here, we use 1 instead of -1 as the numerator (and subtract later).
     //       * Here, for now, the batch size (l) is always constraint_degree - 1 = 2.
-    for (i, mut col_inds) in (&lookup.columns.iter().chunks(constraint_degree - 1))
-        .into_iter()
-        .enumerate()
-    {
-        let first = col_inds.next().unwrap();
-
-        let mut column = first.eval_all_rows(trace_poly_values);
-        let length = column.len();
-
-        for x in column.iter_mut() {
-            *x = challenge + *x;
-        }
-        let mut acc = F::batch_multiplicative_inverse(&column);
-        if let Some(filter) = &lookup.filter_columns[0] {
-            batch_multiply_inplace(&mut acc, &filter.eval_all_rows(trace_poly_values));
-        }
-
-        for (j, ind) in col_inds.enumerate() {
-            let mut column = ind.eval_all_rows(trace_poly_values);
-            for x in column.iter_mut() {
-                *x = challenge + *x;
-            }
-            column = F::batch_multiplicative_inverse(&column);
-            let filter_idx = (constraint_degree - 1) * i + j + 1;
-            if let Some(filter) = &lookup.filter_columns[filter_idx] {
-                batch_multiply_inplace(&mut column, &filter.eval_all_rows(trace_poly_values));
-            }
-            batch_add_inplace(&mut acc, &column);
-        }
-
-        helper_columns.push(acc.into());
-    }
+    //       * Here, there are filters that for the columns, to only select some rows
+    //         in a given column.
+    let mut helper_columns = get_helper_cols(
+        trace_poly_values,
+        trace_poly_values[0].len(),
+        &lookup_cols,
+        &lookup.filter_columns.iter().collect::<Vec<_>>(),
+        grand_challenge,
+        constraint_degree,
+    );
 
     // Add `1/(table+challenge)` to the helper columns.
     // This is 1/phi_0(x) = 1/(x + t(x)) from the paper.
@@ -168,38 +164,32 @@ pub(crate) fn eval_packed_lookups_generic<F, FE, P, S, const D: usize, const D2:
     for lookup in lookups {
         let num_helper_columns = lookup.num_helper_columns(degree);
         for &challenge in &lookup_vars.challenges {
-            let challenge = FE::from_basefield(challenge);
+            // let challenge = FE::from_basefield(challenge);
+
+            let grand_challenge = GrandProductChallenge {
+                beta: F::ONE,
+                gamma: challenge,
+            };
+            let lookup_columns = lookup
+                .columns
+                .iter()
+                .map(|col| vec![col.eval_with_next(local_values, next_values)])
+                .collect::<Vec<Vec<P>>>();
+
             // For each chunk, check that `h_i (x+f_2i) (x+f_{2i+1}) = (x+f_2i) * filter_{2i+1} + (x+f_{2i+1}) * filter_2i` if the chunk has length 2
             // or if it has length 1, check that `h_i * (x+f_2i) = filter_2i`, where x is the challenge
-            for (j, chunk) in lookup.columns.chunks(degree - 1).enumerate() {
-                let mut x = lookup_vars.local_values[start + j];
-                let mut y = P::ZEROS;
-                let col_values = chunk
-                    .iter()
-                    .map(|col| col.eval_with_next(local_values, next_values));
-                let filters = lookup.filter_columns
-                    [(degree - 1) * j..(degree - 1) * j + chunk.len()]
-                    .iter()
-                    .map(|maybe_filter| {
-                        if let Some(filter) = maybe_filter {
-                            filter.eval_filter(local_values, next_values)
-                        } else {
-                            P::ONES
-                        }
-                    })
-                    .rev()
-                    .collect::<Vec<_>>();
-                let last_filter_value = filters[0];
-                for (val, f) in col_values.zip_eq(filters) {
-                    x *= val + challenge;
-                    y += (val + challenge) * f;
-                }
-                match chunk.len() {
-                    2 => yield_constr.constraint(x - y),
-                    1 => yield_constr.constraint(x - last_filter_value),
-                    _ => todo!("Allow other constraint degrees."),
-                }
-            }
+            eval_helper_columns(
+                &lookup.filter_columns,
+                &lookup_columns,
+                local_values,
+                next_values,
+                &lookup_vars.local_values[start..start + num_helper_columns - 1],
+                degree,
+                &grand_challenge,
+                yield_constr,
+            );
+
+            let challenge = FE::from_basefield(challenge);
 
             // Check the `Z` polynomial.
             let z = lookup_vars.local_values[start + num_helper_columns - 1];
@@ -243,45 +233,30 @@ pub(crate) fn eval_ext_lookups_circuit<
     let mut start = 0;
     for lookup in lookups {
         let num_helper_columns = lookup.num_helper_columns(degree);
+        let col_values = lookup
+            .columns
+            .iter()
+            .map(|col| vec![col.eval_with_next_circuit(builder, local_values, next_values)])
+            .collect::<Vec<_>>();
+
         for &challenge in &lookup_vars.challenges {
+            let grand_challenge = GrandProductChallenge {
+                beta: builder.one(),
+                gamma: challenge,
+            };
+
+            eval_helper_columns_circuit(
+                builder,
+                &lookup.filter_columns,
+                &col_values,
+                local_values,
+                next_values,
+                &lookup_vars.local_values[start..start + num_helper_columns - 1],
+                degree,
+                &grand_challenge,
+                yield_constr,
+            );
             let challenge = builder.convert_to_ext(challenge);
-            for (j, chunk) in lookup.columns.chunks(degree - 1).enumerate() {
-                let mut x = lookup_vars.local_values[start + j];
-                let mut y = builder.zero_extension();
-                let col_values = chunk
-                    .iter()
-                    .map(|k| k.eval_with_next_circuit(builder, local_values, next_values))
-                    .collect::<Vec<_>>();
-                let filters = lookup.filter_columns
-                    [(degree - 1) * j..(degree - 1) * j + chunk.len()]
-                    .iter()
-                    .map(|maybe_filter| {
-                        if let Some(filter) = maybe_filter {
-                            filter.eval_filter_circuit(builder, local_values, next_values)
-                        } else {
-                            one
-                        }
-                    })
-                    .rev()
-                    .collect::<Vec<_>>();
-                let last_filter_value = filters[0];
-                for (&val, f) in col_values.iter().zip_eq(filters) {
-                    let tmp = builder.add_extension(val, challenge);
-                    x = builder.mul_extension(x, tmp);
-                    y = builder.mul_add_extension(f, tmp, y);
-                }
-                match chunk.len() {
-                    2 => {
-                        let tmp = builder.sub_extension(x, y);
-                        yield_constr.constraint(builder, tmp)
-                    }
-                    1 => {
-                        let tmp = builder.sub_extension(x, last_filter_value);
-                        yield_constr.constraint(builder, tmp)
-                    }
-                    _ => todo!("Allow other constraint degrees."),
-                }
-            }
 
             let z = lookup_vars.local_values[start + num_helper_columns - 1];
             let next_z = lookup_vars.next_values[start + num_helper_columns - 1];
