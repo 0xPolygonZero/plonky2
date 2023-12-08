@@ -34,6 +34,8 @@ pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     nv: &CpuColumnsView<ExtensionTarget<D>>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
+    // The MSTORE_32BYTES opcodes are differentiated from MLOAD_32BYTES
+    // by the 5th bit set to 0.
     let filter =
         builder.mul_sub_extension(lv.op.m_op_32bytes, lv.opcode_bits[5], lv.op.m_op_32bytes);
     let new_offset = nv.mem_channels[0].value[0];
