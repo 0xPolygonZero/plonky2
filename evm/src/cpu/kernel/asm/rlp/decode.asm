@@ -131,37 +131,19 @@ decode_rlp_list_len_big:
 // Pre stack: pos, len, retdest
 // Post stack: pos', int
 global decode_int_given_len:
-    %stack (pos, len, retdest) -> (pos, len, pos, retdest)
+    DUP2 ISZERO %jumpi(empty_int)
+    %stack (pos, len, retdest) -> (pos, len, pos, len, retdest)
     ADD
-    // stack: end_pos, pos, retdest
-    SWAP1
-    // stack: pos, end_pos, retdest
-    PUSH 0 // initial accumulator state
-    // stack: acc, pos, end_pos, retdest
-
-decode_int_given_len_loop:
-    // stack: acc, pos, end_pos, retdest
-    DUP3
-    DUP3
-    EQ
-    // stack: pos == end_pos, acc, pos, end_pos, retdest
-    %jumpi(decode_int_given_len_finish)
-    // stack: acc, pos, end_pos, retdest
-    %shl_const(8)
-    // stack: acc << 8, pos, end_pos, retdest
-    DUP2
-    // stack: pos, acc << 8, pos, end_pos, retdest
-    %mload_kernel(@SEGMENT_RLP_RAW)
-    // stack: byte, acc << 8, pos, end_pos, retdest
-    ADD
-    // stack: acc', pos, end_pos, retdest
-    // Increment pos.
-    SWAP1
-    %increment
-    SWAP1
-    // stack: acc', pos', end_pos, retdest
-    %jump(decode_int_given_len_loop)
-
-decode_int_given_len_finish:
-    %stack (acc, pos, end_pos, retdest) -> (retdest, pos, acc)
+    %stack(pos_two, pos, len, retdest) -> (pos, len, pos_two, retdest)
+    PUSH @SEGMENT_RLP_RAW
+    PUSH 0 //context
+    MLOAD_32BYTES
+    // stack: int, pos', retdest
+    %stack(int, pos, retdest) -> (retdest, pos, int)
     JUMP
+
+empty_int:
+    // stack: pos, len, retdest
+    %stack(pos, len, retdest) -> (retdest, pos, 0)
+    JUMP
+
