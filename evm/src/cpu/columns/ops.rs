@@ -24,12 +24,10 @@ pub(crate) struct OpsColumnsView<T: Copy> {
     pub shift: T,
     /// Combines JUMPDEST and KECCAK_GENERAL flags.
     pub jumpdest_keccak_general: T,
-    /// Flag for PROVER_INPUT.
-    pub prover_input: T,
     /// Combines JUMP and JUMPI flags.
     pub jumps: T,
-    /// Flag for PUSH.
-    pub push: T,
+    /// Combines PUSH and PROVER_INPUT flags.
+    pub push_prover_input: T,
     /// Combines DUP and SWAP flags.
     pub dup_swap: T,
     /// Combines GET_CONTEXT and SET_CONTEXT flags.

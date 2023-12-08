@@ -103,18 +103,24 @@ pub(crate) fn ctl_arithmetic_base_rows<F: Field>() -> TableWithColumns<F> {
     // (also `ops` is used as the operation filter). The list of
     // operations includes binary operations which will simply ignore
     // the third input.
+    let col_bit = Column::linear_combination_with_constant(
+        vec![(COL_MAP.opcode_bits[5], F::NEG_ONE)],
+        F::ONE,
+    );
     TableWithColumns::new(
         Table::Cpu,
         columns,
-        Some(Filter::new_simple(Column::sum([
-            COL_MAP.op.binary_op,
-            COL_MAP.op.fp254_op,
-            COL_MAP.op.ternary_op,
-            COL_MAP.op.shift,
-            COL_MAP.op.prover_input,
-            COL_MAP.op.syscall,
-            COL_MAP.op.exception,
-        ]))),
+        Some(Filter::new(
+            vec![(Column::single(COL_MAP.op.push_prover_input), col_bit)],
+            vec![Column::sum([
+                COL_MAP.op.binary_op,
+                COL_MAP.op.fp254_op,
+                COL_MAP.op.ternary_op,
+                COL_MAP.op.shift,
+                COL_MAP.op.syscall,
+                COL_MAP.op.exception,
+            ])],
+        )),
     )
 }
 
@@ -187,7 +193,11 @@ pub(crate) fn ctl_data_byte_packing_push<F: Field>() -> Vec<Column<F>> {
 
 /// CTL filter for the `PUSH` operation.
 pub(crate) fn ctl_filter_byte_packing_push<F: Field>() -> Filter<F> {
-    Filter::new_simple(Column::single(COL_MAP.op.push))
+    let bit_col = Column::single(COL_MAP.opcode_bits[5]);
+    Filter::new(
+        vec![(Column::single(COL_MAP.op.push_prover_input), bit_col)],
+        vec![],
+    )
 }
 
 /// Index of the memory channel storing code.
