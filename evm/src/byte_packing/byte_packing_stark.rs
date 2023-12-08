@@ -312,6 +312,14 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
         // Only padding rows have their filter turned off.
         let next_filter = next_values[LEN_INDICES_COLS].iter().copied().sum::<P>();
         yield_constr.constraint_transition(next_filter * (next_filter - current_filter));
+
+        // Check that all limbs after final length are 0.
+        for i in 0..NUM_BYTES - 1 {
+            // If the length is i+1, then value_bytes(i+1), value_bytes(8) must be 0.
+            for j in i + 1..NUM_BYTES {
+                yield_constr.constraint(local_values[index_len(i)] * local_values[value_bytes(j)]);
+            }
+        }
     }
 
     fn eval_ext_circuit(
@@ -367,6 +375,16 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
         let constraint = builder.sub_extension(next_filter, current_filter);
         let constraint = builder.mul_extension(next_filter, constraint);
         yield_constr.constraint_transition(builder, constraint);
+
+        // Check that all limbs after final length are 0.
+        for i in 0..NUM_BYTES - 1 {
+            // If the length is i+1, then value_bytes(i+1), value_bytes(8) must be 0.
+            for j in i + 1..NUM_BYTES {
+                let constr =
+                    builder.mul_extension(local_values[index_len(i)], local_values[value_bytes(j)]);
+                yield_constr.constraint(builder, constr);
+            }
+        }
     }
 
     fn constraint_degree(&self) -> usize {
