@@ -232,8 +232,8 @@ impl BlockMetadata {
 /// unlike `BlockMetadata`.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize, Serialize)]
 pub struct ExtraBlockData {
-    /// The state trie digest of the genesis block.
-    pub genesis_state_trie_root: H256,
+    /// The state trie digest of the checkpoint block.
+    pub checkpoint_state_trie_root: H256,
     /// The transaction count prior execution of the local state transition, starting
     /// at 0 for the initial transaction of a block.
     pub txn_number_before: U256,
@@ -251,14 +251,14 @@ impl ExtraBlockData {
     pub fn from_public_inputs<F: RichField>(pis: &[F]) -> Self {
         assert!(pis.len() == ExtraBlockDataTarget::SIZE);
 
-        let genesis_state_trie_root = get_h256(&pis[0..8]);
+        let checkpoint_state_trie_root = get_h256(&pis[0..8]);
         let txn_number_before = pis[8].to_canonical_u64().into();
         let txn_number_after = pis[9].to_canonical_u64().into();
         let gas_used_before = pis[10].to_canonical_u64().into();
         let gas_used_after = pis[11].to_canonical_u64().into();
 
         Self {
-            genesis_state_trie_root,
+            checkpoint_state_trie_root,
             txn_number_before,
             txn_number_after,
             gas_used_before,
@@ -338,13 +338,13 @@ impl PublicValuesTarget {
         buffer.write_target_array(&cur_hash)?;
 
         let ExtraBlockDataTarget {
-            genesis_state_trie_root: genesis_state_root,
+            checkpoint_state_trie_root,
             txn_number_before,
             txn_number_after,
             gas_used_before,
             gas_used_after,
         } = self.extra_block_data;
-        buffer.write_target_array(&genesis_state_root)?;
+        buffer.write_target_array(&checkpoint_state_trie_root)?;
         buffer.write_target(txn_number_before)?;
         buffer.write_target(txn_number_after)?;
         buffer.write_target(gas_used_before)?;
@@ -386,7 +386,7 @@ impl PublicValuesTarget {
         };
 
         let extra_block_data = ExtraBlockDataTarget {
-            genesis_state_trie_root: buffer.read_target_array()?,
+            checkpoint_state_trie_root: buffer.read_target_array()?,
             txn_number_before: buffer.read_target()?,
             txn_number_after: buffer.read_target()?,
             gas_used_before: buffer.read_target()?,
@@ -740,8 +740,8 @@ impl BlockHashesTarget {
 /// unlike `BlockMetadata`.
 #[derive(Eq, PartialEq, Debug, Copy, Clone)]
 pub(crate) struct ExtraBlockDataTarget {
-    /// `Target`s for the state trie digest of the genesis block.
-    pub genesis_state_trie_root: [Target; 8],
+    /// `Target`s for the state trie digest of the checkpoint block.
+    pub checkpoint_state_trie_root: [Target; 8],
     /// `Target` for the transaction count prior execution of the local state transition, starting
     /// at 0 for the initial trnasaction of a block.
     pub txn_number_before: Target,
@@ -762,14 +762,14 @@ impl ExtraBlockDataTarget {
     /// Extracts the extra block data `Target`s from the public input `Target`s.
     /// The provided `pis` should start with the extra vblock data.
     pub(crate) fn from_public_inputs(pis: &[Target]) -> Self {
-        let genesis_state_trie_root = pis[0..8].try_into().unwrap();
+        let checkpoint_state_trie_root = pis[0..8].try_into().unwrap();
         let txn_number_before = pis[8];
         let txn_number_after = pis[9];
         let gas_used_before = pis[10];
         let gas_used_after = pis[11];
 
         Self {
-            genesis_state_trie_root,
+            checkpoint_state_trie_root,
             txn_number_before,
             txn_number_after,
             gas_used_before,
@@ -786,11 +786,11 @@ impl ExtraBlockDataTarget {
         ed1: Self,
     ) -> Self {
         Self {
-            genesis_state_trie_root: core::array::from_fn(|i| {
+            checkpoint_state_trie_root: core::array::from_fn(|i| {
                 builder.select(
                     condition,
-                    ed0.genesis_state_trie_root[i],
-                    ed1.genesis_state_trie_root[i],
+                    ed0.checkpoint_state_trie_root[i],
+                    ed1.checkpoint_state_trie_root[i],
                 )
             }),
             txn_number_before: builder.select(
@@ -812,8 +812,8 @@ impl ExtraBlockDataTarget {
     ) {
         for i in 0..8 {
             builder.connect(
-                ed0.genesis_state_trie_root[i],
-                ed1.genesis_state_trie_root[i],
+                ed0.checkpoint_state_trie_root[i],
+                ed1.checkpoint_state_trie_root[i],
             );
         }
         builder.connect(ed0.txn_number_before, ed1.txn_number_before);
