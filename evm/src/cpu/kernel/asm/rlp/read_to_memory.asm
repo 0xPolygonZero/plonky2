@@ -22,10 +22,9 @@ read_rlp_to_memory_loop:
     // stack: addr == final_addr, addr, final_addr, retdest
     %jumpi(read_rlp_to_memory_finish)
     // stack: addr, len, retdest
+    DUP1
     PROVER_INPUT(rlp)
-    // stack: byte, addr, final_addr, retdest
-    DUP2
-    // stack: addr, byte, addr, final_addr, retdest
+    // stack: byte, addr, addr, final_addr, retdest
     MSTORE_GENERAL
     // stack: addr, final_addr, retdest
     %increment

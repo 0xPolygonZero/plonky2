@@ -57,7 +57,8 @@ impl<F: Field> GenerationState<F> {
         let (trie_roots_ptrs, trie_data) =
             load_all_mpts(trie_inputs).expect("Invalid MPT data for preinitialization");
 
-        self.memory.contexts[0].segments[Segment::TrieData as usize].content = trie_data;
+        self.memory.contexts[0].segments[Segment::TrieData as usize >> SEGMENT_SCALING_FACTOR]
+            .content = trie_data;
 
         trie_roots_ptrs
     }

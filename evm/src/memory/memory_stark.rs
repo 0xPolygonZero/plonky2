@@ -13,7 +13,7 @@ use plonky2::util::timing::TimingTree;
 use plonky2::util::transpose;
 use plonky2_maybe_rayon::*;
 
-use super::segments::Segment;
+use super::segments::{Segment, SEGMENT_SCALING_FACTOR};
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cross_table_lookup::{Column, Filter};
 use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
@@ -121,14 +121,8 @@ pub(crate) fn generate_first_change_flags_and_rc<F: RichField>(
 
         assert!(
             row[RANGE_CHECK].to_canonical_u64() < num_ops as u64,
-            "Range check of {} is too large. Bug in fill_gaps?\nCtx diff: {:?}\tSeg diff: {:?}\tVirt diff: {:?}\tTime diff: {:?}\n\tseg: {:?}, next: {:?}",
-            row[RANGE_CHECK],
-            F::from_bool(context_first_change) * (next_context - context - F::ONE),
-            F::from_bool(!context_first_change && segment_first_change) * (next_segment - segment - F::ONE),
-            F::from_bool(!context_first_change && !segment_first_change && virtual_first_change) * (next_virt - virt - F::ONE),
-            F::from_bool(!context_first_change && !segment_first_change && !virtual_first_change) * (next_timestamp - timestamp),
-            segment,
-            next_segment
+            "Range check of {} is too large. Bug in fill_gaps?",
+            row[RANGE_CHECK]
         );
 
         let address_changed =
@@ -357,7 +351,10 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
             // specified ones (segment 0 is already included in initialize_aux).
             // There is overlap with the previous constraint, but this is not a problem.
             yield_constr.constraint_transition(
-                (next_addr_segment - P::Scalar::from_canonical_usize(Segment::TrieData as usize))
+                (next_addr_segment
+                    - P::Scalar::from_canonical_usize(
+                        Segment::TrieData as usize >> SEGMENT_SCALING_FACTOR,
+                    ))
                     * initialize_aux
                     * next_values_limbs[i],
             );
@@ -513,7 +510,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
             // There is overlap with the previous constraint, but this is not a problem.
             let segment_trie_data = builder.add_const_extension(
                 next_addr_segment,
-                F::NEG_ONE * F::from_canonical_u32(Segment::TrieData as u32),
+                F::NEG_ONE
+                    * F::from_canonical_usize(Segment::TrieData as usize >> SEGMENT_SCALING_FACTOR),
             );
             let zero_init_constraint =
                 builder.mul_extension(segment_trie_data, context_zero_initializing_constraint);

@@ -398,6 +398,7 @@
 // Store a single byte to @SEGMENT_RLP_RAW.
 %macro mstore_rlp
     // stack: addr, value
+    SWAP1
     MSTORE_GENERAL
     // stack: (empty)
 %endmacro

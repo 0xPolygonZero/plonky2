@@ -291,8 +291,7 @@ global process_message_txn_code_loaded:
     %mload_txn_field(@TXN_FIELD_DATA_LEN)
     %stack (calldata_size, new_ctx, retdest) -> (calldata_size, new_ctx, calldata_size, retdest)
     %set_new_ctx_calldata_size
-    %stack (new_ctx, calldata_size, retdest) -> (@SEGMENT_TXN_DATA, @SEGMENT_CALLDATA, new_ctx, calldata_size, process_message_txn_code_loaded_finish, new_ctx, retdest)
-    SWAP2
+    %stack (new_ctx, calldata_size, retdest) -> (new_ctx, @SEGMENT_CALLDATA, @SEGMENT_TXN_DATA, calldata_size, process_message_txn_code_loaded_finish, new_ctx, retdest)
     %build_address_no_offset // DST
     %jump(memcpy_bytes)
 

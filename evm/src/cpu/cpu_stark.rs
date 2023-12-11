@@ -150,7 +150,7 @@ pub(crate) fn ctl_data_byte_unpacking<F: Field>() -> Vec<Column<F>> {
 
     // len can be reconstructed as new_offset - virt.
     let len = Column::linear_combination_and_next_row_with_constant(
-        [(COL_MAP.mem_channels[2].value[0], -F::ONE)],
+        [(COL_MAP.mem_channels[0].value[0], -F::ONE)],
         [(COL_MAP.mem_channels[0].value[0], F::ONE)],
         F::ZERO,
     );

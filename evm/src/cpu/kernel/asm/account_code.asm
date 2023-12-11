@@ -96,8 +96,9 @@ load_code_ctd:
     DUP1 ISZERO %jumpi(load_code_non_existent_account)
     // Load the code non-deterministically in memory and return the length.
     PROVER_INPUT(account_code)
-    %stack (code_size, codehash, ctx, retdest) -> (ctx, @SEGMENT_CODE, 0, code_size, codehash, retdest, code_size)
+    %stack (code_size, codehash, ctx, retdest) -> (ctx, code_size, codehash, retdest, code_size)
     // Check that the hash of the loaded code equals `codehash`.
+    // ctx == DST, as SEGMENT_CODE == offset == 0.
     KECCAK_GENERAL
     // stack: shouldbecodehash, codehash, retdest, code_size
     %assert_eq

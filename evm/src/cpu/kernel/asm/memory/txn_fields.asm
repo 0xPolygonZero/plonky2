@@ -20,6 +20,7 @@
     // stack: value
     PUSH $field
     // stack: addr, value
+    SWAP1
     MSTORE_GENERAL
     // stack: (empty)
 %endmacro

@@ -121,15 +121,16 @@ insert_storage_key:
     DUP4 DUP4 %journal_add_storage_loaded // Add a journal entry for the loaded storage key.
     // stack: i, len, addr, key, value, retdest
     DUP1
-    PUSH @SEGMENT_ACCESSED_STORAGE_KEYS ADD // DST, ctx == 0
+    PUSH @SEGMENT_ACCESSED_STORAGE_KEYS
+    %build_kernel_address
 
-    %stack(dst, i, len, addr, key, value) -> (dst, addr, dst, key, dst, value, i, value)
+    %stack(dst, i, len, addr, key, value) -> (addr, dst, dst, key, dst, value, i, value)
     MSTORE_GENERAL // Store new address at the end of the array.
     // stack: dst, key, dst, value, i, value, retdest
-    %increment
+    %increment SWAP1
     MSTORE_GENERAL // Store new key after that
     // stack: dst, value, i, value, retdest
-    %add_const(2)
+    %add_const(2) SWAP1
     MSTORE_GENERAL // Store new value after that
     // stack: i, value, retdest
     %add_const(3)

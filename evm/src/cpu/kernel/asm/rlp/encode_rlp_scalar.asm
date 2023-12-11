@@ -13,7 +13,7 @@ global encode_rlp_scalar:
 
     // scalar = 0, so BE(scalar) is the empty string, which RLP encodes as a single byte 0x80.
     // stack: rlp_addr, scalar, retdest
-    %stack (rlp_addr, scalar) -> (rlp_addr, 0x80, rlp_addr)
+    %stack (rlp_addr, scalar) -> (0x80, rlp_addr, rlp_addr)
     MSTORE_GENERAL
     // stack: rlp_addr, retdest
     %increment
@@ -47,13 +47,14 @@ global doubly_encode_rlp_scalar:
 
     // scalar = 0, so BE(scalar) is the empty string, encode(scalar) = 0x80, and encode(encode(scalar)) = 0x8180.
     // stack: rlp_addr, scalar, retdest
-    %stack (rlp_addr, scalar) -> (rlp_addr, 0x81, rlp_addr, 0x80, rlp_addr)
-    MSTORE_GENERAL
-    // stack: rlp_addr, 0x80, rlp_addr, retdest
-    %increment
+    %stack (rlp_addr, scalar) -> (0x81, rlp_addr, rlp_addr)
     MSTORE_GENERAL
     // stack: rlp_addr, retdest
-    %add_const(2)
+    %increment
+    DUP1 PUSH 0x80
+    MSTORE_GENERAL
+    // stack: rlp_addr, retdest
+    %increment
     // stack: rlp_addr, retdest
     SWAP1
     JUMP
@@ -75,8 +76,8 @@ doubly_encode_rlp_scalar_medium:
 // This can be used for both for singly encoding or doubly encoding, since encode(encode(x)) = encode(x) = x.
 encode_rlp_scalar_small:
     // stack: rlp_addr, scalar, retdest
-    %stack (rlp_addr, scalar) -> (rlp_addr, scalar, rlp_addr)
-    // stack: rlp_addr, scalar, rlp_addr, retdest
+    %stack (rlp_addr, scalar) -> (scalar, rlp_addr, rlp_addr)
+    // stack: scalar, rlp_addr, rlp_addr, retdest
     MSTORE_GENERAL
     // stack: rlp_addr, retdest
     %increment

@@ -20,11 +20,10 @@ global encode_rlp_string:
 
 global encode_rlp_string_small:
     // stack: rlp_addr, ADDR, len, retdest
-    DUP3 // len
+    DUP1
+    DUP4 // len
     %add_const(0x80)
-    // stack: first_byte, rlp_addr, ADDR, len, retdest
-    DUP2
-    // stack: rlp_addr, first_byte, rlp_addr, ADDR, len, retdest
+    // stack: first_byte, rlp_addr, rlp_addr, ADDR, len, retdest
     MSTORE_GENERAL
     // stack: rlp_addr, ADDR, len, retdest
     %increment
@@ -53,11 +52,11 @@ global encode_rlp_string_large:
     DUP3 %num_bytes
     // stack: len_of_len, rlp_addr, ADDR, len, retdest
     SWAP1
-    DUP2 // len_of_len
+    DUP1
+    // stack: rlp_addr, rlp_addr, len_of_len, ADDR, len, retdest
+    DUP3 // len_of_len
     %add_const(0xb7)
-    // stack: first_byte, rlp_addr, len_of_len, ADDR, len, retdest
-    DUP2
-    // stack: rlp_addr, first_byte, rlp_addr, len_of_len, ADDR, len, retdest
+    // stack: first_byte, rlp_addr, rlp_addr, len_of_len, ADDR, len, retdest
     MSTORE_GENERAL
     // stack: rlp_addr, len_of_len, ADDR, len, retdest
     %increment

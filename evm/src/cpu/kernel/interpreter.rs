@@ -216,7 +216,8 @@ impl<'a> Interpreter<'a> {
 
     pub(crate) fn set_global_metadata_multi_fields(&mut self, metadata: &[(GlobalMetadata, U256)]) {
         for &(field, value) in metadata {
-            self.generation_state.memory.contexts[0].segments[Segment::GlobalMetadata as usize]
+            self.generation_state.memory.contexts[0].segments
+                [Segment::GlobalMetadata as usize >> SEGMENT_SCALING_FACTOR]
                 .set(field as usize, value);
         }
     }
@@ -1302,7 +1303,8 @@ mod tests {
 
         interpreter.set_code(1, code.to_vec());
 
-        interpreter.generation_state.memory.contexts[1].segments[Segment::ContextMetadata as usize]
+        interpreter.generation_state.memory.contexts[1].segments
+            [Segment::ContextMetadata as usize >> SEGMENT_SCALING_FACTOR]
             .set(ContextMetadata::GasLimit as usize, 100_000.into());
         // Set context and kernel mode.
         interpreter.set_context(1);

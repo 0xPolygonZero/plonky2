@@ -302,11 +302,11 @@ fn perform_op<F: Field>(
 
     state.registers.gas_used += gas_to_charge(op);
 
-    let gas_limit_address = MemoryAddress {
-        context: state.registers.context,
-        segment: Segment::ContextMetadata as usize,
-        virt: ContextMetadata::GasLimit as usize,
-    };
+    let gas_limit_address = MemoryAddress::new(
+        state.registers.context,
+        Segment::ContextMetadata,
+        ContextMetadata::GasLimit as usize - Segment::ContextMetadata as usize, // context offsets are already scaled
+    );
     if !state.registers.is_kernel {
         let gas_limit = TryInto::<u64>::try_into(state.memory.get(gas_limit_address));
         match gas_limit {

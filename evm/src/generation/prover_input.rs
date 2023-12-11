@@ -20,6 +20,7 @@ use crate::util::{biguint_to_mem_vec, mem_vec_to_biguint, u256_to_usize};
 use crate::witness::errors::ProgramError;
 use crate::witness::errors::ProverInputError::*;
 use crate::witness::memory::MemoryAddress;
+use crate::witness::operation::CONTEXT_SCALING_FACTOR;
 use crate::witness::util::{current_context_peek, stack_peek};
 
 /// Prover input function represented as a scoped function name.
@@ -138,7 +139,7 @@ impl<F: Field> GenerationState<F> {
     fn run_account_code(&mut self) -> Result<U256, ProgramError> {
         // stack: codehash, ctx, ...
         let codehash = stack_peek(self, 0)?;
-        let context = stack_peek(self, 1)?;
+        let context = stack_peek(self, 1)? >> CONTEXT_SCALING_FACTOR;
         let context = u256_to_usize(context)?;
         let mut address = MemoryAddress::new(context, Segment::Code, 0);
         let code = self

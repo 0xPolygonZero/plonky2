@@ -16,7 +16,7 @@ use crate::cpu::kernel::tests::account_code::initialize_mpts;
 use crate::generation::mpt::{AccountRlp, LegacyReceiptRlp};
 use crate::generation::rlp::all_rlp_prover_inputs_reversed;
 use crate::generation::TrieInputs;
-use crate::memory::segments::Segment;
+use crate::memory::segments::{Segment, SEGMENT_SCALING_FACTOR};
 use crate::proof::TrieRoots;
 use crate::util::h2u;
 
@@ -199,7 +199,8 @@ fn test_add11_yml() {
     let route_txn_label = KERNEL.global_labels["hash_initial_tries"];
     // Switch context and initialize memory with the data we need for the tests.
     interpreter.generation_state.registers.program_counter = route_txn_label;
-    interpreter.generation_state.memory.contexts[0].segments[Segment::ContextMetadata as usize]
+    interpreter.generation_state.memory.contexts[0].segments
+        [Segment::ContextMetadata as usize >> SEGMENT_SCALING_FACTOR]
         .set(ContextMetadata::GasLimit as usize, 1_000_000.into());
     interpreter.set_is_kernel(true);
     interpreter.run().expect("Proving add11 failed.");

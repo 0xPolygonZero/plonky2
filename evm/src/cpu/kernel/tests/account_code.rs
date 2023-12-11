@@ -253,12 +253,14 @@ fn prepare_interpreter_all_accounts(
     // Switch context and initialize memory with the data we need for the tests.
     interpreter.generation_state.registers.program_counter = 0;
     interpreter.set_code(1, code.to_vec());
-    interpreter.generation_state.memory.contexts[1].segments[Segment::ContextMetadata as usize]
+    interpreter.generation_state.memory.contexts[1].segments
+        [Segment::ContextMetadata as usize >> SEGMENT_SCALING_FACTOR]
         .set(
             ContextMetadata::Address as usize,
             U256::from_big_endian(&addr),
         );
-    interpreter.generation_state.memory.contexts[1].segments[Segment::ContextMetadata as usize]
+    interpreter.generation_state.memory.contexts[1].segments
+        [Segment::ContextMetadata as usize >> SEGMENT_SCALING_FACTOR]
         .set(ContextMetadata::GasLimit as usize, 100_000.into());
     interpreter.set_context(1);
     interpreter.set_is_kernel(false);

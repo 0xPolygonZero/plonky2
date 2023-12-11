@@ -18,6 +18,7 @@
 
     // stack: value
     PUSH $field
+    SWAP1
     MSTORE_GENERAL
     // stack: (empty)
 %endmacro
@@ -47,7 +48,8 @@
     PUSH $field
     GET_CONTEXT
     ADD 
-    // stack: addr
+    // stack: addr, value
+    SWAP1
     MSTORE_GENERAL
     // stack: (empty)
 %endmacro
@@ -58,12 +60,12 @@
     // effectively making them the direct memory position to read from /
     // write to.
 
-    PUSH $value
-    // stack: value
     PUSH $field
     GET_CONTEXT
     ADD 
     // stack: addr
+    PUSH $value
+    // stack: value, addr
     MSTORE_GENERAL
     // stack: (empty)
 %endmacro

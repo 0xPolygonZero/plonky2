@@ -17,7 +17,8 @@ pub(crate) fn eval_packed<P: PackedField>(
     // by the 5th bit set to 0.
     let filter = lv.op.m_op_32bytes * (lv.opcode_bits[5] - P::ONES);
     let new_offset = nv.mem_channels[0].value[0];
-    let virt = lv.mem_channels[2].value[0];
+    // virt is stored in the first limb of the first memory channel.
+    let virt = lv.mem_channels[0].value[0];
     // Read len from opcode bits and constrain the pushed new offset.
     let len_bits: P = lv.opcode_bits[..5]
         .iter()
@@ -39,7 +40,8 @@ pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let filter =
         builder.mul_sub_extension(lv.op.m_op_32bytes, lv.opcode_bits[5], lv.op.m_op_32bytes);
     let new_offset = nv.mem_channels[0].value[0];
-    let virt = lv.mem_channels[2].value[0];
+    // virt is stored in the first limb of the first memory channel.
+    let virt = lv.mem_channels[0].value[0];
     // Read len from opcode bits and constrain the pushed new offset.
     let len_bits = lv.opcode_bits[..5].iter().enumerate().fold(
         builder.zero_extension(),
