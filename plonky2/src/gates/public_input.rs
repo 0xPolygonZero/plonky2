@@ -117,7 +117,7 @@ mod tests {
     use crate::field::goldilocks_field::GoldilocksField;
     use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
     use crate::gates::public_input::PublicInputGate;
-    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
+    use crate::plonk::config::{GenericConfig, Poseidon2GoldilocksConfig};
 
     #[test]
     fn low_degree() {
@@ -127,7 +127,7 @@ mod tests {
     #[test]
     fn eval_fns() -> anyhow::Result<()> {
         const D: usize = 2;
-        type C = PoseidonGoldilocksConfig;
+        type C = Poseidon2GoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
         test_eval_fns::<F, C, _, D>(PublicInputGate)
     }

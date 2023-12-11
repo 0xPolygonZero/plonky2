@@ -181,7 +181,7 @@ mod tests {
     use crate::iop::witness::{PartialWitness, WitnessWrite};
     use crate::plonk::circuit_builder::CircuitBuilder;
     use crate::plonk::circuit_data::CircuitConfig;
-    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
+    use crate::plonk::config::{GenericConfig, Poseidon2GoldilocksConfig};
     use crate::plonk::verifier::verify;
 
     fn random_data<F: Field>(n: usize, k: usize) -> Vec<Vec<F>> {
@@ -191,7 +191,7 @@ mod tests {
     #[test]
     fn test_recursive_merkle_proof() -> Result<()> {
         const D: usize = 2;
-        type C = PoseidonGoldilocksConfig;
+        type C = Poseidon2GoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
         let config = CircuitConfig::standard_recursion_config();
         let mut pw = PartialWitness::new();

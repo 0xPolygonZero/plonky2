@@ -120,12 +120,12 @@ mod tests {
     use super::*;
     use crate::field::types::Sample;
     use crate::hash::merkle_tree::MerkleTree;
-    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
+    use crate::plonk::config::{GenericConfig, Poseidon2GoldilocksConfig};
 
     #[test]
     fn test_path_compression() {
         const D: usize = 2;
-        type C = PoseidonGoldilocksConfig;
+        type C = Poseidon2GoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
         let h = 10;
         let cap_height = 3;

@@ -13,7 +13,7 @@ use plonky2::iop::target::Target;
 use plonky2::iop::witness::{PartialWitness, PartitionWitness, Witness, WitnessWrite};
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::circuit_data::{CircuitConfig, CircuitData, CommonCircuitData};
-use plonky2::plonk::config::{AlgebraicHasher, GenericConfig, PoseidonGoldilocksConfig};
+use plonky2::plonk::config::{AlgebraicHasher, GenericConfig, Poseidon2GoldilocksConfig};
 use plonky2::recursion::dummy_circuit::DummyProofGenerator;
 use plonky2::util::serialization::{
     Buffer, DefaultGateSerializer, IoResult, Read, WitnessGeneratorSerializer, Write,
@@ -92,7 +92,7 @@ where
 /// "I know the square root of this field element."
 fn main() -> Result<()> {
     const D: usize = 2;
-    type C = PoseidonGoldilocksConfig;
+    type C = Poseidon2GoldilocksConfig;
     type F = <C as GenericConfig<D>>::F;
 
     let config = CircuitConfig::standard_recursion_config();

@@ -457,13 +457,13 @@ mod tests {
     use crate::iop::witness::PartialWitness;
     use crate::plonk::circuit_builder::CircuitBuilder;
     use crate::plonk::circuit_data::CircuitConfig;
-    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
+    use crate::plonk::config::{GenericConfig, Poseidon2GoldilocksConfig};
     use crate::plonk::verifier::verify;
 
     #[test]
     fn test_proof_compression() -> Result<()> {
         const D: usize = 2;
-        type C = PoseidonGoldilocksConfig;
+        type C = Poseidon2GoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
 
         let mut config = CircuitConfig::standard_recursion_config();
@@ -501,7 +501,7 @@ mod tests {
     #[test]
     fn test_proof_compression_lookup() -> Result<()> {
         const D: usize = 2;
-        type C = PoseidonGoldilocksConfig;
+        type C = Poseidon2GoldilocksConfig;
         use plonky2_field::types::Field;
         type F = <C as GenericConfig<D>>::F;
 

@@ -300,12 +300,12 @@ mod tests {
     use crate::iop::witness::{PartialWitness, Witness};
     use crate::plonk::circuit_builder::CircuitBuilder;
     use crate::plonk::circuit_data::CircuitConfig;
-    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
+    use crate::plonk::config::{GenericConfig, Poseidon2GoldilocksConfig};
 
     #[test]
     fn no_duplicate_challenges() {
         const D: usize = 2;
-        type C = PoseidonGoldilocksConfig;
+        type C = Poseidon2GoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
         let mut challenger = Challenger::<F, <C as GenericConfig<D>>::InnerHasher>::new();
         let mut challenges = Vec::new();
@@ -327,7 +327,7 @@ mod tests {
     #[test]
     fn test_consistency() {
         const D: usize = 2;
-        type C = PoseidonGoldilocksConfig;
+        type C = Poseidon2GoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
 
         // These are mostly arbitrary, but we want to test some rounds with enough inputs/outputs to

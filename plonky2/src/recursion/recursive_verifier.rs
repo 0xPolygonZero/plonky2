@@ -205,7 +205,7 @@ mod tests {
     use crate::gates::noop::NoopGate;
     use crate::iop::witness::{PartialWitness, WitnessWrite};
     use crate::plonk::circuit_data::{CircuitConfig, VerifierOnlyCircuitData};
-    use crate::plonk::config::{GenericConfig, KeccakGoldilocksConfig, PoseidonGoldilocksConfig};
+    use crate::plonk::config::{GenericConfig, KeccakGoldilocksConfig, Poseidon2GoldilocksConfig};
     use crate::plonk::proof::{CompressedProofWithPublicInputs, ProofWithPublicInputs};
     use crate::plonk::prover::prove;
     use crate::util::timing::TimingTree;
@@ -214,7 +214,7 @@ mod tests {
     fn test_recursive_verifier() -> Result<()> {
         init_logger();
         const D: usize = 2;
-        type C = PoseidonGoldilocksConfig;
+        type C = Poseidon2GoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
         let config = CircuitConfig::standard_recursion_zk_config();
 
@@ -230,7 +230,7 @@ mod tests {
     fn test_recursive_verifier_one_lookup() -> Result<()> {
         init_logger();
         const D: usize = 2;
-        type C = PoseidonGoldilocksConfig;
+        type C = Poseidon2GoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
         let config = CircuitConfig::standard_recursion_zk_config();
 
@@ -246,7 +246,7 @@ mod tests {
     fn test_recursive_verifier_two_luts() -> Result<()> {
         init_logger();
         const D: usize = 2;
-        type C = PoseidonGoldilocksConfig;
+        type C = Poseidon2GoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
         let config = CircuitConfig::standard_recursion_config();
 
@@ -262,7 +262,7 @@ mod tests {
     fn test_recursive_verifier_too_many_rows() -> Result<()> {
         init_logger();
         const D: usize = 2;
-        type C = PoseidonGoldilocksConfig;
+        type C = Poseidon2GoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
         let config = CircuitConfig::standard_recursion_config();
 
@@ -278,7 +278,7 @@ mod tests {
     fn test_recursive_recursive_verifier() -> Result<()> {
         init_logger();
         const D: usize = 2;
-        type C = PoseidonGoldilocksConfig;
+        type C = Poseidon2GoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
 
         let config = CircuitConfig::standard_recursion_config();
@@ -309,7 +309,7 @@ mod tests {
     fn test_size_optimized_recursion() -> Result<()> {
         init_logger();
         const D: usize = 2;
-        type C = PoseidonGoldilocksConfig;
+        type C = Poseidon2GoldilocksConfig;
         type KC = KeccakGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
 
@@ -384,7 +384,7 @@ mod tests {
     fn test_recursive_verifier_multi_hash() -> Result<()> {
         init_logger();
         const D: usize = 2;
-        type PC = PoseidonGoldilocksConfig;
+        type PC = Poseidon2GoldilocksConfig;
         type KC = KeccakGoldilocksConfig;
         type F = <PC as GenericConfig<D>>::F;
 

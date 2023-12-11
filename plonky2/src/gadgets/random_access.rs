@@ -107,12 +107,12 @@ mod tests {
     use crate::field::types::{Field, Sample};
     use crate::iop::witness::PartialWitness;
     use crate::plonk::circuit_data::CircuitConfig;
-    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
+    use crate::plonk::config::{GenericConfig, Poseidon2GoldilocksConfig};
     use crate::plonk::verifier::verify;
 
     fn test_random_access_given_len(len_log: usize) -> Result<()> {
         const D: usize = 2;
-        type C = PoseidonGoldilocksConfig;
+        type C = Poseidon2GoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
         type FF = <C as GenericConfig<D>>::FE;
         let len = 1 << len_log;

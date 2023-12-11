@@ -269,12 +269,12 @@ impl<F: RichField + Extendable<D> + Poseidon, const D: usize> SimpleGenerator<F,
 mod tests {
     use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
     use crate::gates::poseidon_mds::PoseidonMdsGate;
-    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
+    use crate::plonk::config::{GenericConfig, Poseidon2GoldilocksConfig};
 
     #[test]
     fn low_degree() {
         const D: usize = 2;
-        type C = PoseidonGoldilocksConfig;
+        type C = Poseidon2GoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
         let gate = PoseidonMdsGate::<F, D>::new();
         test_low_degree(gate)
@@ -283,7 +283,7 @@ mod tests {
     #[test]
     fn eval_fns() -> anyhow::Result<()> {
         const D: usize = 2;
-        type C = PoseidonGoldilocksConfig;
+        type C = Poseidon2GoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
         let gate = PoseidonMdsGate::<F, D>::new();
         test_eval_fns::<F, C, _, D>(gate)

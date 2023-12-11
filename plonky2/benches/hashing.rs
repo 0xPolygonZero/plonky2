@@ -5,7 +5,8 @@ use plonky2::field::goldilocks_field::GoldilocksField;
 use plonky2::field::types::Sample;
 use plonky2::hash::hash_types::{BytesHash, RichField};
 use plonky2::hash::keccak::KeccakHash;
-use plonky2::hash::poseidon::{Poseidon, SPONGE_WIDTH};
+use plonky2::hash::poseidon::Poseidon;
+use plonky2::hash::poseidon2::Poseidon2;
 use plonky2::plonk::config::Hasher;
 use tynm::type_name;
 
@@ -20,6 +21,7 @@ pub(crate) fn bench_keccak<F: RichField>(c: &mut Criterion) {
 }
 
 pub(crate) fn bench_poseidon<F: Poseidon>(c: &mut Criterion) {
+    use plonky2::hash::poseidon::SPONGE_WIDTH;
     c.bench_function(
         &format!("poseidon<{}, {SPONGE_WIDTH}>", type_name::<F>()),
         |b| {
@@ -32,8 +34,23 @@ pub(crate) fn bench_poseidon<F: Poseidon>(c: &mut Criterion) {
     );
 }
 
+pub(crate) fn bench_poseidon2<F: Poseidon2>(c: &mut Criterion) {
+    use plonky2::hash::poseidon2::WIDTH;
+    c.bench_function(
+        &format!("poseidon2<{}, {WIDTH}>", type_name::<F>()),
+        |b| {
+            b.iter_batched(
+                || F::rand_array::<WIDTH>(),
+                |state| F::poseidon2(state),
+                BatchSize::SmallInput,
+            )
+        },
+    );
+}
+
 fn criterion_benchmark(c: &mut Criterion) {
     bench_poseidon::<GoldilocksField>(c);
+    bench_poseidon2::<GoldilocksField>(c);
     bench_keccak::<GoldilocksField>(c);
 }
 

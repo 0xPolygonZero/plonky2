@@ -318,7 +318,7 @@ mod tests {
     use crate::field::types::Sample;
     use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
     use crate::hash::hash_types::HashOut;
-    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
+    use crate::plonk::config::{GenericConfig, Poseidon2GoldilocksConfig};
     use crate::util::log2_ceil;
 
     const MAX_POWER_BITS: usize = 17;
@@ -352,7 +352,7 @@ mod tests {
     #[test]
     fn eval_fns() -> Result<()> {
         const D: usize = 2;
-        type C = PoseidonGoldilocksConfig;
+        type C = Poseidon2GoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
         test_eval_fns::<F, C, _, D>(ExponentiationGate::new_from_config(
             &CircuitConfig::standard_recursion_config(),
@@ -362,7 +362,7 @@ mod tests {
     #[test]
     fn test_gate_constraint() {
         const D: usize = 2;
-        type C = PoseidonGoldilocksConfig;
+        type C = Poseidon2GoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
         type FF = <C as GenericConfig<D>>::FE;
 

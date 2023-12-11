@@ -5,7 +5,7 @@ use plonky2::field::types::Field;
 use plonky2::iop::witness::{PartialWitness, WitnessWrite};
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::circuit_data::CircuitConfig;
-use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
+use plonky2::plonk::config::{GenericConfig, Poseidon2GoldilocksConfig};
 
 /// An example of using Plonky2 to prove a statement of the form
 /// "I know the 100th element of the Fibonacci sequence, starting with constants a and b."
@@ -13,7 +13,7 @@ use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
 /// This example also serializes the circuit data and proof to JSON files.
 fn main() -> Result<()> {
     const D: usize = 2;
-    type C = PoseidonGoldilocksConfig;
+    type C = Poseidon2GoldilocksConfig;
     type F = <C as GenericConfig<D>>::F;
 
     let config = CircuitConfig::standard_recursion_config();
