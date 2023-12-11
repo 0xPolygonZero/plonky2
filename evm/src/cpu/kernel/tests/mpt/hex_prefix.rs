@@ -17,10 +17,7 @@ fn hex_prefix_even_nonterminated() -> Result<()> {
     let initial_stack = vec![retdest, terminated, packed_nibbles, num_nibbles, rlp_pos];
     let mut interpreter = Interpreter::new_with_kernel(hex_prefix, initial_stack);
     interpreter.run()?;
-    assert_eq!(
-        interpreter.stack(),
-        vec![U256::from(Segment::RlpRaw as usize + 5)]
-    );
+    assert_eq!(interpreter.stack(), vec![U256::from(5)]);
 
     assert_eq!(
         interpreter.get_rlp_memory(),
@@ -48,10 +45,7 @@ fn hex_prefix_odd_terminated() -> Result<()> {
     let initial_stack = vec![retdest, terminated, packed_nibbles, num_nibbles, rlp_pos];
     let mut interpreter = Interpreter::new_with_kernel(hex_prefix, initial_stack);
     interpreter.run()?;
-    assert_eq!(
-        interpreter.stack(),
-        vec![U256::from(Segment::RlpRaw as usize + 4)]
-    );
+    assert_eq!(interpreter.stack(), vec![U256::from(4)]);
 
     assert_eq!(
         interpreter.get_rlp_memory(),

@@ -24,27 +24,14 @@ pub(crate) fn initialize_mpts(interpreter: &mut Interpreter, trie_inputs: &TrieI
     let (trie_root_ptrs, trie_data) =
         load_all_mpts(trie_inputs).expect("Invalid MPT data for preinitialization");
 
-    let state_addr = MemoryAddress::new(
-        0,
-        Segment::GlobalMetadata,
-        GlobalMetadata::StateTrieRoot as usize,
-    );
-
-    let txn_addr = MemoryAddress::new(
-        0,
-        Segment::GlobalMetadata,
-        GlobalMetadata::TransactionTrieRoot as usize,
-    );
-    let receipts_addr = MemoryAddress::new(
-        0,
-        Segment::GlobalMetadata,
-        GlobalMetadata::ReceiptTrieRoot as usize,
-    );
-    let len_addr = MemoryAddress::new(
-        0,
-        Segment::GlobalMetadata,
-        GlobalMetadata::TrieDataSize as usize,
-    );
+    let state_addr =
+        MemoryAddress::new_bundle((GlobalMetadata::StateTrieRoot as usize).into()).unwrap();
+    let txn_addr =
+        MemoryAddress::new_bundle((GlobalMetadata::TransactionTrieRoot as usize).into()).unwrap();
+    let receipts_addr =
+        MemoryAddress::new_bundle((GlobalMetadata::ReceiptTrieRoot as usize).into()).unwrap();
+    let len_addr =
+        MemoryAddress::new_bundle((GlobalMetadata::TrieDataSize as usize).into()).unwrap();
 
     let to_set = [
         (state_addr, trie_root_ptrs.state_root_ptr.into()),

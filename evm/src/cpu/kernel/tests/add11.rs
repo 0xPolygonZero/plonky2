@@ -201,7 +201,10 @@ fn test_add11_yml() {
     interpreter.generation_state.registers.program_counter = route_txn_label;
     interpreter.generation_state.memory.contexts[0].segments
         [Segment::ContextMetadata as usize >> SEGMENT_SCALING_FACTOR]
-        .set(ContextMetadata::GasLimit as usize, 1_000_000.into());
+        .set(
+            ContextMetadata::GasLimit as usize - Segment::ContextMetadata as usize,
+            1_000_000.into(),
+        );
     interpreter.set_is_kernel(true);
     interpreter.run().expect("Proving add11 failed.");
 }

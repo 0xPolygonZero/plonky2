@@ -496,7 +496,14 @@ pub(crate) fn get_memory_extra_looking_sum_circuit<F: RichField + Extendable<D>,
     ));
     block_fields_scalars.map(|(field, target)| {
         // Each of those fields fit in 32 bits, hence in a single Target.
-        sum = add_data_write(builder, challenge, sum, metadata_segment, field, &[target]);
+        sum = add_data_write(
+            builder,
+            challenge,
+            sum,
+            metadata_segment,
+            field - Segment::GlobalMetadata as usize,
+            &[target],
+        );
     });
 
     beneficiary_random_base_fee_cur_hash_fields.map(|(field, targets)| {
@@ -562,7 +569,14 @@ pub(crate) fn get_memory_extra_looking_sum_circuit<F: RichField + Extendable<D>,
     ];
 
     trie_fields.map(|(field, targets)| {
-        sum = add_data_write(builder, challenge, sum, metadata_segment, field, &targets);
+        sum = add_data_write(
+            builder,
+            challenge,
+            sum,
+            metadata_segment,
+            field - Segment::GlobalMetadata as usize,
+            &targets,
+        );
     });
 
     // Add kernel hash and kernel length.
@@ -573,7 +587,7 @@ pub(crate) fn get_memory_extra_looking_sum_circuit<F: RichField + Extendable<D>,
         challenge,
         sum,
         metadata_segment,
-        GlobalMetadata::KernelHash as usize,
+        GlobalMetadata::KernelHash as usize - Segment::GlobalMetadata as usize,
         &kernel_hash_targets,
     );
     let kernel_len_target = builder.constant(F::from_canonical_usize(KERNEL.code.len()));
@@ -582,7 +596,7 @@ pub(crate) fn get_memory_extra_looking_sum_circuit<F: RichField + Extendable<D>,
         challenge,
         sum,
         metadata_segment,
-        GlobalMetadata::KernelLen as usize,
+        GlobalMetadata::KernelLen as usize - Segment::GlobalMetadata as usize,
         &[kernel_len_target],
     );
 

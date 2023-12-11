@@ -216,9 +216,10 @@ impl<'a> Interpreter<'a> {
 
     pub(crate) fn set_global_metadata_multi_fields(&mut self, metadata: &[(GlobalMetadata, U256)]) {
         for &(field, value) in metadata {
+            let field = field as usize - Segment::GlobalMetadata as usize;
             self.generation_state.memory.contexts[0].segments
                 [Segment::GlobalMetadata as usize >> SEGMENT_SCALING_FACTOR]
-                .set(field as usize, value);
+                .set(field, value);
         }
     }
 
