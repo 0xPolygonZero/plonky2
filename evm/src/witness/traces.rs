@@ -19,7 +19,7 @@ use crate::witness::memory::MemoryOp;
 use crate::{arithmetic, keccak, keccak_sponge, logic};
 
 #[derive(Clone, Copy, Debug)]
-pub struct TraceCheckpoint {
+pub(crate) struct TraceCheckpoint {
     pub(self) arithmetic_len: usize,
     pub(self) byte_packing_len: usize,
     pub(self) cpu_len: usize,
@@ -41,7 +41,7 @@ pub(crate) struct Traces<T: Copy> {
 }
 
 impl<T: Copy> Traces<T> {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Traces {
             arithmetic_ops: vec![],
             byte_packing_ops: vec![],
@@ -55,7 +55,7 @@ impl<T: Copy> Traces<T> {
 
     /// Returns the actual trace lengths for each STARK module.
     //  Uses a `TraceCheckPoint` as return object for convenience.
-    pub fn get_lengths(&self) -> TraceCheckpoint {
+    pub(crate) fn get_lengths(&self) -> TraceCheckpoint {
         TraceCheckpoint {
             arithmetic_len: self
                 .arithmetic_ops
@@ -69,7 +69,11 @@ impl<T: Copy> Traces<T> {
                     Operation::RangeCheckOperation { .. } => 1,
                 })
                 .sum(),
-            byte_packing_len: self.byte_packing_ops.iter().map(|op| op.bytes.len()).sum(),
+            byte_packing_len: self
+                .byte_packing_ops
+                .iter()
+                .map(|op| usize::from(!op.bytes.is_empty()))
+                .sum(),
             cpu_len: self.cpu.len(),
             keccak_len: self.keccak_inputs.len() * keccak::keccak_stark::NUM_ROUNDS,
             keccak_sponge_len: self
@@ -85,7 +89,7 @@ impl<T: Copy> Traces<T> {
     }
 
     /// Returns the number of operations for each STARK module.
-    pub fn checkpoint(&self) -> TraceCheckpoint {
+    pub(crate) fn checkpoint(&self) -> TraceCheckpoint {
         TraceCheckpoint {
             arithmetic_len: self.arithmetic_ops.len(),
             byte_packing_len: self.byte_packing_ops.len(),
@@ -97,7 +101,7 @@ impl<T: Copy> Traces<T> {
         }
     }
 
-    pub fn rollback(&mut self, checkpoint: TraceCheckpoint) {
+    pub(crate) fn rollback(&mut self, checkpoint: TraceCheckpoint) {
         self.arithmetic_ops.truncate(checkpoint.arithmetic_len);
         self.byte_packing_ops.truncate(checkpoint.byte_packing_len);
         self.cpu.truncate(checkpoint.cpu_len);
@@ -108,35 +112,39 @@ impl<T: Copy> Traces<T> {
         self.memory_ops.truncate(checkpoint.memory_len);
     }
 
-    pub fn mem_ops_since(&self, checkpoint: TraceCheckpoint) -> &[MemoryOp] {
+    pub(crate) fn mem_ops_since(&self, checkpoint: TraceCheckpoint) -> &[MemoryOp] {
         &self.memory_ops[checkpoint.memory_len..]
     }
 
-    pub fn push_cpu(&mut self, val: CpuColumnsView<T>) {
+    pub(crate) fn push_cpu(&mut self, val: CpuColumnsView<T>) {
         self.cpu.push(val);
     }
 
-    pub fn push_logic(&mut self, op: logic::Operation) {
+    pub(crate) fn push_logic(&mut self, op: logic::Operation) {
         self.logic_ops.push(op);
     }
 
-    pub fn push_arithmetic(&mut self, op: arithmetic::Operation) {
+    pub(crate) fn push_arithmetic(&mut self, op: arithmetic::Operation) {
         self.arithmetic_ops.push(op);
     }
 
-    pub fn push_memory(&mut self, op: MemoryOp) {
+    pub(crate) fn push_memory(&mut self, op: MemoryOp) {
         self.memory_ops.push(op);
     }
 
-    pub fn push_byte_packing(&mut self, op: BytePackingOp) {
+    pub(crate) fn push_byte_packing(&mut self, op: BytePackingOp) {
         self.byte_packing_ops.push(op);
     }
 
-    pub fn push_keccak(&mut self, input: [u64; keccak::keccak_stark::NUM_INPUTS], clock: usize) {
+    pub(crate) fn push_keccak(
+        &mut self,
+        input: [u64; keccak::keccak_stark::NUM_INPUTS],
+        clock: usize,
+    ) {
         self.keccak_inputs.push((input, clock));
     }
 
-    pub fn push_keccak_bytes(&mut self, input: [u8; KECCAK_WIDTH_BYTES], clock: usize) {
+    pub(crate) fn push_keccak_bytes(&mut self, input: [u8; KECCAK_WIDTH_BYTES], clock: usize) {
         let chunks = input
             .chunks(size_of::<u64>())
             .map(|chunk| u64::from_le_bytes(chunk.try_into().unwrap()))
@@ -146,15 +154,15 @@ impl<T: Copy> Traces<T> {
         self.push_keccak(chunks, clock);
     }
 
-    pub fn push_keccak_sponge(&mut self, op: KeccakSpongeOp) {
+    pub(crate) fn push_keccak_sponge(&mut self, op: KeccakSpongeOp) {
         self.keccak_sponge_ops.push(op);
     }
 
-    pub fn clock(&self) -> usize {
+    pub(crate) fn clock(&self) -> usize {
         self.cpu.len()
     }
 
-    pub fn into_tables<const D: usize>(
+    pub(crate) fn into_tables<const D: usize>(
         self,
         all_stark: &AllStark<T, D>,
         config: &StarkConfig,

@@ -21,7 +21,7 @@ pub type MemValue<T> = [T; memory::VALUE_LIMBS];
 /// View of the columns required for one memory channel.
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct MemoryChannelView<T: Copy> {
+pub(crate) struct MemoryChannelView<T: Copy> {
     /// 1 if this row includes a memory operation in the `i`th channel of the memory bus, otherwise
     /// 0.
     pub used: T,
@@ -39,11 +39,20 @@ pub struct MemoryChannelView<T: Copy> {
 
 /// View of all the columns in `CpuStark`.
 #[repr(C)]
-#[derive(Clone, Copy, Eq, PartialEq, Debug)]
-pub struct CpuColumnsView<T: Copy> {
-    /// Filter. 1 if the row is part of bootstrapping the kernel code, 0 otherwise.
-    pub is_bootstrap_kernel: T,
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+// A more lightweight channel, sharing values with the 0-th memory channel
+// (which contains the top of the stack).
+pub(crate) struct PartialMemoryChannelView<T: Copy> {
+    pub used: T,
+    pub is_read: T,
+    pub addr_context: T,
+    pub addr_segment: T,
+    pub addr_virtual: T,
+}
 
+#[repr(C)]
+#[derive(Clone, Copy, Eq, PartialEq, Debug)]
+pub(crate) struct CpuColumnsView<T: Copy> {
     /// If CPU cycle: Current context.
     pub context: T,
 
@@ -56,15 +65,11 @@ pub struct CpuColumnsView<T: Copy> {
     /// If CPU cycle: The stack length.
     pub stack_len: T,
 
-    /// If CPU cycle: A prover-provided value needed to show that the instruction does not cause the
-    /// stack to underflow or overflow.
-    pub stack_len_bounds_aux: T,
-
     /// If CPU cycle: We're in kernel (privileged) mode.
     pub is_kernel_mode: T,
 
-    /// If CPU cycle: Gas counter, split in two 32-bit limbs in little-endian order.
-    pub gas: [T; 2],
+    /// If CPU cycle: Gas counter.
+    pub gas: T,
 
     /// If CPU cycle: flags for EVM instructions (a few cannot be shared; see the comments in
     /// `OpsColumnsView`).
@@ -73,22 +78,22 @@ pub struct CpuColumnsView<T: Copy> {
     /// If CPU cycle: the opcode, broken up into bits in little-endian order.
     pub opcode_bits: [T; 8],
 
-    /// Filter. 1 iff a Keccak sponge lookup is performed on this row.
-    pub is_keccak_sponge: T,
-
     /// Columns shared by various operations.
     pub(crate) general: CpuGeneralColumnsView<T>,
 
     /// CPU clock.
     pub(crate) clock: T,
 
-    /// Memory bus channels in the CPU. Each channel is comprised of 13 columns.
+    /// Memory bus channels in the CPU.
+    /// Full channels are comprised of 13 columns.
     pub mem_channels: [MemoryChannelView<T>; NUM_GP_CHANNELS],
+    /// Partial channel is only comprised of 5 columns.
+    pub(crate) partial_channel: PartialMemoryChannelView<T>,
 }
 
 /// Total number of columns in `CpuStark`.
 /// `u8` is guaranteed to have a `size_of` of 1.
-pub const NUM_CPU_COLUMNS: usize = size_of::<CpuColumnsView<u8>>();
+pub(crate) const NUM_CPU_COLUMNS: usize = size_of::<CpuColumnsView<u8>>();
 
 impl<F: Field> Default for CpuColumnsView<F> {
     fn default() -> Self {
@@ -160,4 +165,4 @@ const fn make_col_map() -> CpuColumnsView<usize> {
 }
 
 /// Mapping between [0..NUM_CPU_COLUMNS-1] and the CPU columns.
-pub const COL_MAP: CpuColumnsView<usize> = make_col_map();
+pub(crate) const COL_MAP: CpuColumnsView<usize> = make_col_map();

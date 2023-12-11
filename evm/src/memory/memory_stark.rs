@@ -13,14 +13,15 @@ use plonky2::util::timing::TimingTree;
 use plonky2::util::transpose;
 use plonky2_maybe_rayon::*;
 
+use super::segments::Segment;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
-use crate::cross_table_lookup::Column;
+use crate::cross_table_lookup::{Column, Filter};
 use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
 use crate::lookup::Lookup;
 use crate::memory::columns::{
     value_limb, ADDR_CONTEXT, ADDR_SEGMENT, ADDR_VIRTUAL, CONTEXT_FIRST_CHANGE, COUNTER, FILTER,
-    FREQUENCIES, IS_READ, NUM_COLUMNS, RANGE_CHECK, SEGMENT_FIRST_CHANGE, TIMESTAMP,
-    VIRTUAL_FIRST_CHANGE,
+    FREQUENCIES, INITIALIZE_AUX, IS_READ, NUM_COLUMNS, RANGE_CHECK, SEGMENT_FIRST_CHANGE,
+    TIMESTAMP, VIRTUAL_FIRST_CHANGE,
 };
 use crate::memory::VALUE_LIMBS;
 use crate::stark::Stark;
@@ -32,7 +33,7 @@ use crate::witness::memory::{MemoryAddress, MemoryOp};
 /// - the address in memory of the element being read/written,
 /// - the value being read/written,
 /// - the timestamp at which the element is read/written.
-pub fn ctl_data<F: Field>() -> Vec<Column<F>> {
+pub(crate) fn ctl_data<F: Field>() -> Vec<Column<F>> {
     let mut res =
         Column::singles([IS_READ, ADDR_CONTEXT, ADDR_SEGMENT, ADDR_VIRTUAL]).collect_vec();
     res.extend(Column::singles((0..8).map(value_limb)));
@@ -41,12 +42,12 @@ pub fn ctl_data<F: Field>() -> Vec<Column<F>> {
 }
 
 /// CTL filter for memory operations.
-pub fn ctl_filter<F: Field>() -> Column<F> {
-    Column::single(FILTER)
+pub(crate) fn ctl_filter<F: Field>() -> Filter<F> {
+    Filter::new_simple(Column::single(FILTER))
 }
 
 #[derive(Copy, Clone, Default)]
-pub struct MemoryStark<F, const D: usize> {
+pub(crate) struct MemoryStark<F, const D: usize> {
     pub(crate) f: PhantomData<F>,
 }
 
@@ -76,7 +77,9 @@ impl MemoryOp {
 }
 
 /// Generates the `_FIRST_CHANGE` columns and the `RANGE_CHECK` column in the trace.
-pub fn generate_first_change_flags_and_rc<F: RichField>(trace_rows: &mut [[F; NUM_COLUMNS]]) {
+pub(crate) fn generate_first_change_flags_and_rc<F: RichField>(
+    trace_rows: &mut [[F; NUM_COLUMNS]],
+) {
     let num_ops = trace_rows.len();
     for idx in 0..num_ops - 1 {
         let row = trace_rows[idx].as_slice();
@@ -90,6 +93,7 @@ pub fn generate_first_change_flags_and_rc<F: RichField>(trace_rows: &mut [[F; NU
         let next_segment = next_row[ADDR_SEGMENT];
         let next_virt = next_row[ADDR_VIRTUAL];
         let next_timestamp = next_row[TIMESTAMP];
+        let next_is_read = next_row[IS_READ];
 
         let context_changed = context != next_context;
         let segment_changed = segment != next_segment;
@@ -126,6 +130,10 @@ pub fn generate_first_change_flags_and_rc<F: RichField>(trace_rows: &mut [[F; NU
             segment,
             next_segment
         );
+
+        let address_changed =
+            row[CONTEXT_FIRST_CHANGE] + row[SEGMENT_FIRST_CHANGE] + row[VIRTUAL_FIRST_CHANGE];
+        row[INITIALIZE_AUX] = next_segment * address_changed * next_is_read;
     }
 }
 
@@ -329,16 +337,39 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
             + address_unchanged * (next_timestamp - timestamp);
         yield_constr.constraint_transition(range_check - computed_range_check);
 
-        // Enumerate purportedly-ordered log.
-        // We assume that memory is initialized with 0. This means that if the first operation of a new address
-        // is a read, then its value must be 0.
+        // Validate initialize_aux. It contains next_segment * addr_changed * next_is_read.
+        let initialize_aux = local_values[INITIALIZE_AUX];
+        yield_constr.constraint_transition(
+            initialize_aux - next_addr_segment * not_address_unchanged * next_is_read,
+        );
+
         for i in 0..8 {
+            // Enumerate purportedly-ordered log.
             yield_constr.constraint_transition(
                 next_is_read * address_unchanged * (next_values_limbs[i] - value_limbs[i]),
             );
+            // By default, memory is initialized with 0. This means that if the first operation of a new address is a read,
+            // then its value must be 0.
+            // There are exceptions, though: this constraint zero-initializes everything but the code segment and context 0.
             yield_constr
-                .constraint_transition(next_is_read * not_address_unchanged * next_values_limbs[i]);
+                .constraint_transition(next_addr_context * initialize_aux * next_values_limbs[i]);
+            // We don't want to exclude the entirety of context 0. This constraint zero-initializes all segments except the
+            // specified ones (segment 0 is already included in initialize_aux).
+            // There is overlap with the previous constraint, but this is not a problem.
+            yield_constr.constraint_transition(
+                (next_addr_segment - P::Scalar::from_canonical_usize(Segment::TrieData as usize))
+                    * initialize_aux
+                    * next_values_limbs[i],
+            );
         }
+
+        // Check the range column: First value must be 0,
+        // and intermediate rows must increment by 1.
+        let rc1 = local_values[COUNTER];
+        let rc2 = next_values[COUNTER];
+        yield_constr.constraint_first_row(rc1);
+        let incr = rc2 - rc1;
+        yield_constr.constraint_transition(incr - P::Scalar::ONES);
     }
 
     fn eval_ext_circuit(
@@ -454,19 +485,49 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
         let range_check_diff = builder.sub_extension(range_check, computed_range_check);
         yield_constr.constraint_transition(builder, range_check_diff);
 
-        // Enumerate purportedly-ordered log.
-        // We assume that memory is initialized with 0. This means that if the first operation of a new address
-        // is a read, then its value must be 0.
+        // Validate initialize_aux. It contains next_segment * addr_changed * next_is_read.
+        let initialize_aux = local_values[INITIALIZE_AUX];
+        let computed_initialize_aux = builder.mul_extension(not_address_unchanged, next_is_read);
+        let computed_initialize_aux =
+            builder.mul_extension(next_addr_segment, computed_initialize_aux);
+        let new_first_read_constraint =
+            builder.sub_extension(initialize_aux, computed_initialize_aux);
+        yield_constr.constraint_transition(builder, new_first_read_constraint);
+
         for i in 0..8 {
+            // Enumerate purportedly-ordered log.
             let value_diff = builder.sub_extension(next_values_limbs[i], value_limbs[i]);
             let zero_if_read = builder.mul_extension(address_unchanged, value_diff);
             let read_constraint = builder.mul_extension(next_is_read, zero_if_read);
             yield_constr.constraint_transition(builder, read_constraint);
-            let first_read_value =
-                builder.mul_extension(next_values_limbs[i], not_address_unchanged);
-            let first_read_constraint = builder.mul_extension(first_read_value, next_is_read);
-            yield_constr.constraint_transition(builder, first_read_constraint);
+            // By default, memory is initialized with 0. This means that if the first operation of a new address is a read,
+            // then its value must be 0.
+            // There are exceptions, though: this constraint zero-initializes everything but the code segment and context 0.
+            let context_zero_initializing_constraint =
+                builder.mul_extension(next_values_limbs[i], initialize_aux);
+            let initializing_constraint =
+                builder.mul_extension(next_addr_context, context_zero_initializing_constraint);
+            yield_constr.constraint_transition(builder, initializing_constraint);
+            // We don't want to exclude the entirety of context 0. This constraint zero-initializes all segments except the
+            // specified ones (segment 0 is already included in initialize_aux).
+            // There is overlap with the previous constraint, but this is not a problem.
+            let segment_trie_data = builder.add_const_extension(
+                next_addr_segment,
+                F::NEG_ONE * F::from_canonical_u32(Segment::TrieData as u32),
+            );
+            let zero_init_constraint =
+                builder.mul_extension(segment_trie_data, context_zero_initializing_constraint);
+            yield_constr.constraint_transition(builder, zero_init_constraint);
         }
+
+        // Check the range column: First value must be 0,
+        // and intermediate rows must increment by 1.
+        let rc1 = local_values[COUNTER];
+        let rc2 = next_values[COUNTER];
+        yield_constr.constraint_first_row(builder, rc1);
+        let incr = builder.sub_extension(rc2, rc1);
+        let t = builder.sub_extension(incr, one);
+        yield_constr.constraint_transition(builder, t);
     }
 
     fn constraint_degree(&self) -> usize {

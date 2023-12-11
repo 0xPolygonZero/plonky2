@@ -27,12 +27,13 @@ global sys_mstore:
     // stack: expanded_num_bytes, kexit_info, offset, value
     %update_mem_bytes
     // stack: kexit_info, offset, value
-    %stack(kexit_info, offset, value) -> (offset, value, 32, kexit_info)
+    %stack(kexit_info, offset, value) -> (offset, value, kexit_info)
     PUSH @SEGMENT_MAIN_MEMORY
     GET_CONTEXT
     %build_address
-    // stack: addr, value, len, kexit_info
-    MSTORE_32BYTES
+    // stack: addr, value, kexit_info
+    MSTORE_32BYTES_32
+    POP
     // stack: kexit_info
     EXIT_KERNEL
 
@@ -203,9 +204,10 @@ global sys_extcodecopy:
     DUP1 %ensure_reasonable_offset
     %update_mem_bytes
 
-    PUSH @SEGMENT_KERNEL_ACCOUNT_CODE // ctx == virt == 0
-    %stack (code_dest, kexit_info, address, dest_offset, offset, size) ->
-        (address, code_dest, extcodecopy_contd, 0, kexit_info, dest_offset, offset, size)
+    %next_context_id
+
+    %stack (ctx, kexit_info, address, dest_offset, offset, size) ->
+        (address, ctx, extcodecopy_contd, ctx, kexit_info, dest_offset, offset, size)
     %jump(load_code)
 
 sys_extcodecopy_empty:
@@ -214,8 +216,8 @@ sys_extcodecopy_empty:
     EXIT_KERNEL
 
 extcodecopy_contd:
-    // stack: code_size, src_ctx, kexit_info, dest_offset, offset, size
-    %codecopy_after_checks(@SEGMENT_KERNEL_ACCOUNT_CODE)
+    // stack: code_size, ctx, kexit_info, dest_offset, offset, size
+    %codecopy_after_checks(@SEGMENT_CODE)
 
 
 // The internal logic is similar to wcopy, but handles range overflow differently.

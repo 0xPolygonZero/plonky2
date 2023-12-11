@@ -1,6 +1,5 @@
 use ethereum_types::U256;
 
-#[allow(dead_code)]
 #[derive(Debug)]
 pub enum ProgramError {
     OutOfGas,
@@ -36,4 +35,5 @@ pub enum ProverInputError {
     InvalidMptInput,
     InvalidInput,
     InvalidFunction,
+    NumBitsError,
 }

@@ -11,14 +11,15 @@ use plonky2::iop::ext_target::ExtensionTarget;
 
 use super::columns::CpuColumnsView;
 use super::halt;
+use super::membus::NUM_GP_CHANNELS;
 use crate::all_stark::Table;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::{COL_MAP, NUM_CPU_COLUMNS};
 use crate::cpu::{
-    bootstrap_kernel, contextops, control_flow, decode, dup_swap, gas, jumps, membus, memio,
-    modfp254, pc, push0, shift, simple_logic, stack, stack_bounds, syscalls_exceptions,
+    byte_unpacking, clock, contextops, control_flow, decode, dup_swap, gas, jumps, membus, memio,
+    modfp254, pc, push0, shift, simple_logic, stack, syscalls_exceptions,
 };
-use crate::cross_table_lookup::{Column, TableWithColumns};
+use crate::cross_table_lookup::{Column, Filter, TableWithColumns};
 use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
 use crate::memory::segments::{Segment, SEGMENT_SCALING_FACTOR};
 use crate::memory::{NUM_CHANNELS, VALUE_LIMBS};
@@ -26,7 +27,7 @@ use crate::stark::Stark;
 
 /// Creates the vector of `Columns` corresponding to the General Purpose channels when calling the Keccak sponge:
 /// the CPU reads the output of the sponge directly from the `KeccakSpongeStark` table.
-pub fn ctl_data_keccak_sponge<F: Field>() -> Vec<Column<F>> {
+pub(crate) fn ctl_data_keccak_sponge<F: Field>() -> Vec<Column<F>> {
     // When executing KECCAK_GENERAL, the GP memory channels are used as follows:
     // GP channel 0: stack[-1] = addr (context, segment, virt)
     // GP channel 1: stack[-2] = len
@@ -45,8 +46,15 @@ pub fn ctl_data_keccak_sponge<F: Field>() -> Vec<Column<F>> {
 }
 
 /// CTL filter for a call to the Keccak sponge.
-pub fn ctl_filter_keccak_sponge<F: Field>() -> Column<F> {
-    Column::single(COL_MAP.is_keccak_sponge)
+// KECCAK_GENERAL is differentiated from JUMPDEST by its second bit set to 0.
+pub(crate) fn ctl_filter_keccak_sponge<F: Field>() -> Filter<F> {
+    Filter::new(
+        vec![(
+            Column::single(COL_MAP.op.jumpdest_keccak_general),
+            Column::linear_combination_with_constant([(COL_MAP.opcode_bits[1], -F::ONE)], F::ONE),
+        )],
+        vec![],
+    )
 }
 
 /// Creates the vector of `Columns` corresponding to the two inputs and
@@ -71,7 +79,7 @@ fn ctl_data_ternops<F: Field>() -> Vec<Column<F>> {
 }
 
 /// Creates the vector of columns corresponding to the opcode, the two inputs and the output of the logic operation.
-pub fn ctl_data_logic<F: Field>() -> Vec<Column<F>> {
+pub(crate) fn ctl_data_logic<F: Field>() -> Vec<Column<F>> {
     // Instead of taking single columns, we reconstruct the entire opcode value directly.
     let mut res = vec![Column::le_bits(COL_MAP.opcode_bits)];
     res.extend(ctl_data_binops());
@@ -79,12 +87,12 @@ pub fn ctl_data_logic<F: Field>() -> Vec<Column<F>> {
 }
 
 /// CTL filter for logic operations.
-pub fn ctl_filter_logic<F: Field>() -> Column<F> {
-    Column::single(COL_MAP.op.logic_op)
+pub(crate) fn ctl_filter_logic<F: Field>() -> Filter<F> {
+    Filter::new_simple(Column::single(COL_MAP.op.logic_op))
 }
 
 /// Returns the `TableWithColumns` for the CPU rows calling arithmetic operations.
-pub fn ctl_arithmetic_base_rows<F: Field>() -> TableWithColumns<F> {
+pub(crate) fn ctl_arithmetic_base_rows<F: Field>() -> TableWithColumns<F> {
     // Instead of taking single columns, we reconstruct the entire opcode value directly.
     let mut columns = vec![Column::le_bits(COL_MAP.opcode_bits)];
     columns.extend(ctl_data_ternops());
@@ -96,7 +104,7 @@ pub fn ctl_arithmetic_base_rows<F: Field>() -> TableWithColumns<F> {
     TableWithColumns::new(
         Table::Cpu,
         columns,
-        Some(Column::sum([
+        Some(Filter::new_simple(Column::sum([
             COL_MAP.op.binary_op,
             COL_MAP.op.fp254_op,
             COL_MAP.op.ternary_op,
@@ -104,30 +112,83 @@ pub fn ctl_arithmetic_base_rows<F: Field>() -> TableWithColumns<F> {
             COL_MAP.op.prover_input,
             COL_MAP.op.syscall,
             COL_MAP.op.exception,
-        ])),
+        ]))),
     )
 }
 
 /// Creates the vector of `Columns` corresponding to the contents of General Purpose channels when calling byte packing.
 /// We use `ctl_data_keccak_sponge` because the `Columns` are the same as the ones computed for `KeccakSpongeStark`.
-pub fn ctl_data_byte_packing<F: Field>() -> Vec<Column<F>> {
+pub(crate) fn ctl_data_byte_packing<F: Field>() -> Vec<Column<F>> {
     ctl_data_keccak_sponge()
 }
 
 /// CTL filter for the `MLOAD_32BYTES` operation.
-pub fn ctl_filter_byte_packing<F: Field>() -> Column<F> {
-    Column::single(COL_MAP.op.mload_32bytes)
+/// MLOAD_32 BYTES is differentiated from MSTORE_32BYTES by its fifth bit set to 1.
+pub(crate) fn ctl_filter_byte_packing<F: Field>() -> Filter<F> {
+    Filter::new(
+        vec![(
+            Column::single(COL_MAP.op.m_op_32bytes),
+            Column::single(COL_MAP.opcode_bits[5]),
+        )],
+        vec![],
+    )
 }
 
 /// Creates the vector of `Columns` corresponding to the contents of General Purpose channels when calling byte unpacking.
-pub fn ctl_data_byte_unpacking<F: Field>() -> Vec<Column<F>> {
+pub(crate) fn ctl_data_byte_unpacking<F: Field>() -> Vec<Column<F>> {
     // When executing MSTORE_32BYTES, the GP memory channels are used as follows:
     // GP channel 0: stack[-1] = addr (context, segment, virt)
     // GP channel 1: stack[-2] = val
-    // GP channel 2: stack[-3] = len
-    let [context, segment, virt] = get_addr(&COL_MAP).map(Column::single);
+    // Next GP channel 0: pushed = new_offset (virt + len)
+    let (context, segment, virt) = get_addr(&COL_MAP);
+    let mut res = vec![
+        Column::single(context),
+        Column::single(segment),
+        Column::single(virt),
+    ];
     let val = Column::singles(COL_MAP.mem_channels[1].value);
-    let len = Column::single(COL_MAP.mem_channels[2].value[0]);
+
+    // len can be reconstructed as new_offset - virt.
+    let len = Column::linear_combination_and_next_row_with_constant(
+        [(COL_MAP.mem_channels[2].value[0], -F::ONE)],
+        [(COL_MAP.mem_channels[0].value[0], F::ONE)],
+        F::ZERO,
+    );
+    res.push(len);
+
+    let num_channels = F::from_canonical_usize(NUM_CHANNELS);
+    let timestamp = Column::linear_combination([(COL_MAP.clock, num_channels)]);
+    res.push(timestamp);
+
+    res.extend(val);
+
+    res
+}
+
+/// CTL filter for the `MSTORE_32BYTES` operation.
+/// MSTORE_32BYTES is differentiated from MLOAD_32BYTES by its fifth bit set to 0.
+pub(crate) fn ctl_filter_byte_unpacking<F: Field>() -> Filter<F> {
+    Filter::new(
+        vec![(
+            Column::single(COL_MAP.op.m_op_32bytes),
+            Column::linear_combination_with_constant([(COL_MAP.opcode_bits[5], -F::ONE)], F::ONE),
+        )],
+        vec![],
+    )
+}
+
+/// Creates the vector of `Columns` corresponding to the contents of the CPU registers when performing a `PUSH`.
+/// `PUSH` internal reads are done by calling `BytePackingStark`.
+pub(crate) fn ctl_data_byte_packing_push<F: Field>() -> Vec<Column<F>> {
+    let context = Column::single(COL_MAP.code_context);
+    let segment = Column::constant(F::from_canonical_usize(Segment::Code as usize));
+    // The initial offset if `pc + 1`.
+    let virt =
+        Column::linear_combination_with_constant([(COL_MAP.program_counter, F::ONE)], F::ONE);
+    let val = Column::singles_next_row(COL_MAP.mem_channels[0].value);
+
+    // We fetch the length from the `PUSH` opcode lower bits, that indicate `len - 1`.
+    let len = Column::le_bits_with_constant(&COL_MAP.opcode_bits[0..5], F::ONE);
 
     let num_channels = F::from_canonical_usize(NUM_CHANNELS);
     let timestamp = Column::linear_combination([(COL_MAP.clock, num_channels)]);
@@ -138,15 +199,15 @@ pub fn ctl_data_byte_unpacking<F: Field>() -> Vec<Column<F>> {
     res
 }
 
-/// CTL filter for the `MSTORE_32BYTES` operation.
-pub fn ctl_filter_byte_unpacking<F: Field>() -> Column<F> {
-    Column::single(COL_MAP.op.mstore_32bytes)
+/// CTL filter for the `PUSH` operation.
+pub(crate) fn ctl_filter_byte_packing_push<F: Field>() -> Filter<F> {
+    Filter::new_simple(Column::single(COL_MAP.op.push))
 }
 
 /// Index of the memory channel storing code.
-pub const MEM_CODE_CHANNEL_IDX: usize = 0;
+pub(crate) const MEM_CODE_CHANNEL_IDX: usize = 0;
 /// Index of the first general purpose memory channel.
-pub const MEM_GP_CHANNELS_IDX_START: usize = MEM_CODE_CHANNEL_IDX + 1;
+pub(crate) const MEM_GP_CHANNELS_IDX_START: usize = MEM_CODE_CHANNEL_IDX + 1;
 
 /// Recover the three components of an address, given a CPU row. The address
 /// is expected to be stored on the first memory channel, and the components
@@ -155,11 +216,11 @@ pub const MEM_GP_CHANNELS_IDX_START: usize = MEM_CODE_CHANNEL_IDX + 1;
 /// - `context`, shifted by 2^64 (i.e. at index 2)
 /// - `segment`, shifted by 2^32 (i.e. at index 1)
 /// - `virtual`, not shifted (i.e. at index 0)
-pub(crate) fn get_addr<T: Copy>(lv: &CpuColumnsView<T>) -> [T; 3] {
+pub(crate) const fn get_addr<T: Copy>(lv: &CpuColumnsView<T>) -> (T, T, T) {
     let addr_context = lv.mem_channels[0].value[2];
     let addr_segment = lv.mem_channels[0].value[1];
     let addr_virtual = lv.mem_channels[0].value[0];
-    [addr_context, addr_segment, addr_virtual]
+    (addr_context, addr_segment, addr_virtual)
 }
 
 /// Make the time/channel column for memory lookups.
@@ -170,7 +231,7 @@ fn mem_time_and_channel<F: Field>(channel: usize) -> Column<F> {
 }
 
 /// Creates the vector of `Columns` corresponding to the contents of the code channel when reading code values.
-pub fn ctl_data_code_memory<F: Field>() -> Vec<Column<F>> {
+pub(crate) fn ctl_data_code_memory<F: Field>() -> Vec<Column<F>> {
     let mut cols = vec![
         Column::constant(F::ONE),             // is_read
         Column::single(COL_MAP.code_context), // addr_context
@@ -192,7 +253,7 @@ pub fn ctl_data_code_memory<F: Field>() -> Vec<Column<F>> {
 }
 
 /// Creates the vector of `Columns` corresponding to the contents of General Purpose channels.
-pub fn ctl_data_gp_memory<F: Field>(channel: usize) -> Vec<Column<F>> {
+pub(crate) fn ctl_data_gp_memory<F: Field>(channel: usize) -> Vec<Column<F>> {
     let channel_map = COL_MAP.mem_channels[channel];
     let mut cols: Vec<_> = Column::singles([
         channel_map.is_read,
@@ -209,19 +270,43 @@ pub fn ctl_data_gp_memory<F: Field>(channel: usize) -> Vec<Column<F>> {
     cols
 }
 
+pub(crate) fn ctl_data_partial_memory<F: Field>() -> Vec<Column<F>> {
+    let channel_map = COL_MAP.partial_channel;
+    let values = COL_MAP.mem_channels[0].value;
+    let mut cols: Vec<_> = Column::singles([
+        channel_map.is_read,
+        channel_map.addr_context,
+        channel_map.addr_segment,
+        channel_map.addr_virtual,
+    ])
+    .collect();
+
+    cols.extend(Column::singles(values));
+
+    cols.push(mem_time_and_channel(
+        MEM_GP_CHANNELS_IDX_START + NUM_GP_CHANNELS,
+    ));
+
+    cols
+}
+
 /// CTL filter for code read and write operations.
-pub fn ctl_filter_code_memory<F: Field>() -> Column<F> {
-    Column::sum(COL_MAP.op.iter())
+pub(crate) fn ctl_filter_code_memory<F: Field>() -> Filter<F> {
+    Filter::new_simple(Column::sum(COL_MAP.op.iter()))
 }
 
 /// CTL filter for General Purpose memory read and write operations.
-pub fn ctl_filter_gp_memory<F: Field>(channel: usize) -> Column<F> {
-    Column::single(COL_MAP.mem_channels[channel].used)
+pub(crate) fn ctl_filter_gp_memory<F: Field>(channel: usize) -> Filter<F> {
+    Filter::new_simple(Column::single(COL_MAP.mem_channels[channel].used))
+}
+
+pub(crate) fn ctl_filter_partial_memory<F: Field>() -> Filter<F> {
+    Filter::new_simple(Column::single(COL_MAP.partial_channel.used))
 }
 
 /// Structure representing the CPU Stark.
 #[derive(Copy, Clone, Default)]
-pub struct CpuStark<F, const D: usize> {
+pub(crate) struct CpuStark<F, const D: usize> {
     pub f: PhantomData<F>,
 }
 
@@ -247,7 +332,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
         let next_values: &[P; NUM_CPU_COLUMNS] = vars.get_next_values().try_into().unwrap();
         let next_values: &CpuColumnsView<P> = next_values.borrow();
 
-        bootstrap_kernel::eval_bootstrap_kernel_packed(local_values, next_values, yield_constr);
+        byte_unpacking::eval_packed(local_values, next_values, yield_constr);
+        clock::eval_packed(local_values, next_values, yield_constr);
         contextops::eval_packed(local_values, next_values, yield_constr);
         control_flow::eval_packed_generic(local_values, next_values, yield_constr);
         decode::eval_packed_generic(local_values, yield_constr);
@@ -263,7 +349,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
         shift::eval_packed(local_values, yield_constr);
         simple_logic::eval_packed(local_values, next_values, yield_constr);
         stack::eval_packed(local_values, next_values, yield_constr);
-        stack_bounds::eval_packed(local_values, yield_constr);
         syscalls_exceptions::eval_packed(local_values, next_values, yield_constr);
     }
 
@@ -282,12 +367,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
             vars.get_next_values().try_into().unwrap();
         let next_values: &CpuColumnsView<ExtensionTarget<D>> = next_values.borrow();
 
-        bootstrap_kernel::eval_bootstrap_kernel_ext_circuit(
-            builder,
-            local_values,
-            next_values,
-            yield_constr,
-        );
+        byte_unpacking::eval_ext_circuit(builder, local_values, next_values, yield_constr);
+        clock::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         contextops::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         control_flow::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         decode::eval_ext_circuit(builder, local_values, yield_constr);
@@ -303,7 +384,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D
         shift::eval_ext_circuit(builder, local_values, yield_constr);
         simple_logic::eval_ext_circuit(builder, local_values, next_values, yield_constr);
         stack::eval_ext_circuit(builder, local_values, next_values, yield_constr);
-        stack_bounds::eval_ext_circuit(builder, local_values, yield_constr);
         syscalls_exceptions::eval_ext_circuit(builder, local_values, next_values, yield_constr);
     }
 

@@ -24,13 +24,13 @@ global panic:
 %endmacro
 
 %macro assert_eq
-    EQ
-    %assert_nonzero
+    SUB
+    %jumpi(panic)
 %endmacro
 
 %macro assert_eq(ret)
-    EQ
-    %assert_nonzero($ret)
+    SUB
+    %jumpi($ret)
 %endmacro
 
 %macro assert_lt
@@ -82,8 +82,9 @@ global panic:
 %endmacro
 
 %macro assert_eq_const(c)
-    %eq_const($c)
-    %assert_nonzero
+    PUSH $c
+    SUB
+    %jumpi(panic)
 %endmacro
 
 %macro assert_lt_const(c)

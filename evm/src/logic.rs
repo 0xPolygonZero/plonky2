@@ -13,7 +13,7 @@ use plonky2::util::timing::TimingTree;
 use plonky2_util::ceil_div_usize;
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
-use crate::cross_table_lookup::Column;
+use crate::cross_table_lookup::{Column, Filter};
 use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
 use crate::logic::columns::NUM_COLUMNS;
 use crate::stark::Stark;
@@ -34,20 +34,22 @@ pub(crate) mod columns {
     use super::{PACKED_LEN, PACKED_LIMB_BITS, VAL_BITS};
 
     /// 1 if this is an AND operation, 0 otherwise.
-    pub const IS_AND: usize = 0;
+    pub(crate) const IS_AND: usize = 0;
     /// 1 if this is an OR operation, 0 otherwise.
-    pub const IS_OR: usize = IS_AND + 1;
+    pub(crate) const IS_OR: usize = IS_AND + 1;
     /// 1 if this is a XOR operation, 0 otherwise.
-    pub const IS_XOR: usize = IS_OR + 1;
+    pub(crate) const IS_XOR: usize = IS_OR + 1;
     /// First input, decomposed into bits.
-    pub const INPUT0: Range<usize> = (IS_XOR + 1)..(IS_XOR + 1) + VAL_BITS;
+    pub(crate) const INPUT0: Range<usize> = (IS_XOR + 1)..(IS_XOR + 1) + VAL_BITS;
     /// Second input, decomposed into bits.
-    pub const INPUT1: Range<usize> = INPUT0.end..INPUT0.end + VAL_BITS;
+    pub(crate) const INPUT1: Range<usize> = INPUT0.end..INPUT0.end + VAL_BITS;
     /// The result is packed in limbs of `PACKED_LIMB_BITS` bits.
-    pub const RESULT: Range<usize> = INPUT1.end..INPUT1.end + PACKED_LEN;
+    pub(crate) const RESULT: Range<usize> = INPUT1.end..INPUT1.end + PACKED_LEN;
 
     /// Returns the column range for each 32 bit chunk in the input.
-    pub fn limb_bit_cols_for_input(input_bits: Range<usize>) -> impl Iterator<Item = Range<usize>> {
+    pub(crate) fn limb_bit_cols_for_input(
+        input_bits: Range<usize>,
+    ) -> impl Iterator<Item = Range<usize>> {
         (0..PACKED_LEN).map(move |i| {
             let start = input_bits.start + i * PACKED_LIMB_BITS;
             let end = min(start + PACKED_LIMB_BITS, input_bits.end);
@@ -56,11 +58,11 @@ pub(crate) mod columns {
     }
 
     /// Number of columns in `LogicStark`.
-    pub const NUM_COLUMNS: usize = RESULT.end;
+    pub(crate) const NUM_COLUMNS: usize = RESULT.end;
 }
 
 /// Creates the vector of `Columns` corresponding to the opcode, the two inputs and the output of the logic operation.
-pub fn ctl_data<F: Field>() -> Vec<Column<F>> {
+pub(crate) fn ctl_data<F: Field>() -> Vec<Column<F>> {
     // We scale each filter flag with the associated opcode value.
     // If a logic operation is happening on the CPU side, the CTL
     // will enforce that the reconstructed opcode value from the
@@ -77,13 +79,17 @@ pub fn ctl_data<F: Field>() -> Vec<Column<F>> {
 }
 
 /// CTL filter for logic operations.
-pub fn ctl_filter<F: Field>() -> Column<F> {
-    Column::sum([columns::IS_AND, columns::IS_OR, columns::IS_XOR])
+pub(crate) fn ctl_filter<F: Field>() -> Filter<F> {
+    Filter::new_simple(Column::sum([
+        columns::IS_AND,
+        columns::IS_OR,
+        columns::IS_XOR,
+    ]))
 }
 
 /// Structure representing the Logic STARK, which computes all logic operations.
 #[derive(Copy, Clone, Default)]
-pub struct LogicStark<F, const D: usize> {
+pub(crate) struct LogicStark<F, const D: usize> {
     pub f: PhantomData<F>,
 }
 

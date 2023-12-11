@@ -116,7 +116,7 @@ pub(crate) fn lookup_helper_columns<F: Field>(
     helper_columns
 }
 
-pub struct LookupCheckVars<F, FE, P, const D2: usize>
+pub(crate) struct LookupCheckVars<F, FE, P, const D2: usize>
 where
     F: Field,
     FE: FieldExtension<D2, BaseField = F>,
@@ -179,7 +179,7 @@ pub(crate) fn eval_packed_lookups_generic<F, FE, P, S, const D: usize, const D2:
     }
 }
 
-pub struct LookupCheckVarsTarget<const D: usize> {
+pub(crate) struct LookupCheckVarsTarget<const D: usize> {
     pub(crate) local_values: Vec<ExtensionTarget<D>>,
     pub(crate) next_values: Vec<ExtensionTarget<D>>,
     pub(crate) challenges: Vec<Target>,

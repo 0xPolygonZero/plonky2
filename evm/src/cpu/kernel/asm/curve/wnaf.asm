@@ -36,6 +36,7 @@ wnaf_loop_contd:
     SUB
     %stack (i, m, o, segment, n, retdest) -> (segment, i, m, o, segment, n, retdest)
     %build_kernel_address
+    SWAP1
     MSTORE_GENERAL
     // stack: o, segment, n, retdest
     DUP3 ISZERO %jumpi(wnaf_end)

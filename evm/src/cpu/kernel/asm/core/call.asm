@@ -1,4 +1,5 @@
 // Handlers for call-like operations, namely CALL, CALLCODE, STATICCALL and DELEGATECALL.
+// Reminder: All context metadata hardcoded offsets are already scaled by `Segment::ContextMetadata`.
 
 // Creates a new sub context and executes the code of the given account.
 global sys_call:
@@ -271,10 +272,10 @@ call_too_deep:
 // because it will already be 0 by default.
 %macro set_static_true
     // stack: new_ctx
-    PUSH 1
-    DUP2
-    // stack: new_ctx, 1, new_ctx
+    DUP1
     %new_address_with_ctx_no_segment(@CTX_METADATA_STATIC)
+    PUSH 1
+    // stack: 1, addr, new_ctx
     MSTORE_GENERAL
     // stack: new_ctx
 %endmacro
@@ -282,10 +283,10 @@ call_too_deep:
 // Set @CTX_METADATA_STATIC of the next context to the current value.
 %macro set_static
     // stack: new_ctx
-    %mload_context_metadata(@CTX_METADATA_STATIC)
-    DUP2
-    // stack: new_ctx, is_static, new_ctx
+    DUP1
     %new_address_with_ctx_no_segment(@CTX_METADATA_STATIC)
+    %mload_context_metadata(@CTX_METADATA_STATIC)
+    // stack: is_static, addr, new_ctx
     MSTORE_GENERAL
     // stack: new_ctx
 %endmacro
@@ -293,8 +294,9 @@ call_too_deep:
 %macro set_new_ctx_addr
     // stack: called_addr, new_ctx
     DUP2
-    // stack: new_ctx, called_addr, new_ctx
     %new_address_with_ctx_no_segment(@CTX_METADATA_ADDRESS)
+    SWAP1
+    // stack: called_addr, addr, new_ctx
     MSTORE_GENERAL
     // stack: new_ctx
 %endmacro
@@ -302,8 +304,9 @@ call_too_deep:
 %macro set_new_ctx_caller
     // stack: sender, new_ctx
     DUP2
-    // stack: new_ctx, sender, new_ctx
     %new_address_with_ctx_no_segment(@CTX_METADATA_CALLER)
+    SWAP1
+    // stack: sender, addr, new_ctx
     MSTORE_GENERAL
     // stack: new_ctx
 %endmacro
@@ -311,8 +314,9 @@ call_too_deep:
 %macro set_new_ctx_value
     // stack: value, new_ctx
     DUP2
-    // stack: new_ctx, value, new_ctx
     %new_address_with_ctx_no_segment(@CTX_METADATA_CALL_VALUE)
+    SWAP1
+    // stack: value, addr, new_ctx
     MSTORE_GENERAL
     // stack: new_ctx
 %endmacro
@@ -320,8 +324,9 @@ call_too_deep:
 %macro set_new_ctx_code_size
     // stack: code_size, new_ctx
     DUP2
-    // stack: new_ctx, code_size, new_ctx
     %new_address_with_ctx_no_segment(@CTX_METADATA_CODE_SIZE)
+    SWAP1
+    // stack: code_size, addr, new_ctx
     MSTORE_GENERAL
     // stack: new_ctx
 %endmacro
@@ -329,8 +334,9 @@ call_too_deep:
 %macro set_new_ctx_calldata_size
     // stack: calldata_size, new_ctx
     DUP2
-    // stack: new_ctx, calldata_size, new_ctx
     %new_address_with_ctx_no_segment(@CTX_METADATA_CALLDATA_SIZE)
+    SWAP1
+    // stack: calldata_size, addr, new_ctx
     MSTORE_GENERAL
     // stack: new_ctx
 %endmacro
@@ -338,37 +344,36 @@ call_too_deep:
 %macro set_new_ctx_gas_limit
     // stack: gas_limit, new_ctx
     DUP2
-    // stack: new_ctx, gas_limit, new_ctx
     %new_address_with_ctx_no_segment(@CTX_METADATA_GAS_LIMIT)
+    SWAP1
+    // stack: gas_limit, addr, new_ctx
     MSTORE_GENERAL
     // stack: new_ctx
 %endmacro
 
 %macro set_new_ctx_parent_ctx
     // stack: new_ctx
-    GET_CONTEXT
-    DUP2
-    // stack: new_ctx, ctx, new_ctx
+    DUP1
     %new_address_with_ctx_no_segment(@CTX_METADATA_PARENT_CONTEXT)
+    GET_CONTEXT
+    // stack: ctx, addr, new_ctx
     MSTORE_GENERAL
     // stack: new_ctx
 %endmacro
 
 %macro set_new_ctx_parent_pc(label)
     // stack: new_ctx
-    PUSH $label
-    DUP2
-    // stack: new_ctx, label, new_ctx
+    DUP1
     %new_address_with_ctx_no_segment(@CTX_METADATA_PARENT_PC)
+    PUSH $label
+    // stack: label, addr, new_ctx
     MSTORE_GENERAL
     // stack: new_ctx
 %endmacro
 
 %macro set_new_ctx_code
-    // stack: address, new_ctx
-    DUP2 // DST (segment == 0 (i.e. CODE), and offset = 0)
-    %stack (dest, address, new_ctx) -> (address, dest, %%after, new_ctx)
-    %jump(load_code)
+    %stack (address, new_ctx) -> (address, new_ctx, %%after, new_ctx)
+    %jump(load_code_padded)
 %%after:
     %set_new_ctx_code_size
     // stack: new_ctx
@@ -407,6 +412,7 @@ call_too_deep:
     // stack: new_ctx, args_size
     %new_address_with_ctx_no_segment(@CTX_METADATA_CALLDATA_SIZE)
     // stack: addr, args_size
+    SWAP1
     MSTORE_GENERAL
     // stack: (empty)
 %endmacro

@@ -29,7 +29,7 @@ pub(crate) fn read_state_trie_value(slice: &[U256]) -> Result<AccountTrieRecord,
     })
 }
 
-pub(crate) fn read_storage_trie_value(slice: &[U256]) -> U256 {
+pub(crate) const fn read_storage_trie_value(slice: &[U256]) -> U256 {
     slice[0]
 }
 

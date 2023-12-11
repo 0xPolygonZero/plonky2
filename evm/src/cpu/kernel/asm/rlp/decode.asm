@@ -131,37 +131,17 @@ decode_rlp_list_len_big:
 // Pre stack: rlp_addr, len, retdest
 // Post stack: rlp_addr', int
 global decode_int_given_len:
-    %stack (rlp_addr, len, retdest) -> (rlp_addr, len, rlp_addr, retdest)
+    DUP2 ISZERO %jumpi(empty_int)
+    %stack (rlp_addr, len, retdest) -> (rlp_addr, len, rlp_addr, len, retdest)
     ADD
-    // stack: end_rlp_addr, rlp_addr, retdest
-    SWAP1
-    // stack: rlp_addr, end_rlp_addr, retdest
-    PUSH 0 // initial accumulator state
-    // stack: acc, rlp_addr, end_rlp_addr, retdest
-
-decode_int_given_len_loop:
-    // stack: acc, rlp_addr, end_rlp_addr, retdest
-    DUP3
-    DUP3
-    EQ
-    // stack: rlp_addr == end_rlp_addr, acc, rlp_addr, end_rlp_addr, retdest
-    %jumpi(decode_int_given_len_finish)
-    // stack: acc, rlp_addr, end_rlp_addr, retdest
-    %shl_const(8)
-    // stack: acc << 8, rlp_addr, end_rlp_addr, retdest
-    DUP2
-    // stack: rlp_addr, acc << 8, rlp_addr, end_rlp_addr, retdest
-    MLOAD_GENERAL
-    // stack: byte, acc << 8, rlp_addr, end_rlp_addr, retdest
-    ADD
-    // stack: acc', rlp_addr, end_rlp_addr, retdest
-    // Increment rlp_addr.
-    SWAP1
-    %increment
-    SWAP1
-    // stack: acc', rlp_addr', end_rlp_addr, retdest
-    %jump(decode_int_given_len_loop)
-
-decode_int_given_len_finish:
-    %stack (acc, rlp_addr, end_rlp_addr, retdest) -> (retdest, rlp_addr, acc)
+    %stack(rlp_addr_two, rlp_addr, len, retdest) -> (rlp_addr, len, rlp_addr_two, retdest)
+    MLOAD_32BYTES
+    // stack: int, rlp_addr', retdest
+    %stack(int, rlp_addr, retdest) -> (retdest, rlp_addr, int)
     JUMP
+
+empty_int:
+    // stack: rlp_addr, len, retdest
+    %stack(rlp_addr, len, retdest) -> (retdest, rlp_addr, 0)
+    JUMP
+

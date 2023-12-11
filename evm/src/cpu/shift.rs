@@ -59,7 +59,7 @@ pub(crate) fn eval_packed<P: PackedField>(
     //
     // 1 -> 0  (value to be shifted is the same)
     // 2 -> 1  (two_exp becomes the multiplicand (resp. divisor))
-    // last -> last  (output is the same)
+    // next_0 -> next_0  (output is the same)
 }
 
 /// Circuit version.

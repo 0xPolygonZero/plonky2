@@ -35,7 +35,7 @@ pub(crate) enum NormalizedTxnField {
 impl NormalizedTxnField {
     pub(crate) const COUNT: usize = 16;
 
-    pub(crate) fn all() -> [Self; Self::COUNT] {
+    pub(crate) const fn all() -> [Self; Self::COUNT] {
         [
             Self::ChainIdPresent,
             Self::ChainId,
@@ -57,7 +57,7 @@ impl NormalizedTxnField {
     }
 
     /// The variable name that gets passed into kernel assembly code.
-    pub(crate) fn var_name(&self) -> &'static str {
+    pub(crate) const fn var_name(&self) -> &'static str {
         match self {
             NormalizedTxnField::ChainIdPresent => "TXN_FIELD_CHAIN_ID_PRESENT",
             NormalizedTxnField::ChainId => "TXN_FIELD_CHAIN_ID",

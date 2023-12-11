@@ -34,7 +34,8 @@ local_label_decl = ${ identifier ~ ":" }
 macro_label_decl = ${ "%%" ~ identifier ~ ":" }
 macro_label = ${ "%%" ~ identifier }
 
-bytes_item = { ^"BYTES " ~ literal ~ ("," ~ literal)* }
+bytes_item = { ^"BYTES " ~ bytes_target ~ ("," ~ bytes_target)* }
+bytes_target = { literal | constant }
 jumptable_item = { ^"JUMPTABLE " ~ identifier ~ ("," ~ identifier)* }
 push_instruction = { ^"PUSH " ~ push_target }
 push_target = { literal | identifier | macro_label | variable | constant }

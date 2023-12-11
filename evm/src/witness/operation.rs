@@ -3,7 +3,10 @@ use itertools::Itertools;
 use keccak_hash::keccak;
 use plonky2::field::types::Field;
 
-use super::util::{byte_packing_log, byte_unpacking_log, push_no_write, push_with_write};
+use super::util::{
+    byte_packing_log, byte_unpacking_log, mem_write_partial_log_and_fill, push_no_write,
+    push_with_write,
+};
 use crate::arithmetic::BinaryOperator;
 use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::kernel::aggregator::KERNEL;
@@ -11,7 +14,7 @@ use crate::cpu::kernel::assembler::BYTES_PER_OFFSET;
 use crate::cpu::kernel::constants::context_metadata::ContextMetadata;
 use crate::cpu::membus::NUM_GP_CHANNELS;
 use crate::cpu::simple_logic::eq_iszero::generate_pinv_diff;
-use crate::cpu::stack_bounds::MAX_USER_STACK_SIZE;
+use crate::cpu::stack::MAX_USER_STACK_SIZE;
 use crate::extension_tower::BN_BASE;
 use crate::generation::state::GenerationState;
 use crate::memory::segments::{Segment, SEGMENT_SCALING_FACTOR};
@@ -20,6 +23,7 @@ use crate::witness::errors::MemoryError::VirtTooLarge;
 use crate::witness::errors::ProgramError;
 use crate::witness::memory::{MemoryAddress, MemoryChannel, MemoryOp, MemoryOpKind};
 use crate::witness::operation::MemoryChannel::GeneralPurpose;
+use crate::witness::transition::fill_stack_fields;
 use crate::witness::util::{
     keccak_sponge_log, mem_read_gp_with_log_and_fill, mem_write_gp_log_and_fill,
     stack_pop_with_log_and_fill,
@@ -48,7 +52,7 @@ pub(crate) enum Operation {
     GetContext,
     SetContext,
     Mload32Bytes,
-    Mstore32Bytes,
+    Mstore32Bytes(u8),
     ExitKernel,
     MloadGeneral,
     MstoreGeneral,
@@ -128,7 +132,6 @@ pub(crate) fn generate_keccak_general<F: Field>(
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
-    row.is_keccak_sponge = F::ONE;
     let [(addr, _), (len, log_in1)] = stack_pop_with_log_and_fill::<2, _>(state, &mut row)?;
     let len = u256_to_usize(len)?;
 
@@ -453,23 +456,26 @@ pub(crate) fn generate_push<F: Field>(
     }
     let initial_offset = state.registers.program_counter + 1;
 
+    let base_address = MemoryAddress::new(code_context, Segment::Code, initial_offset);
     // First read val without going through `mem_read_with_log` type methods, so we can pass it
     // to stack_push_log_and_fill.
     let bytes = (0..num_bytes)
         .map(|i| {
             state
                 .memory
-                .get(MemoryAddress::new(
-                    code_context,
-                    Segment::Code,
-                    initial_offset + i,
-                ))
+                .get(MemoryAddress {
+                    virt: base_address.virt + i,
+                    ..base_address
+                })
                 .low_u32() as u8
         })
         .collect_vec();
 
     let val = U256::from_big_endian(&bytes);
     push_with_write(state, &mut row, val)?;
+
+    byte_packing_log(state, base_address, bytes);
+
     state.traces.push_cpu(row);
 
     Ok(())
@@ -682,7 +688,7 @@ pub(crate) fn generate_syscall<F: Field>(
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
-    if TryInto::<u64>::try_into(state.registers.gas_used).is_err() {
+    if TryInto::<u32>::try_into(state.registers.gas_used).is_err() {
         return Err(ProgramError::GasLimitError);
     }
 
@@ -787,7 +793,7 @@ pub(crate) fn generate_exit_kernel<F: Field>(
     assert!(is_kernel_mode_val == 0 || is_kernel_mode_val == 1);
     let is_kernel_mode = is_kernel_mode_val != 0;
     let gas_used_val = kexit_info.0[3];
-    if TryInto::<u64>::try_into(gas_used_val).is_err() {
+    if TryInto::<u32>::try_into(gas_used_val).is_err() {
         return Err(ProgramError::GasLimitError);
     }
 
@@ -874,10 +880,10 @@ pub(crate) fn generate_mstore_general<F: Field>(
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
-    let [(addr, _), (val, log_in1)] = stack_pop_with_log_and_fill::<2, _>(state, &mut row)?;
+    let [(val, _), (addr, log_in1)] = stack_pop_with_log_and_fill::<2, _>(state, &mut row)?;
 
     let address = MemoryAddress::new_bundle(addr)?;
-    let log_write = mem_write_gp_log_and_fill(2, address, state, &mut row, val);
+    let log_write = mem_write_partial_log_and_fill(address, state, &mut row, val);
 
     let diff = row.stack_len - F::TWO;
     if let Some(inv) = diff.try_inverse() {
@@ -899,19 +905,20 @@ pub(crate) fn generate_mstore_general<F: Field>(
 }
 
 pub(crate) fn generate_mstore_32bytes<F: Field>(
+    n: u8,
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
-    let [(addr, _), (val, log_in1), (len, log_in2)] =
-        stack_pop_with_log_and_fill::<3, _>(state, &mut row)?;
-    let len = u256_to_usize(len)?;
+    let [(addr, _), (val, log_in1)] = stack_pop_with_log_and_fill::<2, _>(state, &mut row)?;
 
     let base_address = MemoryAddress::new_bundle(addr)?;
 
-    byte_unpacking_log(state, base_address, val, len);
+    byte_unpacking_log(state, base_address, val, n as usize);
+
+    let new_addr = addr + n;
+    push_no_write(state, new_addr);
 
     state.traces.push_memory(log_in1);
-    state.traces.push_memory(log_in2);
     state.traces.push_cpu(row);
     Ok(())
 }
@@ -921,51 +928,18 @@ pub(crate) fn generate_exception<F: Field>(
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
-    if TryInto::<u64>::try_into(state.registers.gas_used).is_err() {
+    if TryInto::<u32>::try_into(state.registers.gas_used).is_err() {
         return Err(ProgramError::GasLimitError);
     }
 
     row.op.exception = F::ONE;
-
-    let disallowed_len = F::from_canonical_usize(MAX_USER_STACK_SIZE + 1);
-    let diff = row.stack_len - disallowed_len;
-    if let Some(inv) = diff.try_inverse() {
-        row.stack_len_bounds_aux = inv;
-    } else {
-        // This is a stack overflow that should have been caught earlier.
-        return Err(ProgramError::InterpreterError);
-    }
 
     if let Some(inv) = row.stack_len.try_inverse() {
         row.general.stack_mut().stack_inv = inv;
         row.general.stack_mut().stack_inv_aux = F::ONE;
     }
 
-    if state.registers.is_stack_top_read {
-        let channel = &mut row.mem_channels[0];
-        channel.used = F::ONE;
-        channel.is_read = F::ONE;
-        channel.addr_context = F::from_canonical_usize(state.registers.context);
-        channel.addr_segment =
-            F::from_canonical_usize(Segment::Stack as usize >> SEGMENT_SCALING_FACTOR);
-        channel.addr_virtual = F::from_canonical_usize(state.registers.stack_len - 1);
-
-        let address = MemoryAddress::new(
-            state.registers.context,
-            Segment::Stack,
-            state.registers.stack_len - 1,
-        );
-
-        let mem_op = MemoryOp::new(
-            GeneralPurpose(0),
-            state.traces.clock(),
-            address,
-            MemoryOpKind::Read,
-            state.registers.stack_top,
-        );
-        state.traces.push_memory(mem_op);
-        state.registers.is_stack_top_read = false;
-    }
+    fill_stack_fields(state, &mut row);
 
     row.general.exception_mut().exc_code_bits = [
         F::from_bool(exc_code & 1 != 0),

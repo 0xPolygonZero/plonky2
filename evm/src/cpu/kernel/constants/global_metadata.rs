@@ -91,12 +91,15 @@ pub(crate) enum GlobalMetadata {
     LogsPayloadLen = Segment::GlobalMetadata as usize + 43,
     TxnNumberBefore = Segment::GlobalMetadata as usize + 44,
     TxnNumberAfter = Segment::GlobalMetadata as usize + 45,
+
+    KernelHash = Segment::GlobalMetadata as usize + 46,
+    KernelLen = Segment::GlobalMetadata as usize + 47,
 }
 
 impl GlobalMetadata {
-    pub(crate) const COUNT: usize = 46;
+    pub(crate) const COUNT: usize = 48;
 
-    pub(crate) fn all() -> [Self; Self::COUNT] {
+    pub(crate) const fn all() -> [Self; Self::COUNT] {
         [
             Self::LargestContext,
             Self::MemorySize,
@@ -144,11 +147,13 @@ impl GlobalMetadata {
             Self::BlockCurrentHash,
             Self::TxnNumberBefore,
             Self::TxnNumberAfter,
+            Self::KernelHash,
+            Self::KernelLen,
         ]
     }
 
     /// The variable name that gets passed into kernel assembly code.
-    pub(crate) fn var_name(&self) -> &'static str {
+    pub(crate) const fn var_name(&self) -> &'static str {
         match self {
             Self::LargestContext => "GLOBAL_METADATA_LARGEST_CONTEXT",
             Self::MemorySize => "GLOBAL_METADATA_MEMORY_SIZE",
@@ -196,6 +201,8 @@ impl GlobalMetadata {
             Self::LogsPayloadLen => "GLOBAL_METADATA_LOGS_PAYLOAD_LEN",
             Self::TxnNumberBefore => "GLOBAL_METADATA_TXN_NUMBER_BEFORE",
             Self::TxnNumberAfter => "GLOBAL_METADATA_TXN_NUMBER_AFTER",
+            Self::KernelHash => "GLOBAL_METADATA_KERNEL_HASH",
+            Self::KernelLen => "GLOBAL_METADATA_KERNEL_LEN",
         }
     }
 }

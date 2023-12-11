@@ -1,8 +1,4 @@
-// Copies `count` values from
-//     SRC = (src_ctx, src_segment, src_addr)
-// to
-//     DST = (dst_ctx, dst_segment, dst_addr).
-// These tuple definitions are used for brevity in the stack comments below.
+// Copies `count` values from SRC to DST.
 global memcpy:
     // stack: DST, SRC, count, retdest
     DUP3
@@ -11,14 +7,13 @@ global memcpy:
     // stack: count == 0, DST, SRC, count, retdest
     %jumpi(memcpy_finish)
     // stack: DST, SRC, count, retdest
+    DUP1
 
     // Copy the next value.
-    DUP2
-    // stack: SRC, DST, SRC, count, retdest
+    DUP3
+    // stack: SRC, DST, DST, SRC, count, retdest
     MLOAD_GENERAL
-    // stack: value, DST, SRC, count, retdest
-    DUP2
-    // stack: DST, value, DST, SRC, count, retdest
+    // stack: value, DST, DST, SRC, count, retdest
     MSTORE_GENERAL
     // stack: DST, SRC, count, retdest
 
@@ -55,19 +50,15 @@ global memcpy_bytes:
     // Copy the next chunk of bytes.
     // stack: DST, SRC, count, retdest
     PUSH 32
-    DUP1
-    DUP4
-    // stack: SRC, 32, 32, DST, SRC, count, retdest
-    MLOAD_32BYTES
-    // stack: value, 32, DST, SRC, count, retdest
     DUP3
-    // stack: DST, value, 32, DST, SRC, count, retdest
-    MSTORE_32BYTES
-    // stack: DST, SRC, count, retdest
-
-    // Increment dst_addr by 32.
-    %add_const(0x20)
-    // Increment src_addr by 32.
+    // stack: SRC, 32, DST, SRC, count, retdest
+    MLOAD_32BYTES
+    // stack: value, DST, SRC, count, retdest
+    SWAP1
+    // stack: DST, value, SRC, count, retdest
+    MSTORE_32BYTES_32
+    // stack: DST', SRC, count, retdest
+    // Increment SRC by 32.
     SWAP1
     %add_const(0x20)
     SWAP1
@@ -98,8 +89,9 @@ memcpy_bytes_finish:
     // stack: value, count, DST, SRC, count, retdest
     DUP3
     // stack: DST, value, count, DST, SRC, count, retdest
-    MSTORE_32BYTES
-    // stack: DST, SRC, count, retdest
+    %mstore_unpacking
+    // stack: new_offset, DST, SRC, count, retdest
+    POP
 
 memcpy_finish:
     // stack: DST, SRC, count, retdest

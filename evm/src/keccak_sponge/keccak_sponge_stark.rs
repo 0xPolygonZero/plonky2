@@ -12,16 +12,20 @@ use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::timed;
 use plonky2::util::timing::TimingTree;
+use plonky2::util::transpose;
 use plonky2_util::ceil_div_usize;
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::kernel::keccak_util::keccakf_u32s;
-use crate::cross_table_lookup::Column;
+use crate::cross_table_lookup::{Column, Filter};
 use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
 use crate::keccak_sponge::columns::*;
+use crate::lookup::Lookup;
 use crate::stark::Stark;
-use crate::util::trace_rows_to_poly_values;
 use crate::witness::memory::MemoryAddress;
+
+/// Strict upper bound for the individual bytes range-check.
+const BYTE_RANGE_MAX: usize = 256;
 
 /// Creates the vector of `Columns` corresponding to:
 /// - the address in memory of the inputs,
@@ -132,7 +136,7 @@ pub(crate) fn ctl_looking_memory<F: Field>(i: usize) -> Vec<Column<F>> {
 }
 
 /// Returns the number of `KeccakSponge` tables looking into the `LogicStark`.
-pub(crate) fn num_logic_ctls() -> usize {
+pub(crate) const fn num_logic_ctls() -> usize {
     const U8S_PER_CTL: usize = 32;
     ceil_div_usize(KECCAK_RATE_BYTES, U8S_PER_CTL)
 }
@@ -181,35 +185,41 @@ pub(crate) fn ctl_looking_logic<F: Field>(i: usize) -> Vec<Column<F>> {
 }
 
 /// CTL filter for the final block rows of the `KeccakSponge` table.
-pub(crate) fn ctl_looked_filter<F: Field>() -> Column<F> {
+pub(crate) fn ctl_looked_filter<F: Field>() -> Filter<F> {
     // The CPU table is only interested in our final-block rows, since those contain the final
     // sponge output.
-    Column::sum(KECCAK_SPONGE_COL_MAP.is_final_input_len)
+    Filter::new_simple(Column::sum(KECCAK_SPONGE_COL_MAP.is_final_input_len))
 }
 
 /// CTL filter for reading the `i`th byte of input from memory.
-pub(crate) fn ctl_looking_memory_filter<F: Field>(i: usize) -> Column<F> {
+pub(crate) fn ctl_looking_memory_filter<F: Field>(i: usize) -> Filter<F> {
     // We perform the `i`th read if either
     // - this is a full input block, or
     // - this is a final block of length `i` or greater
     let cols = KECCAK_SPONGE_COL_MAP;
     if i == KECCAK_RATE_BYTES - 1 {
-        Column::single(cols.is_full_input_block)
+        Filter::new_simple(Column::single(cols.is_full_input_block))
     } else {
-        Column::sum(once(&cols.is_full_input_block).chain(&cols.is_final_input_len[i + 1..]))
+        Filter::new_simple(Column::sum(
+            once(&cols.is_full_input_block).chain(&cols.is_final_input_len[i + 1..]),
+        ))
     }
 }
 
 /// CTL filter for looking at XORs in the logic table.
-pub(crate) fn ctl_looking_logic_filter<F: Field>() -> Column<F> {
+pub(crate) fn ctl_looking_logic_filter<F: Field>() -> Filter<F> {
     let cols = KECCAK_SPONGE_COL_MAP;
-    Column::sum(once(&cols.is_full_input_block).chain(&cols.is_final_input_len))
+    Filter::new_simple(Column::sum(
+        once(&cols.is_full_input_block).chain(&cols.is_final_input_len),
+    ))
 }
 
 /// CTL filter for looking at the input and output in the Keccak table.
-pub(crate) fn ctl_looking_keccak_filter<F: Field>() -> Column<F> {
+pub(crate) fn ctl_looking_keccak_filter<F: Field>() -> Filter<F> {
     let cols = KECCAK_SPONGE_COL_MAP;
-    Column::sum(once(&cols.is_full_input_block).chain(&cols.is_final_input_len))
+    Filter::new_simple(Column::sum(
+        once(&cols.is_full_input_block).chain(&cols.is_final_input_len),
+    ))
 }
 
 /// Information about a Keccak sponge operation needed for witness generation.
@@ -227,7 +237,7 @@ pub(crate) struct KeccakSpongeOp {
 
 /// Structure representing the `KeccakSponge` STARK, which carries out the sponge permutation.
 #[derive(Copy, Clone, Default)]
-pub struct KeccakSpongeStark<F, const D: usize> {
+pub(crate) struct KeccakSpongeStark<F, const D: usize> {
     f: PhantomData<F>,
 }
 
@@ -246,13 +256,12 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakSpongeStark<F, D> {
             self.generate_trace_rows(operations, min_rows)
         );
 
-        let trace_polys = timed!(
-            timing,
-            "convert to PolynomialValues",
-            trace_rows_to_poly_values(trace_rows)
-        );
+        let trace_row_vecs: Vec<_> = trace_rows.into_iter().map(|row| row.to_vec()).collect();
 
-        trace_polys
+        let mut trace_cols = transpose(&trace_row_vecs);
+        self.generate_range_checks(&mut trace_cols);
+
+        trace_cols.into_iter().map(PolynomialValues::new).collect()
     }
 
     /// Generates the trace rows given the vector of `KeccakSponge` operations.
@@ -477,6 +486,38 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakSpongeStark<F, D> {
         // indicating that it's a dummy/padding row.
         KeccakSpongeColumnsView::default().into()
     }
+
+    /// Expects input in *column*-major layout
+    fn generate_range_checks(&self, cols: &mut [Vec<F>]) {
+        debug_assert!(cols.len() == NUM_KECCAK_SPONGE_COLUMNS);
+
+        let n_rows = cols[0].len();
+        debug_assert!(cols.iter().all(|col| col.len() == n_rows));
+
+        for i in 0..BYTE_RANGE_MAX {
+            cols[RANGE_COUNTER][i] = F::from_canonical_usize(i);
+        }
+        for i in BYTE_RANGE_MAX..n_rows {
+            cols[RANGE_COUNTER][i] = F::from_canonical_usize(BYTE_RANGE_MAX - 1);
+        }
+
+        // For each column c in cols, generate the range-check
+        // permutations and put them in the corresponding range-check
+        // columns rc_c and rc_c+1.
+        for col in 0..KECCAK_RATE_BYTES {
+            let c = get_single_block_bytes_value(col);
+            for i in 0..n_rows {
+                let x = cols[c][i].to_canonical_u64() as usize;
+                assert!(
+                    x < BYTE_RANGE_MAX,
+                    "column value {} exceeds the max range value {}",
+                    x,
+                    BYTE_RANGE_MAX
+                );
+                cols[RC_FREQUENCIES][x] += F::ONE;
+            }
+        }
+    }
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakSpongeStark<F, D> {
@@ -501,6 +542,17 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakSpongeS
         let next_values: &[P; NUM_KECCAK_SPONGE_COLUMNS] =
             vars.get_next_values().try_into().unwrap();
         let next_values: &KeccakSpongeColumnsView<P> = next_values.borrow();
+
+        // Check the range column: First value must be 0, last row
+        // must be 255, and intermediate rows must increment by 0
+        // or 1.
+        let rc1 = local_values.range_counter;
+        let rc2 = next_values.range_counter;
+        yield_constr.constraint_first_row(rc1);
+        let incr = rc2 - rc1;
+        yield_constr.constraint_transition(incr * incr - incr);
+        let range_max = P::Scalar::from_canonical_u64((BYTE_RANGE_MAX - 1) as u64);
+        yield_constr.constraint_last_row(rc1 - range_max);
 
         // Each flag (full-input block, final block or implied dummy flag) must be boolean.
         let is_full_input_block = local_values.is_full_input_block;
@@ -607,6 +659,20 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakSpongeS
         let next_values: &KeccakSpongeColumnsView<ExtensionTarget<D>> = next_values.borrow();
 
         let one = builder.one_extension();
+
+        // Check the range column: First value must be 0, last row
+        // must be 255, and intermediate rows must increment by 0
+        // or 1.
+        let rc1 = local_values.range_counter;
+        let rc2 = next_values.range_counter;
+        yield_constr.constraint_first_row(builder, rc1);
+        let incr = builder.sub_extension(rc2, rc1);
+        let t = builder.mul_sub_extension(incr, incr, incr);
+        yield_constr.constraint_transition(builder, t);
+        let range_max =
+            builder.constant_extension(F::Extension::from_canonical_usize(BYTE_RANGE_MAX - 1));
+        let t = builder.sub_extension(rc1, range_max);
+        yield_constr.constraint_last_row(builder, t);
 
         // Each flag (full-input block, final block or implied dummy flag) must be boolean.
         let is_full_input_block = local_values.is_full_input_block;
@@ -732,6 +798,14 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakSpongeS
 
     fn constraint_degree(&self) -> usize {
         3
+    }
+
+    fn lookups(&self) -> Vec<Lookup> {
+        vec![Lookup {
+            columns: get_block_bytes_range().collect(),
+            table_column: RANGE_COUNTER,
+            frequencies_column: RC_FREQUENCIES,
+        }]
     }
 }
 

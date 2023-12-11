@@ -1,6 +1,4 @@
-// Sets `count` values to 0 at
-//     DST = (dst_ctx, dst_segment, dst_addr).
-// This tuple definition is used for brevity in the stack comments below.
+// Sets `count` values to 0 at DST.
 global memset:
     // stack: DST, count, retdest
 
@@ -12,15 +10,11 @@ global memset:
     %jumpi(memset_finish)
 
     // stack: DST, count, retdest
-    PUSH 32
     PUSH 0
-    DUP3
-    // stack: DST, 0, 32, DST, count, retdest
-    MSTORE_32BYTES
-    // stack: DST, count, retdest
-
-    // Increment dst_addr.
-    %add_const(0x20)
+    SWAP1
+    // stack: DST, 0, count, retdest
+    MSTORE_32BYTES_32
+    // stack: DST', count, retdest
     // Decrement count.
     PUSH 32 DUP3 SUB SWAP2 POP
 
@@ -42,9 +36,9 @@ memset_finish:
     PUSH 0
     DUP3
     // stack: DST, 0, final_count, DST, final_count, retdest
-    MSTORE_32BYTES
+    %mstore_unpacking
     // stack: DST, final_count, retdest
-    %pop2
+    %pop3
     // stack: retdest
     JUMP
 

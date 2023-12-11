@@ -79,6 +79,7 @@
     // stack: parent_ctx, value
     PUSH $field ADD
     // stack: addr, value
+    SWAP1
     MSTORE_GENERAL
     // stack: (empty)
 %endmacro
@@ -95,6 +96,7 @@
     // stack: parent_ctx, value
     PUSH $field ADD
     // stack: addr, value
+    SWAP1
     MSTORE_GENERAL
     // stack: (empty)
 %endmacro

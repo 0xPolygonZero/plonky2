@@ -1,19 +1,68 @@
 use std::collections::HashMap;
 
 use anyhow::{anyhow, Result};
+use eth_trie_utils::nibbles::Nibbles;
 use eth_trie_utils::partial_trie::{HashedPartialTrie, PartialTrie};
 use ethereum_types::{Address, BigEndianHash, H256, U256};
+use hex_literal::hex;
 use keccak_hash::keccak;
 use rand::{thread_rng, Rng};
 
 use crate::cpu::kernel::aggregator::KERNEL;
-use crate::cpu::kernel::constants::context_metadata::ContextMetadata::GasLimit;
+use crate::cpu::kernel::constants::context_metadata::ContextMetadata::{self, GasLimit};
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
 use crate::cpu::kernel::interpreter::Interpreter;
 use crate::cpu::kernel::tests::mpt::nibbles_64;
-use crate::generation::mpt::{all_mpt_prover_inputs_reversed, AccountRlp};
+use crate::generation::mpt::{load_all_mpts, AccountRlp};
+use crate::generation::TrieInputs;
 use crate::memory::segments::{Segment, SEGMENT_SCALING_FACTOR};
+use crate::witness::memory::MemoryAddress;
 use crate::Node;
+
+pub(crate) fn initialize_mpts(interpreter: &mut Interpreter, trie_inputs: &TrieInputs) {
+    // Load all MPTs.
+    let (trie_root_ptrs, trie_data) =
+        load_all_mpts(trie_inputs).expect("Invalid MPT data for preinitialization");
+
+    let state_addr = MemoryAddress::new(
+        0,
+        Segment::GlobalMetadata,
+        GlobalMetadata::StateTrieRoot as usize,
+    );
+
+    let txn_addr = MemoryAddress::new(
+        0,
+        Segment::GlobalMetadata,
+        GlobalMetadata::TransactionTrieRoot as usize,
+    );
+    let receipts_addr = MemoryAddress::new(
+        0,
+        Segment::GlobalMetadata,
+        GlobalMetadata::ReceiptTrieRoot as usize,
+    );
+    let len_addr = MemoryAddress::new(
+        0,
+        Segment::GlobalMetadata,
+        GlobalMetadata::TrieDataSize as usize,
+    );
+
+    let to_set = [
+        (state_addr, trie_root_ptrs.state_root_ptr.into()),
+        (txn_addr, trie_root_ptrs.txn_root_ptr.into()),
+        (receipts_addr, trie_root_ptrs.receipt_root_ptr.into()),
+        (len_addr, trie_data.len().into()),
+    ];
+
+    interpreter.set_memory_multi_addresses(&to_set);
+
+    for (i, data) in trie_data.iter().enumerate() {
+        let trie_addr = MemoryAddress::new(0, Segment::TrieData, i);
+        interpreter
+            .generation_state
+            .memory
+            .set(trie_addr, data.into());
+    }
+}
 
 // Test account with a given code hash.
 fn test_account(code: &[u8]) -> AccountRlp {
@@ -38,20 +87,12 @@ fn prepare_interpreter(
     address: Address,
     account: &AccountRlp,
 ) -> Result<()> {
-    let load_all_mpts = KERNEL.global_labels["load_all_mpts"];
     let mpt_insert_state_trie = KERNEL.global_labels["mpt_insert_state_trie"];
     let mpt_hash_state_trie = KERNEL.global_labels["mpt_hash_state_trie"];
     let mut state_trie: HashedPartialTrie = Default::default();
     let trie_inputs = Default::default();
 
-    interpreter.generation_state.registers.program_counter = load_all_mpts;
-    interpreter.push(0xDEADBEEFu32.into());
-
-    interpreter.generation_state.mpt_prover_inputs =
-        all_mpt_prover_inputs_reversed(&trie_inputs)
-            .map_err(|err| anyhow!("Invalid MPT data: {:?}", err))?;
-    interpreter.run()?;
-    assert_eq!(interpreter.stack(), vec![]);
+    initialize_mpts(interpreter, &trie_inputs);
 
     let k = nibbles_64(U256::from_big_endian(
         keccak(address.to_fixed_bytes()).as_bytes(),
@@ -89,15 +130,16 @@ fn prepare_interpreter(
     // Now, execute mpt_hash_state_trie.
     interpreter.generation_state.registers.program_counter = mpt_hash_state_trie;
     interpreter.push(0xDEADBEEFu32.into());
+    interpreter.push(1.into()); // Initial length of the trie data segment, unused.
     interpreter.run()?;
 
     assert_eq!(
         interpreter.stack().len(),
-        1,
-        "Expected 1 item on stack after hashing, found {:?}",
+        2,
+        "Expected 2 items on stack after hashing, found {:?}",
         interpreter.stack()
     );
-    let hash = H256::from_uint(&interpreter.stack()[0]);
+    let hash = H256::from_uint(&interpreter.stack()[1]);
 
     state_trie.insert(k, rlp::encode(account).to_vec());
     let expected_state_trie_hash = state_trie.hash();
@@ -121,6 +163,7 @@ fn test_extcodesize() -> Result<()> {
     // Test `extcodesize`
     interpreter.generation_state.registers.program_counter = extcodesize;
     interpreter.pop();
+    interpreter.pop();
     assert!(interpreter.stack().is_empty());
     interpreter.push(0xDEADBEEFu32.into());
     interpreter.push(U256::from_big_endian(address.as_bytes()));
@@ -143,22 +186,20 @@ fn test_extcodecopy() -> Result<()> {
     // Prepare the interpreter by inserting the account in the state trie.
     prepare_interpreter(&mut interpreter, address, &account)?;
 
-    interpreter.generation_state.memory.contexts[interpreter.context].segments
+    let context = interpreter.context();
+    interpreter.generation_state.memory.contexts[context].segments
         [Segment::ContextMetadata as usize >> SEGMENT_SCALING_FACTOR]
-        .set(
-            GasLimit as usize - Segment::ContextMetadata as usize,
-            U256::from(1000000000000u64) << 192,
-        );
+        .set(GasLimit as usize, U256::from(1000000000000u64));
 
     let extcodecopy = KERNEL.global_labels["sys_extcodecopy"];
 
     // Put random data in main memory and the `KernelAccountCode` segment for realism.
     let mut rng = thread_rng();
     for i in 0..2000 {
-        interpreter.generation_state.memory.contexts[interpreter.context].segments
+        interpreter.generation_state.memory.contexts[context].segments
             [Segment::MainMemory as usize >> SEGMENT_SCALING_FACTOR]
             .set(i, U256::from(rng.gen::<u8>()));
-        interpreter.generation_state.memory.contexts[interpreter.context].segments
+        interpreter.generation_state.memory.contexts[context].segments
             [Segment::KernelAccountCode as usize >> SEGMENT_SCALING_FACTOR]
             .set(i, U256::from(rng.gen::<u8>()));
     }
@@ -171,12 +212,13 @@ fn test_extcodecopy() -> Result<()> {
     // Test `extcodecopy`
     interpreter.generation_state.registers.program_counter = extcodecopy;
     interpreter.pop();
+    interpreter.pop();
     assert!(interpreter.stack().is_empty());
     interpreter.push(size.into());
     interpreter.push(offset.into());
     interpreter.push(dest_offset.into());
     interpreter.push(U256::from_big_endian(address.as_bytes()));
-    interpreter.push(0xDEADBEEFu32.into()); // kexit_info
+    interpreter.push((0xDEADBEEFu64 + (1 << 32)).into()); // kexit_info
     interpreter.generation_state.inputs.contract_code =
         HashMap::from([(keccak(&code), code.clone())]);
     interpreter.run()?;
@@ -184,7 +226,7 @@ fn test_extcodecopy() -> Result<()> {
     assert!(interpreter.stack().is_empty());
     // Check that the code was correctly copied to memory.
     for i in 0..size {
-        let memory = interpreter.generation_state.memory.contexts[interpreter.context].segments
+        let memory = interpreter.generation_state.memory.contexts[context].segments
             [Segment::MainMemory as usize >> SEGMENT_SCALING_FACTOR]
             .get(dest_offset + i);
         assert_eq!(
@@ -193,5 +235,215 @@ fn test_extcodecopy() -> Result<()> {
         );
     }
 
+    Ok(())
+}
+
+/// Prepare the interpreter for storage tests by inserting all necessary accounts
+/// in the state trie, adding the code we want to context 1 and switching the context.
+fn prepare_interpreter_all_accounts(
+    interpreter: &mut Interpreter,
+    trie_inputs: TrieInputs,
+    addr: [u8; 20],
+    code: &[u8],
+) -> Result<()> {
+    // Load all MPTs.
+    initialize_mpts(interpreter, &trie_inputs);
+    assert_eq!(interpreter.stack(), vec![]);
+
+    // Switch context and initialize memory with the data we need for the tests.
+    interpreter.generation_state.registers.program_counter = 0;
+    interpreter.set_code(1, code.to_vec());
+    interpreter.generation_state.memory.contexts[1].segments[Segment::ContextMetadata as usize]
+        .set(
+            ContextMetadata::Address as usize,
+            U256::from_big_endian(&addr),
+        );
+    interpreter.generation_state.memory.contexts[1].segments[Segment::ContextMetadata as usize]
+        .set(ContextMetadata::GasLimit as usize, 100_000.into());
+    interpreter.set_context(1);
+    interpreter.set_is_kernel(false);
+    interpreter.generation_state.memory.set(
+        MemoryAddress::new(
+            1,
+            Segment::ContextMetadata,
+            ContextMetadata::ParentProgramCounter as usize,
+        ),
+        0xdeadbeefu32.into(),
+    );
+    interpreter.generation_state.memory.set(
+        MemoryAddress::new(
+            1,
+            Segment::ContextMetadata,
+            ContextMetadata::ParentContext as usize,
+        ),
+        1.into(),
+    );
+
+    Ok(())
+}
+
+/// Tests an SSTORE within a code similar to the contract code in add11_yml.
+#[test]
+fn sstore() -> Result<()> {
+    // We take the same `to` account as in add11_yml.
+    let addr = hex!("095e7baea6a6c7c4c2dfeb977efac326af552d87");
+
+    let addr_hashed = keccak(addr);
+
+    let addr_nibbles = Nibbles::from_bytes_be(addr_hashed.as_bytes()).unwrap();
+
+    let code = [0x60, 0x01, 0x60, 0x01, 0x01, 0x60, 0x00, 0x55, 0x00];
+    let code_hash = keccak(code);
+
+    let account_before = AccountRlp {
+        balance: 0x0de0b6b3a7640000u64.into(),
+        code_hash,
+        ..AccountRlp::default()
+    };
+
+    let mut state_trie_before = HashedPartialTrie::from(Node::Empty);
+
+    state_trie_before.insert(addr_nibbles, rlp::encode(&account_before).to_vec());
+
+    let trie_inputs = TrieInputs {
+        state_trie: state_trie_before.clone(),
+        transactions_trie: Node::Empty.into(),
+        receipts_trie: Node::Empty.into(),
+        storage_tries: vec![(addr_hashed, Node::Empty.into())],
+    };
+
+    let initial_stack = vec![];
+    let mut interpreter = Interpreter::new_with_kernel(0, initial_stack);
+
+    // Prepare the interpreter by inserting the account in the state trie.
+    prepare_interpreter_all_accounts(&mut interpreter, trie_inputs, addr, &code)?;
+
+    interpreter.run()?;
+
+    // The first two elements in the stack are `success` and `leftover_gas`,
+    // returned by the `sys_stop` opcode.
+    interpreter.pop();
+    interpreter.pop();
+
+    // The code should have added an element to the storage of `to_account`. We run
+    // `mpt_hash_state_trie` to check that.
+    let account_after = AccountRlp {
+        balance: 0x0de0b6b3a7640000u64.into(),
+        code_hash,
+        storage_root: HashedPartialTrie::from(Node::Leaf {
+            nibbles: Nibbles::from_h256_be(keccak([0u8; 32])),
+            value: vec![2],
+        })
+        .hash(),
+        ..AccountRlp::default()
+    };
+    // Now, execute mpt_hash_state_trie.
+    let mpt_hash_state_trie = KERNEL.global_labels["mpt_hash_state_trie"];
+    interpreter.generation_state.registers.program_counter = mpt_hash_state_trie;
+    interpreter.set_is_kernel(true);
+    interpreter.set_context(0);
+    interpreter.push(0xDEADBEEFu32.into());
+    interpreter.push(1.into()); // Initia length of the trie data segment, unused.
+    interpreter.run()?;
+
+    assert_eq!(
+        interpreter.stack().len(),
+        2,
+        "Expected 2 items on stack after hashing, found {:?}",
+        interpreter.stack()
+    );
+
+    let hash = H256::from_uint(&interpreter.stack()[1]);
+
+    let mut expected_state_trie_after = HashedPartialTrie::from(Node::Empty);
+    expected_state_trie_after.insert(addr_nibbles, rlp::encode(&account_after).to_vec());
+
+    let expected_state_trie_hash = expected_state_trie_after.hash();
+    assert_eq!(hash, expected_state_trie_hash);
+    Ok(())
+}
+
+/// Tests an SLOAD within a code similar to the contract code in add11_yml.
+#[test]
+fn sload() -> Result<()> {
+    // We take the same `to` account as in add11_yml.
+    let addr = hex!("095e7baea6a6c7c4c2dfeb977efac326af552d87");
+
+    let addr_hashed = keccak(addr);
+
+    let addr_nibbles = Nibbles::from_bytes_be(addr_hashed.as_bytes()).unwrap();
+
+    // This code is similar to the one in add11_yml's contract, but we pop the added value
+    // and carry out an SLOAD instead of an SSTORE. We also add a PUSH at the end.
+    let code = [
+        0x60, 0x01, 0x60, 0x01, 0x01, 0x50, 0x60, 0x00, 0x54, 0x60, 0x03, 0x00,
+    ];
+    let code_hash = keccak(code);
+
+    let account_before = AccountRlp {
+        balance: 0x0de0b6b3a7640000u64.into(),
+        code_hash,
+        ..AccountRlp::default()
+    };
+
+    let mut state_trie_before = HashedPartialTrie::from(Node::Empty);
+
+    state_trie_before.insert(addr_nibbles, rlp::encode(&account_before).to_vec());
+
+    let trie_inputs = TrieInputs {
+        state_trie: state_trie_before.clone(),
+        transactions_trie: Node::Empty.into(),
+        receipts_trie: Node::Empty.into(),
+        storage_tries: vec![(addr_hashed, Node::Empty.into())],
+    };
+
+    let initial_stack = vec![];
+    let mut interpreter = Interpreter::new_with_kernel(0, initial_stack);
+
+    // Prepare the interpreter by inserting the account in the state trie.
+    prepare_interpreter_all_accounts(&mut interpreter, trie_inputs, addr, &code)?;
+
+    interpreter.run()?;
+
+    // The first two elements in the stack are `success` and `leftover_gas`,
+    // returned by the `sys_stop` opcode.
+    interpreter.pop();
+    interpreter.pop();
+
+    // The SLOAD in the provided code should return 0, since
+    // the storage trie is empty. The last step in the code
+    // pushes the value 3.
+    assert_eq!(interpreter.stack(), vec![0x0.into(), 0x3.into()]);
+    interpreter.pop();
+    interpreter.pop();
+    // Now, execute mpt_hash_state_trie. We check that the state trie has not changed.
+    let mpt_hash_state_trie = KERNEL.global_labels["mpt_hash_state_trie"];
+    interpreter.generation_state.registers.program_counter = mpt_hash_state_trie;
+    interpreter.set_is_kernel(true);
+    interpreter.set_context(0);
+    interpreter.push(0xDEADBEEFu32.into());
+    interpreter.push(1.into()); // Initia length of the trie data segment, unused.
+    interpreter.run()?;
+
+    assert_eq!(
+        interpreter.stack().len(),
+        2,
+        "Expected 2 items on stack after hashing, found {:?}",
+        interpreter.stack()
+    );
+
+    let trie_data_segment_len = interpreter.stack()[0];
+    assert_eq!(
+        trie_data_segment_len,
+        interpreter
+            .get_memory_segment(Segment::TrieData)
+            .len()
+            .into()
+    );
+
+    let hash = H256::from_uint(&interpreter.stack()[1]);
+
+    let expected_state_trie_hash = state_trie_before.hash();
+    assert_eq!(hash, expected_state_trie_hash);
     Ok(())
 }

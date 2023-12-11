@@ -20,7 +20,7 @@ use plonky2_evm::fixed_recursive_verifier::AllRecursiveCircuits;
 use plonky2_evm::generation::mpt::transaction_testing::{AddressOption, LegacyTransactionRlp};
 use plonky2_evm::generation::mpt::{AccountRlp, LegacyReceiptRlp, LogRlp};
 use plonky2_evm::generation::{GenerationInputs, TrieInputs};
-use plonky2_evm::proof::{BlockHashes, BlockMetadata, ExtraBlockData, PublicValues, TrieRoots};
+use plonky2_evm::proof::{BlockHashes, BlockMetadata, TrieRoots};
 use plonky2_evm::prover::prove;
 use plonky2_evm::verifier::verify_proof;
 use plonky2_evm::Node;
@@ -214,39 +214,23 @@ fn test_log_opcodes() -> anyhow::Result<()> {
         transactions_root: transactions_trie.hash(),
         receipts_root: receipts_trie.hash(),
     };
-    let block_bloom_after = [
-        U256::from_dec_str("392318858461667547739736838950479151006397215279002157056").unwrap(),
-        0.into(),
-        U256::from_dec_str(
-            "55213970774324510299478046898216203619608871777363092441300193790394368",
-        )
-        .unwrap(),
-        U256::from_dec_str("1361129467683753853853498429727072845824").unwrap(),
-        U256::from_dec_str("33554432").unwrap(),
-        U256::from_dec_str("98079714615416886934934209737619787760822675856605315072").unwrap(),
-        U256::from_dec_str("262144").unwrap(),
-        U256::from_dec_str("6739986666787659948666753771754908317446393422488596686587943714816")
-            .unwrap(),
-    ];
+
     let inputs = GenerationInputs {
         signed_txn: Some(txn.to_vec()),
         withdrawals: vec![],
         tries: tries_before,
         trie_roots_after,
         contract_code,
-        genesis_state_trie_root: HashedPartialTrie::from(Node::Empty).hash(),
+        checkpoint_state_trie_root: HashedPartialTrie::from(Node::Empty).hash(),
         block_metadata,
         txn_number_before: 0.into(),
         gas_used_before: 0.into(),
         gas_used_after: gas_used.into(),
-        block_bloom_before: [0.into(); 8],
-        block_bloom_after,
 
         block_hashes: BlockHashes {
             prev_hashes: vec![H256::default(); 256],
             cur_hash: H256::default(),
         },
-        addresses: vec![],
     };
 
     let mut timing = TimingTree::new("prove", log::Level::Debug);
@@ -340,7 +324,7 @@ fn test_log_with_aggreg() -> anyhow::Result<()> {
         to_second_nibbles,
         rlp::encode(&to_account_second_before).to_vec(),
     );
-    let genesis_state_trie_root = state_trie_before.hash();
+    let checkpoint_state_trie_root = state_trie_before.hash();
 
     let tries_before = TrieInputs {
         state_trie: state_trie_before,
@@ -351,10 +335,10 @@ fn test_log_with_aggreg() -> anyhow::Result<()> {
 
     let txn = hex!("f85f800a82520894095e7baea6a6c7c4c2dfeb977efac326af552d870a8026a0122f370ed4023a6c253350c6bfb87d7d7eb2cd86447befee99e0a26b70baec20a07100ab1b3977f2b4571202b9f4b68850858caf5469222794600b5ce1cfb348ad");
 
-    let block_metadata = BlockMetadata {
+    let block_1_metadata = BlockMetadata {
         block_beneficiary: Address::from(beneficiary),
         block_timestamp: 0x03e8.into(),
-        block_number: 0.into(),
+        block_number: 1.into(),
         block_difficulty: 0x020000.into(),
         block_gaslimit: 0x445566u32.into(),
         block_chain_id: 1.into(),
@@ -436,43 +420,43 @@ fn test_log_with_aggreg() -> anyhow::Result<()> {
         receipts_root: receipts_trie.clone().hash(),
     };
 
+    let block_1_hash =
+        H256::from_str("0x0101010101010101010101010101010101010101010101010101010101010101")?;
+    let mut block_hashes = vec![H256::default(); 256];
+
     let inputs_first = GenerationInputs {
         signed_txn: Some(txn.to_vec()),
         withdrawals: vec![],
         tries: tries_before,
         trie_roots_after: tries_after,
         contract_code,
-        genesis_state_trie_root,
-        block_metadata: block_metadata.clone(),
+        checkpoint_state_trie_root,
+        block_metadata: block_1_metadata.clone(),
         txn_number_before: 0.into(),
         gas_used_before: 0.into(),
         gas_used_after: 21000u64.into(),
-        block_bloom_before: [0.into(); 8],
-        block_bloom_after: [0.into(); 8],
         block_hashes: BlockHashes {
-            prev_hashes: vec![H256::default(); 256],
-            cur_hash: H256::default(),
+            prev_hashes: block_hashes.clone(),
+            cur_hash: block_1_hash,
         },
-        addresses: vec![],
     };
 
     // Preprocess all circuits.
     let all_circuits = AllRecursiveCircuits::<F, C, D>::new(
         &all_stark,
-        &[16..17, 11..13, 17..19, 14..15, 9..11, 12..13, 19..21],
+        &[16..17, 13..16, 15..18, 14..15, 9..10, 12..13, 17..20],
         &config,
     );
 
     let mut timing = TimingTree::new("prove root first", log::Level::Info);
-    let (root_proof_first, first_public_values) =
+    let (root_proof_first, public_values_first) =
         all_circuits.prove_root(&all_stark, &config, inputs_first, &mut timing)?;
 
     timing.filter(Duration::from_millis(100)).print();
     all_circuits.verify_root(root_proof_first.clone())?;
 
-    // The output bloom filter, gas used and transaction number are fed to the next transaction, so the two proofs can be correctly aggregated.
-    let block_bloom_second = first_public_values.extra_block_data.block_bloom_after;
-    let gas_used_second = first_public_values.extra_block_data.gas_used_after;
+    // The gas used and transaction number are fed to the next transaction, so the two proofs can be correctly aggregated.
+    let gas_used_second = public_values_first.extra_block_data.gas_used_after;
 
     // Prove second transaction. In this second transaction, the code with logs is executed.
 
@@ -559,84 +543,118 @@ fn test_log_with_aggreg() -> anyhow::Result<()> {
 
     transactions_trie.insert(Nibbles::from_str("0x01").unwrap(), txn_2.to_vec());
 
+    let block_1_state_root = expected_state_trie_after.hash();
+
     let trie_roots_after = TrieRoots {
-        state_root: expected_state_trie_after.hash(),
+        state_root: block_1_state_root,
         transactions_root: transactions_trie.hash(),
         receipts_root: receipts_trie.hash(),
     };
 
-    let block_bloom_final = [
-        0.into(),
-        0.into(),
-        U256::from_dec_str(
-            "55213970774324510299479508399853534522527075462195808724319849722937344",
-        )
-        .unwrap(),
-        U256::from_dec_str("1361129467683753853853498429727072845824").unwrap(),
-        U256::from_dec_str("33554432").unwrap(),
-        U256::from_dec_str("9223372036854775808").unwrap(),
-        U256::from_dec_str(
-            "3618502788666131106986593281521497120414687020801267626233049500247285563392",
-        )
-        .unwrap(),
-        U256::from_dec_str("2722259584404615024560450425766186844160").unwrap(),
-    ];
     let inputs = GenerationInputs {
         signed_txn: Some(txn_2.to_vec()),
         withdrawals: vec![],
         tries: tries_before,
-        trie_roots_after,
+        trie_roots_after: trie_roots_after.clone(),
         contract_code,
-        genesis_state_trie_root,
-        block_metadata,
+        checkpoint_state_trie_root,
+        block_metadata: block_1_metadata,
         txn_number_before: 1.into(),
         gas_used_before: gas_used_second,
         gas_used_after: receipt.cum_gas_used,
-        block_bloom_before: block_bloom_second,
-        block_bloom_after: block_bloom_final,
         block_hashes: BlockHashes {
-            prev_hashes: vec![H256::default(); 256],
-            cur_hash: H256::default(),
+            prev_hashes: block_hashes.clone(),
+            cur_hash: block_1_hash,
         },
-        addresses: vec![],
     };
 
     let mut timing = TimingTree::new("prove root second", log::Level::Info);
-    let (root_proof, public_values) =
+    let (root_proof_second, public_values_second) =
         all_circuits.prove_root(&all_stark, &config, inputs, &mut timing)?;
     timing.filter(Duration::from_millis(100)).print();
 
-    all_circuits.verify_root(root_proof.clone())?;
+    all_circuits.verify_root(root_proof_second.clone())?;
 
-    // Update public values for the aggregation.
-    let agg_public_values = PublicValues {
-        trie_roots_before: first_public_values.trie_roots_before,
-        trie_roots_after: public_values.trie_roots_after,
-        extra_block_data: ExtraBlockData {
-            genesis_state_trie_root,
-            txn_number_before: first_public_values.extra_block_data.txn_number_before,
-            txn_number_after: public_values.extra_block_data.txn_number_after,
-            gas_used_before: first_public_values.extra_block_data.gas_used_before,
-            gas_used_after: public_values.extra_block_data.gas_used_after,
-            block_bloom_before: first_public_values.extra_block_data.block_bloom_before,
-            block_bloom_after: public_values.extra_block_data.block_bloom_after,
-        },
-        block_metadata: public_values.block_metadata,
-        block_hashes: public_values.block_hashes,
-    };
-
-    // We can duplicate the proofs here because the state hasn't mutated.
     let (agg_proof, updated_agg_public_values) = all_circuits.prove_aggregation(
         false,
         &root_proof_first,
+        public_values_first,
         false,
-        &root_proof,
-        agg_public_values,
+        &root_proof_second,
+        public_values_second,
     )?;
     all_circuits.verify_aggregation(&agg_proof)?;
-    let (block_proof, _block_public_values) =
+    let (first_block_proof, _block_public_values) =
         all_circuits.prove_block(None, &agg_proof, updated_agg_public_values)?;
-    all_circuits.verify_block(&block_proof)
+    all_circuits.verify_block(&first_block_proof)?;
+
+    // Prove the next, empty block.
+
+    let block_2_hash =
+        H256::from_str("0x0123456789101112131415161718192021222324252627282930313233343536")?;
+    block_hashes[255] = block_1_hash;
+
+    let block_2_metadata = BlockMetadata {
+        block_beneficiary: Address::from(beneficiary),
+        block_timestamp: 0x03e8.into(),
+        block_number: 2.into(),
+        block_difficulty: 0x020000.into(),
+        block_gaslimit: 0x445566u32.into(),
+        block_chain_id: 1.into(),
+        block_base_fee: 0xa.into(),
+        ..Default::default()
+    };
+
+    let mut contract_code = HashMap::new();
+    contract_code.insert(keccak(vec![]), vec![]);
+
+    let inputs = GenerationInputs {
+        signed_txn: None,
+        withdrawals: vec![],
+        tries: TrieInputs {
+            state_trie: expected_state_trie_after,
+            transactions_trie: Node::Empty.into(),
+            receipts_trie: Node::Empty.into(),
+            storage_tries: vec![],
+        },
+        trie_roots_after: TrieRoots {
+            state_root: trie_roots_after.state_root,
+            transactions_root: HashedPartialTrie::from(Node::Empty).hash(),
+            receipts_root: HashedPartialTrie::from(Node::Empty).hash(),
+        },
+        contract_code,
+        checkpoint_state_trie_root: block_1_state_root, // We use block 1 as new checkpoint.
+        block_metadata: block_2_metadata,
+        txn_number_before: 0.into(),
+        gas_used_before: 0.into(),
+        gas_used_after: 0.into(),
+        block_hashes: BlockHashes {
+            prev_hashes: block_hashes,
+            cur_hash: block_2_hash,
+        },
+    };
+
+    let (root_proof, public_values) =
+        all_circuits.prove_root(&all_stark, &config, inputs, &mut timing)?;
+    all_circuits.verify_root(root_proof.clone())?;
+
+    // We can just duplicate the initial proof as the state didn't change.
+    let (agg_proof, updated_agg_public_values) = all_circuits.prove_aggregation(
+        false,
+        &root_proof,
+        public_values.clone(),
+        false,
+        &root_proof,
+        public_values,
+    )?;
+    all_circuits.verify_aggregation(&agg_proof)?;
+
+    let (second_block_proof, _block_public_values) = all_circuits.prove_block(
+        None, // We don't specify a previous proof, considering block 1 as the new checkpoint.
+        &agg_proof,
+        updated_agg_public_values,
+    )?;
+    all_circuits.verify_block(&second_block_proof)
 }
 
 /// Values taken from the block 1000000 of Goerli: https://goerli.etherscan.io/txs?block=1000000

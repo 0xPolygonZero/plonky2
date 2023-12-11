@@ -164,18 +164,15 @@ fn test_erc20() -> anyhow::Result<()> {
         tries: tries_before,
         trie_roots_after,
         contract_code,
-        genesis_state_trie_root: HashedPartialTrie::from(Node::Empty).hash(),
+        checkpoint_state_trie_root: HashedPartialTrie::from(Node::Empty).hash(),
         block_metadata,
         txn_number_before: 0.into(),
         gas_used_before: 0.into(),
         gas_used_after: gas_used,
-        block_bloom_before: [0.into(); 8],
-        block_bloom_after: bloom,
         block_hashes: BlockHashes {
             prev_hashes: vec![H256::default(); 256],
             cur_hash: H256::default(),
         },
-        addresses: vec![],
     };
 
     let mut timing = TimingTree::new("prove", log::Level::Debug);
@@ -280,6 +277,7 @@ fn signed_tx() -> Vec<u8> {
 fn bloom_bytes() -> [u8; 256] {
     hex!("00000000000000000400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000008000000000008000000000000000000000000000000000040000000000000000000000000000000000000000000000014000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000002000000000000000000000000000000000000000000000042000000000000000000000000000000000000000000020000000000080000000000000000000000000000000000000000000000000000000000000000")
 }
+
 fn bloom() -> [U256; 8] {
     let bloom = bloom_bytes()
         .chunks_exact(32)

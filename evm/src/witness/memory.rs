@@ -3,12 +3,13 @@ use ethereum_types::U256;
 use crate::cpu::membus::{NUM_CHANNELS, NUM_GP_CHANNELS};
 
 #[derive(Clone, Copy, Debug)]
-pub enum MemoryChannel {
+pub(crate) enum MemoryChannel {
     Code,
     GeneralPurpose(usize),
+    PartialChannel,
 }
 
-use MemoryChannel::{Code, GeneralPurpose};
+use MemoryChannel::{Code, GeneralPurpose, PartialChannel};
 
 use super::operation::CONTEXT_SCALING_FACTOR;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
@@ -18,26 +19,27 @@ use crate::witness::errors::ProgramError;
 use crate::witness::errors::ProgramError::MemoryError;
 
 impl MemoryChannel {
-    pub fn index(&self) -> usize {
+    pub(crate) fn index(&self) -> usize {
         match *self {
             Code => 0,
             GeneralPurpose(n) => {
                 assert!(n < NUM_GP_CHANNELS);
                 n + 1
             }
+            PartialChannel => NUM_GP_CHANNELS + 1,
         }
     }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
-pub struct MemoryAddress {
+pub(crate) struct MemoryAddress {
     pub(crate) context: usize,
     pub(crate) segment: usize,
     pub(crate) virt: usize,
 }
 
 impl MemoryAddress {
-    pub(crate) fn new(context: usize, segment: Segment, virt: usize) -> Self {
+    pub(crate) const fn new(context: usize, segment: Segment, virt: usize) -> Self {
         Self {
             context,
             // segment is scaled
@@ -83,13 +85,13 @@ impl MemoryAddress {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum MemoryOpKind {
+pub(crate) enum MemoryOpKind {
     Read,
     Write,
 }
 
 #[derive(Clone, Copy, Debug)]
-pub struct MemoryOp {
+pub(crate) struct MemoryOp {
     /// true if this is an actual memory operation, or false if it's a padding row.
     pub filter: bool,
     pub timestamp: usize,
@@ -98,7 +100,7 @@ pub struct MemoryOp {
     pub value: U256,
 }
 
-pub static DUMMY_MEMOP: MemoryOp = MemoryOp {
+pub(crate) static DUMMY_MEMOP: MemoryOp = MemoryOp {
     filter: false,
     timestamp: 0,
     address: MemoryAddress {
@@ -111,7 +113,7 @@ pub static DUMMY_MEMOP: MemoryOp = MemoryOp {
 };
 
 impl MemoryOp {
-    pub fn new(
+    pub(crate) fn new(
         channel: MemoryChannel,
         clock: usize,
         address: MemoryAddress,
@@ -128,7 +130,11 @@ impl MemoryOp {
         }
     }
 
-    pub(crate) fn new_dummy_read(address: MemoryAddress, timestamp: usize, value: U256) -> Self {
+    pub(crate) const fn new_dummy_read(
+        address: MemoryAddress,
+        timestamp: usize,
+        value: U256,
+    ) -> Self {
         Self {
             filter: false,
             timestamp,
@@ -138,7 +144,7 @@ impl MemoryOp {
         }
     }
 
-    pub(crate) fn sorting_key(&self) -> (usize, usize, usize, usize) {
+    pub(crate) const fn sorting_key(&self) -> (usize, usize, usize, usize) {
         (
             self.address.context,
             self.address.segment,
@@ -149,12 +155,12 @@ impl MemoryOp {
 }
 
 #[derive(Clone, Debug)]
-pub struct MemoryState {
+pub(crate) struct MemoryState {
     pub(crate) contexts: Vec<MemoryContextState>,
 }
 
 impl MemoryState {
-    pub fn new(kernel_code: &[u8]) -> Self {
+    pub(crate) fn new(kernel_code: &[u8]) -> Self {
         let code_u256s = kernel_code.iter().map(|&x| x.into()).collect();
         let mut result = Self::default();
         result.contexts[0].segments[Segment::Code as usize >> SEGMENT_SCALING_FACTOR].content =
@@ -162,7 +168,7 @@ impl MemoryState {
         result
     }
 
-    pub fn apply_ops(&mut self, ops: &[MemoryOp]) {
+    pub(crate) fn apply_ops(&mut self, ops: &[MemoryOp]) {
         for &op in ops {
             let MemoryOp {
                 address,
@@ -176,7 +182,7 @@ impl MemoryState {
         }
     }
 
-    pub fn get(&self, address: MemoryAddress) -> U256 {
+    pub(crate) fn get(&self, address: MemoryAddress) -> U256 {
         if address.context >= self.contexts.len() {
             return U256::zero();
         }
@@ -193,7 +199,7 @@ impl MemoryState {
         val
     }
 
-    pub fn set(&mut self, address: MemoryAddress, val: U256) {
+    pub(crate) fn set(&mut self, address: MemoryAddress, val: U256) {
         while address.context >= self.contexts.len() {
             self.contexts.push(MemoryContextState::default());
         }

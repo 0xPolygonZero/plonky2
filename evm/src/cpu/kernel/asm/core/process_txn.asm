@@ -145,12 +145,13 @@ global process_contract_creation_txn:
     // stack: new_ctx, address, retdest
 
     // Store constructor code length
-    %mload_txn_field(@TXN_FIELD_DATA_LEN)
-    // stack: data_len, new_ctx, address, retdest
     PUSH @CTX_METADATA_CODE_SIZE
-    // stack: offset, data_len, new_ctx, address, retdest
+    // stack: offset, new_ctx, address, retdest
     DUP3 // new_ctx
     ADD // CTX_METADATA_CODE_SIZE is already scaled by its segment
+    // stack: addr, new_ctx, address, retdest
+    %mload_txn_field(@TXN_FIELD_DATA_LEN)
+    // stack: data_len, addr, new_ctx, address, retdest
     MSTORE_GENERAL
     // stack: new_ctx, address, retdest
 
@@ -158,7 +159,7 @@ global process_contract_creation_txn:
     PUSH process_contract_creation_txn_after_code_loaded
     %mload_txn_field(@TXN_FIELD_DATA_LEN)
     PUSH @SEGMENT_TXN_DATA // SRC (context == offset == 0)
-    DUP4 // DST (segment == 0 (i.e. CODE), and offset = 0)
+    DUP4 // DST (segment == 0 (i.e. CODE), and offset == 0)
     %jump(memcpy_bytes)
 
 global process_contract_creation_txn_after_code_loaded:
@@ -246,10 +247,10 @@ global process_message_txn:
     %create_context
     // stack: new_ctx, retdest
     PUSH process_message_txn_code_loaded
-    DUP2 // DST (segment == 0 (i.e. CODE), and offset = 0)
+    DUP2 // new_ctx
     %mload_txn_field(@TXN_FIELD_TO)
-    // stack: address, dest, process_message_txn_code_loaded, new_ctx, retdest
-    %jump(load_code)
+    // stack: address, new_ctx, process_message_txn_code_loaded, new_ctx, retdest
+    %jump(load_code_padded)
 
 global process_message_txn_insufficient_balance:
     // stack: retdest

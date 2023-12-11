@@ -4,7 +4,7 @@ pub(crate) const SEGMENT_SCALING_FACTOR: usize = 32;
 /// to allow for convenient address components (context / segement / virtual) bundling in the kernel.
 #[allow(dead_code)]
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Ord, PartialOrd, Debug)]
-pub enum Segment {
+pub(crate) enum Segment {
     /// Contains EVM bytecode.
     Code = 0,
     /// The program stack.
@@ -55,31 +55,27 @@ pub enum Segment {
     SelfDestructList = 25 << SEGMENT_SCALING_FACTOR,
     /// Contains the bloom filter of a transaction.
     TxnBloom = 26 << SEGMENT_SCALING_FACTOR,
-    /// Contains the computed bloom filter of a block.
-    BlockBloom = 27 << SEGMENT_SCALING_FACTOR,
-    /// Contains the final block bloom, and the block bloom filters before and after the current transaction.
-    /// The first eight elements are `block_metadata.block_bloom`. The next eight are `block_bloom_before`,
-    /// and the last eight are `block_bloom_after.
-    GlobalBlockBloom = 28 << SEGMENT_SCALING_FACTOR,
+    /// Contains the bloom filter present in the block header.
+    GlobalBlockBloom = 27 << SEGMENT_SCALING_FACTOR,
     /// List of log pointers pointing to the LogsData segment.
-    Logs = 29 << SEGMENT_SCALING_FACTOR,
-    LogsData = 30 << SEGMENT_SCALING_FACTOR,
+    Logs = 28 << SEGMENT_SCALING_FACTOR,
+    LogsData = 29 << SEGMENT_SCALING_FACTOR,
     /// Journal of state changes. List of pointers to `JournalData`. Length in `GlobalMetadata`.
-    Journal = 31 << SEGMENT_SCALING_FACTOR,
-    JournalData = 32 << SEGMENT_SCALING_FACTOR,
-    JournalCheckpoints = 33 << SEGMENT_SCALING_FACTOR,
+    Journal = 30 << SEGMENT_SCALING_FACTOR,
+    JournalData = 31 << SEGMENT_SCALING_FACTOR,
+    JournalCheckpoints = 32 << SEGMENT_SCALING_FACTOR,
     /// List of addresses that have been touched in the current transaction.
-    TouchedAddresses = 34 << SEGMENT_SCALING_FACTOR,
+    TouchedAddresses = 33 << SEGMENT_SCALING_FACTOR,
     /// List of checkpoints for the current context. Length in `ContextMetadata`.
-    ContextCheckpoints = 35 << SEGMENT_SCALING_FACTOR,
+    ContextCheckpoints = 34 << SEGMENT_SCALING_FACTOR,
     /// List of 256 previous block hashes.
-    BlockHashes = 36 << SEGMENT_SCALING_FACTOR,
+    BlockHashes = 35 << SEGMENT_SCALING_FACTOR,
 }
 
 impl Segment {
-    pub(crate) const COUNT: usize = 37;
+    pub(crate) const COUNT: usize = 36;
 
-    pub(crate) fn all() -> [Self; Self::COUNT] {
+    pub(crate) const fn all() -> [Self; Self::COUNT] {
         [
             Self::Code,
             Self::Stack,
@@ -108,7 +104,6 @@ impl Segment {
             Self::AccessedStorageKeys,
             Self::SelfDestructList,
             Self::TxnBloom,
-            Self::BlockBloom,
             Self::GlobalBlockBloom,
             Self::Logs,
             Self::LogsData,
@@ -122,7 +117,7 @@ impl Segment {
     }
 
     /// The variable name that gets passed into kernel assembly code.
-    pub(crate) fn var_name(&self) -> &'static str {
+    pub(crate) const fn var_name(&self) -> &'static str {
         match self {
             Segment::Code => "SEGMENT_CODE",
             Segment::Stack => "SEGMENT_STACK",
@@ -151,7 +146,6 @@ impl Segment {
             Segment::AccessedStorageKeys => "SEGMENT_ACCESSED_STORAGE_KEYS",
             Segment::SelfDestructList => "SEGMENT_SELFDESTRUCT_LIST",
             Segment::TxnBloom => "SEGMENT_TXN_BLOOM",
-            Segment::BlockBloom => "SEGMENT_BLOCK_BLOOM",
             Segment::GlobalBlockBloom => "SEGMENT_GLOBAL_BLOCK_BLOOM",
             Segment::Logs => "SEGMENT_LOGS",
             Segment::LogsData => "SEGMENT_LOGS_DATA",
@@ -164,8 +158,7 @@ impl Segment {
         }
     }
 
-    #[allow(dead_code)]
-    pub(crate) fn bit_range(&self) -> usize {
+    pub(crate) const fn bit_range(&self) -> usize {
         match self {
             Segment::Code => 8,
             Segment::Stack => 256,
@@ -195,7 +188,6 @@ impl Segment {
             Segment::SelfDestructList => 256,
             Segment::TxnBloom => 8,
             Segment::GlobalBlockBloom => 256,
-            Segment::BlockBloom => 8,
             Segment::Logs => 256,
             Segment::LogsData => 256,
             Segment::Journal => 256,

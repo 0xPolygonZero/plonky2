@@ -41,11 +41,251 @@ global mload_packing_u64_LE:
 // Post stack: addr'
 global mstore_unpacking:
     // stack: addr, value, len, retdest
-    %stack(addr, value, len, retdest) -> (addr, value, len, addr, len, retdest)
-    // stack: addr, value, len, addr, len, retdest
-    MSTORE_32BYTES
-    // stack: addr, len, retdest
-    ADD SWAP1
+    DUP2 ISZERO
+    // stack: len == 0, addr, value, len, retdest
+    %jumpi(mstore_unpacking_empty)
+    %stack(addr, value, len, retdest) -> (len, addr, value, retdest)
+    PUSH 3
+    // stack: BYTES_PER_JUMP, len, addr, value, retdest
+    MUL
+    // stack: jump_offset, addr, value, retdest
+    PUSH mstore_unpacking_0
+    // stack: mstore_unpacking_0, jump_offset, addr, value, retdest
+    ADD
+    // stack: address_unpacking, addr, value, retdest
+    JUMP
+
+mstore_unpacking_empty:
+    %stack(addr, value, len, retdest) -> (retdest, addr)
+    JUMP
+
+// This case can never be reached. It's only here to offset the table correctly.
+mstore_unpacking_0:
+    %rep 3
+        PANIC
+    %endrep
+mstore_unpacking_1:
+    // stack: addr, value, retdest
+    MSTORE_32BYTES_1
+    // stack: addr', retdest
+    SWAP1
+    // stack: retdest, addr'
+    JUMP
+mstore_unpacking_2:
+    // stack: addr, value, retdest
+    MSTORE_32BYTES_2
+    // stack: addr', retdest
+    SWAP1
+    // stack: retdest, addr'
+    JUMP
+mstore_unpacking_3:
+    // stack: addr, value, retdest
+    MSTORE_32BYTES_3
+    // stack: addr', retdest
+    SWAP1
+    // stack: retdest, addr'
+    JUMP
+mstore_unpacking_4:
+    // stack: addr, value, retdest
+    MSTORE_32BYTES_4
+    // stack: addr', retdest
+    SWAP1
+    // stack: retdest, addr'
+    JUMP
+mstore_unpacking_5:
+    // stack: addr, value, retdest
+    MSTORE_32BYTES_5
+    // stack: addr', retdest
+    SWAP1
+    // stack: retdest, addr'
+    JUMP
+mstore_unpacking_6:
+    // stack: addr, value, retdest
+    MSTORE_32BYTES_6
+    // stack: addr', retdest
+    SWAP1
+    // stack: retdest, addr'
+    JUMP
+mstore_unpacking_7:
+    // stack: addr, value, retdest
+    MSTORE_32BYTES_7
+    // stack: addr', retdest
+    SWAP1
+    // stack: retdest, addr'
+    JUMP
+mstore_unpacking_8:
+    // stack: addr, value, retdest
+    MSTORE_32BYTES_8
+    // stack: addr', retdest
+    SWAP1
+    // stack: retdest, addr'
+    JUMP
+mstore_unpacking_9:
+    // stack: addr, value, retdest
+    MSTORE_32BYTES_9
+    // stack: addr', retdest
+    SWAP1
+    // stack: retdest, addr'
+    JUMP
+mstore_unpacking_10:
+    // stack: addr, value, retdest
+    MSTORE_32BYTES_10
+    // stack: addr', retdest
+    SWAP1
+    // stack: retdest, addr'
+    JUMP
+mstore_unpacking_11:
+    // stack: addr, value, retdest
+    MSTORE_32BYTES_11
+    // stack: addr', retdest
+    SWAP1
+    // stack: retdest, addr'
+    JUMP
+mstore_unpacking_12:
+    // stack: addr, value, retdest
+    MSTORE_32BYTES_12
+    // stack: addr', retdest
+    SWAP1
+    // stack: retdest, addr'
+    JUMP
+mstore_unpacking_13:
+    // stack: addr, value, retdest
+    MSTORE_32BYTES_13
+    // stack: addr', retdest
+    SWAP1
+    // stack: retdest, addr'
+    JUMP
+mstore_unpacking_14:
+    // stack: addr, value, retdest
+    MSTORE_32BYTES_14
+    // stack: addr', retdest
+    SWAP1
+    // stack: retdest, addr'
+    JUMP
+mstore_unpacking_15:
+    // stack: addr, value, retdest
+    MSTORE_32BYTES_15
+    // stack: addr', retdest
+    SWAP1
+    // stack: retdest, addr'
+    JUMP
+mstore_unpacking_16:
+    // stack: addr, value, retdest
+    MSTORE_32BYTES_16
+    // stack: addr', retdest
+    SWAP1
+    // stack: retdest, addr'
+    JUMP
+mstore_unpacking_17:
+    // stack: addr, value, retdest
+    MSTORE_32BYTES_17
+    // stack: addr', retdest
+    SWAP1
+    // stack: retdest, addr'
+    JUMP
+mstore_unpacking_18:
+    // stack: addr, value, retdest
+    MSTORE_32BYTES_18
+    // stack: addr', retdest
+    SWAP1
+    // stack: retdest, addr'
+    JUMP
+mstore_unpacking_19:
+    // stack: addr, value, retdest
+    MSTORE_32BYTES_19
+    // stack: addr', retdest
+    SWAP1
+    // stack: retdest, addr'
+    JUMP
+mstore_unpacking_20:
+    // stack: addr, value, retdest
+    MSTORE_32BYTES_20
+    // stack: addr', retdest
+    SWAP1
+    // stack: retdest, addr'
+    JUMP
+mstore_unpacking_21:
+    // stack: addr, value, retdest
+    MSTORE_32BYTES_21
+    // stack: addr', retdest
+    SWAP1
+    // stack: retdest, addr'
+    JUMP
+mstore_unpacking_22:
+    // stack: addr, value, retdest
+    MSTORE_32BYTES_22
+    // stack: addr', retdest
+    SWAP1
+    // stack: retdest, addr'
+    JUMP
+mstore_unpacking_23:
+    // stack: addr, value, retdest
+    MSTORE_32BYTES_23
+    // stack: addr', retdest
+    SWAP1
+    // stack: retdest, addr'
+    JUMP
+mstore_unpacking_24:
+    // stack: addr, value, retdest
+    MSTORE_32BYTES_24
+    // stack: addr', retdest
+    SWAP1
+    // stack: retdest, addr'
+    JUMP
+mstore_unpacking_25:
+    // stack: addr, value, retdest
+    MSTORE_32BYTES_25
+    // stack: addr', retdest
+    SWAP1
+    // stack: retdest, addr'
+    JUMP
+mstore_unpacking_26:
+    // stack: addr, value, retdest
+    MSTORE_32BYTES_26
+    // stack: addr', retdest
+    SWAP1
+    // stack: retdest, addr'
+    JUMP
+mstore_unpacking_27:
+    // stack: addr, value, retdest
+    MSTORE_32BYTES_27
+    // stack: addr', retdest
+    SWAP1
+    // stack: retdest, addr'
+    JUMP
+mstore_unpacking_28:
+    // stack: addr, value, retdest
+    MSTORE_32BYTES_28
+    // stack: addr', retdest
+    SWAP1
+    // stack: retdest, addr'
+    JUMP
+mstore_unpacking_29:
+    // stack: addr, value, retdest
+    MSTORE_32BYTES_29
+    // stack: addr', retdest
+    SWAP1
+    // stack: retdest, addr'
+    JUMP
+mstore_unpacking_30:
+    // stack: addr, value, retdest
+    MSTORE_32BYTES_30
+    // stack: addr', retdest
+    SWAP1
+    // stack: retdest, addr'
+    JUMP
+mstore_unpacking_31:
+    // stack: addr, value, retdest
+    MSTORE_32BYTES_31
+    // stack: addr', retdest
+    SWAP1
+    // stack: retdest, addr'
+    JUMP
+mstore_unpacking_32:
+    // stack: addr, value, retdest
+    MSTORE_32BYTES_32
+    // stack: addr', retdest
+    SWAP1
     // stack: retdest, addr'
     JUMP
 
@@ -58,30 +298,37 @@ global mstore_unpacking:
 // Pre stack: addr, value, retdest
 // Post stack: addr'
 global mstore_unpacking_u64_LE:
-    %stack (addr, value) -> (0xff, value, addr, value)
+    %stack (addr, value) -> (0xff, value, addr, addr, value)
     AND
-    DUP2 MSTORE_GENERAL // First byte
-    %stack (addr, value) -> (0xff00, value, addr, value)
+    MSTORE_GENERAL // First byte
+    DUP1 %add_const(1)
+    %stack (new_addr, addr, value) -> (0xff00, value, new_addr, addr, value)
     AND %shr_const(8)
-    DUP2 %add_const(1) MSTORE_GENERAL // Second byte
-    %stack (addr, value) -> (0xff0000, value, addr, value)
+    MSTORE_GENERAL // Second byte
+    DUP1 %add_const(2)
+    %stack (new_addr, addr, value) -> (0xff0000, value, new_addr, addr, value)
     AND %shr_const(16)
-    DUP2 %add_const(2) MSTORE_GENERAL // Third byte
-    %stack (addr, value) -> (0xff000000, value, addr, value)
+    MSTORE_GENERAL // Third byte
+    DUP1 %add_const(3)
+    %stack (new_addr, addr, value) -> (0xff000000, value, new_addr, addr, value)
     AND %shr_const(24)
-    DUP2 %add_const(3) MSTORE_GENERAL // Fourth byte
-    %stack (addr, value) -> (0xff00000000, value, addr, value)
+    MSTORE_GENERAL // Fourth byte
+    DUP1 %add_const(4)
+    %stack (new_addr, addr, value) -> (0xff00000000, value, new_addr, addr, value)
     AND %shr_const(32)
-    DUP2 %add_const(4) MSTORE_GENERAL // Fifth byte
-    %stack (addr, value) -> (0xff0000000000, value, addr, value)
+    MSTORE_GENERAL // Fifth byte
+    DUP1 %add_const(5)
+    %stack (new_addr, addr, value) -> (0xff0000000000, value, new_addr, addr, value)
     AND %shr_const(40)
-    DUP2 %add_const(5) MSTORE_GENERAL // Sixth byte
-    %stack (addr, value) -> (0xff000000000000, value, addr, value)
+    MSTORE_GENERAL // Sixth byte
+    DUP1 %add_const(6)
+    %stack (new_addr, addr, value) -> (0xff000000000000, value, new_addr, addr, value)
     AND %shr_const(48)
-    DUP2 %add_const(6) MSTORE_GENERAL // Seventh byte
-    %stack (addr, value) -> (0xff00000000000000, value, addr, value)
+    MSTORE_GENERAL // Seventh byte
+    DUP1 %add_const(7)
+    %stack (new_addr, addr, value) -> (0xff00000000000000, value, new_addr, addr, value)
     AND %shr_const(56)
-    DUP2 %add_const(7) MSTORE_GENERAL // Eighth byte
+    MSTORE_GENERAL // Eighth byte
     %pop2 JUMP
 
 %macro mstore_unpacking_u64_LE

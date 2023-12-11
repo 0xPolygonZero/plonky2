@@ -35,6 +35,8 @@ return_after_gas:
     %stack (parent_ctx, kexit_info, offset, size) ->
         (parent_ctx, @CTX_METADATA_RETURNDATA_SIZE, size, offset, size, parent_ctx, kexit_info)
     ADD // addr (CTX offsets are already scaled by their segment)
+    SWAP1
+    // stack: size, addr, offset, size, parent_ctx, kexit_info
     MSTORE_GENERAL
     // stack: offset, size, parent_ctx, kexit_info
 
@@ -141,6 +143,8 @@ revert_after_gas:
     %stack (parent_ctx, kexit_info, offset, size) ->
         (parent_ctx, @CTX_METADATA_RETURNDATA_SIZE, size, offset, size, parent_ctx, kexit_info)
     ADD // addr (CTX offsets are already scaled by their segment)
+    SWAP1
+    // stack: size, addr, offset, size, parent_ctx, kexit_info
     MSTORE_GENERAL
     // stack: offset, size, parent_ctx, kexit_info
 

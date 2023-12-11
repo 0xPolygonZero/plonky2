@@ -73,18 +73,15 @@ fn test_withdrawals() -> anyhow::Result<()> {
         },
         trie_roots_after,
         contract_code,
-        genesis_state_trie_root: HashedPartialTrie::from(Node::Empty).hash(),
+        checkpoint_state_trie_root: HashedPartialTrie::from(Node::Empty).hash(),
         block_metadata,
         txn_number_before: 0.into(),
         gas_used_before: 0.into(),
         gas_used_after: 0.into(),
-        block_bloom_before: [0.into(); 8],
-        block_bloom_after: [0.into(); 8],
         block_hashes: BlockHashes {
             prev_hashes: vec![H256::default(); 256],
             cur_hash: H256::default(),
         },
-        addresses: vec![],
     };
 
     let mut timing = TimingTree::new("prove", log::Level::Debug);

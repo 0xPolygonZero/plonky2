@@ -92,6 +92,7 @@
     GET_CONTEXT
     // stack: context, segment, offset, value
     %build_address
+    SWAP1
     MSTORE_GENERAL
     // stack: (empty)
 %endmacro
@@ -169,6 +170,7 @@
     GET_CONTEXT
     // stack: context, segment, offset, value
     %build_address
+    SWAP1
     MSTORE_GENERAL
     // stack: (empty)
 %endmacro
@@ -220,6 +222,7 @@
     // stack: segment, offset, value
     %build_kernel_address
     // stack: addr, value
+    SWAP1
     MSTORE_GENERAL
     // stack: (empty)
 %endmacro
@@ -233,6 +236,7 @@
     // stack: segment, offset, value
     %build_kernel_address
     // stack: addr, value
+    SWAP1
     MSTORE_GENERAL
     // stack: (empty)
 %endmacro

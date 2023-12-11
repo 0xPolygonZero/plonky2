@@ -2,11 +2,14 @@ use std::collections::HashMap;
 
 use ethereum_types::{Address, BigEndianHash, H160, H256, U256};
 use keccak_hash::keccak;
+use plonky2::field::extension::Extendable;
 use plonky2::field::types::Field;
+use plonky2::hash::hash_types::RichField;
 
+use super::mpt::{load_all_mpts, TrieRootPtrs};
+use super::TrieInputs;
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::constants::context_metadata::ContextMetadata;
-use crate::generation::mpt::all_mpt_prover_inputs_reversed;
 use crate::generation::rlp::all_rlp_prover_inputs_reversed;
 use crate::generation::GenerationInputs;
 use crate::memory::segments::{Segment, SEGMENT_SCALING_FACTOR};
@@ -29,10 +32,6 @@ pub(crate) struct GenerationState<F: Field> {
     pub(crate) memory: MemoryState,
     pub(crate) traces: Traces<F>,
 
-    /// Prover inputs containing MPT data, in reverse order so that the next input can be obtained
-    /// via `pop()`.
-    pub(crate) mpt_prover_inputs: Vec<U256>,
-
     /// Prover inputs containing RLP data, in reverse order so that the next input can be obtained
     /// via `pop()`.
     pub(crate) rlp_prover_inputs: Vec<U256>,
@@ -48,9 +47,20 @@ pub(crate) struct GenerationState<F: Field> {
     /// inputs are obtained in big-endian order via `pop()`). Contains both the remainder and the
     /// quotient, in that order.
     pub(crate) bignum_modmul_result_limbs: Vec<U256>,
+
+    /// Pointers, within the `TrieData` segment, of the three MPTs.
+    pub(crate) trie_root_ptrs: TrieRootPtrs,
 }
 
 impl<F: Field> GenerationState<F> {
+    fn preinitialize_mpts(&mut self, trie_inputs: &TrieInputs) -> TrieRootPtrs {
+        let (trie_roots_ptrs, trie_data) =
+            load_all_mpts(trie_inputs).expect("Invalid MPT data for preinitialization");
+
+        self.memory.contexts[0].segments[Segment::TrieData as usize].content = trie_data;
+
+        trie_roots_ptrs
+    }
     pub(crate) fn new(inputs: GenerationInputs, kernel_code: &[u8]) -> Result<Self, ProgramError> {
         log::debug!("Input signed_txn: {:?}", &inputs.signed_txn);
         log::debug!("Input state_trie: {:?}", &inputs.tries.state_trie);
@@ -61,28 +71,36 @@ impl<F: Field> GenerationState<F> {
         log::debug!("Input receipts_trie: {:?}", &inputs.tries.receipts_trie);
         log::debug!("Input storage_tries: {:?}", &inputs.tries.storage_tries);
         log::debug!("Input contract_code: {:?}", &inputs.contract_code);
-        let mpt_prover_inputs = all_mpt_prover_inputs_reversed(&inputs.tries)?;
+
         let rlp_prover_inputs =
-            all_rlp_prover_inputs_reversed(inputs.signed_txn.as_ref().unwrap_or(&vec![]));
+            all_rlp_prover_inputs_reversed(inputs.clone().signed_txn.as_ref().unwrap_or(&vec![]));
         let withdrawal_prover_inputs = all_withdrawals_prover_inputs_reversed(&inputs.withdrawals);
         let bignum_modmul_result_limbs = Vec::new();
 
-        Ok(Self {
-            inputs,
+        let mut state = Self {
+            inputs: inputs.clone(),
             registers: Default::default(),
             memory: MemoryState::new(kernel_code),
             traces: Traces::default(),
-            mpt_prover_inputs,
             rlp_prover_inputs,
             withdrawal_prover_inputs,
             state_key_to_address: HashMap::new(),
             bignum_modmul_result_limbs,
-        })
+            trie_root_ptrs: TrieRootPtrs {
+                state_root_ptr: 0,
+                txn_root_ptr: 0,
+                receipt_root_ptr: 0,
+            },
+        };
+        let trie_root_ptrs = state.preinitialize_mpts(&inputs.tries);
+
+        state.trie_root_ptrs = trie_root_ptrs;
+        Ok(state)
     }
 
     /// Updates `program_counter`, and potentially adds some extra handling if we're jumping to a
     /// special location.
-    pub fn jump_to(&mut self, dst: usize) -> Result<(), ProgramError> {
+    pub(crate) fn jump_to(&mut self, dst: usize) -> Result<(), ProgramError> {
         self.registers.program_counter = dst;
         if dst == KERNEL.global_labels["observe_new_address"] {
             let tip_u256 = stack_peek(self, 0)?;
@@ -100,14 +118,14 @@ impl<F: Field> GenerationState<F> {
 
     /// Observe the given address, so that we will be able to recognize the associated state key.
     /// This is just for debugging purposes.
-    pub fn observe_address(&mut self, address: Address) {
+    pub(crate) fn observe_address(&mut self, address: Address) {
         let state_key = keccak(address.0);
         self.state_key_to_address.insert(state_key, address);
     }
 
     /// Observe the given code hash and store the associated code.
     /// When called, the code corresponding to `codehash` should be stored in the return data.
-    pub fn observe_contract(&mut self, codehash: H256) -> Result<(), ProgramError> {
+    pub(crate) fn observe_contract(&mut self, codehash: H256) -> Result<(), ProgramError> {
         if self.inputs.contract_code.contains_key(&codehash) {
             return Ok(()); // Return early if the code hash has already been observed.
         }
@@ -131,14 +149,14 @@ impl<F: Field> GenerationState<F> {
         Ok(())
     }
 
-    pub fn checkpoint(&self) -> GenerationStateCheckpoint {
+    pub(crate) fn checkpoint(&self) -> GenerationStateCheckpoint {
         GenerationStateCheckpoint {
             registers: self.registers,
             traces: self.traces.checkpoint(),
         }
     }
 
-    pub fn rollback(&mut self, checkpoint: GenerationStateCheckpoint) {
+    pub(crate) fn rollback(&mut self, checkpoint: GenerationStateCheckpoint) {
         self.registers = checkpoint.registers;
         self.traces.rollback(checkpoint.traces);
     }

@@ -112,7 +112,7 @@ after_serializing_access_list:
 
     // Store a `2` in front of the RLP
     %decrement
-    %stack (rlp_addr) -> (rlp_addr, 2, rlp_addr)
+    %stack (rlp_addr) -> (2, rlp_addr, rlp_addr)
     MSTORE_GENERAL
     // stack: rlp_addr, rlp_len, retdest
 
