@@ -98,7 +98,7 @@ ecAdd, ecMul and ecPairing precompiles.
   empty length is not valid, nor is a length greater than 32 (as a U256 consists in at most 32 bytes). Missing these conditions will result in an unverifiable proof.
 
   \item[0xF9.] \texttt{EXIT\_KERNEL}. Pops 1 element from the stack. This instruction is used at the end of a syscall, before proceeding to the rest of the execution logic.
-  The popped element, \textit{kexit\_info}, contains several information like the current program counter, the current amount of gas used, and whether we are in kernel (i.e. privileged) mode or not.
+  The popped element, \textit{kexit\_info}, contains several pieces of information like the current program counter, the current amount of gas used, and whether we are in kernel (i.e. privileged) mode or not.
 
   \item[0xFB.] \texttt{MLOAD\_GENERAL}. Pops 3 elements (successively the context, segment, and offset portions of a Memory address), and pushes the value stored at this memory
   address onto the stack. It can read any memory location, general (similarly to MLOAD (0x51) instruction) or privileged.
