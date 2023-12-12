@@ -1,7 +1,7 @@
 #![allow(clippy::too_many_arguments)]
 #![allow(clippy::type_complexity)]
 #![cfg_attr(not(feature = "std"), no_std)]
-#![feature(core_intrinsics)]
+
 extern crate alloc;
 
 mod get_challenges;
