@@ -169,8 +169,8 @@ encode_rlp_list_prefix_large_done_writing_len:
 %%after:
 %endmacro
 
-// Given an RLP list payload which starts and ends at the given rlp_addritions,
-// prepend the appropriate RLP list prefix. Returns the updated start rlp_addrition,
+// Given an RLP list payload which starts and ends at the given rlp_address,
+// prepend the appropriate RLP list prefix. Returns the updated start rlp_address,
 // as well as the length of the RLP data (including the newly-added prefix).
 //
 // Pre stack: end_rlp_addr, start_rlp_addr, retdest
@@ -182,7 +182,7 @@ global prepend_rlp_list_prefix:
     DUP1 %gt_const(55)
     %jumpi(prepend_rlp_list_prefix_big)
 
-    // If we got here, we have a small list, so we prepend 0xc0 + len at rlp_addrition 8.
+    // If we got here, we have a small list, so we prepend 0xc0 + len at rlp_address 8.
     // stack: payload_len, end_rlp_addr, start_rlp_addr, retdest
     DUP1 %add_const(0xc0)
     // stack: prefix_byte, payload_len, end_rlp_addr, start_rlp_addr, retdest
@@ -197,7 +197,7 @@ global prepend_rlp_list_prefix:
     JUMP
 
 prepend_rlp_list_prefix_big:
-    // We have a large list, so we prepend 0xf7 + len_of_len at rlp_addrition
+    // We have a large list, so we prepend 0xf7 + len_of_len at rlp_address
     //     prefix_start_rlp_addr = start_rlp_addr - 1 - len_of_len
     // followed by the length itself.
     // stack: payload_len, end_rlp_addr, start_rlp_addr, retdest
