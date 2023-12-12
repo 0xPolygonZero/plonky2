@@ -41,7 +41,7 @@ global mload_packing_u64_LE:
 // Post stack: addr'
 global mstore_unpacking:
     // stack: addr, value, len, retdest
-    DUP2 ISZERO
+    DUP3 ISZERO
     // stack: len == 0, addr, value, len, retdest
     %jumpi(mstore_unpacking_empty)
     %stack(addr, value, len, retdest) -> (len, addr, value, retdest)
