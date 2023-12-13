@@ -292,10 +292,15 @@ impl<'a> Interpreter<'a> {
 
     pub(crate) fn set_jumpdest_bits(&mut self, context: usize, jumpdest_bits: Vec<bool>) {
         self.generation_state.memory.contexts[context].segments[Segment::JumpdestBits as usize]
-            .content = jumpdest_bits
-            .into_iter()
-            .map(|x| u256_from_bool(x))
-            .collect();
+            .content = jumpdest_bits.iter().map(|&x| u256_from_bool(x)).collect();
+        self.generation_state.jumpdest_addresses = Some(
+            jumpdest_bits
+                .into_iter()
+                .enumerate()
+                .filter(|&(_, x)| x)
+                .map(|(i, _)| i)
+                .collect(),
+        )
     }
 
     fn incr(&mut self, n: usize) {
