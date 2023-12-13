@@ -27,7 +27,7 @@ const SIMPLE_OPCODES: OpsColumnsView<Option<u32>> = OpsColumnsView {
     not_pop: None, // This is handled manually below
     shift: G_VERYLOW,
     jumpdest_keccak_general: None, // This is handled manually below.
-    push_prover_input: None,       // This handled manually below.
+    push_prover_input: None,       // This is handled manually below.
     jumps: None,                   // Combined flag handled separately.
     pc_push0: G_BASE,
     dup_swap: G_VERYLOW,
