@@ -200,38 +200,50 @@ pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
 
     let cpu_res = timed!(timing, "simulate CPU", simulate_cpu(&mut state));
     if cpu_res.is_err() {
-        let state_trie_ptr = u256_to_usize(
-            state
-                .memory
-                .read_global_metadata(GlobalMetadata::StateTrieRoot),
-        )
-        .map_err(|_| anyhow!("State trie pointer is too large to fit in a usize."))?;
-        log::debug!(
-            "Computed state trie: {:?}",
-            get_state_trie::<HashedPartialTrie>(&state.memory, state_trie_ptr)
-        );
+        // Retrieve previous PC (before jumping to KernelPanic), to see if we reached `hash_final_tries`.
+        // We will output debugging information on the final tries only if we got a root mismatch.
+        let previous_pc = state
+            .traces
+            .cpu
+            .last()
+            .expect("We should have CPU rows")
+            .program_counter
+            .to_canonical_u64() as usize;
 
-        let txn_trie_ptr = u256_to_usize(
-            state
-                .memory
-                .read_global_metadata(GlobalMetadata::TransactionTrieRoot),
-        )
-        .map_err(|_| anyhow!("Transactions trie pointer is too large to fit in a usize."))?;
-        log::debug!(
-            "Computed transactions trie: {:?}",
-            get_txn_trie::<HashedPartialTrie>(&state.memory, txn_trie_ptr)
-        );
+        if KERNEL.offset_name(previous_pc).contains("hash_final_tries") {
+            let state_trie_ptr = u256_to_usize(
+                state
+                    .memory
+                    .read_global_metadata(GlobalMetadata::StateTrieRoot),
+            )
+            .map_err(|_| anyhow!("State trie pointer is too large to fit in a usize."))?;
+            log::debug!(
+                "Computed state trie: {:?}",
+                get_state_trie::<HashedPartialTrie>(&state.memory, state_trie_ptr)
+            );
 
-        let receipt_trie_ptr = u256_to_usize(
-            state
-                .memory
-                .read_global_metadata(GlobalMetadata::ReceiptTrieRoot),
-        )
-        .map_err(|_| anyhow!("Receipts trie pointer is too large to fit in a usize."))?;
-        log::debug!(
-            "Computed receipts trie: {:?}",
-            get_receipt_trie::<HashedPartialTrie>(&state.memory, receipt_trie_ptr)
-        );
+            let txn_trie_ptr = u256_to_usize(
+                state
+                    .memory
+                    .read_global_metadata(GlobalMetadata::TransactionTrieRoot),
+            )
+            .map_err(|_| anyhow!("Transactions trie pointer is too large to fit in a usize."))?;
+            log::debug!(
+                "Computed transactions trie: {:?}",
+                get_txn_trie::<HashedPartialTrie>(&state.memory, txn_trie_ptr)
+            );
+
+            let receipt_trie_ptr = u256_to_usize(
+                state
+                    .memory
+                    .read_global_metadata(GlobalMetadata::ReceiptTrieRoot),
+            )
+            .map_err(|_| anyhow!("Receipts trie pointer is too large to fit in a usize."))?;
+            log::debug!(
+                "Computed receipts trie: {:?}",
+                get_receipt_trie::<HashedPartialTrie>(&state.memory, receipt_trie_ptr)
+            );
+        }
 
         cpu_res?;
     }
