@@ -507,7 +507,14 @@ pub(crate) fn get_memory_extra_looking_sum_circuit<F: RichField + Extendable<D>,
     });
 
     beneficiary_random_base_fee_cur_hash_fields.map(|(field, targets)| {
-        sum = add_data_write(builder, challenge, sum, metadata_segment, field, targets);
+        sum = add_data_write(
+            builder,
+            challenge,
+            sum,
+            metadata_segment,
+            field - Segment::GlobalMetadata as usize,
+            targets,
+        );
     });
 
     // Add block hashes writes.
