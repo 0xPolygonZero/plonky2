@@ -104,7 +104,7 @@ fn observe_extra_block_data<
     challenger: &mut Challenger<F, C::Hasher>,
     extra_data: &ExtraBlockData,
 ) -> Result<(), ProgramError> {
-    challenger.observe_elements(&h256_limbs(extra_data.genesis_state_trie_root));
+    challenger.observe_elements(&h256_limbs(extra_data.checkpoint_state_trie_root));
     challenger.observe_element(u256_to_u32(extra_data.txn_number_before)?);
     challenger.observe_element(u256_to_u32(extra_data.txn_number_after)?);
     challenger.observe_element(u256_to_u32(extra_data.gas_used_before)?);
@@ -123,7 +123,7 @@ fn observe_extra_block_data_target<
 ) where
     C::Hasher: AlgebraicHasher<F>,
 {
-    challenger.observe_elements(&extra_data.genesis_state_trie_root);
+    challenger.observe_elements(&extra_data.checkpoint_state_trie_root);
     challenger.observe_element(extra_data.txn_number_before);
     challenger.observe_element(extra_data.txn_number_after);
     challenger.observe_element(extra_data.gas_used_before);

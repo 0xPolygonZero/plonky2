@@ -127,7 +127,7 @@ fn test_selfdestruct() -> anyhow::Result<()> {
         tries: tries_before,
         trie_roots_after,
         contract_code,
-        genesis_state_trie_root: HashedPartialTrie::from(Node::Empty).hash(),
+        checkpoint_state_trie_root: HashedPartialTrie::from(Node::Empty).hash(),
         block_metadata,
         txn_number_before: 0.into(),
         gas_used_before: 0.into(),
