@@ -3,6 +3,7 @@ use plonky2::field::packed::PackedField;
 use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
+use plonky2::plonk::circuit_builder::CircuitBuilder;
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::{CpuColumnsView, COL_MAP};
@@ -23,7 +24,7 @@ use crate::cpu::columns::{CpuColumnsView, COL_MAP};
 /// behavior.
 /// Note: invalid opcodes are not represented here. _Any_ opcode is permitted to decode to
 /// `is_invalid`. The kernel then verifies that the opcode was _actually_ invalid.
-const OPCODES: [(u8, usize, bool, usize); 7] = [
+const OPCODES: [(u8, usize, bool, usize); 5] = [
     // (start index of block, number of top bits to check (log2), kernel-only, flag column)
     // ADD, MUL, SUB, DIV, MOD, LT, GT and BYTE flags are handled partly manually here, and partly through the Arithmetic table CTL.
     // ADDMOD, MULMOD and SUBMOD flags are handled partly manually here, and partly through the Arithmetic table CTL.
@@ -33,9 +34,7 @@ const OPCODES: [(u8, usize, bool, usize); 7] = [
     // NOT and POP are handled manually here.
     // SHL and SHR flags are handled partly manually here, and partly through the Logic table CTL.
     // JUMPDEST and KECCAK_GENERAL are handled manually here.
-    (0x49, 0, true, COL_MAP.op.prover_input),
     (0x56, 1, false, COL_MAP.op.jumps),     // 0x56-0x57
-    (0x60, 5, false, COL_MAP.op.push),      // 0x60-0x7f
     (0x80, 5, false, COL_MAP.op.dup_swap),  // 0x80-0x9f
     (0xf6, 1, true, COL_MAP.op.context_op), //0xf6-0xf7
     (0xf9, 0, true, COL_MAP.op.exit_kernel),
@@ -45,7 +44,7 @@ const OPCODES: [(u8, usize, bool, usize); 7] = [
 /// List of combined opcodes requiring a special handling.
 /// Each index in the list corresponds to an arbitrary combination
 /// of opcodes defined in evm/src/cpu/columns/ops.rs.
-const COMBINED_OPCODES: [usize; 10] = [
+const COMBINED_OPCODES: [usize; 11] = [
     COL_MAP.op.logic_op,
     COL_MAP.op.fp254_op,
     COL_MAP.op.binary_op,
@@ -56,6 +55,7 @@ const COMBINED_OPCODES: [usize; 10] = [
     COL_MAP.op.not_pop,
     COL_MAP.op.pc_push0,
     COL_MAP.op.m_op_32bytes,
+    COL_MAP.op.push_prover_input,
 ];
 
 /// Break up an opcode (which is 8 bits long) into its eight bits.
@@ -192,6 +192,16 @@ pub(crate) fn eval_packed_generic<P: PackedField>(
         * (opcode - P::Scalar::from_canonical_usize(0xf8_usize))
         * lv.op.m_op_32bytes;
     yield_constr.constraint(op_32bytes);
+
+    // Manually check PUSH and PROVER_INPUT.
+    // PROVER_INPUT is a kernel-only instruction, but not PUSH.
+    let push_prover_input_constr = (opcode - P::Scalar::from_canonical_usize(0x49_usize))
+        * (opcode_high_three - P::Scalar::from_canonical_usize(0x60_usize))
+        * lv.op.push_prover_input;
+    yield_constr.constraint(push_prover_input_constr);
+    let prover_input_constr =
+        lv.op.push_prover_input * (lv.opcode_bits[5] - P::ONES) * (P::ONES - kernel_mode);
+    yield_constr.constraint(prover_input_constr);
 }
 
 fn opcode_high_bits_circuit<F: RichField + Extendable<D>, const D: usize>(
@@ -372,5 +382,25 @@ pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let mload_32bytes_constr = builder.sub_extension(opcode, mload_32bytes_opcode);
     let constr = builder.mul_extension(mstore_32bytes_constr, mload_32bytes_constr);
     let constr = builder.mul_extension(constr, lv.op.m_op_32bytes);
+    yield_constr.constraint(builder, constr);
+
+    // Manually check PUSH and PROVER_INPUT.
+    // PROVER_INPUT is a kernel-only instruction, but not PUSH.
+    let prover_input_opcode =
+        builder.constant_extension(F::Extension::from_canonical_usize(0x49usize));
+    let push_opcodes = builder.constant_extension(F::Extension::from_canonical_usize(0x60usize));
+
+    let push_constr = builder.sub_extension(opcode_high_three, push_opcodes);
+    let prover_input_constr = builder.sub_extension(opcode, prover_input_opcode);
+
+    let push_prover_input_constr =
+        builder.mul_many_extension([lv.op.push_prover_input, prover_input_constr, push_constr]);
+    yield_constr.constraint(builder, push_prover_input_constr);
+    let prover_input_filter = builder.mul_sub_extension(
+        lv.op.push_prover_input,
+        lv.opcode_bits[5],
+        lv.op.push_prover_input,
+    );
+    let constr = builder.mul_extension(prover_input_filter, is_not_kernel_mode);
     yield_constr.constraint(builder, constr);
 }

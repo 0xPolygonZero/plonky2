@@ -161,7 +161,6 @@ pub(crate) fn decode(registers: RegistersState, opcode: u8) -> Result<Operation,
 fn fill_op_flag<F: Field>(op: Operation, row: &mut CpuColumnsView<F>) {
     let flags = &mut row.op;
     *match op {
-        Operation::Push(1..) => &mut flags.push,
         Operation::Dup(_) | Operation::Swap(_) => &mut flags.dup_swap,
         Operation::Iszero | Operation::Eq => &mut flags.eq_iszero,
         Operation::Not | Operation::Pop => &mut flags.not_pop,
@@ -175,7 +174,7 @@ fn fill_op_flag<F: Field>(op: Operation, row: &mut CpuColumnsView<F>) {
         Operation::BinaryArithmetic(_) => &mut flags.binary_op,
         Operation::TernaryArithmetic(_) => &mut flags.ternary_op,
         Operation::KeccakGeneral | Operation::Jumpdest => &mut flags.jumpdest_keccak_general,
-        Operation::ProverInput => &mut flags.prover_input,
+        Operation::ProverInput | Operation::Push(1..) => &mut flags.push_prover_input,
         Operation::Jump | Operation::Jumpi => &mut flags.jumps,
         Operation::Pc | Operation::Push(0) => &mut flags.pc_push0,
         Operation::GetContext | Operation::SetContext => &mut flags.context_op,
@@ -189,7 +188,7 @@ fn fill_op_flag<F: Field>(op: Operation, row: &mut CpuColumnsView<F>) {
 const fn get_op_special_length(op: Operation) -> Option<usize> {
     let behavior_opt = match op {
         Operation::Push(0) | Operation::Pc => STACK_BEHAVIORS.pc_push0,
-        Operation::Push(1..) => STACK_BEHAVIORS.push,
+        Operation::Push(1..) | Operation::ProverInput => STACK_BEHAVIORS.push_prover_input,
         Operation::Dup(_) | Operation::Swap(_) => STACK_BEHAVIORS.dup_swap,
         Operation::Iszero => IS_ZERO_STACK_BEHAVIOR,
         Operation::Not | Operation::Pop => STACK_BEHAVIORS.not_pop,
@@ -206,7 +205,6 @@ const fn get_op_special_length(op: Operation) -> Option<usize> {
         Operation::BinaryArithmetic(_) => STACK_BEHAVIORS.binary_op,
         Operation::TernaryArithmetic(_) => STACK_BEHAVIORS.ternary_op,
         Operation::KeccakGeneral | Operation::Jumpdest => STACK_BEHAVIORS.jumpdest_keccak_general,
-        Operation::ProverInput => STACK_BEHAVIORS.prover_input,
         Operation::Jump => JUMP_OP,
         Operation::Jumpi => JUMPI_OP,
         Operation::GetContext | Operation::SetContext => None,
@@ -229,7 +227,7 @@ const fn get_op_special_length(op: Operation) -> Option<usize> {
 // Kernel-only pushing instructions aren't considered; they can't overflow.
 const fn might_overflow_op(op: Operation) -> bool {
     match op {
-        Operation::Push(1..) => MIGHT_OVERFLOW.push,
+        Operation::Push(1..) | Operation::ProverInput => MIGHT_OVERFLOW.push_prover_input,
         Operation::Dup(_) | Operation::Swap(_) => MIGHT_OVERFLOW.dup_swap,
         Operation::Iszero | Operation::Eq => MIGHT_OVERFLOW.eq_iszero,
         Operation::Not | Operation::Pop => MIGHT_OVERFLOW.not_pop,
@@ -245,7 +243,6 @@ const fn might_overflow_op(op: Operation) -> bool {
         Operation::BinaryArithmetic(_) => MIGHT_OVERFLOW.binary_op,
         Operation::TernaryArithmetic(_) => MIGHT_OVERFLOW.ternary_op,
         Operation::KeccakGeneral | Operation::Jumpdest => MIGHT_OVERFLOW.jumpdest_keccak_general,
-        Operation::ProverInput => MIGHT_OVERFLOW.prover_input,
         Operation::Jump | Operation::Jumpi => MIGHT_OVERFLOW.jumps,
         Operation::Pc | Operation::Push(0) => MIGHT_OVERFLOW.pc_push0,
         Operation::GetContext | Operation::SetContext => MIGHT_OVERFLOW.context_op,
