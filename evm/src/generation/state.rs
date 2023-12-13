@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 
 use ethereum_types::{Address, BigEndianHash, H160, H256, U256};
 use keccak_hash::keccak;
@@ -50,6 +50,8 @@ pub(crate) struct GenerationState<F: Field> {
 
     /// Pointers, within the `TrieData` segment, of the three MPTs.
     pub(crate) trie_root_ptrs: TrieRootPtrs,
+
+    pub(crate) jumpdest_proofs: Option<HashMap<usize, Vec<usize>>>,
 }
 
 impl<F: Field> GenerationState<F> {
@@ -91,6 +93,7 @@ impl<F: Field> GenerationState<F> {
                 txn_root_ptr: 0,
                 receipt_root_ptr: 0,
             },
+            jumpdest_proofs: None,
         };
         let trie_root_ptrs = state.preinitialize_mpts(&inputs.tries);
 
@@ -166,6 +169,26 @@ impl<F: Field> GenerationState<F> {
         (0..self.registers.stack_len.min(MAX_TO_SHOW))
             .map(|i| stack_peek(self, i).unwrap())
             .collect()
+    }
+
+    /// Clone everything but the traces
+    pub(crate) fn soft_clone(&self) -> GenerationState<F> {
+        Self {
+            inputs: self.inputs.clone(),
+            registers: self.registers,
+            memory: self.memory.clone(),
+            traces: Traces::default(),
+            rlp_prover_inputs: self.rlp_prover_inputs.clone(),
+            state_key_to_address: self.state_key_to_address.clone(),
+            bignum_modmul_result_limbs: self.bignum_modmul_result_limbs.clone(),
+            withdrawal_prover_inputs: self.withdrawal_prover_inputs.clone(),
+            trie_root_ptrs: TrieRootPtrs {
+                state_root_ptr: 0,
+                txn_root_ptr: 0,
+                receipt_root_ptr: 0,
+            },
+            jumpdest_proofs: None,
+        }
     }
 }
 

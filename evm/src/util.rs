@@ -70,6 +70,11 @@ pub(crate) fn u256_to_u64<F: Field>(u256: U256) -> Result<(F, F), ProgramError> 
     ))
 }
 
+/// Safe conversion from U256 to u8, which errors in case of overflow instead of panicking.
+pub(crate) fn u256_to_u8(u256: U256) -> Result<u8, ProgramError> {
+    u256.try_into().map_err(|_| ProgramError::IntegerTooLarge)
+}
+
 /// Safe alternative to `U256::as_usize()`, which errors in case of overflow instead of panicking.
 pub(crate) fn u256_to_usize(u256: U256) -> Result<usize, ProgramError> {
     u256.try_into().map_err(|_| ProgramError::IntegerTooLarge)

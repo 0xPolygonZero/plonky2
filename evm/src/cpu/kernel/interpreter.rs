@@ -1,7 +1,7 @@
 //! An EVM interpreter for testing and debugging purposes.
 
 use core::cmp::Ordering;
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::ops::Range;
 
 use anyhow::bail;
@@ -10,6 +10,7 @@ use keccak_hash::keccak;
 use plonky2::field::goldilocks_field::GoldilocksField;
 
 use super::assembler::BYTES_PER_OFFSET;
+use super::utils::u256_from_bool;
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::constants::context_metadata::ContextMetadata;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
@@ -413,7 +414,23 @@ impl<'a> Interpreter<'a> {
             .collect()
     }
 
-    fn incr(&mut self, n: usize) {
+    pub(crate) fn set_jumpdest_bits(&mut self, context: usize, jumpdest_bits: Vec<bool>) {
+        self.generation_state.memory.contexts[context].segments[Segment::JumpdestBits as usize]
+            .content = jumpdest_bits.iter().map(|&x| u256_from_bool(x)).collect();
+        self.generation_state
+            .set_proofs_and_jumpdests(HashMap::from([(
+                context,
+                BTreeSet::from_iter(
+                    jumpdest_bits
+                        .into_iter()
+                        .enumerate()
+                        .filter(|&(_, x)| x)
+                        .map(|(i, _)| i),
+                ),
+            )]));
+    }
+
+    pub(crate) fn incr(&mut self, n: usize) {
         self.generation_state.registers.program_counter += n;
     }
 

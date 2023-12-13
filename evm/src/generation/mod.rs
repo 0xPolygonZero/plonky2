@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
@@ -8,6 +8,7 @@ use ethereum_types::{Address, BigEndianHash, H256, U256};
 use itertools::enumerate;
 use plonky2::field::extension::Extendable;
 use plonky2::field::polynomial::PolynomialValues;
+use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
 use plonky2::timed;
 use plonky2::util::timing::TimingTree;
@@ -21,13 +22,16 @@ use crate::all_stark::{AllStark, NUM_TABLES};
 use crate::config::StarkConfig;
 use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::kernel::aggregator::KERNEL;
+use crate::cpu::kernel::assembler::Kernel;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
+use crate::cpu::kernel::opcodes::get_opcode;
 use crate::generation::state::GenerationState;
 use crate::generation::trie_extractor::{get_receipt_trie, get_state_trie, get_txn_trie};
 use crate::memory::segments::Segment;
 use crate::proof::{BlockHashes, BlockMetadata, ExtraBlockData, PublicValues, TrieRoots};
 use crate::prover::check_abort_signal;
-use crate::util::{h2u, u256_to_usize};
+use crate::util::{h2u, u256_to_u8, u256_to_usize};
+use crate::witness::errors::{ProgramError, ProverInputError};
 use crate::witness::memory::{MemoryAddress, MemoryChannel};
 use crate::witness::transition::transition;
 
@@ -38,7 +42,7 @@ pub(crate) mod state;
 mod trie_extractor;
 
 use self::mpt::{load_all_mpts, TrieRootPtrs};
-use crate::witness::util::mem_write_log;
+use crate::witness::util::{mem_write_log, stack_peek};
 
 /// Inputs needed for trace generation.
 #[derive(Clone, Debug, Deserialize, Serialize, Default)]
@@ -296,9 +300,7 @@ pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
     Ok((tables, public_values))
 }
 
-fn simulate_cpu<F: RichField + Extendable<D>, const D: usize>(
-    state: &mut GenerationState<F>,
-) -> anyhow::Result<()> {
+fn simulate_cpu<F: Field>(state: &mut GenerationState<F>) -> anyhow::Result<()> {
     let halt_pc = KERNEL.global_labels["halt"];
 
     loop {
@@ -331,5 +333,83 @@ fn simulate_cpu<F: RichField + Extendable<D>, const D: usize>(
         }
 
         transition(state)?;
+    }
+}
+
+fn simulate_cpu_between_labels_and_get_user_jumps<F: Field>(
+    initial_label: &str,
+    final_label: &str,
+    state: &mut GenerationState<F>,
+) -> Result<Option<HashMap<usize, BTreeSet<usize>>>, ProgramError> {
+    if state.jumpdest_proofs.is_some() {
+        Ok(None)
+    } else {
+        const JUMP_OPCODE: u8 = 0x56;
+        const JUMPI_OPCODE: u8 = 0x57;
+
+        let halt_pc = KERNEL.global_labels[final_label];
+        let mut jumpdest_addresses: HashMap<_, BTreeSet<usize>> = HashMap::new();
+
+        state.registers.program_counter = KERNEL.global_labels[initial_label];
+        let initial_clock = state.traces.clock();
+        let initial_context = state.registers.context;
+
+        log::debug!("Simulating CPU for jumpdest analysis.");
+
+        loop {
+            // skip jumdest table validations in simulations
+            if state.registers.program_counter == KERNEL.global_labels["jumpdest_analisys"] {
+                state.registers.program_counter = KERNEL.global_labels["jumpdest_analisys_end"]
+            }
+            let pc = state.registers.program_counter;
+            let context = state.registers.context;
+            let halt = state.registers.is_kernel
+                && pc == halt_pc
+                && state.registers.context == initial_context;
+            let opcode = u256_to_u8(state.memory.get(MemoryAddress {
+                context,
+                segment: Segment::Code as usize,
+                virt: state.registers.program_counter,
+            }))?;
+            let cond = if let Ok(cond) = stack_peek(state, 1) {
+                cond != U256::zero()
+            } else {
+                false
+            };
+            if !state.registers.is_kernel
+                && (opcode == JUMP_OPCODE || (opcode == JUMPI_OPCODE && cond))
+            {
+                // Avoid deeper calls to abort
+                let jumpdest = u256_to_usize(state.registers.stack_top)?;
+                state.memory.set(
+                    MemoryAddress {
+                        context,
+                        segment: Segment::JumpdestBits as usize,
+                        virt: jumpdest,
+                    },
+                    U256::one(),
+                );
+                let jumpdest_opcode = state.memory.get(MemoryAddress {
+                    context,
+                    segment: Segment::Code as usize,
+                    virt: jumpdest,
+                });
+                if let Some(ctx_addresses) = jumpdest_addresses.get_mut(&context) {
+                    ctx_addresses.insert(jumpdest);
+                } else {
+                    jumpdest_addresses.insert(context, BTreeSet::from([jumpdest]));
+                }
+            }
+            if halt {
+                log::debug!(
+                    "Simulated CPU halted after {} cycles",
+                    state.traces.clock() - initial_clock
+                );
+                return Ok(Some(jumpdest_addresses));
+            }
+            transition(state).map_err(|_| {
+                ProgramError::ProverInputError(ProverInputError::InvalidJumpdestSimulation)
+            })?;
+        }
     }
 }
