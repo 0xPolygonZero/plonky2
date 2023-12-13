@@ -558,7 +558,11 @@ pub(crate) mod testutils {
         let mut extra_looking_rows = Vec::new();
 
         fields.map(|(field, val)| {
-            extra_looking_rows.push(add_extra_looking_row(segment, field as usize, val))
+            extra_looking_rows.push(add_extra_looking_row(
+                segment,
+                field as usize - Segment::GlobalMetadata as usize,
+                val,
+            ))
         });
 
         // Add block bloom writes.
