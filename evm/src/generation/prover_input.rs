@@ -276,12 +276,6 @@ impl<F: Field> GenerationState<F> {
 
     /// Return the proof for the last jump adddress
     fn run_next_jumpdest_table_proof(&mut self) -> Result<U256, ProgramError> {
-        let code_len = u256_to_usize(self.memory.get(MemoryAddress {
-            context: self.registers.context,
-            segment: Segment::ContextMetadata as usize,
-            virt: ContextMetadata::CodeSize as usize,
-        }))?;
-
         let code = (0..self.last_jumpdest_address)
             .map(|i| {
                 u256_to_u8(self.memory.get(MemoryAddress {
