@@ -257,51 +257,7 @@ impl<F: Field> GenerationState<F> {
         }))?;
 
         if self.jumpdest_addresses.is_none() {
-            let mut state: GenerationState<F> = self.soft_clone();
-
-            let mut jumpdest_addresses = vec![];
-            // Generate the jumpdest table
-            let code = (0..code_len)
-                .map(|i| {
-                    u256_to_u8(self.memory.get(MemoryAddress {
-                        context: self.registers.context,
-                        segment: Segment::Code as usize,
-                        virt: i,
-                    }))
-                })
-                .collect::<Result<Vec<u8>, _>>()?;
-            let mut i = 0;
-            while i < code_len {
-                if code[i] == get_opcode("JUMPDEST") {
-                    jumpdest_addresses.push(i);
-                    state.memory.set(
-                        MemoryAddress {
-                            context: state.registers.context,
-                            segment: Segment::JumpdestBits as usize,
-                            virt: i,
-                        },
-                        U256::one(),
-                    );
-                    log::debug!("jumpdest at {i}");
-                }
-                i += if code[i] >= get_push_opcode(1) && code[i] <= get_push_opcode(32) {
-                    (code[i] - get_push_opcode(1) + 2).into()
-                } else {
-                    1
-                }
-            }
-
-            // We need to skip the validate table call
-            self.jumpdest_addresses = simulate_cpu_between_labels_and_get_user_jumps(
-                "validate_jumpdest_table_end",
-                "terminate_common",
-                &mut state,
-            )
-            .ok();
-            log::debug!("code len = {code_len}");
-            log::debug!("all jumpdest addresses = {:?}", jumpdest_addresses);
-            log::debug!("user's jumdest addresses = {:?}", self.jumpdest_addresses);
-            // self.jumpdest_addresses = Some(jumpdest_addresses);
+            self.generate_jumpdest_table()?;
         }
 
         let Some(jumpdest_table) = &mut self.jumpdest_addresses else {
@@ -326,57 +282,138 @@ impl<F: Field> GenerationState<F> {
             virt: ContextMetadata::CodeSize as usize,
         }))?;
 
-        let mut address = MemoryAddress {
-            context: self.registers.context,
-            segment: Segment::Code as usize,
-            virt: 0,
-        };
-        let mut proof = 0;
-        let mut prefix_size = 0;
+        let code = (0..self.last_jumpdest_address)
+            .map(|i| {
+                u256_to_u8(self.memory.get(MemoryAddress {
+                    context: self.registers.context,
+                    segment: Segment::Code as usize,
+                    virt: i,
+                }))
+            })
+            .collect::<Result<Vec<u8>, _>>()?;
 
         // TODO: The proof searching algorithm is not very eficient. But luckyly it doesn't seem
-        // a problem because is done natively.
+        // a problem as is done natively.
 
         // Search the closest address to last_jumpdest_address for which none of
         // the previous 32 bytes in the code (including opcodes and pushed bytes)
         // are PUSHXX and the address is in its range
-        while address.virt < self.last_jumpdest_address {
-            let opcode = u256_to_u8(self.memory.get(address))?;
-            let is_push =
-                opcode >= get_push_opcode(1).into() && opcode <= get_push_opcode(32).into();
 
-            address.virt += if is_push {
-                (opcode - get_push_opcode(1) + 2).into()
-            } else {
-                1
-            };
-            // Check if the new address has a prefix of size >= 32
-            let mut has_prefix = true;
-            for i in address.virt as i32 - 32..address.virt as i32 {
-                let opcode = u256_to_u8(self.memory.get(MemoryAddress {
+        let proof = CodeIterator::until(&code, self.last_jumpdest_address + 1).fold(
+            0,
+            |acc, (pos, opcode)| {
+                let has_prefix = if let Some(prefix_start) = pos.checked_sub(32) {
+                    code[prefix_start..pos].iter().enumerate().fold(
+                        true,
+                        |acc, (prefix_pos, &byte)| {
+                            acc && (byte > get_push_opcode(32)
+                                || (prefix_start + prefix_pos) as i32
+                                    + (byte as i32 - get_push_opcode(1) as i32)
+                                    + 1
+                                    < pos as i32)
+                        },
+                    )
+                } else {
+                    false
+                };
+                if has_prefix {
+                    pos - 32
+                } else {
+                    acc
+                }
+            },
+        );
+        Ok(proof.into())
+    }
+}
+
+impl<F: Field> GenerationState<F> {
+    fn generate_jumpdest_table(&mut self) -> Result<(), ProgramError> {
+        let mut state = self.soft_clone();
+        let code_len = u256_to_usize(self.memory.get(MemoryAddress {
+            context: self.registers.context,
+            segment: Segment::ContextMetadata as usize,
+            virt: ContextMetadata::CodeSize as usize,
+        }))?;
+        // Generate the jumpdest table
+        let code = (0..code_len)
+            .map(|i| {
+                u256_to_u8(self.memory.get(MemoryAddress {
                     context: self.registers.context,
                     segment: Segment::Code as usize,
-                    virt: i as usize,
-                }))?;
-                if i < 0
-                    || (opcode >= get_push_opcode(1)
-                        && opcode <= get_push_opcode(32)
-                        && i + (opcode - get_push_opcode(1)) as i32 + 1 >= address.virt as i32)
-                {
-                    has_prefix = false;
-                    break;
-                }
-            }
-            if has_prefix {
-                proof = address.virt - 32;
+                    virt: i,
+                }))
+            })
+            .collect::<Result<Vec<u8>, _>>()?;
+
+        // We need to set the the simulated jumpdest bits to one as otherwise
+        // the simulation will fail
+        let mut jumpdest_table = vec![];
+        for (pos, opcode) in CodeIterator::new(&code) {
+            jumpdest_table.push((pos, opcode == get_opcode("JUMPDEST")));
+            if opcode == get_opcode("JUMPDEST") {
+                state.memory.set(
+                    MemoryAddress {
+                        context: state.registers.context,
+                        segment: Segment::JumpdestBits as usize,
+                        virt: pos,
+                    },
+                    U256::one(),
+                );
             }
         }
-        if address.virt > self.last_jumpdest_address {
-            return Err(ProgramError::ProverInputError(
-                ProverInputError::InvalidJumpDestination,
-            ));
+
+        // Simulate the user's code and (unnecessarily) part of the kernel code, skipping the validate table call
+        self.jumpdest_addresses = simulate_cpu_between_labels_and_get_user_jumps(
+            "validate_jumpdest_table_end",
+            "terminate_common",
+            &mut state,
+        )
+        .ok();
+
+        Ok(())
+    }
+}
+
+struct CodeIterator<'a> {
+    code: &'a Vec<u8>,
+    pos: usize,
+    end: usize,
+}
+
+impl<'a> CodeIterator<'a> {
+    fn new(code: &'a Vec<u8>) -> Self {
+        CodeIterator {
+            end: code.len(),
+            code,
+            pos: 0,
         }
-        Ok(proof.into())
+    }
+    fn until(code: &'a Vec<u8>, end: usize) -> Self {
+        CodeIterator {
+            end: std::cmp::min(code.len(), end),
+            code,
+            pos: 0,
+        }
+    }
+}
+
+impl<'a> Iterator for CodeIterator<'a> {
+    type Item = (usize, u8);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let CodeIterator { code, pos, end } = self;
+        if *pos >= *end {
+            return None;
+        }
+        let opcode = code[*pos];
+        let old_pos = *pos;
+        *pos += if opcode >= get_push_opcode(1) && opcode <= get_push_opcode(32) {
+            (opcode - get_push_opcode(1) + 2).into()
+        } else {
+            1
+        };
+        Some((old_pos, opcode))
     }
 }
 

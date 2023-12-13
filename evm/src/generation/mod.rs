@@ -293,6 +293,8 @@ fn simulate_cpu_between_labels_and_get_user_jumps<F: Field>(
     state.registers.program_counter = KERNEL.global_labels[initial_label];
     let context = state.registers.context;
 
+    log::debug!("Simulating CPU for jumpdest analysis ");
+
     loop {
         if state.registers.program_counter == KERNEL.global_labels["validate_jumpdest_table"] {
             state.registers.program_counter = KERNEL.global_labels["validate_jumpdest_table_end"]
@@ -330,7 +332,9 @@ fn simulate_cpu_between_labels_and_get_user_jumps<F: Field>(
         }
         if halt {
             log::debug!("Simulated CPU halted after {} cycles", state.traces.clock());
-            return Ok(jumpdest_addresses.into_iter().collect());
+            let mut jumpdest_addresses: Vec<usize> = jumpdest_addresses.into_iter().collect();
+            jumpdest_addresses.sort();
+            return Ok(jumpdest_addresses);
         }
 
         transition(state)?;

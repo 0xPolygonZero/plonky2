@@ -10,6 +10,7 @@ use keccak_hash::keccak;
 use plonky2::field::goldilocks_field::GoldilocksField;
 
 use super::assembler::BYTES_PER_OFFSET;
+use super::utils::u256_from_bool;
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::constants::context_metadata::ContextMetadata;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
@@ -287,6 +288,14 @@ impl<'a> Interpreter<'a> {
             .iter()
             .map(|x| x.bit(0))
             .collect()
+    }
+
+    pub(crate) fn set_jumpdest_bits(&mut self, context: usize, jumpdest_bits: Vec<bool>) {
+        self.generation_state.memory.contexts[context].segments[Segment::JumpdestBits as usize]
+            .content = jumpdest_bits
+            .into_iter()
+            .map(|x| u256_from_bool(x))
+            .collect();
     }
 
     fn incr(&mut self, n: usize) {
