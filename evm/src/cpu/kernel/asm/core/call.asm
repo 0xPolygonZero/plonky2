@@ -367,13 +367,10 @@ call_too_deep:
     %checkpoint // Checkpoint
     %increment_call_depth
     // Perform jumpdest analyis
-    // PUSH %%after
-    // %mload_context_metadata(@CTX_METADATA_CODE_SIZE)
-    // GET_CONTEXT
+    GET_CONTEXT
     // stack: ctx, code_size, retdest
-    // %jump(jumpdest_analysis)
     %validate_jumpdest_table
-%%after:
+    
     PUSH 0 // jump dest
     EXIT_KERNEL
     // (Old context) stack: new_ctx
