@@ -147,7 +147,7 @@ pub(crate) fn read_logs(num_logs: usize, slice: &[U256]) -> Result<Vec<LogRlp>, 
     (0..num_logs)
         .map(|_| {
             let x = slice[0];
-            let address = u256_to_h160(slice[offset + 0])?;
+            let address = u256_to_h160(slice[offset])?;
             let num_topics = u256_to_usize(slice[offset + 1])?;
 
             let topics = (0..num_topics)
@@ -260,11 +260,11 @@ pub(crate) fn get_trie_helper<N: PartialTrie>(
 
     let trie_type = PartialTrieType::all()[u256_to_usize(load(ptr))?];
     match trie_type {
-        PartialTrieType::Empty => Ok(Node::Empty.into()),
+        PartialTrieType::Empty => Ok(Node::Empty),
         PartialTrieType::Hash => {
             let ptr_payload = ptr + 1;
             let hash = H256::from_uint(&load(ptr_payload));
-            Ok(Node::Hash(hash).into())
+            Ok(Node::Hash(hash))
         }
         PartialTrieType::Branch => {
             let ptr_payload = ptr + 1;
@@ -280,7 +280,7 @@ pub(crate) fn get_trie_helper<N: PartialTrie>(
             if value_ptr != 0 {
                 value = read_value(memory, load_slice_from(value_ptr))?;
             };
-            Ok(Node::Branch { children, value }.into())
+            Ok(Node::Branch { children, value })
         }
         PartialTrieType::Extension => {
             let count = u256_to_usize(load(ptr + 1))?;
@@ -296,7 +296,7 @@ pub(crate) fn get_trie_helper<N: PartialTrie>(
                 read_value,
                 prefix.merge_nibbles(&nibbles),
             )?);
-            Ok(Node::Extension { nibbles, child }.into())
+            Ok(Node::Extension { nibbles, child })
         }
         PartialTrieType::Leaf => {
             let count = u256_to_usize(load(ptr + 1))?;
@@ -307,7 +307,7 @@ pub(crate) fn get_trie_helper<N: PartialTrie>(
             };
             let value_ptr = u256_to_usize(load(ptr + 3))?;
             let value = read_value(memory, load_slice_from(value_ptr))?;
-            Ok(Node::Leaf { nibbles, value }.into())
+            Ok(Node::Leaf { nibbles, value })
         }
     }
 }
