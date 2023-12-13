@@ -377,7 +377,7 @@ where
 
     let alphas = challenger.get_n_challenges(config.num_challenges);
 
-    #[cfg(test)]
+    // #[cfg(test)]
     {
         check_constraints(
             stark,
@@ -636,7 +636,7 @@ where
         .collect()
 }
 
-#[cfg(test)]
+// #[cfg(test)]
 /// Check that all constraints evaluate to zero on `H`.
 /// Can also be used to check the degree of the constraints by evaluating on a larger subgroup.
 fn check_constraints<'a, F, C, S, const D: usize>(
