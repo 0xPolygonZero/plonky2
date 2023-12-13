@@ -1,24 +1,34 @@
+use std::cmp::min;
+use std::collections::HashSet;
 use std::mem::transmute;
 use std::str::FromStr;
 
 use anyhow::{bail, Error};
 use ethereum_types::{BigEndianHash, H256, U256, U512};
+use hashbrown::HashMap;
 use itertools::{enumerate, Itertools};
 use num_bigint::BigUint;
+use plonky2::field::extension::Extendable;
 use plonky2::field::types::Field;
+use plonky2::hash::hash_types::RichField;
 use serde::{Deserialize, Serialize};
 
+use crate::cpu::kernel::aggregator::KERNEL;
+use crate::cpu::kernel::constants::context_metadata::ContextMetadata;
+use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
+use crate::cpu::kernel::opcodes::{get_opcode, get_push_opcode};
 use crate::extension_tower::{FieldExt, Fp12, BLS381, BN254};
 use crate::generation::prover_input::EvmField::{
     Bls381Base, Bls381Scalar, Bn254Base, Bn254Scalar, Secp256k1Base, Secp256k1Scalar,
 };
 use crate::generation::prover_input::FieldOp::{Inverse, Sqrt};
+use crate::generation::simulate_cpu_between_labels_and_get_user_jumps;
 use crate::generation::state::GenerationState;
 use crate::memory::segments::Segment;
 use crate::memory::segments::Segment::BnPairing;
-use crate::util::{biguint_to_mem_vec, mem_vec_to_biguint, u256_to_usize};
-use crate::witness::errors::ProgramError;
+use crate::util::{biguint_to_mem_vec, mem_vec_to_biguint, u256_to_u8, u256_to_usize};
 use crate::witness::errors::ProverInputError::*;
+use crate::witness::errors::{ProgramError, ProverInputError};
 use crate::witness::memory::MemoryAddress;
 use crate::witness::util::{current_context_peek, stack_peek};
 
@@ -47,6 +57,7 @@ impl<F: Field> GenerationState<F> {
             "bignum_modmul" => self.run_bignum_modmul(),
             "withdrawal" => self.run_withdrawal(),
             "num_bits" => self.run_num_bits(),
+            "jumpdest_table" => self.run_jumpdest_table(input_fn),
             _ => Err(ProgramError::ProverInputError(InvalidFunction)),
         }
     }
@@ -228,6 +239,144 @@ impl<F: Field> GenerationState<F> {
             let num_bits = value.bits();
             Ok(num_bits.into())
         }
+    }
+
+    fn run_jumpdest_table(&mut self, input_fn: &ProverInputFn) -> Result<U256, ProgramError> {
+        match input_fn.0[1].as_str() {
+            "next_address" => self.run_next_jumpdest_table_address(),
+            "next_proof" => self.run_next_jumpdest_table_proof(),
+            _ => Err(ProgramError::ProverInputError(InvalidInput)),
+        }
+    }
+    /// Return the next used jump addres
+    fn run_next_jumpdest_table_address(&mut self) -> Result<U256, ProgramError> {
+        let code_len = u256_to_usize(self.memory.get(MemoryAddress {
+            context: self.registers.context,
+            segment: Segment::ContextMetadata as usize,
+            virt: ContextMetadata::CodeSize as usize,
+        }))?;
+
+        if self.jumpdest_addresses.is_none() {
+            let mut state: GenerationState<F> = self.soft_clone();
+
+            let mut jumpdest_addresses = vec![];
+            // Generate the jumpdest table
+            let code = (0..code_len)
+                .map(|i| {
+                    u256_to_u8(self.memory.get(MemoryAddress {
+                        context: self.registers.context,
+                        segment: Segment::Code as usize,
+                        virt: i,
+                    }))
+                })
+                .collect::<Result<Vec<u8>, _>>()?;
+            let mut i = 0;
+            while i < code_len {
+                if code[i] == get_opcode("JUMPDEST") {
+                    jumpdest_addresses.push(i);
+                    state.memory.set(
+                        MemoryAddress {
+                            context: state.registers.context,
+                            segment: Segment::JumpdestBits as usize,
+                            virt: i,
+                        },
+                        U256::one(),
+                    );
+                    log::debug!("jumpdest at {i}");
+                }
+                i += if code[i] >= get_push_opcode(1) && code[i] <= get_push_opcode(32) {
+                    (code[i] - get_push_opcode(1) + 2).into()
+                } else {
+                    1
+                }
+            }
+
+            // We need to skip the validate table call
+            self.jumpdest_addresses = simulate_cpu_between_labels_and_get_user_jumps(
+                "validate_jumpdest_table_end",
+                "terminate_common",
+                &mut state,
+            )
+            .ok();
+            log::debug!("code len = {code_len}");
+            log::debug!("all jumpdest addresses = {:?}", jumpdest_addresses);
+            log::debug!("user's jumdest addresses = {:?}", self.jumpdest_addresses);
+            // self.jumpdest_addresses = Some(jumpdest_addresses);
+        }
+
+        let Some(jumpdest_table) = &mut self.jumpdest_addresses else {
+            // TODO: Add another error
+            return Err(ProgramError::ProverInputError(ProverInputError::InvalidJumpdestSimulation));
+        };
+
+        if let Some(next_jumpdest_address) = jumpdest_table.pop() {
+            self.last_jumpdest_address = next_jumpdest_address;
+            Ok((next_jumpdest_address + 1).into())
+        } else {
+            self.jumpdest_addresses = None;
+            Ok(U256::zero())
+        }
+    }
+
+    /// Return the proof for the last jump adddress
+    fn run_next_jumpdest_table_proof(&mut self) -> Result<U256, ProgramError> {
+        let code_len = u256_to_usize(self.memory.get(MemoryAddress {
+            context: self.registers.context,
+            segment: Segment::ContextMetadata as usize,
+            virt: ContextMetadata::CodeSize as usize,
+        }))?;
+
+        let mut address = MemoryAddress {
+            context: self.registers.context,
+            segment: Segment::Code as usize,
+            virt: 0,
+        };
+        let mut proof = 0;
+        let mut prefix_size = 0;
+
+        // TODO: The proof searching algorithm is not very eficient. But luckyly it doesn't seem
+        // a problem because is done natively.
+
+        // Search the closest address to last_jumpdest_address for which none of
+        // the previous 32 bytes in the code (including opcodes and pushed bytes)
+        // are PUSHXX and the address is in its range
+        while address.virt < self.last_jumpdest_address {
+            let opcode = u256_to_u8(self.memory.get(address))?;
+            let is_push =
+                opcode >= get_push_opcode(1).into() && opcode <= get_push_opcode(32).into();
+
+            address.virt += if is_push {
+                (opcode - get_push_opcode(1) + 2).into()
+            } else {
+                1
+            };
+            // Check if the new address has a prefix of size >= 32
+            let mut has_prefix = true;
+            for i in address.virt as i32 - 32..address.virt as i32 {
+                let opcode = u256_to_u8(self.memory.get(MemoryAddress {
+                    context: self.registers.context,
+                    segment: Segment::Code as usize,
+                    virt: i as usize,
+                }))?;
+                if i < 0
+                    || (opcode >= get_push_opcode(1)
+                        && opcode <= get_push_opcode(32)
+                        && i + (opcode - get_push_opcode(1)) as i32 + 1 >= address.virt as i32)
+                {
+                    has_prefix = false;
+                    break;
+                }
+            }
+            if has_prefix {
+                proof = address.virt - 32;
+            }
+        }
+        if address.virt > self.last_jumpdest_address {
+            return Err(ProgramError::ProverInputError(
+                ProverInputError::InvalidJumpDestination,
+            ));
+        }
+        Ok(proof.into())
     }
 }
 
