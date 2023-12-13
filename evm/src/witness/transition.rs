@@ -178,8 +178,7 @@ fn fill_op_flag<F: Field>(op: Operation, row: &mut CpuColumnsView<F>) {
         Operation::Jump | Operation::Jumpi => &mut flags.jumps,
         Operation::Pc | Operation::Push(0) => &mut flags.pc_push0,
         Operation::GetContext | Operation::SetContext => &mut flags.context_op,
-        Operation::Mload32Bytes => &mut flags.mload_32bytes,
-        Operation::Mstore32Bytes(_) => &mut flags.mstore_32bytes,
+        Operation::Mload32Bytes | Operation::Mstore32Bytes(_) => &mut flags.m_op_32bytes,
         Operation::ExitKernel => &mut flags.exit_kernel,
         Operation::MloadGeneral | Operation::MstoreGeneral => &mut flags.m_op_general,
     } = F::ONE;
@@ -209,8 +208,7 @@ const fn get_op_special_length(op: Operation) -> Option<usize> {
         Operation::Jump => JUMP_OP,
         Operation::Jumpi => JUMPI_OP,
         Operation::GetContext | Operation::SetContext => None,
-        Operation::Mload32Bytes => STACK_BEHAVIORS.mload_32bytes,
-        Operation::Mstore32Bytes(_) => STACK_BEHAVIORS.mstore_32bytes,
+        Operation::Mload32Bytes | Operation::Mstore32Bytes(_) => STACK_BEHAVIORS.m_op_32bytes,
         Operation::ExitKernel => STACK_BEHAVIORS.exit_kernel,
         Operation::MloadGeneral | Operation::MstoreGeneral => STACK_BEHAVIORS.m_op_general,
     };
@@ -248,8 +246,7 @@ const fn might_overflow_op(op: Operation) -> bool {
         Operation::Jump | Operation::Jumpi => MIGHT_OVERFLOW.jumps,
         Operation::Pc | Operation::Push(0) => MIGHT_OVERFLOW.pc_push0,
         Operation::GetContext | Operation::SetContext => MIGHT_OVERFLOW.context_op,
-        Operation::Mload32Bytes => MIGHT_OVERFLOW.mload_32bytes,
-        Operation::Mstore32Bytes(_) => MIGHT_OVERFLOW.mstore_32bytes,
+        Operation::Mload32Bytes | Operation::Mstore32Bytes(_) => MIGHT_OVERFLOW.m_op_32bytes,
         Operation::ExitKernel => MIGHT_OVERFLOW.exit_kernel,
         Operation::MloadGeneral | Operation::MstoreGeneral => MIGHT_OVERFLOW.m_op_general,
     }

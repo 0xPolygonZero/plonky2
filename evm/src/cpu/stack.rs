@@ -33,8 +33,7 @@ pub(crate) const MIGHT_OVERFLOW: OpsColumnsView<bool> = OpsColumnsView {
     pc_push0: true,
     dup_swap: true,
     context_op: false,
-    mload_32bytes: false,
-    mstore_32bytes: false,
+    m_op_32bytes: false,
     exit_kernel: true, // Doesn't directly push, but the syscall it's returning from might.
     m_op_general: false,
     syscall: false,
@@ -132,12 +131,7 @@ pub(crate) const STACK_BEHAVIORS: OpsColumnsView<Option<StackBehavior>> = OpsCol
     }),
     dup_swap: None,
     context_op: None,
-    mload_32bytes: Some(StackBehavior {
-        num_pops: 4,
-        pushes: true,
-        disable_other_channels: false,
-    }),
-    mstore_32bytes: Some(StackBehavior {
+    m_op_32bytes: Some(StackBehavior {
         num_pops: 4,
         pushes: true,
         disable_other_channels: false,
