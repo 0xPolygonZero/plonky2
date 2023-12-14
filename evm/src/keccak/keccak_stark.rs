@@ -620,6 +620,9 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakStark<F
 
 #[cfg(test)]
 mod tests {
+    use std::sync::atomic::AtomicBool;
+    use std::sync::Arc;
+
     use anyhow::Result;
     use env_logger::{try_init_from_env, Env, DEFAULT_FILTER_ENV};
     use plonky2::field::polynomial::PolynomialValues;
@@ -754,6 +757,8 @@ mod tests {
             zs_columns: vec![ctl_z_data.clone(); config.num_challenges],
         };
 
+        let abort_signal = Arc::new(AtomicBool::from(false));
+
         prove_single_table(
             &stark,
             &config,
@@ -765,6 +770,7 @@ mod tests {
             },
             &mut Challenger::new(),
             &mut timing,
+            abort_signal,
         )?;
 
         timing.print();

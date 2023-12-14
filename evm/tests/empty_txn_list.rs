@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 use std::marker::PhantomData;
+use std::sync::atomic::AtomicBool;
+use std::sync::Arc;
 use std::time::Duration;
 
 use env_logger::{try_init_from_env, Env, DEFAULT_FILTER_ENV};
@@ -111,10 +113,17 @@ fn test_empty_txn_list() -> anyhow::Result<()> {
         assert_eq!(all_circuits, all_circuits_from_bytes);
     }
 
+    let signal = Arc::new(AtomicBool::from(false));
     let mut timing = TimingTree::new("prove", log::Level::Info);
     // We're missing some preprocessed circuits.
     assert!(all_circuits
-        .prove_root(&all_stark, &config, inputs.clone(), &mut timing)
+        .prove_root(
+            &all_stark,
+            &config,
+            inputs.clone(),
+            &mut timing,
+            signal.clone()
+        )
         .is_err());
 
     // Expand the preprocessed circuits.
@@ -127,7 +136,7 @@ fn test_empty_txn_list() -> anyhow::Result<()> {
 
     let mut timing = TimingTree::new("prove", log::Level::Info);
     let (root_proof, public_values) =
-        all_circuits.prove_root(&all_stark, &config, inputs, &mut timing)?;
+        all_circuits.prove_root(&all_stark, &config, inputs, &mut timing, signal)?;
     timing.filter(Duration::from_millis(100)).print();
     all_circuits.verify_root(root_proof.clone())?;
 
