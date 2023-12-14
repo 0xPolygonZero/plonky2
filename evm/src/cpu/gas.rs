@@ -27,10 +27,9 @@ const SIMPLE_OPCODES: OpsColumnsView<Option<u32>> = OpsColumnsView {
     not_pop: None, // This is handled manually below
     shift: G_VERYLOW,
     jumpdest_keccak_general: None, // This is handled manually below.
-    prover_input: KERNEL_ONLY_INSTR,
-    jumps: None, // Combined flag handled separately.
+    push_prover_input: None,       // This is handled manually below.
+    jumps: None,                   // Combined flag handled separately.
     pc_push0: G_BASE,
-    push: G_VERYLOW,
     dup_swap: G_VERYLOW,
     context_op: KERNEL_ONLY_INSTR,
     m_op_32bytes: KERNEL_ONLY_INSTR,
@@ -112,6 +111,14 @@ fn eval_packed_accumulate<P: PackedField>(
     yield_constr.constraint_transition(
         lv.op.jumpdest_keccak_general * (gas_diff - jumpdest_keccak_general_gas_cost),
     );
+
+    // For PROVER_INPUT and PUSH operations.
+    // PUSH operations are differentiated from PROVER_INPUT by their 6th bit set to 1.
+    let push_prover_input_gas_cost = lv.opcode_bits[5]
+        * P::Scalar::from_canonical_u32(G_VERYLOW.unwrap())
+        + (P::ONES - lv.opcode_bits[5]) * P::Scalar::from_canonical_u32(KERNEL_ONLY_INSTR.unwrap());
+    yield_constr
+        .constraint_transition(lv.op.push_prover_input * (gas_diff - push_prover_input_gas_cost));
 }
 
 fn eval_packed_init<P: PackedField>(
@@ -268,6 +275,21 @@ fn eval_ext_circuit_accumulate<F: RichField + Extendable<D>, const D: usize>(
 
     let gas_diff = builder.sub_extension(nv_lv_diff, jumpdest_keccak_general_gas_cost);
     let constr = builder.mul_extension(filter, gas_diff);
+
+    yield_constr.constraint_transition(builder, constr);
+
+    // For PROVER_INPUT and PUSH operations.
+    // PUSH operations are differentiated from PROVER_INPUT by their 6th bit set to 1.
+    let push_prover_input_gas_cost = builder.arithmetic_extension(
+        F::from_canonical_u32(G_VERYLOW.unwrap())
+            - F::from_canonical_u32(KERNEL_ONLY_INSTR.unwrap()),
+        F::from_canonical_u32(KERNEL_ONLY_INSTR.unwrap()),
+        lv.opcode_bits[5],
+        one,
+        one,
+    );
+    let gas_diff = builder.sub_extension(nv_lv_diff, push_prover_input_gas_cost);
+    let constr = builder.mul_extension(lv.op.push_prover_input, gas_diff);
 
     yield_constr.constraint_transition(builder, constr);
 }
