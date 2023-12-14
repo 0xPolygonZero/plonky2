@@ -244,35 +244,23 @@ fn prepare_interpreter_all_accounts(
     // Switch context and initialize memory with the data we need for the tests.
     interpreter.generation_state.registers.program_counter = 0;
     interpreter.set_code(1, code.to_vec());
-    interpreter.generation_state.memory.contexts[1].segments
-        [Segment::ContextMetadata as usize >> SEGMENT_SCALING_FACTOR]
-        .set(
-            ContextMetadata::Address as usize - Segment::ContextMetadata as usize,
-            U256::from_big_endian(&addr),
-        );
-    interpreter.generation_state.memory.contexts[1].segments
-        [Segment::ContextMetadata as usize >> SEGMENT_SCALING_FACTOR]
-        .set(
-            ContextMetadata::GasLimit as usize - Segment::ContextMetadata as usize,
-            100_000.into(),
-        );
+    interpreter.set_context_metadata_field(
+        1,
+        ContextMetadata::Address,
+        U256::from_big_endian(&addr),
+    );
+    interpreter.set_context_metadata_field(1, ContextMetadata::GasLimit, 100_000.into());
     interpreter.set_context(1);
     interpreter.set_is_kernel(false);
-    interpreter.generation_state.memory.set(
-        MemoryAddress::new(
-            1,
-            Segment::ContextMetadata,
-            ContextMetadata::ParentProgramCounter as usize - Segment::ContextMetadata as usize,
-        ),
+    interpreter.set_context_metadata_field(
+        1,
+        ContextMetadata::ParentProgramCounter,
         0xdeadbeefu32.into(),
     );
-    interpreter.generation_state.memory.set(
-        MemoryAddress::new(
-            1,
-            Segment::ContextMetadata,
-            ContextMetadata::ParentContext as usize - Segment::ContextMetadata as usize,
-        ),
-        U256::one() << CONTEXT_SCALING_FACTOR,
+    interpreter.set_context_metadata_field(
+        1,
+        ContextMetadata::ParentContext,
+        U256::one() << CONTEXT_SCALING_FACTOR, // ctx = 1
     );
 
     Ok(())

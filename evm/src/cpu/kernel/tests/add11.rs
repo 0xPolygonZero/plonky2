@@ -199,12 +199,7 @@ fn test_add11_yml() {
     let route_txn_label = KERNEL.global_labels["hash_initial_tries"];
     // Switch context and initialize memory with the data we need for the tests.
     interpreter.generation_state.registers.program_counter = route_txn_label;
-    interpreter.generation_state.memory.contexts[0].segments
-        [Segment::ContextMetadata as usize >> SEGMENT_SCALING_FACTOR]
-        .set(
-            ContextMetadata::GasLimit as usize - Segment::ContextMetadata as usize,
-            1_000_000.into(),
-        );
+    interpreter.set_context_metadata_field(0, ContextMetadata::GasLimit, 1_000_000.into());
     interpreter.set_is_kernel(true);
     interpreter.run().expect("Proving add11 failed.");
 }

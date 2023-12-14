@@ -198,6 +198,27 @@ impl<'a> Interpreter<'a> {
             .content
     }
 
+    pub(crate) fn get_context_metadata_field(&self, ctx: usize, field: ContextMetadata) -> U256 {
+        // Those fields are already scaled by their respective segment.
+        let field = field as usize - Segment::ContextMetadata as usize;
+        self.generation_state.memory.contexts[ctx].segments
+            [Segment::ContextMetadata as usize >> SEGMENT_SCALING_FACTOR]
+            .get(field)
+    }
+
+    pub(crate) fn set_context_metadata_field(
+        &mut self,
+        ctx: usize,
+        field: ContextMetadata,
+        value: U256,
+    ) {
+        // Those fields are already scaled by their respective segment.
+        let field = field as usize - Segment::ContextMetadata as usize;
+        self.generation_state.memory.contexts[ctx].segments
+            [Segment::ContextMetadata as usize >> SEGMENT_SCALING_FACTOR]
+            .set(field, value)
+    }
+
     pub(crate) fn get_global_metadata_field(&self, field: GlobalMetadata) -> U256 {
         // Those fields are already scaled by their respective segment.
         let field = field as usize - Segment::GlobalMetadata as usize;
