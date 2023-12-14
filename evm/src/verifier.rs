@@ -244,7 +244,7 @@ where
     fields.map(|(field, val)| {
         // Those fields are already scaled by their segment, and are in context 0 (kernel).
         let field = field as usize - Segment::GlobalMetadata as usize;
-        sum = add_data_write(challenge, segment, sum, field as usize, val)
+        sum = add_data_write(challenge, segment, sum, field, val)
     });
 
     // Add block bloom writes.

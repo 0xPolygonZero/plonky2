@@ -5,6 +5,7 @@ use crate::memory::segments::Segment;
 /// Each value is directly scaled by the corresponding `Segment::TxnFields` value for faster
 /// memory access in the kernel.
 #[allow(dead_code)]
+#[allow(clippy::enum_clike_unportable_variant)]
 #[repr(usize)]
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Ord, PartialOrd, Debug)]
 pub(crate) enum NormalizedTxnField {
