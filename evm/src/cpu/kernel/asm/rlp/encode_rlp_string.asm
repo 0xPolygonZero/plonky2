@@ -39,7 +39,7 @@ global encode_rlp_string_small_single_byte:
     %stack (rlp_addr, ADDR, len) -> (ADDR, rlp_addr)
     MLOAD_GENERAL
     // stack: byte, rlp_addr, retdest
-    DUP2
+    DUP2 SWAP1
     MSTORE_GENERAL
     // stack: rlp_addr, retdest
     %increment
