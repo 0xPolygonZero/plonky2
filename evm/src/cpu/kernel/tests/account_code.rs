@@ -243,19 +243,22 @@ fn prepare_interpreter_all_accounts(
     interpreter.generation_state.memory.contexts[1].segments
         [Segment::ContextMetadata as usize >> SEGMENT_SCALING_FACTOR]
         .set(
-            ContextMetadata::Address as usize,
+            ContextMetadata::Address as usize - Segment::ContextMetadata as usize,
             U256::from_big_endian(&addr),
         );
     interpreter.generation_state.memory.contexts[1].segments
         [Segment::ContextMetadata as usize >> SEGMENT_SCALING_FACTOR]
-        .set(ContextMetadata::GasLimit as usize, 100_000.into());
+        .set(
+            ContextMetadata::GasLimit as usize - Segment::ContextMetadata as usize,
+            100_000.into(),
+        );
     interpreter.set_context(1);
     interpreter.set_is_kernel(false);
     interpreter.generation_state.memory.set(
         MemoryAddress::new(
             1,
             Segment::ContextMetadata,
-            ContextMetadata::ParentProgramCounter as usize,
+            ContextMetadata::ParentProgramCounter as usize - Segment::ContextMetadata as usize,
         ),
         0xdeadbeefu32.into(),
     );
@@ -263,7 +266,7 @@ fn prepare_interpreter_all_accounts(
         MemoryAddress::new(
             1,
             Segment::ContextMetadata,
-            ContextMetadata::ParentContext as usize,
+            ContextMetadata::ParentContext as usize - Segment::ContextMetadata as usize,
         ),
         1.into(),
     );
