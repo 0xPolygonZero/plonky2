@@ -147,7 +147,7 @@ global process_contract_creation_txn:
     // Store constructor code length
     PUSH @CTX_METADATA_CODE_SIZE
     // stack: offset, new_ctx, address, retdest
-    DUP3 // new_ctx
+    DUP2 // new_ctx
     ADD // CTX_METADATA_CODE_SIZE is already scaled by its segment
     // stack: addr, new_ctx, address, retdest
     %mload_txn_field(@TXN_FIELD_DATA_LEN)
