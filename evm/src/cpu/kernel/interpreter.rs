@@ -850,7 +850,7 @@ impl<'a> Interpreter<'a> {
 
     fn run_set_context(&mut self) {
         let x = self.pop();
-        let new_ctx = x.as_usize();
+        let new_ctx = (x >> CONTEXT_SCALING_FACTOR).as_usize();
         let sp_to_save = self.stack_len().into();
 
         let old_ctx = self.context();
@@ -1264,10 +1264,13 @@ fn get_mnemonic(opcode: u8) -> &'static str {
 mod tests {
     use std::collections::HashMap;
 
+    use ethereum_types::U256;
+
     use crate::cpu::kernel::constants::context_metadata::ContextMetadata;
     use crate::cpu::kernel::interpreter::{run, Interpreter};
     use crate::memory::segments::{Segment, SEGMENT_SCALING_FACTOR};
     use crate::witness::memory::MemoryAddress;
+    use crate::witness::operation::CONTEXT_SCALING_FACTOR;
 
     #[test]
     fn test_run() -> anyhow::Result<()> {
@@ -1328,7 +1331,7 @@ mod tests {
                 Segment::ContextMetadata,
                 ContextMetadata::ParentContext as usize - Segment::ContextMetadata as usize,
             ),
-            1.into(),
+            U256::one() << CONTEXT_SCALING_FACTOR,
         );
 
         interpreter.run()?;

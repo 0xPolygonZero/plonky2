@@ -17,6 +17,7 @@ use crate::generation::mpt::{load_all_mpts, AccountRlp};
 use crate::generation::TrieInputs;
 use crate::memory::segments::{Segment, SEGMENT_SCALING_FACTOR};
 use crate::witness::memory::MemoryAddress;
+use crate::witness::operation::CONTEXT_SCALING_FACTOR;
 use crate::Node;
 
 pub(crate) fn initialize_mpts(interpreter: &mut Interpreter, trie_inputs: &TrieInputs) {
@@ -176,7 +177,10 @@ fn test_extcodecopy() -> Result<()> {
     let context = interpreter.context();
     interpreter.generation_state.memory.contexts[context].segments
         [Segment::ContextMetadata as usize >> SEGMENT_SCALING_FACTOR]
-        .set(GasLimit as usize, U256::from(1000000000000u64));
+        .set(
+            GasLimit as usize - Segment::ContextMetadata as usize,
+            U256::from(1000000000000u64),
+        );
 
     let extcodecopy = KERNEL.global_labels["sys_extcodecopy"];
 
@@ -268,7 +272,7 @@ fn prepare_interpreter_all_accounts(
             Segment::ContextMetadata,
             ContextMetadata::ParentContext as usize - Segment::ContextMetadata as usize,
         ),
-        1.into(),
+        U256::one() << CONTEXT_SCALING_FACTOR,
     );
 
     Ok(())
