@@ -16,7 +16,7 @@ fn test_encode_rlp_scalar_small() -> Result<()> {
     let mut interpreter = Interpreter::new_with_kernel(encode_rlp_scalar, initial_stack);
 
     interpreter.run()?;
-    let expected_stack = vec![U256::from(Segment::RlpRaw as usize + 3)]; // pos' = pos + rlp_len = 2 + 1
+    let expected_stack = vec![pos + U256::from(1)]; // pos' = pos + rlp_len = 2 + 1
     let expected_rlp = vec![0, 0, 42];
     assert_eq!(interpreter.stack(), expected_stack);
     assert_eq!(interpreter.get_rlp_memory(), expected_rlp);
@@ -35,7 +35,7 @@ fn test_encode_rlp_scalar_medium() -> Result<()> {
     let mut interpreter = Interpreter::new_with_kernel(encode_rlp_scalar, initial_stack);
 
     interpreter.run()?;
-    let expected_stack = vec![U256::from(6)]; // pos' = pos + rlp_len = 2 + 4
+    let expected_stack = vec![pos + U256::from(4)]; // pos' = pos + rlp_len = 2 + 4
     let expected_rlp = vec![0, 0, 0x80 + 3, 0x01, 0x23, 0x45];
     assert_eq!(interpreter.stack(), expected_stack);
     assert_eq!(interpreter.get_rlp_memory(), expected_rlp);
@@ -54,7 +54,7 @@ fn test_encode_rlp_160() -> Result<()> {
     let mut interpreter = Interpreter::new_with_kernel(encode_rlp_160, initial_stack);
 
     interpreter.run()?;
-    let expected_stack = vec![U256::from(1 + 20)]; // pos'
+    let expected_stack = vec![pos + U256::from(1 + 20)]; // pos'
     #[rustfmt::skip]
     let expected_rlp = vec![0x80 + 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x01, 0x23, 0x45];
     assert_eq!(interpreter.stack(), expected_stack);
@@ -74,7 +74,7 @@ fn test_encode_rlp_256() -> Result<()> {
     let mut interpreter = Interpreter::new_with_kernel(encode_rlp_256, initial_stack);
 
     interpreter.run()?;
-    let expected_stack = vec![U256::from(1 + 32)]; // pos'
+    let expected_stack = vec![pos + U256::from(1 + 32)]; // pos'
     #[rustfmt::skip]
     let expected_rlp = vec![0x80 + 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x01, 0x23, 0x45];
     assert_eq!(interpreter.stack(), expected_stack);

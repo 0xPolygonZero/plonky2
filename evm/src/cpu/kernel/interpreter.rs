@@ -845,17 +845,17 @@ impl<'a> Interpreter<'a> {
     }
 
     fn run_get_context(&mut self) {
-        self.push(self.context().into());
+        self.push(U256::from(self.context()) << CONTEXT_SCALING_FACTOR);
     }
 
     fn run_set_context(&mut self) {
         let x = self.pop();
-        let new_ctx = (x >> CONTEXT_SCALING_FACTOR).as_usize();
+        let new_ctx = x.as_usize();
         let sp_to_save = self.stack_len().into();
 
         let old_ctx = self.context();
 
-        let sp_field = ContextMetadata::StackSize as usize;
+        let sp_field = ContextMetadata::StackSize as usize - Segment::ContextMetadata as usize;
 
         let old_sp_addr = MemoryAddress::new(old_ctx, Segment::ContextMetadata, sp_field);
         let new_sp_addr = MemoryAddress::new(new_ctx, Segment::ContextMetadata, sp_field);
@@ -933,7 +933,7 @@ impl<'a> Interpreter<'a> {
                 .mstore_general(context, segment, offset + i, byte.into());
         }
 
-        self.push(U256::from(offset + n as usize));
+        self.push(addr + U256::from(n));
     }
 
     fn run_exit_kernel(&mut self) {
@@ -1306,7 +1306,10 @@ mod tests {
 
         interpreter.generation_state.memory.contexts[1].segments
             [Segment::ContextMetadata as usize >> SEGMENT_SCALING_FACTOR]
-            .set(ContextMetadata::GasLimit as usize, 100_000.into());
+            .set(
+                ContextMetadata::GasLimit as usize - Segment::ContextMetadata as usize,
+                100_000.into(),
+            );
         // Set context and kernel mode.
         interpreter.set_context(1);
         interpreter.set_is_kernel(false);
@@ -1315,7 +1318,7 @@ mod tests {
             MemoryAddress::new(
                 1,
                 Segment::ContextMetadata,
-                ContextMetadata::ParentProgramCounter as usize,
+                ContextMetadata::ParentProgramCounter as usize - Segment::ContextMetadata as usize,
             ),
             0xdeadbeefu32.into(),
         );
@@ -1323,7 +1326,7 @@ mod tests {
             MemoryAddress::new(
                 1,
                 Segment::ContextMetadata,
-                ContextMetadata::ParentContext as usize,
+                ContextMetadata::ParentContext as usize - Segment::ContextMetadata as usize,
             ),
             1.into(),
         );
