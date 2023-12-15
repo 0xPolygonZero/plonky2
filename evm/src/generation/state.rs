@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 
 use ethereum_types::{Address, BigEndianHash, H160, H256, U256};
 use keccak_hash::keccak;
@@ -52,7 +52,7 @@ pub(crate) struct GenerationState<F: Field> {
     pub(crate) trie_root_ptrs: TrieRootPtrs,
 
     pub(crate) last_jumpdest_address: usize,
-    pub(crate) jumpdest_addresses: Option<Vec<usize>>,
+    pub(crate) jumpdest_addresses: Option<HashMap<usize, BTreeSet<usize>>>,
 }
 
 impl<F: Field> GenerationState<F> {

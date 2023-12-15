@@ -114,15 +114,12 @@ global is_jumpdest:
     MLOAD_GENERAL
     // stack: opcode, jumpdest, ctx, proof_prefix_addr, retdest
 
-    // Slightly more efficient than `%eq_const(0x5b) ISZERO`
-    PUSH 0x5b
-    SUB
-    %jumpi(panic)
+    %assert_eq_const(0x5b)
 
     //stack: jumpdest, ctx, proof_prefix_addr, retdest
     SWAP2 DUP1
     // stack: proof_prefix_addr, proof_prefix_addr, ctx, jumpdest
-    IS_ZERO
+    ISZERO
     %jumpi(verify_path)
     // stack: proof_prefix_addr, ctx, jumpdest, retdest
     // If we are here we need to check that the next 32 bytes are less
