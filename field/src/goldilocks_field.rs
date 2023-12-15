@@ -3,7 +3,7 @@ use core::hash::{Hash, Hasher};
 use core::iter::{Product, Sum};
 use core::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
-use num::{BigUint, Integer};
+use num::{BigUint, Integer, ToPrimitive};
 use plonky2_util::{assume, branch_hint};
 use serde::{Deserialize, Serialize};
 
@@ -147,7 +147,7 @@ impl Field for GoldilocksField {
     }
 
     fn from_noncanonical_biguint(n: BigUint) -> Self {
-        Self(n.mod_floor(&Self::order()).to_u64_digits()[0])
+        Self(n.mod_floor(&Self::order()).to_u64().unwrap())
     }
 
     #[inline(always)]
