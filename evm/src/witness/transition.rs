@@ -395,12 +395,7 @@ fn try_perform_instruction<F: Field>(
     if state.registers.is_kernel {
         log_kernel_instruction(state, op);
     } else {
-        log::debug!(
-            "User instruction: {:?} ctx = {:?} stack = {:?}",
-            op,
-            state.registers.context,
-            state.stack()
-        );
+        log::debug!("User instruction: {:?}", op);
     }
 
     fill_op_flag(op, &mut row);

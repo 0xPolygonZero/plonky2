@@ -16,7 +16,6 @@ use serde::{Deserialize, Serialize};
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::constants::context_metadata::ContextMetadata;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
-use crate::cpu::kernel::opcodes::{get_opcode, get_push_opcode};
 use crate::extension_tower::{FieldExt, Fp12, BLS381, BN254};
 use crate::generation::prover_input::EvmField::{
     Bls381Base, Bls381Scalar, Bn254Base, Bn254Scalar, Secp256k1Base, Secp256k1Scalar,
@@ -250,8 +249,9 @@ impl<F: Field> GenerationState<F> {
     }
     /// Return the next used jump addres
     fn run_next_jumpdest_table_address(&mut self) -> Result<U256, ProgramError> {
+        let context = self.registers.context;
         let code_len = u256_to_usize(self.memory.get(MemoryAddress {
-            context: self.registers.context,
+            context,
             segment: Segment::ContextMetadata as usize,
             virt: ContextMetadata::CodeSize as usize,
         }))?;
@@ -260,14 +260,14 @@ impl<F: Field> GenerationState<F> {
             self.generate_jumpdest_table()?;
         }
 
-        let Some(jumpdest_table) = &mut self.jumpdest_addresses else {
-            // TODO: Add another error
+        let Some(jumpdest_tables) = &mut self.jumpdest_addresses else {
             return Err(ProgramError::ProverInputError(ProverInputError::InvalidJumpdestSimulation));
         };
 
-        if let Some(next_jumpdest_address) = jumpdest_table.pop() {
-            self.last_jumpdest_address = next_jumpdest_address;
-            Ok((next_jumpdest_address + 1).into())
+        if let Some(ctx_jumpdest_table) = jumpdest_tables.get_mut(&context) && let Some(next_jumpdest_address) = ctx_jumpdest_table.pop_last()
+        {
+                self.last_jumpdest_address = next_jumpdest_address;
+                Ok((next_jumpdest_address + 1).into())
         } else {
             self.jumpdest_addresses = None;
             Ok(U256::zero())
@@ -293,6 +293,9 @@ impl<F: Field> GenerationState<F> {
         // the previous 32 bytes in the code (including opcodes and pushed bytes)
         // are PUSHXX and the address is in its range.
 
+        const PUSH1_OPCODE: u8 = 0x60;
+        const PUSH32_OPCODE: u8 = 0x7f;
+
         let proof = CodeIterator::until(&code, self.last_jumpdest_address + 1).fold(
             0,
             |acc, (pos, opcode)| {
@@ -300,9 +303,9 @@ impl<F: Field> GenerationState<F> {
                     code[prefix_start..pos].iter().enumerate().fold(
                         true,
                         |acc, (prefix_pos, &byte)| {
-                            acc && (byte > get_push_opcode(32)
+                            acc && (byte > PUSH32_OPCODE
                                 || (prefix_start + prefix_pos) as i32
-                                    + (byte as i32 - get_push_opcode(1) as i32)
+                                    + (byte as i32 - PUSH1_OPCODE as i32)
                                     + 1
                                     < pos as i32)
                         },
@@ -323,6 +326,7 @@ impl<F: Field> GenerationState<F> {
 
 impl<F: Field> GenerationState<F> {
     fn generate_jumpdest_table(&mut self) -> Result<(), ProgramError> {
+        const JUMPDEST_OPCODE: u8 = 0x5b;
         let mut state = self.soft_clone();
         let code_len = u256_to_usize(self.memory.get(MemoryAddress {
             context: self.registers.context,
@@ -344,8 +348,8 @@ impl<F: Field> GenerationState<F> {
         // the simulation will fail.
         let mut jumpdest_table = Vec::with_capacity(code.len());
         for (pos, opcode) in CodeIterator::new(&code) {
-            jumpdest_table.push((pos, opcode == get_opcode("JUMPDEST")));
-            if opcode == get_opcode("JUMPDEST") {
+            jumpdest_table.push((pos, opcode == JUMPDEST_OPCODE));
+            if opcode == JUMPDEST_OPCODE {
                 state.memory.set(
                     MemoryAddress {
                         context: state.registers.context,
@@ -358,32 +362,31 @@ impl<F: Field> GenerationState<F> {
         }
 
         // Simulate the user's code and (unnecessarily) part of the kernel code, skipping the validate table call
-        self.jumpdest_addresses = simulate_cpu_between_labels_and_get_user_jumps(
+        simulate_cpu_between_labels_and_get_user_jumps(
             "validate_jumpdest_table_end",
             "terminate_common",
             &mut state,
-        )
-        .ok();
-
+        )?;
+        self.jumpdest_addresses = state.jumpdest_addresses;
         Ok(())
     }
 }
 
 struct CodeIterator<'a> {
-    code: &'a Vec<u8>,
+    code: &'a [u8],
     pos: usize,
     end: usize,
 }
 
 impl<'a> CodeIterator<'a> {
-    fn new(code: &'a Vec<u8>) -> Self {
+    fn new(code: &'a [u8]) -> Self {
         CodeIterator {
             end: code.len(),
             code,
             pos: 0,
         }
     }
-    fn until(code: &'a Vec<u8>, end: usize) -> Self {
+    fn until(code: &'a [u8], end: usize) -> Self {
         CodeIterator {
             end: std::cmp::min(code.len(), end),
             code,
@@ -396,14 +399,16 @@ impl<'a> Iterator for CodeIterator<'a> {
     type Item = (usize, u8);
 
     fn next(&mut self) -> Option<Self::Item> {
+        const PUSH1_OPCODE: u8 = 0x60;
+        const PUSH32_OPCODE: u8 = 0x70;
         let CodeIterator { code, pos, end } = self;
         if *pos >= *end {
             return None;
         }
         let opcode = code[*pos];
         let old_pos = *pos;
-        *pos += if opcode >= get_push_opcode(1) && opcode <= get_push_opcode(32) {
-            (opcode - get_push_opcode(1) + 2).into()
+        *pos += if opcode >= PUSH1_OPCODE && opcode <= PUSH32_OPCODE {
+            (opcode - PUSH1_OPCODE + 2).into()
         } else {
             1
         };

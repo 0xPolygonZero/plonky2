@@ -1,7 +1,7 @@
 //! An EVM interpreter for testing and debugging purposes.
 
 use core::cmp::Ordering;
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::ops::Range;
 
 use anyhow::bail;
@@ -417,17 +417,19 @@ impl<'a> Interpreter<'a> {
     pub(crate) fn set_jumpdest_bits(&mut self, context: usize, jumpdest_bits: Vec<bool>) {
         self.generation_state.memory.contexts[context].segments[Segment::JumpdestBits as usize]
             .content = jumpdest_bits.iter().map(|&x| u256_from_bool(x)).collect();
-        self.generation_state.jumpdest_addresses = Some(
-            jumpdest_bits
-                .into_iter()
-                .enumerate()
-                .filter(|&(_, x)| x)
-                .map(|(i, _)| i)
-                .collect(),
-        )
+        self.generation_state.jumpdest_addresses = Some(HashMap::from([(
+            context,
+            BTreeSet::from_iter(
+                jumpdest_bits
+                    .into_iter()
+                    .enumerate()
+                    .filter(|&(_, x)| x)
+                    .map(|(i, _)| i),
+            ),
+        )]));
     }
 
-    const fn incr(&mut self, n: usize) {
+    pub(crate) fn incr(&mut self, n: usize) {
         self.generation_state.registers.program_counter += n;
     }
 
