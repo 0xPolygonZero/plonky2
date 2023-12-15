@@ -114,7 +114,7 @@ fn test_empty_txn_list() -> anyhow::Result<()> {
     let mut timing = TimingTree::new("prove", log::Level::Info);
     // We're missing some preprocessed circuits.
     assert!(all_circuits
-        .prove_root(&all_stark, &config, inputs.clone(), &mut timing)
+        .prove_root(&all_stark, &config, inputs.clone(), &mut timing, None)
         .is_err());
 
     // Expand the preprocessed circuits.
@@ -127,7 +127,7 @@ fn test_empty_txn_list() -> anyhow::Result<()> {
 
     let mut timing = TimingTree::new("prove", log::Level::Info);
     let (root_proof, public_values) =
-        all_circuits.prove_root(&all_stark, &config, inputs, &mut timing)?;
+        all_circuits.prove_root(&all_stark, &config, inputs, &mut timing, None)?;
     timing.filter(Duration::from_millis(100)).print();
     all_circuits.verify_root(root_proof.clone())?;
 
