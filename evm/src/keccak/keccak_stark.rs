@@ -765,6 +765,7 @@ mod tests {
             },
             &mut Challenger::new(),
             &mut timing,
+            None,
         )?;
 
         timing.print();
