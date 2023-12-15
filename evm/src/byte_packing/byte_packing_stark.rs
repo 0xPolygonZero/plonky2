@@ -76,7 +76,7 @@ pub(crate) fn ctl_looked_data<F: Field>() -> Vec<Column<F>> {
         (0..NUM_BYTES).map(|i| (index_len(i), F::from_canonical_usize(i + 1))),
     );
 
-    Column::singles([ADDR_CONTEXT, ADDR_SEGMENT, ADDR_VIRTUAL])
+    Column::singles([IS_READ, ADDR_CONTEXT, ADDR_SEGMENT, ADDR_VIRTUAL])
         .chain([sequence_len])
         .chain(Column::singles(&[TIMESTAMP]))
         .chain(outputs)

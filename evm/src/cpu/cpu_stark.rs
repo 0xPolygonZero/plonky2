@@ -127,7 +127,9 @@ pub(crate) fn ctl_arithmetic_base_rows<F: Field>() -> TableWithColumns<F> {
 /// Creates the vector of `Columns` corresponding to the contents of General Purpose channels when calling byte packing.
 /// We use `ctl_data_keccak_sponge` because the `Columns` are the same as the ones computed for `KeccakSpongeStark`.
 pub(crate) fn ctl_data_byte_packing<F: Field>() -> Vec<Column<F>> {
-    ctl_data_keccak_sponge()
+    let mut res = vec![Column::constant(F::ONE)]; // is_read
+    res.extend(ctl_data_keccak_sponge());
+    res
 }
 
 /// CTL filter for the `MLOAD_32BYTES` operation.
@@ -144,6 +146,8 @@ pub(crate) fn ctl_filter_byte_packing<F: Field>() -> Filter<F> {
 
 /// Creates the vector of `Columns` corresponding to the contents of General Purpose channels when calling byte unpacking.
 pub(crate) fn ctl_data_byte_unpacking<F: Field>() -> Vec<Column<F>> {
+    let is_read = Column::constant(F::ZERO);
+
     // When executing MSTORE_32BYTES, the GP memory channels are used as follows:
     // GP channel 0: stack[-1] = context
     // GP channel 1: stack[-2] = segment
@@ -165,7 +169,7 @@ pub(crate) fn ctl_data_byte_unpacking<F: Field>() -> Vec<Column<F>> {
     let num_channels = F::from_canonical_usize(NUM_CHANNELS);
     let timestamp = Column::linear_combination([(COL_MAP.clock, num_channels)]);
 
-    let mut res = vec![context, segment, virt, len, timestamp];
+    let mut res = vec![is_read, context, segment, virt, len, timestamp];
     res.extend(val);
 
     res
@@ -186,6 +190,7 @@ pub(crate) fn ctl_filter_byte_unpacking<F: Field>() -> Filter<F> {
 /// Creates the vector of `Columns` corresponding to the contents of the CPU registers when performing a `PUSH`.
 /// `PUSH` internal reads are done by calling `BytePackingStark`.
 pub(crate) fn ctl_data_byte_packing_push<F: Field>() -> Vec<Column<F>> {
+    let is_read = Column::constant(F::ONE);
     let context = Column::single(COL_MAP.code_context);
     let segment = Column::constant(F::from_canonical_usize(Segment::Code as usize));
     // The initial offset if `pc + 1`.
@@ -199,7 +204,7 @@ pub(crate) fn ctl_data_byte_packing_push<F: Field>() -> Vec<Column<F>> {
     let num_channels = F::from_canonical_usize(NUM_CHANNELS);
     let timestamp = Column::linear_combination([(COL_MAP.clock, num_channels)]);
 
-    let mut res = vec![context, segment, virt, len, timestamp];
+    let mut res = vec![is_read, context, segment, virt, len, timestamp];
     res.extend(val);
 
     res
