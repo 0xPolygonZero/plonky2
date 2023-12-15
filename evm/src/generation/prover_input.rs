@@ -410,7 +410,7 @@ impl<'a> Iterator for CodeIterator<'a> {
         }
         let opcode = code[*pos];
         let old_pos = *pos;
-        *pos += if opcode >= PUSH1_OPCODE && opcode <= PUSH32_OPCODE {
+        *pos += if (PUSH1_OPCODE..=PUSH32_OPCODE).contains(&opcode) {
             (opcode - PUSH1_OPCODE + 2).into()
         } else {
             1
