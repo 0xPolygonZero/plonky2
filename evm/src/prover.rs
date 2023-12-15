@@ -47,7 +47,7 @@ pub fn prove<F, C, const D: usize>(
     config: &StarkConfig,
     inputs: GenerationInputs,
     timing: &mut TimingTree,
-    abort_signal: Arc<AtomicBool>,
+    abort_signal: Option<Arc<AtomicBool>>,
 ) -> Result<AllProof<F, C, D>>
 where
     F: RichField + Extendable<D>,
@@ -79,7 +79,7 @@ pub(crate) fn prove_with_traces<F, C, const D: usize>(
     trace_poly_values: [Vec<PolynomialValues<F>>; NUM_TABLES],
     public_values: PublicValues,
     timing: &mut TimingTree,
-    abort_signal: Arc<AtomicBool>,
+    abort_signal: Option<Arc<AtomicBool>>,
 ) -> Result<AllProof<F, C, D>>
 where
     F: RichField + Extendable<D>,
@@ -188,7 +188,7 @@ fn prove_with_commitments<F, C, const D: usize>(
     challenger: &mut Challenger<F, C::Hasher>,
     ctl_challenges: &GrandProductChallengeSet<F>,
     timing: &mut TimingTree,
-    abort_signal: Arc<AtomicBool>,
+    abort_signal: Option<Arc<AtomicBool>>,
 ) -> Result<[StarkProofWithMetadata<F, C, D>; NUM_TABLES]>
 where
     F: RichField + Extendable<D>,
@@ -324,7 +324,7 @@ pub(crate) fn prove_single_table<F, C, S, const D: usize>(
     ctl_challenges: &GrandProductChallengeSet<F>,
     challenger: &mut Challenger<F, C::Hasher>,
     timing: &mut TimingTree,
-    abort_signal: Arc<AtomicBool>,
+    abort_signal: Option<Arc<AtomicBool>>,
 ) -> Result<StarkProofWithMetadata<F, C, D>>
 where
     F: RichField + Extendable<D>,
@@ -670,9 +670,11 @@ where
 /// Utility method that checks whether a kill signal has been emitted by one of the workers,
 /// which will result in an early abort for all the other processes involved in the same set
 /// of transactions.
-pub(crate) fn check_abort_signal(signal: Arc<AtomicBool>) -> Result<()> {
-    if signal.load(Ordering::Relaxed) {
-        return Err(anyhow!("Stopping job from abort signal."));
+pub(crate) fn check_abort_signal(abort_signal: Option<Arc<AtomicBool>>) -> Result<()> {
+    if let Some(signal) = abort_signal {
+        if signal.load(Ordering::Relaxed) {
+            return Err(anyhow!("Stopping job from abort signal."));
+        }
     }
 
     Ok(())

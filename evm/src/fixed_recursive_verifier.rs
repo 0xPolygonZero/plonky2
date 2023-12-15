@@ -969,7 +969,7 @@ where
         config: &StarkConfig,
         generation_inputs: GenerationInputs,
         timing: &mut TimingTree,
-        abort_signal: Arc<AtomicBool>,
+        abort_signal: Option<Arc<AtomicBool>>,
     ) -> anyhow::Result<(ProofWithPublicInputs<F, C, D>, PublicValues)> {
         let all_proof = prove::<F, C, D>(
             all_stark,

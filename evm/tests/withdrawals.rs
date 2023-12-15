@@ -1,6 +1,4 @@
 use std::collections::HashMap;
-use std::sync::atomic::AtomicBool;
-use std::sync::Arc;
 use std::time::Duration;
 
 use env_logger::{try_init_from_env, Env, DEFAULT_FILTER_ENV};
@@ -86,9 +84,8 @@ fn test_withdrawals() -> anyhow::Result<()> {
         },
     };
 
-    let signal = Arc::new(AtomicBool::from(false));
     let mut timing = TimingTree::new("prove", log::Level::Debug);
-    let proof = prove::<F, C, D>(&all_stark, &config, inputs, &mut timing, signal)?;
+    let proof = prove::<F, C, D>(&all_stark, &config, inputs, &mut timing, None)?;
     timing.filter(Duration::from_millis(100)).print();
 
     verify_proof(&all_stark, proof, &config)
