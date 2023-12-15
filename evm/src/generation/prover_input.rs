@@ -261,13 +261,16 @@ impl<F: Field> GenerationState<F> {
         }
 
         let Some(jumpdest_tables) = &mut self.jumpdest_addresses else {
-            return Err(ProgramError::ProverInputError(ProverInputError::InvalidJumpdestSimulation));
+            return Err(ProgramError::ProverInputError(
+                ProverInputError::InvalidJumpdestSimulation,
+            ));
         };
 
-        if let Some(ctx_jumpdest_table) = jumpdest_tables.get_mut(&context) && let Some(next_jumpdest_address) = ctx_jumpdest_table.pop_last()
+        if let Some(ctx_jumpdest_table) = jumpdest_tables.get_mut(&context)
+            && let Some(next_jumpdest_address) = ctx_jumpdest_table.pop_last()
         {
-                self.last_jumpdest_address = next_jumpdest_address;
-                Ok((next_jumpdest_address + 1).into())
+            self.last_jumpdest_address = next_jumpdest_address;
+            Ok((next_jumpdest_address + 1).into())
         } else {
             self.jumpdest_addresses = None;
             Ok(U256::zero())
