@@ -177,7 +177,7 @@ impl<F: Field> GenerationState<F> {
     pub(crate) fn soft_clone(&self) -> GenerationState<F> {
         Self {
             inputs: self.inputs.clone(),
-            registers: self.registers.clone(),
+            registers: self.registers,
             memory: self.memory.clone(),
             traces: Traces::default(),
             rlp_prover_inputs: self.rlp_prover_inputs.clone(),

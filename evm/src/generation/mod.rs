@@ -289,7 +289,7 @@ fn simulate_cpu_between_labels_and_get_user_jumps<F: Field>(
     final_label: &str,
     state: &mut GenerationState<F>,
 ) -> Result<(), ProgramError> {
-    if let Some(_) = state.jumpdest_addresses {
+    if state.jumpdest_addresses.is_some() {
         Ok(())
     } else {
         const JUMP_OPCODE: u8 = 0x56;
