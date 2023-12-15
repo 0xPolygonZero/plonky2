@@ -370,7 +370,6 @@ call_too_deep:
     GET_CONTEXT
     // stack: ctx, code_size, retdest
     %validate_jumpdest_table
-    
     PUSH 0 // jump dest
     EXIT_KERNEL
     // (Old context) stack: new_ctx

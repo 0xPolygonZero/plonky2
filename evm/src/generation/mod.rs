@@ -293,7 +293,7 @@ fn simulate_cpu_between_labels_and_get_user_jumps<F: Field>(
     state.registers.program_counter = KERNEL.global_labels[initial_label];
     let context = state.registers.context;
 
-    log::debug!("Simulating CPU for jumpdest analysis ");
+    log::debug!("Simulating CPU for jumpdest analysis.");
 
     loop {
         if state.registers.program_counter == KERNEL.global_labels["validate_jumpdest_table"] {
@@ -317,7 +317,7 @@ fn simulate_cpu_between_labels_and_get_user_jumps<F: Field>(
         {
             // TODO: hotfix for avoiding deeper calls to abort
             let jumpdest = u256_to_usize(state.registers.stack_top)
-                .map_err(|_| anyhow::Error::msg("Not a valid jump destination"))?;
+                .map_err(|_| anyhow!("Not a valid jump destination"))?;
             state.memory.set(
                 MemoryAddress {
                     context: state.registers.context,

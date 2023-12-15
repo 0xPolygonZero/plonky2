@@ -274,7 +274,7 @@ impl<F: Field> GenerationState<F> {
         }
     }
 
-    /// Return the proof for the last jump adddress
+    /// Returns the proof for the last jump address.
     fn run_next_jumpdest_table_proof(&mut self) -> Result<U256, ProgramError> {
         let code = (0..self.last_jumpdest_address)
             .map(|i| {
@@ -286,12 +286,12 @@ impl<F: Field> GenerationState<F> {
             })
             .collect::<Result<Vec<u8>, _>>()?;
 
-        // TODO: The proof searching algorithm is not very eficient. But luckyly it doesn't seem
+        // TODO: The proof searching algorithm is not very efficient. But luckily it doesn't seem
         // a problem as is done natively.
 
-        // Search the closest address to last_jumpdest_address for which none of
+        // Search the closest address to `last_jumpdest_address` for which none of
         // the previous 32 bytes in the code (including opcodes and pushed bytes)
-        // are PUSHXX and the address is in its range
+        // are PUSHXX and the address is in its range.
 
         let proof = CodeIterator::until(&code, self.last_jumpdest_address + 1).fold(
             0,
@@ -340,9 +340,9 @@ impl<F: Field> GenerationState<F> {
             })
             .collect::<Result<Vec<u8>, _>>()?;
 
-        // We need to set the the simulated jumpdest bits to one as otherwise
-        // the simulation will fail
-        let mut jumpdest_table = vec![];
+        // We need to set the simulated jumpdest bits to one as otherwise
+        // the simulation will fail.
+        let mut jumpdest_table = Vec::with_capacity(code.len());
         for (pos, opcode) in CodeIterator::new(&code) {
             jumpdest_table.push((pos, opcode == get_opcode("JUMPDEST")));
             if opcode == get_opcode("JUMPDEST") {
