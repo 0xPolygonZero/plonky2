@@ -21,11 +21,12 @@ pub(crate) mod txn_fields;
 pub(crate) fn evm_constants() -> HashMap<String, U256> {
     let mut c = HashMap::new();
 
-    let hex_constants = MISC_CONSTANTS
-        .iter()
-        .chain(EC_CONSTANTS.iter())
-        .chain(HASH_CONSTANTS.iter())
-        .cloned();
+    let hex_constants =
+        MISC_CONSTANTS
+            .iter()
+            .chain(EC_CONSTANTS.iter())
+            .chain(HASH_CONSTANTS.iter())
+            .cloned();
     for (name, value) in hex_constants {
         c.insert(name.into(), U256::from_big_endian(&value));
     }
@@ -154,7 +155,7 @@ const EC_CONSTANTS: [(&str, [u8; 32]); 20] = [
     ),
     (
         "BN_BNEG_LOC",
-        // This just needs to be large enough to not interfere with anything else in SEGMENT_KERNEL_BN_TABLE_Q.
+        // This just needs to be large enough to not interfere with anything else in SEGMENT_BN_TABLE_Q.
         hex!("0000000000000000000000000000000000000000000000000000000000001337"),
     ),
     (
@@ -232,17 +233,18 @@ const GAS_CONSTANTS: [(&str, u16); 36] = [
 
 const REFUND_CONSTANTS: [(&str, u16); 2] = [("REFUND_SCLEAR", 4_800), ("MAX_REFUND_QUOTIENT", 5)];
 
-const PRECOMPILES: [(&str, u16); 9] = [
-    ("ECREC", 1),
-    ("SHA256", 2),
-    ("RIP160", 3),
-    ("ID", 4),
-    ("EXPMOD", 5),
-    ("BN_ADD", 6),
-    ("BN_MUL", 7),
-    ("SNARKV", 8),
-    ("BLAKE2_F", 9),
-];
+const PRECOMPILES: [(&str, u16); 9] =
+    [
+        ("ECREC", 1),
+        ("SHA256", 2),
+        ("RIP160", 3),
+        ("ID", 4),
+        ("EXPMOD", 5),
+        ("BN_ADD", 6),
+        ("BN_MUL", 7),
+        ("SNARKV", 8),
+        ("BLAKE2_F", 9),
+    ];
 
 const PRECOMPILES_GAS: [(&str, u16); 13] = [
     ("ECREC_GAS", 3_000),
