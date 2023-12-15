@@ -11,6 +11,7 @@ use plonky2::iop::ext_target::ExtensionTarget;
 
 use super::columns::CpuColumnsView;
 use super::halt;
+use super::kernel::constants::context_metadata::ContextMetadata;
 use super::membus::NUM_GP_CHANNELS;
 use crate::all_stark::Table;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
@@ -189,6 +190,40 @@ pub(crate) fn ctl_filter_byte_unpacking<F: Field>() -> Filter<F> {
     )
 }
 
+/// /// Creates the vector of `Columns` corresponding to three consecutive (byte) reads in memory.
+/// It's used by syscalls and exceptions to read an address in a jumptable.
+pub(crate) fn ctl_data_jumptable_read<F: Field>() -> Vec<Column<F>> {
+    let is_read = Column::constant(F::ONE);
+    let mut res = vec![is_read];
+
+    // When reading the jumptable, the address to start reading from is in
+    // GP channel 1; the result is in GP channel 1's values.
+    let channel_map = COL_MAP.mem_channels[1];
+    res.extend(Column::singles([
+        channel_map.addr_context,
+        channel_map.addr_segment,
+        channel_map.addr_virtual,
+    ]));
+    let val = Column::singles(channel_map.value);
+
+    // len is always 3.
+    let len = Column::constant(F::from_canonical_usize(3));
+    res.push(len);
+
+    let num_channels = F::from_canonical_usize(NUM_CHANNELS);
+    let timestamp = Column::linear_combination([(COL_MAP.clock, num_channels)]);
+    res.push(timestamp);
+
+    res.extend(val);
+
+    res
+}
+
+/// CTL filter for syscalls and exceptions.
+pub(crate) fn ctl_filter_syscall_exceptions<F: Field>() -> Filter<F> {
+    Filter::new_simple(Column::sum([COL_MAP.op.syscall, COL_MAP.op.exception]))
+}
+
 /// Creates the vector of `Columns` corresponding to the contents of the CPU registers when performing a `PUSH`.
 /// `PUSH` internal reads are done by calling `BytePackingStark`.
 pub(crate) fn ctl_data_byte_packing_push<F: Field>() -> Vec<Column<F>> {
@@ -305,6 +340,57 @@ pub(crate) fn ctl_data_partial_memory<F: Field>() -> Vec<Column<F>> {
     cols
 }
 
+/// Old stack pointer write for SET_CONTEXT.
+pub(crate) fn ctl_data_memory_old_sp_write_set_context<F: Field>() -> Vec<Column<F>> {
+    let mut cols = vec![
+        Column::constant(F::ZERO),       // is_read
+        Column::single(COL_MAP.context), // addr_context
+        Column::constant(F::from_canonical_u64(
+            Segment::ContextMetadata as u64 >> SEGMENT_SCALING_FACTOR,
+        )), // addr_segment
+        Column::constant(F::from_canonical_u64(
+            ContextMetadata::StackSize as u64 - Segment::ContextMetadata as u64,
+        )), // addr_virtual
+    ];
+
+    // Low limb is current stack length minus one.
+    cols.push(Column::linear_combination_with_constant(
+        [(COL_MAP.stack_len, F::ONE)],
+        -F::ONE,
+    ));
+
+    // High limbs of the value are all zero.
+    cols.extend(repeat(Column::constant(F::ZERO)).take(VALUE_LIMBS - 1));
+
+    cols.push(mem_time_and_channel(MEM_GP_CHANNELS_IDX_START + 1));
+
+    cols
+}
+
+/// New stack pointer read for SET_CONTEXT.
+pub(crate) fn ctl_data_memory_new_sp_read_set_context<F: Field>() -> Vec<Column<F>> {
+    let mut cols = vec![
+        Column::constant(F::ONE),                         // is_read
+        Column::single(COL_MAP.mem_channels[0].value[2]), // addr_context (in the top of the stack)
+        Column::constant(F::from_canonical_u64(
+            Segment::ContextMetadata as u64 >> SEGMENT_SCALING_FACTOR,
+        )), // addr_segment
+        Column::constant(F::from_canonical_u64(
+            ContextMetadata::StackSize as u64 - Segment::ContextMetadata as u64,
+        )), // addr_virtual
+    ];
+
+    // Low limb is new stack length.
+    cols.push(Column::single_next_row(COL_MAP.stack_len));
+
+    // High limbs of the value are all zero.
+    cols.extend(repeat(Column::constant(F::ZERO)).take(VALUE_LIMBS - 1));
+
+    cols.push(mem_time_and_channel(MEM_GP_CHANNELS_IDX_START + 2));
+
+    cols
+}
+
 /// CTL filter for code read and write operations.
 pub(crate) fn ctl_filter_code_memory<F: Field>() -> Filter<F> {
     Filter::new_simple(Column::sum(COL_MAP.op.iter()))
@@ -317,6 +403,18 @@ pub(crate) fn ctl_filter_gp_memory<F: Field>(channel: usize) -> Filter<F> {
 
 pub(crate) fn ctl_filter_partial_memory<F: Field>() -> Filter<F> {
     Filter::new_simple(Column::single(COL_MAP.partial_channel.used))
+}
+
+/// CTL filter for the `SET_CONTEXT` operation.
+/// SET_CONTEXT is differentiated from GET_CONTEXT by its zeroth bit set to 1
+pub(crate) fn ctl_filter_set_context<F: Field>() -> Filter<F> {
+    Filter::new(
+        vec![(
+            Column::single(COL_MAP.op.context_op),
+            Column::single(COL_MAP.opcode_bits[0]),
+        )],
+        vec![],
+    )
 }
 
 /// Structure representing the CPU Stark.

@@ -134,6 +134,11 @@ fn ctl_byte_packing<F: Field>() -> CrossTableLookup<F> {
         cpu_stark::ctl_data_byte_packing_push(),
         Some(cpu_stark::ctl_filter_byte_packing_push()),
     );
+    let cpu_jumptable_read_looking = TableWithColumns::new(
+        Table::Cpu,
+        cpu_stark::ctl_data_jumptable_read(),
+        Some(cpu_stark::ctl_filter_syscall_exceptions()),
+    );
     let byte_packing_looked = TableWithColumns::new(
         Table::BytePacking,
         byte_packing_stark::ctl_looked_data(),
@@ -144,6 +149,7 @@ fn ctl_byte_packing<F: Field>() -> CrossTableLookup<F> {
             cpu_packing_looking,
             cpu_unpacking_looking,
             cpu_push_packing_looking,
+            cpu_jumptable_read_looking,
         ],
         byte_packing_looked,
     )
@@ -237,6 +243,16 @@ fn ctl_memory<F: Field>() -> CrossTableLookup<F> {
         cpu_stark::ctl_data_partial_memory::<F>(),
         Some(cpu_stark::ctl_filter_partial_memory()),
     );
+    let cpu_set_context_write = TableWithColumns::new(
+        Table::Cpu,
+        cpu_stark::ctl_data_memory_old_sp_write_set_context::<F>(),
+        Some(cpu_stark::ctl_filter_set_context()),
+    );
+    let cpu_set_context_read = TableWithColumns::new(
+        Table::Cpu,
+        cpu_stark::ctl_data_memory_new_sp_read_set_context::<F>(),
+        Some(cpu_stark::ctl_filter_set_context()),
+    );
     let keccak_sponge_reads = (0..KECCAK_RATE_BYTES).map(|i| {
         TableWithColumns::new(
             Table::KeccakSponge,
@@ -254,6 +270,8 @@ fn ctl_memory<F: Field>() -> CrossTableLookup<F> {
     let all_lookers = iter::once(cpu_memory_code_read)
         .chain(cpu_memory_gp_ops)
         .chain(iter::once(cpu_push_write_ops))
+        .chain(iter::once(cpu_set_context_write))
+        .chain(iter::once(cpu_set_context_read))
         .chain(keccak_sponge_reads)
         .chain(byte_packing_ops)
         .collect();

@@ -7,7 +7,7 @@ use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer
 use crate::cpu::columns::CpuColumnsView;
 
 /// General-purpose memory channels; they can read and write to all contexts/segments/addresses.
-pub(crate) const NUM_GP_CHANNELS: usize = 4;
+pub(crate) const NUM_GP_CHANNELS: usize = 3;
 
 /// Indices for code and general purpose memory channels.
 pub mod channel_indices {
@@ -29,8 +29,11 @@ pub mod channel_indices {
 ///  - the address is `program_counter`,
 ///  - the value must fit in one byte (in the least-significant position) and its eight bits are
 ///    found in `opcode_bits`.
+///
+/// There is also a partial channel, which shares its values with another general purpose channel.
+///
 /// These limitations save us numerous columns in the CPU table.
-pub(crate) const NUM_CHANNELS: usize = channel_indices::GP.end;
+pub(crate) const NUM_CHANNELS: usize = channel_indices::GP.end + 1;
 
 /// Evaluates constraints regarding the membus.
 pub(crate) fn eval_packed<P: PackedField>(
