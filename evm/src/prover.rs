@@ -671,7 +671,7 @@ where
 /// which will result in an early abort for all the other processes involved in the same set
 /// of transactions.
 pub(crate) fn check_abort_signal(signal: Arc<AtomicBool>) -> Result<()> {
-    if signal.load(Ordering::Relaxed) == true {
+    if signal.load(Ordering::Relaxed) {
         return Err(anyhow!("Stopping job from abort signal."));
     }
 
