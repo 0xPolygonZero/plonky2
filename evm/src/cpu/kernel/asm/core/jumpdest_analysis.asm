@@ -122,9 +122,9 @@ global is_jumpdest:
     //stack: jumpdest, ctx, proof_prefix_addr, retdest
     SWAP2 DUP1
     // stack: proof_prefix_addr, proof_prefix_addr, ctx, jumpdest
-    %eq_const(0)
+    IS_ZERO
     %jumpi(verify_path)
-    //stack: proof_prefix_addr, ctx, jumpdest, retdest
+    // stack: proof_prefix_addr, ctx, jumpdest, retdest
     // If we are here we need to check that the next 32 bytes are less
     // than JUMPXX for XX < 32 - i <=> opcode < 0x7f - i = 127 - i, 0 <= i < 32,
     // or larger than 127
@@ -141,7 +141,7 @@ global is_jumpdest:
     %jump(verify_path)
 
 return_is_jumpdest:
-    //stack: proof_prefix_addr, jumpdest, ctx, retdest
+    // stack: proof_prefix_addr, jumpdest, ctx, retdest
     %pop3
     JUMP
 
@@ -187,7 +187,7 @@ global validate_jumpdest_table:
     // and the next prover input should contain a proof for address'.
     PROVER_INPUT(jumpdest_table::next_address)
     DUP1 %jumpi(check_proof)
-    // If proof == 0 there are no more jump destionations to check
+    // If proof == 0 there are no more jump destinations to check
     POP
 // This is just a hook used for avoiding verification of the jumpdest
 // table in another contexts. It is useful during proof generation,
@@ -196,7 +196,7 @@ global validate_jumpdest_table_end:
     POP
     JUMP
 check_proof:
-    %sub_const(1)
+    %decrement
     DUP2 DUP2
     // stack: address, ctx, address, ctx
     // We read the proof

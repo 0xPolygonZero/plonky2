@@ -427,7 +427,7 @@ impl<'a> Interpreter<'a> {
         )
     }
 
-    fn incr(&mut self, n: usize) {
+    const fn incr(&mut self, n: usize) {
         self.generation_state.registers.program_counter += n;
     }
 
