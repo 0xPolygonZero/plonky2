@@ -78,19 +78,6 @@ fn test_erc721() -> anyhow::Result<()> {
     let txn = signed_tx();
 
     let gas_used = 58_418.into();
-    let block_metadata = BlockMetadata {
-        block_beneficiary: Address::from(beneficiary),
-        block_timestamp: 0x03e8.into(),
-        block_number: 1.into(),
-        block_difficulty: 0x020000.into(),
-        block_random: H256::from_uint(&0x020000.into()),
-        block_gaslimit: 0xff112233u32.into(),
-        block_chain_id: 1.into(),
-        block_base_fee: 0xa.into(),
-        block_gas_used: gas_used,
-        // Technically wrong Bloom filter, but it's not checked by the prover anyway.
-        block_bloom: [0.into(); 8],
-    };
 
     let contract_code = [contract_bytecode(), vec![]]
         .map(|v| (keccak(v.clone()), v))
@@ -132,13 +119,13 @@ fn test_erc721() -> anyhow::Result<()> {
         data: vec![].into(),
     }];
 
-    let mut bloom = [0u8; 256];
-    add_logs_to_bloom(&mut bloom, &logs);
+    let mut bloom_bytes = [0u8; 256];
+    add_logs_to_bloom(&mut bloom_bytes, &logs);
 
     let receipt_0 = LegacyReceiptRlp {
         status: true,
         cum_gas_used: gas_used,
-        bloom: bloom.to_vec().into(),
+        bloom: bloom_bytes.to_vec().into(),
         logs,
     };
     let mut receipts_trie = HashedPartialTrie::from(Node::Empty);
@@ -154,6 +141,25 @@ fn test_erc721() -> anyhow::Result<()> {
         transactions_root: transactions_trie.hash(),
         receipts_root: receipts_trie.hash(),
     };
+
+    let bloom = bloom_bytes
+        .chunks_exact(32)
+        .map(U256::from_big_endian)
+        .collect::<Vec<_>>();
+
+    let block_metadata = BlockMetadata {
+        block_beneficiary: Address::from(beneficiary),
+        block_timestamp: 0x03e8.into(),
+        block_number: 1.into(),
+        block_difficulty: 0x020000.into(),
+        block_random: H256::from_uint(&0x020000.into()),
+        block_gaslimit: 0xff112233u32.into(),
+        block_chain_id: 1.into(),
+        block_base_fee: 0xa.into(),
+        block_gas_used: gas_used,
+        block_bloom: bloom.try_into().unwrap(),
+    };
+
     let inputs = GenerationInputs {
         signed_txn: Some(txn.to_vec()),
         withdrawals: vec![],
