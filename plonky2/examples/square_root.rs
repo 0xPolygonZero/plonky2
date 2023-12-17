@@ -4,6 +4,7 @@ use anyhow::Result;
 use plonky2::field::types::{PrimeField, Sample};
 use plonky2::gates::arithmetic_base::ArithmeticBaseGenerator;
 use plonky2::gates::poseidon::PoseidonGenerator;
+use plonky2::gates::poseidon2::Poseidon2Generator;
 use plonky2::gates::poseidon_mds::PoseidonMdsGenerator;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::generator::{
@@ -82,6 +83,7 @@ where
         ArithmeticBaseGenerator<F, D>,
         ConstantGenerator<F>,
         PoseidonGenerator<F, D>,
+        Poseidon2Generator<F, D>,
         PoseidonMdsGenerator<D>,
         RandomValueGenerator,
         SquareRootGenerator<F, D>
