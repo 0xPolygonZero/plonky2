@@ -259,7 +259,7 @@ impl<F: Field> Column<F> {
         res
     }
 
-    /// Evaluates the filter on all rows.
+    /// Evaluates the column on all rows.
     pub(crate) fn eval_all_rows(&self, table: &[PolynomialValues<F>]) -> Vec<F> {
         let length = table[0].len();
         (0..length)
