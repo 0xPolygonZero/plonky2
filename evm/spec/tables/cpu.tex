@@ -7,14 +7,12 @@ This section will only briefly present the CPU and its columns. Details about th
 
 \subsubsection{CPU flow}
 
-An execution run can be decomposed into three distinct parts:
+An execution run can be decomposed into two distinct parts:
 \begin{itemize}
-    \item \textbf{Bootstrapping:} The CPU starts by writing all the kernel code to memory and then hashes it. The hash is then compared to a public value shared with
-the verifier to ensure that the kernel code is correct.
     \item \textbf{CPU cycles:} The bulk of the execution. In each row, the CPU reads the current code at the program counter (PC) address, and executes it. The current code can be the kernel code,
 or whichever code is being executed in the current context (transaction code or contract code). Executing an instruction consists in modifying the registers, possibly
 performing some memory operations, and updating the PC.
-\item \textbf{Padding:} At the end of the execution, we need to pad the length of the CPU trace to the next power of two. When the program counter reaches the special halting label
+    \item \textbf{Padding:} At the end of the execution, we need to pad the length of the CPU trace to the next power of two. When the program counter reaches the special halting label
 in the kernel, execution halts. Constraints ensure that every subsequent row is a padding row and that execution cannot resume.
 \end{itemize}
 
@@ -26,7 +24,6 @@ but change the code context, which is where the instructions are read from.
 \subsubsection{CPU columns}
 
 \paragraph*{Registers:} \begin{itemize}
-    \item \texttt{is\_bootstrap\_kernel}: Boolean indicating whether this is a bootstrapping row or not. It must be 1 at the first row, then switch to 0 until the end.
     \item \texttt{context}: Indicates which context we are in. 0 for the kernel, and a positive integer for every user context. Incremented by 1 at every call.
     \item \texttt{code\_context}: Indicates in which context the code to execute resides. It's equal to \texttt{context} in user mode, but is always 0 in kernel mode.
     \item \texttt{program\_counter}: The address of the instruction to be read and executed.
@@ -34,14 +31,12 @@ but change the code context, which is where the instructions are read from.
     \item \texttt{is\_kernel\_mode}: Boolean indicating whether we are in kernel (i.e. privileged) mode. This means we are executing kernel code, and we have access to
 privileged instructions.
     \item \texttt{gas}: The current amount of gas used in the current context. It is eventually checked to be below the current gas limit. Must fit in 32 bits.
-    \item \texttt{is\_keccak\_sponge}: Boolean indicating whether we are executing a Keccak hash. This happens whenever a \texttt{KECCAK\_GENERAL} instruction is executed, or at the last
-cycle of bootstrapping to hash the kernel code.
     \item \texttt{clock}: Monotonic counter which starts at 0 and is incremented by 1 at each row. Used to enforce correct ordering of memory accesses. 
     \item \texttt{opcode\_bits}: 8 boolean columns, which are the bit decomposition of the opcode being read at the current PC.
 \end{itemize}
 
 \paragraph*{Operation flags:} Boolean flags. During CPU cycles phase, each row executes a single instruction, which sets one and only one operation flag. No flag is set during
-bootstrapping and padding. The decoding constraints ensure that the flag set corresponds to the opcode being read.
+padding. The decoding constraints ensure that the flag set corresponds to the opcode being read.
 There isn't a 1-to-1 correspondance between instructions and flags. For efficiency, the same flag can be set by different, unrelated instructions (e.g. \texttt{eq\_iszero}, which represents
 the \texttt{EQ} and the \texttt{ISZERO} instructions). When there is a need to differentiate them in constraints, we filter them with their respective opcode: since the first bit of \texttt{EQ}'s opcode
 (resp. \texttt{ISZERO}'s opcode) is 0 (resp. 1), we can filter a constraint for an EQ instruction with \texttt{eq\_iszero * (1 - opcode\_bits[0])}

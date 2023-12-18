@@ -1,6 +1,8 @@
 use core::mem::{self, MaybeUninit};
 use std::collections::BTreeMap;
 use std::ops::Range;
+use std::sync::atomic::AtomicBool;
+use std::sync::Arc;
 
 use eth_trie_utils::partial_trie::{HashedPartialTrie, Node, PartialTrie};
 use hashbrown::HashMap;
@@ -37,13 +39,13 @@ use crate::generation::GenerationInputs;
 use crate::get_challenges::observe_public_values_target;
 use crate::proof::{
     BlockHashesTarget, BlockMetadataTarget, ExtraBlockData, ExtraBlockDataTarget, PublicValues,
-    PublicValuesTarget, StarkProofWithMetadata, TrieRootsTarget,
+    PublicValuesTarget, StarkProofWithMetadata, TrieRoots, TrieRootsTarget,
 };
-use crate::prover::prove;
+use crate::prover::{check_abort_signal, prove};
 use crate::recursive_verifier::{
-    add_common_recursion_gates, add_virtual_public_values,
-    get_memory_extra_looking_products_circuit, recursive_stark_circuit, set_public_value_targets,
-    PlonkWrapperCircuit, PublicInputs, StarkWrapperCircuit,
+    add_common_recursion_gates, add_virtual_public_values, get_memory_extra_looking_sum_circuit,
+    recursive_stark_circuit, set_public_value_targets, PlonkWrapperCircuit, PublicInputs,
+    StarkWrapperCircuit,
 };
 use crate::stark::Stark;
 use crate::util::h256_limbs;
@@ -565,15 +567,15 @@ where
             }
         }
 
-        // Extra products to add to the looked last value.
+        // Extra sums to add to the looked last value.
         // Only necessary for the Memory values.
-        let mut extra_looking_products =
-            vec![vec![builder.one(); stark_config.num_challenges]; NUM_TABLES];
+        let mut extra_looking_sums =
+            vec![vec![builder.zero(); stark_config.num_challenges]; NUM_TABLES];
 
         // Memory
-        extra_looking_products[Table::Memory as usize] = (0..stark_config.num_challenges)
+        extra_looking_sums[Table::Memory as usize] = (0..stark_config.num_challenges)
             .map(|c| {
-                get_memory_extra_looking_products_circuit(
+                get_memory_extra_looking_sum_circuit(
                     &mut builder,
                     &public_values,
                     ctl_challenges.challenges[c],
@@ -586,7 +588,7 @@ where
             &mut builder,
             all_cross_table_lookups(),
             pis.map(|p| p.ctl_zs_first),
-            extra_looking_products,
+            extra_looking_sums,
             stark_config,
         );
 
@@ -715,18 +717,18 @@ where
         lhs: &ExtraBlockDataTarget,
         rhs: &ExtraBlockDataTarget,
     ) {
-        // Connect genesis state root values.
+        // Connect checkpoint state root values.
         for (&limb0, &limb1) in pvs
-            .genesis_state_trie_root
+            .checkpoint_state_trie_root
             .iter()
-            .zip(&rhs.genesis_state_trie_root)
+            .zip(&rhs.checkpoint_state_trie_root)
         {
             builder.connect(limb0, limb1);
         }
         for (&limb0, &limb1) in pvs
-            .genesis_state_trie_root
+            .checkpoint_state_trie_root
             .iter()
-            .zip(&lhs.genesis_state_trie_root)
+            .zip(&lhs.checkpoint_state_trie_root)
         {
             builder.connect(limb0, limb1);
         }
@@ -744,19 +746,6 @@ where
 
         // Connect lhs `gas_used_after` with rhs `gas_used_before`.
         builder.connect(lhs.gas_used_after, rhs.gas_used_before);
-
-        // Connect the `block_bloom` in public values to the lhs and rhs values correctly.
-        for (&limb0, &limb1) in pvs.block_bloom_after.iter().zip(&rhs.block_bloom_after) {
-            builder.connect(limb0, limb1);
-        }
-        for (&limb0, &limb1) in pvs.block_bloom_before.iter().zip(&lhs.block_bloom_before) {
-            builder.connect(limb0, limb1);
-        }
-
-        // Connect lhs `block_bloom_after` with rhs `block_bloom_before`.
-        for (&limb0, &limb1) in lhs.block_bloom_after.iter().zip(&rhs.block_bloom_before) {
-            builder.connect(limb0, limb1);
-        }
     }
 
     fn add_agg_child(
@@ -802,6 +791,34 @@ where
 
         let parent_pv = PublicValuesTarget::from_public_inputs(&parent_block_proof.public_inputs);
         let agg_pv = PublicValuesTarget::from_public_inputs(&agg_root_proof.public_inputs);
+
+        // Connect block `trie_roots_before` with parent_pv `trie_roots_before`.
+        TrieRootsTarget::connect(
+            &mut builder,
+            public_values.trie_roots_before,
+            parent_pv.trie_roots_before,
+        );
+        // Connect the rest of block `public_values` with agg_pv.
+        TrieRootsTarget::connect(
+            &mut builder,
+            public_values.trie_roots_after,
+            agg_pv.trie_roots_after,
+        );
+        BlockMetadataTarget::connect(
+            &mut builder,
+            public_values.block_metadata,
+            agg_pv.block_metadata,
+        );
+        BlockHashesTarget::connect(
+            &mut builder,
+            public_values.block_hashes,
+            agg_pv.block_hashes,
+        );
+        ExtraBlockDataTarget::connect(
+            &mut builder,
+            public_values.extra_block_data,
+            agg_pv.extra_block_data,
+        );
 
         // Make connections between block proofs, and check initial and final block values.
         Self::connect_block_proof(&mut builder, has_parent_block, &parent_pv, &agg_pv);
@@ -868,12 +885,12 @@ where
             builder.connect(limb0, limb1);
         }
 
-        // Between blocks, the genesis state trie remains unchanged.
+        // Between blocks, the checkpoint state trie remains unchanged.
         for (&limb0, limb1) in lhs
             .extra_block_data
-            .genesis_state_trie_root
+            .checkpoint_state_trie_root
             .iter()
-            .zip(rhs.extra_block_data.genesis_state_trie_root)
+            .zip(rhs.extra_block_data.checkpoint_state_trie_root)
         {
             builder.connect(limb0, limb1);
         }
@@ -891,15 +908,11 @@ where
 
         let has_not_parent_block = builder.sub(one, has_parent_block.target);
 
-        // Check that the genesis block number is 0.
-        let gen_block_constr = builder.mul(has_not_parent_block, lhs.block_metadata.block_number);
-        builder.assert_zero(gen_block_constr);
-
-        // Check that the genesis block has the predetermined state trie root in `ExtraBlockData`.
-        Self::connect_genesis_block(builder, rhs, has_not_parent_block);
+        // Check that the checkpoint block has the predetermined state trie root in `ExtraBlockData`.
+        Self::connect_checkpoint_block(builder, rhs, has_not_parent_block);
     }
 
-    fn connect_genesis_block(
+    fn connect_checkpoint_block(
         builder: &mut CircuitBuilder<F, D>,
         x: &PublicValuesTarget,
         has_not_parent_block: Target,
@@ -910,7 +923,7 @@ where
             .trie_roots_before
             .state_root
             .iter()
-            .zip(x.extra_block_data.genesis_state_trie_root)
+            .zip(x.extra_block_data.checkpoint_state_trie_root)
         {
             let mut constr = builder.sub(limb0, limb1);
             constr = builder.mul(has_not_parent_block, constr);
@@ -928,15 +941,6 @@ where
             x.block_metadata.block_gas_used,
             x.extra_block_data.gas_used_after,
         );
-
-        for (&limb0, &limb1) in x
-            .block_metadata
-            .block_bloom
-            .iter()
-            .zip(&x.extra_block_data.block_bloom_after)
-        {
-            builder.connect(limb0, limb1);
-        }
     }
 
     fn connect_initial_values_block(builder: &mut CircuitBuilder<F, D>, x: &PublicValuesTarget)
@@ -947,11 +951,6 @@ where
         builder.assert_zero(x.extra_block_data.txn_number_before);
         // The initial gas used is 0.
         builder.assert_zero(x.extra_block_data.gas_used_before);
-
-        // The initial bloom filter is all zeroes.
-        for t in x.extra_block_data.block_bloom_before {
-            builder.assert_zero(t);
-        }
 
         // The transactions and receipts tries are empty at the beginning of the block.
         let initial_trie = HashedPartialTrie::from(Node::Empty).hash();
@@ -970,8 +969,15 @@ where
         config: &StarkConfig,
         generation_inputs: GenerationInputs,
         timing: &mut TimingTree,
+        abort_signal: Option<Arc<AtomicBool>>,
     ) -> anyhow::Result<(ProofWithPublicInputs<F, C, D>, PublicValues)> {
-        let all_proof = prove::<F, C, D>(all_stark, config, generation_inputs, timing)?;
+        let all_proof = prove::<F, C, D>(
+            all_stark,
+            config,
+            generation_inputs,
+            timing,
+            abort_signal.clone(),
+        )?;
         let mut root_inputs = PartialWitness::new();
 
         for table in 0..NUM_TABLES {
@@ -999,6 +1005,8 @@ where
                 F::from_canonical_usize(index_verifier_data),
             );
             root_inputs.set_proof_with_pis_target(&self.root.proof_with_pis[table], &shrunk_proof);
+
+            check_abort_signal(abort_signal.clone())?;
         }
 
         root_inputs.set_verifier_data_target(
@@ -1053,13 +1061,13 @@ where
             trie_roots_before: lhs_public_values.trie_roots_before,
             trie_roots_after: rhs_public_values.trie_roots_after,
             extra_block_data: ExtraBlockData {
-                genesis_state_trie_root: lhs_public_values.extra_block_data.genesis_state_trie_root,
+                checkpoint_state_trie_root: lhs_public_values
+                    .extra_block_data
+                    .checkpoint_state_trie_root,
                 txn_number_before: lhs_public_values.extra_block_data.txn_number_before,
                 txn_number_after: rhs_public_values.extra_block_data.txn_number_after,
                 gas_used_before: lhs_public_values.extra_block_data.gas_used_before,
                 gas_used_after: rhs_public_values.extra_block_data.gas_used_after,
-                block_bloom_before: lhs_public_values.extra_block_data.block_bloom_before,
-                block_bloom_after: rhs_public_values.extra_block_data.block_bloom_after,
             },
             block_metadata: rhs_public_values.block_metadata,
             block_hashes: rhs_public_values.block_hashes,
@@ -1106,47 +1114,68 @@ where
             block_inputs
                 .set_proof_with_pis_target(&self.block.parent_block_proof, parent_block_proof);
         } else {
-            // Initialize genesis_state_trie, state_root_after, and the previous block hashes for correct connection between blocks.
-            // Block number does not need to be initialized as genesis block is constrained to have number 0.
-
             if public_values.trie_roots_before.state_root
-                != public_values.extra_block_data.genesis_state_trie_root
+                != public_values.extra_block_data.checkpoint_state_trie_root
             {
                 return Err(anyhow::Error::msg(format!(
-                    "Inconsistent pre-state for first block {:?} with genesis state {:?}.",
+                    "Inconsistent pre-state for first block {:?} with checkpoint state {:?}.",
                     public_values.trie_roots_before.state_root,
-                    public_values.extra_block_data.genesis_state_trie_root,
+                    public_values.extra_block_data.checkpoint_state_trie_root,
                 )));
             }
-            // Initialize `state_root_after`.
+
+            // Initialize some public inputs for correct connection between the checkpoint block and the current one.
+            let mut nonzero_pis = HashMap::new();
+
+            // Initialize the checkpoint block roots before, and state root after.
+            let state_trie_root_before_keys = 0..TrieRootsTarget::HASH_SIZE;
+            for (key, &value) in state_trie_root_before_keys
+                .zip_eq(&h256_limbs::<F>(public_values.trie_roots_before.state_root))
+            {
+                nonzero_pis.insert(key, value);
+            }
+            let txn_trie_root_before_keys =
+                TrieRootsTarget::HASH_SIZE..TrieRootsTarget::HASH_SIZE * 2;
+            for (key, &value) in txn_trie_root_before_keys.clone().zip_eq(&h256_limbs::<F>(
+                public_values.trie_roots_before.transactions_root,
+            )) {
+                nonzero_pis.insert(key, value);
+            }
+            let receipts_trie_root_before_keys =
+                TrieRootsTarget::HASH_SIZE * 2..TrieRootsTarget::HASH_SIZE * 3;
+            for (key, &value) in receipts_trie_root_before_keys
+                .clone()
+                .zip_eq(&h256_limbs::<F>(
+                    public_values.trie_roots_before.receipts_root,
+                ))
+            {
+                nonzero_pis.insert(key, value);
+            }
             let state_trie_root_after_keys =
                 TrieRootsTarget::SIZE..TrieRootsTarget::SIZE + TrieRootsTarget::HASH_SIZE;
-            let mut nonzero_pis = HashMap::new();
             for (key, &value) in state_trie_root_after_keys
                 .zip_eq(&h256_limbs::<F>(public_values.trie_roots_before.state_root))
             {
                 nonzero_pis.insert(key, value);
             }
 
-            // Initialize the genesis state trie digest.
-            let genesis_state_trie_keys = TrieRootsTarget::SIZE * 2
-                + BlockMetadataTarget::SIZE
-                + BlockHashesTarget::BLOCK_HASHES_SIZE
-                ..TrieRootsTarget::SIZE * 2
-                    + BlockMetadataTarget::SIZE
-                    + BlockHashesTarget::BLOCK_HASHES_SIZE
-                    + 8;
-            for (key, &value) in genesis_state_trie_keys.zip_eq(&h256_limbs::<F>(
-                public_values.extra_block_data.genesis_state_trie_root,
+            // Initialize the checkpoint state root extra data.
+            let checkpoint_state_trie_keys =
+                TrieRootsTarget::SIZE * 2 + BlockMetadataTarget::SIZE + BlockHashesTarget::SIZE
+                    ..TrieRootsTarget::SIZE * 2
+                        + BlockMetadataTarget::SIZE
+                        + BlockHashesTarget::SIZE
+                        + 8;
+            for (key, &value) in checkpoint_state_trie_keys.zip_eq(&h256_limbs::<F>(
+                public_values.extra_block_data.checkpoint_state_trie_root,
             )) {
                 nonzero_pis.insert(key, value);
             }
 
-            // Initialize block hashes.
+            // Initialize checkpoint block hashes.
+            // These will be all zeros the initial genesis checkpoint.
             let block_hashes_keys = TrieRootsTarget::SIZE * 2 + BlockMetadataTarget::SIZE
-                ..TrieRootsTarget::SIZE * 2
-                    + BlockMetadataTarget::SIZE
-                    + BlockHashesTarget::BLOCK_HASHES_SIZE
+                ..TrieRootsTarget::SIZE * 2 + BlockMetadataTarget::SIZE + BlockHashesTarget::SIZE
                     - 8;
 
             for i in 0..public_values.block_hashes.prev_hashes.len() - 1 {
@@ -1155,14 +1184,20 @@ where
                     nonzero_pis.insert(block_hashes_keys.start + 8 * (i + 1) + j, targets[j]);
                 }
             }
-            let block_hashes_current_start = TrieRootsTarget::SIZE * 2
-                + BlockMetadataTarget::SIZE
-                + BlockHashesTarget::BLOCK_HASHES_SIZE
-                - 8;
+            let block_hashes_current_start =
+                TrieRootsTarget::SIZE * 2 + BlockMetadataTarget::SIZE + BlockHashesTarget::SIZE - 8;
             let cur_targets = h256_limbs::<F>(public_values.block_hashes.prev_hashes[255]);
             for i in 0..8 {
                 nonzero_pis.insert(block_hashes_current_start + i, cur_targets[i]);
             }
+
+            // Initialize the checkpoint block number.
+            // Subtraction would result in an invalid proof for genesis, but we shouldn't try proving this block anyway.
+            let block_number_key = TrieRootsTarget::SIZE * 2 + 6;
+            nonzero_pis.insert(
+                block_number_key,
+                F::from_canonical_u64(public_values.block_metadata.block_number.low_u64() - 1),
+            );
 
             block_inputs.set_proof_with_pis_target(
                 &self.block.parent_block_proof,
@@ -1179,13 +1214,26 @@ where
         block_inputs
             .set_verifier_data_target(&self.block.cyclic_vk, &self.block.circuit.verifier_only);
 
-        set_public_value_targets(&mut block_inputs, &self.block.public_values, &public_values)
-            .map_err(|_| {
-                anyhow::Error::msg("Invalid conversion when setting public values targets.")
-            })?;
+        // This is basically identical to this block public values, apart from the `trie_roots_before`
+        // that may come from the previous proof, if any.
+        let block_public_values = PublicValues {
+            trie_roots_before: opt_parent_block_proof
+                .map(|p| TrieRoots::from_public_inputs(&p.public_inputs[0..TrieRootsTarget::SIZE]))
+                .unwrap_or(public_values.trie_roots_before),
+            ..public_values
+        };
+
+        set_public_value_targets(
+            &mut block_inputs,
+            &self.block.public_values,
+            &block_public_values,
+        )
+        .map_err(|_| {
+            anyhow::Error::msg("Invalid conversion when setting public values targets.")
+        })?;
 
         let block_proof = self.block.circuit.prove(block_inputs)?;
-        Ok((block_proof, public_values))
+        Ok((block_proof, block_public_values))
     }
 
     pub fn verify_block(&self, block_proof: &ProofWithPublicInputs<F, C, D>) -> anyhow::Result<()> {

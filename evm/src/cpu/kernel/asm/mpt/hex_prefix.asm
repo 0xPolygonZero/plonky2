@@ -67,20 +67,20 @@ remaining_bytes:
     SWAP1 SUB DUP1
     // stack: num_nibbles - parity, num_nibbles - parity, U256_MAX, packed_nibbles, rlp_pos, ret_dest
     %div_const(2)
-    // stack: remaining_bytes, num_nibbles - parity, U256_MAX, packed_nibbles, rlp_pos, ret_dest
+    // stack: rem_bytes, num_nibbles - parity, U256_MAX, packed_nibbles, rlp_pos, ret_dest
     SWAP2 SWAP1
-    // stack: num_nibbles - parity, U256_MAX, remaining_bytes, packed_nibbles, rlp_pos, ret_dest
+    // stack: num_nibbles - parity, U256_MAX, rem_bytes, packed_nibbles, rlp_pos, ret_dest
     %mul_const(4)
-    // stack: 4*(num_nibbles - parity), U256_MAX, remaining_bytes, packed_nibbles, rlp_pos, ret_dest
+    // stack: 4*(num_nibbles - parity), U256_MAX, rem_bytes, packed_nibbles, rlp_pos, ret_dest
     PUSH 256 SUB
-    // stack: 256 - 4*(num_nibbles - parity), U256_MAX, remaining_bytes, packed_nibbles, rlp_pos, ret_dest
+    // stack: 256 - 4*(num_nibbles - parity), U256_MAX, rem_bytes, packed_nibbles, rlp_pos, ret_dest
     SHR
-    // stack: mask, remaining_bytes, packed_nibbles, rlp_pos, ret_dest
+    // stack: mask, rem_bytes, packed_nibbles, rlp_pos, ret_dest
     SWAP1 SWAP2
     AND
     %stack
-        (remaining_nibbles, remaining_bytes, rlp_pos) ->
-        (rlp_pos, remaining_nibbles, remaining_bytes)
+        (remaining_nibbles, rem_bytes, rlp_pos) ->
+        (rlp_pos, remaining_nibbles, rem_bytes)
     %mstore_unpacking_rlp
     SWAP1
     JUMP
@@ -95,9 +95,13 @@ rlp_header_medium:
     // rlp_pos += 1
     %increment
 
-    %stack
-        (rlp_pos, num_nibbles, packed_nibbles, terminated, retdest) ->
-        (rlp_pos, num_nibbles, packed_nibbles, terminated, remaining_bytes, num_nibbles, packed_nibbles, retdest)
+    // stack: rlp_pos, num_nibbles, packed_nibbles, terminated, retdest
+    SWAP3 DUP3 DUP3
+    // stack: num_nibbles, packed_nibbles, terminated, num_nibbles, packed_nibbles, rlp_pos, retdest
+    PUSH remaining_bytes
+    // stack: remaining_bytes, num_nibbles, packed_nibbles, terminated, num_nibbles, packed_nibbles, rlp_pos, retdest
+    SWAP4 SWAP5 SWAP6
+    // stack: rlp_pos, num_nibbles, packed_nibbles, terminated, remaining_bytes, num_nibbles, packed_nibbles, retdest
 
     %jump(first_byte)
 
@@ -118,9 +122,12 @@ rlp_header_large:
     // rlp_pos += 2
     %add_const(2)
 
-    %stack
-        (rlp_pos, num_nibbles, packed_nibbles, terminated, retdest) ->
-        (rlp_pos, num_nibbles, packed_nibbles, terminated, remaining_bytes, num_nibbles, packed_nibbles, retdest)
+    // stack: rlp_pos, num_nibbles, packed_nibbles, terminated, retdest
+    SWAP3 DUP3 DUP3
+    // stack: num_nibbles, packed_nibbles, terminated, num_nibbles, packed_nibbles, rlp_pos, retdest
+    PUSH remaining_bytes
+    // stack: remaining_bytes, num_nibbles, packed_nibbles, terminated, num_nibbles, packed_nibbles, rlp_pos, retdest
+    SWAP4 SWAP5 SWAP6
+    // stack: rlp_pos, num_nibbles, packed_nibbles, terminated, remaining_bytes, num_nibbles, packed_nibbles, retdest
 
     %jump(first_byte)
-

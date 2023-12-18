@@ -20,7 +20,7 @@ pub struct RegistersState {
 }
 
 impl RegistersState {
-    pub(crate) fn code_context(&self) -> usize {
+    pub(crate) const fn code_context(&self) -> usize {
         if self.is_kernel {
             KERNEL_CONTEXT
         } else {

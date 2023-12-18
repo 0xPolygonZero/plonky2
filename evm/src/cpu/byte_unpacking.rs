@@ -13,8 +13,10 @@ pub(crate) fn eval_packed<P: PackedField>(
     nv: &CpuColumnsView<P>,
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
-    let filter = lv.op.mstore_32bytes;
-    let new_offset = nv.mem_channels[0].value[0];
+    // The MSTORE_32BYTES opcodes are differentiated from MLOAD_32BYTES
+    // by the 5th bit set to 0.
+    let filter = lv.op.m_op_32bytes * (lv.opcode_bits[5] - P::ONES);
+    let new_offset = nv.mem_channels[0].value;
     let virt = lv.mem_channels[2].value[0];
     // Read len from opcode bits and constrain the pushed new offset.
     let len_bits: P = lv.opcode_bits[..5]
@@ -23,7 +25,10 @@ pub(crate) fn eval_packed<P: PackedField>(
         .map(|(i, &bit)| bit * P::Scalar::from_canonical_u64(1 << i))
         .sum();
     let len = len_bits + P::ONES;
-    yield_constr.constraint(filter * (new_offset - virt - len));
+    yield_constr.constraint(filter * (new_offset[0] - virt - len));
+    for &limb in &new_offset[1..] {
+        yield_constr.constraint(filter * limb);
+    }
 }
 
 pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
@@ -32,8 +37,11 @@ pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     nv: &CpuColumnsView<ExtensionTarget<D>>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
-    let filter = lv.op.mstore_32bytes;
-    let new_offset = nv.mem_channels[0].value[0];
+    // The MSTORE_32BYTES opcodes are differentiated from MLOAD_32BYTES
+    // by the 5th bit set to 0.
+    let filter =
+        builder.mul_sub_extension(lv.op.m_op_32bytes, lv.opcode_bits[5], lv.op.m_op_32bytes);
+    let new_offset = nv.mem_channels[0].value;
     let virt = lv.mem_channels[2].value[0];
     // Read len from opcode bits and constrain the pushed new offset.
     let len_bits = lv.opcode_bits[..5].iter().enumerate().fold(
@@ -42,8 +50,12 @@ pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
             builder.mul_const_add_extension(F::from_canonical_u64(1 << i), bit, cumul)
         },
     );
-    let diff = builder.sub_extension(new_offset, virt);
+    let diff = builder.sub_extension(new_offset[0], virt);
     let diff = builder.sub_extension(diff, len_bits);
     let constr = builder.mul_sub_extension(filter, diff, filter);
     yield_constr.constraint(builder, constr);
+    for &limb in &new_offset[1..] {
+        let constr = builder.mul_extension(filter, limb);
+        yield_constr.constraint(builder, constr);
+    }
 }

@@ -86,16 +86,16 @@ impl<F: RichField + Extendable<D>, const D: usize> CosetInterpolationGate<F, D> 
         }
     }
 
-    fn num_points(&self) -> usize {
+    const fn num_points(&self) -> usize {
         1 << self.subgroup_bits
     }
 
     /// Wire index of the coset shift.
-    pub(crate) fn wire_shift(&self) -> usize {
+    pub(crate) const fn wire_shift(&self) -> usize {
         0
     }
 
-    fn start_values(&self) -> usize {
+    const fn start_values(&self) -> usize {
         1
     }
 
@@ -106,31 +106,31 @@ impl<F: RichField + Extendable<D>, const D: usize> CosetInterpolationGate<F, D> 
         start..start + D
     }
 
-    fn start_evaluation_point(&self) -> usize {
+    const fn start_evaluation_point(&self) -> usize {
         self.start_values() + self.num_points() * D
     }
 
     /// Wire indices of the point to evaluate the interpolant at.
-    pub(crate) fn wires_evaluation_point(&self) -> Range<usize> {
+    pub(crate) const fn wires_evaluation_point(&self) -> Range<usize> {
         let start = self.start_evaluation_point();
         start..start + D
     }
 
-    fn start_evaluation_value(&self) -> usize {
+    const fn start_evaluation_value(&self) -> usize {
         self.start_evaluation_point() + D
     }
 
     /// Wire indices of the interpolated value.
-    pub(crate) fn wires_evaluation_value(&self) -> Range<usize> {
+    pub(crate) const fn wires_evaluation_value(&self) -> Range<usize> {
         let start = self.start_evaluation_value();
         start..start + D
     }
 
-    fn start_intermediates(&self) -> usize {
+    const fn start_intermediates(&self) -> usize {
         self.start_evaluation_value() + D
     }
 
-    pub fn num_routed_wires(&self) -> usize {
+    pub const fn num_routed_wires(&self) -> usize {
         self.start_intermediates()
     }
 

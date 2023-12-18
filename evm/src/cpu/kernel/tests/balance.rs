@@ -7,8 +7,9 @@ use rand::{thread_rng, Rng};
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
 use crate::cpu::kernel::interpreter::Interpreter;
+use crate::cpu::kernel::tests::account_code::initialize_mpts;
 use crate::cpu::kernel::tests::mpt::nibbles_64;
-use crate::generation::mpt::{all_mpt_prover_inputs_reversed, AccountRlp};
+use crate::generation::mpt::AccountRlp;
 use crate::Node;
 
 // Test account with a given code hash.
@@ -28,21 +29,12 @@ fn prepare_interpreter(
     address: Address,
     account: &AccountRlp,
 ) -> Result<()> {
-    let load_all_mpts = KERNEL.global_labels["load_all_mpts"];
     let mpt_insert_state_trie = KERNEL.global_labels["mpt_insert_state_trie"];
     let mpt_hash_state_trie = KERNEL.global_labels["mpt_hash_state_trie"];
     let mut state_trie: HashedPartialTrie = Default::default();
     let trie_inputs = Default::default();
 
-    interpreter.generation_state.registers.program_counter = load_all_mpts;
-    interpreter
-        .push(0xDEADBEEFu32.into())
-        .expect("The stack should not overflow");
-
-    interpreter.generation_state.mpt_prover_inputs =
-        all_mpt_prover_inputs_reversed(&trie_inputs)
-            .map_err(|err| anyhow!("Invalid MPT data: {:?}", err))?;
-    interpreter.run()?;
+    initialize_mpts(interpreter, &trie_inputs);
     assert_eq!(interpreter.stack(), vec![]);
 
     let k = nibbles_64(U256::from_big_endian(
@@ -89,15 +81,18 @@ fn prepare_interpreter(
     interpreter
         .push(0xDEADBEEFu32.into())
         .expect("The stack should not overflow");
+    interpreter
+        .push(1.into()) // Initial trie data segment size, unused.
+        .expect("The stack should not overflow");
     interpreter.run()?;
 
     assert_eq!(
         interpreter.stack().len(),
-        1,
-        "Expected 1 item on stack after hashing, found {:?}",
+        2,
+        "Expected 2 items on stack after hashing, found {:?}",
         interpreter.stack()
     );
-    let hash = H256::from_uint(&interpreter.stack()[0]);
+    let hash = H256::from_uint(&interpreter.stack()[1]);
 
     state_trie.insert(k, rlp::encode(account).to_vec());
     let expected_state_trie_hash = state_trie.hash();
@@ -119,6 +114,7 @@ fn test_balance() -> Result<()> {
 
     // Test `balance`
     interpreter.generation_state.registers.program_counter = KERNEL.global_labels["balance"];
+    interpreter.pop().expect("The stack should not be empty");
     interpreter.pop().expect("The stack should not be empty");
     assert!(interpreter.stack().is_empty());
     interpreter

@@ -13,11 +13,56 @@ use crate::cpu::kernel::constants::context_metadata::ContextMetadata::{self, Gas
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
 use crate::cpu::kernel::interpreter::Interpreter;
 use crate::cpu::kernel::tests::mpt::nibbles_64;
-use crate::generation::mpt::{all_mpt_prover_inputs_reversed, AccountRlp};
+use crate::generation::mpt::{load_all_mpts, AccountRlp};
 use crate::generation::TrieInputs;
 use crate::memory::segments::Segment;
 use crate::witness::memory::MemoryAddress;
 use crate::Node;
+
+pub(crate) fn initialize_mpts(interpreter: &mut Interpreter, trie_inputs: &TrieInputs) {
+    // Load all MPTs.
+    let (trie_root_ptrs, trie_data) =
+        load_all_mpts(trie_inputs).expect("Invalid MPT data for preinitialization");
+
+    let state_addr = MemoryAddress::new(
+        0,
+        Segment::GlobalMetadata,
+        GlobalMetadata::StateTrieRoot as usize,
+    );
+
+    let txn_addr = MemoryAddress::new(
+        0,
+        Segment::GlobalMetadata,
+        GlobalMetadata::TransactionTrieRoot as usize,
+    );
+    let receipts_addr = MemoryAddress::new(
+        0,
+        Segment::GlobalMetadata,
+        GlobalMetadata::ReceiptTrieRoot as usize,
+    );
+    let len_addr = MemoryAddress::new(
+        0,
+        Segment::GlobalMetadata,
+        GlobalMetadata::TrieDataSize as usize,
+    );
+
+    let to_set = [
+        (state_addr, trie_root_ptrs.state_root_ptr.into()),
+        (txn_addr, trie_root_ptrs.txn_root_ptr.into()),
+        (receipts_addr, trie_root_ptrs.receipt_root_ptr.into()),
+        (len_addr, trie_data.len().into()),
+    ];
+
+    interpreter.set_memory_multi_addresses(&to_set);
+
+    for (i, data) in trie_data.iter().enumerate() {
+        let trie_addr = MemoryAddress::new(0, Segment::TrieData, i);
+        interpreter
+            .generation_state
+            .memory
+            .set(trie_addr, data.into());
+    }
+}
 
 // Test account with a given code hash.
 fn test_account(code: &[u8]) -> AccountRlp {
@@ -42,22 +87,12 @@ fn prepare_interpreter(
     address: Address,
     account: &AccountRlp,
 ) -> Result<()> {
-    let load_all_mpts = KERNEL.global_labels["load_all_mpts"];
     let mpt_insert_state_trie = KERNEL.global_labels["mpt_insert_state_trie"];
     let mpt_hash_state_trie = KERNEL.global_labels["mpt_hash_state_trie"];
     let mut state_trie: HashedPartialTrie = Default::default();
     let trie_inputs = Default::default();
 
-    interpreter.generation_state.registers.program_counter = load_all_mpts;
-    interpreter
-        .push(0xDEADBEEFu32.into())
-        .expect("The stack should not overflow");
-
-    interpreter.generation_state.mpt_prover_inputs =
-        all_mpt_prover_inputs_reversed(&trie_inputs)
-            .map_err(|err| anyhow!("Invalid MPT data: {:?}", err))?;
-    interpreter.run()?;
-    assert_eq!(interpreter.stack(), vec![]);
+    initialize_mpts(interpreter, &trie_inputs);
 
     let k = nibbles_64(U256::from_big_endian(
         keccak(address.to_fixed_bytes()).as_bytes(),
@@ -103,15 +138,18 @@ fn prepare_interpreter(
     interpreter
         .push(0xDEADBEEFu32.into())
         .expect("The stack should not overflow");
+    interpreter
+        .push(1.into()) // Initial length of the trie data segment, unused.
+        .expect("The stack should not overflow");
     interpreter.run()?;
 
     assert_eq!(
         interpreter.stack().len(),
-        1,
-        "Expected 1 item on stack after hashing, found {:?}",
+        2,
+        "Expected 2 items on stack after hashing, found {:?}",
         interpreter.stack()
     );
-    let hash = H256::from_uint(&interpreter.stack()[0]);
+    let hash = H256::from_uint(&interpreter.stack()[1]);
 
     state_trie.insert(k, rlp::encode(account).to_vec());
     let expected_state_trie_hash = state_trie.hash();
@@ -134,6 +172,7 @@ fn test_extcodesize() -> Result<()> {
 
     // Test `extcodesize`
     interpreter.generation_state.registers.program_counter = extcodesize;
+    interpreter.pop().expect("The stack should not be empty");
     interpreter.pop().expect("The stack should not be empty");
     assert!(interpreter.stack().is_empty());
     interpreter
@@ -187,6 +226,7 @@ fn test_extcodecopy() -> Result<()> {
     // Test `extcodecopy`
     interpreter.generation_state.registers.program_counter = extcodecopy;
     interpreter.pop().expect("The stack should not be empty");
+    interpreter.pop().expect("The stack should not be empty");
     assert!(interpreter.stack().is_empty());
     interpreter
         .push(size.into())
@@ -231,17 +271,7 @@ fn prepare_interpreter_all_accounts(
     code: &[u8],
 ) -> Result<()> {
     // Load all MPTs.
-    let load_all_mpts = KERNEL.global_labels["load_all_mpts"];
-
-    interpreter.generation_state.registers.program_counter = load_all_mpts;
-    interpreter
-        .push(0xDEADBEEFu32.into())
-        .expect("The stack should not overflow");
-
-    interpreter.generation_state.mpt_prover_inputs =
-        all_mpt_prover_inputs_reversed(&trie_inputs)
-            .map_err(|err| anyhow!("Invalid MPT data: {:?}", err))?;
-    interpreter.run()?;
+    initialize_mpts(interpreter, &trie_inputs);
     assert_eq!(interpreter.stack(), vec![]);
 
     // Switch context and initialize memory with the data we need for the tests.
@@ -339,16 +369,19 @@ fn sstore() -> Result<()> {
     interpreter
         .push(0xDEADBEEFu32.into())
         .expect("The stack should not overflow");
+    interpreter
+        .push(1.into()) // Initia length of the trie data segment, unused.
+        .expect("The stack should not overflow");
     interpreter.run()?;
 
     assert_eq!(
         interpreter.stack().len(),
-        1,
-        "Expected 1 item on stack after hashing, found {:?}",
+        2,
+        "Expected 2 items on stack after hashing, found {:?}",
         interpreter.stack()
     );
 
-    let hash = H256::from_uint(&interpreter.stack()[0]);
+    let hash = H256::from_uint(&interpreter.stack()[1]);
 
     let mut expected_state_trie_after = HashedPartialTrie::from(Node::Empty);
     expected_state_trie_after.insert(addr_nibbles, rlp::encode(&account_after).to_vec());
@@ -426,16 +459,28 @@ fn sload() -> Result<()> {
     interpreter
         .push(0xDEADBEEFu32.into())
         .expect("The stack should not overflow.");
+    interpreter
+        .push(1.into()) // Initia length of the trie data segment, unused.
+        .expect("The stack should not overflow.");
     interpreter.run()?;
 
     assert_eq!(
         interpreter.stack().len(),
-        1,
-        "Expected 1 item on stack after hashing, found {:?}",
+        2,
+        "Expected 2 items on stack after hashing, found {:?}",
         interpreter.stack()
     );
 
-    let hash = H256::from_uint(&interpreter.stack()[0]);
+    let trie_data_segment_len = interpreter.stack()[0];
+    assert_eq!(
+        trie_data_segment_len,
+        interpreter
+            .get_memory_segment(Segment::TrieData)
+            .len()
+            .into()
+    );
+
+    let hash = H256::from_uint(&interpreter.stack()[1]);
 
     let expected_state_trie_hash = state_trie_before.hash();
     assert_eq!(hash, expected_state_trie_hash);

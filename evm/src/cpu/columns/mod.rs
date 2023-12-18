@@ -53,9 +53,6 @@ pub(crate) struct PartialMemoryChannelView<T: Copy> {
 #[repr(C)]
 #[derive(Clone, Copy, Eq, PartialEq, Debug)]
 pub(crate) struct CpuColumnsView<T: Copy> {
-    /// Filter. 1 if the row is part of bootstrapping the kernel code, 0 otherwise.
-    pub is_bootstrap_kernel: T,
-
     /// If CPU cycle: Current context.
     pub context: T,
 
@@ -80,9 +77,6 @@ pub(crate) struct CpuColumnsView<T: Copy> {
 
     /// If CPU cycle: the opcode, broken up into bits in little-endian order.
     pub opcode_bits: [T; 8],
-
-    /// Filter. 1 iff a Keccak sponge lookup is performed on this row.
-    pub is_keccak_sponge: T,
 
     /// Columns shared by various operations.
     pub(crate) general: CpuGeneralColumnsView<T>,

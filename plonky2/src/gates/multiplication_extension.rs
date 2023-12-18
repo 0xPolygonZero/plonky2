@@ -25,25 +25,25 @@ pub struct MulExtensionGate<const D: usize> {
 }
 
 impl<const D: usize> MulExtensionGate<D> {
-    pub fn new_from_config(config: &CircuitConfig) -> Self {
+    pub const fn new_from_config(config: &CircuitConfig) -> Self {
         Self {
             num_ops: Self::num_ops(config),
         }
     }
 
     /// Determine the maximum number of operations that can fit in one gate for the given config.
-    pub(crate) fn num_ops(config: &CircuitConfig) -> usize {
+    pub(crate) const fn num_ops(config: &CircuitConfig) -> usize {
         let wires_per_op = 3 * D;
         config.num_routed_wires / wires_per_op
     }
 
-    pub fn wires_ith_multiplicand_0(i: usize) -> Range<usize> {
+    pub const fn wires_ith_multiplicand_0(i: usize) -> Range<usize> {
         3 * D * i..3 * D * i + D
     }
-    pub fn wires_ith_multiplicand_1(i: usize) -> Range<usize> {
+    pub const fn wires_ith_multiplicand_1(i: usize) -> Range<usize> {
         3 * D * i + D..3 * D * i + 2 * D
     }
-    pub fn wires_ith_output(i: usize) -> Range<usize> {
+    pub const fn wires_ith_output(i: usize) -> Range<usize> {
         3 * D * i + 2 * D..3 * D * i + 3 * D
     }
 }

@@ -6,8 +6,9 @@ use ethereum_types::{BigEndianHash, H256};
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
 use crate::cpu::kernel::interpreter::Interpreter;
+use crate::cpu::kernel::tests::account_code::initialize_mpts;
 use crate::cpu::kernel::tests::mpt::{nibbles_64, test_account_1_rlp, test_account_2};
-use crate::generation::mpt::{all_mpt_prover_inputs_reversed, AccountRlp};
+use crate::generation::mpt::AccountRlp;
 use crate::generation::TrieInputs;
 use crate::Node;
 
@@ -65,16 +66,14 @@ fn test_state_trie(
         receipts_trie: Default::default(),
         storage_tries: vec![],
     };
-    let load_all_mpts = KERNEL.global_labels["load_all_mpts"];
     let mpt_insert_state_trie = KERNEL.global_labels["mpt_insert_state_trie"];
     let mpt_delete = KERNEL.global_labels["mpt_delete"];
     let mpt_hash_state_trie = KERNEL.global_labels["mpt_hash_state_trie"];
 
-    let initial_stack = vec![0xDEADBEEFu32.into()];
-    let mut interpreter = Interpreter::new_with_kernel(load_all_mpts, initial_stack);
-    interpreter.generation_state.mpt_prover_inputs =
-        all_mpt_prover_inputs_reversed(&trie_inputs).map_err(|_| anyhow!("Invalid MPT data"))?;
-    interpreter.run()?;
+    let initial_stack = vec![];
+    let mut interpreter = Interpreter::new_with_kernel(0, initial_stack);
+
+    initialize_mpts(&mut interpreter, &trie_inputs);
     assert_eq!(interpreter.stack(), vec![]);
 
     // Next, execute mpt_insert_state_trie.
@@ -135,6 +134,9 @@ fn test_state_trie(
     interpreter.generation_state.registers.program_counter = mpt_hash_state_trie;
     interpreter
         .push(0xDEADBEEFu32.into())
+        .expect("The stack should not overflow");
+    interpreter
+        .push(1.into()) // Initial length of the trie data segment, unused.
         .expect("The stack should not overflow");
     interpreter.run()?;
 

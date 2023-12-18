@@ -8,7 +8,7 @@ use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer
 use crate::cpu::columns::{CpuColumnsView, COL_MAP};
 use crate::cpu::kernel::aggregator::KERNEL;
 
-const NATIVE_INSTRUCTIONS: [usize; 13] = [
+const NATIVE_INSTRUCTIONS: [usize; 12] = [
     COL_MAP.op.binary_op,
     COL_MAP.op.ternary_op,
     COL_MAP.op.fp254_op,
@@ -17,7 +17,7 @@ const NATIVE_INSTRUCTIONS: [usize; 13] = [
     COL_MAP.op.not_pop,
     COL_MAP.op.shift,
     COL_MAP.op.jumpdest_keccak_general,
-    COL_MAP.op.prover_input,
+    // Not PROVER_INPUT: it is dealt with manually below.
     // not JUMPS (possible need to jump)
     COL_MAP.op.pc_push0,
     // not PUSH (need to increment by more than 1)
@@ -51,7 +51,7 @@ pub(crate) fn eval_packed_generic<P: PackedField>(
     let is_cpu_cycle: P = COL_MAP.op.iter().map(|&col_i| lv[col_i]).sum();
     let is_cpu_cycle_next: P = COL_MAP.op.iter().map(|&col_i| nv[col_i]).sum();
 
-    let next_halt_state = P::ONES - nv.is_bootstrap_kernel - is_cpu_cycle_next;
+    let next_halt_state = P::ONES - is_cpu_cycle_next;
 
     // Once we start executing instructions, then we continue until the end of the table
     // or we reach dummy padding rows. This, along with the constraints on the first row,
@@ -69,6 +69,13 @@ pub(crate) fn eval_packed_generic<P: PackedField>(
     );
     yield_constr
         .constraint_transition(is_native_instruction * (lv.is_kernel_mode - nv.is_kernel_mode));
+
+    // Apply the same checks as before, for PROVER_INPUT.
+    let is_prover_input: P = lv.op.push_prover_input * (lv.opcode_bits[5] - P::ONES);
+    yield_constr.constraint_transition(
+        is_prover_input * (lv.program_counter - nv.program_counter + P::ONES),
+    );
+    yield_constr.constraint_transition(is_prover_input * (lv.is_kernel_mode - nv.is_kernel_mode));
 
     // If a non-CPU cycle row is followed by a CPU cycle row, then:
     //  - the `program_counter` of the CPU cycle row is `main` (the entry point of our kernel),
@@ -94,8 +101,7 @@ pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let is_cpu_cycle = builder.add_many_extension(COL_MAP.op.iter().map(|&col_i| lv[col_i]));
     let is_cpu_cycle_next = builder.add_many_extension(COL_MAP.op.iter().map(|&col_i| nv[col_i]));
 
-    let next_halt_state = builder.add_extension(nv.is_bootstrap_kernel, is_cpu_cycle_next);
-    let next_halt_state = builder.sub_extension(one, next_halt_state);
+    let next_halt_state = builder.sub_extension(one, is_cpu_cycle_next);
 
     // Once we start executing instructions, then we continue until the end of the table
     // or we reach dummy padding rows. This, along with the constraints on the first row,
@@ -117,6 +123,17 @@ pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
         yield_constr.constraint_transition(builder, pc_constr);
         let kernel_diff = builder.sub_extension(lv.is_kernel_mode, nv.is_kernel_mode);
         let kernel_constr = builder.mul_extension(filter, kernel_diff);
+        yield_constr.constraint_transition(builder, kernel_constr);
+
+        // Same constraints as before, for PROVER_INPUT.
+        let is_prover_input = builder.mul_sub_extension(
+            lv.op.push_prover_input,
+            lv.opcode_bits[5],
+            lv.op.push_prover_input,
+        );
+        let pc_constr = builder.mul_add_extension(is_prover_input, pc_diff, is_prover_input);
+        yield_constr.constraint_transition(builder, pc_constr);
+        let kernel_constr = builder.mul_extension(is_prover_input, kernel_diff);
         yield_constr.constraint_transition(builder, kernel_constr);
     }
 

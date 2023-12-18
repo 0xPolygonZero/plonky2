@@ -15,7 +15,7 @@ pub struct Wire {
 }
 
 impl Wire {
-    pub fn is_routable(&self, config: &CircuitConfig) -> bool {
+    pub const fn is_routable(&self, config: &CircuitConfig) -> bool {
         self.column < config.num_routed_wires
     }
 

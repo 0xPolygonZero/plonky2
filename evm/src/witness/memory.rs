@@ -38,7 +38,7 @@ pub(crate) struct MemoryAddress {
 }
 
 impl MemoryAddress {
-    pub(crate) fn new(context: usize, segment: Segment, virt: usize) -> Self {
+    pub(crate) const fn new(context: usize, segment: Segment, virt: usize) -> Self {
         Self {
             context,
             segment: segment as usize,
@@ -120,7 +120,11 @@ impl MemoryOp {
         }
     }
 
-    pub(crate) fn new_dummy_read(address: MemoryAddress, timestamp: usize, value: U256) -> Self {
+    pub(crate) const fn new_dummy_read(
+        address: MemoryAddress,
+        timestamp: usize,
+        value: U256,
+    ) -> Self {
         Self {
             filter: false,
             timestamp,
@@ -130,7 +134,7 @@ impl MemoryOp {
         }
     }
 
-    pub(crate) fn sorting_key(&self) -> (usize, usize, usize, usize) {
+    pub(crate) const fn sorting_key(&self) -> (usize, usize, usize, usize) {
         (
             self.address.context,
             self.address.segment,

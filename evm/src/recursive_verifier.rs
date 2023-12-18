@@ -1,7 +1,8 @@
+use std::array::from_fn;
 use std::fmt::Debug;
 
 use anyhow::Result;
-use ethereum_types::{BigEndianHash, U256};
+use ethereum_types::{BigEndianHash, H256, U256};
 use plonky2::field::extension::Extendable;
 use plonky2::field::types::Field;
 use plonky2::fri::witness_util::set_fri_proof_target;
@@ -28,6 +29,7 @@ use plonky2_util::log2_ceil;
 use crate::all_stark::Table;
 use crate::config::StarkConfig;
 use crate::constraint_consumer::RecursiveConstraintConsumer;
+use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
 use crate::cross_table_lookup::{
     CrossTableLookup, CtlCheckVarsTarget, GrandProductChallenge, GrandProductChallengeSet,
@@ -43,7 +45,7 @@ use crate::proof::{
     TrieRootsTarget,
 };
 use crate::stark::Stark;
-use crate::util::{h256_limbs, u256_limbs, u256_to_u32, u256_to_u64};
+use crate::util::{h256_limbs, h2u, u256_limbs, u256_to_u32, u256_to_u64};
 use crate::vanishing_poly::eval_vanishing_poly_circuit;
 use crate::witness::errors::ProgramError;
 
@@ -418,16 +420,13 @@ fn verify_stark_proof_with_challenges_circuit<
     );
 }
 
-/// Recursive version of `get_memory_extra_looking_products`.
-pub(crate) fn get_memory_extra_looking_products_circuit<
-    F: RichField + Extendable<D>,
-    const D: usize,
->(
+/// Recursive version of `get_memory_extra_looking_sum`.
+pub(crate) fn get_memory_extra_looking_sum_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     public_values: &PublicValuesTarget,
     challenge: GrandProductChallenge<Target>,
 ) -> Target {
-    let mut product = builder.one();
+    let mut sum = builder.zero();
 
     // Add metadata writes.
     let block_fields_scalars = [
@@ -495,34 +494,20 @@ pub(crate) fn get_memory_extra_looking_products_circuit<
     let metadata_segment = builder.constant(F::from_canonical_u32(Segment::GlobalMetadata as u32));
     block_fields_scalars.map(|(field, target)| {
         // Each of those fields fit in 32 bits, hence in a single Target.
-        product = add_data_write(
-            builder,
-            challenge,
-            product,
-            metadata_segment,
-            field,
-            &[target],
-        );
+        sum = add_data_write(builder, challenge, sum, metadata_segment, field, &[target]);
     });
 
     beneficiary_random_base_fee_cur_hash_fields.map(|(field, targets)| {
-        product = add_data_write(
-            builder,
-            challenge,
-            product,
-            metadata_segment,
-            field,
-            targets,
-        );
+        sum = add_data_write(builder, challenge, sum, metadata_segment, field, targets);
     });
 
     // Add block hashes writes.
     let block_hashes_segment = builder.constant(F::from_canonical_u32(Segment::BlockHashes as u32));
     for i in 0..256 {
-        product = add_data_write(
+        sum = add_data_write(
             builder,
             challenge,
-            product,
+            sum,
             block_hashes_segment,
             i,
             &public_values.block_hashes.prev_hashes[8 * i..8 * (i + 1)],
@@ -532,34 +517,13 @@ pub(crate) fn get_memory_extra_looking_products_circuit<
     // Add block bloom filters writes.
     let bloom_segment = builder.constant(F::from_canonical_u32(Segment::GlobalBlockBloom as u32));
     for i in 0..8 {
-        product = add_data_write(
+        sum = add_data_write(
             builder,
             challenge,
-            product,
+            sum,
             bloom_segment,
             i,
             &public_values.block_metadata.block_bloom[i * 8..(i + 1) * 8],
-        );
-    }
-    for i in 0..8 {
-        product = add_data_write(
-            builder,
-            challenge,
-            product,
-            bloom_segment,
-            i + 8,
-            &public_values.extra_block_data.block_bloom_before[i * 8..(i + 1) * 8],
-        );
-    }
-
-    for i in 0..8 {
-        product = add_data_write(
-            builder,
-            challenge,
-            product,
-            bloom_segment,
-            i + 16,
-            &public_values.extra_block_data.block_bloom_after[i * 8..(i + 1) * 8],
         );
     }
 
@@ -592,23 +556,37 @@ pub(crate) fn get_memory_extra_looking_products_circuit<
     ];
 
     trie_fields.map(|(field, targets)| {
-        product = add_data_write(
-            builder,
-            challenge,
-            product,
-            metadata_segment,
-            field,
-            &targets,
-        );
+        sum = add_data_write(builder, challenge, sum, metadata_segment, field, &targets);
     });
 
-    product
+    // Add kernel hash and kernel length.
+    let kernel_hash_limbs = h256_limbs::<F>(KERNEL.code_hash);
+    let kernel_hash_targets: [Target; 8] = from_fn(|i| builder.constant(kernel_hash_limbs[i]));
+    sum = add_data_write(
+        builder,
+        challenge,
+        sum,
+        metadata_segment,
+        GlobalMetadata::KernelHash as usize,
+        &kernel_hash_targets,
+    );
+    let kernel_len_target = builder.constant(F::from_canonical_usize(KERNEL.code.len()));
+    sum = add_data_write(
+        builder,
+        challenge,
+        sum,
+        metadata_segment,
+        GlobalMetadata::KernelLen as usize,
+        &[kernel_len_target],
+    );
+
+    sum
 }
 
 fn add_data_write<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     challenge: GrandProductChallenge<Target>,
-    running_product: Target,
+    running_sum: Target,
     segment: Target,
     idx: usize,
     val: &[Target],
@@ -641,7 +619,8 @@ fn add_data_write<F: RichField + Extendable<D>, const D: usize>(
     builder.assert_one(row[12]);
 
     let combined = challenge.combine_base_circuit(builder, &row);
-    builder.mul(running_product, combined)
+    let inverse = builder.inverse(combined);
+    builder.add(running_sum, inverse)
 }
 
 fn eval_l_0_and_l_last_circuit<F: RichField + Extendable<D>, const D: usize>(
@@ -733,21 +712,17 @@ pub(crate) fn add_virtual_block_hashes<F: RichField + Extendable<D>, const D: us
 pub(crate) fn add_virtual_extra_block_data<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
 ) -> ExtraBlockDataTarget {
-    let genesis_state_trie_root = builder.add_virtual_public_input_arr();
+    let checkpoint_state_trie_root = builder.add_virtual_public_input_arr();
     let txn_number_before = builder.add_virtual_public_input();
     let txn_number_after = builder.add_virtual_public_input();
     let gas_used_before = builder.add_virtual_public_input();
     let gas_used_after = builder.add_virtual_public_input();
-    let block_bloom_before: [Target; 64] = builder.add_virtual_public_input_arr();
-    let block_bloom_after: [Target; 64] = builder.add_virtual_public_input_arr();
     ExtraBlockDataTarget {
-        genesis_state_trie_root,
+        checkpoint_state_trie_root,
         txn_number_before,
         txn_number_after,
         gas_used_before,
         gas_used_after,
-        block_bloom_before,
-        block_bloom_after,
     }
 }
 
@@ -1004,8 +979,8 @@ where
     W: Witness<F>,
 {
     witness.set_target_arr(
-        &ed_target.genesis_state_trie_root,
-        &h256_limbs::<F>(ed.genesis_state_trie_root),
+        &ed_target.checkpoint_state_trie_root,
+        &h256_limbs::<F>(ed.checkpoint_state_trie_root),
     );
     witness.set_target(
         ed_target.txn_number_before,
@@ -1017,22 +992,6 @@ where
     );
     witness.set_target(ed_target.gas_used_before, u256_to_u32(ed.gas_used_before)?);
     witness.set_target(ed_target.gas_used_after, u256_to_u32(ed.gas_used_after)?);
-
-    let block_bloom_before = ed.block_bloom_before;
-    let mut block_bloom_limbs = [F::ZERO; 64];
-    for (i, limbs) in block_bloom_limbs.chunks_exact_mut(8).enumerate() {
-        limbs.copy_from_slice(&u256_limbs(block_bloom_before[i]));
-    }
-
-    witness.set_target_arr(&ed_target.block_bloom_before, &block_bloom_limbs);
-
-    let block_bloom_after = ed.block_bloom_after;
-    let mut block_bloom_limbs = [F::ZERO; 64];
-    for (i, limbs) in block_bloom_limbs.chunks_exact_mut(8).enumerate() {
-        limbs.copy_from_slice(&u256_limbs(block_bloom_after[i]));
-    }
-
-    witness.set_target_arr(&ed_target.block_bloom_after, &block_bloom_limbs);
 
     Ok(())
 }

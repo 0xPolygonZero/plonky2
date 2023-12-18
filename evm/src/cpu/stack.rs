@@ -28,14 +28,12 @@ pub(crate) const MIGHT_OVERFLOW: OpsColumnsView<bool> = OpsColumnsView {
     not_pop: false,
     shift: false,
     jumpdest_keccak_general: false,
-    prover_input: false,
+    push_prover_input: true, // PROVER_INPUT doesn't require the check, but PUSH does.
     jumps: false,
     pc_push0: true,
-    push: true,
     dup_swap: true,
     context_op: false,
-    mload_32bytes: false,
-    mstore_32bytes: false,
+    m_op_32bytes: false,
     exit_kernel: true, // Doesn't directly push, but the syscall it's returning from might.
     m_op_general: false,
     syscall: false,
@@ -120,7 +118,7 @@ pub(crate) const STACK_BEHAVIORS: OpsColumnsView<Option<StackBehavior>> = OpsCol
         disable_other_channels: false,
     }),
     jumpdest_keccak_general: None,
-    prover_input: Some(StackBehavior {
+    push_prover_input: Some(StackBehavior {
         num_pops: 0,
         pushes: true,
         disable_other_channels: true,
@@ -131,19 +129,9 @@ pub(crate) const STACK_BEHAVIORS: OpsColumnsView<Option<StackBehavior>> = OpsCol
         pushes: true,
         disable_other_channels: true,
     }),
-    push: Some(StackBehavior {
-        num_pops: 0,
-        pushes: true,
-        disable_other_channels: true,
-    }),
     dup_swap: None,
     context_op: None,
-    mload_32bytes: Some(StackBehavior {
-        num_pops: 4,
-        pushes: true,
-        disable_other_channels: false,
-    }),
-    mstore_32bytes: Some(StackBehavior {
+    m_op_32bytes: Some(StackBehavior {
         num_pops: 4,
         pushes: true,
         disable_other_channels: false,

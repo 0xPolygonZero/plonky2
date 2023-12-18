@@ -84,7 +84,7 @@ impl<'a, P: PackedField> PackedStridedView<'a, P> {
     }
 
     #[inline]
-    pub fn get(&self, index: usize) -> Option<&'a P> {
+    pub const fn get(&self, index: usize) -> Option<&'a P> {
         if index < self.length {
             // Cast scalar pointer to vector pointer.
             let res_ptr = unsafe { self.start_ptr.add(index * self.stride) }.cast();
@@ -109,7 +109,7 @@ impl<'a, P: PackedField> PackedStridedView<'a, P> {
     }
 
     #[inline]
-    pub fn iter(&self) -> PackedStridedViewIter<'a, P> {
+    pub const fn iter(&self) -> PackedStridedViewIter<'a, P> {
         PackedStridedViewIter::new(
             self.start_ptr,
             // See comment at the top of the `impl`. Below will point more than one byte past the
@@ -120,12 +120,12 @@ impl<'a, P: PackedField> PackedStridedView<'a, P> {
     }
 
     #[inline]
-    pub fn len(&self) -> usize {
+    pub const fn len(&self) -> usize {
         self.length
     }
 
     #[inline]
-    pub fn is_empty(&self) -> bool {
+    pub const fn is_empty(&self) -> bool {
         self.len() == 0
     }
 }
@@ -183,7 +183,7 @@ pub struct PackedStridedViewIter<'a, P: PackedField> {
 }
 
 impl<'a, P: PackedField> PackedStridedViewIter<'a, P> {
-    pub(self) fn new(start: *const P::Scalar, end: *const P::Scalar, stride: usize) -> Self {
+    pub(self) const fn new(start: *const P::Scalar, end: *const P::Scalar, stride: usize) -> Self {
         Self {
             start,
             end,

@@ -59,7 +59,7 @@ The initial state of each trie is given by the prover as a nondeterministic inpu
   \item A digest node is encoded as $(\texttt{MPT\_NODE\_HASH}, d)$, where $d$ is a Keccak256 digest.
 \end{enumerate}
 Nodes are thus given in depth-first order, enabling natural recursive methods for encoding and decoding this format.
-The payload of state and receipt tries is given in the natural sequential way. The transaction an receipt payloads contain variable size data, thus the input is slightly different. The prover input for for the transactions is the transaction RLP encoding preceeded by its lenght. For the receipts is in the natural sequential way, except that topics and data are preceeded by their lengths, respectively.
+The payload of state and receipt tries is given in the natural sequential way. The transaction an receipt payloads contain variable size data, thus the input is slightly different. The prover input for for the transactions is the transaction RLP encoding preceeded by its length. For the receipts is in the natural sequential way, except that topics and data are preceeded by their lengths, respectively.
 
 \subsection{Encoding and Hashing}
 

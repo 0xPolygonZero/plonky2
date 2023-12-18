@@ -107,6 +107,19 @@
     // stack: (empty)
 %endmacro
 
+%macro mstore_current(segment, offset)
+    // stack: value
+    PUSH $offset
+    // stack: offset, value
+    PUSH $segment
+    // stack: segment, offset, value
+    GET_CONTEXT
+    // stack: context, segment, offset, value
+    %stack(context, segment, offset, value) -> (value, context, segment, offset)
+    MSTORE_GENERAL
+    // stack: (empty)
+%endmacro
+
 // Load a single byte from user code.
 %macro mload_current_code
     // stack: offset
