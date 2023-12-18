@@ -242,7 +242,7 @@ where
     let segment = F::from_canonical_u64(Segment::GlobalMetadata as u64 >> SEGMENT_SCALING_FACTOR);
 
     fields.map(|(field, val)| {
-        // Those fields are already scaled by their segment, and are in context 0 (kernel).
+        // These fields are already scaled by their segment, and are in context 0 (kernel).
         let field = field as usize - Segment::GlobalMetadata as usize;
         sum = add_data_write(challenge, segment, sum, field, val)
     });

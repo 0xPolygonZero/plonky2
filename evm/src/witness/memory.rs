@@ -71,6 +71,9 @@ impl MemoryAddress {
         })
     }
 
+    /// Creates a new `MemoryAddress` from a bundled address fitting a `U256`.
+    /// It will recover the virtual offset asthe lowest 32-bit limb, the segment
+    /// as the next limb, and the context as the next one.
     pub(crate) fn new_bundle(addr: U256) -> Result<Self, ProgramError> {
         let virt = addr.low_u32().into();
         let segment = (addr >> SEGMENT_SCALING_FACTOR).low_u32().into();
@@ -215,7 +218,7 @@ impl MemoryState {
         self.contexts[address.context].segments[address.segment].set(address.virt, val);
     }
 
-    // Those fields are already scaled by their respective segment.
+    // These fields are already scaled by their respective segment.
     pub(crate) fn read_global_metadata(&self, field: GlobalMetadata) -> U256 {
         self.get(MemoryAddress::new_bundle(U256::from(field as usize)).unwrap())
     }

@@ -11,31 +11,31 @@ pub(crate) enum ContextMetadata {
     /// The ID of the context which created this one.
     ParentContext = Segment::ContextMetadata as usize,
     /// The program counter to return to when we return to the parent context.
-    ParentProgramCounter = Segment::ContextMetadata as usize + 1,
-    CalldataSize = Segment::ContextMetadata as usize + 2,
-    ReturndataSize = Segment::ContextMetadata as usize + 3,
+    ParentProgramCounter,
+    CalldataSize,
+    ReturndataSize,
     /// The address of the account associated with this context.
-    Address = Segment::ContextMetadata as usize + 4,
+    Address,
     /// The size of the code under the account associated with this context.
     /// While this information could be obtained from the state trie, it is best to cache it since
     /// the `CODESIZE` instruction is very cheap.
-    CodeSize = Segment::ContextMetadata as usize + 5,
+    CodeSize,
     /// The address of the caller who spawned this context.
-    Caller = Segment::ContextMetadata as usize + 6,
+    Caller,
     /// The value (in wei) deposited by the caller.
-    CallValue = Segment::ContextMetadata as usize + 7,
+    CallValue,
     /// Whether this context was created by `STATICCALL`, in which case state changes are
     /// prohibited.
-    Static = Segment::ContextMetadata as usize + 8,
+    Static,
     /// Pointer to the initial version of the state trie, at the creation of this context. Used when
     /// we need to revert a context.
-    StateTrieCheckpointPointer = Segment::ContextMetadata as usize + 9,
+    StateTrieCheckpointPointer,
     /// Size of the active main memory, in (32 byte) words.
-    MemWords = Segment::ContextMetadata as usize + 10,
-    StackSize = Segment::ContextMetadata as usize + 11,
+    MemWords,
+    StackSize,
     /// The gas limit for this call (not the entire transaction).
-    GasLimit = Segment::ContextMetadata as usize + 12,
-    ContextCheckpointsLen = Segment::ContextMetadata as usize + 13,
+    GasLimit,
+    ContextCheckpointsLen,
 }
 
 impl ContextMetadata {

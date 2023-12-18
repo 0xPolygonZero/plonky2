@@ -154,7 +154,7 @@ fn apply_metadata_and_tries_memops<F: RichField + Extendable<D>, const D: usize>
         .map(|(field, val)| {
             mem_write_log(
                 channel,
-                // Those fields are already scaled by their segment, and are in context 0 (kernel).
+                // These fields are already scaled by their segment, and are in context 0 (kernel).
                 MemoryAddress::new_bundle(U256::from(field as usize)).unwrap(),
                 state,
                 val,

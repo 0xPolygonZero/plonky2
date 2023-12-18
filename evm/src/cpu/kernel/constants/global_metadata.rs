@@ -13,88 +13,88 @@ pub(crate) enum GlobalMetadata {
     /// give each new context a unique ID, so that its memory will be zero-initialized.
     LargestContext = Segment::GlobalMetadata as usize,
     /// The size of active memory, in bytes.
-    MemorySize = Segment::GlobalMetadata as usize + 1,
+    MemorySize,
     /// The size of the `TrieData` segment, in bytes. In other words, the next address available for
     /// appending additional trie data.
-    TrieDataSize = Segment::GlobalMetadata as usize + 2,
+    TrieDataSize,
     /// The size of the `TrieData` segment, in bytes, represented as a whole address.
     /// In other words, the next address available for appending additional trie data.
-    RlpDataPos = Segment::GlobalMetadata as usize + 3,
+    RlpDataPos,
     /// A pointer to the root of the state trie within the `TrieData` buffer.
-    StateTrieRoot = Segment::GlobalMetadata as usize + 4,
+    StateTrieRoot,
     /// A pointer to the root of the transaction trie within the `TrieData` buffer.
-    TransactionTrieRoot = Segment::GlobalMetadata as usize + 5,
+    TransactionTrieRoot,
     /// A pointer to the root of the receipt trie within the `TrieData` buffer.
-    ReceiptTrieRoot = Segment::GlobalMetadata as usize + 6,
+    ReceiptTrieRoot,
 
     // The root digests of each Merkle trie before these transactions.
-    StateTrieRootDigestBefore = Segment::GlobalMetadata as usize + 7,
-    TransactionTrieRootDigestBefore = Segment::GlobalMetadata as usize + 8,
-    ReceiptTrieRootDigestBefore = Segment::GlobalMetadata as usize + 9,
+    StateTrieRootDigestBefore,
+    TransactionTrieRootDigestBefore,
+    ReceiptTrieRootDigestBefore,
 
     // The root digests of each Merkle trie after these transactions.
-    StateTrieRootDigestAfter = Segment::GlobalMetadata as usize + 10,
-    TransactionTrieRootDigestAfter = Segment::GlobalMetadata as usize + 11,
-    ReceiptTrieRootDigestAfter = Segment::GlobalMetadata as usize + 12,
+    StateTrieRootDigestAfter,
+    TransactionTrieRootDigestAfter,
+    ReceiptTrieRootDigestAfter,
 
     /// The sizes of the `TrieEncodedChild` and `TrieEncodedChildLen` buffers. In other words, the
     /// next available offset in these buffers.
-    TrieEncodedChildSize = Segment::GlobalMetadata as usize + 13,
+    TrieEncodedChildSize,
 
     // Block metadata.
-    BlockBeneficiary = Segment::GlobalMetadata as usize + 14,
-    BlockTimestamp = Segment::GlobalMetadata as usize + 15,
-    BlockNumber = Segment::GlobalMetadata as usize + 16,
-    BlockDifficulty = Segment::GlobalMetadata as usize + 17,
-    BlockRandom = Segment::GlobalMetadata as usize + 18,
-    BlockGasLimit = Segment::GlobalMetadata as usize + 19,
-    BlockChainId = Segment::GlobalMetadata as usize + 20,
-    BlockBaseFee = Segment::GlobalMetadata as usize + 21,
-    BlockGasUsed = Segment::GlobalMetadata as usize + 22,
+    BlockBeneficiary,
+    BlockTimestamp,
+    BlockNumber,
+    BlockDifficulty,
+    BlockRandom,
+    BlockGasLimit,
+    BlockChainId,
+    BlockBaseFee,
+    BlockGasUsed,
     /// Before current transactions block values.
-    BlockGasUsedBefore = Segment::GlobalMetadata as usize + 23,
+    BlockGasUsedBefore,
     /// After current transactions block values.
-    BlockGasUsedAfter = Segment::GlobalMetadata as usize + 24,
+    BlockGasUsedAfter,
     /// Current block header hash
-    BlockCurrentHash = Segment::GlobalMetadata as usize + 25,
+    BlockCurrentHash,
 
     /// Gas to refund at the end of the transaction.
-    RefundCounter = Segment::GlobalMetadata as usize + 26,
+    RefundCounter,
     /// Length of the addresses access list.
-    AccessedAddressesLen = Segment::GlobalMetadata as usize + 27,
+    AccessedAddressesLen,
     /// Length of the storage keys access list.
-    AccessedStorageKeysLen = Segment::GlobalMetadata as usize + 28,
+    AccessedStorageKeysLen,
     /// Length of the self-destruct list.
-    SelfDestructListLen = Segment::GlobalMetadata as usize + 29,
+    SelfDestructListLen,
     /// Length of the bloom entry buffer.
-    BloomEntryLen = Segment::GlobalMetadata as usize + 30,
+    BloomEntryLen,
 
     /// Length of the journal.
-    JournalLen = Segment::GlobalMetadata as usize + 31,
+    JournalLen,
     /// Length of the `JournalData` segment.
-    JournalDataLen = Segment::GlobalMetadata as usize + 32,
+    JournalDataLen,
     /// Current checkpoint.
-    CurrentCheckpoint = Segment::GlobalMetadata as usize + 33,
-    TouchedAddressesLen = Segment::GlobalMetadata as usize + 34,
+    CurrentCheckpoint,
+    TouchedAddressesLen,
     // Gas cost for the access list in type-1 txns. See EIP-2930.
-    AccessListDataCost = Segment::GlobalMetadata as usize + 35,
+    AccessListDataCost,
     // Start of the access list in the RLP for type-1 txns.
-    AccessListRlpStart = Segment::GlobalMetadata as usize + 36,
+    AccessListRlpStart,
     // Length of the access list in the RLP for type-1 txns.
-    AccessListRlpLen = Segment::GlobalMetadata as usize + 37,
+    AccessListRlpLen,
     // Boolean flag indicating if the txn is a contract creation txn.
-    ContractCreation = Segment::GlobalMetadata as usize + 38,
-    IsPrecompileFromEoa = Segment::GlobalMetadata as usize + 39,
-    CallStackDepth = Segment::GlobalMetadata as usize + 40,
+    ContractCreation,
+    IsPrecompileFromEoa,
+    CallStackDepth,
     /// Transaction logs list length
-    LogsLen = Segment::GlobalMetadata as usize + 41,
-    LogsDataLen = Segment::GlobalMetadata as usize + 42,
-    LogsPayloadLen = Segment::GlobalMetadata as usize + 43,
-    TxnNumberBefore = Segment::GlobalMetadata as usize + 44,
-    TxnNumberAfter = Segment::GlobalMetadata as usize + 45,
+    LogsLen,
+    LogsDataLen,
+    LogsPayloadLen,
+    TxnNumberBefore,
+    TxnNumberAfter,
 
-    KernelHash = Segment::GlobalMetadata as usize + 46,
-    KernelLen = Segment::GlobalMetadata as usize + 47,
+    KernelHash,
+    KernelLen,
 }
 
 impl GlobalMetadata {

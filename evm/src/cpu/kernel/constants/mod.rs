@@ -58,7 +58,7 @@ pub(crate) fn evm_constants() -> HashMap<String, U256> {
     c.insert(CALL_STACK_LIMIT.0.into(), U256::from(CALL_STACK_LIMIT.1));
 
     for segment in Segment::all() {
-        c.insert(segment.var_name().into(), (segment as u64).into());
+        c.insert(segment.var_name().into(), (segment as usize).into());
     }
     for txn_field in NormalizedTxnField::all() {
         // These offsets are already scaled by their respective segment.

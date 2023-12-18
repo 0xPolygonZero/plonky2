@@ -12,25 +12,25 @@ pub(crate) enum NormalizedTxnField {
     /// Whether a chain ID was present in the txn data. Type 0 transaction with v=27 or v=28 have
     /// no chain ID. This affects what fields get signed.
     ChainIdPresent = Segment::TxnFields as usize,
-    ChainId = Segment::TxnFields as usize + 1,
-    Nonce = Segment::TxnFields as usize + 2,
-    MaxPriorityFeePerGas = Segment::TxnFields as usize + 3,
-    MaxFeePerGas = Segment::TxnFields as usize + 4,
-    GasLimit = Segment::TxnFields as usize + 6,
-    IntrinsicGas = Segment::TxnFields as usize + 7,
-    To = Segment::TxnFields as usize + 8,
-    Value = Segment::TxnFields as usize + 9,
+    ChainId,
+    Nonce,
+    MaxPriorityFeePerGas,
+    MaxFeePerGas,
+    GasLimit,
+    IntrinsicGas,
+    To,
+    Value,
     /// The length of the data field. The data itself is stored in another segment.
-    DataLen = Segment::TxnFields as usize + 10,
-    YParity = Segment::TxnFields as usize + 11,
-    R = Segment::TxnFields as usize + 12,
-    S = Segment::TxnFields as usize + 13,
-    Origin = Segment::TxnFields as usize + 14,
+    DataLen,
+    YParity,
+    R,
+    S,
+    Origin,
 
     /// The actual computed gas price for this transaction in the block.
     /// This is not technically a transaction field, as it depends on the block's base fee.
-    ComputedFeePerGas = Segment::TxnFields as usize + 15,
-    ComputedPriorityFeePerGas = Segment::TxnFields as usize + 16,
+    ComputedFeePerGas,
+    ComputedPriorityFeePerGas,
 }
 
 impl NormalizedTxnField {

@@ -13,13 +13,10 @@ use crate::cpu::stack;
 use crate::memory::segments::{Segment, SEGMENT_SCALING_FACTOR};
 
 const fn get_addr_load<T: Copy>(lv: &CpuColumnsView<T>) -> (T, T, T) {
-    get_addr(lv)
+    get_addr(lv, 0)
 }
 const fn get_addr_store<T: Copy>(lv: &CpuColumnsView<T>) -> (T, T, T) {
-    let addr_context = lv.mem_channels[1].value[2];
-    let addr_segment = lv.mem_channels[1].value[1];
-    let addr_virtual = lv.mem_channels[1].value[0];
-    (addr_context, addr_segment, addr_virtual)
+    get_addr(lv, 1)
 }
 
 /// Evaluates constraints for MLOAD_GENERAL.

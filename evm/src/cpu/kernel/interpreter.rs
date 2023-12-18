@@ -177,7 +177,7 @@ impl<'a> Interpreter<'a> {
     }
 
     pub(crate) fn get_txn_field(&self, field: NormalizedTxnField) -> U256 {
-        // Those fields are already scaled by their respective segment.
+        // These fields are already scaled by their respective segment.
         let field = field as usize - Segment::TxnFields as usize;
         self.generation_state.memory.contexts[0].segments
             [Segment::TxnFields as usize >> SEGMENT_SCALING_FACTOR]
@@ -185,7 +185,7 @@ impl<'a> Interpreter<'a> {
     }
 
     pub(crate) fn set_txn_field(&mut self, field: NormalizedTxnField, value: U256) {
-        // Those fields are already scaled by their respective segment.
+        // These fields are already scaled by their respective segment.
         let field = field as usize - Segment::TxnFields as usize;
         self.generation_state.memory.contexts[0].segments
             [Segment::TxnFields as usize >> SEGMENT_SCALING_FACTOR]
@@ -199,7 +199,7 @@ impl<'a> Interpreter<'a> {
     }
 
     pub(crate) fn get_context_metadata_field(&self, ctx: usize, field: ContextMetadata) -> U256 {
-        // Those fields are already scaled by their respective segment.
+        // These fields are already scaled by their respective segment.
         let field = field as usize - Segment::ContextMetadata as usize;
         self.generation_state.memory.contexts[ctx].segments
             [Segment::ContextMetadata as usize >> SEGMENT_SCALING_FACTOR]
@@ -212,7 +212,7 @@ impl<'a> Interpreter<'a> {
         field: ContextMetadata,
         value: U256,
     ) {
-        // Those fields are already scaled by their respective segment.
+        // These fields are already scaled by their respective segment.
         let field = field as usize - Segment::ContextMetadata as usize;
         self.generation_state.memory.contexts[ctx].segments
             [Segment::ContextMetadata as usize >> SEGMENT_SCALING_FACTOR]
@@ -220,7 +220,7 @@ impl<'a> Interpreter<'a> {
     }
 
     pub(crate) fn get_global_metadata_field(&self, field: GlobalMetadata) -> U256 {
-        // Those fields are already scaled by their respective segment.
+        // These fields are already scaled by their respective segment.
         let field = field as usize - Segment::GlobalMetadata as usize;
         self.generation_state.memory.contexts[0].segments
             [Segment::GlobalMetadata as usize >> SEGMENT_SCALING_FACTOR]
@@ -228,7 +228,7 @@ impl<'a> Interpreter<'a> {
     }
 
     pub(crate) fn set_global_metadata_field(&mut self, field: GlobalMetadata, value: U256) {
-        // Those fields are already scaled by their respective segment.
+        // These fields are already scaled by their respective segment.
         let field = field as usize - Segment::GlobalMetadata as usize;
         self.generation_state.memory.contexts[0].segments
             [Segment::GlobalMetadata as usize >> SEGMENT_SCALING_FACTOR]
@@ -715,9 +715,7 @@ impl<'a> Interpreter<'a> {
 
     fn run_keccak_general(&mut self) {
         let addr = self.pop();
-        let offset = addr.low_u32() as usize;
-        let segment = Segment::all()[(addr >> SEGMENT_SCALING_FACTOR).low_u32() as usize];
-        let context = (addr >> CONTEXT_SCALING_FACTOR).low_u32() as usize;
+        let (context, segment, offset) = unpack_address!(addr);
 
         // Not strictly needed but here to avoid surprises with MSIZE.
         assert_ne!(segment, Segment::MainMemory, "Call KECCAK256 instead.");
@@ -896,9 +894,7 @@ impl<'a> Interpreter<'a> {
 
     fn run_mload_general(&mut self) {
         let addr = self.pop();
-        let offset = addr.low_u32() as usize;
-        let segment = Segment::all()[(addr >> SEGMENT_SCALING_FACTOR).low_u32() as usize];
-        let context = (addr >> CONTEXT_SCALING_FACTOR).low_u32() as usize;
+        let (context, segment, offset) = unpack_address!(addr);
         let value = self
             .generation_state
             .memory
@@ -909,9 +905,7 @@ impl<'a> Interpreter<'a> {
 
     fn run_mload_32bytes(&mut self) {
         let addr = self.pop();
-        let offset = addr.low_u32() as usize;
-        let segment = Segment::all()[(addr >> SEGMENT_SCALING_FACTOR).low_u32() as usize];
-        let context = (addr >> CONTEXT_SCALING_FACTOR).low_u32() as usize;
+        let (context, segment, offset) = unpack_address!(addr);
         let len = self.pop().as_usize();
         let bytes: Vec<u8> = (0..len)
             .map(|i| {
@@ -928,9 +922,7 @@ impl<'a> Interpreter<'a> {
     fn run_mstore_general(&mut self) {
         let value = self.pop();
         let addr = self.pop();
-        let offset = addr.low_u32() as usize;
-        let segment = Segment::all()[(addr >> SEGMENT_SCALING_FACTOR).low_u32() as usize];
-        let context = (addr >> CONTEXT_SCALING_FACTOR).low_u32() as usize;
+        let (context, segment, offset) = unpack_address!(addr);
         self.generation_state
             .memory
             .mstore_general(context, segment, offset, value);
@@ -938,9 +930,7 @@ impl<'a> Interpreter<'a> {
 
     fn run_mstore_32bytes(&mut self, n: u8) {
         let addr = self.pop();
-        let offset = addr.low_u32() as usize;
-        let segment = Segment::all()[(addr >> SEGMENT_SCALING_FACTOR).low_u32() as usize];
-        let context = (addr >> CONTEXT_SCALING_FACTOR).low_u32() as usize;
+        let (context, segment, offset) = unpack_address!(addr);
         let value = self.pop();
 
         let mut bytes = vec![0; 32];
@@ -1280,6 +1270,17 @@ fn get_mnemonic(opcode: u8) -> &'static str {
         _ => panic!("Unrecognized opcode {opcode}"),
     }
 }
+
+#[macro_use]
+macro_rules! unpack_address {
+    ($addr:ident) => {{
+        let offset = $addr.low_u32() as usize;
+        let segment = Segment::all()[($addr >> SEGMENT_SCALING_FACTOR).low_u32() as usize];
+        let context = ($addr >> CONTEXT_SCALING_FACTOR).low_u32() as usize;
+        (context, segment, offset)
+    }};
+}
+pub(crate) use unpack_address;
 
 #[cfg(test)]
 mod tests {

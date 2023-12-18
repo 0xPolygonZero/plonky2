@@ -150,14 +150,13 @@ pub(crate) fn ctl_data_byte_unpacking<F: Field>() -> Vec<Column<F>> {
     // GP channel 0: stack[-1] = addr (context, segment, virt)
     // GP channel 1: stack[-2] = val
     // Next GP channel 0: pushed = new_offset (virt + len)
-    let (context, segment, virt) = get_addr(&COL_MAP);
+    let (context, segment, virt) = get_addr(&COL_MAP, 0);
     let mut res = vec![
         is_read,
         Column::single(context),
         Column::single(segment),
         Column::single(virt),
     ];
-    let val = Column::singles(COL_MAP.mem_channels[1].value);
 
     // len can be reconstructed as new_offset - virt.
     let len = Column::linear_combination_and_next_row_with_constant(
@@ -171,6 +170,7 @@ pub(crate) fn ctl_data_byte_unpacking<F: Field>() -> Vec<Column<F>> {
     let timestamp = Column::linear_combination([(COL_MAP.clock, num_channels)]);
     res.push(timestamp);
 
+    let val = Column::singles(COL_MAP.mem_channels[1].value);
     res.extend(val);
 
     res
@@ -225,17 +225,17 @@ pub(crate) const MEM_CODE_CHANNEL_IDX: usize = 0;
 /// Index of the first general purpose memory channel.
 pub(crate) const MEM_GP_CHANNELS_IDX_START: usize = MEM_CODE_CHANNEL_IDX + 1;
 
-/// Recover the three components of an address, given a CPU row. The address
-/// is expected to be stored on the first memory channel, and the components
-/// are recovered as follows:
+/// Recover the three components of an address, given a CPU row and
+/// a provided memory channel index.
+/// The components are recovered as follows:
 ///
 /// - `context`, shifted by 2^64 (i.e. at index 2)
 /// - `segment`, shifted by 2^32 (i.e. at index 1)
 /// - `virtual`, not shifted (i.e. at index 0)
-pub(crate) const fn get_addr<T: Copy>(lv: &CpuColumnsView<T>) -> (T, T, T) {
-    let addr_context = lv.mem_channels[0].value[2];
-    let addr_segment = lv.mem_channels[0].value[1];
-    let addr_virtual = lv.mem_channels[0].value[0];
+pub(crate) const fn get_addr<T: Copy>(lv: &CpuColumnsView<T>, mem_channel: usize) -> (T, T, T) {
+    let addr_context = lv.mem_channels[mem_channel].value[2];
+    let addr_segment = lv.mem_channels[mem_channel].value[1];
+    let addr_virtual = lv.mem_channels[mem_channel].value[0];
     (addr_context, addr_segment, addr_virtual)
 }
 
