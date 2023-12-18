@@ -234,7 +234,7 @@ fn test_log_opcodes() -> anyhow::Result<()> {
     };
 
     let mut timing = TimingTree::new("prove", log::Level::Debug);
-    let proof = prove::<F, C, D>(&all_stark, &config, inputs, &mut timing)?;
+    let proof = prove::<F, C, D>(&all_stark, &config, inputs, &mut timing, None)?;
     timing.filter(Duration::from_millis(100)).print();
 
     // Assert that the proof leads to the correct state and receipt roots.
@@ -450,7 +450,7 @@ fn test_log_with_aggreg() -> anyhow::Result<()> {
 
     let mut timing = TimingTree::new("prove root first", log::Level::Info);
     let (root_proof_first, public_values_first) =
-        all_circuits.prove_root(&all_stark, &config, inputs_first, &mut timing)?;
+        all_circuits.prove_root(&all_stark, &config, inputs_first, &mut timing, None)?;
 
     timing.filter(Duration::from_millis(100)).print();
     all_circuits.verify_root(root_proof_first.clone())?;
@@ -570,7 +570,7 @@ fn test_log_with_aggreg() -> anyhow::Result<()> {
 
     let mut timing = TimingTree::new("prove root second", log::Level::Info);
     let (root_proof_second, public_values_second) =
-        all_circuits.prove_root(&all_stark, &config, inputs, &mut timing)?;
+        all_circuits.prove_root(&all_stark, &config, inputs, &mut timing, None.clone())?;
     timing.filter(Duration::from_millis(100)).print();
 
     all_circuits.verify_root(root_proof_second.clone())?;
@@ -635,7 +635,7 @@ fn test_log_with_aggreg() -> anyhow::Result<()> {
     };
 
     let (root_proof, public_values) =
-        all_circuits.prove_root(&all_stark, &config, inputs, &mut timing)?;
+        all_circuits.prove_root(&all_stark, &config, inputs, &mut timing, None)?;
     all_circuits.verify_root(root_proof.clone())?;
 
     // We can just duplicate the initial proof as the state didn't change.
