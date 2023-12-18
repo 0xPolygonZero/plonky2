@@ -63,11 +63,16 @@ pub(crate) struct Interpreter<'a> {
     memops: Vec<InterpreterMemOpKind>,
 }
 
+/// Structure storing the state of the interpreter's registers.
 struct InterpreterRegistersState {
     kernel_mode: bool,
     context: usize,
     registers: RegistersState,
 }
+
+/// Interpreter state at the last checkpoint: we only need to store
+/// the state of the registers and the length of the vector of memory operations.
+/// This data is enough to revert in case of an exception.
 struct InterpreterCheckpoint {
     registers: InterpreterRegistersState,
     mem_len: usize,
@@ -123,10 +128,14 @@ pub(crate) fn run<'a>(
     Ok(interpreter)
 }
 
+/// Different types of Memory operations in the interpreter, and the data required to revert them.
 enum InterpreterMemOpKind {
-    Push(usize),                      // We need to provide the context
-    Pop(U256, usize), // If you pop a certain value, you need to push it back to the correct context when reverting
-    Write(U256, usize, usize, usize), // If we write a value at a certain address, we need to write the old value back when reverting
+    /// We need to provide the context.
+    Push(usize),
+    /// If we pop a certain value, we need to push it back to the correct context when reverting.
+    Pop(U256, usize),
+    /// If we write a value at a certain address, we need to write the old value back when reverting
+    Write(U256, usize, usize, usize),
 }
 
 impl<'a> Interpreter<'a> {
@@ -634,14 +643,9 @@ impl<'a> Interpreter<'a> {
                 virt: ContextMetadata::GasLimit as usize,
             };
             let gas_limit =
-                TryInto::<u64>::try_into(self.generation_state.memory.get(gas_limit_address));
-            match gas_limit {
-                Ok(limit) => {
-                    if self.generation_state.registers.gas_used > limit {
-                        return Err(ProgramError::OutOfGas);
-                    }
-                }
-                Err(_) => return Err(ProgramError::IntegerTooLarge),
+                u256_to_usize(self.generation_state.memory.get(gas_limit_address))? as u64;
+            if self.generation_state.registers.gas_used > gas_limit {
+                return Err(ProgramError::OutOfGas);
             }
         }
 

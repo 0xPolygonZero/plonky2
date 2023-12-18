@@ -425,7 +425,7 @@ fn sload() -> Result<()> {
     interpreter.set_context(0);
     interpreter
         .push(0xDEADBEEFu32.into())
-        .expect("Stack should not overflow.");
+        .expect("The stack should not overflow.");
     interpreter.run()?;
 
     assert_eq!(
