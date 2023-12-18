@@ -262,11 +262,9 @@ impl<F: Field> Column<F> {
     /// Evaluates the filter on all rows.
     pub(crate) fn eval_all_rows(&self, table: &[PolynomialValues<F>]) -> Vec<F> {
         let length = table[0].len();
-        let mut res = (0..length)
+        (0..length)
             .map(|row| self.eval_table(table, row))
-            .collect::<Vec<F>>();
-
-        res
+            .collect::<Vec<F>>()
     }
 
     /// Circuit version of `eval`: Given a row's targets, returns their linear combination.
