@@ -116,7 +116,7 @@ pub(crate) fn read_receipt_trie_value(
     slice: &[U256],
 ) -> Result<(Option<u8>, LegacyReceiptRlp), ProgramError> {
     let first_value = slice[0];
-    // Skip two elements for non-legacy Receipts, and only one for otherwise.
+    // Skip two elements for non-legacy Receipts, and only one otherwise.
     let (first_byte, slice) = if first_value == U256::one() || first_value == U256::from(2u8) {
         (Some(first_value.as_u32() as u8), &slice[2..])
     } else {
@@ -129,6 +129,7 @@ pub(crate) fn read_receipt_trie_value(
         .iter()
         .map(|&x| u256_to_u8(x))
         .collect::<Result<_, _>>()?;
+    // We read the number of logs at position `2 + 256 + 1`, and skip over the next element before parsing the logs.
     let logs = read_logs(u256_to_usize(slice[2 + 256 + 1])?, &slice[2 + 256 + 3..])?;
 
     Ok((
@@ -146,7 +147,6 @@ pub(crate) fn read_logs(num_logs: usize, slice: &[U256]) -> Result<Vec<LogRlp>, 
     let mut offset = 0;
     (0..num_logs)
         .map(|_| {
-            let x = slice[0];
             let address = u256_to_h160(slice[offset])?;
             let num_topics = u256_to_usize(slice[offset + 1])?;
 
