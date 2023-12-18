@@ -1,4 +1,3 @@
-use std::any::type_name;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
@@ -405,7 +404,7 @@ where
 
     let alphas = challenger.get_n_challenges(config.num_challenges);
 
-    // #[cfg(test)]
+    #[cfg(test)]
     {
         check_constraints(
             stark,
@@ -681,7 +680,7 @@ pub(crate) fn check_abort_signal(abort_signal: Option<Arc<AtomicBool>>) -> Resul
     Ok(())
 }
 
-// #[cfg(test)]
+#[cfg(test)]
 /// Check that all constraints evaluate to zero on `H`.
 /// Can also be used to check the degree of the constraints by evaluating on a larger subgroup.
 fn check_constraints<'a, F, C, S, const D: usize>(
@@ -784,14 +783,11 @@ fn check_constraints<'a, F, C, S, const D: usize>(
         .collect::<Vec<_>>();
 
     // Assert that all constraints evaluate to 0 over our subgroup.
-    for (row, v) in constraint_values.iter().enumerate() {
-        for x in v.iter() {
-            assert!(
-                x.is_zero(),
-                "Constraint failed in {} at row {}",
-                type_name::<S>(),
-                row
-            )
-        }
+    for v in constraint_values {
+        assert!(
+            v.iter().all(|x| x.is_zero()),
+            "Constraint failed in {}",
+            std::any::type_name::<S>()
+        );
     }
 }

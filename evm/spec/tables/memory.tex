@@ -47,7 +47,7 @@ We then impose the following transition constraints:
 \end{enumerate}
 The third constraint emulates a comparison between two addresses or timestamps by bounding their difference; this assumes that all addresses and timestamps fit in 32 bits and that the field is larger than that.
 
-The fourth constraint checks that the first value of a new address is indeed the smallest in history. Without this check, addresses could start at -1 (i.e. $p - 2$) and then increase properly.
+The fourth constraint checks that the first offset of a new address is indeed the smallest in history. Without this check, addresses could start at -1 (i.e. $p - 2$) and then increase properly.
 
 \subsubsection{Virtual memory}
 
