@@ -207,7 +207,7 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
         }
     }
 
-    fn lookups(&self) -> Vec<Lookup> {
+    fn lookups(&self) -> Vec<Lookup<F>> {
         vec![]
     }
 

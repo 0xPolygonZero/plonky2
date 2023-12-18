@@ -14,7 +14,7 @@ use static_assertions::const_assert;
 use super::columns::NUM_ARITH_COLUMNS;
 use super::shift;
 use crate::all_stark::Table;
-use crate::arithmetic::columns::{RANGE_COUNTER, RC_FREQUENCIES, SHARED_COLS};
+use crate::arithmetic::columns::{NUM_SHARED_COLS, RANGE_COUNTER, RC_FREQUENCIES, SHARED_COLS};
 use crate::arithmetic::{addcy, byte, columns, divmod, modular, mul, Operation};
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cross_table_lookup::{Column, Filter, TableWithColumns};
@@ -290,11 +290,12 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ArithmeticSta
         3
     }
 
-    fn lookups(&self) -> Vec<Lookup> {
+    fn lookups(&self) -> Vec<Lookup<F>> {
         vec![Lookup {
-            columns: SHARED_COLS.collect(),
-            table_column: RANGE_COUNTER,
-            frequencies_column: RC_FREQUENCIES,
+            columns: Column::singles(SHARED_COLS).collect(),
+            table_column: Column::single(RANGE_COUNTER),
+            frequencies_column: Column::single(RC_FREQUENCIES),
+            filter_columns: vec![None; NUM_SHARED_COLS],
         }]
     }
 }
