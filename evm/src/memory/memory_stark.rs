@@ -528,11 +528,12 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
         3
     }
 
-    fn lookups(&self) -> Vec<Lookup> {
+    fn lookups(&self) -> Vec<Lookup<F>> {
         vec![Lookup {
-            columns: vec![RANGE_CHECK],
-            table_column: COUNTER,
-            frequencies_column: FREQUENCIES,
+            columns: vec![Column::single(RANGE_CHECK)],
+            table_column: Column::single(COUNTER),
+            frequencies_column: Column::single(FREQUENCIES),
+            filter_columns: vec![None],
         }]
     }
 }

@@ -259,6 +259,33 @@ impl<F: Field> Column<F> {
         res
     }
 
+    /// Evaluates the filter on all rows.
+    pub(crate) fn eval_all_rows(&self, table: &[PolynomialValues<F>]) -> Vec<F> {
+        let length = table[0].len();
+        let mut res = (0..length)
+            .map(|row| {
+                let mut tmp = self
+                    .linear_combination
+                    .iter()
+                    .map(|&(c, f)| table[c].values[row] * f)
+                    .sum::<F>()
+                    + self.constant;
+                // If we access the next row at the last row, for sanity, we consider the next row's values to be 0.
+                // If CTLs are correctly written, the filter should be 0 in that case anyway.
+                if !self.next_row_linear_combination.is_empty() && row < table[0].values.len() - 1 {
+                    tmp += self
+                        .next_row_linear_combination
+                        .iter()
+                        .map(|&(c, f)| table[c].values[row + 1] * f)
+                        .sum::<F>();
+                }
+                tmp
+            })
+            .collect::<Vec<F>>();
+
+        res
+    }
+
     /// Circuit version of `eval`: Given a row's targets, returns their linear combination.
     pub(crate) fn eval_circuit<const D: usize>(
         &self,
@@ -400,6 +427,24 @@ impl<F: Field> Filter<F> {
                 .iter()
                 .map(|col| col.eval_table(table, row))
                 .sum()
+    }
+
+    pub(crate) fn eval_all_rows(&self, table: &[PolynomialValues<F>]) -> Vec<F> {
+        let length = table[0].len();
+
+        (0..length)
+            .map(|row| {
+                self.products
+                    .iter()
+                    .map(|(col1, col2)| col1.eval_table(table, row) * col2.eval_table(table, row))
+                    .sum::<F>()
+                    + self
+                        .constants
+                        .iter()
+                        .map(|col| col.eval_table(table, row))
+                        .sum()
+            })
+            .collect::<Vec<F>>()
     }
 }
 
