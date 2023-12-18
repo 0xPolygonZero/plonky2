@@ -43,11 +43,8 @@ We then impose the following transition constraints:
   \item $e_i (e_i - 1) = 0$,
   \item $(1 - e_i) (a_{i + 1} - a_i) = 0$,
   \item $c_i < 2^{32}$.
-  \item $e_i (v_{i + 1}) < 2^{32}$
 \end{enumerate}
 The third constraint emulates a comparison between two addresses or timestamps by bounding their difference; this assumes that all addresses and timestamps fit in 32 bits and that the field is larger than that.
-
-The fourth constraint checks that the first offset of a new address is indeed the smallest in history. Without this check, addresses could start at -1 (i.e. $p - 2$) and then increase properly.
 
 \subsubsection{Virtual memory}
 
@@ -58,6 +55,9 @@ In the EVM, each contract call has its own address space. Within that address sp
   \item a virtual address.
 \end{enumerate}
 The comparisons now involve several columns, which requires some minor adaptations to the technique described above; we will leave these as an exercise to the reader.
+
+Note that an additional constarint check is required: whenever we change the context or the segment, the virtual address must be range-checked to $2^{32}$.
+Without this check, addresses could start at -1 (i.e. $p - 2$) and then increase properly.
 
 \subsubsection{Timestamps}
 
