@@ -103,25 +103,33 @@ pub(crate) fn ctl_arithmetic_base_rows<F: Field>() -> TableWithColumns<F> {
     // (also `ops` is used as the operation filter). The list of
     // operations includes binary operations which will simply ignore
     // the third input.
+    let col_bit = Column::linear_combination_with_constant(
+        vec![(COL_MAP.opcode_bits[5], F::NEG_ONE)],
+        F::ONE,
+    );
     TableWithColumns::new(
         Table::Cpu,
         columns,
-        Some(Filter::new_simple(Column::sum([
-            COL_MAP.op.binary_op,
-            COL_MAP.op.fp254_op,
-            COL_MAP.op.ternary_op,
-            COL_MAP.op.shift,
-            COL_MAP.op.prover_input,
-            COL_MAP.op.syscall,
-            COL_MAP.op.exception,
-        ]))),
+        Some(Filter::new(
+            vec![(Column::single(COL_MAP.op.push_prover_input), col_bit)],
+            vec![Column::sum([
+                COL_MAP.op.binary_op,
+                COL_MAP.op.fp254_op,
+                COL_MAP.op.ternary_op,
+                COL_MAP.op.shift,
+                COL_MAP.op.syscall,
+                COL_MAP.op.exception,
+            ])],
+        )),
     )
 }
 
 /// Creates the vector of `Columns` corresponding to the contents of General Purpose channels when calling byte packing.
 /// We use `ctl_data_keccak_sponge` because the `Columns` are the same as the ones computed for `KeccakSpongeStark`.
 pub(crate) fn ctl_data_byte_packing<F: Field>() -> Vec<Column<F>> {
-    ctl_data_keccak_sponge()
+    let mut res = vec![Column::constant(F::ONE)]; // is_read
+    res.extend(ctl_data_keccak_sponge());
+    res
 }
 
 /// CTL filter for the `MLOAD_32BYTES` operation.
@@ -138,6 +146,8 @@ pub(crate) fn ctl_filter_byte_packing<F: Field>() -> Filter<F> {
 
 /// Creates the vector of `Columns` corresponding to the contents of General Purpose channels when calling byte unpacking.
 pub(crate) fn ctl_data_byte_unpacking<F: Field>() -> Vec<Column<F>> {
+    let is_read = Column::constant(F::ZERO);
+
     // When executing MSTORE_32BYTES, the GP memory channels are used as follows:
     // GP channel 0: stack[-1] = context
     // GP channel 1: stack[-2] = segment
@@ -159,7 +169,7 @@ pub(crate) fn ctl_data_byte_unpacking<F: Field>() -> Vec<Column<F>> {
     let num_channels = F::from_canonical_usize(NUM_CHANNELS);
     let timestamp = Column::linear_combination([(COL_MAP.clock, num_channels)]);
 
-    let mut res = vec![context, segment, virt, len, timestamp];
+    let mut res = vec![is_read, context, segment, virt, len, timestamp];
     res.extend(val);
 
     res
@@ -180,6 +190,7 @@ pub(crate) fn ctl_filter_byte_unpacking<F: Field>() -> Filter<F> {
 /// Creates the vector of `Columns` corresponding to the contents of the CPU registers when performing a `PUSH`.
 /// `PUSH` internal reads are done by calling `BytePackingStark`.
 pub(crate) fn ctl_data_byte_packing_push<F: Field>() -> Vec<Column<F>> {
+    let is_read = Column::constant(F::ONE);
     let context = Column::single(COL_MAP.code_context);
     let segment = Column::constant(F::from_canonical_usize(Segment::Code as usize));
     // The initial offset if `pc + 1`.
@@ -193,7 +204,7 @@ pub(crate) fn ctl_data_byte_packing_push<F: Field>() -> Vec<Column<F>> {
     let num_channels = F::from_canonical_usize(NUM_CHANNELS);
     let timestamp = Column::linear_combination([(COL_MAP.clock, num_channels)]);
 
-    let mut res = vec![context, segment, virt, len, timestamp];
+    let mut res = vec![is_read, context, segment, virt, len, timestamp];
     res.extend(val);
 
     res
@@ -201,7 +212,11 @@ pub(crate) fn ctl_data_byte_packing_push<F: Field>() -> Vec<Column<F>> {
 
 /// CTL filter for the `PUSH` operation.
 pub(crate) fn ctl_filter_byte_packing_push<F: Field>() -> Filter<F> {
-    Filter::new_simple(Column::single(COL_MAP.op.push))
+    let bit_col = Column::single(COL_MAP.opcode_bits[5]);
+    Filter::new(
+        vec![(Column::single(COL_MAP.op.push_prover_input), bit_col)],
+        vec![],
+    )
 }
 
 /// Index of the memory channel storing code.

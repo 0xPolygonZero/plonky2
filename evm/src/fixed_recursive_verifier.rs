@@ -1,6 +1,8 @@
 use core::mem::{self, MaybeUninit};
 use std::collections::BTreeMap;
 use std::ops::Range;
+use std::sync::atomic::AtomicBool;
+use std::sync::Arc;
 
 use eth_trie_utils::partial_trie::{HashedPartialTrie, Node, PartialTrie};
 use hashbrown::HashMap;
@@ -39,7 +41,7 @@ use crate::proof::{
     BlockHashesTarget, BlockMetadataTarget, ExtraBlockData, ExtraBlockDataTarget, PublicValues,
     PublicValuesTarget, StarkProofWithMetadata, TrieRoots, TrieRootsTarget,
 };
-use crate::prover::prove;
+use crate::prover::{check_abort_signal, prove};
 use crate::recursive_verifier::{
     add_common_recursion_gates, add_virtual_public_values, get_memory_extra_looking_sum_circuit,
     recursive_stark_circuit, set_public_value_targets, PlonkWrapperCircuit, PublicInputs,
@@ -967,8 +969,15 @@ where
         config: &StarkConfig,
         generation_inputs: GenerationInputs,
         timing: &mut TimingTree,
+        abort_signal: Option<Arc<AtomicBool>>,
     ) -> anyhow::Result<(ProofWithPublicInputs<F, C, D>, PublicValues)> {
-        let all_proof = prove::<F, C, D>(all_stark, config, generation_inputs, timing)?;
+        let all_proof = prove::<F, C, D>(
+            all_stark,
+            config,
+            generation_inputs,
+            timing,
+            abort_signal.clone(),
+        )?;
         let mut root_inputs = PartialWitness::new();
 
         for table in 0..NUM_TABLES {
@@ -996,6 +1005,8 @@ where
                 F::from_canonical_usize(index_verifier_data),
             );
             root_inputs.set_proof_with_pis_target(&self.root.proof_with_pis[table], &shrunk_proof);
+
+            check_abort_signal(abort_signal.clone())?;
         }
 
         root_inputs.set_verifier_data_target(
