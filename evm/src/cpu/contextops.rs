@@ -24,14 +24,12 @@ const KEEPS_CONTEXT: OpsColumnsView<bool> = OpsColumnsView {
     not_pop: true,
     shift: true,
     jumpdest_keccak_general: true,
-    prover_input: true,
+    push_prover_input: true,
     jumps: true,
     pc_push0: true,
-    push: true,
     dup_swap: true,
     context_op: false,
-    mstore_32bytes: true,
-    mload_32bytes: true,
+    m_op_32bytes: true,
     exit_kernel: true,
     m_op_general: true,
     syscall: true,
@@ -163,11 +161,14 @@ fn eval_packed_set<P: PackedField>(
 
     // The next row's context is read from stack_top.
     yield_constr.constraint(filter * (stack_top[0] - nv.context));
+    for &limb in &stack_top[1..] {
+        yield_constr.constraint(filter * limb);
+    }
 
     // The old SP is decremented (since the new context was popped) and written to memory.
     yield_constr.constraint(filter * (write_old_sp_channel.value[0] - local_sp_dec));
-    for limb in &write_old_sp_channel.value[1..] {
-        yield_constr.constraint(filter * *limb);
+    for &limb in &write_old_sp_channel.value[1..] {
+        yield_constr.constraint(filter * limb);
     }
     yield_constr.constraint(filter * (write_old_sp_channel.used - P::ONES));
     yield_constr.constraint(filter * write_old_sp_channel.is_read);
@@ -177,6 +178,9 @@ fn eval_packed_set<P: PackedField>(
 
     // The new SP is loaded from memory.
     yield_constr.constraint(filter * (read_new_sp_channel.value[0] - nv.stack_len));
+    for &limb in &read_new_sp_channel.value[1..] {
+        yield_constr.constraint(filter * limb);
+    }
     yield_constr.constraint(filter * (read_new_sp_channel.used - P::ONES));
     yield_constr.constraint(filter * (read_new_sp_channel.is_read - P::ONES));
     yield_constr.constraint(filter * (read_new_sp_channel.addr_context - nv.context));
@@ -191,13 +195,14 @@ fn eval_packed_set<P: PackedField>(
                 - lv.general.stack().stack_inv_aux_2),
     );
     // The new top is loaded in memory channel 3, if the stack isn't empty (see eval_packed).
-    yield_constr.constraint(
-        lv.op.context_op
-            * lv.general.stack().stack_inv_aux_2
-            * (lv.mem_channels[3].value[0] - new_top_channel.value[0]),
-    );
-    for &limb in &new_top_channel.value[1..] {
-        yield_constr.constraint(lv.op.context_op * lv.general.stack().stack_inv_aux_2 * limb);
+    for (&limb_new_top, &limb_read_top) in new_top_channel
+        .value
+        .iter()
+        .zip(lv.mem_channels[3].value.iter())
+    {
+        yield_constr.constraint(
+            lv.op.context_op * lv.general.stack().stack_inv_aux_2 * (limb_new_top - limb_read_top),
+        );
     }
 
     yield_constr.constraint(filter * new_top_channel.used);
@@ -230,6 +235,10 @@ fn eval_ext_circuit_set<F: RichField + Extendable<D>, const D: usize>(
         let constr = builder.mul_extension(filter, diff);
         yield_constr.constraint(builder, constr);
     }
+    for &limb in &stack_top[1..] {
+        let constr = builder.mul_extension(filter, limb);
+        yield_constr.constraint(builder, constr);
+    }
 
     // The old SP is decremented (since the new context was popped) and written to memory.
     {
@@ -237,8 +246,8 @@ fn eval_ext_circuit_set<F: RichField + Extendable<D>, const D: usize>(
         let constr = builder.mul_extension(filter, diff);
         yield_constr.constraint(builder, constr);
     }
-    for limb in &write_old_sp_channel.value[1..] {
-        let constr = builder.mul_extension(filter, *limb);
+    for &limb in &write_old_sp_channel.value[1..] {
+        let constr = builder.mul_extension(filter, limb);
         yield_constr.constraint(builder, constr);
     }
     {
@@ -269,6 +278,10 @@ fn eval_ext_circuit_set<F: RichField + Extendable<D>, const D: usize>(
     {
         let diff = builder.sub_extension(read_new_sp_channel.value[0], nv.stack_len);
         let constr = builder.mul_extension(filter, diff);
+        yield_constr.constraint(builder, constr);
+    }
+    for &limb in &read_new_sp_channel.value[1..] {
+        let constr = builder.mul_extension(filter, limb);
         yield_constr.constraint(builder, constr);
     }
     {
@@ -307,14 +320,13 @@ fn eval_ext_circuit_set<F: RichField + Extendable<D>, const D: usize>(
         yield_constr.constraint(builder, constr);
     }
     // The new top is loaded in memory channel 3, if the stack isn't empty (see eval_packed).
+    for (&limb_new_top, &limb_read_top) in new_top_channel
+        .value
+        .iter()
+        .zip(lv.mem_channels[3].value.iter())
     {
-        let diff = builder.sub_extension(lv.mem_channels[3].value[0], new_top_channel.value[0]);
+        let diff = builder.sub_extension(limb_new_top, limb_read_top);
         let prod = builder.mul_extension(lv.general.stack().stack_inv_aux_2, diff);
-        let constr = builder.mul_extension(lv.op.context_op, prod);
-        yield_constr.constraint(builder, constr);
-    }
-    for &limb in &new_top_channel.value[1..] {
-        let prod = builder.mul_extension(lv.general.stack().stack_inv_aux_2, limb);
         let constr = builder.mul_extension(lv.op.context_op, prod);
         yield_constr.constraint(builder, constr);
     }

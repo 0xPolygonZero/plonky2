@@ -13,7 +13,7 @@ use plonky2::util::timing::TimingTree;
 use plonky2_util::ceil_div_usize;
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
-use crate::cross_table_lookup::Column;
+use crate::cross_table_lookup::{Column, Filter};
 use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
 use crate::logic::columns::NUM_COLUMNS;
 use crate::stark::Stark;
@@ -79,8 +79,12 @@ pub(crate) fn ctl_data<F: Field>() -> Vec<Column<F>> {
 }
 
 /// CTL filter for logic operations.
-pub(crate) fn ctl_filter<F: Field>() -> Column<F> {
-    Column::sum([columns::IS_AND, columns::IS_OR, columns::IS_XOR])
+pub(crate) fn ctl_filter<F: Field>() -> Filter<F> {
+    Filter::new_simple(Column::sum([
+        columns::IS_AND,
+        columns::IS_OR,
+        columns::IS_XOR,
+    ]))
 }
 
 /// Structure representing the Logic STARK, which computes all logic operations.

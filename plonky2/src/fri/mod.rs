@@ -51,7 +51,7 @@ impl FriConfig {
         }
     }
 
-    pub fn num_cap_elements(&self) -> usize {
+    pub const fn num_cap_elements(&self) -> usize {
         1 << self.cap_height
     }
 }
@@ -85,11 +85,11 @@ impl FriParams {
         self.reduction_arity_bits.iter().copied().max()
     }
 
-    pub fn lde_bits(&self) -> usize {
+    pub const fn lde_bits(&self) -> usize {
         self.degree_bits + self.config.rate_bits
     }
 
-    pub fn lde_size(&self) -> usize {
+    pub const fn lde_size(&self) -> usize {
         1 << self.lde_bits()
     }
 

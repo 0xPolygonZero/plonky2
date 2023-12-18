@@ -13,14 +13,15 @@ use plonky2::util::timing::TimingTree;
 use plonky2::util::transpose;
 use plonky2_maybe_rayon::*;
 
+use super::segments::Segment;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
-use crate::cross_table_lookup::Column;
+use crate::cross_table_lookup::{Column, Filter};
 use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
 use crate::lookup::Lookup;
 use crate::memory::columns::{
     value_limb, ADDR_CONTEXT, ADDR_SEGMENT, ADDR_VIRTUAL, CONTEXT_FIRST_CHANGE, COUNTER, FILTER,
-    FIRST_OFFSET, FREQUENCIES, INITIALIZE_AUX, IS_READ, NUM_COLUMNS, RANGE_CHECK,
-    SEGMENT_FIRST_CHANGE, TIMESTAMP, VIRTUAL_FIRST_CHANGE,
+    FREQUENCIES, INITIALIZE_AUX, IS_READ, NUM_COLUMNS, RANGE_CHECK, SEGMENT_FIRST_CHANGE,
+    TIMESTAMP, VIRTUAL_FIRST_CHANGE,
 };
 use crate::memory::VALUE_LIMBS;
 use crate::stark::Stark;
@@ -41,8 +42,8 @@ pub(crate) fn ctl_data<F: Field>() -> Vec<Column<F>> {
 }
 
 /// CTL filter for memory operations.
-pub(crate) fn ctl_filter<F: Field>() -> Column<F> {
-    Column::single(FILTER)
+pub(crate) fn ctl_filter<F: Field>() -> Filter<F> {
+    Filter::new_simple(Column::single(FILTER))
 }
 
 #[derive(Copy, Clone, Default)]
@@ -127,11 +128,6 @@ pub(crate) fn generate_first_change_flags_and_rc<F: RichField>(
         let address_changed =
             row[CONTEXT_FIRST_CHANGE] + row[SEGMENT_FIRST_CHANGE] + row[VIRTUAL_FIRST_CHANGE];
         row[INITIALIZE_AUX] = next_segment * address_changed * next_is_read;
-
-        let next_row = trace_rows[idx + 1].as_mut_slice();
-        if context_first_change || segment_first_change {
-            next_row[FIRST_OFFSET] = next_virt;
-        }
     }
 }
 
@@ -164,9 +160,15 @@ impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
 
         for i in 0..height {
             let x_rc = trace_col_vecs[RANGE_CHECK][i].to_canonical_u64() as usize;
-            let x_fo = trace_col_vecs[FIRST_OFFSET][i].to_canonical_u64() as usize;
             trace_col_vecs[FREQUENCIES][x_rc] += F::ONE;
-            trace_col_vecs[FREQUENCIES][x_fo] += F::ONE;
+            if (trace_col_vecs[CONTEXT_FIRST_CHANGE][i] == F::ONE)
+                || (trace_col_vecs[SEGMENT_FIRST_CHANGE][i] == F::ONE)
+            {
+                // CONTEXT_FIRST_CHANGE and SEGMENT_FIRST_CHANGE should be 0 at the last row, so the index
+                // should never be out of bounds.
+                let x_fo = trace_col_vecs[ADDR_VIRTUAL][i + 1].to_canonical_u64() as usize;
+                trace_col_vecs[FREQUENCIES][x_fo] += F::ONE;
+            }
         }
     }
 
@@ -352,12 +354,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
             initialize_aux - next_addr_segment * not_address_unchanged * next_is_read,
         );
 
-        // Validate next first_offset. It contains (context_first_change + segment_first_change) * next_addr_virtual.
-        let first_offset = next_values[FIRST_OFFSET];
-        yield_constr.constraint_transition(
-            first_offset - (context_first_change + segment_first_change) * next_addr_virtual,
-        );
-
         for i in 0..8 {
             // Enumerate purportedly-ordered log.
             yield_constr.constraint_transition(
@@ -371,7 +367,11 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
             // We don't want to exclude the entirety of context 0. This constraint zero-initializes all segments except the
             // specified ones (segment 0 is already included in initialize_aux).
             // There is overlap with the previous constraint, but this is not a problem.
-            yield_constr.constraint_transition(initialize_aux * next_values_limbs[i]);
+            yield_constr.constraint_transition(
+                (next_addr_segment - P::Scalar::from_canonical_usize(Segment::TrieData as usize))
+                    * initialize_aux
+                    * next_values_limbs[i],
+            );
         }
 
         // Check the range column: First value must be 0,
@@ -505,15 +505,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
             builder.sub_extension(initialize_aux, computed_initialize_aux);
         yield_constr.constraint_transition(builder, new_first_read_constraint);
 
-        // Validate next first_offset. It contains (context_first_change + segment_first_change) * next_addr_virtual.
-        let first_offset = next_values[FIRST_OFFSET];
-        let context_or_segment_change =
-            builder.add_extension(context_first_change, segment_first_change);
-        let computed_first_offset =
-            builder.mul_extension(context_or_segment_change, next_addr_virtual);
-        let first_offset_constraint = builder.sub_extension(first_offset, computed_first_offset);
-        yield_constr.constraint_transition(builder, first_offset_constraint);
-
         for i in 0..8 {
             // Enumerate purportedly-ordered log.
             let value_diff = builder.sub_extension(next_values_limbs[i], value_limbs[i]);
@@ -531,7 +522,13 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
             // We don't want to exclude the entirety of context 0. This constraint zero-initializes all segments except the
             // specified ones (segment 0 is already included in initialize_aux).
             // There is overlap with the previous constraint, but this is not a problem.
-            yield_constr.constraint_transition(builder, context_zero_initializing_constraint);
+            let segment_trie_data = builder.add_const_extension(
+                next_addr_segment,
+                F::NEG_ONE * F::from_canonical_u32(Segment::TrieData as u32),
+            );
+            let zero_init_constraint =
+                builder.mul_extension(segment_trie_data, context_zero_initializing_constraint);
+            yield_constr.constraint_transition(builder, zero_init_constraint);
         }
 
         // Check the range column: First value must be 0,
@@ -548,11 +545,21 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
         3
     }
 
-    fn lookups(&self) -> Vec<Lookup> {
+    fn lookups(&self) -> Vec<Lookup<F>> {
         vec![Lookup {
-            columns: vec![RANGE_CHECK, FIRST_OFFSET],
-            table_column: COUNTER,
-            frequencies_column: FREQUENCIES,
+            columns: vec![
+                Column::single(RANGE_CHECK),
+                Column::single_next_row(ADDR_VIRTUAL),
+            ],
+            table_column: Column::single(COUNTER),
+            frequencies_column: Column::single(FREQUENCIES),
+            filter_columns: vec![
+                None,
+                Some(Filter::new_simple(Column::sum([
+                    CONTEXT_FIRST_CHANGE,
+                    SEGMENT_FIRST_CHANGE,
+                ]))),
+            ],
         }]
     }
 }

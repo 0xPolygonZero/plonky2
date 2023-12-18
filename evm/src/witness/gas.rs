@@ -8,7 +8,7 @@ pub(crate) const G_LOW: u64 = 5;
 pub(crate) const G_MID: u64 = 8;
 pub(crate) const G_HIGH: u64 = 10;
 
-pub(crate) fn gas_to_charge(op: Operation) -> u64 {
+pub(crate) const fn gas_to_charge(op: Operation) -> u64 {
     use crate::arithmetic::BinaryOperator::*;
     use crate::arithmetic::TernaryOperator::*;
     use crate::witness::operation::Operation::*;

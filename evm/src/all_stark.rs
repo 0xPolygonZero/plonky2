@@ -83,7 +83,7 @@ pub(crate) const NUM_TABLES: usize = Table::Memory as usize + 1;
 
 impl Table {
     /// Returns all STARK table indices.
-    pub(crate) fn all() -> [Self; NUM_TABLES] {
+    pub(crate) const fn all() -> [Self; NUM_TABLES] {
         [
             Self::Arithmetic,
             Self::BytePacking,

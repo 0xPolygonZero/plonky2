@@ -197,8 +197,10 @@ global sys_extcodecopy:
     DUP1 %ensure_reasonable_offset
     %update_mem_bytes
 
-    %stack (kexit_info, address, dest_offset, offset, size) ->
-        (address, 0, @SEGMENT_KERNEL_ACCOUNT_CODE, extcodecopy_contd, 0, kexit_info, dest_offset, offset, size)
+    %next_context_id
+
+    %stack (ctx, kexit_info, address, dest_offset, offset, size) ->
+        (address, ctx, extcodecopy_contd, ctx, kexit_info, dest_offset, offset, size)
     %jump(load_code)
 
 sys_extcodecopy_empty:
@@ -207,8 +209,8 @@ sys_extcodecopy_empty:
     EXIT_KERNEL
 
 extcodecopy_contd:
-    // stack: code_size, src_ctx, kexit_info, dest_offset, offset, size
-    %codecopy_after_checks(@SEGMENT_KERNEL_ACCOUNT_CODE)
+    // stack: code_size, ctx, kexit_info, dest_offset, offset, size
+    %codecopy_after_checks(@SEGMENT_CODE)
 
 
 // The internal logic is similar to wcopy, but handles range overflow differently.

@@ -78,9 +78,6 @@ pub(crate) struct CpuColumnsView<T: Copy> {
     /// If CPU cycle: the opcode, broken up into bits in little-endian order.
     pub opcode_bits: [T; 8],
 
-    /// Filter. 1 iff a Keccak sponge lookup is performed on this row.
-    pub is_keccak_sponge: T,
-
     /// Columns shared by various operations.
     pub(crate) general: CpuGeneralColumnsView<T>,
 

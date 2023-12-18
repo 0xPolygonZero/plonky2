@@ -31,7 +31,6 @@ but change the code context, which is where the instructions are read from.
     \item \texttt{is\_kernel\_mode}: Boolean indicating whether we are in kernel (i.e. privileged) mode. This means we are executing kernel code, and we have access to
 privileged instructions.
     \item \texttt{gas}: The current amount of gas used in the current context. It is eventually checked to be below the current gas limit. Must fit in 32 bits.
-    \item \texttt{is\_keccak\_sponge}: Boolean indicating whether we are executing a Keccak hash. Only used as a filter for CTLs.
     \item \texttt{clock}: Monotonic counter which starts at 0 and is incremented by 1 at each row. Used to enforce correct ordering of memory accesses. 
     \item \texttt{opcode\_bits}: 8 boolean columns, which are the bit decomposition of the opcode being read at the current PC.
 \end{itemize}

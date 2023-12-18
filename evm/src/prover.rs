@@ -1,4 +1,8 @@
-use anyhow::{ensure, Result};
+use std::any::type_name;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+
+use anyhow::{anyhow, ensure, Result};
 use itertools::Itertools;
 use once_cell::sync::Lazy;
 use plonky2::field::extension::Extendable;
@@ -26,13 +30,13 @@ use crate::cross_table_lookup::{
     GrandProductChallengeSet,
 };
 use crate::evaluation_frame::StarkEvaluationFrame;
-use crate::generation::outputs::GenerationOutputs;
 use crate::generation::{generate_traces, GenerationInputs};
 use crate::get_challenges::observe_public_values;
 use crate::lookup::{lookup_helper_columns, Lookup, LookupCheckVars};
 use crate::proof::{AllProof, PublicValues, StarkOpeningSet, StarkProof, StarkProofWithMetadata};
 use crate::stark::Stark;
 use crate::vanishing_poly::eval_vanishing_poly;
+use crate::witness::errors::ProgramError;
 #[cfg(test)]
 use crate::{
     cross_table_lookup::testutils::check_ctls, verifier::testutils::get_memory_extra_looking_values,
@@ -44,35 +48,29 @@ pub fn prove<F, C, const D: usize>(
     config: &StarkConfig,
     inputs: GenerationInputs,
     timing: &mut TimingTree,
+    abort_signal: Option<Arc<AtomicBool>>,
 ) -> Result<AllProof<F, C, D>>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
 {
-    let (proof, _outputs) = prove_with_outputs(all_stark, config, inputs, timing)?;
-    Ok(proof)
-}
-
-/// Generate traces, then create all STARK proofs. Returns information about the post-state,
-/// intended for debugging, in addition to the proof.
-pub fn prove_with_outputs<F, C, const D: usize>(
-    all_stark: &AllStark<F, D>,
-    config: &StarkConfig,
-    inputs: GenerationInputs,
-    timing: &mut TimingTree,
-) -> Result<(AllProof<F, C, D>, GenerationOutputs)>
-where
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
-{
     timed!(timing, "build kernel", Lazy::force(&KERNEL));
-    let (traces, public_values, outputs) = timed!(
+    let (traces, public_values) = timed!(
         timing,
         "generate all traces",
         generate_traces(all_stark, inputs, config, timing)?
     );
-    let proof = prove_with_traces(all_stark, config, traces, public_values, timing)?;
-    Ok((proof, outputs))
+    check_abort_signal(abort_signal.clone())?;
+
+    let proof = prove_with_traces(
+        all_stark,
+        config,
+        traces,
+        public_values,
+        timing,
+        abort_signal,
+    )?;
+    Ok(proof)
 }
 
 /// Compute all STARK proofs.
@@ -82,6 +80,7 @@ pub(crate) fn prove_with_traces<F, C, const D: usize>(
     trace_poly_values: [Vec<PolynomialValues<F>>; NUM_TABLES],
     public_values: PublicValues,
     timing: &mut TimingTree,
+    abort_signal: Option<Arc<AtomicBool>>,
 ) -> Result<AllProof<F, C, D>>
 where
     F: RichField + Extendable<D>,
@@ -153,7 +152,8 @@ where
             ctl_data_per_table,
             &mut challenger,
             &ctl_challenges,
-            timing
+            timing,
+            abort_signal,
         )?
     );
 
@@ -189,6 +189,7 @@ fn prove_with_commitments<F, C, const D: usize>(
     challenger: &mut Challenger<F, C::Hasher>,
     ctl_challenges: &GrandProductChallengeSet<F>,
     timing: &mut TimingTree,
+    abort_signal: Option<Arc<AtomicBool>>,
 ) -> Result<[StarkProofWithMetadata<F, C, D>; NUM_TABLES]>
 where
     F: RichField + Extendable<D>,
@@ -206,6 +207,7 @@ where
             ctl_challenges,
             challenger,
             timing,
+            abort_signal.clone(),
         )?
     );
     let byte_packing_proof = timed!(
@@ -220,6 +222,7 @@ where
             ctl_challenges,
             challenger,
             timing,
+            abort_signal.clone(),
         )?
     );
     let cpu_proof = timed!(
@@ -234,6 +237,7 @@ where
             ctl_challenges,
             challenger,
             timing,
+            abort_signal.clone(),
         )?
     );
     let keccak_proof = timed!(
@@ -248,6 +252,7 @@ where
             ctl_challenges,
             challenger,
             timing,
+            abort_signal.clone(),
         )?
     );
     let keccak_sponge_proof = timed!(
@@ -262,6 +267,7 @@ where
             ctl_challenges,
             challenger,
             timing,
+            abort_signal.clone(),
         )?
     );
     let logic_proof = timed!(
@@ -276,6 +282,7 @@ where
             ctl_challenges,
             challenger,
             timing,
+            abort_signal.clone(),
         )?
     );
     let memory_proof = timed!(
@@ -290,6 +297,7 @@ where
             ctl_challenges,
             challenger,
             timing,
+            abort_signal,
         )?
     );
 
@@ -317,12 +325,15 @@ pub(crate) fn prove_single_table<F, C, S, const D: usize>(
     ctl_challenges: &GrandProductChallengeSet<F>,
     challenger: &mut Challenger<F, C::Hasher>,
     timing: &mut TimingTree,
+    abort_signal: Option<Arc<AtomicBool>>,
 ) -> Result<StarkProofWithMetadata<F, C, D>>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
     S: Stark<F, D>,
 {
+    check_abort_signal(abort_signal.clone())?;
+
     let degree = trace_poly_values[0].len();
     let degree_bits = log2_strict(degree);
     let fri_params = config.fri_params(degree_bits);
@@ -394,7 +405,7 @@ where
 
     let alphas = challenger.get_n_challenges(config.num_challenges);
 
-    #[cfg(test)]
+    // #[cfg(test)]
     {
         check_constraints(
             stark,
@@ -408,6 +419,8 @@ where
             num_lookup_columns,
         );
     }
+
+    check_abort_signal(abort_signal.clone())?;
 
     let quotient_polys = timed!(
         timing,
@@ -486,6 +499,8 @@ where
         &quotient_commitment,
     ];
 
+    check_abort_signal(abort_signal.clone())?;
+
     let opening_proof = timed!(
         timing,
         "compute openings proof",
@@ -518,7 +533,7 @@ fn compute_quotient_polys<'a, F, P, C, S, const D: usize>(
     trace_commitment: &'a PolynomialBatch<F, C, D>,
     auxiliary_polys_commitment: &'a PolynomialBatch<F, C, D>,
     lookup_challenges: Option<&'a Vec<F>>,
-    lookups: &[Lookup],
+    lookups: &[Lookup<F>],
     ctl_data: &CtlData<F>,
     alphas: Vec<F>,
     degree_bits: usize,
@@ -615,7 +630,7 @@ where
                         [num_lookup_columns + i],
                     challenges: zs_columns.challenge,
                     columns: &zs_columns.columns,
-                    filter_column: &zs_columns.filter_column,
+                    filter: &zs_columns.filter,
                 })
                 .collect::<Vec<_>>();
 
@@ -653,7 +668,20 @@ where
         .collect()
 }
 
-#[cfg(test)]
+/// Utility method that checks whether a kill signal has been emitted by one of the workers,
+/// which will result in an early abort for all the other processes involved in the same set
+/// of transactions.
+pub(crate) fn check_abort_signal(abort_signal: Option<Arc<AtomicBool>>) -> Result<()> {
+    if let Some(signal) = abort_signal {
+        if signal.load(Ordering::Relaxed) {
+            return Err(anyhow!("Stopping job from abort signal."));
+        }
+    }
+
+    Ok(())
+}
+
+// #[cfg(test)]
 /// Check that all constraints evaluate to zero on `H`.
 /// Can also be used to check the degree of the constraints by evaluating on a larger subgroup.
 fn check_constraints<'a, F, C, S, const D: usize>(
@@ -661,7 +689,7 @@ fn check_constraints<'a, F, C, S, const D: usize>(
     trace_commitment: &'a PolynomialBatch<F, C, D>,
     auxiliary_commitment: &'a PolynomialBatch<F, C, D>,
     lookup_challenges: Option<&'a Vec<F>>,
-    lookups: &[Lookup],
+    lookups: &[Lookup<F>],
     ctl_data: &CtlData<F>,
     alphas: Vec<F>,
     degree_bits: usize,
@@ -738,7 +766,7 @@ fn check_constraints<'a, F, C, S, const D: usize>(
                     next_z: auxiliary_subgroup_evals[i_next][num_lookup_columns + iii],
                     challenges: zs_columns.challenge,
                     columns: &zs_columns.columns,
-                    filter_column: &zs_columns.filter_column,
+                    filter: &zs_columns.filter,
                 })
                 .collect::<Vec<_>>();
             // Evaluate the polynomial combining all constraints, including those associated
@@ -756,11 +784,14 @@ fn check_constraints<'a, F, C, S, const D: usize>(
         .collect::<Vec<_>>();
 
     // Assert that all constraints evaluate to 0 over our subgroup.
-    for v in constraint_values {
-        assert!(
-            v.iter().all(|x| x.is_zero()),
-            "Constraint failed in {}",
-            std::any::type_name::<S>()
-        );
+    for (row, v) in constraint_values.iter().enumerate() {
+        for x in v.iter() {
+            assert!(
+                x.is_zero(),
+                "Constraint failed in {} at row {}",
+                type_name::<S>(),
+                row
+            )
+        }
     }
 }

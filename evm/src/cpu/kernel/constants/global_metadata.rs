@@ -93,7 +93,7 @@ pub(crate) enum GlobalMetadata {
 impl GlobalMetadata {
     pub(crate) const COUNT: usize = 48;
 
-    pub(crate) fn all() -> [Self; Self::COUNT] {
+    pub(crate) const fn all() -> [Self; Self::COUNT] {
         [
             Self::LargestContext,
             Self::MemorySize,
@@ -147,7 +147,7 @@ impl GlobalMetadata {
     }
 
     /// The variable name that gets passed into kernel assembly code.
-    pub(crate) fn var_name(&self) -> &'static str {
+    pub(crate) const fn var_name(&self) -> &'static str {
         match self {
             Self::LargestContext => "GLOBAL_METADATA_LARGEST_CONTEXT",
             Self::MemorySize => "GLOBAL_METADATA_MEMORY_SIZE",

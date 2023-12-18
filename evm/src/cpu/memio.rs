@@ -11,13 +11,13 @@ use crate::cpu::membus::NUM_GP_CHANNELS;
 use crate::cpu::stack;
 use crate::memory::segments::Segment;
 
-fn get_addr_load<T: Copy>(lv: &CpuColumnsView<T>) -> (T, T, T) {
+const fn get_addr_load<T: Copy>(lv: &CpuColumnsView<T>) -> (T, T, T) {
     let addr_context = lv.mem_channels[0].value[0];
     let addr_segment = lv.mem_channels[1].value[0];
     let addr_virtual = lv.mem_channels[2].value[0];
     (addr_context, addr_segment, addr_virtual)
 }
-fn get_addr_store<T: Copy>(lv: &CpuColumnsView<T>) -> (T, T, T) {
+const fn get_addr_store<T: Copy>(lv: &CpuColumnsView<T>) -> (T, T, T) {
     let addr_context = lv.mem_channels[1].value[0];
     let addr_segment = lv.mem_channels[2].value[0];
     let addr_virtual = lv.mem_channels[3].value[0];

@@ -41,10 +41,8 @@ pub(crate) const INITIALIZE_AUX: usize = VIRTUAL_FIRST_CHANGE + 1;
 
 // We use a range check to enforce the ordering.
 pub(crate) const RANGE_CHECK: usize = INITIALIZE_AUX + 1;
-// Contains the offset after either the context or the segment changed. Will be rangge checked too.
-pub(crate) const FIRST_OFFSET: usize = RANGE_CHECK + 1;
 /// The counter column (used for the range check) starts from 0 and increments.
-pub(crate) const COUNTER: usize = FIRST_OFFSET + 1;
+pub(crate) const COUNTER: usize = RANGE_CHECK + 1;
 /// The frequencies column used in logUp.
 pub(crate) const FREQUENCIES: usize = COUNTER + 1;
 

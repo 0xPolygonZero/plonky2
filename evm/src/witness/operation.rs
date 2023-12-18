@@ -129,7 +129,6 @@ pub(crate) fn generate_keccak_general<F: Field>(
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
-    row.is_keccak_sponge = F::ONE;
     let [(context, _), (segment, log_in1), (base_virt, log_in2), (len, log_in3)] =
         stack_pop_with_log_and_fill::<4, _>(state, &mut row)?;
     let len = u256_to_usize(len)?;
