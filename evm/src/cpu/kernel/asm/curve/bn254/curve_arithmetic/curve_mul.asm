@@ -27,12 +27,12 @@ bn_mul_valid_point:
 bn_mul_after_glv:
     // stack: bneg, a, b, x, y, bn_msm, bn_mul_end, retdest
     // Store bneg at this (otherwise unused) location. Will be used later in the MSM.
-    %mstore_kernel(@SEGMENT_KERNEL_BN_TABLE_Q, @BN_BNEG_LOC)
+    %mstore_current(@SEGMENT_BN_TABLE_Q, @BN_BNEG_LOC)
     // stack: a, b, x, y, bn_msm, bn_mul_end, retdest
-    PUSH bn_mul_after_a SWAP1 PUSH @SEGMENT_KERNEL_BN_WNAF_A PUSH @BN_SCALAR %jump(wnaf)
+    PUSH bn_mul_after_a SWAP1 PUSH @SEGMENT_BN_WNAF_A PUSH @BN_SCALAR %jump(wnaf)
 bn_mul_after_a:
     // stack: b, x, y, bn_msm, bn_mul_end, retdest
-    PUSH bn_mul_after_b SWAP1 PUSH @SEGMENT_KERNEL_BN_WNAF_B PUSH @BN_SCALAR %jump(wnaf)
+    PUSH bn_mul_after_b SWAP1 PUSH @SEGMENT_BN_WNAF_B PUSH @BN_SCALAR %jump(wnaf)
 bn_mul_after_b:
     // stack: x, y, bn_msm, bn_mul_end, retdest
     %jump(bn_precompute_table)

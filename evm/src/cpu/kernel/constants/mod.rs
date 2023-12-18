@@ -157,7 +157,7 @@ const EC_CONSTANTS: [(&str, [u8; 32]); 20] = [
     ),
     (
         "BN_BNEG_LOC",
-        // This just needs to be large enough to not interfere with anything else in SEGMENT_KERNEL_BN_TABLE_Q.
+        // This just needs to be large enough to not interfere with anything else in SEGMENT_BN_TABLE_Q.
         hex!("0000000000000000000000000000000000000000000000000000000000001337"),
     ),
     (

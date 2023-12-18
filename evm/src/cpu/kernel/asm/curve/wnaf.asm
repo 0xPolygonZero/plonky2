@@ -34,8 +34,11 @@ wnaf_loop_contd:
     DUP2 SWAP1 SUB
     %stack (n, m, segment, o, retdest) -> (129, o, m, o, segment, n, retdest)
     SUB
-    %stack (i, m, o, segment, n, retdest) -> (segment, i, m, o, segment, n, retdest)
-    %build_kernel_address
+    // stack:  i, m, o, segment, n, retdest
+    DUP4
+    GET_CONTEXT
+    %build_address
+    // stack:  addr, m, o, segment, n, retdest
     SWAP1
     MSTORE_GENERAL
     // stack: o, segment, n, retdest
