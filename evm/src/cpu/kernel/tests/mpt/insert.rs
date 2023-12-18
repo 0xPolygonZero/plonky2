@@ -196,9 +196,15 @@ fn test_state_trie(
     trie_data.push(account.code_hash.into_uint());
     let trie_data_len = trie_data.len().into();
     interpreter.set_global_metadata_field(GlobalMetadata::TrieDataSize, trie_data_len);
-    interpreter.push(0xDEADBEEFu32.into());
-    interpreter.push(value_ptr.into()); // value_ptr
-    interpreter.push(k.try_into_u256().unwrap()); // key
+    interpreter
+        .push(0xDEADBEEFu32.into())
+        .expect("The stack should not overflow");
+    interpreter
+        .push(value_ptr.into())
+        .expect("The stack should not overflow"); // value_ptr
+    interpreter
+        .push(k.try_into_u256().unwrap())
+        .expect("The stack should not overflow"); // key
 
     interpreter.run()?;
     assert_eq!(
@@ -210,8 +216,12 @@ fn test_state_trie(
 
     // Now, execute mpt_hash_state_trie.
     interpreter.generation_state.registers.program_counter = mpt_hash_state_trie;
-    interpreter.push(0xDEADBEEFu32.into());
-    interpreter.push(1.into()); // Initial length of the trie data segment, unused.
+    interpreter
+        .push(0xDEADBEEFu32.into())
+        .expect("The stack should not overflow");
+    interpreter
+        .push(1.into()) // Initial length of the trie data segment, unused.
+        .expect("The stack should not overflow");
     interpreter.run()?;
 
     assert_eq!(

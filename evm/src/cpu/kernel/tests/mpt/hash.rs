@@ -118,8 +118,12 @@ fn test_state_trie(trie_inputs: TrieInputs) -> Result<()> {
 
     // Now, execute mpt_hash_state_trie.
     interpreter.generation_state.registers.program_counter = mpt_hash_state_trie;
-    interpreter.push(0xDEADBEEFu32.into());
-    interpreter.push(1.into()); // Initial length of the trie data segment, unused.
+    interpreter
+        .push(0xDEADBEEFu32.into())
+        .expect("The stack should not overflow");
+    interpreter
+        .push(1.into()) // Initial length of the trie data segment, unused.
+        .expect("The stack should not overflow");
     interpreter.run()?;
 
     assert_eq!(

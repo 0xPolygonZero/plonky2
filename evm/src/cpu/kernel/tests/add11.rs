@@ -204,3 +204,137 @@ fn test_add11_yml() {
     interpreter.set_is_kernel(true);
     interpreter.run().expect("Proving add11 failed.");
 }
+
+#[test]
+fn test_add11_yml_with_exception() {
+    // In this test, we make sure that the user code throws a stack underflow exception.
+    let beneficiary = hex!("2adc25665018aa1fe0e6bc666dac8fc2697ff9ba");
+    let sender = hex!("a94f5374fce5edbc8e2a8697c15331677e6ebf0b");
+    let to = hex!("095e7baea6a6c7c4c2dfeb977efac326af552d87");
+
+    let beneficiary_state_key = keccak(beneficiary);
+    let sender_state_key = keccak(sender);
+    let to_hashed = keccak(to);
+
+    let beneficiary_nibbles = Nibbles::from_bytes_be(beneficiary_state_key.as_bytes()).unwrap();
+    let sender_nibbles = Nibbles::from_bytes_be(sender_state_key.as_bytes()).unwrap();
+    let to_nibbles = Nibbles::from_bytes_be(to_hashed.as_bytes()).unwrap();
+
+    let code = [0x60, 0x01, 0x60, 0x01, 0x01, 0x8e, 0x00];
+    let code_hash = keccak(code);
+
+    let mut contract_code = HashMap::new();
+    contract_code.insert(keccak(vec![]), vec![]);
+    contract_code.insert(code_hash, code.to_vec());
+
+    let beneficiary_account_before = AccountRlp {
+        nonce: 1.into(),
+        ..AccountRlp::default()
+    };
+    let sender_account_before = AccountRlp {
+        balance: 0x0de0b6b3a7640000u64.into(),
+        ..AccountRlp::default()
+    };
+    let to_account_before = AccountRlp {
+        balance: 0x0de0b6b3a7640000u64.into(),
+        code_hash,
+        ..AccountRlp::default()
+    };
+
+    let mut state_trie_before = HashedPartialTrie::from(Node::Empty);
+    state_trie_before.insert(
+        beneficiary_nibbles,
+        rlp::encode(&beneficiary_account_before).to_vec(),
+    );
+    state_trie_before.insert(sender_nibbles, rlp::encode(&sender_account_before).to_vec());
+    state_trie_before.insert(to_nibbles, rlp::encode(&to_account_before).to_vec());
+
+    let tries_before = TrieInputs {
+        state_trie: state_trie_before,
+        transactions_trie: Node::Empty.into(),
+        receipts_trie: Node::Empty.into(),
+        storage_tries: vec![(to_hashed, Node::Empty.into())],
+    };
+
+    let txn = hex!("f863800a83061a8094095e7baea6a6c7c4c2dfeb977efac326af552d87830186a0801ba0ffb600e63115a7362e7811894a91d8ba4330e526f22121c994c4692035dfdfd5a06198379fcac8de3dbfac48b165df4bf88e2088f294b61efb9a65fe2281c76e16");
+    let txn_gas_limit = 400_000;
+    let gas_price = 10;
+
+    let initial_stack = vec![];
+    let mut interpreter = Interpreter::new_with_kernel(0, initial_stack);
+
+    prepare_interpreter(&mut interpreter, tries_before.clone(), &txn, contract_code);
+    // Here, since the transaction fails, it consumes its gas limit, and does nothing else.
+    let expected_state_trie_after = {
+        let beneficiary_account_after = beneficiary_account_before;
+        // This is the only account that changes: the nonce and the balance are updated.
+        let sender_account_after = AccountRlp {
+            balance: sender_account_before.balance - txn_gas_limit * gas_price,
+            nonce: 1.into(),
+            ..AccountRlp::default()
+        };
+        let to_account_after = to_account_before;
+
+        let mut expected_state_trie_after = HashedPartialTrie::from(Node::Empty);
+        expected_state_trie_after.insert(
+            beneficiary_nibbles,
+            rlp::encode(&beneficiary_account_after).to_vec(),
+        );
+        expected_state_trie_after
+            .insert(sender_nibbles, rlp::encode(&sender_account_after).to_vec());
+        expected_state_trie_after.insert(to_nibbles, rlp::encode(&to_account_after).to_vec());
+        expected_state_trie_after
+    };
+
+    let receipt_0 = LegacyReceiptRlp {
+        status: false,
+        cum_gas_used: txn_gas_limit.into(),
+        bloom: vec![0; 256].into(),
+        logs: vec![],
+    };
+    let mut receipts_trie = HashedPartialTrie::from(Node::Empty);
+    receipts_trie.insert(
+        Nibbles::from_str("0x80").unwrap(),
+        rlp::encode(&receipt_0).to_vec(),
+    );
+    let transactions_trie: HashedPartialTrie = Node::Leaf {
+        nibbles: Nibbles::from_str("0x80").unwrap(),
+        value: txn.to_vec(),
+    }
+    .into();
+
+    let trie_roots_after = TrieRoots {
+        state_root: expected_state_trie_after.hash(),
+        transactions_root: transactions_trie.hash(),
+        receipts_root: receipts_trie.hash(),
+    };
+
+    // Set trie roots after the transaction was executed.
+    let metadata_to_set = [
+        (
+            GlobalMetadata::StateTrieRootDigestAfter,
+            h2u(trie_roots_after.state_root),
+        ),
+        (
+            GlobalMetadata::TransactionTrieRootDigestAfter,
+            h2u(trie_roots_after.transactions_root),
+        ),
+        (
+            GlobalMetadata::ReceiptTrieRootDigestAfter,
+            h2u(trie_roots_after.receipts_root),
+        ),
+        // The gas used in this case is the transaction gas limit
+        (GlobalMetadata::BlockGasUsedAfter, txn_gas_limit.into()),
+    ];
+    interpreter.set_global_metadata_multi_fields(&metadata_to_set);
+
+    let route_txn_label = KERNEL.global_labels["hash_initial_tries"];
+    // Switch context and initialize memory with the data we need for the tests.
+    interpreter.generation_state.registers.program_counter = route_txn_label;
+    interpreter.generation_state.memory.contexts[0].segments[Segment::ContextMetadata as usize]
+        .set(ContextMetadata::GasLimit as usize, 1_000_000.into());
+    interpreter.set_is_kernel(true);
+    interpreter
+        .run()
+        .expect("Proving add11 with exception failed.");
+}

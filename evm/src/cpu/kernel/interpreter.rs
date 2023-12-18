@@ -4,7 +4,7 @@ use core::cmp::Ordering;
 use std::collections::HashMap;
 use std::ops::Range;
 
-use anyhow::{anyhow, bail, ensure};
+use anyhow::bail;
 use ethereum_types::{U256, U512};
 use keccak_hash::keccak;
 use plonky2::field::goldilocks_field::GoldilocksField;
@@ -21,10 +21,11 @@ use crate::generation::state::GenerationState;
 use crate::generation::GenerationInputs;
 use crate::memory::segments::Segment;
 use crate::util::u256_to_usize;
-use crate::witness::errors::ProgramError;
+use crate::witness::errors::{ProgramError, ProverInputError};
 use crate::witness::gas::gas_to_charge;
 use crate::witness::memory::{MemoryAddress, MemoryContextState, MemorySegmentState, MemoryState};
 use crate::witness::operation::Operation;
+use crate::witness::state::RegistersState;
 use crate::witness::transition::decode;
 use crate::witness::util::stack_peek;
 
@@ -38,8 +39,16 @@ impl MemoryState {
         self.get(MemoryAddress::new(context, segment, offset))
     }
 
-    fn mstore_general(&mut self, context: usize, segment: Segment, offset: usize, value: U256) {
+    fn mstore_general(
+        &mut self,
+        context: usize,
+        segment: Segment,
+        offset: usize,
+        value: U256,
+    ) -> InterpreterMemOpKind {
+        let old_value = self.mload_general(context, segment, offset);
         self.set(MemoryAddress::new(context, segment, offset), value);
+        InterpreterMemOpKind::Write(old_value, context, segment as usize, offset)
     }
 }
 
@@ -51,6 +60,22 @@ pub(crate) struct Interpreter<'a> {
     pub(crate) debug_offsets: Vec<usize>,
     running: bool,
     opcode_count: [usize; 0x100],
+    memops: Vec<InterpreterMemOpKind>,
+}
+
+/// Structure storing the state of the interpreter's registers.
+struct InterpreterRegistersState {
+    kernel_mode: bool,
+    context: usize,
+    registers: RegistersState,
+}
+
+/// Interpreter state at the last checkpoint: we only need to store
+/// the state of the registers and the length of the vector of memory operations.
+/// This data is enough to revert in case of an exception.
+struct InterpreterCheckpoint {
+    registers: InterpreterRegistersState,
+    mem_len: usize,
 }
 
 pub(crate) fn run_interpreter(
@@ -103,6 +128,16 @@ pub(crate) fn run<'a>(
     Ok(interpreter)
 }
 
+/// Different types of Memory operations in the interpreter, and the data required to revert them.
+enum InterpreterMemOpKind {
+    /// We need to provide the context.
+    Push(usize),
+    /// If we pop a certain value, we need to push it back to the correct context when reverting.
+    Pop(U256, usize),
+    /// If we write a value at a certain address, we need to write the old value back when reverting.
+    Write(U256, usize, usize, usize),
+}
+
 impl<'a> Interpreter<'a> {
     pub(crate) fn new_with_kernel(initial_offset: usize, initial_stack: Vec<U256>) -> Self {
         Self::new(
@@ -130,6 +165,7 @@ impl<'a> Interpreter<'a> {
             debug_offsets: vec![],
             running: false,
             opcode_count: [0; 256],
+            memops: vec![],
         };
         result.generation_state.registers.program_counter = initial_offset;
         let initial_stack_len = initial_stack.len();
@@ -143,6 +179,74 @@ impl<'a> Interpreter<'a> {
         result
     }
 
+    fn checkpoint(&self) -> InterpreterCheckpoint {
+        let registers = InterpreterRegistersState {
+            kernel_mode: self.is_kernel(),
+            context: self.context(),
+            registers: self.generation_state.registers,
+        };
+        InterpreterCheckpoint {
+            registers,
+            mem_len: self.memops.len(),
+        }
+    }
+
+    fn roll_memory_back(&mut self, len: usize) {
+        // We roll the memory back until `memops` reaches length `len`.
+        debug_assert!(self.memops.len() >= len);
+        while self.memops.len() > len {
+            if let Some(op) = self.memops.pop() {
+                match op {
+                    InterpreterMemOpKind::Push(context) => {
+                        self.generation_state.memory.contexts[context].segments
+                            [Segment::Stack as usize]
+                            .content
+                            .pop();
+                    }
+                    InterpreterMemOpKind::Pop(value, context) => {
+                        self.generation_state.memory.contexts[context].segments
+                            [Segment::Stack as usize]
+                            .content
+                            .push(value)
+                    }
+                    InterpreterMemOpKind::Write(value, context, segment, offset) => {
+                        self.generation_state.memory.contexts[context].segments[segment].content
+                            [offset] = value
+                    }
+                }
+            }
+        }
+    }
+
+    fn rollback(&mut self, checkpoint: InterpreterCheckpoint) {
+        let InterpreterRegistersState {
+            kernel_mode,
+            context,
+            registers,
+        } = checkpoint.registers;
+        self.set_is_kernel(kernel_mode);
+        self.set_context(context);
+        self.generation_state.registers = registers;
+        self.roll_memory_back(checkpoint.mem_len);
+    }
+
+    fn handle_error(&mut self, err: ProgramError) -> anyhow::Result<()> {
+        let exc_code: u8 = match err {
+            ProgramError::OutOfGas => 0,
+            ProgramError::InvalidOpcode => 1,
+            ProgramError::StackUnderflow => 2,
+            ProgramError::InvalidJumpDestination => 3,
+            ProgramError::InvalidJumpiDestination => 4,
+            ProgramError::StackOverflow => 5,
+            _ => bail!("TODO: figure out what to do with this..."),
+        };
+
+        self.run_exception(exc_code)
+            .map_err(|_| anyhow::Error::msg("error handling errored..."))?;
+
+        Ok(())
+    }
+
     pub(crate) fn run(&mut self) -> anyhow::Result<()> {
         self.running = true;
         while self.running {
@@ -150,7 +254,29 @@ impl<'a> Interpreter<'a> {
             if self.is_kernel() && self.halt_offsets.contains(&pc) {
                 return Ok(());
             };
-            self.run_opcode()?;
+
+            let checkpoint = self.checkpoint();
+            let result = self.run_opcode();
+            match result {
+                Ok(()) => Ok(()),
+                Err(e) => {
+                    if self.is_kernel() {
+                        let offset_name =
+                            KERNEL.offset_name(self.generation_state.registers.program_counter);
+                        bail!(
+                            "{:?} in kernel at pc={}, stack={:?}, memory={:?}",
+                            e,
+                            offset_name,
+                            self.stack(),
+                            self.generation_state.memory.contexts[0].segments
+                                [Segment::KernelGeneral as usize]
+                                .content,
+                        );
+                    }
+                    self.rollback(checkpoint);
+                    self.handle_error(e)
+                }
+            }?;
         }
         println!("Opcode count:");
         for i in 0..0x100 {
@@ -335,7 +461,10 @@ impl<'a> Interpreter<'a> {
         output
     }
 
-    pub(crate) fn push(&mut self, x: U256) {
+    pub(crate) fn push(&mut self, x: U256) -> Result<(), ProgramError> {
+        if !self.is_kernel() && self.stack_len() >= MAX_USER_STACK_SIZE {
+            return Err(ProgramError::StackOverflow);
+        }
         if self.stack_len() > 0 {
             let top = self
                 .stack_top()
@@ -346,24 +475,33 @@ impl<'a> Interpreter<'a> {
         }
         self.generation_state.registers.stack_top = x;
         self.generation_state.registers.stack_len += 1;
+        self.memops.push(InterpreterMemOpKind::Push(self.context()));
+
+        Ok(())
     }
 
-    fn push_bool(&mut self, x: bool) {
-        self.push(if x { U256::one() } else { U256::zero() });
+    fn push_bool(&mut self, x: bool) -> Result<(), ProgramError> {
+        self.push(if x { U256::one() } else { U256::zero() })?;
+        Ok(())
     }
 
-    pub(crate) fn pop(&mut self) -> U256 {
+    pub(crate) fn pop(&mut self) -> Result<U256, ProgramError> {
         let result = stack_peek(&self.generation_state, 0);
+
+        if let Ok(val) = result {
+            self.memops
+                .push(InterpreterMemOpKind::Pop(val, self.context()));
+        }
         if self.stack_len() > 1 {
             let top = stack_peek(&self.generation_state, 1).unwrap();
             self.generation_state.registers.stack_top = top;
         }
         self.generation_state.registers.stack_len -= 1;
 
-        result.expect("Empty stack")
+        result
     }
 
-    fn run_opcode(&mut self) -> anyhow::Result<()> {
+    fn run_opcode(&mut self) -> Result<(), ProgramError> {
         let opcode = self
             .code()
             .get(self.generation_state.registers.program_counter)
@@ -371,108 +509,124 @@ impl<'a> Interpreter<'a> {
         self.opcode_count[opcode as usize] += 1;
         self.incr(1);
         match opcode {
-            0x00 => self.run_syscall(opcode, 0, false)?, // "STOP",
-            0x01 => self.run_add(),                      // "ADD",
-            0x02 => self.run_mul(),                      // "MUL",
-            0x03 => self.run_sub(),                      // "SUB",
-            0x04 => self.run_div(),                      // "DIV",
-            0x05 => self.run_syscall(opcode, 2, false)?, // "SDIV",
-            0x06 => self.run_mod(),                      // "MOD",
-            0x07 => self.run_syscall(opcode, 2, false)?, // "SMOD",
-            0x08 => self.run_addmod(),                   // "ADDMOD",
-            0x09 => self.run_mulmod(),                   // "MULMOD",
-            0x0a => self.run_syscall(opcode, 2, false)?, // "EXP",
-            0x0b => self.run_syscall(opcode, 2, false)?, // "SIGNEXTEND",
-            0x0c => self.run_addfp254(),                 // "ADDFP254",
-            0x0d => self.run_mulfp254(),                 // "MULFP254",
-            0x0e => self.run_subfp254(),                 // "SUBFP254",
-            0x0f => self.run_submod(),                   // "SUBMOD",
-            0x10 => self.run_lt(),                       // "LT",
-            0x11 => self.run_gt(),                       // "GT",
-            0x12 => self.run_syscall(opcode, 2, false)?, // "SLT",
-            0x13 => self.run_syscall(opcode, 2, false)?, // "SGT",
-            0x14 => self.run_eq(),                       // "EQ",
-            0x15 => self.run_iszero(),                   // "ISZERO",
-            0x16 => self.run_and(),                      // "AND",
-            0x17 => self.run_or(),                       // "OR",
-            0x18 => self.run_xor(),                      // "XOR",
-            0x19 => self.run_not(),                      // "NOT",
-            0x1a => self.run_byte(),                     // "BYTE",
-            0x1b => self.run_shl(),                      // "SHL",
-            0x1c => self.run_shr(),                      // "SHR",
-            0x1d => self.run_syscall(opcode, 2, false)?, // "SAR",
-            0x20 => self.run_syscall(opcode, 2, false)?, // "KECCAK256",
-            0x21 => self.run_keccak_general(),           // "KECCAK_GENERAL",
-            0x30 => self.run_syscall(opcode, 0, true)?,  // "ADDRESS",
-            0x31 => self.run_syscall(opcode, 1, false)?, // "BALANCE",
-            0x32 => self.run_syscall(opcode, 0, true)?,  // "ORIGIN",
-            0x33 => self.run_syscall(opcode, 0, true)?,  // "CALLER",
-            0x34 => self.run_syscall(opcode, 0, true)?,  // "CALLVALUE",
-            0x35 => self.run_syscall(opcode, 1, false)?, // "CALLDATALOAD",
-            0x36 => self.run_syscall(opcode, 0, true)?,  // "CALLDATASIZE",
-            0x37 => self.run_syscall(opcode, 3, false)?, // "CALLDATACOPY",
-            0x38 => self.run_syscall(opcode, 0, true)?,  // "CODESIZE",
-            0x39 => self.run_syscall(opcode, 3, false)?, // "CODECOPY",
-            0x3a => self.run_syscall(opcode, 0, true)?,  // "GASPRICE",
-            0x3b => self.run_syscall(opcode, 1, false)?, // "EXTCODESIZE",
-            0x3c => self.run_syscall(opcode, 4, false)?, // "EXTCODECOPY",
-            0x3d => self.run_syscall(opcode, 0, true)?,  // "RETURNDATASIZE",
-            0x3e => self.run_syscall(opcode, 3, false)?, // "RETURNDATACOPY",
-            0x3f => self.run_syscall(opcode, 1, false)?, // "EXTCODEHASH",
-            0x40 => self.run_syscall(opcode, 1, false)?, // "BLOCKHASH",
-            0x41 => self.run_syscall(opcode, 0, true)?,  // "COINBASE",
-            0x42 => self.run_syscall(opcode, 0, true)?,  // "TIMESTAMP",
-            0x43 => self.run_syscall(opcode, 0, true)?,  // "NUMBER",
-            0x44 => self.run_syscall(opcode, 0, true)?,  // "DIFFICULTY",
-            0x45 => self.run_syscall(opcode, 0, true)?,  // "GASLIMIT",
-            0x46 => self.run_syscall(opcode, 0, true)?,  // "CHAINID",
-            0x47 => self.run_syscall(opcode, 0, true)?,  // SELFABALANCE,
-            0x48 => self.run_syscall(opcode, 0, true)?,  // "BASEFEE",
-            0x49 => self.run_prover_input()?,            // "PROVER_INPUT",
-            0x50 => self.run_pop(),                      // "POP",
-            0x51 => self.run_syscall(opcode, 1, false)?, // "MLOAD",
-            0x52 => self.run_syscall(opcode, 2, false)?, // "MSTORE",
-            0x53 => self.run_syscall(opcode, 2, false)?, // "MSTORE8",
-            0x54 => self.run_syscall(opcode, 1, false)?, // "SLOAD",
-            0x55 => self.run_syscall(opcode, 2, false)?, // "SSTORE",
-            0x56 => self.run_jump(),                     // "JUMP",
-            0x57 => self.run_jumpi(),                    // "JUMPI",
-            0x58 => self.run_pc(),                       // "PC",
-            0x59 => self.run_syscall(opcode, 0, true)?,  // "MSIZE",
-            0x5a => self.run_syscall(opcode, 0, true)?,  // "GAS",
-            0x5b => self.run_jumpdest(),                 // "JUMPDEST",
+            0x00 => self.run_syscall(opcode, 0, false), // "STOP",
+            0x01 => self.run_add(),                     // "ADD",
+            0x02 => self.run_mul(),                     // "MUL",
+            0x03 => self.run_sub(),                     // "SUB",
+            0x04 => self.run_div(),                     // "DIV",
+            0x05 => self.run_syscall(opcode, 2, false), // "SDIV",
+            0x06 => self.run_mod(),                     // "MOD",
+            0x07 => self.run_syscall(opcode, 2, false), // "SMOD",
+            0x08 => self.run_addmod(),                  // "ADDMOD",
+            0x09 => self.run_mulmod(),                  // "MULMOD",
+            0x0a => self.run_syscall(opcode, 2, false), // "EXP",
+            0x0b => self.run_syscall(opcode, 2, false), // "SIGNEXTEND",
+            0x0c => self.run_addfp254(),                // "ADDFP254",
+            0x0d => self.run_mulfp254(),                // "MULFP254",
+            0x0e => self.run_subfp254(),                // "SUBFP254",
+            0x0f => self.run_submod(),                  // "SUBMOD",
+            0x10 => self.run_lt(),                      // "LT",
+            0x11 => self.run_gt(),                      // "GT",
+            0x12 => self.run_syscall(opcode, 2, false), // "SLT",
+            0x13 => self.run_syscall(opcode, 2, false), // "SGT",
+            0x14 => self.run_eq(),                      // "EQ",
+            0x15 => self.run_iszero(),                  // "ISZERO",
+            0x16 => self.run_and(),                     // "AND",
+            0x17 => self.run_or(),                      // "OR",
+            0x18 => self.run_xor(),                     // "XOR",
+            0x19 => self.run_not(),                     // "NOT",
+            0x1a => self.run_byte(),                    // "BYTE",
+            0x1b => self.run_shl(),                     // "SHL",
+            0x1c => self.run_shr(),                     // "SHR",
+            0x1d => self.run_syscall(opcode, 2, false), // "SAR",
+            0x20 => self.run_syscall(opcode, 2, false), // "KECCAK256",
+            0x21 => self.run_keccak_general(),          // "KECCAK_GENERAL",
+            0x30 => self.run_syscall(opcode, 0, true),  // "ADDRESS",
+            0x31 => self.run_syscall(opcode, 1, false), // "BALANCE",
+            0x32 => self.run_syscall(opcode, 0, true),  // "ORIGIN",
+            0x33 => self.run_syscall(opcode, 0, true),  // "CALLER",
+            0x34 => self.run_syscall(opcode, 0, true),  // "CALLVALUE",
+            0x35 => self.run_syscall(opcode, 1, false), // "CALLDATALOAD",
+            0x36 => self.run_syscall(opcode, 0, true),  // "CALLDATASIZE",
+            0x37 => self.run_syscall(opcode, 3, false), // "CALLDATACOPY",
+            0x38 => self.run_syscall(opcode, 0, true),  // "CODESIZE",
+            0x39 => self.run_syscall(opcode, 3, false), // "CODECOPY",
+            0x3a => self.run_syscall(opcode, 0, true),  // "GASPRICE",
+            0x3b => self.run_syscall(opcode, 1, false), // "EXTCODESIZE",
+            0x3c => self.run_syscall(opcode, 4, false), // "EXTCODECOPY",
+            0x3d => self.run_syscall(opcode, 0, true),  // "RETURNDATASIZE",
+            0x3e => self.run_syscall(opcode, 3, false), // "RETURNDATACOPY",
+            0x3f => self.run_syscall(opcode, 1, false), // "EXTCODEHASH",
+            0x40 => self.run_syscall(opcode, 1, false), // "BLOCKHASH",
+            0x41 => self.run_syscall(opcode, 0, true),  // "COINBASE",
+            0x42 => self.run_syscall(opcode, 0, true),  // "TIMESTAMP",
+            0x43 => self.run_syscall(opcode, 0, true),  // "NUMBER",
+            0x44 => self.run_syscall(opcode, 0, true),  // "DIFFICULTY",
+            0x45 => self.run_syscall(opcode, 0, true),  // "GASLIMIT",
+            0x46 => self.run_syscall(opcode, 0, true),  // "CHAINID",
+            0x47 => self.run_syscall(opcode, 0, true),  // SELFABALANCE,
+            0x48 => self.run_syscall(opcode, 0, true),  // "BASEFEE",
+            0x49 => self.run_prover_input(),            // "PROVER_INPUT",
+            0x50 => self.run_pop(),                     // "POP",
+            0x51 => self.run_syscall(opcode, 1, false), // "MLOAD",
+            0x52 => self.run_syscall(opcode, 2, false), // "MSTORE",
+            0x53 => self.run_syscall(opcode, 2, false), // "MSTORE8",
+            0x54 => self.run_syscall(opcode, 1, false), // "SLOAD",
+            0x55 => self.run_syscall(opcode, 2, false), // "SSTORE",
+            0x56 => self.run_jump(),                    // "JUMP",
+            0x57 => self.run_jumpi(),                   // "JUMPI",
+            0x58 => self.run_pc(),                      // "PC",
+            0x59 => self.run_syscall(opcode, 0, true),  // "MSIZE",
+            0x5a => self.run_syscall(opcode, 0, true),  // "GAS",
+            0x5b => self.run_jumpdest(),                // "JUMPDEST",
             x if (0x5f..0x80).contains(&x) => self.run_push(x - 0x5f), // "PUSH"
-            x if (0x80..0x90).contains(&x) => self.run_dup(x - 0x7f)?, // "DUP"
-            x if (0x90..0xa0).contains(&x) => self.run_swap(x - 0x8f)?, // "SWAP"
-            0xa0 => self.run_syscall(opcode, 2, false)?, // "LOG0",
-            0xa1 => self.run_syscall(opcode, 3, false)?, // "LOG1",
-            0xa2 => self.run_syscall(opcode, 4, false)?, // "LOG2",
-            0xa3 => self.run_syscall(opcode, 5, false)?, // "LOG3",
-            0xa4 => self.run_syscall(opcode, 6, false)?, // "LOG4",
-            0xa5 => bail!(
-                "Executed PANIC, stack={:?}, memory={:?}",
-                self.stack(),
-                self.get_kernel_general_memory()
-            ), // "PANIC",
+            x if (0x80..0x90).contains(&x) => self.run_dup(x - 0x7f), // "DUP"
+            x if (0x90..0xa0).contains(&x) => self.run_swap(x - 0x8f), // "SWAP"
+            0xa0 => self.run_syscall(opcode, 2, false), // "LOG0",
+            0xa1 => self.run_syscall(opcode, 3, false), // "LOG1",
+            0xa2 => self.run_syscall(opcode, 4, false), // "LOG2",
+            0xa3 => self.run_syscall(opcode, 5, false), // "LOG3",
+            0xa4 => self.run_syscall(opcode, 6, false), // "LOG4",
+            0xa5 => {
+                log::warn!(
+                    "Kernel panic at {}, stack = {:?}, memory = {:?}",
+                    KERNEL.offset_name(self.generation_state.registers.program_counter),
+                    self.stack(),
+                    self.get_kernel_general_memory()
+                );
+                Err(ProgramError::KernelPanic)
+            } // "PANIC",
             x if (0xc0..0xe0).contains(&x) => self.run_mstore_32bytes(x - 0xc0 + 1), // "MSTORE_32BYTES",
-            0xf0 => self.run_syscall(opcode, 3, false)?,                             // "CREATE",
-            0xf1 => self.run_syscall(opcode, 7, false)?,                             // "CALL",
-            0xf2 => self.run_syscall(opcode, 7, false)?,                             // "CALLCODE",
-            0xf3 => self.run_syscall(opcode, 2, false)?,                             // "RETURN",
-            0xf4 => self.run_syscall(opcode, 6, false)?, // "DELEGATECALL",
-            0xf5 => self.run_syscall(opcode, 4, false)?, // "CREATE2",
-            0xf6 => self.run_get_context(),              // "GET_CONTEXT",
-            0xf7 => self.run_set_context(),              // "SET_CONTEXT",
-            0xf8 => self.run_mload_32bytes(),            // "MLOAD_32BYTES",
-            0xf9 => self.run_exit_kernel(),              // "EXIT_KERNEL",
-            0xfa => self.run_syscall(opcode, 6, false)?, // "STATICCALL",
-            0xfb => self.run_mload_general(),            // "MLOAD_GENERAL",
-            0xfc => self.run_mstore_general(),           // "MSTORE_GENERAL",
-            0xfd => self.run_syscall(opcode, 2, false)?, // "REVERT",
-            0xfe => bail!("Executed INVALID"),           // "INVALID",
-            0xff => self.run_syscall(opcode, 1, false)?, // "SELFDESTRUCT",
-            _ => bail!("Unrecognized opcode {}.", opcode),
-        };
+            0xf0 => self.run_syscall(opcode, 3, false),                              // "CREATE",
+            0xf1 => self.run_syscall(opcode, 7, false),                              // "CALL",
+            0xf2 => self.run_syscall(opcode, 7, false),                              // "CALLCODE",
+            0xf3 => self.run_syscall(opcode, 2, false),                              // "RETURN",
+            0xf4 => self.run_syscall(opcode, 6, false), // "DELEGATECALL",
+            0xf5 => self.run_syscall(opcode, 4, false), // "CREATE2",
+            0xf6 => self.run_get_context(),             // "GET_CONTEXT",
+            0xf7 => self.run_set_context(),             // "SET_CONTEXT",
+            0xf8 => self.run_mload_32bytes(),           // "MLOAD_32BYTES",
+            0xf9 => self.run_exit_kernel(),             // "EXIT_KERNEL",
+            0xfa => self.run_syscall(opcode, 6, false), // "STATICCALL",
+            0xfb => self.run_mload_general(),           // "MLOAD_GENERAL",
+            0xfc => self.run_mstore_general(),          // "MSTORE_GENERAL",
+            0xfd => self.run_syscall(opcode, 2, false), // "REVERT",
+            0xfe => {
+                log::warn!(
+                    "Invalid opcode at {}",
+                    KERNEL.offset_name(self.generation_state.registers.program_counter),
+                );
+                Err(ProgramError::InvalidOpcode)
+            } // "INVALID",
+            0xff => self.run_syscall(opcode, 1, false), // "SELFDESTRUCT",
+            _ => {
+                log::warn!(
+                    "Unrecognized opcode at {}",
+                    KERNEL.offset_name(self.generation_state.registers.program_counter),
+                );
+                Err(ProgramError::InvalidOpcode)
+            }
+        }?;
 
         if self
             .debug_offsets
@@ -488,6 +642,19 @@ impl<'a> Interpreter<'a> {
             .unwrap_or(Operation::ProverInput);
         self.generation_state.registers.gas_used += gas_to_charge(op);
 
+        if !self.is_kernel() {
+            let gas_limit_address = MemoryAddress {
+                context: self.context(),
+                segment: Segment::ContextMetadata as usize,
+                virt: ContextMetadata::GasLimit as usize,
+            };
+            let gas_limit =
+                u256_to_usize(self.generation_state.memory.get(gas_limit_address))? as u64;
+            if self.generation_state.registers.gas_used > gas_limit {
+                return Err(ProgramError::OutOfGas);
+            }
+        }
+
         Ok(())
     }
 
@@ -499,177 +666,201 @@ impl<'a> Interpreter<'a> {
         KERNEL.offset_label(self.generation_state.registers.program_counter)
     }
 
-    fn run_add(&mut self) {
-        let x = self.pop();
-        let y = self.pop();
-        self.push(x.overflowing_add(y).0);
+    fn run_add(&mut self) -> anyhow::Result<(), ProgramError> {
+        let x = self.pop()?;
+        let y = self.pop()?;
+        self.push(x.overflowing_add(y).0)?;
+        Ok(())
     }
 
-    fn run_mul(&mut self) {
-        let x = self.pop();
-        let y = self.pop();
-        self.push(x.overflowing_mul(y).0);
+    fn run_mul(&mut self) -> anyhow::Result<(), ProgramError> {
+        let x = self.pop()?;
+        let y = self.pop()?;
+        self.push(x.overflowing_mul(y).0)?;
+        Ok(())
     }
 
-    fn run_sub(&mut self) {
-        let x = self.pop();
-        let y = self.pop();
-        self.push(x.overflowing_sub(y).0);
+    fn run_sub(&mut self) -> anyhow::Result<(), ProgramError> {
+        let x = self.pop()?;
+        let y = self.pop()?;
+        self.push(x.overflowing_sub(y).0)?;
+        Ok(())
     }
 
-    fn run_addfp254(&mut self) {
-        let x = self.pop() % BN_BASE;
-        let y = self.pop() % BN_BASE;
+    fn run_addfp254(&mut self) -> anyhow::Result<(), ProgramError> {
+        let x = self.pop()? % BN_BASE;
+        let y = self.pop()? % BN_BASE;
         // BN_BASE is 254-bit so addition can't overflow
-        self.push((x + y) % BN_BASE);
+        self.push((x + y) % BN_BASE)?;
+        Ok(())
     }
 
-    fn run_mulfp254(&mut self) {
-        let x = self.pop();
-        let y = self.pop();
+    fn run_mulfp254(&mut self) -> anyhow::Result<(), ProgramError> {
+        let x = self.pop()?;
+        let y = self.pop()?;
         self.push(
             U256::try_from(x.full_mul(y) % BN_BASE)
                 .expect("BN_BASE is 254 bit so the U512 fits in a U256"),
-        );
+        )?;
+        Ok(())
     }
 
-    fn run_subfp254(&mut self) {
-        let x = self.pop() % BN_BASE;
-        let y = self.pop() % BN_BASE;
+    fn run_subfp254(&mut self) -> anyhow::Result<(), ProgramError> {
+        let x = self.pop()? % BN_BASE;
+        let y = self.pop()? % BN_BASE;
         // BN_BASE is 254-bit so addition can't overflow
-        self.push((x + (BN_BASE - y)) % BN_BASE);
+        self.push((x + (BN_BASE - y)) % BN_BASE)?;
+        Ok(())
     }
 
-    fn run_div(&mut self) {
-        let x = self.pop();
-        let y = self.pop();
-        self.push(if y.is_zero() { U256::zero() } else { x / y });
+    fn run_div(&mut self) -> anyhow::Result<(), ProgramError> {
+        let x = self.pop()?;
+        let y = self.pop()?;
+        self.push(if y.is_zero() { U256::zero() } else { x / y })?;
+        Ok(())
     }
 
-    fn run_mod(&mut self) {
-        let x = self.pop();
-        let y = self.pop();
-        self.push(if y.is_zero() { U256::zero() } else { x % y });
+    fn run_mod(&mut self) -> anyhow::Result<(), ProgramError> {
+        let x = self.pop()?;
+        let y = self.pop()?;
+        self.push(if y.is_zero() { U256::zero() } else { x % y })?;
+        Ok(())
     }
 
-    fn run_addmod(&mut self) {
-        let x = self.pop();
-        let y = self.pop();
-        let z = self.pop();
+    fn run_addmod(&mut self) -> anyhow::Result<(), ProgramError> {
+        let x = self.pop()?;
+        let y = self.pop()?;
+        let z = self.pop()?;
         self.push(if z.is_zero() {
             z
         } else {
             let (x, y, z) = (U512::from(x), U512::from(y), U512::from(z));
             U256::try_from((x + y) % z)
                 .expect("Inputs are U256 and their sum mod a U256 fits in a U256.")
-        });
+        })?;
+
+        Ok(())
     }
 
-    fn run_submod(&mut self) {
-        let x = self.pop();
-        let y = self.pop();
-        let z = self.pop();
+    fn run_submod(&mut self) -> anyhow::Result<(), ProgramError> {
+        let x = self.pop()?;
+        let y = self.pop()?;
+        let z = self.pop()?;
         self.push(if z.is_zero() {
             z
         } else {
             let (x, y, z) = (U512::from(x), U512::from(y), U512::from(z));
             U256::try_from((z + x - y) % z)
                 .expect("Inputs are U256 and their difference mod a U256 fits in a U256.")
-        });
+        })?;
+
+        Ok(())
     }
 
-    fn run_mulmod(&mut self) {
-        let x = self.pop();
-        let y = self.pop();
-        let z = self.pop();
+    fn run_mulmod(&mut self) -> anyhow::Result<(), ProgramError> {
+        let x = self.pop()?;
+        let y = self.pop()?;
+        let z = self.pop()?;
         self.push(if z.is_zero() {
             z
         } else {
             U256::try_from(x.full_mul(y) % z)
                 .expect("Inputs are U256 and their product mod a U256 fits in a U256.")
-        });
+        })?;
+        Ok(())
     }
 
-    fn run_lt(&mut self) {
-        let x = self.pop();
-        let y = self.pop();
-        self.push_bool(x < y);
+    fn run_lt(&mut self) -> anyhow::Result<(), ProgramError> {
+        let x = self.pop()?;
+        let y = self.pop()?;
+        self.push_bool(x < y)?;
+        Ok(())
     }
 
-    fn run_gt(&mut self) {
-        let x = self.pop();
-        let y = self.pop();
-        self.push_bool(x > y);
+    fn run_gt(&mut self) -> anyhow::Result<(), ProgramError> {
+        let x = self.pop()?;
+        let y = self.pop()?;
+        self.push_bool(x > y)?;
+        Ok(())
     }
 
-    fn run_eq(&mut self) {
-        let x = self.pop();
-        let y = self.pop();
-        self.push_bool(x == y);
+    fn run_eq(&mut self) -> anyhow::Result<(), ProgramError> {
+        let x = self.pop()?;
+        let y = self.pop()?;
+        self.push_bool(x == y)?;
+        Ok(())
     }
 
-    fn run_iszero(&mut self) {
-        let x = self.pop();
-        self.push_bool(x.is_zero());
+    fn run_iszero(&mut self) -> anyhow::Result<(), ProgramError> {
+        let x = self.pop()?;
+        self.push_bool(x.is_zero())?;
+        Ok(())
     }
 
-    fn run_and(&mut self) {
-        let x = self.pop();
-        let y = self.pop();
-        self.push(x & y);
+    fn run_and(&mut self) -> anyhow::Result<(), ProgramError> {
+        let x = self.pop()?;
+        let y = self.pop()?;
+        self.push(x & y)?;
+        Ok(())
     }
 
-    fn run_or(&mut self) {
-        let x = self.pop();
-        let y = self.pop();
-        self.push(x | y);
+    fn run_or(&mut self) -> anyhow::Result<(), ProgramError> {
+        let x = self.pop()?;
+        let y = self.pop()?;
+        self.push(x | y)?;
+        Ok(())
     }
 
-    fn run_xor(&mut self) {
-        let x = self.pop();
-        let y = self.pop();
-        self.push(x ^ y);
+    fn run_xor(&mut self) -> anyhow::Result<(), ProgramError> {
+        let x = self.pop()?;
+        let y = self.pop()?;
+        self.push(x ^ y)?;
+        Ok(())
     }
 
-    fn run_not(&mut self) {
-        let x = self.pop();
-        self.push(!x);
+    fn run_not(&mut self) -> anyhow::Result<(), ProgramError> {
+        let x = self.pop()?;
+        self.push(!x)?;
+        Ok(())
     }
 
-    fn run_byte(&mut self) {
-        let i = self.pop();
-        let x = self.pop();
+    fn run_byte(&mut self) -> anyhow::Result<(), ProgramError> {
+        let i = self.pop()?;
+        let x = self.pop()?;
         let result = if i < 32.into() {
             x.byte(31 - i.as_usize())
         } else {
             0
         };
-        self.push(result.into());
+        self.push(result.into())?;
+        Ok(())
     }
 
-    fn run_shl(&mut self) {
-        let shift = self.pop();
-        let value = self.pop();
+    fn run_shl(&mut self) -> anyhow::Result<(), ProgramError> {
+        let shift = self.pop()?;
+        let value = self.pop()?;
         self.push(if shift < U256::from(256usize) {
             value << shift
         } else {
             U256::zero()
-        });
+        })?;
+        Ok(())
     }
 
-    fn run_shr(&mut self) {
-        let shift = self.pop();
-        let value = self.pop();
-        self.push(value >> shift);
+    fn run_shr(&mut self) -> anyhow::Result<(), ProgramError> {
+        let shift = self.pop()?;
+        let value = self.pop()?;
+        self.push(value >> shift)?;
+        Ok(())
     }
 
-    fn run_keccak_general(&mut self) {
-        let context = self.pop().as_usize();
-        let segment = Segment::all()[self.pop().as_usize()];
+    fn run_keccak_general(&mut self) -> anyhow::Result<(), ProgramError> {
+        let context = self.pop()?.as_usize();
+        let segment = Segment::all()[self.pop()?.as_usize()];
         // Not strictly needed but here to avoid surprises with MSIZE.
         assert_ne!(segment, Segment::MainMemory, "Call KECCAK256 instead.");
-        let offset = self.pop().as_usize();
-        let size = self.pop().as_usize();
+        let offset = self.pop()?.as_usize();
+        let size = self.pop()?.as_usize();
         let bytes = (offset..offset + size)
             .map(|i| {
                 self.generation_state
@@ -680,24 +871,25 @@ impl<'a> Interpreter<'a> {
             .collect::<Vec<_>>();
         println!("Hashing {:?}", &bytes);
         let hash = keccak(bytes);
-        self.push(U256::from_big_endian(hash.as_bytes()));
-    }
-
-    fn run_prover_input(&mut self) -> anyhow::Result<()> {
-        let prover_input_fn = self
-            .prover_inputs_map
-            .get(&(self.generation_state.registers.program_counter - 1))
-            .ok_or_else(|| anyhow!("Offset not in prover inputs."))?;
-        let output = self
-            .generation_state
-            .prover_input(prover_input_fn)
-            .map_err(|_| anyhow!("Invalid prover inputs."))?;
-        self.push(output);
+        self.push(U256::from_big_endian(hash.as_bytes()))?;
         Ok(())
     }
 
-    fn run_pop(&mut self) {
-        self.pop();
+    fn run_prover_input(&mut self) -> Result<(), ProgramError> {
+        let prover_input_fn = self
+            .prover_inputs_map
+            .get(&(self.generation_state.registers.program_counter - 1))
+            .ok_or(ProgramError::ProverInputError(
+                ProverInputError::InvalidMptInput,
+            ))?;
+        let output = self.generation_state.prover_input(prover_input_fn)?;
+        self.push(output)?;
+        Ok(())
+    }
+
+    fn run_pop(&mut self) -> anyhow::Result<(), ProgramError> {
+        self.pop()?;
+        Ok(())
     }
 
     fn run_syscall(
@@ -705,18 +897,18 @@ impl<'a> Interpreter<'a> {
         opcode: u8,
         stack_values_read: usize,
         stack_len_increased: bool,
-    ) -> anyhow::Result<()> {
+    ) -> Result<(), ProgramError> {
         TryInto::<u64>::try_into(self.generation_state.registers.gas_used)
-            .map_err(|_| anyhow!("Gas overflow"))?;
+            .map_err(|_| ProgramError::GasLimitError)?;
         if self.generation_state.registers.stack_len < stack_values_read {
-            return Err(anyhow!("Stack underflow"));
+            return Err(ProgramError::StackUnderflow);
         }
 
         if stack_len_increased
             && !self.is_kernel()
             && self.generation_state.registers.stack_len >= MAX_USER_STACK_SIZE
         {
-            return Err(anyhow!("Stack overflow"));
+            return Err(ProgramError::StackOverflow);
         };
 
         let handler_jumptable_addr = KERNEL.global_labels["syscall_jumptable"];
@@ -728,7 +920,7 @@ impl<'a> Interpreter<'a> {
         };
 
         let new_program_counter =
-            u256_to_usize(handler_addr).map_err(|_| anyhow!("The program counter is too large"))?;
+            u256_to_usize(handler_addr).map_err(|_| ProgramError::IntegerTooLarge)?;
 
         let syscall_info = U256::from(self.generation_state.registers.program_counter)
             + U256::from((self.is_kernel() as usize) << 32)
@@ -737,25 +929,35 @@ impl<'a> Interpreter<'a> {
 
         self.set_is_kernel(true);
         self.generation_state.registers.gas_used = 0;
-        self.push(syscall_info);
+        self.push(syscall_info)?;
 
         Ok(())
     }
 
-    fn run_jump(&mut self) {
-        let x = self.pop().as_usize();
-        self.jump_to(x);
+    fn run_jump(&mut self) -> anyhow::Result<(), ProgramError> {
+        let x = self.pop()?;
+        // Check that the destination is valid.
+        let x: u32 = x
+            .try_into()
+            .map_err(|_| ProgramError::InvalidJumpDestination)?;
+        self.jump_to(x as usize)?;
+        Ok(())
     }
 
-    fn run_jumpi(&mut self) {
-        let x = self.pop().as_usize();
-        let b = self.pop();
+    fn run_jumpi(&mut self) -> anyhow::Result<(), ProgramError> {
+        let x = self.pop()?;
+        let b = self.pop()?;
         if !b.is_zero() {
-            self.jump_to(x);
+            let x: u32 = x
+                .try_into()
+                .map_err(|_| ProgramError::InvalidJumpiDestination)?;
+            self.jump_to(x as usize)?;
         }
+
+        Ok(())
     }
 
-    fn run_pc(&mut self) {
+    fn run_pc(&mut self) -> anyhow::Result<(), ProgramError> {
         self.push(
             (self
                 .generation_state
@@ -763,17 +965,19 @@ impl<'a> Interpreter<'a> {
                 .program_counter
                 .saturating_sub(1))
             .into(),
-        );
+        )?;
+        Ok(())
     }
 
-    fn run_jumpdest(&mut self) {
+    fn run_jumpdest(&mut self) -> anyhow::Result<(), ProgramError> {
         assert!(!self.is_kernel(), "JUMPDEST is not needed in kernel code");
+        Ok(())
     }
 
-    fn jump_to(&mut self, offset: usize) {
+    fn jump_to(&mut self, offset: usize) -> anyhow::Result<(), ProgramError> {
         // The JUMPDEST rule is not enforced in kernel mode.
         if !self.is_kernel() && self.jumpdests.binary_search(&offset).is_err() {
-            panic!("Destination is not a JUMPDEST.");
+            return Err(ProgramError::InvalidJumpDestination);
         }
 
         self.generation_state.registers.program_counter = offset;
@@ -781,44 +985,55 @@ impl<'a> Interpreter<'a> {
         if self.halt_offsets.contains(&offset) {
             self.running = false;
         }
-    }
-
-    fn run_push(&mut self, num_bytes: u8) {
-        let x = U256::from_big_endian(&self.code_slice(num_bytes as usize));
-        self.incr(num_bytes as usize);
-        self.push(x);
-    }
-
-    fn run_dup(&mut self, n: u8) -> anyhow::Result<()> {
-        assert!(n > 0);
-
-        self.push(
-            stack_peek(&self.generation_state, n as usize - 1)
-                .map_err(|_| anyhow!("Stack underflow."))?,
-        );
-
         Ok(())
     }
 
-    fn run_swap(&mut self, n: u8) -> anyhow::Result<()> {
+    fn run_push(&mut self, num_bytes: u8) -> anyhow::Result<(), ProgramError> {
+        let x = U256::from_big_endian(&self.code_slice(num_bytes as usize));
+        self.incr(num_bytes as usize);
+        self.push(x)?;
+        Ok(())
+    }
+
+    fn run_dup(&mut self, n: u8) -> anyhow::Result<(), ProgramError> {
         let len = self.stack_len();
-        ensure!(len > n as usize);
-        let to_swap = stack_peek(&self.generation_state, n as usize)
-            .map_err(|_| anyhow!("Stack underflow"))?;
+        if !self.is_kernel() && len >= MAX_USER_STACK_SIZE {
+            return Err(ProgramError::StackOverflow);
+        }
+        if n as usize > self.stack_len() {
+            return Err(ProgramError::StackUnderflow);
+        }
+        self.push(stack_peek(&self.generation_state, n as usize - 1)?)?;
+        Ok(())
+    }
+
+    fn run_swap(&mut self, n: u8) -> anyhow::Result<(), ProgramError> {
+        let len = self.stack_len();
+        if n as usize >= len {
+            return Err(ProgramError::StackUnderflow);
+        }
+        let to_swap = stack_peek(&self.generation_state, n as usize)?;
         let old_value = self.stack_segment_mut()[len - n as usize - 1];
-        self.stack_segment_mut()[len - n as usize - 1] = self
-            .stack_top()
-            .expect("The stack is checked to be nonempty.");
+
+        self.stack_segment_mut()[len - n as usize - 1] = self.stack_top()?;
+        let mem_write_op = InterpreterMemOpKind::Write(
+            old_value,
+            self.context(),
+            Segment::Stack as usize,
+            len - n as usize - 1,
+        );
+        self.memops.push(mem_write_op);
         self.generation_state.registers.stack_top = to_swap;
         Ok(())
     }
 
-    fn run_get_context(&mut self) {
-        self.push(self.context().into());
+    fn run_get_context(&mut self) -> anyhow::Result<(), ProgramError> {
+        self.push(self.context().into())?;
+        Ok(())
     }
 
-    fn run_set_context(&mut self) {
-        let new_ctx = self.pop().as_usize();
+    fn run_set_context(&mut self) -> anyhow::Result<(), ProgramError> {
+        let new_ctx = self.pop()?.as_usize();
         let sp_to_save = self.stack_len().into();
 
         let old_ctx = self.context();
@@ -839,25 +1054,30 @@ impl<'a> Interpreter<'a> {
         }
         self.set_context(new_ctx);
         self.generation_state.registers.stack_len = new_sp;
+        Ok(())
     }
 
-    fn run_mload_general(&mut self) {
-        let context = self.pop().as_usize();
-        let segment = Segment::all()[self.pop().as_usize()];
-        let offset = self.pop().as_usize();
+    fn run_mload_general(&mut self) -> anyhow::Result<(), ProgramError> {
+        let context = self.pop()?.as_usize();
+        let segment = Segment::all()[self.pop()?.as_usize()];
+        let offset = self.pop()?.as_usize();
         let value = self
             .generation_state
             .memory
             .mload_general(context, segment, offset);
         assert!(value.bits() <= segment.bit_range());
-        self.push(value);
+        self.push(value)?;
+        Ok(())
     }
 
-    fn run_mload_32bytes(&mut self) {
-        let context = self.pop().as_usize();
-        let segment = Segment::all()[self.pop().as_usize()];
-        let offset = self.pop().as_usize();
-        let len = self.pop().as_usize();
+    fn run_mload_32bytes(&mut self) -> anyhow::Result<(), ProgramError> {
+        let context = self.pop()?.as_usize();
+        let segment = Segment::all()[self.pop()?.as_usize()];
+        let offset = self.pop()?.as_usize();
+        let len = self.pop()?.as_usize();
+        if len > 32 {
+            return Err(ProgramError::IntegerTooLarge);
+        }
         let bytes: Vec<u8> = (0..len)
             .map(|i| {
                 self.generation_state
@@ -867,24 +1087,28 @@ impl<'a> Interpreter<'a> {
             })
             .collect();
         let value = U256::from_big_endian(&bytes);
-        self.push(value);
+        self.push(value)?;
+        Ok(())
     }
 
-    fn run_mstore_general(&mut self) {
-        let value = self.pop();
-        let context = self.pop().as_usize();
-        let segment = Segment::all()[self.pop().as_usize()];
-        let offset = self.pop().as_usize();
-        self.generation_state
+    fn run_mstore_general(&mut self) -> anyhow::Result<(), ProgramError> {
+        let value = self.pop()?;
+        let context = self.pop()?.as_usize();
+        let segment = Segment::all()[self.pop()?.as_usize()];
+        let offset = self.pop()?.as_usize();
+        let memop = self
+            .generation_state
             .memory
             .mstore_general(context, segment, offset, value);
+        self.memops.push(memop);
+        Ok(())
     }
 
-    fn run_mstore_32bytes(&mut self, n: u8) {
-        let context = self.pop().as_usize();
-        let segment = Segment::all()[self.pop().as_usize()];
-        let offset = self.pop().as_usize();
-        let value = self.pop();
+    fn run_mstore_32bytes(&mut self, n: u8) -> anyhow::Result<(), ProgramError> {
+        let context = self.pop()?.as_usize();
+        let segment = Segment::all()[self.pop()?.as_usize()];
+        let offset = self.pop()?.as_usize();
+        let value = self.pop()?;
 
         let mut bytes = vec![0; 32];
         value.to_little_endian(&mut bytes);
@@ -892,16 +1116,21 @@ impl<'a> Interpreter<'a> {
         bytes.reverse();
 
         for (i, &byte) in bytes.iter().enumerate() {
-            self.generation_state
-                .memory
-                .mstore_general(context, segment, offset + i, byte.into());
+            let memop = self.generation_state.memory.mstore_general(
+                context,
+                segment,
+                offset + i,
+                byte.into(),
+            );
+            self.memops.push(memop);
         }
 
         self.push(U256::from(offset + n as usize));
+        Ok(())
     }
 
-    fn run_exit_kernel(&mut self) {
-        let kexit_info = self.pop();
+    fn run_exit_kernel(&mut self) -> anyhow::Result<(), ProgramError> {
+        let kexit_info = self.pop()?;
 
         let kexit_info_u64 = kexit_info.0[0];
         let program_counter = kexit_info_u64 as u32 as usize;
@@ -909,24 +1138,58 @@ impl<'a> Interpreter<'a> {
         assert!(is_kernel_mode_val == 0 || is_kernel_mode_val == 1);
         let is_kernel_mode = is_kernel_mode_val != 0;
         let gas_used_val = kexit_info.0[3];
-        if TryInto::<u64>::try_into(gas_used_val).is_err() {
-            panic!("Gas overflow");
-        }
+        TryInto::<u64>::try_into(gas_used_val).map_err(|_| ProgramError::GasLimitError)?;
 
         self.generation_state.registers.program_counter = program_counter;
         self.set_is_kernel(is_kernel_mode);
         self.generation_state.registers.gas_used = gas_used_val;
+
+        Ok(())
+    }
+
+    fn run_exception(&mut self, exc_code: u8) -> Result<(), ProgramError> {
+        let disallowed_len = MAX_USER_STACK_SIZE + 1;
+
+        if self.stack_len() == disallowed_len {
+            // This is a stack overflow that should have been caught earlier.
+            return Err(ProgramError::StackOverflow);
+        };
+
+        let handler_jumptable_addr = KERNEL.global_labels["exception_jumptable"];
+        let handler_addr = {
+            let offset = handler_jumptable_addr + (exc_code as usize) * (BYTES_PER_OFFSET as usize);
+            assert_eq!(BYTES_PER_OFFSET, 3, "Code below assumes 3 bytes per offset");
+            self.get_memory_segment(Segment::Code)[offset..offset + 3]
+                .iter()
+                .fold(U256::from(0), |acc, &elt| acc * 256 + elt)
+        };
+
+        let new_program_counter = u256_to_usize(handler_addr)?;
+
+        let exc_info = U256::from(self.generation_state.registers.program_counter)
+            + (U256::from(self.generation_state.registers.gas_used) << 192);
+
+        self.push(exc_info)?;
+
+        // Set registers before pushing to the stack; in particular, we need to set kernel mode so we
+        // can't incorrectly trigger a stack overflow. However, note that we have to do it _after_ we
+        // make `exc_info`, which should contain the old values.
+        self.generation_state.registers.program_counter = new_program_counter;
+        self.set_is_kernel(true);
+        self.generation_state.registers.gas_used = 0;
+
+        Ok(())
     }
 
     pub(crate) const fn stack_len(&self) -> usize {
         self.generation_state.registers.stack_len
     }
 
-    pub(crate) fn stack_top(&self) -> anyhow::Result<U256> {
+    pub(crate) fn stack_top(&self) -> anyhow::Result<U256, ProgramError> {
         if self.stack_len() > 0 {
             Ok(self.generation_state.registers.stack_top)
         } else {
-            Err(anyhow!("Stack underflow"))
+            Err(ProgramError::StackUnderflow)
         }
     }
 

@@ -194,7 +194,7 @@ fn test_receipt_encoding() -> Result<()> {
     interpreter.set_memory_segment(Segment::TrieData, receipt);
 
     interpreter.run()?;
-    let rlp_pos = interpreter.pop();
+    let rlp_pos = interpreter.pop().expect("The stack should not be empty");
 
     let rlp_read: Vec<u8> = interpreter.get_rlp_memory();
 
@@ -295,7 +295,9 @@ fn test_receipt_bloom_filter() -> Result<()> {
         .map(U256::from);
     logs2.extend(cur_data);
 
-    interpreter.push(retdest);
+    interpreter
+        .push(retdest)
+        .expect("The stack should not overflow");
     interpreter.generation_state.registers.program_counter = logs_bloom;
     interpreter.set_memory_segment(Segment::TxnBloom, vec![0.into(); 256]); // Initialize transaction Bloom filter.
     interpreter.set_memory_segment(Segment::LogsData, logs2);
@@ -427,7 +429,9 @@ fn test_mpt_insert_receipt() -> Result<()> {
         num_nibbles.into(),
     ];
     for i in 0..initial_stack.len() {
-        interpreter.push(initial_stack[i]);
+        interpreter
+            .push(initial_stack[i])
+            .expect("The stack should not overflow");
     }
 
     interpreter.generation_state.registers.program_counter = mpt_insert;
@@ -497,7 +501,9 @@ fn test_mpt_insert_receipt() -> Result<()> {
         num_nibbles.into(),
     ];
     for i in 0..initial_stack2.len() {
-        interpreter.push(initial_stack2[i]);
+        interpreter
+            .push(initial_stack2[i])
+            .expect("The stack should not overflow");
     }
     cur_trie_data.extend(receipt_1);
 
@@ -510,8 +516,12 @@ fn test_mpt_insert_receipt() -> Result<()> {
     // Finally, check that the hashes correspond.
     let mpt_hash_receipt = KERNEL.global_labels["mpt_hash_receipt_trie"];
     interpreter.generation_state.registers.program_counter = mpt_hash_receipt;
-    interpreter.push(retdest);
-    interpreter.push(1.into()); // Initial length of the trie data segment, unused.
+    interpreter
+        .push(retdest)
+        .expect("The stack should not overflow");
+    interpreter
+        .push(1.into()) // Initial length of the trie data segment, unused.; // Initial length of the trie data segment, unused.
+        .expect("The stack should not overflow");
     interpreter.run()?;
     assert_eq!(
         interpreter.stack()[1],
