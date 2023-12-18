@@ -134,7 +134,7 @@ enum InterpreterMemOpKind {
     Push(usize),
     /// If we pop a certain value, we need to push it back to the correct context when reverting.
     Pop(U256, usize),
-    /// If we write a value at a certain address, we need to write the old value back when reverting
+    /// If we write a value at a certain address, we need to write the old value back when reverting.
     Write(U256, usize, usize, usize),
 }
 

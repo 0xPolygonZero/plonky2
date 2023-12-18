@@ -370,7 +370,7 @@ fn sstore() -> Result<()> {
         .push(0xDEADBEEFu32.into())
         .expect("The stack should not overflow");
     interpreter
-        .push(1.into()) // Initia length of the trie data segment, unused.
+        .push(1.into()) // Initial length of the trie data segment, unused.
         .expect("The stack should not overflow");
     interpreter.run()?;
 
@@ -460,7 +460,7 @@ fn sload() -> Result<()> {
         .push(0xDEADBEEFu32.into())
         .expect("The stack should not overflow.");
     interpreter
-        .push(1.into()) // Initia length of the trie data segment, unused.
+        .push(1.into()) // Initial length of the trie data segment, unused.
         .expect("The stack should not overflow.");
     interpreter.run()?;
 
