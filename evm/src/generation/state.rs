@@ -51,8 +51,7 @@ pub(crate) struct GenerationState<F: Field> {
     /// Pointers, within the `TrieData` segment, of the three MPTs.
     pub(crate) trie_root_ptrs: TrieRootPtrs,
 
-    pub(crate) last_jumpdest_address: usize,
-    pub(crate) jumpdest_addresses: Option<HashMap<usize, BTreeSet<usize>>>,
+    pub(crate) jumpdest_proofs: Option<HashMap<usize, Vec<usize>>>,
 }
 
 impl<F: Field> GenerationState<F> {
@@ -94,8 +93,7 @@ impl<F: Field> GenerationState<F> {
                 txn_root_ptr: 0,
                 receipt_root_ptr: 0,
             },
-            last_jumpdest_address: 0,
-            jumpdest_addresses: None,
+            jumpdest_proofs: None,
         };
         let trie_root_ptrs = state.preinitialize_mpts(&inputs.tries);
 
@@ -189,8 +187,7 @@ impl<F: Field> GenerationState<F> {
                 txn_root_ptr: 0,
                 receipt_root_ptr: 0,
             },
-            last_jumpdest_address: 0,
-            jumpdest_addresses: None,
+            jumpdest_proofs: None,
         }
     }
 }
