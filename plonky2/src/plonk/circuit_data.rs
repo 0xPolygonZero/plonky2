@@ -38,6 +38,8 @@ use crate::util::serialization::{
 };
 use crate::util::timing::TimingTree;
 
+use env_logger::{try_init_from_env, Env, DEFAULT_FILTER_ENV};
+
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct CircuitConfig {
     pub num_wires: usize,
@@ -158,12 +160,19 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     }
 
     pub fn prove(&self, inputs: PartialWitness<F>) -> Result<ProofWithPublicInputs<F, C, D>> {
-        prove::<F, C, D>(
+        
+        // initiatign the logger
+        let _ = try_init_from_env(Env::default().filter_or(DEFAULT_FILTER_ENV, "debug"));
+
+        let mut timing = TimingTree::new("prove", log::Level::Debug);
+        let result = prove::<F, C, D>(
             &self.prover_only,
             &self.common,
             inputs,
-            &mut TimingTree::default(),
-        )
+            &mut timing,
+        );
+        timing.print();
+        result
     }
 
     pub fn verify(&self, proof_with_pis: ProofWithPublicInputs<F, C, D>) -> Result<()> {
