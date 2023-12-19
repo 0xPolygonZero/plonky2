@@ -19,7 +19,7 @@ pub(crate) enum GlobalMetadata {
     TrieDataSize,
     /// The size of the `TrieData` segment, in bytes, represented as a whole address.
     /// In other words, the next address available for appending additional trie data.
-    RlpDataPos,
+    RlpDataSize,
     /// A pointer to the root of the state trie within the `TrieData` buffer.
     StateTrieRoot,
     /// A pointer to the root of the transaction trie within the `TrieData` buffer.
@@ -105,7 +105,7 @@ impl GlobalMetadata {
             Self::LargestContext,
             Self::MemorySize,
             Self::TrieDataSize,
-            Self::RlpDataPos,
+            Self::RlpDataSize,
             Self::StateTrieRoot,
             Self::TransactionTrieRoot,
             Self::ReceiptTrieRoot,
@@ -159,7 +159,7 @@ impl GlobalMetadata {
             Self::LargestContext => "GLOBAL_METADATA_LARGEST_CONTEXT",
             Self::MemorySize => "GLOBAL_METADATA_MEMORY_SIZE",
             Self::TrieDataSize => "GLOBAL_METADATA_TRIE_DATA_SIZE",
-            Self::RlpDataPos => "GLOBAL_METADATA_RLP_DATA_POS",
+            Self::RlpDataSize => "GLOBAL_METADATA_RLP_DATA_SIZE",
             Self::StateTrieRoot => "GLOBAL_METADATA_STATE_TRIE_ROOT",
             Self::TransactionTrieRoot => "GLOBAL_METADATA_TXN_TRIE_ROOT",
             Self::ReceiptTrieRoot => "GLOBAL_METADATA_RECEIPT_TRIE_ROOT",

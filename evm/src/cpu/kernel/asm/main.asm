@@ -14,7 +14,7 @@ global main:
 
     // Initialize the RLP DATA pointer to its initial position (ctx == virt == 0, segment = RLP)
     PUSH @SEGMENT_RLP_RAW
-    %mstore_global_metadata(@GLOBAL_METADATA_RLP_DATA_POS)
+    %mstore_global_metadata(@GLOBAL_METADATA_RLP_DATA_SIZE)
    
     // Initialize the state, transaction and receipt trie root pointers.
     PROVER_INPUT(trie_ptr::state)

@@ -87,10 +87,8 @@ fn eval_packed_get<P: PackedField>(
     // Context is scaled by 2^64, hence stored in the 3rd limb.
     yield_constr.constraint(filter * (new_stack_top[2] - lv.context));
 
-    for (i, &limb) in new_stack_top.iter().enumerate() {
-        if i != 2 {
-            yield_constr.constraint(filter * limb);
-        }
+    for (i, &limb) in new_stack_top.iter().enumerate().filter(|(i, _)| *i != 2) {
+        yield_constr.constraint(filter * limb);
     }
 
     // Constrain new stack length.
@@ -125,11 +123,9 @@ fn eval_ext_circuit_get<F: RichField + Extendable<D>, const D: usize>(
         yield_constr.constraint(builder, constr);
     }
 
-    for (i, &limb) in new_stack_top.iter().enumerate() {
-        if i != 2 {
-            let constr = builder.mul_extension(filter, limb);
-            yield_constr.constraint(builder, constr);
-        }
+    for (i, &limb) in new_stack_top.iter().enumerate().filter(|(i, _)| *i != 2) {
+        let constr = builder.mul_extension(filter, limb);
+        yield_constr.constraint(builder, constr);
     }
 
     // Constrain new stack length.

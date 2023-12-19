@@ -43,7 +43,7 @@ impl MemoryAddress {
         Self {
             context,
             // segment is scaled
-            segment: segment as usize >> 32,
+            segment: segment as usize >> SEGMENT_SCALING_FACTOR,
             virt,
         }
     }
@@ -72,7 +72,7 @@ impl MemoryAddress {
     }
 
     /// Creates a new `MemoryAddress` from a bundled address fitting a `U256`.
-    /// It will recover the virtual offset asthe lowest 32-bit limb, the segment
+    /// It will recover the virtual offset as the lowest 32-bit limb, the segment
     /// as the next limb, and the context as the next one.
     pub(crate) fn new_bundle(addr: U256) -> Result<Self, ProgramError> {
         let virt = addr.low_u32().into();

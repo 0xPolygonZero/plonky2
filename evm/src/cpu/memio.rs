@@ -147,7 +147,7 @@ fn eval_packed_store<P: PackedField>(
     yield_constr.constraint(filter * (store_channel.addr_virtual - addr_virtual));
 
     // Disable remaining memory channels, if any.
-    for &channel in &lv.mem_channels[3..] {
+    for &channel in &lv.mem_channels[2..] {
         yield_constr.constraint(filter * channel.used);
     }
 
@@ -238,7 +238,7 @@ fn eval_ext_circuit_store<F: RichField + Extendable<D>, const D: usize>(
     }
 
     // Disable remaining memory channels, if any.
-    for &channel in &lv.mem_channels[3..] {
+    for &channel in &lv.mem_channels[2..] {
         let constr = builder.mul_extension(filter, channel.used);
         yield_constr.constraint(builder, constr);
     }

@@ -70,14 +70,14 @@ mpt_insert_receipt_trie_save:
 // Post stack: rlp_scalar
 global scalar_to_rlp:
     // stack: scalar, retdest
-    %mload_global_metadata(@GLOBAL_METADATA_RLP_DATA_POS)
+    %mload_global_metadata(@GLOBAL_METADATA_RLP_DATA_SIZE)
     // stack: init_addr, scalar, retdest
     SWAP1 DUP2
     %encode_rlp_scalar
     // stack: addr', init_addr, retdest
     // Now our rlp_encoding is in RlpRaw.
     // Set new RlpRaw data size
-    DUP1 %mstore_global_metadata(@GLOBAL_METADATA_RLP_DATA_POS)
+    DUP1 %mstore_global_metadata(@GLOBAL_METADATA_RLP_DATA_SIZE)
     DUP2 DUP2 SUB // len of the key
     // stack: len, addr', init_addr, retdest
     DUP3

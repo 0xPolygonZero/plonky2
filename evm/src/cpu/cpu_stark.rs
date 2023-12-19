@@ -31,7 +31,7 @@ pub(crate) fn ctl_data_keccak_sponge<F: Field>() -> Vec<Column<F>> {
     // When executing KECCAK_GENERAL, the GP memory channels are used as follows:
     // GP channel 0: stack[-1] = addr (context, segment, virt)
     // GP channel 1: stack[-2] = len
-    // GP channel 4: pushed = outputs
+    // Next GP channel 0: pushed = outputs
     let context = Column::single(COL_MAP.mem_channels[0].value[2]);
     let segment = Column::single(COL_MAP.mem_channels[0].value[1]);
     let virt = Column::single(COL_MAP.mem_channels[0].value[0]);
