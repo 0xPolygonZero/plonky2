@@ -1,6 +1,7 @@
 use core::marker::PhantomData;
 
 use anyhow::Result;
+use env_logger::{DEFAULT_FILTER_ENV, try_init_from_env, Env};
 use plonky2::field::types::{PrimeField, Sample};
 use plonky2::gates::arithmetic_base::ArithmeticBaseGenerator;
 use plonky2::gates::poseidon::{PoseidonGenerator, PoseidonGate};
@@ -20,10 +21,11 @@ use plonky2::recursion::dummy_circuit::DummyProofGenerator;
 use plonky2::util::serialization::{
     Buffer, DefaultGateSerializer, IoResult, Read, WitnessGeneratorSerializer, Write,
 };
+use plonky2::util::timing::TimingTree;
 use plonky2::{get_generator_tag_impl, impl_generator_serializer, read_generator_impl};
 use plonky2_field::extension::Extendable;
 use plonky2::field::types::Field;
-
+use ark_std::{end_timer, start_timer};
 
 pub struct CustomGeneratorSerializer<C: GenericConfig<D>, const D: usize> {
     pub _phantom: PhantomData<C>,
@@ -141,6 +143,7 @@ fn main() -> Result<()> {
 
     // build the circuit here, after setting the wirings
     let data = builder.build::<C>();
+    println!("");
     let proof = data.prove(inputs)?;
 
 
@@ -158,8 +161,11 @@ fn main() -> Result<()> {
     }
     // ----------------- verify it against F::poseidon -----------------
 
-
+    let _ = try_init_from_env(Env::default().filter_or(DEFAULT_FILTER_ENV, "debug"));
+    let timing = TimingTree::new("verify", log::Level::Debug);
     let result = data.verify(proof);
+    println!("");
+    timing.print();
 
     println!("proof verified");
     return result

@@ -2,6 +2,7 @@ use alloc::collections::BTreeMap;
 use alloc::sync::Arc;
 use alloc::vec;
 use alloc::vec::Vec;
+use env_logger::{DEFAULT_FILTER_ENV, try_init_from_env, Env};
 use core::cmp::max;
 #[cfg(feature = "std")]
 use std::time::Instant;
@@ -931,7 +932,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         mut self,
         commit_to_sigma: bool,
     ) -> (CircuitData<F, C, D>, bool) {
-        let mut timing = TimingTree::new("preprocess", Level::Trace);
+
+        let _ = try_init_from_env(Env::default().filter_or(DEFAULT_FILTER_ENV, "debug"));
+        
+        let mut timing = TimingTree::new("preprocess", log::Level::Debug);
 
         #[cfg(feature = "std")]
         let start = Instant::now();
