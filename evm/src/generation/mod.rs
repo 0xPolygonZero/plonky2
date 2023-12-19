@@ -288,9 +288,9 @@ fn simulate_cpu_between_labels_and_get_user_jumps<F: Field>(
     initial_label: &str,
     final_label: &str,
     state: &mut GenerationState<F>,
-) -> Result<(), ProgramError> {
-    if state.jumpdest_addresses.is_some() {
-        Ok(())
+) -> Result<Option<HashMap<usize, BTreeSet<usize>>>, ProgramError> {
+    if state.jumpdest_proofs.is_some() {
+        Ok(None)
     } else {
         const JUMP_OPCODE: u8 = 0x56;
         const JUMPI_OPCODE: u8 = 0x57;
@@ -304,6 +304,7 @@ fn simulate_cpu_between_labels_and_get_user_jumps<F: Field>(
         log::debug!("Simulating CPU for jumpdest analysis.");
 
         loop {
+            // skip jumdest table validations in simulations
             if state.registers.program_counter == KERNEL.global_labels["validate_jumpdest_table"] {
                 state.registers.program_counter =
                     KERNEL.global_labels["validate_jumpdest_table_end"]
@@ -344,8 +345,7 @@ fn simulate_cpu_between_labels_and_get_user_jumps<F: Field>(
             }
             if halt {
                 log::debug!("Simulated CPU halted after {} cycles", state.traces.clock());
-                state.jumpdest_addresses = Some(jumpdest_addresses);
-                return Ok(());
+                return Ok(Some(jumpdest_addresses));
             }
             transition(state).map_err(|_| {
                 ProgramError::ProverInputError(ProverInputError::InvalidJumpdestSimulation)
