@@ -76,7 +76,7 @@ impl MemoryOp {
     }
 }
 
-/// Generates the `_FIRST_CHANGE` columns, the `RANGE_CHECK` column and the `FIRST_OFFSET` column in the trace.
+/// Generates the `_FIRST_CHANGE` columns and the `RANGE_CHECK` column in the trace.
 pub(crate) fn generate_first_change_flags_and_rc<F: RichField>(
     trace_rows: &mut [[F; NUM_COLUMNS]],
 ) {

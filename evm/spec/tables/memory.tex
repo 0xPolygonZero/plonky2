@@ -56,7 +56,7 @@ In the EVM, each contract call has its own address space. Within that address sp
 \end{enumerate}
 The comparisons now involve several columns, which requires some minor adaptations to the technique described above; we will leave these as an exercise to the reader.
 
-Note that an additional constarint check is required: whenever we change the context or the segment, the virtual address must be range-checked to $2^{32}$.
+Note that an additional constraint check is required: whenever we change the context or the segment, the virtual address must be range-checked to $2^{32}$.
 Without this check, addresses could start at -1 (i.e. $p - 2$) and then increase properly.
 
 \subsubsection{Timestamps}
