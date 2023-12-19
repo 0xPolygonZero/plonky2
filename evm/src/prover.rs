@@ -100,8 +100,6 @@ where
                     timing,
                     &format!("compute trace commitment for {:?}", table),
                     PolynomialBatch::<F, C, D>::from_values(
-                        // TODO: Cloning this isn't great; consider having `from_values` accept a reference,
-                        // or having `compute_permutation_z_polys` read trace values from the `PolynomialBatch`.
                         trace.clone(),
                         rate_bits,
                         false,
