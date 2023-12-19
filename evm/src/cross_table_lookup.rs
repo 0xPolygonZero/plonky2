@@ -259,6 +259,14 @@ impl<F: Field> Column<F> {
         res
     }
 
+    /// Evaluates the column on all rows.
+    pub(crate) fn eval_all_rows(&self, table: &[PolynomialValues<F>]) -> Vec<F> {
+        let length = table[0].len();
+        (0..length)
+            .map(|row| self.eval_table(table, row))
+            .collect::<Vec<F>>()
+    }
+
     /// Circuit version of `eval`: Given a row's targets, returns their linear combination.
     pub(crate) fn eval_circuit<const D: usize>(
         &self,
@@ -400,6 +408,14 @@ impl<F: Field> Filter<F> {
                 .iter()
                 .map(|col| col.eval_table(table, row))
                 .sum()
+    }
+
+    pub(crate) fn eval_all_rows(&self, table: &[PolynomialValues<F>]) -> Vec<F> {
+        let length = table[0].len();
+
+        (0..length)
+            .map(|row| self.eval_table(table, row))
+            .collect::<Vec<F>>()
     }
 }
 

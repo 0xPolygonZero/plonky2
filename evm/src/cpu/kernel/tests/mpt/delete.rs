@@ -94,9 +94,15 @@ fn test_state_trie(
     trie_data.push(account.code_hash.into_uint());
     let trie_data_len = trie_data.len().into();
     interpreter.set_global_metadata_field(GlobalMetadata::TrieDataSize, trie_data_len);
-    interpreter.push(0xDEADBEEFu32.into());
-    interpreter.push(value_ptr.into()); // value_ptr
-    interpreter.push(k.try_into_u256().unwrap()); // key
+    interpreter
+        .push(0xDEADBEEFu32.into())
+        .expect("The stack should not overflow");
+    interpreter
+        .push(value_ptr.into())
+        .expect("The stack should not overflow"); // value_ptr
+    interpreter
+        .push(k.try_into_u256().unwrap())
+        .expect("The stack should not overflow"); // key
     interpreter.run()?;
     assert_eq!(
         interpreter.stack().len(),
@@ -108,21 +114,34 @@ fn test_state_trie(
     // Next, execute mpt_delete, deleting the account we just inserted.
     let state_trie_ptr = interpreter.get_global_metadata_field(GlobalMetadata::StateTrieRoot);
     interpreter.generation_state.registers.program_counter = mpt_delete;
-    interpreter.push(0xDEADBEEFu32.into());
-    interpreter.push(k.try_into_u256().unwrap());
-    interpreter.push(64.into());
-    interpreter.push(state_trie_ptr);
+    interpreter
+        .push(0xDEADBEEFu32.into())
+        .expect("The stack should not overflow");
+    interpreter
+        .push(k.try_into_u256().unwrap())
+        .expect("The stack should not overflow");
+    interpreter
+        .push(64.into())
+        .expect("The stack should not overflow");
+    interpreter
+        .push(state_trie_ptr)
+        .expect("The stack should not overflow");
     interpreter.run()?;
-    let state_trie_ptr = interpreter.pop();
+    let state_trie_ptr = interpreter.pop().expect("The stack should not be empty");
     interpreter.set_global_metadata_field(GlobalMetadata::StateTrieRoot, state_trie_ptr);
 
     // Now, execute mpt_hash_state_trie.
     interpreter.generation_state.registers.program_counter = mpt_hash_state_trie;
-    interpreter.push(0xDEADBEEFu32.into());
-    interpreter.push(1.into()); // Initial length of the trie data segment, unused.
+    interpreter
+        .push(0xDEADBEEFu32.into())
+        .expect("The stack should not overflow");
+    interpreter
+        .push(1.into()) // Initial length of the trie data segment, unused.
+        .expect("The stack should not overflow");
     interpreter.run()?;
 
-    let state_trie_hash = H256::from_uint(&interpreter.pop());
+    let state_trie_hash =
+        H256::from_uint(&interpreter.pop().expect("The stack should not be empty"));
     let expected_state_trie_hash = state_trie.hash();
     assert_eq!(state_trie_hash, expected_state_trie_hash);
 

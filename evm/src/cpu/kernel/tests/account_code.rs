@@ -103,9 +103,15 @@ fn prepare_interpreter(
     trie_data.push(account.code_hash.into_uint());
     let trie_data_len = trie_data.len().into();
     interpreter.set_global_metadata_field(GlobalMetadata::TrieDataSize, trie_data_len);
-    interpreter.push(0xDEADBEEFu32.into());
-    interpreter.push(value_ptr.into()); // value_ptr
-    interpreter.push(k.try_into_u256().unwrap()); // key
+    interpreter
+        .push(0xDEADBEEFu32.into())
+        .expect("The stack should not overflow");
+    interpreter
+        .push(value_ptr.into())
+        .expect("The stack should not overflow"); // value_ptr
+    interpreter
+        .push(k.try_into_u256().unwrap())
+        .expect("The stack should not overflow"); // key
 
     interpreter.run()?;
     assert_eq!(
@@ -117,8 +123,12 @@ fn prepare_interpreter(
 
     // Now, execute mpt_hash_state_trie.
     interpreter.generation_state.registers.program_counter = mpt_hash_state_trie;
-    interpreter.push(0xDEADBEEFu32.into());
-    interpreter.push(1.into()); // Initial length of the trie data segment, unused.
+    interpreter
+        .push(0xDEADBEEFu32.into())
+        .expect("The stack should not overflow");
+    interpreter
+        .push(1.into()) // Initial length of the trie data segment, unused.
+        .expect("The stack should not overflow");
     interpreter.run()?;
 
     assert_eq!(
@@ -150,11 +160,15 @@ fn test_extcodesize() -> Result<()> {
 
     // Test `extcodesize`
     interpreter.generation_state.registers.program_counter = extcodesize;
-    interpreter.pop();
-    interpreter.pop();
+    interpreter.pop().expect("The stack should not be empty");
+    interpreter.pop().expect("The stack should not be empty");
     assert!(interpreter.stack().is_empty());
-    interpreter.push(0xDEADBEEFu32.into());
-    interpreter.push(U256::from_big_endian(address.as_bytes()));
+    interpreter
+        .push(0xDEADBEEFu32.into())
+        .expect("The stack should not overflow");
+    interpreter
+        .push(U256::from_big_endian(address.as_bytes()))
+        .expect("The stack should not overflow");
     interpreter.generation_state.inputs.contract_code =
         HashMap::from([(keccak(&code), code.clone())]);
     interpreter.run()?;
@@ -202,14 +216,24 @@ fn test_extcodecopy() -> Result<()> {
 
     // Test `extcodecopy`
     interpreter.generation_state.registers.program_counter = extcodecopy;
-    interpreter.pop();
-    interpreter.pop();
+    interpreter.pop().expect("The stack should not be empty");
+    interpreter.pop().expect("The stack should not be empty");
     assert!(interpreter.stack().is_empty());
-    interpreter.push(size.into());
-    interpreter.push(offset.into());
-    interpreter.push(dest_offset.into());
-    interpreter.push(U256::from_big_endian(address.as_bytes()));
-    interpreter.push((0xDEADBEEFu64 + (1 << 32)).into()); // kexit_info
+    interpreter
+        .push(size.into())
+        .expect("The stack should not overflow");
+    interpreter
+        .push(offset.into())
+        .expect("The stack should not overflow");
+    interpreter
+        .push(dest_offset.into())
+        .expect("The stack should not overflow");
+    interpreter
+        .push(U256::from_big_endian(address.as_bytes()))
+        .expect("The stack should not overflow");
+    interpreter
+        .push((0xDEADBEEFu64 + (1 << 32)).into())
+        .expect("The stack should not overflow"); // kexit_info
     interpreter.generation_state.inputs.contract_code =
         HashMap::from([(keccak(&code), code.clone())]);
     interpreter.run()?;
@@ -326,8 +350,12 @@ fn sstore() -> Result<()> {
     interpreter.generation_state.registers.program_counter = mpt_hash_state_trie;
     interpreter.set_is_kernel(true);
     interpreter.set_context(0);
-    interpreter.push(0xDEADBEEFu32.into());
-    interpreter.push(1.into()); // Initia length of the trie data segment, unused.
+    interpreter
+        .push(0xDEADBEEFu32.into())
+        .expect("The stack should not overflow");
+    interpreter
+        .push(1.into()) // Initial length of the trie data segment, unused.
+        .expect("The stack should not overflow");
     interpreter.run()?;
 
     assert_eq!(
@@ -386,27 +414,38 @@ fn sload() -> Result<()> {
 
     // Prepare the interpreter by inserting the account in the state trie.
     prepare_interpreter_all_accounts(&mut interpreter, trie_inputs, addr, &code)?;
-
     interpreter.run()?;
 
     // The first two elements in the stack are `success` and `leftover_gas`,
     // returned by the `sys_stop` opcode.
-    interpreter.pop();
-    interpreter.pop();
+    interpreter
+        .pop()
+        .expect("The stack length should not be empty.");
+    interpreter
+        .pop()
+        .expect("The stack length should not be empty.");
 
     // The SLOAD in the provided code should return 0, since
     // the storage trie is empty. The last step in the code
     // pushes the value 3.
     assert_eq!(interpreter.stack(), vec![0x0.into(), 0x3.into()]);
-    interpreter.pop();
-    interpreter.pop();
+    interpreter
+        .pop()
+        .expect("The stack length should not be empty.");
+    interpreter
+        .pop()
+        .expect("The stack length should not be empty.");
     // Now, execute mpt_hash_state_trie. We check that the state trie has not changed.
     let mpt_hash_state_trie = KERNEL.global_labels["mpt_hash_state_trie"];
     interpreter.generation_state.registers.program_counter = mpt_hash_state_trie;
     interpreter.set_is_kernel(true);
     interpreter.set_context(0);
-    interpreter.push(0xDEADBEEFu32.into());
-    interpreter.push(1.into()); // Initia length of the trie data segment, unused.
+    interpreter
+        .push(0xDEADBEEFu32.into())
+        .expect("The stack should not overflow.");
+    interpreter
+        .push(1.into()) // Initial length of the trie data segment, unused.
+        .expect("The stack should not overflow.");
     interpreter.run()?;
 
     assert_eq!(

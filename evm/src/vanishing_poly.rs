@@ -19,7 +19,7 @@ use crate::stark::Stark;
 pub(crate) fn eval_vanishing_poly<F, FE, P, S, const D: usize, const D2: usize>(
     stark: &S,
     vars: &S::EvaluationFrame<FE, P, D2>,
-    lookups: &[Lookup],
+    lookups: &[Lookup<F>],
     lookup_vars: Option<LookupCheckVars<F, FE, P, D2>>,
     ctl_vars: &[CtlCheckVars<F, FE, P, D2>],
     consumer: &mut ConstraintConsumer<P>,

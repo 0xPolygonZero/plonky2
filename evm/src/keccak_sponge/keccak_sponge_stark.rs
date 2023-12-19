@@ -800,11 +800,12 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakSpongeS
         3
     }
 
-    fn lookups(&self) -> Vec<Lookup> {
+    fn lookups(&self) -> Vec<Lookup<F>> {
         vec![Lookup {
-            columns: get_block_bytes_range().collect(),
-            table_column: RANGE_COUNTER,
-            frequencies_column: RC_FREQUENCIES,
+            columns: Column::singles(get_block_bytes_range()).collect(),
+            table_column: Column::single(RANGE_COUNTER),
+            frequencies_column: Column::single(RC_FREQUENCIES),
+            filter_columns: vec![None; KECCAK_RATE_BYTES],
         }]
     }
 }

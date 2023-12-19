@@ -38,6 +38,15 @@ fn eval_packed_load<P: PackedField>(
     yield_constr.constraint(filter * (load_channel.addr_segment - addr_segment));
     yield_constr.constraint(filter * (load_channel.addr_virtual - addr_virtual));
 
+    // Constrain the new top of the stack.
+    for (&limb_loaded, &limb_new_top) in load_channel
+        .value
+        .iter()
+        .zip(nv.mem_channels[0].value.iter())
+    {
+        yield_constr.constraint(filter * (limb_loaded - limb_new_top));
+    }
+
     // Disable remaining memory channels, if any.
     for &channel in &lv.mem_channels[2..NUM_GP_CHANNELS] {
         yield_constr.constraint(filter * channel.used);
@@ -86,6 +95,17 @@ fn eval_ext_circuit_load<F: RichField + Extendable<D>, const D: usize>(
         [addr_context, addr_segment, addr_virtual]
     ) {
         let diff = builder.sub_extension(channel_field, target);
+        let constr = builder.mul_extension(filter, diff);
+        yield_constr.constraint(builder, constr);
+    }
+
+    // Constrain the new top of the stack.
+    for (&limb_loaded, &limb_new_top) in load_channel
+        .value
+        .iter()
+        .zip(nv.mem_channels[0].value.iter())
+    {
+        let diff = builder.sub_extension(limb_loaded, limb_new_top);
         let constr = builder.mul_extension(filter, diff);
         yield_constr.constraint(builder, constr);
     }

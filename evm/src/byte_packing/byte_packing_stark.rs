@@ -391,11 +391,12 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
         3
     }
 
-    fn lookups(&self) -> Vec<Lookup> {
+    fn lookups(&self) -> Vec<Lookup<F>> {
         vec![Lookup {
-            columns: (value_bytes(0)..value_bytes(0) + NUM_BYTES).collect(),
-            table_column: RANGE_COUNTER,
-            frequencies_column: RC_FREQUENCIES,
+            columns: Column::singles(value_bytes(0)..value_bytes(0) + NUM_BYTES).collect(),
+            table_column: Column::single(RANGE_COUNTER),
+            frequencies_column: Column::single(RC_FREQUENCIES),
+            filter_columns: vec![None; NUM_BYTES],
         }]
     }
 }
