@@ -242,9 +242,7 @@ impl<'a> Interpreter<'a> {
         };
 
         self.run_exception(exc_code)
-            .map_err(|_| anyhow::Error::msg("error handling errored..."))?;
-
-        Ok(())
+            .map_err(|_| anyhow::Error::msg("error handling errored..."))
     }
 
     pub(crate) fn run(&mut self) -> anyhow::Result<()> {
@@ -481,8 +479,7 @@ impl<'a> Interpreter<'a> {
     }
 
     fn push_bool(&mut self, x: bool) -> Result<(), ProgramError> {
-        self.push(if x { U256::one() } else { U256::zero() })?;
-        Ok(())
+        self.push(if x { U256::one() } else { U256::zero() })
     }
 
     pub(crate) fn pop(&mut self) -> Result<U256, ProgramError> {
@@ -669,30 +666,26 @@ impl<'a> Interpreter<'a> {
     fn run_add(&mut self) -> anyhow::Result<(), ProgramError> {
         let x = self.pop()?;
         let y = self.pop()?;
-        self.push(x.overflowing_add(y).0)?;
-        Ok(())
+        self.push(x.overflowing_add(y).0)
     }
 
     fn run_mul(&mut self) -> anyhow::Result<(), ProgramError> {
         let x = self.pop()?;
         let y = self.pop()?;
-        self.push(x.overflowing_mul(y).0)?;
-        Ok(())
+        self.push(x.overflowing_mul(y).0)
     }
 
     fn run_sub(&mut self) -> anyhow::Result<(), ProgramError> {
         let x = self.pop()?;
         let y = self.pop()?;
-        self.push(x.overflowing_sub(y).0)?;
-        Ok(())
+        self.push(x.overflowing_sub(y).0)
     }
 
     fn run_addfp254(&mut self) -> anyhow::Result<(), ProgramError> {
         let x = self.pop()? % BN_BASE;
         let y = self.pop()? % BN_BASE;
         // BN_BASE is 254-bit so addition can't overflow
-        self.push((x + y) % BN_BASE)?;
-        Ok(())
+        self.push((x + y) % BN_BASE)
     }
 
     fn run_mulfp254(&mut self) -> anyhow::Result<(), ProgramError> {
@@ -701,30 +694,26 @@ impl<'a> Interpreter<'a> {
         self.push(
             U256::try_from(x.full_mul(y) % BN_BASE)
                 .expect("BN_BASE is 254 bit so the U512 fits in a U256"),
-        )?;
-        Ok(())
+        )
     }
 
     fn run_subfp254(&mut self) -> anyhow::Result<(), ProgramError> {
         let x = self.pop()? % BN_BASE;
         let y = self.pop()? % BN_BASE;
         // BN_BASE is 254-bit so addition can't overflow
-        self.push((x + (BN_BASE - y)) % BN_BASE)?;
-        Ok(())
+        self.push((x + (BN_BASE - y)) % BN_BASE)
     }
 
     fn run_div(&mut self) -> anyhow::Result<(), ProgramError> {
         let x = self.pop()?;
         let y = self.pop()?;
-        self.push(if y.is_zero() { U256::zero() } else { x / y })?;
-        Ok(())
+        self.push(if y.is_zero() { U256::zero() } else { x / y })
     }
 
     fn run_mod(&mut self) -> anyhow::Result<(), ProgramError> {
         let x = self.pop()?;
         let y = self.pop()?;
-        self.push(if y.is_zero() { U256::zero() } else { x % y })?;
-        Ok(())
+        self.push(if y.is_zero() { U256::zero() } else { x % y })
     }
 
     fn run_addmod(&mut self) -> anyhow::Result<(), ProgramError> {
@@ -737,9 +726,7 @@ impl<'a> Interpreter<'a> {
             let (x, y, z) = (U512::from(x), U512::from(y), U512::from(z));
             U256::try_from((x + y) % z)
                 .expect("Inputs are U256 and their sum mod a U256 fits in a U256.")
-        })?;
-
-        Ok(())
+        })
     }
 
     fn run_submod(&mut self) -> anyhow::Result<(), ProgramError> {
@@ -752,9 +739,7 @@ impl<'a> Interpreter<'a> {
             let (x, y, z) = (U512::from(x), U512::from(y), U512::from(z));
             U256::try_from((z + x - y) % z)
                 .expect("Inputs are U256 and their difference mod a U256 fits in a U256.")
-        })?;
-
-        Ok(())
+        })
     }
 
     fn run_mulmod(&mut self) -> anyhow::Result<(), ProgramError> {
@@ -766,62 +751,53 @@ impl<'a> Interpreter<'a> {
         } else {
             U256::try_from(x.full_mul(y) % z)
                 .expect("Inputs are U256 and their product mod a U256 fits in a U256.")
-        })?;
-        Ok(())
+        })
     }
 
     fn run_lt(&mut self) -> anyhow::Result<(), ProgramError> {
         let x = self.pop()?;
         let y = self.pop()?;
-        self.push_bool(x < y)?;
-        Ok(())
+        self.push_bool(x < y)
     }
 
     fn run_gt(&mut self) -> anyhow::Result<(), ProgramError> {
         let x = self.pop()?;
         let y = self.pop()?;
-        self.push_bool(x > y)?;
-        Ok(())
+        self.push_bool(x > y)
     }
 
     fn run_eq(&mut self) -> anyhow::Result<(), ProgramError> {
         let x = self.pop()?;
         let y = self.pop()?;
-        self.push_bool(x == y)?;
-        Ok(())
+        self.push_bool(x == y)
     }
 
     fn run_iszero(&mut self) -> anyhow::Result<(), ProgramError> {
         let x = self.pop()?;
-        self.push_bool(x.is_zero())?;
-        Ok(())
+        self.push_bool(x.is_zero())
     }
 
     fn run_and(&mut self) -> anyhow::Result<(), ProgramError> {
         let x = self.pop()?;
         let y = self.pop()?;
-        self.push(x & y)?;
-        Ok(())
+        self.push(x & y)
     }
 
     fn run_or(&mut self) -> anyhow::Result<(), ProgramError> {
         let x = self.pop()?;
         let y = self.pop()?;
-        self.push(x | y)?;
-        Ok(())
+        self.push(x | y)
     }
 
     fn run_xor(&mut self) -> anyhow::Result<(), ProgramError> {
         let x = self.pop()?;
         let y = self.pop()?;
-        self.push(x ^ y)?;
-        Ok(())
+        self.push(x ^ y)
     }
 
     fn run_not(&mut self) -> anyhow::Result<(), ProgramError> {
         let x = self.pop()?;
-        self.push(!x)?;
-        Ok(())
+        self.push(!x)
     }
 
     fn run_byte(&mut self) -> anyhow::Result<(), ProgramError> {
@@ -832,8 +808,7 @@ impl<'a> Interpreter<'a> {
         } else {
             0
         };
-        self.push(result.into())?;
-        Ok(())
+        self.push(result.into())
     }
 
     fn run_shl(&mut self) -> anyhow::Result<(), ProgramError> {
@@ -843,15 +818,13 @@ impl<'a> Interpreter<'a> {
             value << shift
         } else {
             U256::zero()
-        })?;
-        Ok(())
+        })
     }
 
     fn run_shr(&mut self) -> anyhow::Result<(), ProgramError> {
         let shift = self.pop()?;
         let value = self.pop()?;
-        self.push(value >> shift)?;
-        Ok(())
+        self.push(value >> shift)
     }
 
     fn run_keccak_general(&mut self) -> anyhow::Result<(), ProgramError> {
@@ -871,8 +844,7 @@ impl<'a> Interpreter<'a> {
             .collect::<Vec<_>>();
         println!("Hashing {:?}", &bytes);
         let hash = keccak(bytes);
-        self.push(U256::from_big_endian(hash.as_bytes()))?;
-        Ok(())
+        self.push(U256::from_big_endian(hash.as_bytes()))
     }
 
     fn run_prover_input(&mut self) -> Result<(), ProgramError> {
@@ -883,13 +855,11 @@ impl<'a> Interpreter<'a> {
                 ProverInputError::InvalidMptInput,
             ))?;
         let output = self.generation_state.prover_input(prover_input_fn)?;
-        self.push(output)?;
-        Ok(())
+        self.push(output)
     }
 
     fn run_pop(&mut self) -> anyhow::Result<(), ProgramError> {
-        self.pop()?;
-        Ok(())
+        self.pop().map(|_| ())
     }
 
     fn run_syscall(
@@ -929,9 +899,7 @@ impl<'a> Interpreter<'a> {
 
         self.set_is_kernel(true);
         self.generation_state.registers.gas_used = 0;
-        self.push(syscall_info)?;
-
-        Ok(())
+        self.push(syscall_info)
     }
 
     fn run_jump(&mut self) -> anyhow::Result<(), ProgramError> {
@@ -940,8 +908,7 @@ impl<'a> Interpreter<'a> {
         let x: u32 = x
             .try_into()
             .map_err(|_| ProgramError::InvalidJumpDestination)?;
-        self.jump_to(x as usize)?;
-        Ok(())
+        self.jump_to(x as usize)
     }
 
     fn run_jumpi(&mut self) -> anyhow::Result<(), ProgramError> {
@@ -965,8 +932,7 @@ impl<'a> Interpreter<'a> {
                 .program_counter
                 .saturating_sub(1))
             .into(),
-        )?;
-        Ok(())
+        )
     }
 
     fn run_jumpdest(&mut self) -> anyhow::Result<(), ProgramError> {
@@ -991,8 +957,7 @@ impl<'a> Interpreter<'a> {
     fn run_push(&mut self, num_bytes: u8) -> anyhow::Result<(), ProgramError> {
         let x = U256::from_big_endian(&self.code_slice(num_bytes as usize));
         self.incr(num_bytes as usize);
-        self.push(x)?;
-        Ok(())
+        self.push(x)
     }
 
     fn run_dup(&mut self, n: u8) -> anyhow::Result<(), ProgramError> {
@@ -1003,8 +968,7 @@ impl<'a> Interpreter<'a> {
         if n as usize > self.stack_len() {
             return Err(ProgramError::StackUnderflow);
         }
-        self.push(stack_peek(&self.generation_state, n as usize - 1)?)?;
-        Ok(())
+        self.push(stack_peek(&self.generation_state, n as usize - 1)?)
     }
 
     fn run_swap(&mut self, n: u8) -> anyhow::Result<(), ProgramError> {
@@ -1028,8 +992,7 @@ impl<'a> Interpreter<'a> {
     }
 
     fn run_get_context(&mut self) -> anyhow::Result<(), ProgramError> {
-        self.push(self.context().into())?;
-        Ok(())
+        self.push(self.context().into())
     }
 
     fn run_set_context(&mut self) -> anyhow::Result<(), ProgramError> {
@@ -1066,8 +1029,7 @@ impl<'a> Interpreter<'a> {
             .memory
             .mload_general(context, segment, offset);
         assert!(value.bits() <= segment.bit_range());
-        self.push(value)?;
-        Ok(())
+        self.push(value)
     }
 
     fn run_mload_32bytes(&mut self) -> anyhow::Result<(), ProgramError> {
@@ -1087,8 +1049,7 @@ impl<'a> Interpreter<'a> {
             })
             .collect();
         let value = U256::from_big_endian(&bytes);
-        self.push(value)?;
-        Ok(())
+        self.push(value)
     }
 
     fn run_mstore_general(&mut self) -> anyhow::Result<(), ProgramError> {
@@ -1125,8 +1086,7 @@ impl<'a> Interpreter<'a> {
             self.memops.push(memop);
         }
 
-        self.push(U256::from(offset + n as usize));
-        Ok(())
+        self.push(U256::from(offset + n as usize))
     }
 
     fn run_exit_kernel(&mut self) -> anyhow::Result<(), ProgramError> {
