@@ -9,6 +9,8 @@ use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::membus::NUM_GP_CHANNELS;
 use crate::memory::segments::Segment;
 
+/// Evaluates constraints for shift operations on the CPU side:
+/// the shifting factor is read from memory when displacement < 2^32.
 pub(crate) fn eval_packed<P: PackedField>(
     lv: &CpuColumnsView<P>,
     yield_constr: &mut ConstraintConsumer<P>,
@@ -56,9 +58,12 @@ pub(crate) fn eval_packed<P: PackedField>(
     //
     // 1 -> 0  (value to be shifted is the same)
     // 2 -> 1  (two_exp becomes the multiplicand (resp. divisor))
-    // last -> last  (output is the same)
+    // next_0 -> next_0  (output is the same)
 }
 
+/// Circuit version.
+/// Evaluates constraints for shift operations on the CPU side:
+/// the shifting factor is read from memory when displacement < 2^32.
 pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
     lv: &CpuColumnsView<ExtensionTarget<D>>,

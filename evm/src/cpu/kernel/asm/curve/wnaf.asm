@@ -34,7 +34,8 @@ wnaf_loop_contd:
     DUP2 SWAP1 SUB
     %stack (n, m, segment, o, retdest) -> (129, o, m, o, segment, n, retdest)
     SUB
-    %stack (i, m, o, segment, n, retdest) -> (0, segment, i, m, o, segment, n, retdest)
+    GET_CONTEXT
+    %stack (ctx, i, m, o, segment, n, retdest) -> (m, ctx, segment, i, o, segment, n, retdest)
     MSTORE_GENERAL
     // stack: o, segment, n, retdest
     DUP3 ISZERO %jumpi(wnaf_end)

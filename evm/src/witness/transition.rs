@@ -6,10 +6,11 @@ use super::memory::{MemoryOp, MemoryOpKind};
 use super::util::fill_channel_with_value;
 use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::kernel::aggregator::KERNEL;
+use crate::cpu::kernel::constants::context_metadata::ContextMetadata;
 use crate::cpu::stack::{
-    EQ_STACK_BEHAVIOR, IS_ZERO_STACK_BEHAVIOR, JUMPI_OP, JUMP_OP, STACK_BEHAVIORS,
+    EQ_STACK_BEHAVIOR, IS_ZERO_STACK_BEHAVIOR, JUMPI_OP, JUMP_OP, MAX_USER_STACK_SIZE,
+    MIGHT_OVERFLOW, STACK_BEHAVIORS,
 };
-use crate::cpu::stack_bounds::MAX_USER_STACK_SIZE;
 use crate::generation::state::GenerationState;
 use crate::memory::segments::Segment;
 use crate::witness::errors::ProgramError;
@@ -33,7 +34,7 @@ fn read_code_memory<F: Field>(state: &mut GenerationState<F>, row: &mut CpuColum
     opcode
 }
 
-fn decode(registers: RegistersState, opcode: u8) -> Result<Operation, ProgramError> {
+pub(crate) fn decode(registers: RegistersState, opcode: u8) -> Result<Operation, ProgramError> {
     match (opcode, registers.is_kernel) {
         (0x00, _) => Ok(Operation::Syscall(opcode, 0, false)), // STOP
         (0x01, _) => Ok(Operation::BinaryArithmetic(arithmetic::BinaryOperator::Add)),
@@ -134,7 +135,7 @@ fn decode(registers: RegistersState, opcode: u8) -> Result<Operation, ProgramErr
             );
             Err(ProgramError::KernelPanic)
         }
-        (0xee, true) => Ok(Operation::Mstore32Bytes),
+        (0xc0..=0xdf, true) => Ok(Operation::Mstore32Bytes(opcode - 0xc0 + 1)),
         (0xf0, _) => Ok(Operation::Syscall(opcode, 3, false)), // CREATE
         (0xf1, _) => Ok(Operation::Syscall(opcode, 7, false)), // CALL
         (0xf2, _) => Ok(Operation::Syscall(opcode, 7, false)), // CALLCODE
@@ -160,11 +161,9 @@ fn decode(registers: RegistersState, opcode: u8) -> Result<Operation, ProgramErr
 fn fill_op_flag<F: Field>(op: Operation, row: &mut CpuColumnsView<F>) {
     let flags = &mut row.op;
     *match op {
-        Operation::Push(0) => &mut flags.push0,
-        Operation::Push(1..) => &mut flags.push,
         Operation::Dup(_) | Operation::Swap(_) => &mut flags.dup_swap,
         Operation::Iszero | Operation::Eq => &mut flags.eq_iszero,
-        Operation::Not => &mut flags.not,
+        Operation::Not | Operation::Pop => &mut flags.not_pop,
         Operation::Syscall(_, _, _) => &mut flags.syscall,
         Operation::BinaryLogic(_) => &mut flags.logic_op,
         Operation::BinaryArithmetic(arithmetic::BinaryOperator::AddFp254)
@@ -174,29 +173,25 @@ fn fill_op_flag<F: Field>(op: Operation, row: &mut CpuColumnsView<F>) {
         | Operation::BinaryArithmetic(arithmetic::BinaryOperator::Shr) => &mut flags.shift,
         Operation::BinaryArithmetic(_) => &mut flags.binary_op,
         Operation::TernaryArithmetic(_) => &mut flags.ternary_op,
-        Operation::KeccakGeneral => &mut flags.keccak_general,
-        Operation::ProverInput => &mut flags.prover_input,
-        Operation::Pop => &mut flags.pop,
+        Operation::KeccakGeneral | Operation::Jumpdest => &mut flags.jumpdest_keccak_general,
+        Operation::ProverInput | Operation::Push(1..) => &mut flags.push_prover_input,
         Operation::Jump | Operation::Jumpi => &mut flags.jumps,
-        Operation::Pc => &mut flags.pc,
-        Operation::Jumpdest => &mut flags.jumpdest,
-        Operation::GetContext => &mut flags.get_context,
-        Operation::SetContext => &mut flags.set_context,
-        Operation::Mload32Bytes => &mut flags.mload_32bytes,
-        Operation::Mstore32Bytes => &mut flags.mstore_32bytes,
+        Operation::Pc | Operation::Push(0) => &mut flags.pc_push0,
+        Operation::GetContext | Operation::SetContext => &mut flags.context_op,
+        Operation::Mload32Bytes | Operation::Mstore32Bytes(_) => &mut flags.m_op_32bytes,
         Operation::ExitKernel => &mut flags.exit_kernel,
         Operation::MloadGeneral | Operation::MstoreGeneral => &mut flags.m_op_general,
     } = F::ONE;
 }
 
 // Equal to the number of pops if an operation pops without pushing, and `None` otherwise.
-fn get_op_special_length(op: Operation) -> Option<usize> {
+const fn get_op_special_length(op: Operation) -> Option<usize> {
     let behavior_opt = match op {
-        Operation::Push(0) => STACK_BEHAVIORS.push0,
-        Operation::Push(1..) => STACK_BEHAVIORS.push,
+        Operation::Push(0) | Operation::Pc => STACK_BEHAVIORS.pc_push0,
+        Operation::Push(1..) | Operation::ProverInput => STACK_BEHAVIORS.push_prover_input,
         Operation::Dup(_) | Operation::Swap(_) => STACK_BEHAVIORS.dup_swap,
         Operation::Iszero => IS_ZERO_STACK_BEHAVIOR,
-        Operation::Not => STACK_BEHAVIORS.not,
+        Operation::Not | Operation::Pop => STACK_BEHAVIORS.not_pop,
         Operation::Syscall(_, _, _) => STACK_BEHAVIORS.syscall,
         Operation::Eq => EQ_STACK_BEHAVIOR,
         Operation::BinaryLogic(_) => STACK_BEHAVIORS.logic_op,
@@ -209,17 +204,11 @@ fn get_op_special_length(op: Operation) -> Option<usize> {
         | Operation::BinaryArithmetic(arithmetic::BinaryOperator::Shr) => STACK_BEHAVIORS.shift,
         Operation::BinaryArithmetic(_) => STACK_BEHAVIORS.binary_op,
         Operation::TernaryArithmetic(_) => STACK_BEHAVIORS.ternary_op,
-        Operation::KeccakGeneral => STACK_BEHAVIORS.keccak_general,
-        Operation::ProverInput => STACK_BEHAVIORS.prover_input,
-        Operation::Pop => STACK_BEHAVIORS.pop,
+        Operation::KeccakGeneral | Operation::Jumpdest => STACK_BEHAVIORS.jumpdest_keccak_general,
         Operation::Jump => JUMP_OP,
         Operation::Jumpi => JUMPI_OP,
-        Operation::Pc => STACK_BEHAVIORS.pc,
-        Operation::Jumpdest => STACK_BEHAVIORS.jumpdest,
-        Operation::GetContext => STACK_BEHAVIORS.get_context,
-        Operation::SetContext => None,
-        Operation::Mload32Bytes => STACK_BEHAVIORS.mload_32bytes,
-        Operation::Mstore32Bytes => STACK_BEHAVIORS.mstore_32bytes,
+        Operation::GetContext | Operation::SetContext => None,
+        Operation::Mload32Bytes | Operation::Mstore32Bytes(_) => STACK_BEHAVIORS.m_op_32bytes,
         Operation::ExitKernel => STACK_BEHAVIORS.exit_kernel,
         Operation::MloadGeneral | Operation::MstoreGeneral => STACK_BEHAVIORS.m_op_general,
     };
@@ -234,11 +223,40 @@ fn get_op_special_length(op: Operation) -> Option<usize> {
     }
 }
 
+// These operations might trigger a stack overflow, typically those pushing without popping.
+// Kernel-only pushing instructions aren't considered; they can't overflow.
+const fn might_overflow_op(op: Operation) -> bool {
+    match op {
+        Operation::Push(1..) | Operation::ProverInput => MIGHT_OVERFLOW.push_prover_input,
+        Operation::Dup(_) | Operation::Swap(_) => MIGHT_OVERFLOW.dup_swap,
+        Operation::Iszero | Operation::Eq => MIGHT_OVERFLOW.eq_iszero,
+        Operation::Not | Operation::Pop => MIGHT_OVERFLOW.not_pop,
+        Operation::Syscall(_, _, _) => MIGHT_OVERFLOW.syscall,
+        Operation::BinaryLogic(_) => MIGHT_OVERFLOW.logic_op,
+        Operation::BinaryArithmetic(arithmetic::BinaryOperator::AddFp254)
+        | Operation::BinaryArithmetic(arithmetic::BinaryOperator::MulFp254)
+        | Operation::BinaryArithmetic(arithmetic::BinaryOperator::SubFp254) => {
+            MIGHT_OVERFLOW.fp254_op
+        }
+        Operation::BinaryArithmetic(arithmetic::BinaryOperator::Shl)
+        | Operation::BinaryArithmetic(arithmetic::BinaryOperator::Shr) => MIGHT_OVERFLOW.shift,
+        Operation::BinaryArithmetic(_) => MIGHT_OVERFLOW.binary_op,
+        Operation::TernaryArithmetic(_) => MIGHT_OVERFLOW.ternary_op,
+        Operation::KeccakGeneral | Operation::Jumpdest => MIGHT_OVERFLOW.jumpdest_keccak_general,
+        Operation::Jump | Operation::Jumpi => MIGHT_OVERFLOW.jumps,
+        Operation::Pc | Operation::Push(0) => MIGHT_OVERFLOW.pc_push0,
+        Operation::GetContext | Operation::SetContext => MIGHT_OVERFLOW.context_op,
+        Operation::Mload32Bytes | Operation::Mstore32Bytes(_) => MIGHT_OVERFLOW.m_op_32bytes,
+        Operation::ExitKernel => MIGHT_OVERFLOW.exit_kernel,
+        Operation::MloadGeneral | Operation::MstoreGeneral => MIGHT_OVERFLOW.m_op_general,
+    }
+}
+
 fn perform_op<F: Field>(
     state: &mut GenerationState<F>,
     op: Operation,
     row: CpuColumnsView<F>,
-) -> Result<(), ProgramError> {
+) -> Result<Operation, ProgramError> {
     match op {
         Operation::Push(n) => generate_push(n, state, row)?,
         Operation::Dup(n) => generate_dup(n, state, row)?,
@@ -266,7 +284,7 @@ fn perform_op<F: Field>(
         Operation::GetContext => generate_get_context(state, row)?,
         Operation::SetContext => generate_set_context(state, row)?,
         Operation::Mload32Bytes => generate_mload_32bytes(state, row)?,
-        Operation::Mstore32Bytes => generate_mstore_32bytes(state, row)?,
+        Operation::Mstore32Bytes(n) => generate_mstore_32bytes(n, state, row)?,
         Operation::ExitKernel => generate_exit_kernel(state, row)?,
         Operation::MloadGeneral => generate_mload_general(state, row)?,
         Operation::MstoreGeneral => generate_mstore_general(state, row)?,
@@ -281,7 +299,24 @@ fn perform_op<F: Field>(
 
     state.registers.gas_used += gas_to_charge(op);
 
-    Ok(())
+    let gas_limit_address = MemoryAddress {
+        context: state.registers.context,
+        segment: Segment::ContextMetadata as usize,
+        virt: ContextMetadata::GasLimit as usize,
+    };
+    if !state.registers.is_kernel {
+        let gas_limit = TryInto::<u64>::try_into(state.memory.get(gas_limit_address));
+        match gas_limit {
+            Ok(limit) => {
+                if state.registers.gas_used > limit {
+                    return Err(ProgramError::OutOfGas);
+                }
+            }
+            Err(_) => return Err(ProgramError::IntegerTooLarge),
+        }
+    }
+
+    Ok(op)
 }
 
 /// Row that has the correct values for system registers and the code channel, but is otherwise
@@ -293,10 +328,7 @@ fn base_row<F: Field>(state: &mut GenerationState<F>) -> (CpuColumnsView<F>, u8)
     row.context = F::from_canonical_usize(state.registers.context);
     row.program_counter = F::from_canonical_usize(state.registers.program_counter);
     row.is_kernel_mode = F::from_bool(state.registers.is_kernel);
-    row.gas = [
-        F::from_canonical_u32(state.registers.gas_used as u32),
-        F::from_canonical_u32((state.registers.gas_used >> 32) as u32),
-    ];
+    row.gas = F::from_canonical_u64(state.registers.gas_used);
     row.stack_len = F::from_canonical_usize(state.registers.stack_len);
     fill_channel_with_value(&mut row, 0, state.registers.stack_top);
 
@@ -304,18 +336,10 @@ fn base_row<F: Field>(state: &mut GenerationState<F>) -> (CpuColumnsView<F>, u8)
     (row, opcode)
 }
 
-fn try_perform_instruction<F: Field>(state: &mut GenerationState<F>) -> Result<(), ProgramError> {
-    let (mut row, opcode) = base_row(state);
-    let op = decode(state.registers, opcode)?;
-
-    if state.registers.is_kernel {
-        log_kernel_instruction(state, op);
-    } else {
-        log::debug!("User instruction: {:?}", op);
-    }
-
-    fill_op_flag(op, &mut row);
-
+pub(crate) fn fill_stack_fields<F: Field>(
+    state: &mut GenerationState<F>,
+    row: &mut CpuColumnsView<F>,
+) -> Result<(), ProgramError> {
     if state.registers.is_stack_top_read {
         let channel = &mut row.mem_channels[0];
         channel.used = F::ONE;
@@ -341,18 +365,42 @@ fn try_perform_instruction<F: Field>(state: &mut GenerationState<F>) -> Result<(
         state.registers.is_stack_top_read = false;
     }
 
-    if state.registers.is_kernel {
-        row.stack_len_bounds_aux = F::ZERO;
-    } else {
-        let disallowed_len = F::from_canonical_usize(MAX_USER_STACK_SIZE + 1);
-        let diff = row.stack_len - disallowed_len;
-        if let Some(inv) = diff.try_inverse() {
-            row.stack_len_bounds_aux = inv;
+    if state.registers.check_overflow {
+        if state.registers.is_kernel {
+            row.general.stack_mut().stack_len_bounds_aux = F::ZERO;
         } else {
-            // This is a stack overflow that should have been caught earlier.
-            return Err(ProgramError::InterpreterError);
+            let clock = state.traces.clock();
+            let last_row = &mut state.traces.cpu[clock - 1];
+            let disallowed_len = F::from_canonical_usize(MAX_USER_STACK_SIZE + 1);
+            let diff = row.stack_len - disallowed_len;
+            if let Some(inv) = diff.try_inverse() {
+                last_row.general.stack_mut().stack_len_bounds_aux = inv;
+            } else {
+                // This is a stack overflow that should have been caught earlier.
+                return Err(ProgramError::InterpreterError);
+            }
         }
+        state.registers.check_overflow = false;
     }
+
+    Ok(())
+}
+
+fn try_perform_instruction<F: Field>(
+    state: &mut GenerationState<F>,
+) -> Result<Operation, ProgramError> {
+    let (mut row, opcode) = base_row(state);
+    let op = decode(state.registers, opcode)?;
+
+    if state.registers.is_kernel {
+        log_kernel_instruction(state, op);
+    } else {
+        log::debug!("User instruction: {:?}", op);
+    }
+
+    fill_op_flag(op, &mut row);
+
+    fill_stack_fields(state, &mut row);
 
     // Might write in general CPU columns when it shouldn't, but the correct values will
     // overwrite these ones during the op generation.
@@ -429,10 +477,13 @@ pub(crate) fn transition<F: Field>(state: &mut GenerationState<F>) -> anyhow::Re
     let result = try_perform_instruction(state);
 
     match result {
-        Ok(()) => {
+        Ok(op) => {
             state
                 .memory
                 .apply_ops(state.traces.mem_ops_since(checkpoint.traces));
+            if might_overflow_op(op) {
+                state.registers.check_overflow = true;
+            }
             Ok(())
         }
         Err(e) => {

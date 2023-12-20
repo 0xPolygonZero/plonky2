@@ -1,6 +1,5 @@
-#[allow(dead_code)]
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Ord, PartialOrd, Debug)]
-pub enum Segment {
+pub(crate) enum Segment {
     /// Contains EVM bytecode.
     Code = 0,
     /// The program stack.
@@ -51,31 +50,27 @@ pub enum Segment {
     SelfDestructList = 25,
     /// Contains the bloom filter of a transaction.
     TxnBloom = 26,
-    /// Contains the computed bloom filter of a block.
-    BlockBloom = 27,
-    /// Contains the final block bloom, and the block bloom filters before and after the current transaction.
-    /// The first eight elements are `block_metadata.block_bloom`. The next eight are `block_bloom_before`,
-    /// and the last eight are `block_bloom_after.
-    GlobalBlockBloom = 28,
+    /// Contains the bloom filter present in the block header.
+    GlobalBlockBloom = 27,
     /// List of log pointers pointing to the LogsData segment.
-    Logs = 29,
-    LogsData = 30,
+    Logs = 28,
+    LogsData = 29,
     /// Journal of state changes. List of pointers to `JournalData`. Length in `GlobalMetadata`.
-    Journal = 31,
-    JournalData = 32,
-    JournalCheckpoints = 33,
+    Journal = 30,
+    JournalData = 31,
+    JournalCheckpoints = 32,
     /// List of addresses that have been touched in the current transaction.
-    TouchedAddresses = 34,
+    TouchedAddresses = 33,
     /// List of checkpoints for the current context. Length in `ContextMetadata`.
-    ContextCheckpoints = 35,
+    ContextCheckpoints = 34,
     /// List of 256 previous block hashes.
-    BlockHashes = 36,
+    BlockHashes = 35,
 }
 
 impl Segment {
-    pub(crate) const COUNT: usize = 37;
+    pub(crate) const COUNT: usize = 36;
 
-    pub(crate) fn all() -> [Self; Self::COUNT] {
+    pub(crate) const fn all() -> [Self; Self::COUNT] {
         [
             Self::Code,
             Self::Stack,
@@ -104,7 +99,6 @@ impl Segment {
             Self::AccessedStorageKeys,
             Self::SelfDestructList,
             Self::TxnBloom,
-            Self::BlockBloom,
             Self::GlobalBlockBloom,
             Self::Logs,
             Self::LogsData,
@@ -118,7 +112,7 @@ impl Segment {
     }
 
     /// The variable name that gets passed into kernel assembly code.
-    pub(crate) fn var_name(&self) -> &'static str {
+    pub(crate) const fn var_name(&self) -> &'static str {
         match self {
             Segment::Code => "SEGMENT_CODE",
             Segment::Stack => "SEGMENT_STACK",
@@ -139,15 +133,14 @@ impl Segment {
             Segment::ShiftTable => "SEGMENT_SHIFT_TABLE",
             Segment::JumpdestBits => "SEGMENT_JUMPDEST_BITS",
             Segment::EcdsaTable => "SEGMENT_KERNEL_ECDSA_TABLE",
-            Segment::BnWnafA => "SEGMENT_KERNEL_BN_WNAF_A",
-            Segment::BnWnafB => "SEGMENT_KERNEL_BN_WNAF_B",
-            Segment::BnTableQ => "SEGMENT_KERNEL_BN_TABLE_Q",
+            Segment::BnWnafA => "SEGMENT_BN_WNAF_A",
+            Segment::BnWnafB => "SEGMENT_BN_WNAF_B",
+            Segment::BnTableQ => "SEGMENT_BN_TABLE_Q",
             Segment::BnPairing => "SEGMENT_KERNEL_BN_PAIRING",
             Segment::AccessedAddresses => "SEGMENT_ACCESSED_ADDRESSES",
             Segment::AccessedStorageKeys => "SEGMENT_ACCESSED_STORAGE_KEYS",
             Segment::SelfDestructList => "SEGMENT_SELFDESTRUCT_LIST",
             Segment::TxnBloom => "SEGMENT_TXN_BLOOM",
-            Segment::BlockBloom => "SEGMENT_BLOCK_BLOOM",
             Segment::GlobalBlockBloom => "SEGMENT_GLOBAL_BLOCK_BLOOM",
             Segment::Logs => "SEGMENT_LOGS",
             Segment::LogsData => "SEGMENT_LOGS_DATA",
@@ -160,8 +153,7 @@ impl Segment {
         }
     }
 
-    #[allow(dead_code)]
-    pub(crate) fn bit_range(&self) -> usize {
+    pub(crate) const fn bit_range(&self) -> usize {
         match self {
             Segment::Code => 8,
             Segment::Stack => 256,
@@ -191,7 +183,6 @@ impl Segment {
             Segment::SelfDestructList => 256,
             Segment::TxnBloom => 8,
             Segment::GlobalBlockBloom => 256,
-            Segment::BlockBloom => 8,
             Segment::Logs => 256,
             Segment::LogsData => 256,
             Segment::Journal => 256,

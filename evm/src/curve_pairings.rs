@@ -8,7 +8,7 @@ use rand::Rng;
 use crate::extension_tower::{FieldExt, Fp12, Fp2, Fp6, Stack, BN254};
 
 #[derive(Debug, Copy, Clone, PartialEq)]
-pub struct Curve<T>
+pub(crate) struct Curve<T>
 where
     T: FieldExt,
 {
@@ -17,7 +17,7 @@ where
 }
 
 impl<T: FieldExt> Curve<T> {
-    pub fn unit() -> Self {
+    pub(crate) const fn unit() -> Self {
         Curve {
             x: T::ZERO,
             y: T::ZERO,
@@ -47,7 +47,7 @@ where
     T: FieldExt,
     Curve<T>: CyclicGroup,
 {
-    pub fn int(z: i32) -> Self {
+    pub(crate) fn int(z: i32) -> Self {
         Curve::<T>::GENERATOR * z
     }
 }
@@ -195,7 +195,7 @@ impl CyclicGroup for Curve<Fp2<BN254>> {
 }
 
 // The tate pairing takes a point each from the curve and its twist and outputs an Fp12 element
-pub fn bn_tate(p: Curve<BN254>, q: Curve<Fp2<BN254>>) -> Fp12<BN254> {
+pub(crate) fn bn_tate(p: Curve<BN254>, q: Curve<Fp2<BN254>>) -> Fp12<BN254> {
     let miller_output = bn_miller_loop(p, q);
     bn_final_exponent(miller_output)
 }
@@ -203,7 +203,7 @@ pub fn bn_tate(p: Curve<BN254>, q: Curve<Fp2<BN254>>) -> Fp12<BN254> {
 /// Standard code for miller loop, can be found on page 99 at this url:
 /// https://static1.squarespace.com/static/5fdbb09f31d71c1227082339/t/5ff394720493bd28278889c6/1609798774687/PairingsForBeginners.pdf#page=107
 /// where BN_EXP is a hardcoding of the array of Booleans that the loop traverses
-pub fn bn_miller_loop(p: Curve<BN254>, q: Curve<Fp2<BN254>>) -> Fp12<BN254> {
+pub(crate) fn bn_miller_loop(p: Curve<BN254>, q: Curve<Fp2<BN254>>) -> Fp12<BN254> {
     let mut r = p;
     let mut acc: Fp12<BN254> = Fp12::<BN254>::UNIT;
     let mut line: Fp12<BN254>;
@@ -222,14 +222,14 @@ pub fn bn_miller_loop(p: Curve<BN254>, q: Curve<Fp2<BN254>>) -> Fp12<BN254> {
 }
 
 /// The sloped line function for doubling a point
-pub fn bn_tangent(p: Curve<BN254>, q: Curve<Fp2<BN254>>) -> Fp12<BN254> {
+pub(crate) fn bn_tangent(p: Curve<BN254>, q: Curve<Fp2<BN254>>) -> Fp12<BN254> {
     let cx = -BN254::new(3) * p.x * p.x;
     let cy = BN254::new(2) * p.y;
     bn_sparse_embed(p.y * p.y - BN254::new(9), q.x * cx, q.y * cy)
 }
 
 /// The sloped line function for adding two points
-pub fn bn_cord(p1: Curve<BN254>, p2: Curve<BN254>, q: Curve<Fp2<BN254>>) -> Fp12<BN254> {
+pub(crate) fn bn_cord(p1: Curve<BN254>, p2: Curve<BN254>, q: Curve<Fp2<BN254>>) -> Fp12<BN254> {
     let cx = p2.y - p1.y;
     let cy = p1.x - p2.x;
     bn_sparse_embed(p1.y * p2.x - p2.y * p1.x, q.x * cx, q.y * cy)
@@ -237,7 +237,7 @@ pub fn bn_cord(p1: Curve<BN254>, p2: Curve<BN254>, q: Curve<Fp2<BN254>>) -> Fp12
 
 /// The tangent and cord functions output sparse Fp12 elements.
 /// This map embeds the nonzero coefficients into an Fp12.
-pub fn bn_sparse_embed(g000: BN254, g01: Fp2<BN254>, g11: Fp2<BN254>) -> Fp12<BN254> {
+pub(crate) const fn bn_sparse_embed(g000: BN254, g01: Fp2<BN254>, g11: Fp2<BN254>) -> Fp12<BN254> {
     let g0 = Fp6 {
         t0: Fp2 {
             re: g000,
@@ -256,7 +256,7 @@ pub fn bn_sparse_embed(g000: BN254, g01: Fp2<BN254>, g11: Fp2<BN254>) -> Fp12<BN
     Fp12 { z0: g0, z1: g1 }
 }
 
-pub fn gen_bn_fp12_sparse<R: Rng + ?Sized>(rng: &mut R) -> Fp12<BN254> {
+pub(crate) fn gen_bn_fp12_sparse<R: Rng + ?Sized>(rng: &mut R) -> Fp12<BN254> {
     bn_sparse_embed(
         rng.gen::<BN254>(),
         rng.gen::<Fp2<BN254>>(),
@@ -276,7 +276,7 @@ pub fn gen_bn_fp12_sparse<R: Rng + ?Sized>(rng: &mut R) -> Fp12<BN254> {
 ///     (p^4 - p^2 + 1)/N = p^3 + (a2)p^2 - (a1)p - a0
 /// where 0 < a0, a1, a2 < p. Then the final power is given by
 ///     y = y_3 * (y^a2)_2 * (y^-a1)_1 * (y^-a0)
-pub fn bn_final_exponent(f: Fp12<BN254>) -> Fp12<BN254> {
+pub(crate) fn bn_final_exponent(f: Fp12<BN254>) -> Fp12<BN254> {
     let mut y = f.frob(6) / f;
     y = y.frob(2) * y;
     let (y_a2, y_a1, y_a0) = get_bn_custom_powers(y);
@@ -370,7 +370,7 @@ const BN_EXP: [bool; 253] = [
     false,
 ];
 
-// The folowing constants are defined above get_custom_powers
+// The following constants are defined above get_custom_powers
 
 const BN_EXPS4: [(bool, bool, bool); 64] = [
     (true, true, false),

@@ -1,6 +1,8 @@
 use core::mem::{self, MaybeUninit};
 use std::collections::BTreeMap;
 use std::ops::Range;
+use std::sync::atomic::AtomicBool;
+use std::sync::Arc;
 
 use eth_trie_utils::partial_trie::{HashedPartialTrie, Node, PartialTrie};
 use hashbrown::HashMap;
@@ -15,7 +17,7 @@ use plonky2::iop::target::{BoolTarget, Target};
 use plonky2::iop::witness::{PartialWitness, WitnessWrite};
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::circuit_data::{
-    CircuitConfig, CircuitData, CommonCircuitData, VerifierCircuitTarget,
+    CircuitConfig, CircuitData, CommonCircuitData, VerifierCircuitData, VerifierCircuitTarget,
 };
 use plonky2::plonk::config::{AlgebraicHasher, GenericConfig};
 use plonky2::plonk::proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget};
@@ -36,14 +38,14 @@ use crate::cross_table_lookup::{
 use crate::generation::GenerationInputs;
 use crate::get_challenges::observe_public_values_target;
 use crate::proof::{
-    BlockHashesTarget, BlockMetadataTarget, ExtraBlockDataTarget, PublicValues, PublicValuesTarget,
-    StarkProofWithMetadata, TrieRootsTarget,
+    BlockHashesTarget, BlockMetadataTarget, ExtraBlockData, ExtraBlockDataTarget, PublicValues,
+    PublicValuesTarget, StarkProofWithMetadata, TrieRoots, TrieRootsTarget,
 };
-use crate::prover::prove;
+use crate::prover::{check_abort_signal, prove};
 use crate::recursive_verifier::{
-    add_common_recursion_gates, add_virtual_public_values,
-    get_memory_extra_looking_products_circuit, recursive_stark_circuit, set_public_value_targets,
-    PlonkWrapperCircuit, PublicInputs, StarkWrapperCircuit,
+    add_common_recursion_gates, add_virtual_public_values, get_memory_extra_looking_sum_circuit,
+    recursive_stark_circuit, set_public_value_targets, PlonkWrapperCircuit, PublicInputs,
+    StarkWrapperCircuit,
 };
 use crate::stark::Stark;
 use crate::util::h256_limbs;
@@ -96,7 +98,7 @@ where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
 {
-    pub fn to_buffer(
+    fn to_buffer(
         &self,
         buffer: &mut Vec<u8>,
         gate_serializer: &dyn GateSerializer<F, D>,
@@ -114,7 +116,7 @@ where
         Ok(())
     }
 
-    pub fn from_buffer(
+    fn from_buffer(
         buffer: &mut Buffer,
         gate_serializer: &dyn GateSerializer<F, D>,
         generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
@@ -161,7 +163,7 @@ where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
 {
-    pub fn to_buffer(
+    fn to_buffer(
         &self,
         buffer: &mut Vec<u8>,
         gate_serializer: &dyn GateSerializer<F, D>,
@@ -175,7 +177,7 @@ where
         Ok(())
     }
 
-    pub fn from_buffer(
+    fn from_buffer(
         buffer: &mut Buffer,
         gate_serializer: &dyn GateSerializer<F, D>,
         generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
@@ -196,21 +198,21 @@ where
 }
 
 #[derive(Eq, PartialEq, Debug)]
-pub struct AggregationChildTarget<const D: usize> {
+struct AggregationChildTarget<const D: usize> {
     is_agg: BoolTarget,
     agg_proof: ProofWithPublicInputsTarget<D>,
     evm_proof: ProofWithPublicInputsTarget<D>,
 }
 
 impl<const D: usize> AggregationChildTarget<D> {
-    pub fn to_buffer(&self, buffer: &mut Vec<u8>) -> IoResult<()> {
+    fn to_buffer(&self, buffer: &mut Vec<u8>) -> IoResult<()> {
         buffer.write_target_bool(self.is_agg)?;
         buffer.write_target_proof_with_public_inputs(&self.agg_proof)?;
         buffer.write_target_proof_with_public_inputs(&self.evm_proof)?;
         Ok(())
     }
 
-    pub fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
+    fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
         let is_agg = buffer.read_target_bool()?;
         let agg_proof = buffer.read_target_proof_with_public_inputs()?;
         let evm_proof = buffer.read_target_proof_with_public_inputs()?;
@@ -221,7 +223,7 @@ impl<const D: usize> AggregationChildTarget<D> {
         })
     }
 
-    pub fn public_values<F: RichField + Extendable<D>>(
+    fn public_values<F: RichField + Extendable<D>>(
         &self,
         builder: &mut CircuitBuilder<F, D>,
     ) -> PublicValuesTarget {
@@ -250,7 +252,7 @@ where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
 {
-    pub fn to_buffer(
+    fn to_buffer(
         &self,
         buffer: &mut Vec<u8>,
         gate_serializer: &dyn GateSerializer<F, D>,
@@ -265,7 +267,7 @@ where
         Ok(())
     }
 
-    pub fn from_buffer(
+    fn from_buffer(
         buffer: &mut Buffer,
         gate_serializer: &dyn GateSerializer<F, D>,
         generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
@@ -430,6 +432,78 @@ where
         }
     }
 
+    /// Expand the preprocessed STARK table circuits with the provided ranges.
+    ///
+    /// If a range for a given table is contained within the current one, this will be a no-op.
+    /// Otherwise, it will add the circuits for the missing table sizes, and regenerate the upper circuits.
+    pub fn expand(
+        &mut self,
+        all_stark: &AllStark<F, D>,
+        degree_bits_ranges: &[Range<usize>; NUM_TABLES],
+        stark_config: &StarkConfig,
+    ) {
+        self.by_table[Table::Arithmetic as usize].expand(
+            Table::Arithmetic,
+            &all_stark.arithmetic_stark,
+            degree_bits_ranges[Table::Arithmetic as usize].clone(),
+            &all_stark.cross_table_lookups,
+            stark_config,
+        );
+        self.by_table[Table::BytePacking as usize].expand(
+            Table::BytePacking,
+            &all_stark.byte_packing_stark,
+            degree_bits_ranges[Table::BytePacking as usize].clone(),
+            &all_stark.cross_table_lookups,
+            stark_config,
+        );
+        self.by_table[Table::Cpu as usize].expand(
+            Table::Cpu,
+            &all_stark.cpu_stark,
+            degree_bits_ranges[Table::Cpu as usize].clone(),
+            &all_stark.cross_table_lookups,
+            stark_config,
+        );
+        self.by_table[Table::Keccak as usize].expand(
+            Table::Keccak,
+            &all_stark.keccak_stark,
+            degree_bits_ranges[Table::Keccak as usize].clone(),
+            &all_stark.cross_table_lookups,
+            stark_config,
+        );
+        self.by_table[Table::KeccakSponge as usize].expand(
+            Table::KeccakSponge,
+            &all_stark.keccak_sponge_stark,
+            degree_bits_ranges[Table::KeccakSponge as usize].clone(),
+            &all_stark.cross_table_lookups,
+            stark_config,
+        );
+        self.by_table[Table::Logic as usize].expand(
+            Table::Logic,
+            &all_stark.logic_stark,
+            degree_bits_ranges[Table::Logic as usize].clone(),
+            &all_stark.cross_table_lookups,
+            stark_config,
+        );
+        self.by_table[Table::Memory as usize].expand(
+            Table::Memory,
+            &all_stark.memory_stark,
+            degree_bits_ranges[Table::Memory as usize].clone(),
+            &all_stark.cross_table_lookups,
+            stark_config,
+        );
+
+        // Regenerate the upper circuits.
+        self.root = Self::create_root_circuit(&self.by_table, stark_config);
+        self.aggregation = Self::create_aggregation_circuit(&self.root);
+        self.block = Self::create_block_circuit(&self.aggregation);
+    }
+
+    /// Outputs the `VerifierCircuitData` needed to verify any block proof
+    /// generated by an honest prover.
+    pub fn final_verifier_data(&self) -> VerifierCircuitData<F, C, D> {
+        self.block.circuit.verifier_data()
+    }
+
     fn create_root_circuit(
         by_table: &[RecursiveCircuitsForTable<F, C, D>; NUM_TABLES],
         stark_config: &StarkConfig,
@@ -493,15 +567,15 @@ where
             }
         }
 
-        // Extra products to add to the looked last value.
+        // Extra sums to add to the looked last value.
         // Only necessary for the Memory values.
-        let mut extra_looking_products =
-            vec![vec![builder.one(); stark_config.num_challenges]; NUM_TABLES];
+        let mut extra_looking_sums =
+            vec![vec![builder.zero(); stark_config.num_challenges]; NUM_TABLES];
 
         // Memory
-        extra_looking_products[Table::Memory as usize] = (0..stark_config.num_challenges)
+        extra_looking_sums[Table::Memory as usize] = (0..stark_config.num_challenges)
             .map(|c| {
-                get_memory_extra_looking_products_circuit(
+                get_memory_extra_looking_sum_circuit(
                     &mut builder,
                     &public_values,
                     ctl_challenges.challenges[c],
@@ -514,7 +588,7 @@ where
             &mut builder,
             all_cross_table_lookups(),
             pis.map(|p| p.ctl_zs_first),
-            extra_looking_products,
+            extra_looking_sums,
             stark_config,
         );
 
@@ -643,18 +717,18 @@ where
         lhs: &ExtraBlockDataTarget,
         rhs: &ExtraBlockDataTarget,
     ) {
-        // Connect genesis state root values.
+        // Connect checkpoint state root values.
         for (&limb0, &limb1) in pvs
-            .genesis_state_trie_root
+            .checkpoint_state_trie_root
             .iter()
-            .zip(&rhs.genesis_state_trie_root)
+            .zip(&rhs.checkpoint_state_trie_root)
         {
             builder.connect(limb0, limb1);
         }
         for (&limb0, &limb1) in pvs
-            .genesis_state_trie_root
+            .checkpoint_state_trie_root
             .iter()
-            .zip(&lhs.genesis_state_trie_root)
+            .zip(&lhs.checkpoint_state_trie_root)
         {
             builder.connect(limb0, limb1);
         }
@@ -667,26 +741,11 @@ where
         builder.connect(lhs.txn_number_after, rhs.txn_number_before);
 
         // Connect the gas used in public values to the lhs and rhs values correctly.
-        builder.connect(pvs.gas_used_before[0], lhs.gas_used_before[0]);
-        builder.connect(pvs.gas_used_before[1], lhs.gas_used_before[1]);
-        builder.connect(pvs.gas_used_after[0], rhs.gas_used_after[0]);
-        builder.connect(pvs.gas_used_after[1], rhs.gas_used_after[1]);
+        builder.connect(pvs.gas_used_before, lhs.gas_used_before);
+        builder.connect(pvs.gas_used_after, rhs.gas_used_after);
 
         // Connect lhs `gas_used_after` with rhs `gas_used_before`.
-        builder.connect(lhs.gas_used_after[0], rhs.gas_used_before[0]);
-        builder.connect(lhs.gas_used_after[1], rhs.gas_used_before[1]);
-
-        // Connect the `block_bloom` in public values to the lhs and rhs values correctly.
-        for (&limb0, &limb1) in pvs.block_bloom_after.iter().zip(&rhs.block_bloom_after) {
-            builder.connect(limb0, limb1);
-        }
-        for (&limb0, &limb1) in pvs.block_bloom_before.iter().zip(&lhs.block_bloom_before) {
-            builder.connect(limb0, limb1);
-        }
-        // Connect lhs `block_bloom_after` with rhs `block_bloom_before`.
-        for (&limb0, &limb1) in lhs.block_bloom_after.iter().zip(&rhs.block_bloom_before) {
-            builder.connect(limb0, limb1);
-        }
+        builder.connect(lhs.gas_used_after, rhs.gas_used_before);
     }
 
     fn add_agg_child(
@@ -733,6 +792,34 @@ where
         let parent_pv = PublicValuesTarget::from_public_inputs(&parent_block_proof.public_inputs);
         let agg_pv = PublicValuesTarget::from_public_inputs(&agg_root_proof.public_inputs);
 
+        // Connect block `trie_roots_before` with parent_pv `trie_roots_before`.
+        TrieRootsTarget::connect(
+            &mut builder,
+            public_values.trie_roots_before,
+            parent_pv.trie_roots_before,
+        );
+        // Connect the rest of block `public_values` with agg_pv.
+        TrieRootsTarget::connect(
+            &mut builder,
+            public_values.trie_roots_after,
+            agg_pv.trie_roots_after,
+        );
+        BlockMetadataTarget::connect(
+            &mut builder,
+            public_values.block_metadata,
+            agg_pv.block_metadata,
+        );
+        BlockHashesTarget::connect(
+            &mut builder,
+            public_values.block_hashes,
+            agg_pv.block_hashes,
+        );
+        ExtraBlockDataTarget::connect(
+            &mut builder,
+            public_values.extra_block_data,
+            agg_pv.extra_block_data,
+        );
+
         // Make connections between block proofs, and check initial and final block values.
         Self::connect_block_proof(&mut builder, has_parent_block, &parent_pv, &agg_pv);
 
@@ -760,7 +847,7 @@ where
     }
 
     /// Connect the 256 block hashes between two blocks
-    pub fn connect_block_hashes(
+    fn connect_block_hashes(
         builder: &mut CircuitBuilder<F, D>,
         lhs: &ProofWithPublicInputsTarget<D>,
         rhs: &ProofWithPublicInputsTarget<D>,
@@ -798,12 +885,12 @@ where
             builder.connect(limb0, limb1);
         }
 
-        // Between blocks, the genesis state trie remains unchanged.
+        // Between blocks, the checkpoint state trie remains unchanged.
         for (&limb0, limb1) in lhs
             .extra_block_data
-            .genesis_state_trie_root
+            .checkpoint_state_trie_root
             .iter()
-            .zip(rhs.extra_block_data.genesis_state_trie_root)
+            .zip(rhs.extra_block_data.checkpoint_state_trie_root)
         {
             builder.connect(limb0, limb1);
         }
@@ -821,15 +908,11 @@ where
 
         let has_not_parent_block = builder.sub(one, has_parent_block.target);
 
-        // Check that the genesis block number is 0.
-        let gen_block_constr = builder.mul(has_not_parent_block, rhs.block_metadata.block_number);
-        builder.assert_zero(gen_block_constr);
-
-        // Check that the genesis block has the predetermined state trie root in `ExtraBlockData`.
-        Self::connect_genesis_block(builder, rhs, has_not_parent_block);
+        // Check that the checkpoint block has the predetermined state trie root in `ExtraBlockData`.
+        Self::connect_checkpoint_block(builder, rhs, has_not_parent_block);
     }
 
-    fn connect_genesis_block(
+    fn connect_checkpoint_block(
         builder: &mut CircuitBuilder<F, D>,
         x: &PublicValuesTarget,
         has_not_parent_block: Target,
@@ -840,7 +923,7 @@ where
             .trie_roots_before
             .state_root
             .iter()
-            .zip(x.extra_block_data.genesis_state_trie_root)
+            .zip(x.extra_block_data.checkpoint_state_trie_root)
         {
             let mut constr = builder.sub(limb0, limb1);
             constr = builder.mul(has_not_parent_block, constr);
@@ -855,22 +938,9 @@ where
         F: RichField + Extendable<D>,
     {
         builder.connect(
-            x.block_metadata.block_gas_used[0],
-            x.extra_block_data.gas_used_after[0],
+            x.block_metadata.block_gas_used,
+            x.extra_block_data.gas_used_after,
         );
-        builder.connect(
-            x.block_metadata.block_gas_used[1],
-            x.extra_block_data.gas_used_after[1],
-        );
-
-        for (&limb0, &limb1) in x
-            .block_metadata
-            .block_bloom
-            .iter()
-            .zip(&x.extra_block_data.block_bloom_after)
-        {
-            builder.connect(limb0, limb1);
-        }
     }
 
     fn connect_initial_values_block(builder: &mut CircuitBuilder<F, D>, x: &PublicValuesTarget)
@@ -880,13 +950,7 @@ where
         // The initial number of transactions is 0.
         builder.assert_zero(x.extra_block_data.txn_number_before);
         // The initial gas used is 0.
-        builder.assert_zero(x.extra_block_data.gas_used_before[0]);
-        builder.assert_zero(x.extra_block_data.gas_used_before[1]);
-
-        // The initial bloom filter is all zeroes.
-        for t in x.extra_block_data.block_bloom_before {
-            builder.assert_zero(t);
-        }
+        builder.assert_zero(x.extra_block_data.gas_used_before);
 
         // The transactions and receipts tries are empty at the beginning of the block.
         let initial_trie = HashedPartialTrie::from(Node::Empty).hash();
@@ -905,8 +969,15 @@ where
         config: &StarkConfig,
         generation_inputs: GenerationInputs,
         timing: &mut TimingTree,
+        abort_signal: Option<Arc<AtomicBool>>,
     ) -> anyhow::Result<(ProofWithPublicInputs<F, C, D>, PublicValues)> {
-        let all_proof = prove::<F, C, D>(all_stark, config, generation_inputs, timing)?;
+        let all_proof = prove::<F, C, D>(
+            all_stark,
+            config,
+            generation_inputs,
+            timing,
+            abort_signal.clone(),
+        )?;
         let mut root_inputs = PartialWitness::new();
 
         for table in 0..NUM_TABLES {
@@ -934,6 +1005,8 @@ where
                 F::from_canonical_usize(index_verifier_data),
             );
             root_inputs.set_proof_with_pis_target(&self.root.proof_with_pis[table], &shrunk_proof);
+
+            check_abort_signal(abort_signal.clone())?;
         }
 
         root_inputs.set_verifier_data_target(
@@ -963,9 +1036,10 @@ where
         &self,
         lhs_is_agg: bool,
         lhs_proof: &ProofWithPublicInputs<F, C, D>,
+        lhs_public_values: PublicValues,
         rhs_is_agg: bool,
         rhs_proof: &ProofWithPublicInputs<F, C, D>,
-        public_values: PublicValues,
+        rhs_public_values: PublicValues,
     ) -> anyhow::Result<(ProofWithPublicInputs<F, C, D>, PublicValues)> {
         let mut agg_inputs = PartialWitness::new();
 
@@ -982,17 +1056,34 @@ where
             &self.aggregation.circuit.verifier_only,
         );
 
+        // Aggregates both `PublicValues` from the provided proofs into a single one.
+        let agg_public_values = PublicValues {
+            trie_roots_before: lhs_public_values.trie_roots_before,
+            trie_roots_after: rhs_public_values.trie_roots_after,
+            extra_block_data: ExtraBlockData {
+                checkpoint_state_trie_root: lhs_public_values
+                    .extra_block_data
+                    .checkpoint_state_trie_root,
+                txn_number_before: lhs_public_values.extra_block_data.txn_number_before,
+                txn_number_after: rhs_public_values.extra_block_data.txn_number_after,
+                gas_used_before: lhs_public_values.extra_block_data.gas_used_before,
+                gas_used_after: rhs_public_values.extra_block_data.gas_used_after,
+            },
+            block_metadata: rhs_public_values.block_metadata,
+            block_hashes: rhs_public_values.block_hashes,
+        };
+
         set_public_value_targets(
             &mut agg_inputs,
             &self.aggregation.public_values,
-            &public_values,
+            &agg_public_values,
         )
         .map_err(|_| {
             anyhow::Error::msg("Invalid conversion when setting public values targets.")
         })?;
 
         let aggregation_proof = self.aggregation.circuit.prove(agg_inputs)?;
-        Ok((aggregation_proof, public_values))
+        Ok((aggregation_proof, agg_public_values))
     }
 
     pub fn verify_aggregation(
@@ -1023,33 +1114,90 @@ where
             block_inputs
                 .set_proof_with_pis_target(&self.block.parent_block_proof, parent_block_proof);
         } else {
-            // Initialize genesis_state_trie, state_root_after and the block number for correct connection between blocks.
-            // Initialize `state_root_after`.
-            let state_trie_root_after_keys = 24..32;
+            if public_values.trie_roots_before.state_root
+                != public_values.extra_block_data.checkpoint_state_trie_root
+            {
+                return Err(anyhow::Error::msg(format!(
+                    "Inconsistent pre-state for first block {:?} with checkpoint state {:?}.",
+                    public_values.trie_roots_before.state_root,
+                    public_values.extra_block_data.checkpoint_state_trie_root,
+                )));
+            }
+
+            // Initialize some public inputs for correct connection between the checkpoint block and the current one.
             let mut nonzero_pis = HashMap::new();
+
+            // Initialize the checkpoint block roots before, and state root after.
+            let state_trie_root_before_keys = 0..TrieRootsTarget::HASH_SIZE;
+            for (key, &value) in state_trie_root_before_keys
+                .zip_eq(&h256_limbs::<F>(public_values.trie_roots_before.state_root))
+            {
+                nonzero_pis.insert(key, value);
+            }
+            let txn_trie_root_before_keys =
+                TrieRootsTarget::HASH_SIZE..TrieRootsTarget::HASH_SIZE * 2;
+            for (key, &value) in txn_trie_root_before_keys.clone().zip_eq(&h256_limbs::<F>(
+                public_values.trie_roots_before.transactions_root,
+            )) {
+                nonzero_pis.insert(key, value);
+            }
+            let receipts_trie_root_before_keys =
+                TrieRootsTarget::HASH_SIZE * 2..TrieRootsTarget::HASH_SIZE * 3;
+            for (key, &value) in receipts_trie_root_before_keys
+                .clone()
+                .zip_eq(&h256_limbs::<F>(
+                    public_values.trie_roots_before.receipts_root,
+                ))
+            {
+                nonzero_pis.insert(key, value);
+            }
+            let state_trie_root_after_keys =
+                TrieRootsTarget::SIZE..TrieRootsTarget::SIZE + TrieRootsTarget::HASH_SIZE;
             for (key, &value) in state_trie_root_after_keys
                 .zip_eq(&h256_limbs::<F>(public_values.trie_roots_before.state_root))
             {
                 nonzero_pis.insert(key, value);
             }
 
-            // Initialize the genesis state trie digest.
-            let genesis_state_trie_keys = TrieRootsTarget::SIZE * 2
-                + BlockMetadataTarget::SIZE
-                + BlockHashesTarget::BLOCK_HASHES_SIZE
-                ..TrieRootsTarget::SIZE * 2
-                    + BlockMetadataTarget::SIZE
-                    + BlockHashesTarget::BLOCK_HASHES_SIZE
-                    + 8;
-            for (key, &value) in genesis_state_trie_keys.zip_eq(&h256_limbs::<F>(
-                public_values.extra_block_data.genesis_state_trie_root,
+            // Initialize the checkpoint state root extra data.
+            let checkpoint_state_trie_keys =
+                TrieRootsTarget::SIZE * 2 + BlockMetadataTarget::SIZE + BlockHashesTarget::SIZE
+                    ..TrieRootsTarget::SIZE * 2
+                        + BlockMetadataTarget::SIZE
+                        + BlockHashesTarget::SIZE
+                        + 8;
+            for (key, &value) in checkpoint_state_trie_keys.zip_eq(&h256_limbs::<F>(
+                public_values.extra_block_data.checkpoint_state_trie_root,
             )) {
                 nonzero_pis.insert(key, value);
             }
 
-            // Initialize the block number.
+            // Initialize checkpoint block hashes.
+            // These will be all zeros the initial genesis checkpoint.
+            let block_hashes_keys = TrieRootsTarget::SIZE * 2 + BlockMetadataTarget::SIZE
+                ..TrieRootsTarget::SIZE * 2 + BlockMetadataTarget::SIZE + BlockHashesTarget::SIZE
+                    - 8;
+
+            for i in 0..public_values.block_hashes.prev_hashes.len() - 1 {
+                let targets = h256_limbs::<F>(public_values.block_hashes.prev_hashes[i]);
+                for j in 0..8 {
+                    nonzero_pis.insert(block_hashes_keys.start + 8 * (i + 1) + j, targets[j]);
+                }
+            }
+            let block_hashes_current_start =
+                TrieRootsTarget::SIZE * 2 + BlockMetadataTarget::SIZE + BlockHashesTarget::SIZE - 8;
+            let cur_targets = h256_limbs::<F>(public_values.block_hashes.prev_hashes[255]);
+            for i in 0..8 {
+                nonzero_pis.insert(block_hashes_current_start + i, cur_targets[i]);
+            }
+
+            // Initialize the checkpoint block number.
+            // Subtraction would result in an invalid proof for genesis, but we shouldn't try proving this block anyway.
             let block_number_key = TrieRootsTarget::SIZE * 2 + 6;
-            nonzero_pis.insert(block_number_key, F::NEG_ONE);
+            nonzero_pis.insert(
+                block_number_key,
+                F::from_canonical_u64(public_values.block_metadata.block_number.low_u64() - 1),
+            );
 
             block_inputs.set_proof_with_pis_target(
                 &self.block.parent_block_proof,
@@ -1066,13 +1214,26 @@ where
         block_inputs
             .set_verifier_data_target(&self.block.cyclic_vk, &self.block.circuit.verifier_only);
 
-        set_public_value_targets(&mut block_inputs, &self.block.public_values, &public_values)
-            .map_err(|_| {
-                anyhow::Error::msg("Invalid conversion when setting public values targets.")
-            })?;
+        // This is basically identical to this block public values, apart from the `trie_roots_before`
+        // that may come from the previous proof, if any.
+        let block_public_values = PublicValues {
+            trie_roots_before: opt_parent_block_proof
+                .map(|p| TrieRoots::from_public_inputs(&p.public_inputs[0..TrieRootsTarget::SIZE]))
+                .unwrap_or(public_values.trie_roots_before),
+            ..public_values
+        };
+
+        set_public_value_targets(
+            &mut block_inputs,
+            &self.block.public_values,
+            &block_public_values,
+        )
+        .map_err(|_| {
+            anyhow::Error::msg("Invalid conversion when setting public values targets.")
+        })?;
 
         let block_proof = self.block.circuit.prove(block_inputs)?;
-        Ok((block_proof, public_values))
+        Ok((block_proof, block_public_values))
     }
 
     pub fn verify_block(&self, block_proof: &ProofWithPublicInputs<F, C, D>) -> anyhow::Result<()> {
@@ -1103,7 +1264,7 @@ where
     C: GenericConfig<D, F = F>,
     C::Hasher: AlgebraicHasher<F>,
 {
-    pub fn to_buffer(
+    fn to_buffer(
         &self,
         buffer: &mut Vec<u8>,
         gate_serializer: &dyn GateSerializer<F, D>,
@@ -1117,7 +1278,7 @@ where
         Ok(())
     }
 
-    pub fn from_buffer(
+    fn from_buffer(
         buffer: &mut Buffer,
         gate_serializer: &dyn GateSerializer<F, D>,
         generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
@@ -1160,6 +1321,32 @@ where
         Self { by_stark_size }
     }
 
+    fn expand<S: Stark<F, D>>(
+        &mut self,
+        table: Table,
+        stark: &S,
+        degree_bits_range: Range<usize>,
+        all_ctls: &[CrossTableLookup<F>],
+        stark_config: &StarkConfig,
+    ) {
+        let new_ranges = degree_bits_range
+            .filter(|degree_bits| !self.by_stark_size.contains_key(degree_bits))
+            .collect_vec();
+
+        for degree_bits in new_ranges {
+            self.by_stark_size.insert(
+                degree_bits,
+                RecursiveCircuitsForTableSize::new::<S>(
+                    table,
+                    stark,
+                    degree_bits,
+                    all_ctls,
+                    stark_config,
+                ),
+            );
+        }
+    }
+
     /// For each initial `degree_bits`, get the final circuit at the end of that shrinking chain.
     /// Each of these final circuits should have degree `THRESHOLD_DEGREE_BITS`.
     fn final_circuits(&self) -> Vec<&CircuitData<F, C, D>> {
@@ -1195,7 +1382,7 @@ where
     C: GenericConfig<D, F = F>,
     C::Hasher: AlgebraicHasher<F>,
 {
-    pub fn to_buffer(
+    fn to_buffer(
         &self,
         buffer: &mut Vec<u8>,
         gate_serializer: &dyn GateSerializer<F, D>,
@@ -1222,7 +1409,7 @@ where
         Ok(())
     }
 
-    pub fn from_buffer(
+    fn from_buffer(
         buffer: &mut Buffer,
         gate_serializer: &dyn GateSerializer<F, D>,
         generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,

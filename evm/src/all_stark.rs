@@ -23,19 +23,21 @@ use crate::memory::memory_stark;
 use crate::memory::memory_stark::MemoryStark;
 use crate::stark::Stark;
 
+/// Structure containing all STARKs and the cross-table lookups.
 #[derive(Clone)]
 pub struct AllStark<F: RichField + Extendable<D>, const D: usize> {
-    pub arithmetic_stark: ArithmeticStark<F, D>,
-    pub byte_packing_stark: BytePackingStark<F, D>,
-    pub cpu_stark: CpuStark<F, D>,
-    pub keccak_stark: KeccakStark<F, D>,
-    pub keccak_sponge_stark: KeccakSpongeStark<F, D>,
-    pub logic_stark: LogicStark<F, D>,
-    pub memory_stark: MemoryStark<F, D>,
-    pub cross_table_lookups: Vec<CrossTableLookup<F>>,
+    pub(crate) arithmetic_stark: ArithmeticStark<F, D>,
+    pub(crate) byte_packing_stark: BytePackingStark<F, D>,
+    pub(crate) cpu_stark: CpuStark<F, D>,
+    pub(crate) keccak_stark: KeccakStark<F, D>,
+    pub(crate) keccak_sponge_stark: KeccakSpongeStark<F, D>,
+    pub(crate) logic_stark: LogicStark<F, D>,
+    pub(crate) memory_stark: MemoryStark<F, D>,
+    pub(crate) cross_table_lookups: Vec<CrossTableLookup<F>>,
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> Default for AllStark<F, D> {
+    /// Returns an `AllStark` containing all the STARKs initialized with default values.
     fn default() -> Self {
         Self {
             arithmetic_stark: ArithmeticStark::default(),
@@ -64,6 +66,7 @@ impl<F: RichField + Extendable<D>, const D: usize> AllStark<F, D> {
     }
 }
 
+/// Associates STARK tables with a unique index.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Table {
     Arithmetic = 0,
@@ -75,10 +78,12 @@ pub enum Table {
     Memory = 6,
 }
 
+/// Number of STARK tables.
 pub(crate) const NUM_TABLES: usize = Table::Memory as usize + 1;
 
 impl Table {
-    pub(crate) fn all() -> [Self; NUM_TABLES] {
+    /// Returns all STARK table indices.
+    pub(crate) const fn all() -> [Self; NUM_TABLES] {
         [
             Self::Arithmetic,
             Self::BytePacking,
@@ -91,6 +96,7 @@ impl Table {
     }
 }
 
+/// Returns all the `CrossTableLookups` used for proving the EVM.
 pub(crate) fn all_cross_table_lookups<F: Field>() -> Vec<CrossTableLookup<F>> {
     vec![
         ctl_arithmetic(),
@@ -103,6 +109,7 @@ pub(crate) fn all_cross_table_lookups<F: Field>() -> Vec<CrossTableLookup<F>> {
     ]
 }
 
+/// `CrossTableLookup` for `ArithmeticStark`, to connect it with the `Cpu` module.
 fn ctl_arithmetic<F: Field>() -> CrossTableLookup<F> {
     CrossTableLookup::new(
         vec![cpu_stark::ctl_arithmetic_base_rows()],
@@ -110,6 +117,7 @@ fn ctl_arithmetic<F: Field>() -> CrossTableLookup<F> {
     )
 }
 
+/// `CrossTableLookup` for `BytePackingStark`, to connect it with the `Cpu` module.
 fn ctl_byte_packing<F: Field>() -> CrossTableLookup<F> {
     let cpu_packing_looking = TableWithColumns::new(
         Table::Cpu,
@@ -121,20 +129,29 @@ fn ctl_byte_packing<F: Field>() -> CrossTableLookup<F> {
         cpu_stark::ctl_data_byte_unpacking(),
         Some(cpu_stark::ctl_filter_byte_unpacking()),
     );
+    let cpu_push_packing_looking = TableWithColumns::new(
+        Table::Cpu,
+        cpu_stark::ctl_data_byte_packing_push(),
+        Some(cpu_stark::ctl_filter_byte_packing_push()),
+    );
     let byte_packing_looked = TableWithColumns::new(
         Table::BytePacking,
         byte_packing_stark::ctl_looked_data(),
         Some(byte_packing_stark::ctl_looked_filter()),
     );
     CrossTableLookup::new(
-        vec![cpu_packing_looking, cpu_unpacking_looking],
+        vec![
+            cpu_packing_looking,
+            cpu_unpacking_looking,
+            cpu_push_packing_looking,
+        ],
         byte_packing_looked,
     )
 }
 
-// We now need two different looked tables for `KeccakStark`:
-// one for the inputs and one for the outputs.
-// They are linked with the timestamp.
+/// `CrossTableLookup` for `KeccakStark` inputs, to connect it with the `KeccakSponge` module.
+/// `KeccakStarkSponge` looks into `KeccakStark` to give the inputs of the sponge.
+/// Its consistency with the 'output' CTL is ensured through a timestamp column on the `KeccakStark` side.
 fn ctl_keccak_inputs<F: Field>() -> CrossTableLookup<F> {
     let keccak_sponge_looking = TableWithColumns::new(
         Table::KeccakSponge,
@@ -149,6 +166,8 @@ fn ctl_keccak_inputs<F: Field>() -> CrossTableLookup<F> {
     CrossTableLookup::new(vec![keccak_sponge_looking], keccak_looked)
 }
 
+/// `CrossTableLookup` for `KeccakStark` outputs, to connect it with the `KeccakSponge` module.
+/// `KeccakStarkSponge` looks into `KeccakStark` to give the outputs of the sponge.
 fn ctl_keccak_outputs<F: Field>() -> CrossTableLookup<F> {
     let keccak_sponge_looking = TableWithColumns::new(
         Table::KeccakSponge,
@@ -163,6 +182,7 @@ fn ctl_keccak_outputs<F: Field>() -> CrossTableLookup<F> {
     CrossTableLookup::new(vec![keccak_sponge_looking], keccak_looked)
 }
 
+/// `CrossTableLookup` for `KeccakSpongeStark` to connect it with the `Cpu` module.
 fn ctl_keccak_sponge<F: Field>() -> CrossTableLookup<F> {
     let cpu_looking = TableWithColumns::new(
         Table::Cpu,
@@ -177,6 +197,7 @@ fn ctl_keccak_sponge<F: Field>() -> CrossTableLookup<F> {
     CrossTableLookup::new(vec![cpu_looking], keccak_sponge_looked)
 }
 
+/// `CrossTableLookup` for `LogicStark` to connect it with the `Cpu` and `KeccakSponge` modules.
 fn ctl_logic<F: Field>() -> CrossTableLookup<F> {
     let cpu_looking = TableWithColumns::new(
         Table::Cpu,
@@ -197,6 +218,7 @@ fn ctl_logic<F: Field>() -> CrossTableLookup<F> {
     CrossTableLookup::new(all_lookers, logic_looked)
 }
 
+/// `CrossTableLookup` for `MemoryStark` to connect it with all the modules which need memory accesses.
 fn ctl_memory<F: Field>() -> CrossTableLookup<F> {
     let cpu_memory_code_read = TableWithColumns::new(
         Table::Cpu,
@@ -210,6 +232,11 @@ fn ctl_memory<F: Field>() -> CrossTableLookup<F> {
             Some(cpu_stark::ctl_filter_gp_memory(channel)),
         )
     });
+    let cpu_push_write_ops = TableWithColumns::new(
+        Table::Cpu,
+        cpu_stark::ctl_data_partial_memory::<F>(),
+        Some(cpu_stark::ctl_filter_partial_memory()),
+    );
     let keccak_sponge_reads = (0..KECCAK_RATE_BYTES).map(|i| {
         TableWithColumns::new(
             Table::KeccakSponge,
@@ -226,6 +253,7 @@ fn ctl_memory<F: Field>() -> CrossTableLookup<F> {
     });
     let all_lookers = iter::once(cpu_memory_code_read)
         .chain(cpu_memory_gp_ops)
+        .chain(iter::once(cpu_push_write_ops))
         .chain(keccak_sponge_reads)
         .chain(byte_packing_ops)
         .collect();

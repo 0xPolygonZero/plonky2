@@ -1,7 +1,7 @@
-use alloc::format;
-use alloc::string::String;
+use alloc::string::{String, ToString};
 use alloc::sync::Arc;
 use alloc::vec::Vec;
+use alloc::{format, vec};
 use core::usize;
 
 use itertools::Itertools;
@@ -56,23 +56,23 @@ impl LookupTableGate {
         }
     }
 
-    pub(crate) fn num_slots(config: &CircuitConfig) -> usize {
+    pub(crate) const fn num_slots(config: &CircuitConfig) -> usize {
         let wires_per_entry = 3;
         config.num_routed_wires / wires_per_entry
     }
 
     /// Wire for the looked input.
-    pub fn wire_ith_looked_inp(i: usize) -> usize {
+    pub const fn wire_ith_looked_inp(i: usize) -> usize {
         3 * i
     }
 
     // Wire for the looked output.
-    pub fn wire_ith_looked_out(i: usize) -> usize {
+    pub const fn wire_ith_looked_out(i: usize) -> usize {
         3 * i + 1
     }
 
     /// Wire for the multiplicity. Set after the trace has been generated.
-    pub fn wire_ith_multiplicity(i: usize) -> usize {
+    pub const fn wire_ith_multiplicity(i: usize) -> usize {
         3 * i + 2
     }
 }

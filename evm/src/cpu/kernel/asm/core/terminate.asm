@@ -33,7 +33,7 @@ return_after_gas:
 
     // Store the return data size in the parent context's metadata.
     %stack (parent_ctx, kexit_info, offset, size) ->
-        (parent_ctx, @SEGMENT_CONTEXT_METADATA, @CTX_METADATA_RETURNDATA_SIZE, size, offset, size, parent_ctx, kexit_info)
+        (size, parent_ctx, @SEGMENT_CONTEXT_METADATA, @CTX_METADATA_RETURNDATA_SIZE, offset, size, parent_ctx, kexit_info)
     MSTORE_GENERAL
     // stack: offset, size, parent_ctx, kexit_info
 
@@ -45,7 +45,7 @@ return_after_gas:
         ctx, @SEGMENT_MAIN_MEMORY, offset,  // SRC
         size, sys_return_finish, kexit_info // count, retdest, ...
         )
-    %jump(memcpy)
+    %jump(memcpy_bytes)
 
 sys_return_finish:
     // stack: kexit_info
@@ -133,7 +133,7 @@ revert_after_gas:
 
     // Store the return data size in the parent context's metadata.
     %stack (parent_ctx, kexit_info, offset, size) ->
-        (parent_ctx, @SEGMENT_CONTEXT_METADATA, @CTX_METADATA_RETURNDATA_SIZE, size, offset, size, parent_ctx, kexit_info)
+        (size, parent_ctx, @SEGMENT_CONTEXT_METADATA, @CTX_METADATA_RETURNDATA_SIZE, offset, size, parent_ctx, kexit_info)
     MSTORE_GENERAL
     // stack: offset, size, parent_ctx, kexit_info
 
@@ -145,7 +145,7 @@ revert_after_gas:
         ctx, @SEGMENT_MAIN_MEMORY, offset,  // SRC
         size, sys_revert_finish, kexit_info // count, retdest, ...
         )
-    %jump(memcpy)
+    %jump(memcpy_bytes)
 
 sys_revert_finish:
     %leftover_gas

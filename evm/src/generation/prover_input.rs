@@ -3,7 +3,7 @@ use std::str::FromStr;
 
 use anyhow::{bail, Error};
 use ethereum_types::{BigEndianHash, H256, U256, U512};
-use itertools::Itertools;
+use itertools::{enumerate, Itertools};
 use num_bigint::BigUint;
 use plonky2::field::types::Field;
 use serde::{Deserialize, Serialize};
@@ -19,6 +19,7 @@ use crate::memory::segments::Segment::BnPairing;
 use crate::util::{biguint_to_mem_vec, mem_vec_to_biguint, u256_to_usize};
 use crate::witness::errors::ProgramError;
 use crate::witness::errors::ProverInputError::*;
+use crate::witness::memory::MemoryAddress;
 use crate::witness::util::{current_context_peek, stack_peek};
 
 /// Prover input function represented as a scoped function name.
@@ -35,26 +36,32 @@ impl From<Vec<String>> for ProverInputFn {
 impl<F: Field> GenerationState<F> {
     pub(crate) fn prover_input(&mut self, input_fn: &ProverInputFn) -> Result<U256, ProgramError> {
         match input_fn.0[0].as_str() {
-            "end_of_txns" => self.run_end_of_txns(),
+            "no_txn" => self.no_txn(),
+            "trie_ptr" => self.run_trie_ptr(input_fn),
             "ff" => self.run_ff(input_fn),
             "sf" => self.run_sf(input_fn),
             "ffe" => self.run_ffe(input_fn),
-            "mpt" => self.run_mpt(),
             "rlp" => self.run_rlp(),
             "current_hash" => self.run_current_hash(),
-            "account_code" => self.run_account_code(input_fn),
+            "account_code" => self.run_account_code(),
             "bignum_modmul" => self.run_bignum_modmul(),
+            "withdrawal" => self.run_withdrawal(),
+            "num_bits" => self.run_num_bits(),
             _ => Err(ProgramError::ProverInputError(InvalidFunction)),
         }
     }
 
-    fn run_end_of_txns(&mut self) -> Result<U256, ProgramError> {
-        let end = self.next_txn_index == self.inputs.signed_txns.len();
-        if end {
-            Ok(U256::one())
-        } else {
-            self.next_txn_index += 1;
-            Ok(U256::zero())
+    fn no_txn(&mut self) -> Result<U256, ProgramError> {
+        Ok(U256::from(self.inputs.signed_txn.is_none() as u8))
+    }
+
+    fn run_trie_ptr(&mut self, input_fn: &ProverInputFn) -> Result<U256, ProgramError> {
+        let trie = input_fn.0[1].as_str();
+        match trie {
+            "state" => Ok(U256::from(self.trie_root_ptrs.state_root_ptr)),
+            "txn" => Ok(U256::from(self.trie_root_ptrs.txn_root_ptr)),
+            "receipt" => Ok(U256::from(self.trie_root_ptrs.receipt_root_ptr)),
+            _ => Err(ProgramError::ProverInputError(InvalidInput)),
         }
     }
 
@@ -113,13 +120,6 @@ impl<F: Field> GenerationState<F> {
         Ok(field.field_extension_inverse(n, f))
     }
 
-    /// MPT data.
-    fn run_mpt(&mut self) -> Result<U256, ProgramError> {
-        self.mpt_prover_inputs
-            .pop()
-            .ok_or(ProgramError::ProverInputError(OutOfMptData))
-    }
-
     /// RLP data.
     fn run_rlp(&mut self) -> Result<U256, ProgramError> {
         self.rlp_prover_inputs
@@ -131,35 +131,26 @@ impl<F: Field> GenerationState<F> {
         Ok(U256::from_big_endian(&self.inputs.block_hashes.cur_hash.0))
     }
 
-    /// Account code.
-    fn run_account_code(&mut self, input_fn: &ProverInputFn) -> Result<U256, ProgramError> {
-        match input_fn.0[1].as_str() {
-            "length" => {
-                // Return length of code.
-                // stack: codehash, ...
-                let codehash = stack_peek(self, 0)?;
-                Ok(self
-                    .inputs
-                    .contract_code
-                    .get(&H256::from_uint(&codehash))
-                    .ok_or(ProgramError::ProverInputError(CodeHashNotFound))?
-                    .len()
-                    .into())
-            }
-            "get" => {
-                // Return `code[i]`.
-                // stack: i, code_length, codehash, ...
-                let i = stack_peek(self, 0).map(u256_to_usize)??;
-                let codehash = stack_peek(self, 2)?;
-                Ok(self
-                    .inputs
-                    .contract_code
-                    .get(&H256::from_uint(&codehash))
-                    .ok_or(ProgramError::ProverInputError(CodeHashNotFound))?[i]
-                    .into())
-            }
-            _ => Err(ProgramError::ProverInputError(InvalidInput)),
+    /// Account code loading.
+    /// Initializes the code segment of the given context with the code corresponding
+    /// to the provided hash.
+    /// Returns the length of the code.
+    fn run_account_code(&mut self) -> Result<U256, ProgramError> {
+        // stack: codehash, ctx, ...
+        let codehash = stack_peek(self, 0)?;
+        let context = stack_peek(self, 1)?;
+        let context = u256_to_usize(context)?;
+        let mut address = MemoryAddress::new(context, Segment::Code, 0);
+        let code = self
+            .inputs
+            .contract_code
+            .get(&H256::from_uint(&codehash))
+            .ok_or(ProgramError::ProverInputError(CodeHashNotFound))?;
+        for &byte in code {
+            self.memory.set(address, byte.into());
+            address.increment();
         }
+        Ok(code.len().into())
     }
 
     // Bignum modular multiplication.
@@ -218,6 +209,25 @@ impl<F: Field> GenerationState<F> {
         let rem = prod - m_biguint * &quo;
 
         (biguint_to_mem_vec(rem), biguint_to_mem_vec(quo))
+    }
+
+    /// Withdrawal data.
+    fn run_withdrawal(&mut self) -> Result<U256, ProgramError> {
+        self.withdrawal_prover_inputs
+            .pop()
+            .ok_or(ProgramError::ProverInputError(OutOfWithdrawalData))
+    }
+
+    /// Return the number of bits of the top of the stack or an error if
+    /// the top of the stack is zero or empty.
+    fn run_num_bits(&mut self) -> Result<U256, ProgramError> {
+        let value = stack_peek(self, 0)?;
+        if value.is_zero() {
+            Err(ProgramError::ProverInputError(NumBitsError))
+        } else {
+            let num_bits = value.bits();
+            Ok(num_bits.into())
+        }
     }
 }
 

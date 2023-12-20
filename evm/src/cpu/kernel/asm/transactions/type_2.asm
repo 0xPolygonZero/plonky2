@@ -101,7 +101,7 @@ after_serializing_txn_data:
             al_len,
             after_serializing_access_list,
             rlp_pos, rlp_start, retdest)
-    %jump(memcpy)
+    %jump(memcpy_bytes)
 after_serializing_access_list:
     // stack: rlp_pos, rlp_start, retdest
     %mload_global_metadata(@GLOBAL_METADATA_ACCESS_LIST_RLP_LEN) ADD
@@ -111,7 +111,7 @@ after_serializing_access_list:
 
     // Store a `2` in front of the RLP
     %decrement
-    %stack (pos) -> (0, @SEGMENT_RLP_RAW, pos, 2, pos)
+    %stack (pos) -> (2, 0, @SEGMENT_RLP_RAW, pos, pos)
     MSTORE_GENERAL
     // stack: pos, rlp_len, retdest
 

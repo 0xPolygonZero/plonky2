@@ -1,8 +1,11 @@
 use std::collections::HashMap;
+use std::sync::atomic::AtomicBool;
+use std::sync::Arc;
 
 use anyhow::anyhow;
 use eth_trie_utils::partial_trie::{HashedPartialTrie, PartialTrie};
 use ethereum_types::{Address, BigEndianHash, H256, U256};
+use itertools::enumerate;
 use plonky2::field::extension::Extendable;
 use plonky2::field::polynomial::PolynomialValues;
 use plonky2::hash::hash_types::RichField;
@@ -16,25 +19,25 @@ use GlobalMetadata::{
 
 use crate::all_stark::{AllStark, NUM_TABLES};
 use crate::config::StarkConfig;
-use crate::cpu::bootstrap_kernel::generate_bootstrap_kernel;
 use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
-use crate::generation::outputs::{get_outputs, GenerationOutputs};
 use crate::generation::state::GenerationState;
+use crate::generation::trie_extractor::{get_receipt_trie, get_state_trie, get_txn_trie};
 use crate::memory::segments::Segment;
 use crate::proof::{BlockHashes, BlockMetadata, ExtraBlockData, PublicValues, TrieRoots};
-use crate::util::h2u;
+use crate::prover::check_abort_signal;
+use crate::util::{h2u, u256_to_usize};
 use crate::witness::memory::{MemoryAddress, MemoryChannel};
 use crate::witness::transition::transition;
 
 pub mod mpt;
-pub mod outputs;
 pub(crate) mod prover_input;
 pub(crate) mod rlp;
 pub(crate) mod state;
 mod trie_extractor;
 
+use self::mpt::{load_all_mpts, TrieRootPtrs};
 use crate::witness::util::mem_write_log;
 
 /// Inputs needed for trace generation.
@@ -42,16 +45,20 @@ use crate::witness::util::mem_write_log;
 pub struct GenerationInputs {
     pub txn_number_before: U256,
     pub gas_used_before: U256,
-    pub block_bloom_before: [U256; 8],
     pub gas_used_after: U256,
-    pub block_bloom_after: [U256; 8],
 
-    pub signed_txns: Vec<Vec<u8>>,
+    // A None would yield an empty proof, otherwise this contains the encoding of a transaction.
+    pub signed_txn: Option<Vec<u8>>,
+    // Withdrawal pairs `(addr, amount)`. At the end of the txs, `amount` is added to `addr`'s balance. See EIP-4895.
+    pub withdrawals: Vec<(Address, U256)>,
     pub tries: TrieInputs,
     /// Expected trie roots after the transactions are executed.
     pub trie_roots_after: TrieRoots,
-    /// State trie root of the genesis block.
-    pub genesis_state_trie_root: H256,
+
+    /// State trie root of the checkpoint block.
+    /// This could always be the genesis block of the chain, but it allows a prover to continue proving blocks
+    /// from certain checkpoint heights without requiring proofs for blocks past this checkpoint.
+    pub checkpoint_state_trie_root: H256,
 
     /// Mapping between smart contract code hashes and the contract byte code.
     /// All account smart contracts that are invoked will have an entry present.
@@ -60,13 +67,6 @@ pub struct GenerationInputs {
     pub block_metadata: BlockMetadata,
 
     pub block_hashes: BlockHashes,
-
-    /// A list of known addresses in the input state trie (which itself doesn't hold addresses,
-    /// only state keys). This is only useful for debugging, so that we can return addresses in the
-    /// post-state rather than state keys. (See `GenerationOutputs`, and in particular
-    /// `AddressOrStateKey`.) If the caller is not interested in the post-state, this can be left
-    /// empty.
-    pub addresses: Vec<Address>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, Default)]
@@ -120,7 +120,7 @@ fn apply_metadata_and_tries_memops<F: RichField + Extendable<D>, const D: usize>
         (GlobalMetadata::TxnNumberBefore, inputs.txn_number_before),
         (
             GlobalMetadata::TxnNumberAfter,
-            inputs.txn_number_before + inputs.signed_txns.len(),
+            inputs.txn_number_before + if inputs.signed_txn.is_some() { 1 } else { 0 },
         ),
         (
             GlobalMetadata::StateTrieRootDigestBefore,
@@ -146,6 +146,8 @@ fn apply_metadata_and_tries_memops<F: RichField + Extendable<D>, const D: usize>
             GlobalMetadata::ReceiptTrieRootDigestAfter,
             h2u(trie_roots_after.receipts_root),
         ),
+        (GlobalMetadata::KernelHash, h2u(KERNEL.code_hash)),
+        (GlobalMetadata::KernelLen, KERNEL.code.len().into()),
     ];
 
     let channel = MemoryChannel::GeneralPurpose(0);
@@ -169,32 +171,7 @@ fn apply_metadata_and_tries_memops<F: RichField + Extendable<D>, const D: usize>
             metadata.block_bloom[i],
         )
     }));
-    // Write the block's bloom filter before the current transaction.
-    ops.extend(
-        (0..8)
-            .map(|i| {
-                mem_write_log(
-                    channel,
-                    MemoryAddress::new(0, Segment::GlobalBlockBloom, i + 8),
-                    state,
-                    inputs.block_bloom_before[i],
-                )
-            })
-            .collect::<Vec<_>>(),
-    );
-    // Write the block's bloom filter after the current transaction.
-    ops.extend(
-        (0..8)
-            .map(|i| {
-                mem_write_log(
-                    channel,
-                    MemoryAddress::new(0, Segment::GlobalBlockBloom, i + 16),
-                    state,
-                    inputs.block_bloom_after[i],
-                )
-            })
-            .collect::<Vec<_>>(),
-    );
+
     // Write previous block hashes.
     ops.extend(
         (0..256)
@@ -218,32 +195,66 @@ pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
     inputs: GenerationInputs,
     config: &StarkConfig,
     timing: &mut TimingTree,
-) -> anyhow::Result<(
-    [Vec<PolynomialValues<F>>; NUM_TABLES],
-    PublicValues,
-    GenerationOutputs,
-)> {
+) -> anyhow::Result<([Vec<PolynomialValues<F>>; NUM_TABLES], PublicValues)> {
     let mut state = GenerationState::<F>::new(inputs.clone(), &KERNEL.code)
         .map_err(|err| anyhow!("Failed to parse all the initial prover inputs: {:?}", err))?;
 
     apply_metadata_and_tries_memops(&mut state, &inputs);
 
-    generate_bootstrap_kernel::<F>(&mut state);
+    let cpu_res = timed!(timing, "simulate CPU", simulate_cpu(&mut state));
+    if cpu_res.is_err() {
+        // Retrieve previous PC (before jumping to KernelPanic), to see if we reached `hash_final_tries`.
+        // We will output debugging information on the final tries only if we got a root mismatch.
+        let previous_pc = state
+            .traces
+            .cpu
+            .last()
+            .expect("We should have CPU rows")
+            .program_counter
+            .to_canonical_u64() as usize;
 
-    timed!(timing, "simulate CPU", simulate_cpu(&mut state)?);
+        if KERNEL.offset_name(previous_pc).contains("hash_final_tries") {
+            let state_trie_ptr = u256_to_usize(
+                state
+                    .memory
+                    .read_global_metadata(GlobalMetadata::StateTrieRoot),
+            )
+            .map_err(|_| anyhow!("State trie pointer is too large to fit in a usize."))?;
+            log::debug!(
+                "Computed state trie: {:?}",
+                get_state_trie::<HashedPartialTrie>(&state.memory, state_trie_ptr)
+            );
 
-    assert!(
-        state.mpt_prover_inputs.is_empty(),
-        "All MPT data should have been consumed"
-    );
+            let txn_trie_ptr = u256_to_usize(
+                state
+                    .memory
+                    .read_global_metadata(GlobalMetadata::TransactionTrieRoot),
+            )
+            .map_err(|_| anyhow!("Transactions trie pointer is too large to fit in a usize."))?;
+            log::debug!(
+                "Computed transactions trie: {:?}",
+                get_txn_trie::<HashedPartialTrie>(&state.memory, txn_trie_ptr)
+            );
+
+            let receipt_trie_ptr = u256_to_usize(
+                state
+                    .memory
+                    .read_global_metadata(GlobalMetadata::ReceiptTrieRoot),
+            )
+            .map_err(|_| anyhow!("Receipts trie pointer is too large to fit in a usize."))?;
+            log::debug!(
+                "Computed receipts trie: {:?}",
+                get_receipt_trie::<HashedPartialTrie>(&state.memory, receipt_trie_ptr)
+            );
+        }
+
+        cpu_res?;
+    }
 
     log::info!(
         "Trace lengths (before padding): {:?}",
         state.traces.get_lengths()
     );
-
-    let outputs = get_outputs(&mut state)
-        .map_err(|err| anyhow!("Failed to generate post-state info: {:?}", err))?;
 
     let read_metadata = |field| state.memory.read_global_metadata(field);
     let trie_roots_before = TrieRoots {
@@ -260,14 +271,13 @@ pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
     let gas_used_after = read_metadata(GlobalMetadata::BlockGasUsedAfter);
     let txn_number_after = read_metadata(GlobalMetadata::TxnNumberAfter);
 
+    let trie_root_ptrs = state.trie_root_ptrs;
     let extra_block_data = ExtraBlockData {
-        genesis_state_trie_root: inputs.genesis_state_trie_root,
+        checkpoint_state_trie_root: inputs.checkpoint_state_trie_root,
         txn_number_before: inputs.txn_number_before,
         txn_number_after,
         gas_used_before: inputs.gas_used_before,
         gas_used_after,
-        block_bloom_before: inputs.block_bloom_before,
-        block_bloom_after: inputs.block_bloom_after,
     };
 
     let public_values = PublicValues {
@@ -283,7 +293,7 @@ pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
         "convert trace data to tables",
         state.traces.into_tables(all_stark, config, timing)
     );
-    Ok((tables, public_values, outputs))
+    Ok((tables, public_values))
 }
 
 fn simulate_cpu<F: RichField + Extendable<D>, const D: usize>(
@@ -304,10 +314,7 @@ fn simulate_cpu<F: RichField + Extendable<D>, const D: usize>(
             row.context = F::from_canonical_usize(state.registers.context);
             row.program_counter = F::from_canonical_usize(pc);
             row.is_kernel_mode = F::ONE;
-            row.gas = [
-                F::from_canonical_u32(state.registers.gas_used as u32),
-                F::from_canonical_u32((state.registers.gas_used >> 32) as u32),
-            ];
+            row.gas = F::from_canonical_u64(state.registers.gas_used);
             row.stack_len = F::from_canonical_usize(state.registers.stack_len);
 
             loop {
@@ -317,6 +324,7 @@ fn simulate_cpu<F: RichField + Extendable<D>, const D: usize>(
                     break;
                 }
             }
+
             log::info!("CPU trace padded to {} cycles", state.traces.clock());
 
             return Ok(());

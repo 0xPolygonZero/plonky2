@@ -1,5 +1,4 @@
 /// These are normalized transaction fields, i.e. not specific to any transaction type.
-#[allow(dead_code)]
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Ord, PartialOrd, Debug)]
 pub(crate) enum NormalizedTxnField {
     /// Whether a chain ID was present in the txn data. Type 0 transaction with v=27 or v=28 have
@@ -29,7 +28,7 @@ pub(crate) enum NormalizedTxnField {
 impl NormalizedTxnField {
     pub(crate) const COUNT: usize = 16;
 
-    pub(crate) fn all() -> [Self; Self::COUNT] {
+    pub(crate) const fn all() -> [Self; Self::COUNT] {
         [
             Self::ChainIdPresent,
             Self::ChainId,
@@ -51,7 +50,7 @@ impl NormalizedTxnField {
     }
 
     /// The variable name that gets passed into kernel assembly code.
-    pub(crate) fn var_name(&self) -> &'static str {
+    pub(crate) const fn var_name(&self) -> &'static str {
         match self {
             NormalizedTxnField::ChainIdPresent => "TXN_FIELD_CHAIN_ID_PRESENT",
             NormalizedTxnField::ChainId => "TXN_FIELD_CHAIN_ID",

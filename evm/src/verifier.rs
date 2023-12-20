@@ -13,6 +13,7 @@ use plonky2::plonk::plonk_common::reduce_with_powers;
 use crate::all_stark::{AllStark, Table, NUM_TABLES};
 use crate::config::StarkConfig;
 use crate::constraint_consumer::ConstraintConsumer;
+use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
 use crate::cross_table_lookup::{
     verify_cross_table_lookups, CtlCheckVars, GrandProductChallenge, GrandProductChallengeSet,
@@ -121,13 +122,13 @@ where
 
     let public_values = all_proof.public_values;
 
-    // Extra products to add to the looked last value.
+    // Extra sums to add to the looked last value.
     // Only necessary for the Memory values.
-    let mut extra_looking_products = vec![vec![F::ONE; config.num_challenges]; NUM_TABLES];
+    let mut extra_looking_sums = vec![vec![F::ZERO; config.num_challenges]; NUM_TABLES];
 
     // Memory
-    extra_looking_products[Table::Memory as usize] = (0..config.num_challenges)
-        .map(|i| get_memory_extra_looking_products(&public_values, ctl_challenges.challenges[i]))
+    extra_looking_sums[Table::Memory as usize] = (0..config.num_challenges)
+        .map(|i| get_memory_extra_looking_sum(&public_values, ctl_challenges.challenges[i]))
         .collect_vec();
 
     verify_cross_table_lookups::<F, D>(
@@ -135,22 +136,22 @@ where
         all_proof
             .stark_proofs
             .map(|p| p.proof.openings.ctl_zs_first),
-        extra_looking_products,
+        extra_looking_sums,
         config,
     )
 }
 
 /// Computes the extra product to multiply to the looked value. It contains memory operations not in the CPU trace:
-/// - block metadata writes before kernel bootstrapping,
-/// - trie roots writes before kernel bootstrapping.
-pub(crate) fn get_memory_extra_looking_products<F, const D: usize>(
+/// - block metadata writes,
+/// - trie roots writes.
+pub(crate) fn get_memory_extra_looking_sum<F, const D: usize>(
     public_values: &PublicValues,
     challenge: GrandProductChallenge<F>,
 ) -> F
 where
     F: RichField + Extendable<D>,
 {
-    let mut prod = F::ONE;
+    let mut sum = F::ZERO;
 
     // Add metadata and tries writes.
     let fields = [
@@ -234,42 +235,35 @@ where
             GlobalMetadata::ReceiptTrieRootDigestAfter,
             h2u(public_values.trie_roots_after.receipts_root),
         ),
+        (GlobalMetadata::KernelHash, h2u(KERNEL.code_hash)),
+        (GlobalMetadata::KernelLen, KERNEL.code.len().into()),
     ];
 
     let segment = F::from_canonical_u32(Segment::GlobalMetadata as u32);
 
-    fields.map(|(field, val)| prod = add_data_write(challenge, segment, prod, field as usize, val));
+    fields.map(|(field, val)| sum = add_data_write(challenge, segment, sum, field as usize, val));
 
     // Add block bloom writes.
     let bloom_segment = F::from_canonical_u32(Segment::GlobalBlockBloom as u32);
     for index in 0..8 {
         let val = public_values.block_metadata.block_bloom[index];
-        prod = add_data_write(challenge, bloom_segment, prod, index, val);
-    }
-
-    for index in 0..8 {
-        let val = public_values.extra_block_data.block_bloom_before[index];
-        prod = add_data_write(challenge, bloom_segment, prod, index + 8, val);
-    }
-    for index in 0..8 {
-        let val = public_values.extra_block_data.block_bloom_after[index];
-        prod = add_data_write(challenge, bloom_segment, prod, index + 16, val);
+        sum = add_data_write(challenge, bloom_segment, sum, index, val);
     }
 
     // Add Blockhashes writes.
     let block_hashes_segment = F::from_canonical_u32(Segment::BlockHashes as u32);
     for index in 0..256 {
         let val = h2u(public_values.block_hashes.prev_hashes[index]);
-        prod = add_data_write(challenge, block_hashes_segment, prod, index, val);
+        sum = add_data_write(challenge, block_hashes_segment, sum, index, val);
     }
 
-    prod
+    sum
 }
 
 fn add_data_write<F, const D: usize>(
     challenge: GrandProductChallenge<F>,
     segment: F,
-    running_product: F,
+    running_sum: F,
     index: usize,
     val: U256,
 ) -> F
@@ -286,7 +280,7 @@ where
         row[j + 4] = F::from_canonical_u32((val >> (j * 32)).low_u32());
     }
     row[12] = F::ONE; // timestamp
-    running_product * challenge.combine(row.iter())
+    running_sum + challenge.combine(row.iter()).inverse()
 }
 
 pub(crate) fn verify_stark_proof_with_challenges<
@@ -549,6 +543,8 @@ pub(crate) mod testutils {
                 GlobalMetadata::ReceiptTrieRootDigestAfter,
                 h2u(public_values.trie_roots_after.receipts_root),
             ),
+            (GlobalMetadata::KernelHash, h2u(KERNEL.code_hash)),
+            (GlobalMetadata::KernelLen, KERNEL.code.len().into()),
         ];
 
         let segment = F::from_canonical_u32(Segment::GlobalMetadata as u32);
@@ -563,15 +559,6 @@ pub(crate) mod testutils {
         for index in 0..8 {
             let val = public_values.block_metadata.block_bloom[index];
             extra_looking_rows.push(add_extra_looking_row(bloom_segment, index, val));
-        }
-
-        for index in 0..8 {
-            let val = public_values.extra_block_data.block_bloom_before[index];
-            extra_looking_rows.push(add_extra_looking_row(bloom_segment, index + 8, val));
-        }
-        for index in 0..8 {
-            let val = public_values.extra_block_data.block_bloom_after[index];
-            extra_looking_rows.push(add_extra_looking_row(bloom_segment, index + 16, val));
         }
 
         // Add Blockhashes writes.

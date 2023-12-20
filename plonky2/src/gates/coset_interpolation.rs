@@ -1,4 +1,4 @@
-use alloc::string::String;
+use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use alloc::{format, vec};
 use core::marker::PhantomData;
@@ -86,16 +86,16 @@ impl<F: RichField + Extendable<D>, const D: usize> CosetInterpolationGate<F, D> 
         }
     }
 
-    fn num_points(&self) -> usize {
+    const fn num_points(&self) -> usize {
         1 << self.subgroup_bits
     }
 
     /// Wire index of the coset shift.
-    pub(crate) fn wire_shift(&self) -> usize {
+    pub(crate) const fn wire_shift(&self) -> usize {
         0
     }
 
-    fn start_values(&self) -> usize {
+    const fn start_values(&self) -> usize {
         1
     }
 
@@ -106,31 +106,31 @@ impl<F: RichField + Extendable<D>, const D: usize> CosetInterpolationGate<F, D> 
         start..start + D
     }
 
-    fn start_evaluation_point(&self) -> usize {
+    const fn start_evaluation_point(&self) -> usize {
         self.start_values() + self.num_points() * D
     }
 
     /// Wire indices of the point to evaluate the interpolant at.
-    pub(crate) fn wires_evaluation_point(&self) -> Range<usize> {
+    pub(crate) const fn wires_evaluation_point(&self) -> Range<usize> {
         let start = self.start_evaluation_point();
         start..start + D
     }
 
-    fn start_evaluation_value(&self) -> usize {
+    const fn start_evaluation_value(&self) -> usize {
         self.start_evaluation_point() + D
     }
 
     /// Wire indices of the interpolated value.
-    pub(crate) fn wires_evaluation_value(&self) -> Range<usize> {
+    pub(crate) const fn wires_evaluation_value(&self) -> Range<usize> {
         let start = self.start_evaluation_value();
         start..start + D
     }
 
-    fn start_intermediates(&self) -> usize {
+    const fn start_intermediates(&self) -> usize {
         self.start_evaluation_value() + D
     }
 
-    pub fn num_routed_wires(&self) -> usize {
+    pub const fn num_routed_wires(&self) -> usize {
         self.start_intermediates()
     }
 
@@ -631,8 +631,6 @@ fn partial_interpolate_ext_algebra_target<F: RichField + Extendable<D>, const D:
 
 #[cfg(test)]
 mod tests {
-    use core::iter::repeat_with;
-
     use anyhow::Result;
     use plonky2_field::polynomial::PolynomialValues;
     use plonky2_util::log2_strict;
@@ -832,7 +830,7 @@ mod tests {
 
         // Get a working row for InterpolationGate.
         let shift = F::rand();
-        let values = PolynomialValues::new(repeat_with(FF::rand).take(4).collect());
+        let values = PolynomialValues::new(core::iter::repeat_with(FF::rand).take(4).collect());
         let eval_point = FF::rand();
         let gate = CosetInterpolationGate::<F, D>::with_max_degree(2, 3);
         let vars = EvaluationVars {

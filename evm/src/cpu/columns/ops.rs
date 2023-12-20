@@ -4,38 +4,52 @@ use std::ops::{Deref, DerefMut};
 
 use crate::util::transmute_no_compile_time_size_checks;
 
+/// Structure representing the flags for the various opcodes.
 #[repr(C)]
 #[derive(Clone, Copy, Eq, PartialEq, Debug)]
-pub struct OpsColumnsView<T: Copy> {
-    pub binary_op: T,  // Combines ADD, MUL, SUB, DIV, MOD, LT, GT and BYTE flags.
-    pub ternary_op: T, // Combines ADDMOD, MULMOD and SUBMOD flags.
-    pub fp254_op: T,   // Combines ADD_FP254, MUL_FP254 and SUB_FP254 flags.
-    pub eq_iszero: T,  // Combines EQ and ISZERO flags.
-    pub logic_op: T,   // Combines AND, OR and XOR flags.
-    pub not: T,
-    pub shift: T, // Combines SHL and SHR flags.
-    pub keccak_general: T,
-    pub prover_input: T,
-    pub pop: T,
-    pub jumps: T, // Combines JUMP and JUMPI flags.
-    pub pc: T,
-    pub jumpdest: T,
-    pub push0: T,
-    pub push: T,
+pub(crate) struct OpsColumnsView<T: Copy> {
+    /// Combines ADD, MUL, SUB, DIV, MOD, LT, GT and BYTE flags.
+    pub binary_op: T,
+    /// Combines ADDMOD, MULMOD and SUBMOD flags.
+    pub ternary_op: T,
+    /// Combines ADD_FP254, MUL_FP254 and SUB_FP254 flags.
+    pub fp254_op: T,
+    /// Combines EQ and ISZERO flags.
+    pub eq_iszero: T,
+    /// Combines AND, OR and XOR flags.
+    pub logic_op: T,
+    /// Combines NOT and POP flags.
+    pub not_pop: T,
+    /// Combines SHL and SHR flags.
+    pub shift: T,
+    /// Combines JUMPDEST and KECCAK_GENERAL flags.
+    pub jumpdest_keccak_general: T,
+    /// Combines JUMP and JUMPI flags.
+    pub jumps: T,
+    /// Combines PUSH and PROVER_INPUT flags.
+    pub push_prover_input: T,
+    /// Combines DUP and SWAP flags.
     pub dup_swap: T,
-    pub get_context: T,
-    pub set_context: T,
-    pub mstore_32bytes: T,
-    pub mload_32bytes: T,
+    /// Combines GET_CONTEXT and SET_CONTEXT flags.
+    pub context_op: T,
+    /// Combines MSTORE_32BYTES and MLOAD_32BYTES.
+    pub m_op_32bytes: T,
+    /// Flag for EXIT_KERNEL.
     pub exit_kernel: T,
+    /// Combines MSTORE_GENERAL and MLOAD_GENERAL flags.
     pub m_op_general: T,
+    /// Combines PC and PUSH0
+    pub pc_push0: T,
 
+    /// Flag for syscalls.
     pub syscall: T,
+    /// Flag for exceptions.
     pub exception: T,
 }
 
-// `u8` is guaranteed to have a `size_of` of 1.
-pub const NUM_OPS_COLUMNS: usize = size_of::<OpsColumnsView<u8>>();
+/// Number of columns in Cpu Stark.
+/// `u8` is guaranteed to have a `size_of` of 1.
+pub(crate) const NUM_OPS_COLUMNS: usize = size_of::<OpsColumnsView<u8>>();
 
 impl<T: Copy> From<[T; NUM_OPS_COLUMNS]> for OpsColumnsView<T> {
     fn from(value: [T; NUM_OPS_COLUMNS]) -> Self {

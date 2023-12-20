@@ -24,21 +24,15 @@ const SIMPLE_OPCODES: OpsColumnsView<Option<u32>> = OpsColumnsView {
     fp254_op: KERNEL_ONLY_INSTR,
     eq_iszero: G_VERYLOW,
     logic_op: G_VERYLOW,
-    not: G_VERYLOW,
+    not_pop: None, // This is handled manually below
     shift: G_VERYLOW,
-    keccak_general: KERNEL_ONLY_INSTR,
-    prover_input: KERNEL_ONLY_INSTR,
-    pop: G_BASE,
-    jumps: None, // Combined flag handled separately.
-    pc: G_BASE,
-    jumpdest: G_JUMPDEST,
-    push0: G_BASE,
-    push: G_VERYLOW,
+    jumpdest_keccak_general: None, // This is handled manually below.
+    push_prover_input: None,       // This is handled manually below.
+    jumps: None,                   // Combined flag handled separately.
+    pc_push0: G_BASE,
     dup_swap: G_VERYLOW,
-    get_context: KERNEL_ONLY_INSTR,
-    set_context: KERNEL_ONLY_INSTR,
-    mstore_32bytes: KERNEL_ONLY_INSTR,
-    mload_32bytes: KERNEL_ONLY_INSTR,
+    context_op: KERNEL_ONLY_INSTR,
+    m_op_32bytes: KERNEL_ONLY_INSTR,
     exit_kernel: None,
     m_op_general: KERNEL_ONLY_INSTR,
     syscall: None,
@@ -70,14 +64,10 @@ fn eval_packed_accumulate<P: PackedField>(
         })
         .sum();
 
-    // TODO: This may cause soundness issue if the recomputed gas (as u64) overflows the field size.
-    // This is fine as we are only using two-limbs for testing purposes (to support all cases from
-    // the Ethereum test suite).
-    // This should be changed back to a single 32-bit limb before going into production!
-    let gas_diff = nv.gas[1] * P::Scalar::from_canonical_u64(1 << 32) + nv.gas[0]
-        - (lv.gas[1] * P::Scalar::from_canonical_u64(1 << 32) + lv.gas[0]);
-    let constr = gas_diff - gas_used;
+    let constr = nv.gas - (lv.gas + gas_used);
     yield_constr.constraint_transition(filter * constr);
+
+    let gas_diff = nv.gas - lv.gas;
 
     for (maybe_cost, op_flag) in izip!(SIMPLE_OPCODES.into_iter(), lv.op.into_iter()) {
         if let Some(cost) = maybe_cost {
@@ -105,6 +95,30 @@ fn eval_packed_accumulate<P: PackedField>(
     let ternary_op_cost = P::Scalar::from_canonical_u32(G_MID.unwrap())
         - lv.opcode_bits[1] * P::Scalar::from_canonical_u32(G_MID.unwrap());
     yield_constr.constraint_transition(lv.op.ternary_op * (gas_diff - ternary_op_cost));
+
+    // For NOT and POP.
+    // NOT is differentiated from POP by its first bit set to 1.
+    let not_pop_cost = (P::ONES - lv.opcode_bits[0])
+        * P::Scalar::from_canonical_u32(G_BASE.unwrap())
+        + lv.opcode_bits[0] * P::Scalar::from_canonical_u32(G_VERYLOW.unwrap());
+    yield_constr.constraint_transition(lv.op.not_pop * (gas_diff - not_pop_cost));
+
+    // For JUMPDEST and KECCAK_GENERAL.
+    // JUMPDEST is differentiated from KECCAK_GENERAL by its second bit set to 1.
+    let jumpdest_keccak_general_gas_cost = lv.opcode_bits[1]
+        * P::Scalar::from_canonical_u32(G_JUMPDEST.unwrap())
+        + (P::ONES - lv.opcode_bits[1]) * P::Scalar::from_canonical_u32(KERNEL_ONLY_INSTR.unwrap());
+    yield_constr.constraint_transition(
+        lv.op.jumpdest_keccak_general * (gas_diff - jumpdest_keccak_general_gas_cost),
+    );
+
+    // For PROVER_INPUT and PUSH operations.
+    // PUSH operations are differentiated from PROVER_INPUT by their 6th bit set to 1.
+    let push_prover_input_gas_cost = lv.opcode_bits[5]
+        * P::Scalar::from_canonical_u32(G_VERYLOW.unwrap())
+        + (P::ONES - lv.opcode_bits[5]) * P::Scalar::from_canonical_u32(KERNEL_ONLY_INSTR.unwrap());
+    yield_constr
+        .constraint_transition(lv.op.push_prover_input * (gas_diff - push_prover_input_gas_cost));
 }
 
 fn eval_packed_init<P: PackedField>(
@@ -117,11 +131,11 @@ fn eval_packed_init<P: PackedField>(
     // `nv` is the first row that executes an instruction.
     let filter = (is_cpu_cycle - P::ONES) * is_cpu_cycle_next;
     // Set initial gas to zero.
-    yield_constr.constraint_transition(filter * nv.gas[0]);
-    yield_constr.constraint_transition(filter * nv.gas[1]);
+    yield_constr.constraint_transition(filter * nv.gas);
 }
 
-pub fn eval_packed<P: PackedField>(
+/// Evaluate the gas constraints for the opcodes that cost a constant gas.
+pub(crate) fn eval_packed<P: PackedField>(
     lv: &CpuColumnsView<P>,
     nv: &CpuColumnsView<P>,
     yield_constr: &mut ConstraintConsumer<P>,
@@ -161,22 +175,16 @@ fn eval_ext_circuit_accumulate<F: RichField + Extendable<D>, const D: usize>(
         },
     );
 
-    // TODO: This may cause soundness issue if the recomputed gas (as u64) overflows the field size.
-    // This is fine as we are only using two-limbs for testing purposes (to support all cases from
-    // the Ethereum test suite).
-    // This should be changed back to a single 32-bit limb before going into production!
-    let nv_gas =
-        builder.mul_const_add_extension(F::from_canonical_u64(1 << 32), nv.gas[1], nv.gas[0]);
-    let lv_gas =
-        builder.mul_const_add_extension(F::from_canonical_u64(1 << 32), lv.gas[1], lv.gas[0]);
-    let nv_lv_diff = builder.sub_extension(nv_gas, lv_gas);
-
-    let constr = builder.sub_extension(nv_lv_diff, gas_used);
+    let constr = {
+        let t = builder.add_extension(lv.gas, gas_used);
+        builder.sub_extension(nv.gas, t)
+    };
     let filtered_constr = builder.mul_extension(filter, constr);
     yield_constr.constraint_transition(builder, filtered_constr);
 
     for (maybe_cost, op_flag) in izip!(SIMPLE_OPCODES.into_iter(), lv.op.into_iter()) {
         if let Some(cost) = maybe_cost {
+            let nv_lv_diff = builder.sub_extension(nv.gas, lv.gas);
             let constr = builder.arithmetic_extension(
                 F::ONE,
                 -F::from_canonical_u32(cost),
@@ -197,6 +205,7 @@ fn eval_ext_circuit_accumulate<F: RichField + Extendable<D>, const D: usize>(
     let jump_gas_cost =
         builder.add_const_extension(jump_gas_cost, F::from_canonical_u32(G_MID.unwrap()));
 
+    let nv_lv_diff = builder.sub_extension(nv.gas, lv.gas);
     let gas_diff = builder.sub_extension(nv_lv_diff, jump_gas_cost);
     let constr = builder.mul_extension(filter, gas_diff);
     yield_constr.constraint_transition(builder, constr);
@@ -216,6 +225,7 @@ fn eval_ext_circuit_accumulate<F: RichField + Extendable<D>, const D: usize>(
     let binary_op_cost =
         builder.add_const_extension(binary_op_cost, F::from_canonical_u32(G_LOW.unwrap()));
 
+    let nv_lv_diff = builder.sub_extension(nv.gas, lv.gas);
     let gas_diff = builder.sub_extension(nv_lv_diff, binary_op_cost);
     let constr = builder.mul_extension(filter, gas_diff);
     yield_constr.constraint_transition(builder, constr);
@@ -230,8 +240,57 @@ fn eval_ext_circuit_accumulate<F: RichField + Extendable<D>, const D: usize>(
     let ternary_op_cost =
         builder.add_const_extension(ternary_op_cost, F::from_canonical_u32(G_MID.unwrap()));
 
+    let nv_lv_diff = builder.sub_extension(nv.gas, lv.gas);
     let gas_diff = builder.sub_extension(nv_lv_diff, ternary_op_cost);
     let constr = builder.mul_extension(filter, gas_diff);
+    yield_constr.constraint_transition(builder, constr);
+
+    // For NOT and POP.
+    // NOT is differentiated from POP by its first bit set to 1.
+    let filter = lv.op.not_pop;
+    let one = builder.one_extension();
+    let mut not_pop_cost =
+        builder.mul_const_extension(F::from_canonical_u32(G_VERYLOW.unwrap()), lv.opcode_bits[0]);
+    let mut pop_cost = builder.sub_extension(one, lv.opcode_bits[0]);
+    pop_cost = builder.mul_const_extension(F::from_canonical_u32(G_BASE.unwrap()), pop_cost);
+    not_pop_cost = builder.add_extension(not_pop_cost, pop_cost);
+
+    let not_pop_gas_diff = builder.sub_extension(nv_lv_diff, not_pop_cost);
+    let not_pop_constr = builder.mul_extension(filter, not_pop_gas_diff);
+    yield_constr.constraint_transition(builder, not_pop_constr);
+
+    // For JUMPDEST and KECCAK_GENERAL.
+    // JUMPDEST is differentiated from KECCAK_GENERAL by its second bit set to 1.
+    let one = builder.one_extension();
+    let filter = lv.op.jumpdest_keccak_general;
+
+    let jumpdest_keccak_general_gas_cost = builder.arithmetic_extension(
+        F::from_canonical_u32(G_JUMPDEST.unwrap())
+            - F::from_canonical_u32(KERNEL_ONLY_INSTR.unwrap()),
+        F::from_canonical_u32(KERNEL_ONLY_INSTR.unwrap()),
+        lv.opcode_bits[1],
+        one,
+        one,
+    );
+
+    let gas_diff = builder.sub_extension(nv_lv_diff, jumpdest_keccak_general_gas_cost);
+    let constr = builder.mul_extension(filter, gas_diff);
+
+    yield_constr.constraint_transition(builder, constr);
+
+    // For PROVER_INPUT and PUSH operations.
+    // PUSH operations are differentiated from PROVER_INPUT by their 6th bit set to 1.
+    let push_prover_input_gas_cost = builder.arithmetic_extension(
+        F::from_canonical_u32(G_VERYLOW.unwrap())
+            - F::from_canonical_u32(KERNEL_ONLY_INSTR.unwrap()),
+        F::from_canonical_u32(KERNEL_ONLY_INSTR.unwrap()),
+        lv.opcode_bits[5],
+        one,
+        one,
+    );
+    let gas_diff = builder.sub_extension(nv_lv_diff, push_prover_input_gas_cost);
+    let constr = builder.mul_extension(lv.op.push_prover_input, gas_diff);
+
     yield_constr.constraint_transition(builder, constr);
 }
 
@@ -246,18 +305,20 @@ fn eval_ext_circuit_init<F: RichField + Extendable<D>, const D: usize>(
     let is_cpu_cycle_next = builder.add_many_extension(COL_MAP.op.iter().map(|&col_i| nv[col_i]));
     let filter = builder.mul_sub_extension(is_cpu_cycle, is_cpu_cycle_next, is_cpu_cycle_next);
     // Set initial gas to zero.
-    let constr = builder.mul_extension(filter, nv.gas[0]);
-    yield_constr.constraint_transition(builder, constr);
-    let constr = builder.mul_extension(filter, nv.gas[1]);
+    let constr = builder.mul_extension(filter, nv.gas);
     yield_constr.constraint_transition(builder, constr);
 }
 
-pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
+/// Circuit version of `eval_packed`.
+/// Evaluate the gas constraints for the opcodes that cost a constant gas.
+pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
     lv: &CpuColumnsView<ExtensionTarget<D>>,
     nv: &CpuColumnsView<ExtensionTarget<D>>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
+    // Evaluates the transition gas constraints.
     eval_ext_circuit_accumulate(builder, lv, nv, yield_constr);
+    // Evaluates the initial gas constraints.
     eval_ext_circuit_init(builder, lv, nv, yield_constr);
 }

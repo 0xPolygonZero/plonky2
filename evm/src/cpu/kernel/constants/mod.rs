@@ -18,7 +18,7 @@ pub(crate) mod trie_type;
 pub(crate) mod txn_fields;
 
 /// Constants that are accessible to our kernel assembly code.
-pub fn evm_constants() -> HashMap<String, U256> {
+pub(crate) fn evm_constants() -> HashMap<String, U256> {
     let mut c = HashMap::new();
 
     let hex_constants = MISC_CONSTANTS
@@ -154,7 +154,7 @@ const EC_CONSTANTS: [(&str, [u8; 32]); 20] = [
     ),
     (
         "BN_BNEG_LOC",
-        // This just needs to be large enough to not interfere with anything else in SEGMENT_KERNEL_BN_TABLE_Q.
+        // This just needs to be large enough to not interfere with anything else in SEGMENT_BN_TABLE_Q.
         hex!("0000000000000000000000000000000000000000000000000000000000001337"),
     ),
     (
