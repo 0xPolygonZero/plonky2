@@ -5,8 +5,8 @@ use crate::cpu::kernel::interpreter::Interpreter;
 use crate::cpu::kernel::opcodes::{get_opcode, get_push_opcode};
 
 #[test]
-fn test_validate_jumpdest_table() -> Result<()> {
-    let validate_jumpdest_table = KERNEL.global_labels["validate_jumpdest_table"];
+fn test_jumpdest_analisys() -> Result<()> {
+    let jumpdest_analisys = KERNEL.global_labels["jumpdest_analisys"];
     const CONTEXT: usize = 3; // arbitrary
 
     let add = get_opcode("ADD");
@@ -29,7 +29,7 @@ fn test_validate_jumpdest_table() -> Result<()> {
 
     // Contract creation transaction.
     let initial_stack = vec![0xDEADBEEFu32.into(), CONTEXT.into()];
-    let mut interpreter = Interpreter::new_with_kernel(validate_jumpdest_table, initial_stack);
+    let mut interpreter = Interpreter::new_with_kernel(jumpdest_analisys, initial_stack);
     interpreter.set_code(CONTEXT, code);
     interpreter.set_jumpdest_bits(CONTEXT, jumpdest_bits);
 

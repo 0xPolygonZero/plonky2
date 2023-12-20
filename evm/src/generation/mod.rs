@@ -351,15 +351,15 @@ fn simulate_cpu_between_labels_and_get_user_jumps<F: Field>(
         let mut jumpdest_addresses: HashMap<_, BTreeSet<usize>> = HashMap::new();
 
         state.registers.program_counter = KERNEL.global_labels[initial_label];
+        let initial_clock = state.traces.clock();
         let initial_context = state.registers.context;
 
         log::debug!("Simulating CPU for jumpdest analysis.");
 
         loop {
             // skip jumdest table validations in simulations
-            if state.registers.program_counter == KERNEL.global_labels["validate_jumpdest_table"] {
-                state.registers.program_counter =
-                    KERNEL.global_labels["validate_jumpdest_table_end"]
+            if state.registers.program_counter == KERNEL.global_labels["jumpdest_analisys"] {
+                state.registers.program_counter = KERNEL.global_labels["jumpdest_analisys_end"]
             }
             let pc = state.registers.program_counter;
             let context = state.registers.context;
@@ -389,6 +389,11 @@ fn simulate_cpu_between_labels_and_get_user_jumps<F: Field>(
                     },
                     U256::one(),
                 );
+                let jumpdest_opcode = state.memory.get(MemoryAddress {
+                    context,
+                    segment: Segment::Code as usize,
+                    virt: jumpdest,
+                });
                 if let Some(ctx_addresses) = jumpdest_addresses.get_mut(&context) {
                     ctx_addresses.insert(jumpdest);
                 } else {
@@ -396,7 +401,10 @@ fn simulate_cpu_between_labels_and_get_user_jumps<F: Field>(
                 }
             }
             if halt {
-                log::debug!("Simulated CPU halted after {} cycles", state.traces.clock());
+                log::debug!(
+                    "Simulated CPU halted after {} cycles",
+                    state.traces.clock() - initial_clock
+                );
                 return Ok(Some(jumpdest_addresses));
             }
             transition(state).map_err(|_| {
