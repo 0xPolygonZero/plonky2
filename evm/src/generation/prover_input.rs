@@ -368,9 +368,9 @@ impl<F: Field> GenerationState<F> {
         Ok(code_len)
     }
 
-    fn set_jumpdest_bits<'a>(&mut self, code: &'a Vec<u8>) {
+    fn set_jumpdest_bits(&mut self, code: &[u8]) {
         const JUMPDEST_OPCODE: u8 = 0x5b;
-        for (pos, opcode) in CodeIterator::new(&code) {
+        for (pos, opcode) in CodeIterator::new(code) {
             if opcode == JUMPDEST_OPCODE {
                 self.memory.set(
                     MemoryAddress {
@@ -390,14 +390,14 @@ impl<F: Field> GenerationState<F> {
 /// for which none of the previous 32 bytes in the code (including opcodes
 /// and pushed bytes are PUSHXX and the address is in its range. It returns
 /// a vector of even size containing proofs followed by their addresses
-fn get_proofs_and_jumpdests<'a>(
-    code: &'a Vec<u8>,
+fn get_proofs_and_jumpdests(
+    code: &[u8],
     largest_address: usize,
     jumpdest_table: std::collections::BTreeSet<usize>,
 ) -> Vec<usize> {
     const PUSH1_OPCODE: u8 = 0x60;
     const PUSH32_OPCODE: u8 = 0x7f;
-    let (proofs, _) = CodeIterator::until(&code, largest_address + 1).fold(
+    let (proofs, _) = CodeIterator::until(code, largest_address + 1).fold(
         (vec![], 0),
         |(mut proofs, acc), (pos, opcode)| {
             let has_prefix = if let Some(prefix_start) = pos.checked_sub(32) {
