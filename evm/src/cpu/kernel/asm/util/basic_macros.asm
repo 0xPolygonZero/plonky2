@@ -8,6 +8,19 @@
     jumpi
 %endmacro
 
+%macro jump_eq_const(c, jumpdest)
+    PUSH $c
+    SUB
+    %jumpi($jumpdest)
+%endmacro
+
+%macro jumpi_lt_const(c, jumpdest)
+    // %assert_zero is cheaper than %assert_nonzero, so we will leverage the
+    // fact that (x < c) == !(x >= c).
+    %ge_const($c)
+    %jumpi($jumpdest)
+%endmacro
+
 %macro pop2
     %rep 2
         POP

@@ -369,7 +369,7 @@ call_too_deep:
     // Perform jumpdest analyis
     GET_CONTEXT
     // stack: ctx, code_size, retdest
-    %validate_jumpdest_table
+    %jumpdest_analisys
     PUSH 0 // jump dest
     EXIT_KERNEL
     // (Old context) stack: new_ctx

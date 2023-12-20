@@ -306,7 +306,7 @@ impl<F: Field> GenerationState<F> {
 
         // Simulate the user's code and (unnecessarily) part of the kernel code, skipping the validate table call
         let Some(jumpdest_table) = simulate_cpu_between_labels_and_get_user_jumps(
-            "validate_jumpdest_table_end",
+            "jumpdest_analisys_end",
             "terminate_common",
             self,
         )?
@@ -385,7 +385,8 @@ impl<F: Field> GenerationState<F> {
     }
 }
 
-/// For each address in `jumpdest_table` it search a proof, that is the closest address
+/// For each address in `jumpdest_table`, each bounded by larges_address,
+/// this function searches for a proof. A proof is the closest address
 /// for which none of the previous 32 bytes in the code (including opcodes
 /// and pushed bytes are PUSHXX and the address is in its range. It returns
 /// a vector of even size containing proofs followed by their addresses

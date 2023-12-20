@@ -1,17 +1,14 @@
 // Set @SEGMENT_JUMPDEST_BITS to one between positions [init_pos, final_pos], 
-// for the given context's code. Panics if we never hit final_pos
+// for the given context's code.
 // Pre stack: init_pos, ctx, final_pos, retdest
 // Post stack: (empty)
-global verify_path:
+global verify_path_and_write_table:
 loop:
     // stack: i, ctx, final_pos, retdest
-    // Ideally we would break if i >= final_pos, but checking i > final_pos is
-    // cheaper. It doesn't hurt to over-read by 1, since we'll read 0 which is
-    // a no-op.
     DUP3 DUP2 EQ // i == final_pos
-    %jumpi(return)
+    %jumpi(proof_ok)
     DUP3 DUP2 GT // i > final_pos
-    %jumpi(panic)
+    %jumpi(proof_not_ok)
 
     // stack: i, ctx, final_pos, retdest
     %stack (i, ctx) -> (ctx, @SEGMENT_CODE, i, i, ctx)
@@ -22,24 +19,29 @@ loop:
     // Slightly more efficient than `%eq_const(0x5b) ISZERO`
     PUSH 0x5b
     SUB
-    // stack: opcode != JUMPDEST, opcode, i, ctx, code_len, retdest
+    // stack: opcode != JUMPDEST, opcode, i, ctx, final_pos, retdest
     %jumpi(continue)
 
-    // stack: JUMPDEST, i, ctx, code_len, retdest
+    // stack: JUMPDEST, i, ctx, final_pos, retdest
     %stack (JUMPDEST, i, ctx) -> (1, ctx, @SEGMENT_JUMPDEST_BITS, i, JUMPDEST, i, ctx)
     MSTORE_GENERAL
 
 continue:
-    // stack: opcode, i, ctx, code_len, retdest
+    // stack: opcode, i, ctx, final_pos, retdest
     %add_const(code_bytes_to_skip)
     %mload_kernel_code
-    // stack: bytes_to_skip, i, ctx, code_len, retdest
+    // stack: bytes_to_skip, i, ctx, final_pos, retdest
     ADD
-    // stack: i, ctx, code_len, retdest
+    // stack: i, ctx, final_pos, retdest
     %jump(loop)
 
-return:
-    // stack: i, ctx, code_len, retdest
+proof_ok:
+    // stack: i, ctx, final_pos, retdest
+    // We already know final pos is a jumpdest
+    %stack (i, ctx, final_pos) -> (1, ctx, @SEGMENT_JUMPDEST_BITS, i)
+    MSTORE_GENERAL
+    JUMP
+proof_not_ok:
     %pop3
     JUMP
 
@@ -101,26 +103,21 @@ code_bytes_to_skip:
 //     - code[jumpdest] = 0x5b.
 // stack: proof_prefix_addr, jumpdest, ctx, retdest
 // stack: (empty) abort if jumpdest is not a valid destination
-global is_jumpdest:
+global write_table_if_jumpdest:
     // stack: proof_prefix_addr, jumpdest, ctx, retdest
-    //%stack
-    //    (proof_prefix_addr, jumpdest, ctx) ->
-    //    (ctx, @SEGMENT_JUMPDEST_BITS, jumpdest, proof_prefix_addr, jumpdest, ctx)
-    //MLOAD_GENERAL
-    //%jumpi(return_is_jumpdest)
     %stack
         (proof_prefix_addr, jumpdest, ctx) ->
         (ctx, @SEGMENT_CODE, jumpdest, jumpdest, ctx, proof_prefix_addr)
     MLOAD_GENERAL
     // stack: opcode, jumpdest, ctx, proof_prefix_addr, retdest
 
-    %assert_eq_const(0x5b)
+    %jump_eq_const(0x5b, return)
 
     //stack: jumpdest, ctx, proof_prefix_addr, retdest
     SWAP2 DUP1
     // stack: proof_prefix_addr, proof_prefix_addr, ctx, jumpdest
     ISZERO
-    %jumpi(verify_path)
+    %jumpi(verify_path_and_write_table)
     // stack: proof_prefix_addr, ctx, jumpdest, retdest
     // If we are here we need to check that the next 32 bytes are less
     // than JUMPXX for XX < 32 - i <=> opcode < 0x7f - i = 127 - i, 0 <= i < 32,
@@ -135,9 +132,8 @@ global is_jumpdest:
     %check_and_step(99) %check_and_step(98) %check_and_step(97) %check_and_step(96)
 
     // check the remaining path
-    %jump(verify_path)
-
-return_is_jumpdest:
+    %jump(verify_path_and_write_table)
+return:
     // stack: proof_prefix_addr, jumpdest, ctx, retdest
     %pop3
     JUMP
@@ -154,7 +150,7 @@ return_is_jumpdest:
     DUP1
     %gt_const(127)
     %jumpi(%%ok)
-    %assert_lt_const($max)
+    %jumpi_lt_const($max, return)
     // stack: proof_prefix_addr, ctx, jumpdest
     PUSH 0 // We need something to pop
 %%ok:
@@ -162,13 +158,13 @@ return_is_jumpdest:
     %increment
 %endmacro
 
-%macro is_jumpdest
+%macro write_table_if_jumpdest
     %stack (proof, addr, ctx) -> (proof, addr, ctx, %%after)
-    %jump(is_jumpdest)
+    %jump(write_table_if_jumpdest)
 %%after:
 %endmacro
 
-// Check if the jumpdest table is correct. This is done by
+// Write the jumpdest table. This is done by
 // non-deterministically guessing the sequence of jumpdest
 // addresses used during program execution within the current context.
 // For each jumpdest address we also non-deterministically guess
@@ -179,7 +175,7 @@ return_is_jumpdest:
 // 
 // stack: ctx, retdest
 // stack: (empty)
-global validate_jumpdest_table:
+global jumpdest_analisys:
     // If address > 0 then address is interpreted as address' + 1
     // and the next prover input should contain a proof for address'.
     PROVER_INPUT(jumpdest_table::next_address)
@@ -189,24 +185,22 @@ global validate_jumpdest_table:
 // This is just a hook used for avoiding verification of the jumpdest
 // table in another contexts. It is useful during proof generation,
 // allowing the avoidance of table verification when simulating user code.
-global validate_jumpdest_table_end:
+global jumpdest_analisys_end:
     POP
     JUMP
 check_proof:
     %decrement
-    DUP2 DUP2
-    // stack: address, ctx, address, ctx
+    DUP2 SWAP1
+    // stack: address, ctx, ctx
     // We read the proof
     PROVER_INPUT(jumpdest_table::next_proof)
-    // stack: proof, address, ctx, address, ctx
-    %is_jumpdest
-    %stack (address, ctx) -> (1, ctx, @SEGMENT_JUMPDEST_BITS, address, ctx)
-    MSTORE_GENERAL
+    // stack: proof, address, ctx, ctx
+    %write_table_if_jumpdest
     
-    %jump(validate_jumpdest_table)
+    %jump(jumpdest_analisys)
 
-%macro validate_jumpdest_table
+%macro jumpdest_analisys
     %stack (ctx) -> (ctx, %%after)
-    %jump(validate_jumpdest_table)
+    %jump(jumpdest_analisys)
 %%after:
 %endmacro
