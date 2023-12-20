@@ -142,6 +142,8 @@ pub(crate) fn eval_packed_jump_jumpi<P: PackedField>(
     for &channel in &lv.mem_channels[2..NUM_GP_CHANNELS - 1] {
         yield_constr.constraint(filter * channel.used);
     }
+    yield_constr.constraint(filter * lv.partial_channel.used);
+
     // Channel 1 is unused by the `JUMP` instruction.
     yield_constr.constraint(is_jump * lv.mem_channels[1].used);
 
@@ -322,6 +324,10 @@ pub(crate) fn eval_ext_circuit_jump_jumpi<F: RichField + Extendable<D>, const D:
     // Disable unused memory channels
     for &channel in &lv.mem_channels[2..NUM_GP_CHANNELS - 1] {
         let constr = builder.mul_extension(filter, channel.used);
+        yield_constr.constraint(builder, constr);
+    }
+    {
+        let constr = builder.mul_extension(filter, lv.partial_channel.used);
         yield_constr.constraint(builder, constr);
     }
     // Channel 1 is unused by the `JUMP` instruction.

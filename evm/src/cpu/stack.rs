@@ -357,6 +357,8 @@ pub(crate) fn eval_packed<P: PackedField>(
     for &channel in &lv.mem_channels[1..] {
         yield_constr.constraint(lv.op.not_pop * (lv.opcode_bits[0] - P::ONES) * channel.used);
     }
+    yield_constr
+        .constraint(lv.op.not_pop * (lv.opcode_bits[0] - P::ONES) * lv.partial_channel.used);
 
     // Constrain the new stack length for POP.
     yield_constr.constraint_transition(
@@ -698,6 +700,10 @@ pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let filter = builder.mul_sub_extension(lv.op.not_pop, lv.opcode_bits[0], lv.op.not_pop);
     for &channel in &lv.mem_channels[1..] {
         let constr = builder.mul_extension(filter, channel.used);
+        yield_constr.constraint(builder, constr);
+    }
+    {
+        let constr = builder.mul_extension(filter, lv.partial_channel.used);
         yield_constr.constraint(builder, constr);
     }
 
