@@ -1,9 +1,11 @@
 use core::mem::{self, MaybeUninit};
 use std::collections::BTreeMap;
 use std::ops::Range;
+use std::path::Path;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
+use anyhow::anyhow;
 use eth_trie_utils::partial_trie::{HashedPartialTrie, Node, PartialTrie};
 use hashbrown::HashMap;
 use itertools::{zip_eq, Itertools};
@@ -23,6 +25,7 @@ use plonky2::plonk::config::{AlgebraicHasher, GenericConfig};
 use plonky2::plonk::proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget};
 use plonky2::recursion::cyclic_recursion::check_cyclic_proof_verifier_data;
 use plonky2::recursion::dummy_circuit::cyclic_base_proof;
+use plonky2::util::serialization::gate_serialization::default;
 use plonky2::util::serialization::{
     Buffer, GateSerializer, IoResult, Read, WitnessGeneratorSerializer, Write,
 };
@@ -70,7 +73,7 @@ where
     /// The block circuit, which verifies an aggregation root proof and a previous block proof.
     pub block: BlockCircuitData<F, C, D>,
     /// Holds chains of circuits for each table and for each initial `degree_bits`.
-    by_table: [RecursiveCircuitsForTable<F, C, D>; NUM_TABLES],
+    pub by_table: [RecursiveCircuitsForTable<F, C, D>; NUM_TABLES],
 }
 
 /// Data for the EVM root circuit, which is used to combine each STARK's shrunk wrapper proof
@@ -316,6 +319,7 @@ where
 
     pub fn from_bytes(
         bytes: &[u8],
+        skip_tables: bool,
         gate_serializer: &dyn GateSerializer<F, D>,
         generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
     ) -> IoResult<Self> {
@@ -330,21 +334,30 @@ where
         let block =
             BlockCircuitData::from_buffer(&mut buffer, gate_serializer, generator_serializer)?;
 
-        // Tricky use of MaybeUninit to remove the need for implementing Debug
-        // for all underlying types, necessary to convert a by_table Vec to an array.
-        let by_table = {
-            let mut by_table: [MaybeUninit<RecursiveCircuitsForTable<F, C, D>>; NUM_TABLES] =
-                unsafe { MaybeUninit::uninit().assume_init() };
-            for table in &mut by_table[..] {
-                let value = RecursiveCircuitsForTable::from_buffer(
-                    &mut buffer,
-                    gate_serializer,
-                    generator_serializer,
-                )?;
-                *table = MaybeUninit::new(value);
-            }
-            unsafe {
-                mem::transmute::<_, [RecursiveCircuitsForTable<F, C, D>; NUM_TABLES]>(by_table)
+        let by_table = match skip_tables {
+            true => (0..NUM_TABLES)
+                .map(|_| RecursiveCircuitsForTable {
+                    by_stark_size: BTreeMap::default(),
+                })
+                .collect_vec()
+                .try_into()
+                .unwrap(),
+            false => {
+                // Tricky use of MaybeUninit to remove the need for implementing Debug
+                // for all underlying types, necessary to convert a by_table Vec to an array.
+                let mut by_table: [MaybeUninit<RecursiveCircuitsForTable<F, C, D>>; NUM_TABLES] =
+                    unsafe { MaybeUninit::uninit().assume_init() };
+                for table in &mut by_table[..] {
+                    let value = RecursiveCircuitsForTable::from_buffer(
+                        &mut buffer,
+                        gate_serializer,
+                        generator_serializer,
+                    )?;
+                    *table = MaybeUninit::new(value);
+                }
+                unsafe {
+                    mem::transmute::<_, [RecursiveCircuitsForTable<F, C, D>; NUM_TABLES]>(by_table)
+                }
             }
         };
 
@@ -430,72 +443,6 @@ where
             block,
             by_table,
         }
-    }
-
-    /// Expand the preprocessed STARK table circuits with the provided ranges.
-    ///
-    /// If a range for a given table is contained within the current one, this will be a no-op.
-    /// Otherwise, it will add the circuits for the missing table sizes, and regenerate the upper circuits.
-    pub fn expand(
-        &mut self,
-        all_stark: &AllStark<F, D>,
-        degree_bits_ranges: &[Range<usize>; NUM_TABLES],
-        stark_config: &StarkConfig,
-    ) {
-        self.by_table[Table::Arithmetic as usize].expand(
-            Table::Arithmetic,
-            &all_stark.arithmetic_stark,
-            degree_bits_ranges[Table::Arithmetic as usize].clone(),
-            &all_stark.cross_table_lookups,
-            stark_config,
-        );
-        self.by_table[Table::BytePacking as usize].expand(
-            Table::BytePacking,
-            &all_stark.byte_packing_stark,
-            degree_bits_ranges[Table::BytePacking as usize].clone(),
-            &all_stark.cross_table_lookups,
-            stark_config,
-        );
-        self.by_table[Table::Cpu as usize].expand(
-            Table::Cpu,
-            &all_stark.cpu_stark,
-            degree_bits_ranges[Table::Cpu as usize].clone(),
-            &all_stark.cross_table_lookups,
-            stark_config,
-        );
-        self.by_table[Table::Keccak as usize].expand(
-            Table::Keccak,
-            &all_stark.keccak_stark,
-            degree_bits_ranges[Table::Keccak as usize].clone(),
-            &all_stark.cross_table_lookups,
-            stark_config,
-        );
-        self.by_table[Table::KeccakSponge as usize].expand(
-            Table::KeccakSponge,
-            &all_stark.keccak_sponge_stark,
-            degree_bits_ranges[Table::KeccakSponge as usize].clone(),
-            &all_stark.cross_table_lookups,
-            stark_config,
-        );
-        self.by_table[Table::Logic as usize].expand(
-            Table::Logic,
-            &all_stark.logic_stark,
-            degree_bits_ranges[Table::Logic as usize].clone(),
-            &all_stark.cross_table_lookups,
-            stark_config,
-        );
-        self.by_table[Table::Memory as usize].expand(
-            Table::Memory,
-            &all_stark.memory_stark,
-            degree_bits_ranges[Table::Memory as usize].clone(),
-            &all_stark.cross_table_lookups,
-            stark_config,
-        );
-
-        // Regenerate the upper circuits.
-        self.root = Self::create_root_circuit(&self.by_table, stark_config);
-        self.aggregation = Self::create_aggregation_circuit(&self.root);
-        self.block = Self::create_block_circuit(&self.aggregation);
     }
 
     /// Outputs the `VerifierCircuitData` needed to verify any block proof
@@ -988,7 +935,7 @@ where
                 .by_stark_size
                 .get(&original_degree_bits)
                 .ok_or_else(|| {
-                    anyhow::Error::msg(format!(
+                    anyhow!(format!(
                         "Missing preprocessed circuits for {:?} table with size {}.",
                         Table::all()[table],
                         original_degree_bits,
@@ -1003,6 +950,79 @@ where
             root_inputs.set_target(
                 self.root.index_verifier_data[table],
                 F::from_canonical_usize(index_verifier_data),
+            );
+            root_inputs.set_proof_with_pis_target(&self.root.proof_with_pis[table], &shrunk_proof);
+
+            check_abort_signal(abort_signal.clone())?;
+        }
+
+        root_inputs.set_verifier_data_target(
+            &self.root.cyclic_vk,
+            &self.aggregation.circuit.verifier_only,
+        );
+
+        set_public_value_targets(
+            &mut root_inputs,
+            &self.root.public_values,
+            &all_proof.public_values,
+        )
+        .map_err(|_| {
+            anyhow::Error::msg("Invalid conversion when setting public values targets.")
+        })?;
+
+        let root_proof = self.root.circuit.prove(root_inputs)?;
+
+        Ok((root_proof, all_proof.public_values))
+    }
+
+    /// Create a proof for each STARK, then combine them, eventually culminating in a root proof.
+    /// Fairly similar to `prove_root()` but aimed at being used when preprocessed table circuits
+    /// have not been loaded to memory.
+    pub fn prove_root_light(
+        &self,
+        preprocessed_tables_path: &Path,
+        all_stark: &AllStark<F, D>,
+        config: &StarkConfig,
+        generation_inputs: GenerationInputs,
+        gate_serializer: &dyn GateSerializer<F, D>,
+        generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
+        timing: &mut TimingTree,
+        abort_signal: Option<Arc<AtomicBool>>,
+    ) -> anyhow::Result<(ProofWithPublicInputs<F, C, D>, PublicValues)> {
+        let all_proof = prove::<F, C, D>(
+            all_stark,
+            config,
+            generation_inputs,
+            timing,
+            abort_signal.clone(),
+        )?;
+        let mut root_inputs = PartialWitness::new();
+
+        for table in 0..NUM_TABLES {
+            let stark_proof = &all_proof.stark_proofs[table];
+            let original_degree_bits = stark_proof.proof.recover_degree_bits(config);
+
+            let table_path = preprocessed_tables_path.join(format!(
+                "{:?}_{:?}.ser",
+                Table::all()[table],
+                original_degree_bits
+            ));
+            let bytes = std::fs::read(table_path)
+                .map_err(|_| anyhow::Error::msg("Invalid path to preprocessed circuits."))?;
+            let index_verifier_data = bytes[0];
+
+            let mut buffer = Buffer::new(&bytes[1..]);
+            let table_circuit = RecursiveCircuitsForTableSize::from_buffer(
+                &mut buffer,
+                gate_serializer,
+                generator_serializer,
+            )
+            .map_err(|_| anyhow::Error::msg("Circuit improperly serialized."))?;
+
+            let shrunk_proof = table_circuit.shrink(stark_proof, &all_proof.ctl_challenges)?;
+            root_inputs.set_target(
+                self.root.index_verifier_data[table],
+                F::from_canonical_u8(index_verifier_data),
             );
             root_inputs.set_proof_with_pis_target(&self.root.proof_with_pis[table], &shrunk_proof);
 
@@ -1255,7 +1275,7 @@ where
 {
     /// A map from `log_2(height)` to a chain of shrinking recursion circuits starting at that
     /// height.
-    by_stark_size: BTreeMap<usize, RecursiveCircuitsForTableSize<F, C, D>>,
+    pub by_stark_size: BTreeMap<usize, RecursiveCircuitsForTableSize<F, C, D>>,
 }
 
 impl<F, C, const D: usize> RecursiveCircuitsForTable<F, C, D>
@@ -1321,32 +1341,6 @@ where
         Self { by_stark_size }
     }
 
-    fn expand<S: Stark<F, D>>(
-        &mut self,
-        table: Table,
-        stark: &S,
-        degree_bits_range: Range<usize>,
-        all_ctls: &[CrossTableLookup<F>],
-        stark_config: &StarkConfig,
-    ) {
-        let new_ranges = degree_bits_range
-            .filter(|degree_bits| !self.by_stark_size.contains_key(degree_bits))
-            .collect_vec();
-
-        for degree_bits in new_ranges {
-            self.by_stark_size.insert(
-                degree_bits,
-                RecursiveCircuitsForTableSize::new::<S>(
-                    table,
-                    stark,
-                    degree_bits,
-                    all_ctls,
-                    stark_config,
-                ),
-            );
-        }
-    }
-
     /// For each initial `degree_bits`, get the final circuit at the end of that shrinking chain.
     /// Each of these final circuits should have degree `THRESHOLD_DEGREE_BITS`.
     fn final_circuits(&self) -> Vec<&CircuitData<F, C, D>> {
@@ -1366,7 +1360,7 @@ where
 /// A chain of shrinking wrapper circuits, ending with a final circuit with `degree_bits`
 /// `THRESHOLD_DEGREE_BITS`.
 #[derive(Eq, PartialEq, Debug)]
-struct RecursiveCircuitsForTableSize<F, C, const D: usize>
+pub struct RecursiveCircuitsForTableSize<F, C, const D: usize>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
@@ -1382,7 +1376,7 @@ where
     C: GenericConfig<D, F = F>,
     C::Hasher: AlgebraicHasher<F>,
 {
-    fn to_buffer(
+    pub fn to_buffer(
         &self,
         buffer: &mut Vec<u8>,
         gate_serializer: &dyn GateSerializer<F, D>,
@@ -1409,7 +1403,7 @@ where
         Ok(())
     }
 
-    fn from_buffer(
+    pub fn from_buffer(
         buffer: &mut Buffer,
         gate_serializer: &dyn GateSerializer<F, D>,
         generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
@@ -1500,7 +1494,7 @@ where
         }
     }
 
-    fn shrink(
+    pub fn shrink(
         &self,
         stark_proof_with_metadata: &StarkProofWithMetadata<F, C, D>,
         ctl_challenges: &GrandProductChallengeSet<F>,
