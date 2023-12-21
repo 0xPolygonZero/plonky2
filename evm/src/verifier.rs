@@ -16,8 +16,8 @@ use crate::constraint_consumer::ConstraintConsumer;
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
 use crate::cross_table_lookup::{
-    num_ctl_helper_columns, verify_cross_table_lookups, CtlCheckVars, GrandProductChallenge,
-    GrandProductChallengeSet,
+    num_ctl_helper_columns_by_table, verify_cross_table_lookups, CtlCheckVars,
+    GrandProductChallenge, GrandProductChallengeSet,
 };
 use crate::evaluation_frame::StarkEvaluationFrame;
 use crate::lookup::LookupCheckVars;
@@ -57,7 +57,7 @@ where
         cross_table_lookups,
     } = all_stark;
 
-    let num_ctl_helper_cols = num_ctl_helper_columns(
+    let num_ctl_helper_cols = num_ctl_helper_columns_by_table(
         cross_table_lookups,
         all_stark.arithmetic_stark.constraint_degree(),
     );

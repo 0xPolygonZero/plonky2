@@ -92,7 +92,7 @@ pub(crate) fn lookup_helper_columns<F: Field>(
     //         h_k polynomials; instead there's a separate helper column for it (see below).
     //       * Here, we use 1 instead of -1 as the numerator (and subtract later).
     //       * Here, for now, the batch size (l) is always constraint_degree - 1 = 2.
-    //       * Here, there are filters that for the columns, to only select some rows
+    //       * Here, there are filters for the columns, to only select some rows
     //         in a given column.
     let mut helper_columns = get_helper_cols(
         trace_poly_values,
@@ -164,8 +164,6 @@ pub(crate) fn eval_packed_lookups_generic<F, FE, P, S, const D: usize, const D2:
     for lookup in lookups {
         let num_helper_columns = lookup.num_helper_columns(degree);
         for &challenge in &lookup_vars.challenges {
-            // let challenge = FE::from_basefield(challenge);
-
             let grand_challenge = GrandProductChallenge {
                 beta: F::ONE,
                 gamma: challenge,

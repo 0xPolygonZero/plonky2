@@ -469,8 +469,9 @@ impl<F: Field> CrossTableLookup<F> {
         }
     }
 
-    /// Given a `Table` t and the number of challenges, returns the number of Cross-table lookup polynomials associated to t,
-    /// i.e. the number of looking and looked tables among all CTLs whose columns are taken from t.
+    /// Given a `Table` t and the number of challenges, returns the number of helper and Z polynomials for all
+    /// Cross table lookups associated to t, i.e. the number of polynomials for looking and looked tables
+    /// whose columns are taken from t.
     pub(crate) fn num_ctl_helper_zs(
         ctls: &[Self],
         table: Table,
@@ -488,6 +489,9 @@ impl<F: Field> CrossTableLookup<F> {
         num_ctls * num_challenges
     }
 
+    /// Given a `Table` t and the number of challenges, returns the number of Z polynomials for all
+    /// Cross table lookups associated to t, i.e. the number of looking and looked tables among all CTLs whose
+    /// columns are taken from t.
     pub(crate) fn num_ctl_zs(
         ctls: &[Self],
         table: Table,
@@ -505,6 +509,9 @@ impl<F: Field> CrossTableLookup<F> {
         num_ctls * num_challenges
     }
 
+    /// Given a `Table` t and the number of challenges, returns the number of helper polynomials for all
+    /// Cross table lookups associated to t, i.e. the number of polynomials that help with checking Z
+    /// for all looking and looked tables among all CTLs whose columns are taken from t.
     pub(crate) fn num_ctl_helpers(
         ctls: &[Self],
         table: Table,
@@ -515,13 +522,14 @@ impl<F: Field> CrossTableLookup<F> {
         for ctl in ctls {
             let all_tables = std::iter::once(&ctl.looked_table).chain(&ctl.looking_tables);
             let num_appearances = all_tables.filter(|twc| twc.table == table).count();
-            if num_appearances > 0 {
-                num_ctls += ceil_div_usize(num_appearances, constraint_degree - 1);
-            }
+
+            num_ctls += ceil_div_usize(num_appearances, constraint_degree - 1);
         }
         num_ctls * num_challenges
     }
 
+    /// Given a `Table` t and the number of challenges, returns the number of helper polynomials for each
+    /// Cross table lookups associated to t.
     pub(crate) fn num_helpers_by_ctl(
         ctls: &[Self],
         table: Table,
@@ -546,7 +554,7 @@ pub(crate) struct CtlData<F: Field> {
 }
 
 /// Cross-table lookup data associated with one Z(x) polynomial.
-///  One Z(x) polynomial can be associated to multiple tables,
+/// One Z(x) polynomial can be associated to multiple tables,
 /// built from the same STARK.
 #[derive(Clone)]
 pub(crate) struct CtlZData<F: Field> {
@@ -558,7 +566,7 @@ pub(crate) struct CtlZData<F: Field> {
     pub(crate) challenge: GrandProductChallenge<F>,
     /// Vector of column linear combinations for the current tables.
     pub(crate) columns: Vec<Vec<Column<F>>>,
-    /// Vector of filter column for the current table.
+    /// Vector of filter columns for the current table.
     /// Each filter evaluates to either 1 or 0.
     pub(crate) filter: Vec<Option<Filter<F>>>,
 }
@@ -574,7 +582,7 @@ impl<F: Field> CtlData<F> {
         self.zs_columns.is_empty()
     }
 
-    /// Returns all the cross-table lookup polynomials.
+    /// Returns all the cross-table lookup helper polynomials.
     pub(crate) fn ctl_helper_polys(&self) -> Vec<PolynomialValues<F>> {
         let mut res = vec![];
         for z in &self.zs_columns {
@@ -727,7 +735,8 @@ pub(crate) fn get_grand_product_challenge_set_target<
     GrandProductChallengeSet { challenges }
 }
 
-pub(crate) fn num_ctl_helper_columns<F: Field>(
+/// Returns the number of helper columns for each `Table`.
+pub(crate) fn num_ctl_helper_columns_by_table<F: Field>(
     ctls: &Vec<CrossTableLookup<F>>,
     constraint_degree: usize,
 ) -> Vec<[usize; NUM_TABLES]> {
@@ -760,6 +769,7 @@ pub(crate) fn num_ctl_helper_columns<F: Field>(
 /// - `trace_poly_values` corresponds to the trace values for all tables.
 /// - `cross_table_lookups` corresponds to all the cross-table lookups, i.e. the looked and looking tables, as described in `CrossTableLookup`.
 /// - `ctl_challenges` corresponds to the challenges used for CTLs.
+/// - `constraint_degree` is the maximal constraint degree for the table.
 /// For each `CrossTableLookup`, and each looking/looked table, the partial products for the CTL are computed, and added to the said table's `CtlZData`.
 pub(crate) fn cross_table_lookup_data<F: RichField, const D: usize>(
     trace_poly_values: &[Vec<PolynomialValues<F>>; NUM_TABLES],
@@ -789,6 +799,9 @@ pub(crate) fn cross_table_lookup_data<F: RichField, const D: usize>(
                 challenge,
                 constraint_degree,
             );
+
+            // Group looking tables by `Table`, since we group together all looking tables associated to the same STARK
+            // thanks to the helper columns.
             let mut grouped_tables = HashMap::new();
             for looking_table in looking_tables {
                 let cur = grouped_tables
@@ -815,6 +828,7 @@ pub(crate) fn cross_table_lookup_data<F: RichField, const D: usize>(
                         .clone(),
                 });
             }
+            // There is only one helper column for the looking table.
             let helper_looked = z_looked[0].clone();
             let looked_poly = z_looked[1].clone();
             ctl_data_per_table[looked_table.table as usize]
@@ -831,6 +845,8 @@ pub(crate) fn cross_table_lookup_data<F: RichField, const D: usize>(
     ctl_data_per_table
 }
 
+/// Given a STARK's trace, and the data associated to one lookup (either CTL or range check),
+/// returns the associated helper polynomials.
 pub(crate) fn get_helper_cols<F: Field>(
     trace: &[PolynomialValues<F>],
     degree: usize,
@@ -966,12 +982,17 @@ fn ctl_helper_zs_cols<F: Field>(
 
 /// Computes the cross-table lookup partial sums for one table and given column linear combinations.
 /// `trace` represents the trace values for the given table.
-/// `columns` are all the column linear combinations to evaluate.
-/// `filter_column` is a column linear combination used to determine whether a row should be selected.
+/// `columns` is a vector of column linear combinations to evaluate. Each element in the vector represents columns that need to be combined.
+/// `filter_cols` are column linear combinations used to determine whether a row should be selected.
 /// `challenge` is a cross-table lookup challenge.
 /// The initial sum `s` is 0.
-/// For each row, if the `filter_column` evaluates to 1, then the rows is selected. All the column linear combinations are evaluated at said row. All those evaluations are combined using the challenge to get a value `v`.
-/// The sum is updated: `s += 1/v`, and is pushed to the vector of partial sums.
+/// For each row, if the `filter_column` evaluates to 1, then the row is selected. All the column linear combinations are evaluated at said row.
+/// The evaluations of each elements of `columns` are then combined together to form a value `v`.
+/// The values `v`` are grouped together, in groups of size `constraint_degree - 1` (2 in our case). For each group, we construct a helper
+/// column: h = \sum_i 1/(v_i).
+///
+/// The sum is updated: `s += \sum h_i`, and is pushed to the vector of partial sums `z``.
+/// Returns the helper columns and `z`.
 fn partial_sums<F: Field>(
     trace: &[PolynomialValues<F>],
     columns: &[&[Column<F>]],
@@ -1077,6 +1098,7 @@ impl<'a, F: RichField + Extendable<D>, const D: usize>
         ) in cross_table_lookups.iter().zip(num_helper_ctl_columns)
         {
             for &challenges in &ctl_challenges.challenges {
+                // Group looking tables by `Table`, since we bundle the looking tables taken from the same `Table` together thanks to helper columns.
                 let mut grouped_tables = HashMap::new();
                 for looking_table in looking_tables {
                     let cur = grouped_tables
@@ -1086,6 +1108,7 @@ impl<'a, F: RichField + Extendable<D>, const D: usize>
                     cur.1.push(looking_table.filter.clone());
                 }
 
+                // We want to only iterate on each `Table` once.
                 let mut filtered_looking_tables = vec![];
                 for table in looking_tables {
                     if !filtered_looking_tables.contains(&(table.table as usize)) {
@@ -1093,10 +1116,10 @@ impl<'a, F: RichField + Extendable<D>, const D: usize>
                     }
                 }
                 for (i, &table) in filtered_looking_tables.iter().enumerate() {
+                    // We have first all the helper polynomials, then all the z polynomials.
                     let (looking_z, looking_z_next) =
                         ctl_zs[table][total_num_helper_cols_by_table[table] + z_indices[table]];
 
-                    // The last element is the Z polynomial.
                     let helper_columns = ctl_zs[table]
                         [start_indices[table]..start_indices[table] + num_ctls[table]]
                         .iter()
@@ -1151,6 +1174,7 @@ impl<'a, F: RichField + Extendable<D>, const D: usize>
     }
 }
 
+/// Given data associated to a lookup (either a CTL or a range-check), check the associated helper polynomials.
 pub(crate) fn eval_helper_columns<F, FE, P, const D: usize, const D2: usize>(
     filter: &[Option<Filter<F>>],
     columns: &[Vec<P>],
@@ -1221,7 +1245,7 @@ pub(crate) fn eval_cross_table_lookup_checks<F, FE, P, S, const D: usize, const 
     S: Stark<F, D>,
 {
     let local_values = vars.get_local_values();
-    let next_values: &[P] = vars.get_next_values();
+    let next_values = vars.get_next_values();
 
     for lookup_vars in ctl_vars {
         let CtlCheckVars {
@@ -1315,6 +1339,7 @@ impl<'a, F: Field, const D: usize> CtlCheckVarsTarget<F, D> {
         ) in cross_table_lookups.iter().enumerate()
         {
             for &challenges in &ctl_challenges.challenges {
+                // Group looking tables by `Table`, since we bundle the looking tables taken from the same `Table` together thanks to helper columns.
                 let mut grouped_tables = HashMap::new();
                 for looking_table in looking_tables {
                     let cur = grouped_tables
@@ -1324,12 +1349,6 @@ impl<'a, F: Field, const D: usize> CtlCheckVarsTarget<F, D> {
                     cur.1.push(looking_table.filter.clone());
                 }
 
-                let mut filtered_looking_tables = vec![];
-                for table in looking_tables {
-                    if !filtered_looking_tables.contains(&(table.table as usize)) {
-                        filtered_looking_tables.push(table.table as usize);
-                    }
-                }
                 if let Some(group) = grouped_tables.get(&(table as usize)) {
                     let (looking_z, looking_z_next) = ctl_zs[total_num_helper_columns + z_index];
                     let helper_columns = ctl_zs
@@ -1376,6 +1395,8 @@ impl<'a, F: Field, const D: usize> CtlCheckVarsTarget<F, D> {
     }
 }
 
+/// Circuit version of `eval_helper_columns`.
+/// Given data associated to a lookup (either a CTL or a range-check), check the associated helper polynomials.
 pub(crate) fn eval_helper_columns_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     filter: &[Option<Filter<F>>],
@@ -1515,6 +1536,7 @@ pub(crate) fn verify_cross_table_lookups<F: RichField + Extendable<D>, const D: 
     {
         // Get elements looking into `looked_table` that are not associated to any STARK.
         let extra_sum_vec = &ctl_extra_looking_sums[looked_table.table as usize];
+        // We want to iterate on each looking table only once.
         let mut filtered_looking_tables = vec![];
         for table in looking_tables {
             if !filtered_looking_tables.contains(&(table.table as usize)) {
@@ -1561,6 +1583,7 @@ pub(crate) fn verify_cross_table_lookups_circuit<F: RichField + Extendable<D>, c
     {
         // Get elements looking into `looked_table` that are not associated to any STARK.
         let extra_sum_vec = &ctl_extra_looking_sums[looked_table.table as usize];
+        // We want to iterate on each looking table only once.
         let mut filtered_looking_tables = vec![];
         for table in looking_tables {
             if !filtered_looking_tables.contains(&(table.table as usize)) {

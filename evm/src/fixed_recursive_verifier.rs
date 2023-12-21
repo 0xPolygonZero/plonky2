@@ -995,13 +995,11 @@ where
                     ))
                 })?
                 .shrink(stark_proof, &all_proof.ctl_challenges)?;
-
             let index_verifier_data = table_circuits
                 .by_stark_size
                 .keys()
                 .position(|&size| size == original_degree_bits)
                 .unwrap();
-
             root_inputs.set_target(
                 self.root.index_verifier_data[table],
                 F::from_canonical_usize(index_verifier_data),

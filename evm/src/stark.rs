@@ -116,16 +116,6 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
             AUXILIARY_ORACLE_INDEX,
             num_lookup_columns + num_ctl_helpers..num_auxiliary_polys,
         );
-        // let ctl_zs_info = (0..num_ctl_zs.len())
-        //     .map(|i| {
-        //         let info = FriPolynomialInfo {
-        //             oracle_index: AUXILIARY_ORACLE_INDEX,
-        //             polynomial_index: start_index + num_ctl_zs[i],
-        //         };
-        //         start_index += num_ctl_zs[i];
-        //         info
-        //     })
-        //     .collect::<Vec<_>>();
 
         let num_quotient_polys = self.num_quotient_polys(config);
         let quotient_oracle = FriOracleInfo {
