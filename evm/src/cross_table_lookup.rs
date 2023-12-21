@@ -737,7 +737,7 @@ pub(crate) fn get_grand_product_challenge_set_target<
 
 /// Returns the number of helper columns for each `Table`.
 pub(crate) fn num_ctl_helper_columns_by_table<F: Field>(
-    ctls: &Vec<CrossTableLookup<F>>,
+    ctls: &[CrossTableLookup<F>],
     constraint_degree: usize,
 ) -> Vec<[usize; NUM_TABLES]> {
     let mut res = vec![[0; NUM_TABLES]; ctls.len()];
