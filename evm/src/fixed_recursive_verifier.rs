@@ -41,8 +41,8 @@ use crate::cross_table_lookup::{
 use crate::generation::GenerationInputs;
 use crate::get_challenges::observe_public_values_target;
 use crate::proof::{
-    BlockHashesTarget, BlockMetadataTarget, ExtraBlockData, ExtraBlockDataTarget, PublicValues,
-    PublicValuesTarget, StarkProofWithMetadata, TrieRoots, TrieRootsTarget,
+    AllProof, BlockHashesTarget, BlockMetadataTarget, ExtraBlockData, ExtraBlockDataTarget,
+    PublicValues, PublicValuesTarget, StarkProofWithMetadata, TrieRoots, TrieRootsTarget,
 };
 use crate::prover::{check_abort_signal, prove};
 use crate::recursive_verifier::{
@@ -978,54 +978,30 @@ where
         Ok((root_proof, all_proof.public_values))
     }
 
-    /// Create a proof for each STARK, then combine them, eventually culminating in a root proof.
-    /// Fairly similar to `prove_root()` but aimed at being used when preprocessed table circuits
-    /// have not been loaded to memory.
-    pub fn prove_root_light(
+    /// From an initial set of STARK proofs passed with their associated recursive table circuits,
+    /// generate a recursive transaction proof.
+    /// It is aimed at being used when preprocessed table circuits have not been loaded to memory.
+    pub fn prove_root_after_initial_stark(
         &self,
-        preprocessed_tables_path: &Path,
         all_stark: &AllStark<F, D>,
         config: &StarkConfig,
-        generation_inputs: GenerationInputs,
-        gate_serializer: &dyn GateSerializer<F, D>,
-        generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
+        all_proof: AllProof<F, C, D>,
+        table_circuits: &[(RecursiveCircuitsForTableSize<F, C, D>, u8); NUM_TABLES],
         timing: &mut TimingTree,
         abort_signal: Option<Arc<AtomicBool>>,
     ) -> anyhow::Result<(ProofWithPublicInputs<F, C, D>, PublicValues)> {
-        let all_proof = prove::<F, C, D>(
-            all_stark,
-            config,
-            generation_inputs,
-            timing,
-            abort_signal.clone(),
-        )?;
         let mut root_inputs = PartialWitness::new();
 
         for table in 0..NUM_TABLES {
+            let (table_circuit, index_verifier_data) = &table_circuits[table];
+
             let stark_proof = &all_proof.stark_proofs[table];
             let original_degree_bits = stark_proof.proof.recover_degree_bits(config);
-
-            let table_path = preprocessed_tables_path.join(format!(
-                "{:?}_{:?}.ser",
-                Table::all()[table],
-                original_degree_bits
-            ));
-            let bytes = std::fs::read(table_path)
-                .map_err(|_| anyhow::Error::msg("Invalid path to preprocessed circuits."))?;
-            let index_verifier_data = bytes[0];
-
-            let mut buffer = Buffer::new(&bytes[1..]);
-            let table_circuit = RecursiveCircuitsForTableSize::from_buffer(
-                &mut buffer,
-                gate_serializer,
-                generator_serializer,
-            )
-            .map_err(|_| anyhow::Error::msg("Circuit improperly serialized."))?;
 
             let shrunk_proof = table_circuit.shrink(stark_proof, &all_proof.ctl_challenges)?;
             root_inputs.set_target(
                 self.root.index_verifier_data[table],
-                F::from_canonical_u8(index_verifier_data),
+                F::from_canonical_u8(*index_verifier_data),
             );
             root_inputs.set_proof_with_pis_target(&self.root.proof_with_pis[table], &shrunk_proof);
 
