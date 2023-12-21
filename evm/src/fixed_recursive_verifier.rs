@@ -300,6 +300,7 @@ where
 {
     pub fn to_bytes(
         &self,
+        skip_tables: bool,
         gate_serializer: &dyn GateSerializer<F, D>,
         generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
     ) -> IoResult<Vec<u8>> {
@@ -311,8 +312,10 @@ where
             .to_buffer(&mut buffer, gate_serializer, generator_serializer)?;
         self.block
             .to_buffer(&mut buffer, gate_serializer, generator_serializer)?;
-        for table in &self.by_table {
-            table.to_buffer(&mut buffer, gate_serializer, generator_serializer)?;
+        if !skip_tables {
+            for table in &self.by_table {
+                table.to_buffer(&mut buffer, gate_serializer, generator_serializer)?;
+            }
         }
         Ok(buffer)
     }

@@ -89,7 +89,7 @@ fn test_empty_txn_list() -> anyhow::Result<()> {
 
         let timing = TimingTree::new("serialize AllRecursiveCircuits", log::Level::Info);
         let all_circuits_bytes = all_circuits
-            .to_bytes(&gate_serializer, &generator_serializer)
+            .to_bytes(false, &gate_serializer, &generator_serializer)
             .map_err(|_| anyhow::Error::msg("AllRecursiveCircuits serialization failed."))?;
         timing.filter(Duration::from_millis(100)).print();
         info!(
