@@ -759,40 +759,31 @@ pub(crate) fn cross_table_lookup_data<F: RichField, const D: usize>(
                 constraint_degree,
             );
 
-            // Group looking tables by `Table`, since we group together all looking tables associated to the same STARK
-            // thanks to the helper columns.
-            let num_elts_cols = looking_tables.iter().fold(0, |acc, g| {
-                let mut tmp = 0;
-                for looking_table in looking_tables {
-                    tmp += looking_table.columns.len();
-                }
-                tmp
-            });
-            let num_elts_filters = looking_tables.iter().fold(0, |acc, g| looking_tables.len());
-            let mut grouped_tables = HashMap::with_capacity(num_elts_filters + num_elts_cols);
-            for looking_table in looking_tables {
-                let cur: &mut (Vec<Vec<Column<F>>>, Vec<Option<Filter<F>>>) = grouped_tables
-                    .entry(looking_table.table as usize)
-                    .or_default();
-                cur.0.push(looking_table.columns.clone());
-                cur.1.push(looking_table.filter.clone());
-            }
             for (table, helpers_zs) in helper_zs_looking {
                 let num_helpers = helpers_zs.len() - 1;
+                let count = looking_tables
+                    .iter()
+                    .filter(|looking_table| looking_table.table as usize == table)
+                    .count();
+                let cols_filts = looking_tables.iter().filter_map(|looking_table| {
+                    if looking_table.table as usize == table {
+                        Some((&looking_table.columns, &looking_table.filter))
+                    } else {
+                        None
+                    }
+                });
+                let mut columns = vec![vec![]; count];
+                let mut filter = vec![None; count];
+                for (i, (col, filt)) in cols_filts.enumerate() {
+                    columns[i] = (*col).to_vec();
+                    filter[i] = filt.clone();
+                }
                 ctl_data_per_table[table].zs_columns.push(CtlZData {
                     helper_columns: helpers_zs[..num_helpers].to_vec(),
                     z: helpers_zs[num_helpers].clone(),
                     challenge,
-                    columns: grouped_tables
-                        .get(&table)
-                        .expect("Helper columns use the looking tables")
-                        .0
-                        .clone(),
-                    filter: grouped_tables
-                        .get(&table)
-                        .expect("Helper columns use the looking tables")
-                        .1
-                        .clone(),
+                    columns,
+                    filter,
                 });
             }
             // There is only one helper column for the looking table.
@@ -1074,29 +1065,29 @@ impl<'a, F: RichField + Extendable<D>, const D: usize>
                         filtered_looking_tables.push(table.table as usize);
                     }
                 }
-                let num_elts_cols = looking_tables.iter().fold(0, |acc, g| {
-                    let mut tmp = 0;
-                    for looking_table in looking_tables {
-                        tmp += looking_table.columns.len();
-                    }
-                    tmp
-                });
-
-                let mut grouped_tables =
-                    HashMap::with_capacity(filtered_looking_tables.len() + num_elts_cols);
-                for looking_table in looking_tables {
-                    let cur: &mut (Vec<Vec<Column<F>>>, Vec<Option<Filter<F>>>) = grouped_tables
-                        .entry(looking_table.table as usize)
-                        .or_default();
-                    cur.0.push(looking_table.columns.clone());
-                    cur.1.push(looking_table.filter.clone());
-                }
 
                 for (i, &table) in filtered_looking_tables.iter().enumerate() {
                     // We have first all the helper polynomials, then all the z polynomials.
                     let (looking_z, looking_z_next) =
                         ctl_zs[table][total_num_helper_cols_by_table[table] + z_indices[table]];
 
+                    let count = looking_tables
+                        .iter()
+                        .filter(|looking_table| looking_table.table as usize == table)
+                        .count();
+                    let cols_filts = looking_tables.iter().filter_map(|looking_table| {
+                        if looking_table.table as usize == table {
+                            Some((&looking_table.columns, &looking_table.filter))
+                        } else {
+                            None
+                        }
+                    });
+                    let mut columns = vec![vec![]; count];
+                    let mut filter = vec![None; count];
+                    for (i, (col, filt)) in cols_filts.enumerate() {
+                        columns[i] = (*col).to_vec();
+                        filter[i] = filt.clone();
+                    }
                     let helper_columns = ctl_zs[table]
                         [start_indices[table]..start_indices[table] + num_ctls[table]]
                         .iter()
@@ -1105,16 +1096,6 @@ impl<'a, F: RichField + Extendable<D>, const D: usize>
 
                     start_indices[table] += num_ctls[table];
 
-                    let columns = grouped_tables
-                        .get(&table)
-                        .expect("The key exists.")
-                        .0
-                        .clone();
-                    let filter = grouped_tables
-                        .get(&table)
-                        .expect("The key exists")
-                        .1
-                        .clone();
                     z_indices[table] += 1;
                     ctl_vars_per_table[table].push(Self {
                         helper_columns,
