@@ -84,9 +84,6 @@ pub(crate) fn lookup_helper_columns<F: Field>(
 
     // For each batch of `constraint_degree-1` columns `fi`, compute `sum 1/(f_i+challenge)` and
     // add it to the helper columns.
-    // TODO: This does one batch inversion per column. It would also be possible to do one batch inversion
-    // for every group of columns, but that would require building a big vector of all the columns concatenated.
-    // Not sure which approach is better.
     // Note: these are the h_k(x) polynomials in the paper, with a few differences:
     //       * Here, the first ratio m_0(x)/phi_0(x) is not included with the columns batched up to create the
     //         h_k polynomials; instead there's a separate helper column for it (see below).

@@ -229,31 +229,15 @@ where
     let zero_target = builder.zero();
 
     let num_lookup_columns = stark.num_lookup_helper_columns(inner_config);
-    let num_ctl_helper_zs = CrossTableLookup::num_ctl_helper_zs(
-        cross_table_lookups,
-        table,
-        inner_config.num_challenges,
-        stark.constraint_degree(),
-    );
-    let num_ctl_zs = CrossTableLookup::num_ctl_zs(
-        cross_table_lookups,
-        table,
-        inner_config.num_challenges,
-        stark.constraint_degree(),
-    );
+    let (total_num_helpers, num_ctl_zs, num_helpers_by_ctl) =
+        CrossTableLookup::num_ctl_helpers_zs_all(
+            cross_table_lookups,
+            table,
+            inner_config.num_challenges,
+            stark.constraint_degree(),
+        );
+    let num_ctl_helper_zs = num_ctl_zs + total_num_helpers;
 
-    let total_num_helpers = CrossTableLookup::num_ctl_helpers(
-        cross_table_lookups,
-        table,
-        inner_config.num_challenges,
-        stark.constraint_degree(),
-    );
-    let num_helpers_by_ctl = CrossTableLookup::num_helpers_by_ctl(
-        cross_table_lookups,
-        table,
-        inner_config.num_challenges,
-        stark.constraint_degree(),
-    );
     let proof_target = add_virtual_stark_proof(
         &mut builder,
         stark,

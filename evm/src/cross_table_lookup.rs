@@ -470,80 +470,34 @@ impl<F: Field> CrossTableLookup<F> {
         }
     }
 
-    /// Given a `Table` t and the number of challenges, returns the number of helper and Z polynomials for all
-    /// Cross table lookups associated to t, i.e. the number of polynomials for looking and looked tables
-    /// whose columns are taken from t.
-    pub(crate) fn num_ctl_helper_zs(
+    /// Given a table, returns:
+    /// - the total number of helper columns for this table, over all Cross-table lookups,
+    /// - the total number of z polynomials for this table, over all Cross-table lookups,
+    /// - the number of helper columns for this table, for each Cross-table lookup.
+    pub(crate) fn num_ctl_helpers_zs_all(
         ctls: &[Self],
         table: Table,
         num_challenges: usize,
         constraint_degree: usize,
-    ) -> usize {
+    ) -> (usize, usize, Vec<usize>) {
+        let mut num_helpers = 0;
         let mut num_ctls = 0;
-        for ctl in ctls {
-            let all_tables = std::iter::once(&ctl.looked_table).chain(&ctl.looking_tables);
-            let num_appearances = all_tables.filter(|twc| twc.table == table).count();
-            if num_appearances > 0 {
-                num_ctls += ceil_div_usize(num_appearances, constraint_degree - 1) + 1;
-            }
-        }
-        num_ctls * num_challenges
-    }
-
-    /// Given a `Table` t and the number of challenges, returns the number of Z polynomials for all
-    /// Cross table lookups associated to t, i.e. the number of looking and looked tables among all CTLs whose
-    /// columns are taken from t.
-    pub(crate) fn num_ctl_zs(
-        ctls: &[Self],
-        table: Table,
-        num_challenges: usize,
-        constraint_degree: usize,
-    ) -> usize {
-        let mut num_ctls = 0;
-        for ctl in ctls {
-            let all_tables = std::iter::once(&ctl.looked_table).chain(&ctl.looking_tables);
-            let num_appearances = all_tables.filter(|twc| twc.table == table).count();
-            if num_appearances > 0 {
-                num_ctls += 1;
-            }
-        }
-        num_ctls * num_challenges
-    }
-
-    /// Given a `Table` t and the number of challenges, returns the number of helper polynomials for all
-    /// Cross table lookups associated to t, i.e. the number of polynomials that help with checking Z
-    /// for all looking and looked tables among all CTLs whose columns are taken from t.
-    pub(crate) fn num_ctl_helpers(
-        ctls: &[Self],
-        table: Table,
-        num_challenges: usize,
-        constraint_degree: usize,
-    ) -> usize {
-        let mut num_ctls = 0;
-        for ctl in ctls {
+        let mut num_helpers_by_ctl = vec![0; ctls.len()];
+        for (i, ctl) in ctls.iter().enumerate() {
             let all_tables = std::iter::once(&ctl.looked_table).chain(&ctl.looking_tables);
             let num_appearances = all_tables.filter(|twc| twc.table == table).count();
 
             num_ctls += ceil_div_usize(num_appearances, constraint_degree - 1);
+            num_helpers_by_ctl[i] = num_ctls;
+            if num_appearances > 0 {
+                num_ctls += 1;
+            }
         }
-        num_ctls * num_challenges
-    }
-
-    /// Given a `Table` t and the number of challenges, returns the number of helper polynomials for each
-    /// Cross table lookups associated to t.
-    pub(crate) fn num_helpers_by_ctl(
-        ctls: &[Self],
-        table: Table,
-        num_challenges: usize,
-        constraint_degree: usize,
-    ) -> Vec<usize> {
-        let mut num_helpers = vec![0; ctls.len()];
-        for (i, ctl) in ctls.iter().enumerate() {
-            let all_tables = std::iter::once(&ctl.looked_table).chain(&ctl.looking_tables);
-            let num_appearances = all_tables.filter(|twc| twc.table == table).count();
-            num_helpers[i] = ceil_div_usize(num_appearances, constraint_degree - 1);
-        }
-        num_helpers
+        (
+            num_helpers * num_challenges,
+            num_ctls * num_challenges,
+            num_helpers_by_ctl,
+        )
     }
 }
 
@@ -817,9 +771,9 @@ pub(crate) fn cross_table_lookup_data<F: RichField, const D: usize>(
             let num_elts_filters = looking_tables.iter().fold(0, |acc, g| looking_tables.len());
             let mut grouped_tables = HashMap::with_capacity(num_elts_filters + num_elts_cols);
             for looking_table in looking_tables {
-                let cur = grouped_tables
+                let cur: &mut (Vec<Vec<Column<F>>>, Vec<Option<Filter<F>>>) = grouped_tables
                     .entry(looking_table.table as usize)
-                    .or_insert((vec![], vec![]));
+                    .or_default();
                 cur.0.push(looking_table.columns.clone());
                 cur.1.push(looking_table.filter.clone());
             }
@@ -869,7 +823,7 @@ pub(crate) fn get_helper_cols<F: Field>(
     constraint_degree: usize,
 ) -> Vec<PolynomialValues<F>> {
     let num_helper_columns = ceil_div_usize(columns.len(), constraint_degree - 1) + 1;
-    let mut helper_columns: Vec<PolynomialValues<F>> = Vec::with_capacity(num_helper_columns);
+    let mut helper_columns = Vec::with_capacity(num_helper_columns);
 
     let mut filter_index = 0;
     for mut cols_filts in &columns
@@ -1131,9 +1085,9 @@ impl<'a, F: RichField + Extendable<D>, const D: usize>
                 let mut grouped_tables =
                     HashMap::with_capacity(filtered_looking_tables.len() + num_elts_cols);
                 for looking_table in looking_tables {
-                    let cur = grouped_tables
+                    let cur: &mut (Vec<Vec<Column<F>>>, Vec<Option<Filter<F>>>) = grouped_tables
                         .entry(looking_table.table as usize)
-                        .or_insert((vec![], vec![]));
+                        .or_default();
                     cur.0.push(looking_table.columns.clone());
                     cur.1.push(looking_table.filter.clone());
                 }
@@ -1373,9 +1327,9 @@ impl<'a, F: Field, const D: usize> CtlCheckVarsTarget<F, D> {
                 let num_elts_filters = looking_tables.iter().fold(0, |acc, g| looking_tables.len());
                 let mut grouped_tables = HashMap::with_capacity(num_elts_cols + num_elts_filters);
                 for looking_table in looking_tables {
-                    let cur = grouped_tables
+                    let cur: &mut (Vec<Vec<Column<F>>>, Vec<Option<Filter<F>>>) = grouped_tables
                         .entry(looking_table.table as usize)
-                        .or_insert((vec![], vec![]));
+                        .or_default();
                     cur.0.push(looking_table.columns.clone());
                     cur.1.push(looking_table.filter.clone());
                 }
