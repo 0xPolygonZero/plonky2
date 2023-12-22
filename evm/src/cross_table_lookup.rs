@@ -28,6 +28,7 @@
 //! the current and next row values -- when computing the linear combinations.
 
 use std::borrow::Borrow;
+use std::cmp::min;
 use std::fmt::Debug;
 use std::iter::repeat;
 
@@ -584,7 +585,11 @@ impl<F: Field> CtlData<F> {
 
     /// Returns all the cross-table lookup helper polynomials.
     pub(crate) fn ctl_helper_polys(&self) -> Vec<PolynomialValues<F>> {
-        let mut res = vec![];
+        let num_polys = self
+            .zs_columns
+            .iter()
+            .fold(0, |acc, z| acc + z.helper_columns.len());
+        let mut res = Vec::with_capacity(num_polys);
         for z in &self.zs_columns {
             res.extend(z.helper_columns.clone());
         }
@@ -594,7 +599,7 @@ impl<F: Field> CtlData<F> {
 
     /// Returns all the Z cross-table-lookup polynomials.
     pub(crate) fn ctl_z_polys(&self) -> Vec<PolynomialValues<F>> {
-        let mut res = vec![];
+        let mut res = Vec::with_capacity(self.zs_columns.len());
         for z in &self.zs_columns {
             res.push(z.z.clone());
         }
@@ -604,7 +609,7 @@ impl<F: Field> CtlData<F> {
     /// Returns the number of helper columns for each STARK in each
     /// `CtlZData`.
     pub(crate) fn num_ctl_helper_polys(&self) -> Vec<usize> {
-        let mut res = vec![];
+        let mut res = Vec::with_capacity(self.zs_columns.len());
         for z in &self.zs_columns {
             res.push(z.helper_columns.len());
         }
@@ -802,7 +807,15 @@ pub(crate) fn cross_table_lookup_data<F: RichField, const D: usize>(
 
             // Group looking tables by `Table`, since we group together all looking tables associated to the same STARK
             // thanks to the helper columns.
-            let mut grouped_tables = HashMap::new();
+            let num_elts_cols = looking_tables.iter().fold(0, |acc, g| {
+                let mut tmp = 0;
+                for looking_table in looking_tables {
+                    tmp += looking_table.columns.len();
+                }
+                tmp
+            });
+            let num_elts_filters = looking_tables.iter().fold(0, |acc, g| looking_tables.len());
+            let mut grouped_tables = HashMap::with_capacity(num_elts_filters + num_elts_cols);
             for looking_table in looking_tables {
                 let cur = grouped_tables
                     .entry(looking_table.table as usize)
@@ -1099,7 +1112,24 @@ impl<'a, F: RichField + Extendable<D>, const D: usize>
         {
             for &challenges in &ctl_challenges.challenges {
                 // Group looking tables by `Table`, since we bundle the looking tables taken from the same `Table` together thanks to helper columns.
-                let mut grouped_tables = HashMap::new();
+                // We want to only iterate on each `Table` once.
+                let mut filtered_looking_tables =
+                    Vec::with_capacity(min(looking_tables.len(), NUM_TABLES));
+                for table in looking_tables {
+                    if !filtered_looking_tables.contains(&(table.table as usize)) {
+                        filtered_looking_tables.push(table.table as usize);
+                    }
+                }
+                let num_elts_cols = looking_tables.iter().fold(0, |acc, g| {
+                    let mut tmp = 0;
+                    for looking_table in looking_tables {
+                        tmp += looking_table.columns.len();
+                    }
+                    tmp
+                });
+
+                let mut grouped_tables =
+                    HashMap::with_capacity(filtered_looking_tables.len() + num_elts_cols);
                 for looking_table in looking_tables {
                     let cur = grouped_tables
                         .entry(looking_table.table as usize)
@@ -1108,13 +1138,6 @@ impl<'a, F: RichField + Extendable<D>, const D: usize>
                     cur.1.push(looking_table.filter.clone());
                 }
 
-                // We want to only iterate on each `Table` once.
-                let mut filtered_looking_tables = vec![];
-                for table in looking_tables {
-                    if !filtered_looking_tables.contains(&(table.table as usize)) {
-                        filtered_looking_tables.push(table.table as usize);
-                    }
-                }
                 for (i, &table) in filtered_looking_tables.iter().enumerate() {
                     // We have first all the helper polynomials, then all the z polynomials.
                     let (looking_z, looking_z_next) =
@@ -1340,7 +1363,15 @@ impl<'a, F: Field, const D: usize> CtlCheckVarsTarget<F, D> {
         {
             for &challenges in &ctl_challenges.challenges {
                 // Group looking tables by `Table`, since we bundle the looking tables taken from the same `Table` together thanks to helper columns.
-                let mut grouped_tables = HashMap::new();
+                let num_elts_cols = looking_tables.iter().fold(0, |acc, g| {
+                    let mut tmp = 0;
+                    for looking_table in looking_tables {
+                        tmp += looking_table.columns.len();
+                    }
+                    tmp
+                });
+                let num_elts_filters = looking_tables.iter().fold(0, |acc, g| looking_tables.len());
+                let mut grouped_tables = HashMap::with_capacity(num_elts_cols + num_elts_filters);
                 for looking_table in looking_tables {
                     let cur = grouped_tables
                         .entry(looking_table.table as usize)
