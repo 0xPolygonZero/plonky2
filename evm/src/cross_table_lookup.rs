@@ -1298,24 +1298,42 @@ impl<'a, F: Field, const D: usize> CtlCheckVarsTarget<F, D> {
         {
             for &challenges in &ctl_challenges.challenges {
                 // Group looking tables by `Table`, since we bundle the looking tables taken from the same `Table` together thanks to helper columns.
-                let num_elts_cols = looking_tables.iter().fold(0, |acc, g| {
-                    let mut tmp = 0;
-                    for looking_table in looking_tables {
-                        tmp += looking_table.columns.len();
-                    }
-                    tmp
-                });
-                let num_elts_filters = looking_tables.iter().fold(0, |acc, g| looking_tables.len());
-                let mut grouped_tables = HashMap::with_capacity(num_elts_cols + num_elts_filters);
-                for looking_table in looking_tables {
-                    let cur: &mut (Vec<Vec<Column<F>>>, Vec<Option<Filter<F>>>) = grouped_tables
-                        .entry(looking_table.table as usize)
-                        .or_default();
-                    cur.0.push(looking_table.columns.clone());
-                    cur.1.push(looking_table.filter.clone());
-                }
+                // let num_elts_cols = looking_tables.iter().fold(0, |acc, g| {
+                //     let mut tmp = 0;
+                //     for looking_table in looking_tables {
+                //         tmp += looking_table.columns.len();
+                //     }
+                //     tmp
+                // });
+                // let num_elts_filters = looking_tables.iter().fold(0, |acc, g| looking_tables.len());
+                // let mut grouped_tables = HashMap::with_capacity(num_elts_cols + num_elts_filters);
+                // for looking_table in looking_tables {
+                //     let cur: &mut (Vec<Vec<Column<F>>>, Vec<Option<Filter<F>>>) = grouped_tables
+                //         .entry(looking_table.table as usize)
+                //         .or_default();
+                //     cur.0.push(looking_table.columns.clone());
+                //     cur.1.push(looking_table.filter.clone());
+                // }
 
-                if let Some(group) = grouped_tables.get(&(table as usize)) {
+                let count = looking_tables
+                    .iter()
+                    .filter(|looking_table| looking_table.table == table)
+                    .count();
+                let cols_filts = looking_tables.iter().filter_map(|looking_table| {
+                    if looking_table.table == table {
+                        Some((&looking_table.columns, &looking_table.filter))
+                    } else {
+                        None
+                    }
+                });
+                // if let Some(group) = grouped_tables.get(&(table as usize)) {
+                if count > 0 {
+                    let mut columns = vec![vec![]; count];
+                    let mut filter = vec![None; count];
+                    for (i, (col, filt)) in cols_filts.enumerate() {
+                        columns[i] = (*col).to_vec();
+                        filter[i] = filt.clone();
+                    }
                     let (looking_z, looking_z_next) = ctl_zs[total_num_helper_columns + z_index];
                     let helper_columns = ctl_zs
                         [start_index..start_index + num_helper_ctl_columns[i]]
@@ -1325,8 +1343,8 @@ impl<'a, F: Field, const D: usize> CtlCheckVarsTarget<F, D> {
 
                     start_index += num_helper_ctl_columns[i];
                     z_index += 1;
-                    let columns = group.0.clone();
-                    let filter = group.1.clone();
+                    // let columns = group.0.clone();
+                    // let filter = group.1.clone();
                     ctl_vars.push(Self {
                         helper_columns,
                         local_z: *looking_z,
