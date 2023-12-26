@@ -488,10 +488,10 @@ impl<F: Field> CrossTableLookup<F> {
             let num_appearances = all_tables.filter(|twc| twc.table == table).count();
             let is_helpers = num_appearances > 2;
             if is_helpers {
-                num_ctls += ceil_div_usize(num_appearances, constraint_degree - 1);
+                num_helpers_by_ctl[i] = ceil_div_usize(num_appearances, constraint_degree - 1);
+                num_helpers += num_helpers_by_ctl[i];
             }
 
-            num_helpers_by_ctl[i] = num_ctls;
             if num_appearances > 0 {
                 num_ctls += 1;
             }
@@ -756,8 +756,7 @@ pub(crate) fn cross_table_lookup_data<F: RichField, const D: usize>(
 
             let mut z_looked = partial_sums(
                 &trace_poly_values[looked_table.table as usize],
-                &[&looked_table.columns],
-                &[&looked_table.filter],
+                &[(&looked_table.columns, &looked_table.filter)],
                 challenge,
                 constraint_degree,
             );
@@ -810,21 +809,16 @@ pub(crate) fn cross_table_lookup_data<F: RichField, const D: usize>(
 pub(crate) fn get_helper_cols<F: Field>(
     trace: &[PolynomialValues<F>],
     degree: usize,
-    columns: &[&[Column<F>]],
-    filter_cols: &[&Option<Filter<F>>],
+    columns_filters: &[(&[Column<F>], &Option<Filter<F>>)],
     challenge: GrandProductChallenge<F>,
     constraint_degree: usize,
 ) -> Vec<PolynomialValues<F>> {
-    let num_helper_columns = ceil_div_usize(columns.len(), constraint_degree - 1);
+    let num_helper_columns = ceil_div_usize(columns_filters.len(), constraint_degree - 1);
 
     let mut helper_columns = Vec::with_capacity(num_helper_columns);
 
     let mut filter_index = 0;
-    for mut cols_filts in &columns
-        .iter()
-        .zip(filter_cols)
-        .chunks(constraint_degree - 1)
-    {
+    for mut cols_filts in &columns_filters.iter().chunks(constraint_degree - 1) {
         let (first_col, first_filter) = cols_filts.next().unwrap();
 
         let mut filter_col = Vec::with_capacity(degree);
@@ -920,6 +914,7 @@ fn ctl_helper_zs_cols<F: Field>(
             let columns_filters = group
                 .map(|table| (&table.columns[..], &table.filter))
                 .collect::<Vec<(&[Column<F>], &Option<Filter<F>>)>>();
+
             let columns = columns_filters
                 .iter()
                 .map(|&(col, f)| col)
@@ -932,8 +927,7 @@ fn ctl_helper_zs_cols<F: Field>(
                 table as usize,
                 partial_sums(
                     &all_stark_traces[table as usize],
-                    &columns,
-                    &filters,
+                    &columns_filters,
                     challenge,
                     constraint_degree,
                 ),
@@ -957,22 +951,15 @@ fn ctl_helper_zs_cols<F: Field>(
 /// Returns the helper columns and `z`.
 fn partial_sums<F: Field>(
     trace: &[PolynomialValues<F>],
-    columns: &[&[Column<F>]],
-    filter_cols: &[&Option<Filter<F>>],
+    columns_filters: &[(&[Column<F>], &Option<Filter<F>>)],
     challenge: GrandProductChallenge<F>,
     constraint_degree: usize,
 ) -> Vec<PolynomialValues<F>> {
     let degree = trace[0].len();
     let mut z = Vec::with_capacity(degree);
 
-    let mut helper_columns = get_helper_cols(
-        trace,
-        degree,
-        columns,
-        filter_cols,
-        challenge,
-        constraint_degree,
-    );
+    let mut helper_columns =
+        get_helper_cols(trace, degree, columns_filters, challenge, constraint_degree);
 
     let x = helper_columns
         .iter()
@@ -986,7 +973,7 @@ fn partial_sums<F: Field>(
         z.push(z[z.len() - 1] + x);
     }
     z.reverse();
-    if columns.len() > 2 {
+    if columns_filters.len() > 2 {
         helper_columns.push(z.into());
     } else {
         helper_columns = vec![z.into()];
@@ -1221,7 +1208,7 @@ pub(crate) fn eval_cross_table_lookup_checks<F, FE, P, S, const D: usize, const 
             filter,
         } = lookup_vars;
 
-        // Check helper columns.
+        // Compute all linear combinations on the current table, and combine them using the challenge.
         let evals = columns
             .iter()
             .map(|col| {
@@ -1231,6 +1218,7 @@ pub(crate) fn eval_cross_table_lookup_checks<F, FE, P, S, const D: usize, const 
             })
             .collect::<Vec<_>>();
 
+        // Check helper columns.
         eval_helper_columns(
             filter,
             &evals,
@@ -1347,7 +1335,6 @@ impl<'a, F: Field, const D: usize> CtlCheckVarsTarget<F, D> {
                         None
                     }
                 });
-                // if let Some(group) = grouped_tables.get(&(table as usize)) {
                 if count > 0 {
                     let mut columns = vec![vec![]; count];
                     let mut filter = vec![None; count];
@@ -1378,14 +1365,12 @@ impl<'a, F: Field, const D: usize> CtlCheckVarsTarget<F, D> {
 
                 if looked_table.table == table {
                     let (looked_z, looked_z_next) = ctl_zs[total_num_helper_columns + z_index];
-                    let (&helper_column, _) = ctl_zs[start_index];
-                    start_index += 1;
                     z_index += 1;
 
                     let columns = vec![looked_table.columns.clone()];
                     let filter = vec![looked_table.filter.clone()];
                     ctl_vars.push(Self {
-                        helper_columns: vec![helper_column],
+                        helper_columns: vec![],
                         local_z: *looked_z,
                         next_z: *looked_z_next,
                         challenges,
@@ -1413,46 +1398,49 @@ pub(crate) fn eval_helper_columns_circuit<F: RichField + Extendable<D>, const D:
     challenges: &GrandProductChallenge<Target>,
     consumer: &mut RecursiveConstraintConsumer<F, D>,
 ) {
-    for (j, chunk) in columns.chunks(constraint_degree - 1).enumerate() {
-        let fs = &filter[(constraint_degree - 1) * j..(constraint_degree - 1) * j + chunk.len()];
-        let h = helper_columns[j];
+    if helper_columns.len() > 0 {
+        for (j, chunk) in columns.chunks(constraint_degree - 1).enumerate() {
+            let fs =
+                &filter[(constraint_degree - 1) * j..(constraint_degree - 1) * j + chunk.len()];
+            let h = helper_columns[j];
 
-        let one = builder.one_extension();
-        match chunk.len() {
-            2 => {
-                let combin0 = challenges.combine_circuit(builder, &chunk[0]);
-                let combin1 = challenges.combine_circuit(builder, &chunk[1]);
+            let one = builder.one_extension();
+            match chunk.len() {
+                2 => {
+                    let combin0 = challenges.combine_circuit(builder, &chunk[0]);
+                    let combin1 = challenges.combine_circuit(builder, &chunk[1]);
 
-                let f0 = if let Some(filter0) = &fs[0] {
-                    filter0.eval_filter_circuit(builder, local_values, next_values)
-                } else {
-                    one
-                };
-                let f1 = if let Some(filter1) = &fs[1] {
-                    filter1.eval_filter_circuit(builder, local_values, next_values)
-                } else {
-                    one
-                };
+                    let f0 = if let Some(filter0) = &fs[0] {
+                        filter0.eval_filter_circuit(builder, local_values, next_values)
+                    } else {
+                        one
+                    };
+                    let f1 = if let Some(filter1) = &fs[1] {
+                        filter1.eval_filter_circuit(builder, local_values, next_values)
+                    } else {
+                        one
+                    };
 
-                let constr = builder.mul_sub_extension(combin0, h, f0);
-                let constr = builder.mul_extension(constr, combin1);
-                let f1_constr = builder.mul_extension(f1, combin0);
-                let constr = builder.sub_extension(constr, f1_constr);
+                    let constr = builder.mul_sub_extension(combin0, h, f0);
+                    let constr = builder.mul_extension(constr, combin1);
+                    let f1_constr = builder.mul_extension(f1, combin0);
+                    let constr = builder.sub_extension(constr, f1_constr);
 
-                consumer.constraint(builder, constr);
+                    consumer.constraint(builder, constr);
+                }
+                1 => {
+                    let combin = challenges.combine_circuit(builder, &chunk[0]);
+                    let f0 = if let Some(filter1) = &fs[0] {
+                        filter1.eval_filter_circuit(builder, local_values, next_values)
+                    } else {
+                        one
+                    };
+                    let constr = builder.mul_sub_extension(combin, h, f0);
+                    consumer.constraint(builder, constr);
+                }
+
+                _ => todo!("Allow other constraint degrees"),
             }
-            1 => {
-                let combin = challenges.combine_circuit(builder, &chunk[0]);
-                let f0 = if let Some(filter1) = &fs[0] {
-                    filter1.eval_filter_circuit(builder, local_values, next_values)
-                } else {
-                    one
-                };
-                let constr = builder.mul_sub_extension(combin, h, f0);
-                consumer.constraint(builder, constr);
-            }
-
-            _ => todo!("Allow other constraint degrees"),
         }
     }
 }
@@ -1478,6 +1466,8 @@ pub(crate) fn eval_cross_table_lookup_checks_circuit<
     let local_values = vars.get_local_values();
     let next_values = vars.get_next_values();
 
+    let one = builder.one_extension();
+
     for lookup_vars in ctl_vars {
         let CtlCheckVarsTarget {
             helper_columns,
@@ -1498,6 +1488,7 @@ pub(crate) fn eval_cross_table_lookup_checks_circuit<
             })
             .collect::<Vec<_>>();
 
+        // Check helper columns.
         eval_helper_columns_circuit(
             builder,
             filter,
@@ -1510,16 +1501,54 @@ pub(crate) fn eval_cross_table_lookup_checks_circuit<
             consumer,
         );
 
-        // Check value of `Z(g^(n-1))`
-        let h_sum = builder.add_many_extension(helper_columns);
-
-        let last_row = builder.sub_extension(*local_z, h_sum);
-        consumer.constraint_last_row(builder, last_row);
-        // Check `Z(w) = Z(gw) * (filter / combination)`
         let z_diff = builder.sub_extension(*local_z, *next_z);
+        if helper_columns.len() > 0 {
+            // Check value of `Z(g^(n-1))`
+            let h_sum = builder.add_many_extension(helper_columns);
 
-        let transition = builder.sub_extension(z_diff, h_sum);
-        consumer.constraint_transition(builder, transition);
+            let last_row = builder.sub_extension(*local_z, h_sum);
+            consumer.constraint_last_row(builder, last_row);
+            // Check `Z(w) = Z(gw) * (filter / combination)`
+
+            let transition = builder.sub_extension(z_diff, h_sum);
+            consumer.constraint_transition(builder, transition);
+        } else if columns.len() > 1 {
+            let combin0 = challenges.combine_circuit(builder, &evals[0]);
+            let combin1 = challenges.combine_circuit(builder, &evals[1]);
+
+            let f0 = if let Some(filter0) = &filter[0] {
+                filter0.eval_filter_circuit(builder, local_values, next_values)
+            } else {
+                one
+            };
+            let f1 = if let Some(filter1) = &filter[1] {
+                filter1.eval_filter_circuit(builder, local_values, next_values)
+            } else {
+                one
+            };
+
+            let combined = builder.mul_sub_extension(combin1, *local_z, f1);
+            let combined = builder.mul_extension(combined, combin0);
+            let constr = builder.arithmetic_extension(F::NEG_ONE, F::ONE, f0, combin1, combined);
+            consumer.constraint_last_row(builder, constr);
+
+            let combined = builder.mul_sub_extension(combin1, z_diff, f1);
+            let combined = builder.mul_extension(combined, combin0);
+            let constr = builder.arithmetic_extension(F::NEG_ONE, F::ONE, f0, combin1, combined);
+            consumer.constraint_last_row(builder, constr);
+        } else {
+            let combin0 = challenges.combine_circuit(builder, &evals[0]);
+            let f0 = if let Some(filter0) = &filter[0] {
+                filter0.eval_filter_circuit(builder, local_values, next_values)
+            } else {
+                one
+            };
+
+            let constr = builder.mul_sub_extension(combin0, *local_z, f0);
+            consumer.constraint_last_row(builder, constr);
+            let constr = builder.mul_sub_extension(combin0, z_diff, f0);
+            consumer.constraint_transition(builder, constr);
+        }
     }
 }
 

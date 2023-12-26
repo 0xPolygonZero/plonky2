@@ -72,16 +72,17 @@ pub(crate) fn lookup_helper_columns<F: Field>(
         .iter()
         .map(|col| vec![col.clone()])
         .collect::<Vec<Vec<Column<F>>>>();
-    let lookup_cols = looking_cols
-        .iter()
-        .map(|col| &col[..])
-        .collect::<Vec<&[Column<F>]>>();
 
     let grand_challenge = GrandProductChallenge {
         beta: F::ONE,
         gamma: challenge,
     };
 
+    let columns_filters = looking_cols
+        .iter()
+        .zip(lookup.filter_columns.iter())
+        .map(|(col, filter)| (&col[..], filter))
+        .collect::<Vec<_>>();
     // For each batch of `constraint_degree-1` columns `fi`, compute `sum 1/(f_i+challenge)` and
     // add it to the helper columns.
     // Note: these are the h_k(x) polynomials in the paper, with a few differences:
@@ -94,8 +95,7 @@ pub(crate) fn lookup_helper_columns<F: Field>(
     let mut helper_columns = get_helper_cols(
         trace_poly_values,
         trace_poly_values[0].len(),
-        &lookup_cols,
-        &lookup.filter_columns.iter().collect::<Vec<_>>(),
+        &columns_filters,
         grand_challenge,
         constraint_degree,
     );
