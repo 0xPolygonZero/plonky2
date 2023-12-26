@@ -486,8 +486,11 @@ impl<F: Field> CrossTableLookup<F> {
         for (i, ctl) in ctls.iter().enumerate() {
             let all_tables = std::iter::once(&ctl.looked_table).chain(&ctl.looking_tables);
             let num_appearances = all_tables.filter(|twc| twc.table == table).count();
+            let is_helpers = num_appearances > 2;
+            if is_helpers {
+                num_ctls += ceil_div_usize(num_appearances, constraint_degree - 1);
+            }
 
-            num_ctls += ceil_div_usize(num_appearances, constraint_degree - 1);
             num_helpers_by_ctl[i] = num_ctls;
             if num_appearances > 0 {
                 num_ctls += 1;
@@ -707,16 +710,16 @@ pub(crate) fn num_ctl_helper_columns_by_table<F: Field>(
         } = ctl;
         let mut num_by_table = [0; NUM_TABLES];
 
-        // There is one helper column for the looked table.
-        num_by_table[looked_table.table as usize] += 1;
-
         let grouped_lookups = looking_tables.iter().group_by(|&a| a.table);
 
         for (table, group) in grouped_lookups.into_iter() {
             let vec_group = group.collect::<Vec<_>>();
 
             let sum: usize = vec_group.len();
-            num_by_table[table as usize] = ceil_div_usize(sum, constraint_degree - 1);
+            if sum > 2 {
+                // We only need helper columns if there are more than 2 columns.
+                num_by_table[table as usize] = ceil_div_usize(sum, constraint_degree - 1);
+            }
         }
 
         res[i] = num_by_table;
@@ -786,13 +789,12 @@ pub(crate) fn cross_table_lookup_data<F: RichField, const D: usize>(
                     filter,
                 });
             }
-            // There is only one helper column for the looking table.
-            let helper_looked = z_looked[0].clone();
-            let looked_poly = z_looked[1].clone();
+            // There is no helper column for the looking table.
+            let looked_poly = z_looked[0].clone();
             ctl_data_per_table[looked_table.table as usize]
                 .zs_columns
                 .push(CtlZData {
-                    helper_columns: vec![helper_looked],
+                    helper_columns: vec![],
                     z: looked_poly,
                     challenge,
                     columns: vec![looked_table.columns.clone()],
@@ -813,13 +815,14 @@ pub(crate) fn get_helper_cols<F: Field>(
     challenge: GrandProductChallenge<F>,
     constraint_degree: usize,
 ) -> Vec<PolynomialValues<F>> {
-    let num_helper_columns = ceil_div_usize(columns.len(), constraint_degree - 1) + 1;
+    let num_helper_columns = ceil_div_usize(columns.len(), constraint_degree - 1);
+
     let mut helper_columns = Vec::with_capacity(num_helper_columns);
 
     let mut filter_index = 0;
     for mut cols_filts in &columns
         .iter()
-        .zip(filter_cols.iter())
+        .zip(filter_cols)
         .chunks(constraint_degree - 1)
     {
         let (first_col, first_filter) = cols_filts.next().unwrap();
@@ -883,6 +886,7 @@ pub(crate) fn get_helper_cols<F: Field>(
                 .collect::<Vec<F>>();
 
             combined = F::batch_multiplicative_inverse(&combined);
+
             for d in 0..degree {
                 if filter_col[d].is_zero() {
                     combined[d] = F::ZERO;
@@ -894,8 +898,8 @@ pub(crate) fn get_helper_cols<F: Field>(
 
         helper_columns.push(acc.into());
     }
+    assert_eq!(helper_columns.len(), num_helper_columns);
 
-    assert_eq!(helper_columns.len(), num_helper_columns - 1);
     helper_columns
 }
 
@@ -970,22 +974,24 @@ fn partial_sums<F: Field>(
         constraint_degree,
     );
 
-    let x = helper_columns[..helper_columns.len()]
+    let x = helper_columns
         .iter()
         .map(|col| col.values[degree - 1])
         .sum::<F>();
     z.push(x);
 
     for i in (0..degree - 1).rev() {
-        let x = helper_columns[..helper_columns.len()]
-            .iter()
-            .map(|col| col.values[i])
-            .sum::<F>();
+        let x = helper_columns.iter().map(|col| col.values[i]).sum::<F>();
 
         z.push(z[z.len() - 1] + x);
     }
     z.reverse();
-    helper_columns.push(z.into());
+    if columns.len() > 2 {
+        helper_columns.push(z.into());
+    } else {
+        helper_columns = vec![z.into()];
+    }
+
     helper_columns
 }
 
@@ -1107,9 +1113,6 @@ impl<'a, F: RichField + Extendable<D>, const D: usize>
                     });
                 }
 
-                let (h_z, _) =
-                    ctl_zs[looked_table.table as usize][start_indices[looked_table.table as usize]];
-                start_indices[looked_table.table as usize] += 1;
                 let (looked_z, looked_z_next) = ctl_zs[looked_table.table as usize]
                     [total_num_helper_cols_by_table[looked_table.table as usize]
                         + z_indices[looked_table.table as usize]];
@@ -1119,7 +1122,7 @@ impl<'a, F: RichField + Extendable<D>, const D: usize>
                 let columns = vec![looked_table.columns.clone()];
                 let filter = vec![looked_table.filter.clone()];
                 ctl_vars_per_table[looked_table.table as usize].push(Self {
-                    helper_columns: vec![*h_z],
+                    helper_columns: vec![],
                     local_z: *looked_z,
                     next_z: *looked_z_next,
                     challenges,
@@ -1147,39 +1150,42 @@ pub(crate) fn eval_helper_columns<F, FE, P, const D: usize, const D2: usize>(
     FE: FieldExtension<D2, BaseField = F>,
     P: PackedField<Scalar = FE>,
 {
-    for (j, chunk) in columns.chunks(constraint_degree - 1).enumerate() {
-        let fs = &filter[(constraint_degree - 1) * j..(constraint_degree - 1) * j + chunk.len()];
-        let h = helper_columns[j];
+    if helper_columns.len() > 0 {
+        for (j, chunk) in columns.chunks(constraint_degree - 1).enumerate() {
+            let fs =
+                &filter[(constraint_degree - 1) * j..(constraint_degree - 1) * j + chunk.len()];
+            let h = helper_columns[j];
 
-        match chunk.len() {
-            2 => {
-                let combin0 = challenges.combine(&chunk[0]);
-                let combin1 = challenges.combine(chunk[1].iter());
+            match chunk.len() {
+                2 => {
+                    let combin0 = challenges.combine(&chunk[0]);
+                    let combin1 = challenges.combine(chunk[1].iter());
 
-                let f0 = if let Some(filter0) = &fs[0] {
-                    filter0.eval_filter(local_values, next_values)
-                } else {
-                    P::ONES
-                };
-                let f1 = if let Some(filter1) = &fs[1] {
-                    filter1.eval_filter(local_values, next_values)
-                } else {
-                    P::ONES
-                };
+                    let f0 = if let Some(filter0) = &fs[0] {
+                        filter0.eval_filter(local_values, next_values)
+                    } else {
+                        P::ONES
+                    };
+                    let f1 = if let Some(filter1) = &fs[1] {
+                        filter1.eval_filter(local_values, next_values)
+                    } else {
+                        P::ONES
+                    };
 
-                consumer.constraint(combin1 * combin0 * h - f0 * combin1 - f1 * combin0);
+                    consumer.constraint(combin1 * combin0 * h - f0 * combin1 - f1 * combin0);
+                }
+                1 => {
+                    let combin = challenges.combine(&chunk[0]);
+                    let f0 = if let Some(filter1) = &fs[0] {
+                        filter1.eval_filter(local_values, next_values)
+                    } else {
+                        P::ONES
+                    };
+                    consumer.constraint(combin * h - f0);
+                }
+
+                _ => todo!("Allow other constraint degrees"),
             }
-            1 => {
-                let combin = challenges.combine(&chunk[0]);
-                let f0 = if let Some(filter1) = &fs[0] {
-                    filter1.eval_filter(local_values, next_values)
-                } else {
-                    P::ONES
-                };
-                consumer.constraint(combin * h - f0);
-            }
-
-            _ => todo!("Allow other constraint degrees"),
         }
     }
 }
@@ -1236,11 +1242,42 @@ pub(crate) fn eval_cross_table_lookup_checks<F, FE, P, S, const D: usize, const 
             consumer,
         );
 
-        let h_sum = helper_columns.iter().fold(P::ZEROS, |acc, x| acc + *x);
-        // Check value of `Z(g^(n-1))`
-        consumer.constraint_last_row(*local_z - h_sum);
-        // Check `Z(w) = Z(gw) + \sum h_i`
-        consumer.constraint_transition(*local_z - *next_z - h_sum);
+        if helper_columns.len() > 0 {
+            let h_sum = helper_columns.iter().fold(P::ZEROS, |acc, x| acc + *x);
+            // Check value of `Z(g^(n-1))`
+            consumer.constraint_last_row(*local_z - h_sum);
+            // Check `Z(w) = Z(gw) + \sum h_i`
+            consumer.constraint_transition(*local_z - *next_z - h_sum);
+        } else if columns.len() > 1 {
+            let combin0 = challenges.combine(&evals[0]);
+            let combin1 = challenges.combine(&evals[1]);
+
+            let f0 = if let Some(filter0) = &filter[0] {
+                filter0.eval_filter(local_values, next_values)
+            } else {
+                P::ONES
+            };
+            let f1 = if let Some(filter1) = &filter[1] {
+                filter1.eval_filter(local_values, next_values)
+            } else {
+                P::ONES
+            };
+
+            consumer
+                .constraint_last_row(combin0 * combin1 * *local_z - f0 * combin1 - f1 * combin0);
+            consumer.constraint_transition(
+                combin0 * combin1 * (*local_z - *next_z) - f0 * combin1 - f1 * combin0,
+            );
+        } else {
+            let combin0 = challenges.combine(&evals[0]);
+            let f0 = if let Some(filter0) = &filter[0] {
+                filter0.eval_filter(local_values, next_values)
+            } else {
+                P::ONES
+            };
+            consumer.constraint_last_row(combin0 * *local_z - f0);
+            consumer.constraint_transition(combin0 * (*local_z - *next_z) - f0);
+        }
     }
 }
 
@@ -1298,22 +1335,6 @@ impl<'a, F: Field, const D: usize> CtlCheckVarsTarget<F, D> {
         {
             for &challenges in &ctl_challenges.challenges {
                 // Group looking tables by `Table`, since we bundle the looking tables taken from the same `Table` together thanks to helper columns.
-                // let num_elts_cols = looking_tables.iter().fold(0, |acc, g| {
-                //     let mut tmp = 0;
-                //     for looking_table in looking_tables {
-                //         tmp += looking_table.columns.len();
-                //     }
-                //     tmp
-                // });
-                // let num_elts_filters = looking_tables.iter().fold(0, |acc, g| looking_tables.len());
-                // let mut grouped_tables = HashMap::with_capacity(num_elts_cols + num_elts_filters);
-                // for looking_table in looking_tables {
-                //     let cur: &mut (Vec<Vec<Column<F>>>, Vec<Option<Filter<F>>>) = grouped_tables
-                //         .entry(looking_table.table as usize)
-                //         .or_default();
-                //     cur.0.push(looking_table.columns.clone());
-                //     cur.1.push(looking_table.filter.clone());
-                // }
 
                 let count = looking_tables
                     .iter()

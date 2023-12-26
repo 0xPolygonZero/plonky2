@@ -1055,7 +1055,7 @@ pub(crate) struct StarkOpeningSetTarget<const D: usize> {
     pub auxiliary_polys: Vec<ExtensionTarget<D>>,
     /// `ExtensionTarget`s for the opening of lookups and cross-table lookups `Z` polynomials at `g * zeta`.
     pub auxiliary_polys_next: Vec<ExtensionTarget<D>>,
-    /// /// `ExtensionTarget`s for the opening of lookups and cross-table lookups `Z` polynomials at 1.
+    /// `ExtensionTarget`s for the opening of lookups and cross-table lookups `Z` polynomials at 1.
     pub ctl_zs_first: Vec<Target>,
     /// `ExtensionTarget`s for the opening of quotient polynomials at `zeta`.
     pub quotient_polys: Vec<ExtensionTarget<D>>,
