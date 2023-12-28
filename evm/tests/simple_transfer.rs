@@ -154,9 +154,6 @@ fn test_simple_transfer() -> anyhow::Result<()> {
         },
     };
 
-    let bytes = std::fs::read("jumpi_d18g0v0_Shanghai.json").unwrap();
-    let inputs = serde_json::from_slice(&bytes).unwrap();
-
     let mut timing = TimingTree::new("prove", log::Level::Debug);
     let proof = prove::<F, C, D>(&all_stark, &config, inputs, &mut timing, None)?;
     timing.filter(Duration::from_millis(100)).print();
