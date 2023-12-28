@@ -302,15 +302,15 @@ impl<F: Field> GenerationState<F> {
         let code = self.get_current_code()?;
         // We need to set the simulated jumpdest bits to one as otherwise
         // the simulation will fail.
-        self.set_jumpdest_bits(&code);
+        // self.set_jumpdest_bits(&code);
 
         // Simulate the user's code and (unnecessarily) part of the kernel code, skipping the validate table call
         let Some(jumpdest_table) = simulate_cpu_between_labels_and_get_user_jumps(
-            "jumpdest_analisys_end",
+            "jumpdest_analysis_end",
             "terminate_common",
             self,
-        )?
-        else {
+        ) else {
+            self.jumpdest_proofs = Some(HashMap::new());
             return Ok(());
         };
 
@@ -318,7 +318,7 @@ impl<F: Field> GenerationState<F> {
         self.rollback(checkpoint);
         self.memory = memory;
 
-        // Find proofs for all context
+        // Find proofs for all contexts
         self.set_proofs_and_jumpdests(jumpdest_table);
 
         Ok(())
@@ -368,9 +368,9 @@ impl<F: Field> GenerationState<F> {
         Ok(code_len)
     }
 
-    fn set_jumpdest_bits<'a>(&mut self, code: &'a Vec<u8>) {
+    fn set_jumpdest_bits(&mut self, code: &[u8]) {
         const JUMPDEST_OPCODE: u8 = 0x5b;
-        for (pos, opcode) in CodeIterator::new(&code) {
+        for (pos, opcode) in CodeIterator::new(code) {
             if opcode == JUMPDEST_OPCODE {
                 self.memory.set(
                     MemoryAddress {
@@ -385,13 +385,13 @@ impl<F: Field> GenerationState<F> {
     }
 }
 
-/// For each address in `jumpdest_table`, each bounded by larges_address,
+/// For all address in `jumpdest_table`, each bounded by larges_address,
 /// this function searches for a proof. A proof is the closest address
 /// for which none of the previous 32 bytes in the code (including opcodes
 /// and pushed bytes are PUSHXX and the address is in its range. It returns
 /// a vector of even size containing proofs followed by their addresses
-fn get_proofs_and_jumpdests<'a>(
-    code: &'a Vec<u8>,
+fn get_proofs_and_jumpdests(
+    code: &[u8],
     largest_address: usize,
     jumpdest_table: std::collections::BTreeSet<usize>,
 ) -> Vec<usize> {
@@ -455,7 +455,7 @@ impl<'a> Iterator for CodeIterator<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         const PUSH1_OPCODE: u8 = 0x60;
-        const PUSH32_OPCODE: u8 = 0x70;
+        const PUSH32_OPCODE: u8 = 0x7f;
         let CodeIterator { code, pos, end } = self;
         if *pos >= *end {
             return None;

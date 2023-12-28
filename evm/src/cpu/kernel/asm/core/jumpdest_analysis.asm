@@ -102,7 +102,7 @@ code_bytes_to_skip:
 //     - we can go from opcode i+32 to jumpdest,
 //     - code[jumpdest] = 0x5b.
 // stack: proof_prefix_addr, jumpdest, ctx, retdest
-// stack: (empty) abort if jumpdest is not a valid destination
+// stack: (empty)
 global write_table_if_jumpdest:
     // stack: proof_prefix_addr, jumpdest, ctx, retdest
     %stack
@@ -129,7 +129,7 @@ global write_table_if_jumpdest:
     %check_and_step(111) %check_and_step(110) %check_and_step(109) %check_and_step(108)
     %check_and_step(107) %check_and_step(106) %check_and_step(105) %check_and_step(104)
     %check_and_step(103) %check_and_step(102) %check_and_step(101) %check_and_step(100)
-    %check_and_step(99) %check_and_step(98) %check_and_step(97) %check_and_step(96)
+    %check_and_step(99)  %check_and_step(98)  %check_and_step(97)  %check_and_step(96)
 
     // check the remaining path
     %jump(verify_path_and_write_table)
@@ -173,9 +173,9 @@ return:
 // an the jumpdest address below. If that's the case we set the
 // corresponding bit in @SEGMENT_JUMPDEST_BITS to 1.
 // 
-// stack: ctx, retdest
+// stack: ctx, code_len, retdest
 // stack: (empty)
-global jumpdest_analisys:
+global jumpdest_analysis:
     // If address > 0 then address is interpreted as address' + 1
     // and the next prover input should contain a proof for address'.
     PROVER_INPUT(jumpdest_table::next_address)
@@ -185,22 +185,26 @@ global jumpdest_analisys:
 // This is just a hook used for avoiding verification of the jumpdest
 // table in another contexts. It is useful during proof generation,
 // allowing the avoidance of table verification when simulating user code.
-global jumpdest_analisys_end:
-    POP
+global jumpdest_analysis_end:
+    %pop2
     JUMP
 check_proof:
+    // stack: proof, ctx, code_len, retdest
+    DUP3 DUP2 %assert_le
     %decrement
+    // stack: proof, ctx, code_len, retdest
     DUP2 SWAP1
-    // stack: address, ctx, ctx
+    // stack: address, ctx, ctx, code_len, retdest
     // We read the proof
     PROVER_INPUT(jumpdest_table::next_proof)
-    // stack: proof, address, ctx, ctx
+    // stack: proof, address, ctx, ctx, code_len, retdest
     %write_table_if_jumpdest
+    // stack: ctx, code_len, retdest
     
-    %jump(jumpdest_analisys)
+    %jump(jumpdest_analysis)
 
-%macro jumpdest_analisys
-    %stack (ctx) -> (ctx, %%after)
-    %jump(jumpdest_analisys)
+%macro jumpdest_analysis
+    %stack (ctx, code_len) -> (ctx, code_len, %%after)
+    %jump(jumpdest_analysis)
 %%after:
 %endmacro

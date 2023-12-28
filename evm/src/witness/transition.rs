@@ -396,8 +396,9 @@ fn try_perform_instruction<F: Field>(
         log_kernel_instruction(state, op);
     } else {
         log::debug!(
-            "User instruction: {:?}, ctx = {:?}, stack = {:?}",
+            "User instruction: {:?}, pc = {:?}, ctx = {:?}, stack = {:?}",
             op,
+            state.registers.program_counter,
             state.registers.context,
             state.stack()
         );

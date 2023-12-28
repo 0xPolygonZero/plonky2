@@ -340,9 +340,9 @@ fn simulate_cpu_between_labels_and_get_user_jumps<F: Field>(
     initial_label: &str,
     final_label: &str,
     state: &mut GenerationState<F>,
-) -> Result<Option<HashMap<usize, BTreeSet<usize>>>, ProgramError> {
+) -> Option<HashMap<usize, BTreeSet<usize>>> {
     if state.jumpdest_proofs.is_some() {
-        Ok(None)
+        None
     } else {
         const JUMP_OPCODE: u8 = 0x56;
         const JUMPI_OPCODE: u8 = 0x57;
@@ -358,19 +358,25 @@ fn simulate_cpu_between_labels_and_get_user_jumps<F: Field>(
 
         loop {
             // skip jumdest table validations in simulations
-            if state.registers.program_counter == KERNEL.global_labels["jumpdest_analisys"] {
-                state.registers.program_counter = KERNEL.global_labels["jumpdest_analisys_end"]
+            if state.registers.program_counter == KERNEL.global_labels["jumpdest_analysis"] {
+                state.registers.program_counter = KERNEL.global_labels["jumpdest_analysis_end"]
             }
             let pc = state.registers.program_counter;
             let context = state.registers.context;
-            let halt = state.registers.is_kernel
+            let mut halt = state.registers.is_kernel
                 && pc == halt_pc
                 && state.registers.context == initial_context;
-            let opcode = u256_to_u8(state.memory.get(MemoryAddress {
+            let Ok(opcode) = u256_to_u8(state.memory.get(MemoryAddress {
                 context,
                 segment: Segment::Code as usize,
                 virt: state.registers.program_counter,
-            }))?;
+            })) else {
+                log::debug!(
+                    "Simulated CPU halted after {} cycles",
+                    state.traces.clock() - initial_clock
+                );
+                return Some(jumpdest_addresses);
+            };
             let cond = if let Ok(cond) = stack_peek(state, 1) {
                 cond != U256::zero()
             } else {
@@ -380,7 +386,13 @@ fn simulate_cpu_between_labels_and_get_user_jumps<F: Field>(
                 && (opcode == JUMP_OPCODE || (opcode == JUMPI_OPCODE && cond))
             {
                 // Avoid deeper calls to abort
-                let jumpdest = u256_to_usize(state.registers.stack_top)?;
+                let Ok(jumpdest) = u256_to_usize(state.registers.stack_top) else {
+                    log::debug!(
+                        "Simulated CPU halted after {} cycles",
+                        state.traces.clock() - initial_clock
+                    );
+                    return Some(jumpdest_addresses);
+                };
                 state.memory.set(
                     MemoryAddress {
                         context,
@@ -400,16 +412,13 @@ fn simulate_cpu_between_labels_and_get_user_jumps<F: Field>(
                     jumpdest_addresses.insert(context, BTreeSet::from([jumpdest]));
                 }
             }
-            if halt {
+            if halt || transition(state).is_err() {
                 log::debug!(
                     "Simulated CPU halted after {} cycles",
                     state.traces.clock() - initial_clock
                 );
-                return Ok(Some(jumpdest_addresses));
+                return Some(jumpdest_addresses);
             }
-            transition(state).map_err(|_| {
-                ProgramError::ProverInputError(ProverInputError::InvalidJumpdestSimulation)
-            })?;
         }
     }
 }
