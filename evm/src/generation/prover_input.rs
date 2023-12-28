@@ -397,7 +397,7 @@ fn get_proofs_and_jumpdests(
 ) -> Vec<usize> {
     const PUSH1_OPCODE: u8 = 0x60;
     const PUSH32_OPCODE: u8 = 0x7f;
-    let (proofs, _) = CodeIterator::until(&code, largest_address + 1).fold(
+    let (proofs, _) = CodeIterator::until(code, largest_address + 1).fold(
         (vec![], 0),
         |(mut proofs, acc), (pos, opcode)| {
             let has_prefix = if let Some(prefix_start) = pos.checked_sub(32) {
