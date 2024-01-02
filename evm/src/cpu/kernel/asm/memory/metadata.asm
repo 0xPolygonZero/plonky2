@@ -92,13 +92,13 @@
     // write to.
 
     // stack: (empty)
-    PUSH $value
     %mload_context_metadata(@CTX_METADATA_PARENT_CONTEXT)
 
-    // stack: parent_ctx, value
+    // stack: parent_ctx
     PUSH $field ADD
-    // stack: addr, value
-    SWAP1
+    // stack: addr
+    PUSH $value
+    // stack: value, addr
     MSTORE_GENERAL
     // stack: (empty)
 %endmacro
