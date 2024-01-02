@@ -1,6 +1,3 @@
-#![allow(clippy::new_without_default)]
-#![allow(clippy::too_many_arguments)]
-#![allow(clippy::type_complexity)]
 #![allow(clippy::needless_range_loop)]
 #![no_std]
 

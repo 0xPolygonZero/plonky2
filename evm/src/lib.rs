@@ -1,7 +1,5 @@
-#![allow(incomplete_features)]
 #![allow(clippy::needless_range_loop)]
 #![allow(clippy::too_many_arguments)]
-#![allow(clippy::type_complexity)]
 #![allow(clippy::field_reassign_with_default)]
 #![allow(unused)]
 #![feature(let_chains)]
