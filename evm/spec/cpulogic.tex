@@ -75,15 +75,14 @@ ecAdd, ecMul and ecPairing precompiles.
   \item[0x0F.] \texttt{SUBMOD}. Pops 3 elements from the stack, and pushes the modular difference of the first two elements of the stack by the third one.
   It is similar to the SUB instruction, with an extra pop for the custom modulus.
 
-  \item[0x21.] \texttt{KECCAK\_GENERAL}. Pops 4 elements (successively the context, segment, and offset portions of a Memory address, followed by a length $\ell$)
-  and pushes the hash of the memory portion starting at the constructed address and of length $\ell$. It is similar to KECCAK256 (0x20) instruction, but can be applied to
-  any memory section (i.e. even privileged ones).
+  \item[0x21.] \texttt{KECCAK\_GENERAL}. Pops 2 elements (a Memory address, followed by a length $\ell$) and pushes the hash of the memory portion starting at the
+  constructed address and of length $\ell$. It is similar to KECCAK256 (0x20) instruction, but can be applied to any memory section (i.e. even privileged ones).
 
   \item[0x49.] \texttt{PROVER\_INPUT}. Pushes a single prover input onto the stack.
 
-  \item[0xC0-0xDF.] \texttt{MSTORE\_32BYTES}. Pops 4 elements from the stack (successively the context, segment, and offset portions of a Memory address, and then a value), and pushes
-  a new offset' onto the stack. The value is being decomposed into bytes and written to memory, starting from the reconstructed address. The new offset being pushed is computed as the
-  initial address offset + the length of the byte sequence being written to memory. Note that similarly to PUSH (0x60-0x7F) instructions there are 31 MSTORE\_32BYTES instructions, each
+  \item[0xC0-0xDF.] \texttt{MSTORE\_32BYTES}. Pops 2 elements from the stack (a Memory address, and then a value), and pushes
+  a new address' onto the stack. The value is being decomposed into bytes and written to memory, starting from the fetched address. The new address being pushed is computed as the
+  initial address + the length of the byte sequence being written to memory. Note that similarly to PUSH (0x60-0x7F) instructions, there are 31 MSTORE\_32BYTES instructions, each
   corresponding to a target byte length (length 0 is ignored, for the same reasons as MLOAD\_32BYTES, see below). Writing to memory an integer fitting in $n$ bytes with a length $\ell < n$ will
   result in the integer being truncated. On the other hand, specifying a length $\ell$ greater than the byte size of the value being written will result in padding with zeroes. This
   process is heavily used when resetting memory sections (by calling MSTORE\_32BYTES\_32 with the value 0).
@@ -93,20 +92,40 @@ ecAdd, ecMul and ecPairing precompiles.
   \item[0xF7.] \texttt{SET\_CONTEXT}. Pops the top element of the stack and updates the current context to this value. It is usually used when calling another contract or precompile,
   to distinguish the caller from the callee.
 
-  \item[0xF8.] \texttt{MLOAD\_32BYTES}. Pops 4 elements from the stack (successively the context, segment, and offset portions of a Memory address, and then a length $\ell$), and pushes
-  a value onto the stack. The pushed value corresponds to the U256 integer read from the big-endian sequence of length $\ell$ from the memory address being reconstructed. Note that an
+  \item[0xF8.] \texttt{MLOAD\_32BYTES}. Pops 2 elements from the stack (a Memory address, and then a length $\ell$), and pushes
+  a value onto the stack. The pushed value corresponds to the U256 integer read from the big-endian sequence of length $\ell$ from the memory address being fetched. Note that an
   empty length is not valid, nor is a length greater than 32 (as a U256 consists in at most 32 bytes). Missing these conditions will result in an unverifiable proof.
 
   \item[0xF9.] \texttt{EXIT\_KERNEL}. Pops 1 element from the stack. This instruction is used at the end of a syscall, before proceeding to the rest of the execution logic.
   The popped element, \textit{kexit\_info}, contains several pieces of information like the current program counter, the current amount of gas used, and whether we are in kernel (i.e. privileged) mode or not.
 
-  \item[0xFB.] \texttt{MLOAD\_GENERAL}. Pops 3 elements (successively the context, segment, and offset portions of a Memory address), and pushes the value stored at this memory
+  \item[0xFB.] \texttt{MLOAD\_GENERAL}. Pops 1 elements (a Memory address), and pushes the value stored at this memory
   address onto the stack. It can read any memory location, general (similarly to MLOAD (0x51) instruction) or privileged.
 
-  \item[0xFC.] \texttt{MSTORE\_GENERAL}. Pops 4 elements (successively a value, then the context, segment, and offset portions of a Memory address), and writes the popped value from
-  the stack at the reconstructed address. It can write to any memory location, general (similarly to MSTORE (0x52) / MSTORE8 (0x53) instructions) or privileged.
-
+  \item[0xFC.] \texttt{MSTORE\_GENERAL}. Pops 2 elements (a value and a Memory address), and writes the popped value from
+  the stack at the fetched address. It can write to any memory location, general (similarly to MSTORE (0x52) / MSTORE8 (0x53) instructions) or privileged.
 \end{enumerate}
+
+
+\subsection{Memory addresses}
+\label{memoryaddresses}
+
+Kernel operations deal with memory addresses as single U256 elements.
+However, when processing the operations to generate the proof witness, the CPU will decompose these into three components:
+
+\begin{itemize}
+  \item[context.] The context of the memory address. The Kernel context is special, and has value 0.
+
+  \item[segment.] The segment of the memory address, corresponding to a specific section given a context (eg. MPT data, global metadata, etc.).
+
+  \item[virtual.] The offset of the memory address, within a segment given a context.
+\end{itemize}
+
+To easily retrieve these components, we scale them so that they can represent a memory address as:
+
+$$ \mathrm{addr} = 2^{64} \cdot \mathrm{context} + 2^{32} \cdot \mathrm{segment} + \mathrm{offset}$$
+
+This allows to easily retrieve each component individually once a Memory address has been decomposed into 32-bit limbs.
 
 
 \subsection{Stack handling}
@@ -115,7 +134,7 @@ ecAdd, ecMul and ecPairing precompiles.
 \subsubsection{Top of the stack}
 
 The majority of memory operations involve the stack. The stack is a segment in memory, and stack operations (popping or pushing) use the memory channels.
-Every CPU instruction performs between 0 and 4 pops, and may push at most once. However, for efficiency purposes, we hold the top of the stack in
+Every CPU instruction performs between 0 and 2 pops, and may push at most once. However, for efficiency purposes, we hold the top of the stack in
 the first memory channel \texttt{current\_row.mem\_channels[0]}, only writing it in memory if necessary.
 
 \paragraph*{Motivation:}
