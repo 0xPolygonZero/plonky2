@@ -713,9 +713,7 @@ pub(crate) fn num_ctl_helper_columns_by_table<F: Field>(
         let grouped_lookups = looking_tables.iter().group_by(|&a| a.table);
 
         for (table, group) in grouped_lookups.into_iter() {
-            let vec_group = group.collect::<Vec<_>>();
-
-            let sum: usize = vec_group.len();
+            let sum = group.count();
             if sum > 2 {
                 // We only need helper columns if there are more than 2 columns.
                 num_by_table[table as usize] = ceil_div_usize(sum, constraint_degree - 1);
@@ -774,11 +772,11 @@ pub(crate) fn cross_table_lookup_data<F: RichField, const D: usize>(
                         None
                     }
                 });
-                let mut columns = vec![vec![]; count];
-                let mut filter = vec![None; count];
-                for (i, (col, filt)) in cols_filts.enumerate() {
-                    columns[i] = (*col).to_vec();
-                    filter[i] = filt.clone();
+                let mut columns = Vec::with_capacity(count);
+                let mut filter = Vec::with_capacity(count);
+                for (col, filt) in cols_filts {
+                    columns.push(col.clone());
+                    filter.push(filt.clone());
                 }
                 ctl_data_per_table[table].zs_columns.push(CtlZData {
                     helper_columns: helpers_zs[..num_helpers].to_vec(),
@@ -914,15 +912,6 @@ fn ctl_helper_zs_cols<F: Field>(
             let columns_filters = group
                 .map(|table| (&table.columns[..], &table.filter))
                 .collect::<Vec<(&[Column<F>], &Option<Filter<F>>)>>();
-
-            let columns = columns_filters
-                .iter()
-                .map(|&(col, f)| col)
-                .collect::<Vec<&[Column<F>]>>();
-            let filters = columns_filters
-                .iter()
-                .map(|&(col, f)| f)
-                .collect::<Vec<&Option<Filter<F>>>>();
             (
                 table as usize,
                 partial_sums(
@@ -1075,11 +1064,11 @@ impl<'a, F: RichField + Extendable<D>, const D: usize>
                             None
                         }
                     });
-                    let mut columns = vec![vec![]; count];
-                    let mut filter = vec![None; count];
-                    for (i, (col, filt)) in cols_filts.enumerate() {
-                        columns[i] = (*col).to_vec();
-                        filter[i] = filt.clone();
+                    let mut columns = Vec::with_capacity(count);
+                    let mut filter = Vec::with_capacity(count);
+                    for (col, filt) in cols_filts {
+                        columns.push(col.clone());
+                        filter.push(filt.clone());
                     }
                     let helper_columns = ctl_zs[table]
                         [start_indices[table]..start_indices[table] + num_ctls[table]]
@@ -1137,7 +1126,7 @@ pub(crate) fn eval_helper_columns<F, FE, P, const D: usize, const D2: usize>(
     FE: FieldExtension<D2, BaseField = F>,
     P: PackedField<Scalar = FE>,
 {
-    if helper_columns.len() > 0 {
+    if !helper_columns.is_empty() {
         for (j, chunk) in columns.chunks(constraint_degree - 1).enumerate() {
             let fs =
                 &filter[(constraint_degree - 1) * j..(constraint_degree - 1) * j + chunk.len()];
@@ -1230,7 +1219,7 @@ pub(crate) fn eval_cross_table_lookup_checks<F, FE, P, S, const D: usize, const 
             consumer,
         );
 
-        if helper_columns.len() > 0 {
+        if !helper_columns.is_empty() {
             let h_sum = helper_columns.iter().fold(P::ZEROS, |acc, x| acc + *x);
             // Check value of `Z(g^(n-1))`
             consumer.constraint_last_row(*local_z - h_sum);
@@ -1336,11 +1325,11 @@ impl<'a, F: Field, const D: usize> CtlCheckVarsTarget<F, D> {
                     }
                 });
                 if count > 0 {
-                    let mut columns = vec![vec![]; count];
-                    let mut filter = vec![None; count];
-                    for (i, (col, filt)) in cols_filts.enumerate() {
-                        columns[i] = (*col).to_vec();
-                        filter[i] = filt.clone();
+                    let mut columns = Vec::with_capacity(count);
+                    let mut filter = Vec::with_capacity(count);
+                    for (col, filt) in cols_filts {
+                        columns.push(col.clone());
+                        filter.push(filt.clone());
                     }
                     let (looking_z, looking_z_next) = ctl_zs[total_num_helper_columns + z_index];
                     let helper_columns = ctl_zs
@@ -1398,7 +1387,7 @@ pub(crate) fn eval_helper_columns_circuit<F: RichField + Extendable<D>, const D:
     challenges: &GrandProductChallenge<Target>,
     consumer: &mut RecursiveConstraintConsumer<F, D>,
 ) {
-    if helper_columns.len() > 0 {
+    if !helper_columns.is_empty() {
         for (j, chunk) in columns.chunks(constraint_degree - 1).enumerate() {
             let fs =
                 &filter[(constraint_degree - 1) * j..(constraint_degree - 1) * j + chunk.len()];
@@ -1502,7 +1491,7 @@ pub(crate) fn eval_cross_table_lookup_checks_circuit<
         );
 
         let z_diff = builder.sub_extension(*local_z, *next_z);
-        if helper_columns.len() > 0 {
+        if !helper_columns.is_empty() {
             // Check value of `Z(g^(n-1))`
             let h_sum = builder.add_many_extension(helper_columns);
 
