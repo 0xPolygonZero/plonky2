@@ -184,3 +184,4 @@ Plonky2's default hash function is Poseidon, configured with 8 full rounds, 22 p
 - [Insertion](https://github.com/0xPolygonZero/plonky2-insertion), Plonky2 gadgets for insertion into a list (no longer maintained)
 - [u32](https://github.com/0xPolygonZero/plonky2-u32), Plonky2 gadgets for u32 arithmetic (no longer actively maintained)
 - [ECDSA](https://github.com/0xPolygonZero/plonky2-ecdsa), Plonky2 gadgets for the ECDSA algorithm (no longer actively maintained)
+- [plonky2-gpu](https://github.com/sideprotocol/plonky2-gpu) `plonky2-gpu` is a GPU-accelerated evolution of the Plonky2 project, leveraging CUDA to optimize critical calculations and significantly reduce proving times for enhanced cryptographic efficiency.
