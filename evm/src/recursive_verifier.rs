@@ -830,7 +830,7 @@ pub(crate) fn set_stark_proof_target<F, C: GenericConfig<D, F = F>, W, const D: 
     set_fri_proof_target(witness, &proof_target.opening_proof, &proof.opening_proof);
 }
 
-pub(crate) fn set_public_value_targets<F, W, const D: usize>(
+pub fn set_public_value_targets<F, W, const D: usize>(
     witness: &mut W,
     public_values_target: &PublicValuesTarget,
     public_values: &PublicValues,

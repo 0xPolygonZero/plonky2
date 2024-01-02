@@ -159,8 +159,16 @@ impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
         trace_col_vecs[COUNTER] = (0..height).map(|i| F::from_canonical_usize(i)).collect();
 
         for i in 0..height {
-            let x = trace_col_vecs[RANGE_CHECK][i].to_canonical_u64() as usize;
-            trace_col_vecs[FREQUENCIES][x] += F::ONE;
+            let x_rc = trace_col_vecs[RANGE_CHECK][i].to_canonical_u64() as usize;
+            trace_col_vecs[FREQUENCIES][x_rc] += F::ONE;
+            if (trace_col_vecs[CONTEXT_FIRST_CHANGE][i] == F::ONE)
+                || (trace_col_vecs[SEGMENT_FIRST_CHANGE][i] == F::ONE)
+            {
+                // CONTEXT_FIRST_CHANGE and SEGMENT_FIRST_CHANGE should be 0 at the last row, so the index
+                // should never be out of bounds.
+                let x_fo = trace_col_vecs[ADDR_VIRTUAL][i + 1].to_canonical_u64() as usize;
+                trace_col_vecs[FREQUENCIES][x_fo] += F::ONE;
+            }
         }
     }
 
@@ -176,7 +184,7 @@ impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
     /// reads to the same address, say at timestamps 50 and 80.
     fn fill_gaps(memory_ops: &mut Vec<MemoryOp>) {
         let max_rc = memory_ops.len().next_power_of_two() - 1;
-        for (mut curr, next) in memory_ops.clone().into_iter().tuple_windows() {
+        for (mut curr, mut next) in memory_ops.clone().into_iter().tuple_windows() {
             if curr.address.context != next.address.context
                 || curr.address.segment != next.address.segment
             {
@@ -186,6 +194,15 @@ impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
                 // Similarly, the number of possible segments is a small constant, so any gap must
                 // be small. max_rc will always be much larger, as just bootloading the kernel will
                 // trigger thousands of memory operations.
+                // However, we do check that the first address accessed is range-checkable. If not,
+                // we could start at a negative address and cheat.
+                while next.address.virt > max_rc {
+                    let mut dummy_address = next.address;
+                    dummy_address.virt -= max_rc;
+                    let dummy_read = MemoryOp::new_dummy_read(dummy_address, 0, next.value);
+                    memory_ops.push(dummy_read);
+                    next = dummy_read;
+                }
             } else if curr.address.virt != next.address.virt {
                 while next.address.virt - curr.address.virt - 1 > max_rc {
                     let mut dummy_address = curr.address;
@@ -534,10 +551,19 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
 
     fn lookups(&self) -> Vec<Lookup<F>> {
         vec![Lookup {
-            columns: vec![Column::single(RANGE_CHECK)],
+            columns: vec![
+                Column::single(RANGE_CHECK),
+                Column::single_next_row(ADDR_VIRTUAL),
+            ],
             table_column: Column::single(COUNTER),
             frequencies_column: Column::single(FREQUENCIES),
-            filter_columns: vec![None],
+            filter_columns: vec![
+                None,
+                Some(Filter::new_simple(Column::sum([
+                    CONTEXT_FIRST_CHANGE,
+                    SEGMENT_FIRST_CHANGE,
+                ]))),
+            ],
         }]
     }
 }

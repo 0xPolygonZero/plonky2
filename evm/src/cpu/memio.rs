@@ -51,6 +51,7 @@ fn eval_packed_load<P: PackedField>(
     for &channel in &lv.mem_channels[2..NUM_GP_CHANNELS] {
         yield_constr.constraint(filter * channel.used);
     }
+    yield_constr.constraint(filter * lv.partial_channel.used);
 
     // Stack constraints
     stack::eval_packed_one(
@@ -113,6 +114,10 @@ fn eval_ext_circuit_load<F: RichField + Extendable<D>, const D: usize>(
     // Disable remaining memory channels, if any.
     for &channel in &lv.mem_channels[2..] {
         let constr = builder.mul_extension(filter, channel.used);
+        yield_constr.constraint(builder, constr);
+    }
+    {
+        let constr = builder.mul_extension(filter, lv.partial_channel.used);
         yield_constr.constraint(builder, constr);
     }
 

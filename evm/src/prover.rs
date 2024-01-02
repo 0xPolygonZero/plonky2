@@ -100,8 +100,6 @@ where
                     timing,
                     &format!("compute trace commitment for {:?}", table),
                     PolynomialBatch::<F, C, D>::from_values(
-                        // TODO: Cloning this isn't great; consider having `from_values` accept a reference,
-                        // or having `compute_permutation_z_polys` read trace values from the `PolynomialBatch`.
                         trace.clone(),
                         rate_bits,
                         false,
@@ -670,7 +668,7 @@ where
 /// Utility method that checks whether a kill signal has been emitted by one of the workers,
 /// which will result in an early abort for all the other processes involved in the same set
 /// of transactions.
-pub(crate) fn check_abort_signal(abort_signal: Option<Arc<AtomicBool>>) -> Result<()> {
+pub fn check_abort_signal(abort_signal: Option<Arc<AtomicBool>>) -> Result<()> {
     if let Some(signal) = abort_signal {
         if signal.load(Ordering::Relaxed) {
             return Err(anyhow!("Stopping job from abort signal."));

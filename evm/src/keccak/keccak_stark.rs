@@ -722,8 +722,6 @@ mod tests {
             stark.generate_trace(input, 8, &mut timing)
         );
 
-        // TODO: Cloning this isn't great; consider having `from_values` accept a reference,
-        // or having `compute_permutation_z_polys` read trace values from the `PolynomialBatch`.
         let cloned_trace_poly_values = timed!(timing, "clone", trace_poly_values.clone());
 
         let trace_commitments = timed!(
