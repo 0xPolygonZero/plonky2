@@ -430,41 +430,14 @@
     // stack: addr (ctx == 0)
 %endmacro
 
-%macro new_address(ctx, seg, off)
-    // stack: empty
-    PUSH $ctx
-    PUSH $seg
-    ADD
-    PUSH $off
-    ADD
-    // stack: addr
-%endmacro
-
-%macro new_address_no_offset(ctx, seg)
-    // stack: empty
-    PUSH $ctx
-    PUSH $seg
-    ADD
-    // stack: addr
-%endmacro
-
-%macro new_address_with_ctx(seg, off)
-    // stack: ctx
-    PUSH $seg
-    ADD
-    PUSH $off
-    ADD
-    // stack: addr
-%endmacro
-
-%macro new_address_with_ctx_no_offset(seg)
+%macro build_address_with_ctx_no_offset(seg)
     // stack: ctx
     PUSH $seg
     ADD
     // stack: addr
 %endmacro
 
-%macro new_address_with_ctx_no_segment(off)
+%macro build_address_with_ctx_no_segment(off)
     // stack: ctx
     PUSH $off
     ADD
