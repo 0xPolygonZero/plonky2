@@ -126,7 +126,9 @@
 //!
 //! // Default serializers
 //! let gate_serializer = DefaultGateSerializer;
-//! let generator_serializer = DefaultGeneratorSerializer::<C, D>::new();
+//! let generator_serializer = DefaultGeneratorSerializer::<C, D> {
+//!     _phantom: PhantomData::<C>,
+//! };
 //!
 //! // Serializes the prover state to a sequence of bytes
 //! let bytes = prover_state.to_bytes(false, &gate_serializer, &generator_serializer).unwrap();

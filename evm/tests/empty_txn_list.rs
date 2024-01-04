@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::marker::PhantomData;
 use std::time::Duration;
 
 use env_logger::{try_init_from_env, Env, DEFAULT_FILTER_ENV};
@@ -82,7 +83,9 @@ fn test_empty_txn_list() -> anyhow::Result<()> {
 
     {
         let gate_serializer = DefaultGateSerializer;
-        let generator_serializer = DefaultGeneratorSerializer::<C, D>::new();
+        let generator_serializer = DefaultGeneratorSerializer::<C, D> {
+            _phantom: PhantomData::<C>,
+        };
 
         let timing = TimingTree::new("serialize AllRecursiveCircuits", log::Level::Info);
         let all_circuits_bytes = all_circuits
