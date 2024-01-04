@@ -128,6 +128,14 @@ pub mod default {
         pub _phantom: PhantomData<C>,
     }
 
+    impl<C: GenericConfig<D>, const D: usize> DefaultGeneratorSerializer<C, D> {
+        pub fn new() -> Self {
+            Self {
+                _phantom: PhantomData::<C>,
+            }
+        }
+    }
+
     impl<F, C, const D: usize> WitnessGeneratorSerializer<F, D> for DefaultGeneratorSerializer<C, D>
     where
         F: RichField + Extendable<D>,

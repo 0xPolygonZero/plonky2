@@ -1,13 +1,16 @@
 use plonky2::fri::reduction_strategies::FriReductionStrategy;
 use plonky2::fri::{FriConfig, FriParams};
 
+/// A configuration containing the different parameters to be used by the STARK prover.
 pub struct StarkConfig {
+    /// The targeted security level for the proofs generated with this configuration.
     pub security_bits: usize,
 
     /// The number of challenge points to generate, for IOPs that have soundness errors of (roughly)
     /// `degree / |F|`.
     pub num_challenges: usize,
 
+    /// The configuration of the FRI sub-protocol.
     pub fri_config: FriConfig,
 }
 

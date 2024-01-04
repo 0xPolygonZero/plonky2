@@ -43,13 +43,17 @@ use crate::witness::util::mem_write_log;
 /// Inputs needed for trace generation.
 #[derive(Clone, Debug, Deserialize, Serialize, Default)]
 pub struct GenerationInputs {
+    /// The index of the transaction being proven within its block.
     pub txn_number_before: U256,
+    /// The cumulative gas used through the execution of all transactions prior the current one.
     pub gas_used_before: U256,
+    /// The cumulative gas used after the execution of the current transaction. The exact gas used
+    /// by the current transaction is `gas_used_after` - `gas_used_before`.
     pub gas_used_after: U256,
 
-    // A None would yield an empty proof, otherwise this contains the encoding of a transaction.
+    /// A None would yield an empty proof, otherwise this contains the encoding of a transaction.
     pub signed_txn: Option<Vec<u8>>,
-    // Withdrawal pairs `(addr, amount)`. At the end of the txs, `amount` is added to `addr`'s balance. See EIP-4895.
+    /// Withdrawal pairs `(addr, amount)`. At the end of the txs, `amount` is added to `addr`'s balance. See EIP-4895.
     pub withdrawals: Vec<(Address, U256)>,
     pub tries: TrieInputs,
     /// Expected trie roots after the transactions are executed.
@@ -64,8 +68,10 @@ pub struct GenerationInputs {
     /// All account smart contracts that are invoked will have an entry present.
     pub contract_code: HashMap<H256, Vec<u8>>,
 
+    /// Information contained in the block header.
     pub block_metadata: BlockMetadata,
 
+    /// The hash of the current block, and a list of the 256 previous block hashes.
     pub block_hashes: BlockHashes,
 }
 
