@@ -302,7 +302,7 @@ fn perform_op<F: Field>(
     let gas_limit_address = MemoryAddress::new(
         state.registers.context,
         Segment::ContextMetadata,
-        ContextMetadata::GasLimit as usize - Segment::ContextMetadata as usize, // context offsets are already scaled
+        ContextMetadata::GasLimit.unscale(), // context offsets are already scaled
     );
     if !state.registers.is_kernel {
         let gas_limit = TryInto::<u64>::try_into(state.memory.get(gas_limit_address));
@@ -345,8 +345,7 @@ pub(crate) fn fill_stack_fields<F: Field>(
         channel.used = F::ONE;
         channel.is_read = F::ONE;
         channel.addr_context = F::from_canonical_usize(state.registers.context);
-        channel.addr_segment =
-            F::from_canonical_usize(Segment::Stack as usize >> SEGMENT_SCALING_FACTOR);
+        channel.addr_segment = F::from_canonical_usize(Segment::Stack.unscale());
         channel.addr_virtual = F::from_canonical_usize(state.registers.stack_len - 1);
 
         let address = MemoryAddress::new(
@@ -495,9 +494,7 @@ pub(crate) fn transition<F: Field>(state: &mut GenerationState<F>) -> anyhow::Re
                     e,
                     offset_name,
                     state.stack(),
-                    state.memory.contexts[0].segments
-                        [Segment::KernelGeneral as usize >> SEGMENT_SCALING_FACTOR]
-                        .content,
+                    state.memory.contexts[0].segments[Segment::KernelGeneral.unscale()].content,
                 );
             }
             state.rollback(checkpoint);

@@ -160,12 +160,9 @@ fn eval_packed_set<P: PackedField>(
     let stack_top = lv.mem_channels[0].value;
     let write_old_sp_channel = lv.mem_channels[1];
     let read_new_sp_channel = lv.mem_channels[2];
-    let ctx_metadata_segment =
-        P::Scalar::from_canonical_u64(Segment::ContextMetadata as u64 >> SEGMENT_SCALING_FACTOR);
-    let stack_size_field = P::Scalar::from_canonical_u64(
-        // We need to unscale the context metadata.
-        ContextMetadata::StackSize as u64 - Segment::ContextMetadata as u64,
-    );
+    // We need to unscale the context metadata segment and related field.
+    let ctx_metadata_segment = P::Scalar::from_canonical_usize(Segment::ContextMetadata.unscale());
+    let stack_size_field = P::Scalar::from_canonical_usize(ContextMetadata::StackSize.unscale());
     let local_sp_dec = lv.stack_len - P::ONES;
 
     // The next row's context is read from stack_top.
@@ -232,12 +229,12 @@ fn eval_ext_circuit_set<F: RichField + Extendable<D>, const D: usize>(
     let stack_top = lv.mem_channels[0].value;
     let write_old_sp_channel = lv.mem_channels[1];
     let read_new_sp_channel = lv.mem_channels[2];
-    let ctx_metadata_segment = builder.constant_extension(F::Extension::from_canonical_u64(
-        Segment::ContextMetadata as u64 >> SEGMENT_SCALING_FACTOR,
+    // We need to unscale the context metadata segment and related field.
+    let ctx_metadata_segment = builder.constant_extension(F::Extension::from_canonical_usize(
+        Segment::ContextMetadata.unscale(),
     ));
-    let stack_size_field = builder.constant_extension(F::Extension::from_canonical_u64(
-        // We need to unscale the context metadata.
-        ContextMetadata::StackSize as u64 - Segment::ContextMetadata as u64,
+    let stack_size_field = builder.constant_extension(F::Extension::from_canonical_usize(
+        ContextMetadata::StackSize.unscale(),
     ));
     let one = builder.one_extension();
     let local_sp_dec = builder.sub_extension(lv.stack_len, one);
@@ -386,8 +383,7 @@ pub(crate) fn eval_packed<P: PackedField>(
     // Same segment for both.
     yield_constr.constraint(
         new_filter
-            * (channel.addr_segment
-                - P::Scalar::from_canonical_u64(Segment::Stack as u64 >> SEGMENT_SCALING_FACTOR)),
+            * (channel.addr_segment - P::Scalar::from_canonical_usize(Segment::Stack.unscale())),
     );
     // The address is one less than stack_len.
     let addr_virtual = stack_len - P::ONES;
@@ -448,7 +444,7 @@ pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     {
         let diff = builder.add_const_extension(
             channel.addr_segment,
-            -F::from_canonical_u64(Segment::Stack as u64 >> SEGMENT_SCALING_FACTOR),
+            -F::from_canonical_usize(Segment::Stack.unscale()),
         );
         let constr = builder.mul_extension(new_filter, diff);
         yield_constr.constraint(builder, constr);

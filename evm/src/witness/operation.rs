@@ -376,7 +376,7 @@ pub(crate) fn generate_set_context<F: Field>(
     // The popped value needs to be scaled down.
     let new_ctx = u256_to_usize(ctx >> CONTEXT_SCALING_FACTOR)?;
 
-    let sp_field = ContextMetadata::StackSize as usize - Segment::ContextMetadata as usize;
+    let sp_field = ContextMetadata::StackSize.unscale();
     let old_sp_addr = MemoryAddress::new(old_ctx, Segment::ContextMetadata, sp_field);
     let new_sp_addr = MemoryAddress::new(new_ctx, Segment::ContextMetadata, sp_field);
 
@@ -395,8 +395,7 @@ pub(crate) fn generate_set_context<F: Field>(
         channel.used = F::ONE;
         channel.is_read = F::ONE;
         channel.addr_context = F::from_canonical_usize(new_ctx);
-        channel.addr_segment =
-            F::from_canonical_usize(Segment::ContextMetadata as usize >> SEGMENT_SCALING_FACTOR);
+        channel.addr_segment = F::from_canonical_usize(Segment::ContextMetadata.unscale());
         channel.addr_virtual = F::from_canonical_usize(new_sp_addr.virt);
         let val_limbs: [u64; 4] = sp_to_save.0;
         for (i, limb) in val_limbs.into_iter().enumerate() {

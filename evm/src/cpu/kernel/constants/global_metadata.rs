@@ -100,6 +100,11 @@ pub(crate) enum GlobalMetadata {
 impl GlobalMetadata {
     pub(crate) const COUNT: usize = 48;
 
+    /// Unscales this virtual offset by their respective `Segment` value.
+    pub(crate) const fn unscale(&self) -> usize {
+        *self as usize - Segment::GlobalMetadata as usize
+    }
+
     pub(crate) const fn all() -> [Self; Self::COUNT] {
         [
             Self::LargestContext,

@@ -54,9 +54,7 @@ fn constrain_channel_packed<P: PackedField>(
     yield_constr.constraint(filter * (channel.is_read - P::Scalar::from_bool(is_read)));
     yield_constr.constraint(filter * (channel.addr_context - lv.context));
     yield_constr.constraint(
-        filter
-            * (channel.addr_segment
-                - P::Scalar::from_canonical_u64(Segment::Stack as u64 >> SEGMENT_SCALING_FACTOR)),
+        filter * (channel.addr_segment - P::Scalar::from_canonical_usize(Segment::Stack.unscale())),
     );
     // Top of the stack is at `addr = lv.stack_len - 1`.
     let addr_virtual = lv.stack_len - P::ONES - offset;
@@ -96,7 +94,7 @@ fn constrain_channel_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     {
         let constr = builder.arithmetic_extension(
             F::ONE,
-            -F::from_canonical_u64(Segment::Stack as u64 >> SEGMENT_SCALING_FACTOR),
+            -F::from_canonical_usize(Segment::Stack.unscale()),
             filter,
             channel.addr_segment,
             filter,

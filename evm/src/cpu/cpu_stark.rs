@@ -251,9 +251,7 @@ pub(crate) fn ctl_data_code_memory<F: Field>() -> Vec<Column<F>> {
     let mut cols = vec![
         Column::constant(F::ONE),             // is_read
         Column::single(COL_MAP.code_context), // addr_context
-        Column::constant(F::from_canonical_u64(
-            Segment::Code as u64 >> SEGMENT_SCALING_FACTOR,
-        )), // addr_segment
+        Column::constant(F::from_canonical_usize(Segment::Code.unscale())), // addr_segment
         Column::single(COL_MAP.program_counter), // addr_virtual
     ];
 

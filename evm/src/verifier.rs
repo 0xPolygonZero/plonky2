@@ -239,25 +239,22 @@ where
         (GlobalMetadata::KernelLen, KERNEL.code.len().into()),
     ];
 
-    let segment = F::from_canonical_u64(Segment::GlobalMetadata as u64 >> SEGMENT_SCALING_FACTOR);
+    let segment = F::from_canonical_usize(Segment::GlobalMetadata.unscale());
 
     fields.map(|(field, val)| {
         // These fields are already scaled by their segment, and are in context 0 (kernel).
-        let field = field as usize - Segment::GlobalMetadata as usize;
-        sum = add_data_write(challenge, segment, sum, field, val)
+        sum = add_data_write(challenge, segment, sum, field.unscale(), val)
     });
 
     // Add block bloom writes.
-    let bloom_segment =
-        F::from_canonical_u64(Segment::GlobalBlockBloom as u64 >> SEGMENT_SCALING_FACTOR);
+    let bloom_segment = F::from_canonical_usize(Segment::GlobalBlockBloom.unscale());
     for index in 0..8 {
         let val = public_values.block_metadata.block_bloom[index];
         sum = add_data_write(challenge, bloom_segment, sum, index, val);
     }
 
     // Add Blockhashes writes.
-    let block_hashes_segment =
-        F::from_canonical_u64(Segment::BlockHashes as u64 >> SEGMENT_SCALING_FACTOR);
+    let block_hashes_segment = F::from_canonical_usize(Segment::BlockHashes.unscale());
     for index in 0..256 {
         let val = h2u(public_values.block_hashes.prev_hashes[index]);
         sum = add_data_write(challenge, block_hashes_segment, sum, index, val);
@@ -553,29 +550,22 @@ pub(crate) mod testutils {
             (GlobalMetadata::KernelLen, KERNEL.code.len().into()),
         ];
 
-        let segment =
-            F::from_canonical_u64(Segment::GlobalMetadata as u64 >> SEGMENT_SCALING_FACTOR);
+        let segment = F::from_canonical_usize(Segment::GlobalMetadata.unscale());
         let mut extra_looking_rows = Vec::new();
 
         fields.map(|(field, val)| {
-            extra_looking_rows.push(add_extra_looking_row(
-                segment,
-                field as usize - Segment::GlobalMetadata as usize,
-                val,
-            ))
+            extra_looking_rows.push(add_extra_looking_row(segment, field.unscale(), val))
         });
 
         // Add block bloom writes.
-        let bloom_segment =
-            F::from_canonical_u64(Segment::GlobalBlockBloom as u64 >> SEGMENT_SCALING_FACTOR);
+        let bloom_segment = F::from_canonical_usize(Segment::GlobalBlockBloom.unscale());
         for index in 0..8 {
             let val = public_values.block_metadata.block_bloom[index];
             extra_looking_rows.push(add_extra_looking_row(bloom_segment, index, val));
         }
 
         // Add Blockhashes writes.
-        let block_hashes_segment =
-            F::from_canonical_u64(Segment::BlockHashes as u64 >> SEGMENT_SCALING_FACTOR);
+        let block_hashes_segment = F::from_canonical_usize(Segment::BlockHashes.unscale());
         for index in 0..256 {
             let val = h2u(public_values.block_hashes.prev_hashes[index]);
             extra_looking_rows.push(add_extra_looking_row(block_hashes_segment, index, val));

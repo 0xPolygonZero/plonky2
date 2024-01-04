@@ -36,6 +36,11 @@ pub(crate) enum NormalizedTxnField {
 impl NormalizedTxnField {
     pub(crate) const COUNT: usize = 16;
 
+    /// Unscales this virtual offset by their respective `Segment` value.
+    pub(crate) const fn unscale(&self) -> usize {
+        *self as usize - Segment::TxnFields as usize
+    }
+
     pub(crate) const fn all() -> [Self; Self::COUNT] {
         [
             Self::ChainIdPresent,

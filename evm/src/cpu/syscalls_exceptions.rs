@@ -45,8 +45,7 @@ pub(crate) fn eval_packed<P: PackedField>(
     }
 
     // Look up the handler in memory
-    let code_segment =
-        P::Scalar::from_canonical_usize(Segment::Code as usize >> SEGMENT_SCALING_FACTOR);
+    let code_segment = P::Scalar::from_canonical_usize(Segment::Code.unscale());
 
     let opcode: P = lv
         .opcode_bits
@@ -154,7 +153,7 @@ pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     }
 
     // Look up the handler in memory
-    let code_segment = F::from_canonical_usize(Segment::Code as usize >> SEGMENT_SCALING_FACTOR);
+    let code_segment = F::from_canonical_usize(Segment::Code.unscale());
 
     let opcode = lv
         .opcode_bits

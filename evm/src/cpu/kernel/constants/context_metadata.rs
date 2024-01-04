@@ -41,6 +41,11 @@ pub(crate) enum ContextMetadata {
 impl ContextMetadata {
     pub(crate) const COUNT: usize = 14;
 
+    /// Unscales this virtual offset by their respective `Segment` value.
+    pub(crate) const fn unscale(&self) -> usize {
+        *self as usize - Segment::ContextMetadata as usize
+    }
+
     pub(crate) const fn all() -> [Self; Self::COUNT] {
         [
             Self::ParentContext,

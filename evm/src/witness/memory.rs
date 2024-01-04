@@ -43,7 +43,7 @@ impl MemoryAddress {
         Self {
             context,
             // segment is scaled
-            segment: segment as usize >> SEGMENT_SCALING_FACTOR,
+            segment: segment.unscale(),
             virt,
         }
     }
@@ -166,8 +166,7 @@ impl MemoryState {
     pub(crate) fn new(kernel_code: &[u8]) -> Self {
         let code_u256s = kernel_code.iter().map(|&x| x.into()).collect();
         let mut result = Self::default();
-        result.contexts[0].segments[Segment::Code as usize >> SEGMENT_SCALING_FACTOR].content =
-            code_u256s;
+        result.contexts[0].segments[Segment::Code.unscale()].content = code_u256s;
         result
     }
 

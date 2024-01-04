@@ -1,3 +1,5 @@
+use num::traits::AsPrimitive;
+
 pub(crate) const SEGMENT_SCALING_FACTOR: usize = 32;
 
 /// This contains all the existing memory segments. The values in the enum are shifted by 32 bits
@@ -77,6 +79,11 @@ pub(crate) enum Segment {
 
 impl Segment {
     pub(crate) const COUNT: usize = 36;
+
+    /// Unscales this segment by `SEGMENT_SCALING_FACTOR`.
+    pub(crate) const fn unscale(&self) -> usize {
+        *self as usize >> SEGMENT_SCALING_FACTOR
+    }
 
     pub(crate) const fn all() -> [Self; Self::COUNT] {
         [

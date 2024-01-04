@@ -190,11 +190,8 @@ fn test_extcodecopy() -> Result<()> {
 
     let context = interpreter.context();
     interpreter.generation_state.memory.contexts[context].segments
-        [Segment::ContextMetadata as usize >> SEGMENT_SCALING_FACTOR]
-        .set(
-            GasLimit as usize - Segment::ContextMetadata as usize,
-            U256::from(1000000000000u64),
-        );
+        [Segment::ContextMetadata.unscale()]
+    .set(GasLimit.unscale(), U256::from(1000000000000u64));
 
     let extcodecopy = KERNEL.global_labels["sys_extcodecopy"];
 
@@ -202,11 +199,11 @@ fn test_extcodecopy() -> Result<()> {
     let mut rng = thread_rng();
     for i in 0..2000 {
         interpreter.generation_state.memory.contexts[context].segments
-            [Segment::MainMemory as usize >> SEGMENT_SCALING_FACTOR]
-            .set(i, U256::from(rng.gen::<u8>()));
+            [Segment::MainMemory.unscale()]
+        .set(i, U256::from(rng.gen::<u8>()));
         interpreter.generation_state.memory.contexts[context].segments
-            [Segment::KernelAccountCode as usize >> SEGMENT_SCALING_FACTOR]
-            .set(i, U256::from(rng.gen::<u8>()));
+            [Segment::KernelAccountCode.unscale()]
+        .set(i, U256::from(rng.gen::<u8>()));
     }
 
     // Random inputs
@@ -242,8 +239,8 @@ fn test_extcodecopy() -> Result<()> {
     // Check that the code was correctly copied to memory.
     for i in 0..size {
         let memory = interpreter.generation_state.memory.contexts[context].segments
-            [Segment::MainMemory as usize >> SEGMENT_SCALING_FACTOR]
-            .get(dest_offset + i);
+            [Segment::MainMemory.unscale()]
+        .get(dest_offset + i);
         assert_eq!(
             memory,
             code.get(offset + i).copied().unwrap_or_default().into()

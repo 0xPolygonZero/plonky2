@@ -168,9 +168,7 @@ fn eval_packed_store<P: PackedField>(
         yield_constr.constraint(
             filter
                 * (channel.addr_segment
-                    - P::Scalar::from_canonical_u64(
-                        Segment::Stack as u64 >> SEGMENT_SCALING_FACTOR,
-                    )),
+                    - P::Scalar::from_canonical_usize(Segment::Stack.unscale())),
         );
         // Remember that the first read (`i == 1`) is for the second stack element at `stack[stack_len - 1]`.
         let addr_virtual = lv.stack_len - P::Scalar::from_canonical_usize(i + 1);
@@ -195,7 +193,7 @@ fn eval_packed_store<P: PackedField>(
     yield_constr.constraint_transition(
         new_filter
             * (top_read_channel.addr_segment
-                - P::Scalar::from_canonical_u64(Segment::Stack as u64 >> SEGMENT_SCALING_FACTOR)),
+                - P::Scalar::from_canonical_usize(Segment::Stack.unscale())),
     );
     let addr_virtual = nv.stack_len - P::ONES;
     yield_constr.constraint_transition(new_filter * (top_read_channel.addr_virtual - addr_virtual));
@@ -269,7 +267,7 @@ fn eval_ext_circuit_store<F: RichField + Extendable<D>, const D: usize>(
         {
             let diff = builder.add_const_extension(
                 channel.addr_segment,
-                -F::from_canonical_u64(Segment::Stack as u64 >> SEGMENT_SCALING_FACTOR),
+                -F::from_canonical_usize(Segment::Stack.unscale()),
             );
             let constr = builder.mul_extension(filter, diff);
             yield_constr.constraint(builder, constr);
@@ -319,7 +317,7 @@ fn eval_ext_circuit_store<F: RichField + Extendable<D>, const D: usize>(
     {
         let diff = builder.add_const_extension(
             top_read_channel.addr_segment,
-            -F::from_canonical_u64(Segment::Stack as u64 >> SEGMENT_SCALING_FACTOR),
+            -F::from_canonical_usize(Segment::Stack.unscale()),
         );
         let constr = builder.mul_extension(new_filter, diff);
         yield_constr.constraint_transition(builder, constr);
