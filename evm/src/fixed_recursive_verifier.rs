@@ -490,7 +490,7 @@ where
     ///
     /// # Usage
     ///
-    /// ```rust
+    /// ```ignore
     /// let prover_state = AllRecursiveCircuits { ... };
     /// let verifier_state = prover_state.final_verifier_data();
     ///
@@ -1060,7 +1060,7 @@ where
     ///
     /// # Usage
     ///
-    /// ```rust
+    /// ```ignore
     /// // Load a prover state without its recursive table circuits.
     /// let gate_serializer = DefaultGateSerializer;
     /// let generator_serializer = DefaultGeneratorSerializer::<C, D>::new();

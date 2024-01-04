@@ -11,7 +11,7 @@
 //! These preprocessed circuits are gathered within the [`AllRecursiveCircuits`] prover state,
 //! and can be generated as such:
 //!
-//! ```rust
+//! ```ignore
 //! // Specify the base field to use.
 //! type F = GoldilocksField;
 //! // Specify the extension degree to use.
@@ -48,7 +48,7 @@
 //! To generate a proof for a transaction, given its [`GenerationInputs`] and an [`AllRecursiveCircuits`]
 //! prover state, one can simply call the [prove_root](AllRecursiveCircuits::prove_root) method.
 //!
-//! ```rust
+//! ```ignore
 //! let mut timing = TimingTree::new("prove", log::Level::Debug);
 //! let kill_signal = None; // Useful only with distributed proving to kill hanging jobs.
 //! let (proof, public_values) =
@@ -59,7 +59,7 @@
 //! aggregation levels (see below). If one were to miss the public values, they are also retrievable directly
 //! from the proof's encoded public inputs, as such:
 //!
-//! ```rust
+//! ```ignore
 //! let public_values = PublicValues::from_public_inputs(&proof.public_inputs);
 //! ```
 //!
@@ -72,7 +72,7 @@
 //! transaction proofs and aggregation proofs. We only need to specify for each child if it is an aggregation proof
 //! or a regular one.
 //!
-//! ```rust
+//! ```ignore
 //! let (proof_1, pv_1) =
 //!     prover_state.prove_root(all_stark, config, inputs_1, &mut timing, None);
 //! let (proof_2, pv_2) =
@@ -100,7 +100,7 @@
 //! which will then try combining the previously proven block with the current one, generating a validity proof for both.
 //! Applying this process from genesis would yield a single proof attesting correctness of the entire chain.
 //!
-//! ```rust
+//! ```ignore
 //! let previous_block_proof = { ... };
 //! let (block_proof, block_public_values) =
 //!     prover_state.prove_block(Some(&previous_block_proof), &agg_proof, agg_pv)?;
@@ -121,7 +121,7 @@
 //! This requires the use of custom serializers for gates and generators for proper recursive circuit encoding. This crate provides
 //! default serializers supporting all custom gates and associated generators defined within the [`plonky2`] crate.
 //!
-//! ```rust
+//! ```ignore
 //! let prover_state = AllRecursiveCircuits::<F, C, D>::new(...);
 //!
 //! // Default serializers
