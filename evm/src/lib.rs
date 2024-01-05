@@ -106,7 +106,7 @@
 //!     prover_state.prove_block(Some(&previous_block_proof), &agg_proof, agg_pv)?;
 //! ```
 //!
-//! ### Checkpoint heigths
+//! ### Checkpoint heights
 //!
 //! Because the process of always providing a previous block proof when generating a proof for the current block may yield some
 //! undesirable issues, the plonky2 zk-EVM supports checkpoint heights. At given block heights, the prover does not have to pass
