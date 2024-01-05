@@ -78,7 +78,7 @@
 //! let (proof_2, pv_2) =
 //!     prover_state.prove_root(all_stark, config, inputs_2, &mut timing, None);
 //! let (proof_3, pv_3) =
-//!     prover_state.prove_root(all_stark, config, inputs_2, &mut timing, None);
+//!     prover_state.prove_root(all_stark, config, inputs_3, &mut timing, None);
 //!
 //! // Now aggregate proofs for txn 1 and 2.
 //! let (agg_proof_1_2, pv_1_2) =
@@ -130,10 +130,10 @@
 //!     _phantom: PhantomData::<C>,
 //! };
 //!
-//! // Serializes the prover state to a sequence of bytes
+//! // Serialize the prover state to a sequence of bytes
 //! let bytes = prover_state.to_bytes(false, &gate_serializer, &generator_serializer).unwrap();
 //!
-//! // Deserializes the bytes into a prover state
+//! // Deserialize the bytes into a prover state
 //! let recovered_prover_state = AllRecursiveCircuits::<F, C, D>::from_bytes(
 //!     &all_circuits_bytes,
 //!     false,

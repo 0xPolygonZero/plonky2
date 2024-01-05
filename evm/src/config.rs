@@ -14,6 +14,12 @@ pub struct StarkConfig {
     pub fri_config: FriConfig,
 }
 
+impl Default for StarkConfig {
+    fn default() -> Self {
+        Self::standard_fast_config()
+    }
+}
+
 impl StarkConfig {
     /// A typical configuration with a rate of 2, resulting in fast but large proofs.
     /// Targets ~100 bit conjectured security.
