@@ -111,25 +111,151 @@ global write_table_if_jumpdest:
     MLOAD_GENERAL
     // stack: opcode, jumpdest, ctx, proof_prefix_addr, retdest
 
-    %jump_eq_const(0x5b, return)
+    %jump_neq_const(0x5b, return)
 
     //stack: jumpdest, ctx, proof_prefix_addr, retdest
     SWAP2 DUP1
     // stack: proof_prefix_addr, proof_prefix_addr, ctx, jumpdest
     ISZERO
     %jumpi(verify_path_and_write_table)
+
+
     // stack: proof_prefix_addr, ctx, jumpdest, retdest
     // If we are here we need to check that the next 32 bytes are less
     // than JUMPXX for XX < 32 - i <=> opcode < 0x7f - i = 127 - i, 0 <= i < 32,
     // or larger than 127
-    %check_and_step(127) %check_and_step(126) %check_and_step(125) %check_and_step(124)
-    %check_and_step(123) %check_and_step(122) %check_and_step(121) %check_and_step(120)
-    %check_and_step(119) %check_and_step(118) %check_and_step(117) %check_and_step(116)
-    %check_and_step(115) %check_and_step(114) %check_and_step(113) %check_and_step(112)
-    %check_and_step(111) %check_and_step(110) %check_and_step(109) %check_and_step(108)
-    %check_and_step(107) %check_and_step(106) %check_and_step(105) %check_and_step(104)
-    %check_and_step(103) %check_and_step(102) %check_and_step(101) %check_and_step(100)
-    %check_and_step(99)  %check_and_step(98)  %check_and_step(97)  %check_and_step(96)
+    
+    %stack
+        (proof_prefix_addr, ctx) ->
+        (ctx, @SEGMENT_CODE, proof_prefix_addr, 32, proof_prefix_addr, ctx)
+    %mload_packing
+    // packed_opcodes, proof_prefix_addr, ctx, jumpdest, retdest
+    DUP1 %shl_const(1)
+    DUP2 %shl_const(2)
+    AND
+    // stack: (is_1_at_pos_2_and_3|(X)⁷)³², packed_opcodes, proof_prefix_addr, ctx, jumpdest, retdest
+    // X denotes any value in {0,1} and Z^i is Z repeated i times
+    NOT
+    // stack: (is_0_at_2_or_3|X⁷)³², packed_opcodes, proof_prefix_addr, ctx, jumpdest, retdest
+    DUP2
+    OR
+    // stack: (is_1_at_1 or is_0_at_2_or_3|X⁷)³², packed_opcodes, proof_prefix_addr, ctx, jumpdest, retdest
+    // stack: (~has_prefix|X⁷)³², packed_opcodes, proof_prefix_addr, ctx, jumpdest, retdest
+
+    // Compute in_range = 
+    //   - (0xFF|X⁷)³² for the first 15 bytes
+    //   - (has_prefix => is_0_at_4 |X⁷)³² for the next 15 bytes
+    //   - (~has_prefix|X⁷)³² for the last byte
+    // Compute also that ~has_prefix = ~has_prefix OR is_0_at_4 for all bytes. We don't need to update ~hash_prefix
+    // for the second half but it takes less cycles if we do it.
+    DUP2 %shl_const(3)
+    NOT
+    // stack: (is_0_at_4|X⁷)³²,  (~has_prefix|X⁷)³², packed_opcodes, proof_prefix_addr, ctx, jumpdest, retdest
+    // pos 0102030405060708091011121314151617181920212223242526272829303132
+    PUSH 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00
+    AND
+    // stack: (is_0_at_4|X⁷)³¹|0⁸,  (~has_prefix|X⁷)³², packed_opcodes, proof_prefix_addr, ctx, jumpdest, retdest
+    DUP2
+    DUP2
+    OR
+    // pos 0102030405060708091011121314151617181920212223242526272829303132
+    PUSH 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF0000000000000000000000000000000000
+    OR
+    // stack: (in_range|X⁷)³², (is_0_at_4|X⁷)³²,  (~has_prefix|X⁷)³², packed_opcodes, proof_prefix_addr, ctx, jumpdest, retdest
+    SWAP2
+    OR
+    // stack: (~has_prefix|X⁷)³², (in_range|X⁷)³², packed_opcodes, proof_prefix_addr, ctx, jumpdest, retdest
+
+    // Compute in_range' = in_range AND
+    //   - (0xFF|X⁷)³² for bytes in positions 1-7 and 16-23 
+    //   - (has_prefix => is_0_at_5 |X⁷)³² on the rest
+    // Compute also ~has_prefix = ~has_prefix OR is_0_at_5 for all bytes.
+
+    DUP3 %shl_const(4)
+    NOT
+    // stack: (is_0_at_5|X⁷)³²,  (~has_prefix|X⁷)³², (in_range|X⁷)³², packed_opcodes, proof_prefix_addr, ctx, jumpdest, retdest
+    DUP2
+    DUP2
+    OR
+    // pos 0102030405060708091011121314151617181920212223242526272829303132
+    PUSH 0xFFFFFFFFFFFFFF0000000000000000FFFFFFFFFFFFFFFF000000000000000000
+    OR
+    // stack: (in_range'|X⁷)³², (is_0_at_5|X⁷)³²,  (~has_prefix|X⁷)³², (in_range|X⁷)³², packed_opcodes, proof_prefix_addr, ctx, jumpdest, retdest
+    SWAP2
+    OR
+    // stack: (~has_prefix|X⁷)³², (in_range'|X⁷)³², (in_range|X⁷)³², packed_opcodes, proof_prefix_addr, ctx, jumpdest, retdest
+    SWAP2
+    AND
+    SWAP1 
+
+    // Compute in_range' = in_range AND
+    //   - (0xFF|X⁷)³² for bytes in positions 1-2, 8-11, 16-19, and 24-27 
+    //   - (has_prefix => is_0_at_6 |X⁷)³² on the rest
+    // Compute also that ~has_prefix = ~has_prefix OR is_0_at_4 for all bytes.
+
+    // stack: (~has_prefix|X⁷)³², (in_range|X⁷)³², packed_opcodes, proof_prefix_addr, ctx, jumpdest, retdest
+    DUP3 %shl_const(5)
+    NOT
+    // stack: (is_0_at_6|X⁷)³²,  (~has_prefix|X⁷)³², (in_range|X⁷)³², packed_opcodes, proof_prefix_addr, ctx, jumpdest, retdest
+    DUP2
+    DUP2
+    OR
+    // pos 0102030405060708091011121314151617181920212223242526272829303132
+    PUSH 0xFFFFFF00000000FFFFFFFF00000000FFFFFFFF00000000FFFFFFFF0000000000
+    OR
+    // stack: (in_range'|X⁷)³², (is_0_at_6|X⁷)³²,  (~has_prefix|X⁷)³², (in_range|X⁷)³², packed_opcodes, proof_prefix_addr, ctx, jumpdest, retdest
+    SWAP2
+    OR
+    // stack: (~has_prefix|X⁷)³², (in_range'|X⁷)³², (in_range|X⁷)³², packed_opcodes, proof_prefix_addr, ctx, jumpdest, retdest
+    SWAP2
+    AND
+    SWAP1 
+
+    // Compute in_range' = in_range AND
+    //   - (0xFF|X⁷)³² for bytes in positions 1-7 and 16-23 
+    //   - (has_prefix => is_0_at_7 |X⁷)³² on the rest
+    // Compute also that ~has_prefix = ~has_prefix OR is_0_at_7 for all bytes.
+
+    // stack: (~has_prefix|X⁷)³², (in_range|X⁷)³², packed_opcodes, proof_prefix_addr, ctx, jumpdest, retdest
+    DUP3 %shl_const(6)
+    NOT
+    // stack: (is_0_at_7|X⁷)³²,  (~has_prefix|X⁷)³², (in_range|X⁷)³², packed_opcodes, proof_prefix_addr, ctx, jumpdest, retdest
+    DUP2
+    DUP2
+    OR
+    // pos 0102030405060708091011121314151617181920212223242526272829303132
+    PUSH 0xFF0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000FFFF000000
+    OR
+    // stack: (in_range'|X⁷)³², (is_0_at_7|X⁷)³²,  (~has_prefix|X⁷)³², (in_range|X⁷)³², packed_opcodes, proof_prefix_addr, ctx, jumpdest, retdest
+    SWAP2
+    OR
+    // stack: (~has_prefix|X⁷)³², (in_range'|X⁷)³², (in_range|X⁷)³², packed_opcodes, proof_prefix_addr, ctx, jumpdest, retdest
+    SWAP2
+    AND
+    SWAP1
+
+    // Compute in_range' = in_range AND
+    //   - (0xFF|X⁷)³² for bytes in odd positions
+    //   - (has_prefix => is_0_at_8 |X⁷)³² on the rest
+    // Compute also that ~has_prefix = ~has_prefix OR is_0_at_7 for all bytes.
+
+    // stack: (~has_prefix|X⁷)³², (in_range|X⁷)³², packed_opcodes, proof_prefix_addr, ctx, jumpdest, retdest
+    DUP3 %shl_const(7)
+    NOT
+    // stack: (is_0_at_8|X⁷)³²,  (~has_prefix|X⁷)³², (in_range|X⁷)³², packed_opcodes, proof_prefix_addr, ctx, jumpdest, retdest
+    OR
+    // pos 0102030405060708091011121314151617181920212223242526272829303132
+    PUSH 0x00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF00FF
+    OR
+    AND
+    // stack: (in_range|X⁷)³², packed_opcodes, proof_prefix_addr, ctx, jumpdest, retdest
+
+    // Get rid of the irrelevant bits
+    // pos 0102030405060708091011121314151617181920212223242526272829303132
+    PUSH 0x8080808080808080808080808080808080808080808080808080808080808080
+    AND
+    %assert_eq_const(0x8080808080808080808080808080808080808080808080808080808080808080)
+    POP
 
     // check the remaining path
     %jump(verify_path_and_write_table)
@@ -139,7 +265,9 @@ return:
     JUMP
 
 
-// Chek if the opcode pointed by proof_prefix address is
+
+
+// Check if the opcode pointed by proof_prefix address is
 // less than max and increment proof_prefix_addr
 %macro check_and_step(max)
     %stack

@@ -8,7 +8,7 @@
     jumpi
 %endmacro
 
-%macro jump_eq_const(c, jumpdest)
+%macro jump_neq_const(c, jumpdest)
     PUSH $c
     SUB
     %jumpi($jumpdest)
