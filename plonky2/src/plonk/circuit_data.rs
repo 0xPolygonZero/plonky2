@@ -38,9 +38,19 @@ use crate::util::serialization::{
 };
 use crate::util::timing::TimingTree;
 
+/// Configuration to be used when building a circuit. This defines the shape of the circuit
+/// as well as its targeted security level and sub-protocol (e.g. FRI) parameters.
+///
+/// It supports a [`Default`] implementation tailored for recursion with Poseidon hash (of width 12)
+/// as internal hash function and FRI rate of 1/8.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct CircuitConfig {
+    /// The number of wires available at each row. This corresponds to the "width" of the circuit,
+    /// and consists in the sum of routed wires and advice wires.
     pub num_wires: usize,
+    /// The number of routed wires, i.e. wires that will be involved in Plonk's permutation argument.
+    /// This allows copy constraints, i.e. enforcing that two distant values in a circuit are equal.
+    /// Non-routed wires are called advice wires.
     pub num_routed_wires: usize,
     pub num_constants: usize,
     /// Whether to use a dedicated gate for base field arithmetic, rather than using a single gate
@@ -50,6 +60,8 @@ pub struct CircuitConfig {
     /// The number of challenge points to generate, for IOPs that have soundness errors of (roughly)
     /// `degree / |F|`.
     pub num_challenges: usize,
+    /// A boolean to activate the zero-knowledge property. When this is set to `false`, proofs *may*
+    /// leak additional information.
     pub zero_knowledge: bool,
     /// A cap on the quotient polynomial's degree factor. The actual degree factor is derived
     /// systematically, but will never exceed this value.

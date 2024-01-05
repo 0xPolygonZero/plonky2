@@ -1,3 +1,6 @@
+//! Gadgets provide additional methods to [`CircuitBuilder`]
+//! to ease circuit creation.
+
 pub mod arithmetic;
 pub mod arithmetic_extension;
 pub mod hash;
