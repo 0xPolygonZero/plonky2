@@ -3,9 +3,6 @@
 global mpt_hash_state_trie:
     // stack: cur_len, retdest
     PUSH encode_account
-    PUSH debug_before_encoding_child
-    PUSH mpt_delete
-    %pop2
     %mload_global_metadata(@GLOBAL_METADATA_STATE_TRIE_ROOT)
     // stack: node_ptr, encode_account, cur_len, retdest
     %jump(mpt_hash)

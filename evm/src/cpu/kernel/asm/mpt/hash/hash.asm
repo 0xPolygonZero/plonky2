@@ -105,7 +105,7 @@ after_packed_small_rlp:
 // indicating where the data lives within @SEGMENT_RLP_RAW.
 //
 // Pre stack: node_type, node_ptr, encode_value, cur_len, retdest
-// Post stack: result_ptr, result_len
+// Post stack: result_ptr, result_len, cur_len
 encode_node:
     // stack: node_type, node_ptr, encode_value, cur_len, retdest
     // Increment node_ptr, so it points to the node payload instead of its type.
