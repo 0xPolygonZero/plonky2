@@ -94,7 +94,7 @@ const MISC_CONSTANTS: [(&str, [u8; 32]); 3] = [
         hex!("0000000000000000000000000000000100000000000000000000000000000000"),
     ),
     // Position in SEGMENT_RLP_RAW where the empty node encoding is stored. It is
-    // equal to usize::MAX so that all rlp pointers all much smalled than that
+    // equal to usize::MAX so that all rlp pointers all much smaller than that.
     (
         "ENCODED_EMPTY_NODE_POS",
         hex!("00000000000000000000000000000000000000000000000000000000FFFFFFFF"),

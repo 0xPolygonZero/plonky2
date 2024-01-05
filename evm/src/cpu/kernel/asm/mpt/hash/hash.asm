@@ -197,7 +197,7 @@ encode_node_branch_prepend_prefix:
     // If result_len != 32, result is raw RLP, with an appropriate RLP prefix already.
     SWAP1 DUP1 %sub_const(32) %jumpi(%%unpack)
     // Otherwise, result is a hash, and we need to add the prefix 0x80 + 32 = 160.
-    // stack: result_len, result, cur_len, rlp_pos, rlp_start, node_payload_ptr, encode_value, cur_len, retdest
+    // stack: result_len, result, cur_len, rlp_pos, rlp_start, node_payload_ptr, encode_value, retdest
     PUSH 160
     DUP5 // rlp_pos
     %mstore_rlp
