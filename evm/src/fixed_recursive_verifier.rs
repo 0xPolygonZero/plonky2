@@ -403,9 +403,12 @@ where
     ///
     /// - `all_stark`: a structure defining the logic of all STARK modules and their associated
     /// cross-table lookups.
-    /// - `degree_bits_ranges`: the ranges to be supported for each STARK module. The values in these
-    /// ranges correspond to the binary log of the trace lengths of the STARK tables. Specifying a wide
-    /// enough range allows a prover to cover all possible scenarios from arbitrary transactions.
+    /// - `degree_bits_ranges`: the logarithmic ranges to be supported for the recursive tables.
+    /// Transactions may yield arbitrary trace lengths for each STARK module (within some bounds),
+    /// unknown prior generating the witness to create a proof. Thus, for each STARK module, we
+    /// construct a map from `2^{degree_bits} = length` to a chain of shrinking recursion circuits,
+    /// starting from that length, for each `degree_bits` in the range specified for this STARK module.
+    /// Specifying a wide enough range allows a prover to cover all possible scenarios.
     /// - `stark_config`: the configuration to be used for the STARK prover. It will usually be a fast
     /// one yielding large proofs.
     pub fn new(
