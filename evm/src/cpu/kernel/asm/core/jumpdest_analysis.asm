@@ -256,6 +256,7 @@ global write_table_if_jumpdest:
     AND
     %assert_eq_const(0x8080808080808080808080808080808080808080808080808080808080808080)
     POP
+    %add_const(32)
 
     // check the remaining path
     %jump(verify_path_and_write_table)
