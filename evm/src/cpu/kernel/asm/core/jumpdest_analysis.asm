@@ -146,7 +146,7 @@ global write_table_if_jumpdest:
     //   - (0xFF|X⁷)³² for the first 15 bytes
     //   - (has_prefix => is_0_at_4 |X⁷)³² for the next 15 bytes
     //   - (~has_prefix|X⁷)³² for the last byte
-    // Compute also that ~has_prefix = ~has_prefix OR is_0_at_4 for all bytes. We don't need to update ~hash_prefix
+    // Compute also ~has_prefix = ~has_prefix OR is_0_at_4 for all bytes. We don't need to update ~hash_prefix
     // for the second half but it takes less cycles if we do it.
     DUP2 %shl_const(3)
     NOT
@@ -237,7 +237,6 @@ global write_table_if_jumpdest:
     // Compute in_range' = in_range AND
     //   - (0xFF|X⁷)³² for bytes in odd positions
     //   - (has_prefix => is_0_at_8 |X⁷)³² on the rest
-    // Compute also that ~has_prefix = ~has_prefix OR is_0_at_7 for all bytes.
 
     // stack: (~has_prefix|X⁷)³², (in_range|X⁷)³², packed_opcodes, proof_prefix_addr, ctx, jumpdest, retdest
     DUP3 %shl_const(7)
