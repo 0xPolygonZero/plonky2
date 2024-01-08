@@ -264,34 +264,6 @@ return:
     %pop3
     JUMP
 
-
-
-
-// Check if the opcode pointed by proof_prefix address is
-// less than max and increment proof_prefix_addr
-%macro check_and_step(max)
-    %stack
-        (proof_prefix_addr, ctx, jumpdest) ->
-        (ctx, @SEGMENT_CODE, proof_prefix_addr, proof_prefix_addr, ctx, jumpdest)
-    MLOAD_GENERAL
-    // stack: opcode, ctx, proof_prefix_addr, jumpdest
-    DUP1
-    %gt_const(127)
-    %jumpi(%%ok)
-    %jumpi_lt_const($max, return)
-    // stack: proof_prefix_addr, ctx, jumpdest
-    PUSH 0 // We need something to pop
-%%ok:
-    POP
-    %increment
-%endmacro
-
-%macro write_table_if_jumpdest
-    %stack (proof, addr, ctx) -> (proof, addr, ctx, %%after)
-    %jump(write_table_if_jumpdest)
-%%after:
-%endmacro
-
 // Write the jumpdest table. This is done by
 // non-deterministically guessing the sequence of jumpdest
 // addresses used during program execution within the current context.
