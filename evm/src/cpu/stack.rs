@@ -11,7 +11,7 @@ use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer
 use crate::cpu::columns::ops::OpsColumnsView;
 use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::membus::NUM_GP_CHANNELS;
-use crate::memory::segments::{Segment, SEGMENT_SCALING_FACTOR};
+use crate::memory::segments::Segment;
 
 pub(crate) const MAX_USER_STACK_SIZE: usize = 1024;
 

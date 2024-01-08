@@ -14,8 +14,8 @@ use crate::generation::prover_input::EvmField::{
 };
 use crate::generation::prover_input::FieldOp::{Inverse, Sqrt};
 use crate::generation::state::GenerationState;
+use crate::memory::segments::Segment;
 use crate::memory::segments::Segment::BnPairing;
-use crate::memory::segments::{Segment, SEGMENT_SCALING_FACTOR};
 use crate::util::{biguint_to_mem_vec, mem_vec_to_biguint, u256_to_usize};
 use crate::witness::errors::ProgramError;
 use crate::witness::errors::ProverInputError::*;

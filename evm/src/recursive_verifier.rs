@@ -36,7 +36,7 @@ use crate::cross_table_lookup::{
 };
 use crate::evaluation_frame::StarkEvaluationFrame;
 use crate::lookup::LookupCheckVarsTarget;
-use crate::memory::segments::{Segment, SEGMENT_SCALING_FACTOR};
+use crate::memory::segments::Segment;
 use crate::memory::VALUE_LIMBS;
 use crate::proof::{
     BlockHashes, BlockHashesTarget, BlockMetadata, BlockMetadataTarget, ExtraBlockData,

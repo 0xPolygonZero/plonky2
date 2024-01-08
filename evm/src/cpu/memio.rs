@@ -8,7 +8,6 @@ use plonky2::iop::ext_target::ExtensionTarget;
 use super::cpu_stark::get_addr;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::CpuColumnsView;
-use crate::cpu::membus::NUM_GP_CHANNELS;
 use crate::cpu::stack;
 use crate::memory::segments::{Segment, SEGMENT_SCALING_FACTOR};
 
@@ -48,7 +47,7 @@ fn eval_packed_load<P: PackedField>(
     }
 
     // Disable remaining memory channels, if any.
-    for &channel in &lv.mem_channels[2..NUM_GP_CHANNELS] {
+    for &channel in &lv.mem_channels[2..] {
         yield_constr.constraint(filter * channel.used);
     }
     yield_constr.constraint(filter * lv.partial_channel.used);

@@ -13,7 +13,7 @@ use plonky2::util::timing::TimingTree;
 use plonky2::util::transpose;
 use plonky2_maybe_rayon::*;
 
-use super::segments::{Segment, SEGMENT_SCALING_FACTOR};
+use super::segments::Segment;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cross_table_lookup::{Column, Filter};
 use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};

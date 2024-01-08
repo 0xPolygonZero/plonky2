@@ -167,10 +167,7 @@ fn eval_packed_set<P: PackedField>(
 
     // The next row's context is read from stack_top.
     yield_constr.constraint(filter * (stack_top[2] - nv.context));
-    for &limb in &stack_top[0..2] {
-        yield_constr.constraint(filter * limb);
-    }
-    for &limb in &stack_top[3..] {
+    for (i, &limb) in stack_top.iter().enumerate().filter(|(i, _)| *i != 2) {
         yield_constr.constraint(filter * limb);
     }
 
@@ -245,11 +242,7 @@ fn eval_ext_circuit_set<F: RichField + Extendable<D>, const D: usize>(
         let constr = builder.mul_extension(filter, diff);
         yield_constr.constraint(builder, constr);
     }
-    for &limb in &stack_top[0..2] {
-        let constr = builder.mul_extension(filter, limb);
-        yield_constr.constraint(builder, constr);
-    }
-    for &limb in &stack_top[3..] {
+    for (i, &limb) in stack_top.iter().enumerate().filter(|(i, _)| *i != 2) {
         let constr = builder.mul_extension(filter, limb);
         yield_constr.constraint(builder, constr);
     }

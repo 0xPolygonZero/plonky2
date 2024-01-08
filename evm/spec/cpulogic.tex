@@ -82,7 +82,7 @@ ecAdd, ecMul and ecPairing precompiles.
 
   \item[0xC0-0xDF.] \texttt{MSTORE\_32BYTES}. Pops 2 elements from the stack (a Memory address, and then a value), and pushes
   a new address' onto the stack. The value is being decomposed into bytes and written to memory, starting from the fetched address. The new address being pushed is computed as the
-  initial address + the length of the byte sequence being written to memory. Note that similarly to PUSH (0x60-0x7F) instructions, there are 31 MSTORE\_32BYTES instructions, each
+  initial address + the length of the byte sequence being written to memory. Note that similarly to PUSH (0x60-0x7F) instructions, there are 32 MSTORE\_32BYTES instructions, each
   corresponding to a target byte length (length 0 is ignored, for the same reasons as MLOAD\_32BYTES, see below). Writing to memory an integer fitting in $n$ bytes with a length $\ell < n$ will
   result in the integer being truncated. On the other hand, specifying a length $\ell$ greater than the byte size of the value being written will result in padding with zeroes. This
   process is heavily used when resetting memory sections (by calling MSTORE\_32BYTES\_32 with the value 0).
@@ -134,7 +134,7 @@ This allows to easily retrieve each component individually once a Memory address
 \subsubsection{Top of the stack}
 
 The majority of memory operations involve the stack. The stack is a segment in memory, and stack operations (popping or pushing) use the memory channels.
-Every CPU instruction performs between 0 and 2 pops, and may push at most once. However, for efficiency purposes, we hold the top of the stack in
+Every CPU instruction performs between 0 and 3 pops, and may push at most once. However, for efficiency purposes, we hold the top of the stack in
 the first memory channel \texttt{current\_row.mem\_channels[0]}, only writing it in memory if necessary.
 
 \paragraph*{Motivation:}

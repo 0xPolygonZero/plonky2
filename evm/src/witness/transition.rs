@@ -12,7 +12,7 @@ use crate::cpu::stack::{
     MIGHT_OVERFLOW, STACK_BEHAVIORS,
 };
 use crate::generation::state::GenerationState;
-use crate::memory::segments::{Segment, SEGMENT_SCALING_FACTOR};
+use crate::memory::segments::Segment;
 use crate::witness::errors::ProgramError;
 use crate::witness::gas::gas_to_charge;
 use crate::witness::memory::MemoryAddress;

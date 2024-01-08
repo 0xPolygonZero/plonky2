@@ -32,9 +32,10 @@ pub(crate) fn ctl_data_keccak_sponge<F: Field>() -> Vec<Column<F>> {
     // GP channel 0: stack[-1] = addr (context, segment, virt)
     // GP channel 1: stack[-2] = len
     // Next GP channel 0: pushed = outputs
-    let context = Column::single(COL_MAP.mem_channels[0].value[2]);
-    let segment = Column::single(COL_MAP.mem_channels[0].value[1]);
-    let virt = Column::single(COL_MAP.mem_channels[0].value[0]);
+    let (context, segment, virt) = get_addr(&COL_MAP, 0);
+    let context = Column::single(context);
+    let segment = Column::single(segment);
+    let virt = Column::single(virt);
     let len = Column::single(COL_MAP.mem_channels[1].value[0]);
 
     let num_channels = F::from_canonical_usize(NUM_CHANNELS);

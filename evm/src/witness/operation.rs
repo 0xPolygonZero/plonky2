@@ -17,7 +17,7 @@ use crate::cpu::simple_logic::eq_iszero::generate_pinv_diff;
 use crate::cpu::stack::MAX_USER_STACK_SIZE;
 use crate::extension_tower::BN_BASE;
 use crate::generation::state::GenerationState;
-use crate::memory::segments::{Segment, SEGMENT_SCALING_FACTOR};
+use crate::memory::segments::Segment;
 use crate::util::u256_to_usize;
 use crate::witness::errors::MemoryError::VirtTooLarge;
 use crate::witness::errors::ProgramError;

@@ -12,7 +12,7 @@ use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::constants::context_metadata::ContextMetadata;
 use crate::generation::rlp::all_rlp_prover_inputs_reversed;
 use crate::generation::GenerationInputs;
-use crate::memory::segments::{Segment, SEGMENT_SCALING_FACTOR};
+use crate::memory::segments::Segment;
 use crate::util::u256_to_usize;
 use crate::witness::errors::ProgramError;
 use crate::witness::memory::{MemoryAddress, MemoryState};

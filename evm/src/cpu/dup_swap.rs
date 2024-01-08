@@ -9,7 +9,7 @@ use plonky2::plonk::circuit_builder::CircuitBuilder;
 use super::membus::NUM_GP_CHANNELS;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::{CpuColumnsView, MemoryChannelView};
-use crate::memory::segments::{Segment, SEGMENT_SCALING_FACTOR};
+use crate::memory::segments::Segment;
 
 /// Constrain two channels to have equal values.
 fn channels_equal_packed<P: PackedField>(

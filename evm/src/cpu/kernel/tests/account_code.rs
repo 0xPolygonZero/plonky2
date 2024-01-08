@@ -15,7 +15,7 @@ use crate::cpu::kernel::interpreter::Interpreter;
 use crate::cpu::kernel::tests::mpt::nibbles_64;
 use crate::generation::mpt::{load_all_mpts, AccountRlp};
 use crate::generation::TrieInputs;
-use crate::memory::segments::{Segment, SEGMENT_SCALING_FACTOR};
+use crate::memory::segments::Segment;
 use crate::witness::memory::MemoryAddress;
 use crate::witness::operation::CONTEXT_SCALING_FACTOR;
 use crate::Node;

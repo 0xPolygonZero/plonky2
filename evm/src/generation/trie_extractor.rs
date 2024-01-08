@@ -8,7 +8,7 @@ use ethereum_types::{BigEndianHash, H256, U256, U512};
 
 use super::mpt::{AccountRlp, LegacyReceiptRlp, LogRlp};
 use crate::cpu::kernel::constants::trie_type::PartialTrieType;
-use crate::memory::segments::{Segment, SEGMENT_SCALING_FACTOR};
+use crate::memory::segments::Segment;
 use crate::util::{u256_to_bool, u256_to_h160, u256_to_u8, u256_to_usize};
 use crate::witness::errors::ProgramError;
 use crate::witness::memory::{MemoryAddress, MemoryState};

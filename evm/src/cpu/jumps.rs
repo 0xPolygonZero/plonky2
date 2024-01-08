@@ -7,7 +7,7 @@ use plonky2::iop::ext_target::ExtensionTarget;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::membus::NUM_GP_CHANNELS;
-use crate::memory::segments::{Segment, SEGMENT_SCALING_FACTOR};
+use crate::memory::segments::Segment;
 
 /// Evaluates constraints for EXIT_KERNEL.
 pub(crate) fn eval_packed_exit_kernel<P: PackedField>(
