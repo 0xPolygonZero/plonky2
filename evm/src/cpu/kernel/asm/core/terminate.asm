@@ -6,10 +6,6 @@ global sys_stop:
     // Set the parent context's return data size to 0.
     %mstore_parent_context_metadata(@CTX_METADATA_RETURNDATA_SIZE, 0)
 
-    // This makes sure the gas used hasn't overflowed the gaslimit.
-    // This could happen when executing a native instruction (i.e. not a syscall).
-    %charge_gas_const(0)
-
     %leftover_gas
     // stack: leftover_gas
     PUSH 1 // success
