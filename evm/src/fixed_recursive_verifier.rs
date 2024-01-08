@@ -970,7 +970,7 @@ where
     /// # Arguments
     ///
     /// - `all_stark`: a structure defining the logic of all STARK modules and their associated
-    /// [`CrossTableLookup`].
+    /// cross-table lookups.
     /// - `config`: the configuration to be used for the STARK prover. It will usually be a fast
     /// one yielding large proofs.
     /// - `generation_inputs`: a transaction and auxiliary data needed to generate a proof, provided

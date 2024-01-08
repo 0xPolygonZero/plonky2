@@ -1,6 +1,6 @@
 //! An implementation of a Type 1 zk-EVM by Polygon Zero.
 //!
-//! Following the [zk-EVM classification of Vitalik](https://vitalik.eth.limo/general/2022/08/04/zkevm.html),
+//! Following the [zk-EVM classification of V. Buterin](https://vitalik.eth.limo/general/2022/08/04/zkevm.html),
 //! the plonky2_evm crate aims at providing an efficient solution for the problem of generating cryptographic
 //! proofs of Ethereum-like transactions with *full Ethereum capability*.
 //!
@@ -67,7 +67,7 @@
 //!
 //! Because the plonky2 zkEVM generates proofs on a transaction basis, we then need to aggregate them for succinct
 //! verification. This is done in a binary tree fashion, where each inner node proof verifies two children proofs,
-//! through the [prove_aggreg](AllRecursiveCircuits::prove_aggreg) method.
+//! through the [prove_aggregation](AllRecursiveCircuits::prove_aggregation) method.
 //! Note that the tree does *not* need to be complete, as this aggregation process can take as inputs both regular
 //! transaction proofs and aggregation proofs. We only need to specify for each child if it is an aggregation proof
 //! or a regular one.
@@ -82,21 +82,21 @@
 //!
 //! // Now aggregate proofs for txn 1 and 2.
 //! let (agg_proof_1_2, pv_1_2) =
-//!     prover_state.prove_aggreg(false, proof_1, pv_1, false, proof_2, pv_2);
+//!     prover_state.prove_aggregation(false, proof_1, pv_1, false, proof_2, pv_2);
 //!
 //! // Now aggregate the newly generated aggregation proof with the last regular txn proof.
 //! let (agg_proof_1_3, pv_1_3) =
-//!     prover_state.prove_aggreg(true, agg_proof_1_2, pv_1_2, false, proof_3, pv_3);
+//!     prover_state.prove_aggregation(true, agg_proof_1_2, pv_1_2, false, proof_3, pv_3);
 //! ```
 //!
-//! **Note**: The proofs provided to the [prove_aggreg](AllRecursiveCircuits::prove_aggreg) method *MUST* have contiguous states.
+//! **Note**: The proofs provided to the [prove_aggregation](AllRecursiveCircuits::prove_aggregation) method *MUST* have contiguous states.
 //! Trying to combine `proof_1` and `proof_3` from the example above would fail.
 //!
 //! ## Block proofs
 //!
 //! Once all transactions of a block have been proven and we are left with a single aggregation proof and its public values,
 //! we can then wrap it into a final block proof, attesting validity of the entire block.
-//! This [prove_block](AllRecursiveCircuits::prove_aggreg) method accepts an optional previous block proof as argument,
+//! This [prove_block](AllRecursiveCircuits::prove_block) method accepts an optional previous block proof as argument,
 //! which will then try combining the previously proven block with the current one, generating a validity proof for both.
 //! Applying this process from genesis would yield a single proof attesting correctness of the entire chain.
 //!
@@ -108,10 +108,21 @@
 //!
 //! ### Checkpoint heights
 //!
-//! Because the process of always providing a previous block proof when generating a proof for the current block may yield some
-//! undesirable issues, the plonky2 zk-EVM supports checkpoint heights. At given block heights, the prover does not have to pass
-//! a previous block proof. This would in practice correspond to block heights at which a proof has been generated and sent to L1
-//! for settlement.
+//! The process of always providing a previous block proof when generating a proof for the current block may yield some
+//! undesirable issues. For this reason, the plonky2 zk-EVM supports checkpoint heights. At given block heights,
+//! the prover does not have to pass a previous block proof. This would in practice correspond to block heights at which
+//! a proof has been generated and sent to L1 for settlement.
+//!
+//! The only requirement when generating a block proof without passing a previous one as argument is to have the
+//! `checkpoint_state_trie_root` metadata in the `PublicValues` of the final aggregation proof be matching the state
+//! trie before applying all the included transactions. If this condition is not met, the prover will fail to generate
+//! a valid proof.
+//!
+//!
+//! ```ignore
+//! let (block_proof, block_public_values) =
+//!     prover_state.prove_block(None, &agg_proof, agg_pv)?;
+//! ```
 //!
 //! # Prover state serialization
 //!
