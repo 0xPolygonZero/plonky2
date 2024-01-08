@@ -201,36 +201,21 @@ fn test_extcodecopy() -> Result<()> {
     prepare_interpreter(&mut interpreter, address, &account)?;
 
     let context = interpreter.context();
-    interpreter.generation_state.memory.set(
-        MemoryAddress {
-            context,
-            segment: Segment::ContextMetadata as usize,
-            virt: GasLimit as usize,
-        },
-        U256::from(1000000000000u64),
-    );
+    interpreter.generation_state.memory.contexts[context].segments
+        [Segment::ContextMetadata as usize]
+        .set(GasLimit as usize, U256::from(1000000000000u64));
 
     let extcodecopy = KERNEL.global_labels["sys_extcodecopy"];
 
     // Put random data in main memory and the `KernelAccountCode` segment for realism.
     let mut rng = thread_rng();
     for i in 0..2000 {
-        interpreter.generation_state.memory.set(
-            MemoryAddress {
-                context,
-                segment: Segment::MainMemory as usize,
-                virt: i,
-            },
-            U256::from(rng.gen::<u8>()),
-        );
-        interpreter.generation_state.memory.set(
-            MemoryAddress {
-                context,
-                segment: Segment::KernelAccountCode as usize,
-                virt: i,
-            },
-            U256::from(rng.gen::<u8>()),
-        );
+        interpreter.generation_state.memory.contexts[context].segments
+            [Segment::MainMemory as usize]
+            .set(i, U256::from(rng.gen::<u8>()));
+        interpreter.generation_state.memory.contexts[context].segments
+            [Segment::KernelAccountCode as usize]
+            .set(i, U256::from(rng.gen::<u8>()));
     }
 
     // Random inputs
@@ -265,11 +250,9 @@ fn test_extcodecopy() -> Result<()> {
     assert!(interpreter.stack().is_empty());
     // Check that the code was correctly copied to memory.
     for i in 0..size {
-        let memory = interpreter.generation_state.memory.get(MemoryAddress {
-            context,
-            segment: Segment::MainMemory as usize,
-            virt: dest_offset + i,
-        });
+        let memory = interpreter.generation_state.memory.contexts[context].segments
+            [Segment::MainMemory as usize]
+            .get(dest_offset + i);
         assert_eq!(
             memory,
             code.get(offset + i).copied().unwrap_or_default().into()
@@ -294,22 +277,13 @@ fn prepare_interpreter_all_accounts(
     // Switch context and initialize memory with the data we need for the tests.
     interpreter.generation_state.registers.program_counter = 0;
     interpreter.set_code(1, code.to_vec());
-    interpreter.generation_state.memory.set(
-        MemoryAddress {
-            context: 1,
-            segment: Segment::ContextMetadata as usize,
-            virt: ContextMetadata::Address as usize,
-        },
-        U256::from_big_endian(&addr),
-    );
-    interpreter.generation_state.memory.set(
-        MemoryAddress {
-            context: 1,
-            segment: Segment::ContextMetadata as usize,
-            virt: ContextMetadata::GasLimit as usize,
-        },
-        100_000.into(),
-    );
+    interpreter.generation_state.memory.contexts[1].segments[Segment::ContextMetadata as usize]
+        .set(
+            ContextMetadata::Address as usize,
+            U256::from_big_endian(&addr),
+        );
+    interpreter.generation_state.memory.contexts[1].segments[Segment::ContextMetadata as usize]
+        .set(ContextMetadata::GasLimit as usize, 100_000.into());
     interpreter.set_context(1);
     interpreter.set_is_kernel(false);
     interpreter.generation_state.memory.set(

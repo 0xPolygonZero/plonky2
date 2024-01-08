@@ -19,7 +19,6 @@ use crate::generation::TrieInputs;
 use crate::memory::segments::Segment;
 use crate::proof::TrieRoots;
 use crate::util::h2u;
-use crate::witness::memory::MemoryAddress;
 
 // Stolen from `tests/mpt/insert.rs`
 // Prepare the interpreter by loading the initial MPTs and
@@ -200,14 +199,8 @@ fn test_add11_yml() {
     let route_txn_label = KERNEL.global_labels["hash_initial_tries"];
     // Switch context and initialize memory with the data we need for the tests.
     interpreter.generation_state.registers.program_counter = route_txn_label;
-    interpreter.generation_state.memory.set(
-        MemoryAddress {
-            context: 0,
-            segment: Segment::ContextMetadata as usize,
-            virt: ContextMetadata::GasLimit as usize,
-        },
-        1_000_000.into(),
-    );
+    interpreter.generation_state.memory.contexts[0].segments[Segment::ContextMetadata as usize]
+        .set(ContextMetadata::GasLimit as usize, 1_000_000.into());
     interpreter.set_is_kernel(true);
     interpreter.run().expect("Proving add11 failed.");
 }
