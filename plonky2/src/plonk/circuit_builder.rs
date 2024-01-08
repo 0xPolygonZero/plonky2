@@ -136,7 +136,7 @@ pub struct LookupWire {
 /// assert!(circuit_data.verify(proof).is_ok());
 /// ```
 pub struct CircuitBuilder<F: RichField + Extendable<D>, const D: usize> {
-    /// Circuit configuration to be used by this `CircuitBuilder`.
+    /// Circuit configuration to be used by this [`CircuitBuilder`].
     pub config: CircuitConfig,
 
     /// A domain separator, which is included in the initial Fiat-Shamir seed. This is generally not
@@ -179,7 +179,7 @@ pub struct CircuitBuilder<F: RichField + Extendable<D>, const D: usize> {
     /// List of constant generators used to fill the constant wires.
     constant_generators: Vec<ConstantGenerator<F>>,
 
-    /// Rows for each LUT: LookupWire contains: first `LookupGate`, first `LookupTableGate`, last `LookupTableGate`.
+    /// Rows for each LUT: LookupWire contains: first `LookupGate`, first [`LookupTableGate`], last `LookupTableGate`.
     lookup_rows: Vec<LookupWire>,
 
     /// For each LUT index, vector of `(looking_in, looking_out)` pairs.

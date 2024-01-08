@@ -1,4 +1,5 @@
-//! Gadgets provide additional methods to [`CircuitBuilder`]
+//! Helper gadgets providing additional methods to
+//! [CircuitBuilder](crate::plonk::circuit_builder::CircuitBuilder),
 //! to ease circuit creation.
 
 pub mod arithmetic;

@@ -63,7 +63,7 @@ macro_rules! get_generator_tag_impl {
 }
 
 #[macro_export]
-/// Macro implementing the `WitnessGeneratorSerializer` trait.
+/// Macro implementing the [`WitnessGeneratorSerializer`] trait.
 /// To serialize a list of generators used for a circuit,
 /// this macro should be called with a struct on which to implement
 /// this as first argument, followed by all the targeted generators.
