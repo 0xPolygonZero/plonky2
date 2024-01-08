@@ -112,7 +112,9 @@ pub struct LookupWire {
 /// let mut prev_target = initial_a;
 /// let mut cur_target = initial_b;
 /// for _ in 0..99 {
+///     // Encode an addition of the two previous terms
 ///     let temp = builder.add(prev_target, cur_target);
+///     // Shift the two previous terms with the new value
 ///     prev_target = cur_target;
 ///     cur_target = temp;
 /// }
