@@ -50,7 +50,7 @@ fn mpt_delete_branch_into_hash() -> Result<()> {
 }
 
 #[test]
-fn mpt_delete_after_mpt_delete_extension_branch() -> Result<()> {
+fn test_after_mpt_delete_extension_branch() -> Result<()> {
     let hash = Node::Hash(H256::random());
     let branch = Node::Branch {
         children: std::array::from_fn(|i| {
