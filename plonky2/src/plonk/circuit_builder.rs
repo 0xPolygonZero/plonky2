@@ -92,8 +92,10 @@ pub struct LookupWire {
 ///
 /// ```rust
 /// use plonky2::plonk::circuit_data::CircuitConfig;
+/// use plonky2::iop::witness::PartialWitness;
 /// use plonky2::plonk::circuit_builder::CircuitBuilder;
-/// use plonky2::plonk::config::PoseidonGoldilocksConfig;
+/// use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
+/// use plonky2::field::types::Field;
 ///
 /// // Define parameters for this circuit
 /// const D: usize = 2;
@@ -126,10 +128,10 @@ pub struct LookupWire {
 ///
 /// // There are no public inputs to register, as the only one
 /// // will be generated while proving the statement.
-/// let proof = data.prove(pw).unwrap();
+/// let proof = circuit_data.prove(pw).unwrap();
 ///
 /// // Verify the proof
-/// assert!(data.verify(proof).is_ok());
+/// assert!(circuit_data.verify(proof).is_ok());
 /// ```
 pub struct CircuitBuilder<F: RichField + Extendable<D>, const D: usize> {
     /// Circuit configuration to be used by this `CircuitBuilder`.
