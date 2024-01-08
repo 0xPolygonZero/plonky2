@@ -35,7 +35,7 @@ pub mod mpt;
 pub(crate) mod prover_input;
 pub(crate) mod rlp;
 pub(crate) mod state;
-pub(crate) mod trie_extractor;
+mod trie_extractor;
 
 use self::mpt::{load_all_mpts, TrieRootPtrs};
 use crate::witness::util::mem_write_log;

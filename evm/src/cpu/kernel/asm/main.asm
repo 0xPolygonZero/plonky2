@@ -15,9 +15,6 @@ global main:
     %shift_table_init
     // Encode constant nodes
     %initialize_rlp_segment
-
-    // Encode constant nodes
-    %initialize_rlp_segment
    
     // Initialize the state, transaction and receipt trie root pointers.
     PROVER_INPUT(trie_ptr::state)
