@@ -1,7 +1,8 @@
 use anyhow::{anyhow, Result};
 use eth_trie_utils::nibbles::Nibbles;
 use eth_trie_utils::partial_trie::{HashedPartialTrie, PartialTrie};
-use ethereum_types::{BigEndianHash, H256};
+use ethereum_types::{BigEndianHash, H256, U512};
+use rand::random;
 
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
@@ -46,6 +47,32 @@ fn mpt_delete_branch_into_hash() -> Result<()> {
     }
     .into();
     test_state_trie(state_trie, nibbles_64(0xADE), test_account_2())
+}
+
+#[test]
+fn mpt_delete_after_mpt_delete_extension_branch() -> Result<()> {
+    let hash = Node::Hash(H256::random());
+    let branch = Node::Branch {
+        children: std::array::from_fn(|i| {
+            if i == 0 {
+                Node::Empty.into()
+            } else {
+                hash.clone().into()
+            }
+        }),
+        value: vec![],
+    };
+    let nibbles = Nibbles::from_bytes_be(&random::<[u8; 5]>()).unwrap();
+    let state_trie = Node::Extension {
+        nibbles,
+        child: branch.into(),
+    }
+    .into();
+    let key = nibbles.merge_nibbles(&Nibbles {
+        packed: U512::zero(),
+        count: 64 - 2 * 5,
+    });
+    test_state_trie(state_trie, key, test_account_2())
 }
 
 /// Note: The account's storage_root is ignored, as we can't insert a new storage_root without the
