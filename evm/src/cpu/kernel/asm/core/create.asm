@@ -57,6 +57,7 @@ global sys_create2:
     DUP5 // code_offset
     PUSH @SEGMENT_MAIN_MEMORY
     GET_CONTEXT
+    %build_address
     KECCAK_GENERAL
     // stack: hash, salt, create_common, value, code_offset, code_len, kexit_info
 
@@ -99,11 +100,15 @@ global create_common:
     %set_new_ctx_code_size POP
     // Copy the code from memory to the new context's code segment.
     %stack (src_ctx, new_ctx, address, value, code_offset, code_len)
-        -> (new_ctx, @SEGMENT_CODE, 0, // DST
-            src_ctx, @SEGMENT_MAIN_MEMORY, code_offset, // SRC
+        -> (src_ctx, @SEGMENT_MAIN_MEMORY, code_offset, // SRC
+            new_ctx, // DST (SEGMENT_CODE == virt == 0)
             code_len,
             run_constructor,
             new_ctx, value, address)
+    %build_address
+    // stack: SRC, DST, code_len, run_constructor, new_ctx, value, address
+    SWAP1
+    // stack: DST, SRC, code_len, run_constructor, new_ctx, value, address
     %jump(memcpy_bytes)
 
 run_constructor:
@@ -144,7 +149,11 @@ after_constructor:
     POP
 
     // EIP-3541: Reject new contract code starting with the 0xEF byte
-    PUSH 0 %mload_current(@SEGMENT_RETURNDATA) %eq_const(0xEF) %jumpi(create_first_byte_ef)
+    PUSH @SEGMENT_RETURNDATA
+    GET_CONTEXT
+    %build_address_no_offset
+    MLOAD_GENERAL
+    %eq_const(0xEF) %jumpi(create_first_byte_ef)
 
     // Charge gas for the code size.
     // stack: leftover_gas, success, address, kexit_info
@@ -160,9 +169,9 @@ after_constructor:
     %pop_checkpoint
 
     // Store the code hash of the new contract.
-    GET_CONTEXT
     %returndatasize
-    %stack (size, ctx) -> (ctx, @SEGMENT_RETURNDATA, 0, size) // context, segment, offset, len
+    PUSH @SEGMENT_RETURNDATA GET_CONTEXT %build_address_no_offset
+    // stack: addr, len
     KECCAK_GENERAL
     // stack: codehash, leftover_gas, success, address, kexit_info
     %observe_new_contract

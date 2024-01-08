@@ -58,16 +58,19 @@ pub(crate) fn evm_constants() -> HashMap<String, U256> {
     c.insert(CALL_STACK_LIMIT.0.into(), U256::from(CALL_STACK_LIMIT.1));
 
     for segment in Segment::all() {
-        c.insert(segment.var_name().into(), (segment as u32).into());
+        c.insert(segment.var_name().into(), (segment as usize).into());
     }
     for txn_field in NormalizedTxnField::all() {
-        c.insert(txn_field.var_name().into(), (txn_field as u32).into());
+        // These offsets are already scaled by their respective segment.
+        c.insert(txn_field.var_name().into(), (txn_field as usize).into());
     }
     for txn_field in GlobalMetadata::all() {
-        c.insert(txn_field.var_name().into(), (txn_field as u32).into());
+        // These offsets are already scaled by their respective segment.
+        c.insert(txn_field.var_name().into(), (txn_field as usize).into());
     }
     for txn_field in ContextMetadata::all() {
-        c.insert(txn_field.var_name().into(), (txn_field as u32).into());
+        // These offsets are already scaled by their respective segment.
+        c.insert(txn_field.var_name().into(), (txn_field as usize).into());
     }
     for trie_type in PartialTrieType::all() {
         c.insert(trie_type.var_name().into(), (trie_type as u32).into());

@@ -368,7 +368,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
             // specified ones (segment 0 is already included in initialize_aux).
             // There is overlap with the previous constraint, but this is not a problem.
             yield_constr.constraint_transition(
-                (next_addr_segment - P::Scalar::from_canonical_usize(Segment::TrieData as usize))
+                (next_addr_segment - P::Scalar::from_canonical_usize(Segment::TrieData.unscale()))
                     * initialize_aux
                     * next_values_limbs[i],
             );
@@ -524,7 +524,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
             // There is overlap with the previous constraint, but this is not a problem.
             let segment_trie_data = builder.add_const_extension(
                 next_addr_segment,
-                F::NEG_ONE * F::from_canonical_u32(Segment::TrieData as u32),
+                F::NEG_ONE * F::from_canonical_usize(Segment::TrieData.unscale()),
             );
             let zero_init_constraint =
                 builder.mul_extension(segment_trie_data, context_zero_initializing_constraint);

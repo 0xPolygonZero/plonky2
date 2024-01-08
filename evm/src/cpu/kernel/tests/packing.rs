@@ -11,10 +11,8 @@ fn test_mload_packing_1_byte() -> Result<()> {
 
     let retdest = 0xDEADBEEFu32.into();
     let len = 1.into();
-    let offset = 2.into();
-    let segment = (Segment::RlpRaw as u32).into();
-    let context = 0.into();
-    let initial_stack = vec![retdest, len, offset, segment, context];
+    let addr = (Segment::RlpRaw as u64 + 2).into();
+    let initial_stack = vec![retdest, len, addr];
 
     let mut interpreter = Interpreter::new_with_kernel(mload_packing, initial_stack);
     interpreter.set_rlp_memory(vec![0, 0, 0xAB]);
@@ -31,10 +29,8 @@ fn test_mload_packing_3_bytes() -> Result<()> {
 
     let retdest = 0xDEADBEEFu32.into();
     let len = 3.into();
-    let offset = 2.into();
-    let segment = (Segment::RlpRaw as u32).into();
-    let context = 0.into();
-    let initial_stack = vec![retdest, len, offset, segment, context];
+    let addr = (Segment::RlpRaw as u64 + 2).into();
+    let initial_stack = vec![retdest, len, addr];
 
     let mut interpreter = Interpreter::new_with_kernel(mload_packing, initial_stack);
     interpreter.set_rlp_memory(vec![0, 0, 0xAB, 0xCD, 0xEF]);
@@ -51,10 +47,8 @@ fn test_mload_packing_32_bytes() -> Result<()> {
 
     let retdest = 0xDEADBEEFu32.into();
     let len = 32.into();
-    let offset = 0.into();
-    let segment = (Segment::RlpRaw as u32).into();
-    let context = 0.into();
-    let initial_stack = vec![retdest, len, offset, segment, context];
+    let addr = (Segment::RlpRaw as u64).into();
+    let initial_stack = vec![retdest, len, addr];
 
     let mut interpreter = Interpreter::new_with_kernel(mload_packing, initial_stack);
     interpreter.set_rlp_memory(vec![0xFF; 32]);
@@ -72,15 +66,13 @@ fn test_mstore_unpacking() -> Result<()> {
     let retdest = 0xDEADBEEFu32.into();
     let len = 4.into();
     let value = 0xABCD1234u32.into();
-    let offset = 0.into();
-    let segment = (Segment::TxnData as u32).into();
-    let context = 0.into();
-    let initial_stack = vec![retdest, len, value, offset, segment, context];
+    let addr = (Segment::TxnData as u64).into();
+    let initial_stack = vec![retdest, len, value, addr];
 
     let mut interpreter = Interpreter::new_with_kernel(mstore_unpacking, initial_stack);
 
     interpreter.run()?;
-    assert_eq!(interpreter.stack(), vec![4.into()]);
+    assert_eq!(interpreter.stack(), vec![addr + U256::from(4)]);
     assert_eq!(
         &interpreter.get_txn_data(),
         &[0xAB.into(), 0xCD.into(), 0x12.into(), 0x34.into()]

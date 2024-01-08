@@ -18,7 +18,8 @@ global sys_keccak256:
     %stack (kexit_info, offset, len) -> (offset, len, kexit_info)
     PUSH @SEGMENT_MAIN_MEMORY
     GET_CONTEXT
-    // stack: ADDR: 3, len, kexit_info
+    %build_address
+    // stack: ADDR, len, kexit_info
     KECCAK_GENERAL
     // stack: hash, kexit_info
     SWAP1
@@ -37,11 +38,12 @@ sys_keccak256_empty:
 %macro keccak256_word(num_bytes)
     // Since KECCAK_GENERAL takes its input from memory, we will first write
     // input_word's bytes to @SEGMENT_KERNEL_GENERAL[0..$num_bytes].
-    %stack (word) -> (0, @SEGMENT_KERNEL_GENERAL, 0, word, $num_bytes, %%after_mstore)
+    %stack (word) -> (@SEGMENT_KERNEL_GENERAL, word, $num_bytes, %%after_mstore)
     %jump(mstore_unpacking)
 %%after_mstore:
-    // stack: offset
-    %stack (offset) -> (0, @SEGMENT_KERNEL_GENERAL, 0, $num_bytes) // context, segment, offset, len
+    // stack: addr
+    %stack(addr) -> (addr, $num_bytes, $num_bytes)
+    SUB
     KECCAK_GENERAL
 %endmacro
 
@@ -53,12 +55,13 @@ sys_keccak256_empty:
     // Since KECCAK_GENERAL takes its input from memory, we will first write
     // a's bytes to @SEGMENT_KERNEL_GENERAL[0..32], then b's bytes to
     // @SEGMENT_KERNEL_GENERAL[32..64].
-    %stack (a) -> (0, @SEGMENT_KERNEL_GENERAL, 0, a, 32, %%after_mstore_a)
+    %stack (a) -> (@SEGMENT_KERNEL_GENERAL, a, 32, %%after_mstore_a)
     %jump(mstore_unpacking)
 %%after_mstore_a:
-    %stack (offset, b) -> (0, @SEGMENT_KERNEL_GENERAL, 32, b, 32, %%after_mstore_b)
+    %stack (addr, b) -> (addr, b, 32, %%after_mstore_b)
     %jump(mstore_unpacking)
 %%after_mstore_b:
-    %stack (offset) -> (0, @SEGMENT_KERNEL_GENERAL, 0, 64) // context, segment, offset, len
+    %stack (addr) -> (addr, 64, 64) // reset the address offset
+    SUB
     KECCAK_GENERAL
 %endmacro
