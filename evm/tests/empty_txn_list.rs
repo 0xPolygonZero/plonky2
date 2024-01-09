@@ -83,7 +83,7 @@ fn test_empty_txn_list() -> anyhow::Result<()> {
 
     {
         let gate_serializer = DefaultGateSerializer;
-        let generator_serializer = DefaultGeneratorSerializer {
+        let generator_serializer = DefaultGeneratorSerializer::<C, D> {
             _phantom: PhantomData::<C>,
         };
 

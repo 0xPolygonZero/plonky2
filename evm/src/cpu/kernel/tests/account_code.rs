@@ -17,6 +17,7 @@ use crate::generation::mpt::{load_all_mpts, AccountRlp};
 use crate::generation::TrieInputs;
 use crate::memory::segments::Segment;
 use crate::witness::memory::MemoryAddress;
+use crate::witness::operation::CONTEXT_SCALING_FACTOR;
 use crate::Node;
 
 pub(crate) fn initialize_mpts(interpreter: &mut Interpreter, trie_inputs: &TrieInputs) {
@@ -24,27 +25,14 @@ pub(crate) fn initialize_mpts(interpreter: &mut Interpreter, trie_inputs: &TrieI
     let (trie_root_ptrs, trie_data) =
         load_all_mpts(trie_inputs).expect("Invalid MPT data for preinitialization");
 
-    let state_addr = MemoryAddress::new(
-        0,
-        Segment::GlobalMetadata,
-        GlobalMetadata::StateTrieRoot as usize,
-    );
-
-    let txn_addr = MemoryAddress::new(
-        0,
-        Segment::GlobalMetadata,
-        GlobalMetadata::TransactionTrieRoot as usize,
-    );
-    let receipts_addr = MemoryAddress::new(
-        0,
-        Segment::GlobalMetadata,
-        GlobalMetadata::ReceiptTrieRoot as usize,
-    );
-    let len_addr = MemoryAddress::new(
-        0,
-        Segment::GlobalMetadata,
-        GlobalMetadata::TrieDataSize as usize,
-    );
+    let state_addr =
+        MemoryAddress::new_bundle((GlobalMetadata::StateTrieRoot as usize).into()).unwrap();
+    let txn_addr =
+        MemoryAddress::new_bundle((GlobalMetadata::TransactionTrieRoot as usize).into()).unwrap();
+    let receipts_addr =
+        MemoryAddress::new_bundle((GlobalMetadata::ReceiptTrieRoot as usize).into()).unwrap();
+    let len_addr =
+        MemoryAddress::new_bundle((GlobalMetadata::TrieDataSize as usize).into()).unwrap();
 
     let to_set = [
         (state_addr, trie_root_ptrs.state_root_ptr.into()),
@@ -202,8 +190,8 @@ fn test_extcodecopy() -> Result<()> {
 
     let context = interpreter.context();
     interpreter.generation_state.memory.contexts[context].segments
-        [Segment::ContextMetadata as usize]
-        .set(GasLimit as usize, U256::from(1000000000000u64));
+        [Segment::ContextMetadata.unscale()]
+    .set(GasLimit.unscale(), U256::from(1000000000000u64));
 
     let extcodecopy = KERNEL.global_labels["sys_extcodecopy"];
 
@@ -211,11 +199,11 @@ fn test_extcodecopy() -> Result<()> {
     let mut rng = thread_rng();
     for i in 0..2000 {
         interpreter.generation_state.memory.contexts[context].segments
-            [Segment::MainMemory as usize]
-            .set(i, U256::from(rng.gen::<u8>()));
+            [Segment::MainMemory.unscale()]
+        .set(i, U256::from(rng.gen::<u8>()));
         interpreter.generation_state.memory.contexts[context].segments
-            [Segment::KernelAccountCode as usize]
-            .set(i, U256::from(rng.gen::<u8>()));
+            [Segment::KernelAccountCode.unscale()]
+        .set(i, U256::from(rng.gen::<u8>()));
     }
 
     // Random inputs
@@ -251,8 +239,8 @@ fn test_extcodecopy() -> Result<()> {
     // Check that the code was correctly copied to memory.
     for i in 0..size {
         let memory = interpreter.generation_state.memory.contexts[context].segments
-            [Segment::MainMemory as usize]
-            .get(dest_offset + i);
+            [Segment::MainMemory.unscale()]
+        .get(dest_offset + i);
         assert_eq!(
             memory,
             code.get(offset + i).copied().unwrap_or_default().into()
@@ -277,30 +265,23 @@ fn prepare_interpreter_all_accounts(
     // Switch context and initialize memory with the data we need for the tests.
     interpreter.generation_state.registers.program_counter = 0;
     interpreter.set_code(1, code.to_vec());
-    interpreter.generation_state.memory.contexts[1].segments[Segment::ContextMetadata as usize]
-        .set(
-            ContextMetadata::Address as usize,
-            U256::from_big_endian(&addr),
-        );
-    interpreter.generation_state.memory.contexts[1].segments[Segment::ContextMetadata as usize]
-        .set(ContextMetadata::GasLimit as usize, 100_000.into());
+    interpreter.set_context_metadata_field(
+        1,
+        ContextMetadata::Address,
+        U256::from_big_endian(&addr),
+    );
+    interpreter.set_context_metadata_field(1, ContextMetadata::GasLimit, 100_000.into());
     interpreter.set_context(1);
     interpreter.set_is_kernel(false);
-    interpreter.generation_state.memory.set(
-        MemoryAddress::new(
-            1,
-            Segment::ContextMetadata,
-            ContextMetadata::ParentProgramCounter as usize,
-        ),
+    interpreter.set_context_metadata_field(
+        1,
+        ContextMetadata::ParentProgramCounter,
         0xdeadbeefu32.into(),
     );
-    interpreter.generation_state.memory.set(
-        MemoryAddress::new(
-            1,
-            Segment::ContextMetadata,
-            ContextMetadata::ParentContext as usize,
-        ),
-        1.into(),
+    interpreter.set_context_metadata_field(
+        1,
+        ContextMetadata::ParentContext,
+        U256::one() << CONTEXT_SCALING_FACTOR, // ctx = 1
     );
 
     Ok(())

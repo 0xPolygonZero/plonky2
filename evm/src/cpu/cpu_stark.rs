@@ -21,7 +21,7 @@ use crate::cpu::{
 };
 use crate::cross_table_lookup::{Column, Filter, TableWithColumns};
 use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
-use crate::memory::segments::Segment;
+use crate::memory::segments::{Segment, SEGMENT_SCALING_FACTOR};
 use crate::memory::{NUM_CHANNELS, VALUE_LIMBS};
 use crate::stark::Stark;
 
@@ -29,15 +29,14 @@ use crate::stark::Stark;
 /// the CPU reads the output of the sponge directly from the `KeccakSpongeStark` table.
 pub(crate) fn ctl_data_keccak_sponge<F: Field>() -> Vec<Column<F>> {
     // When executing KECCAK_GENERAL, the GP memory channels are used as follows:
-    // GP channel 0: stack[-1] = context
-    // GP channel 1: stack[-2] = segment
-    // GP channel 2: stack[-3] = virt
-    // GP channel 3: stack[-4] = len
+    // GP channel 0: stack[-1] = addr (context, segment, virt)
+    // GP channel 1: stack[-2] = len
     // Next GP channel 0: pushed = outputs
-    let context = Column::single(COL_MAP.mem_channels[0].value[0]);
-    let segment = Column::single(COL_MAP.mem_channels[1].value[0]);
-    let virt = Column::single(COL_MAP.mem_channels[2].value[0]);
-    let len = Column::single(COL_MAP.mem_channels[3].value[0]);
+    let (context, segment, virt) = get_addr(&COL_MAP, 0);
+    let context = Column::single(context);
+    let segment = Column::single(segment);
+    let virt = Column::single(virt);
+    let len = Column::single(COL_MAP.mem_channels[1].value[0]);
 
     let num_channels = F::from_canonical_usize(NUM_CHANNELS);
     let timestamp = Column::linear_combination([(COL_MAP.clock, num_channels)]);
@@ -149,27 +148,30 @@ pub(crate) fn ctl_data_byte_unpacking<F: Field>() -> Vec<Column<F>> {
     let is_read = Column::constant(F::ZERO);
 
     // When executing MSTORE_32BYTES, the GP memory channels are used as follows:
-    // GP channel 0: stack[-1] = context
-    // GP channel 1: stack[-2] = segment
-    // GP channel 2: stack[-3] = virt
-    // GP channel 3: stack[-4] = val
+    // GP channel 0: stack[-1] = addr (context, segment, virt)
+    // GP channel 1: stack[-2] = val
     // Next GP channel 0: pushed = new_offset (virt + len)
-    let context = Column::single(COL_MAP.mem_channels[0].value[0]);
-    let segment = Column::single(COL_MAP.mem_channels[1].value[0]);
-    let virt = Column::single(COL_MAP.mem_channels[2].value[0]);
-    let val = Column::singles(COL_MAP.mem_channels[3].value);
+    let (context, segment, virt) = get_addr(&COL_MAP, 0);
+    let mut res = vec![
+        is_read,
+        Column::single(context),
+        Column::single(segment),
+        Column::single(virt),
+    ];
 
     // len can be reconstructed as new_offset - virt.
     let len = Column::linear_combination_and_next_row_with_constant(
-        [(COL_MAP.mem_channels[2].value[0], -F::ONE)],
+        [(COL_MAP.mem_channels[0].value[0], -F::ONE)],
         [(COL_MAP.mem_channels[0].value[0], F::ONE)],
         F::ZERO,
     );
+    res.push(len);
 
     let num_channels = F::from_canonical_usize(NUM_CHANNELS);
     let timestamp = Column::linear_combination([(COL_MAP.clock, num_channels)]);
+    res.push(timestamp);
 
-    let mut res = vec![is_read, context, segment, virt, len, timestamp];
+    let val = Column::singles(COL_MAP.mem_channels[1].value);
     res.extend(val);
 
     res
@@ -224,6 +226,20 @@ pub(crate) const MEM_CODE_CHANNEL_IDX: usize = 0;
 /// Index of the first general purpose memory channel.
 pub(crate) const MEM_GP_CHANNELS_IDX_START: usize = MEM_CODE_CHANNEL_IDX + 1;
 
+/// Recover the three components of an address, given a CPU row and
+/// a provided memory channel index.
+/// The components are recovered as follows:
+///
+/// - `context`, shifted by 2^64 (i.e. at index 2)
+/// - `segment`, shifted by 2^32 (i.e. at index 1)
+/// - `virtual`, not shifted (i.e. at index 0)
+pub(crate) const fn get_addr<T: Copy>(lv: &CpuColumnsView<T>, mem_channel: usize) -> (T, T, T) {
+    let addr_context = lv.mem_channels[mem_channel].value[2];
+    let addr_segment = lv.mem_channels[mem_channel].value[1];
+    let addr_virtual = lv.mem_channels[mem_channel].value[0];
+    (addr_context, addr_segment, addr_virtual)
+}
+
 /// Make the time/channel column for memory lookups.
 fn mem_time_and_channel<F: Field>(channel: usize) -> Column<F> {
     let scalar = F::from_canonical_usize(NUM_CHANNELS);
@@ -234,10 +250,10 @@ fn mem_time_and_channel<F: Field>(channel: usize) -> Column<F> {
 /// Creates the vector of `Columns` corresponding to the contents of the code channel when reading code values.
 pub(crate) fn ctl_data_code_memory<F: Field>() -> Vec<Column<F>> {
     let mut cols = vec![
-        Column::constant(F::ONE),                                      // is_read
-        Column::single(COL_MAP.code_context),                          // addr_context
-        Column::constant(F::from_canonical_u64(Segment::Code as u64)), // addr_segment
-        Column::single(COL_MAP.program_counter),                       // addr_virtual
+        Column::constant(F::ONE),             // is_read
+        Column::single(COL_MAP.code_context), // addr_context
+        Column::constant(F::from_canonical_usize(Segment::Code.unscale())), // addr_segment
+        Column::single(COL_MAP.program_counter), // addr_virtual
     ];
 
     // Low limb of the value matches the opcode bits

@@ -58,7 +58,7 @@ pub(crate) fn read_trie_helper<V>(
 ) -> Result<(), ProgramError> {
     let load = |offset| memory.get(MemoryAddress::new(0, Segment::TrieData, offset));
     let load_slice_from = |init_offset| {
-        &memory.contexts[0].segments[Segment::TrieData as usize].content[init_offset..]
+        &memory.contexts[0].segments[Segment::TrieData.unscale()].content[init_offset..]
     };
 
     let trie_type = PartialTrieType::all()[u256_to_usize(load(ptr))?];

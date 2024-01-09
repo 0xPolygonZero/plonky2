@@ -11,7 +11,8 @@ global sys_mload:
     %stack(kexit_info, offset) -> (offset, 32, kexit_info)
     PUSH @SEGMENT_MAIN_MEMORY
     GET_CONTEXT
-    // stack: addr: 3, len, kexit_info
+    %build_address
+    // stack: addr, len, kexit_info
     MLOAD_32BYTES
     %stack (value, kexit_info) -> (kexit_info, value)
     EXIT_KERNEL
@@ -29,7 +30,8 @@ global sys_mstore:
     %stack(kexit_info, offset, value) -> (offset, value, kexit_info)
     PUSH @SEGMENT_MAIN_MEMORY
     GET_CONTEXT
-    // stack: addr: 3, value, kexit_info
+    %build_address
+    // stack: addr, value, kexit_info
     MSTORE_32BYTES_32
     POP
     // stack: kexit_info
@@ -60,7 +62,8 @@ global sys_calldataload:
     LT %jumpi(calldataload_large_offset)
     %stack (kexit_info, i) -> (@SEGMENT_CALLDATA, i, 32, sys_calldataload_after_mload_packing, kexit_info)
     GET_CONTEXT
-    // stack: ADDR: 3, 32, sys_calldataload_after_mload_packing, kexit_info
+    %build_address
+    // stack: addr, 32, sys_calldataload_after_mload_packing, kexit_info
     %jump(mload_packing)
 sys_calldataload_after_mload_packing:
     // stack: value, kexit_info
@@ -113,7 +116,10 @@ wcopy_within_bounds:
     // stack: segment, src_ctx, kexit_info, dest_offset, offset, size
     GET_CONTEXT
     %stack (context, segment, src_ctx, kexit_info, dest_offset, offset, size) ->
-        (context, @SEGMENT_MAIN_MEMORY, dest_offset, src_ctx, segment, offset, size, wcopy_after, kexit_info)
+        (src_ctx, segment, offset, @SEGMENT_MAIN_MEMORY, dest_offset, context, size, wcopy_after, kexit_info)
+    %build_address
+    SWAP3 %build_address
+    // stack: DST, SRC, size, wcopy_after, kexit_info
     %jump(memcpy_bytes)
 
 wcopy_empty:
@@ -132,6 +138,7 @@ wcopy_large_offset:
     GET_CONTEXT
     %stack (context, kexit_info, dest_offset, offset, size) ->
         (context, @SEGMENT_MAIN_MEMORY, dest_offset, size, wcopy_after, kexit_info)
+    %build_address
     %jump(memset)
 
 wcopy_after:
@@ -241,6 +248,9 @@ extcodecopy_contd:
 
     GET_CONTEXT
     %stack (context, new_dest_offset, copy_size, extra_size, segment, src_ctx, kexit_info, dest_offset, offset, size) ->
-        (context, @SEGMENT_MAIN_MEMORY, dest_offset, src_ctx, segment, offset, copy_size, wcopy_large_offset, kexit_info, new_dest_offset, offset, extra_size)
+        (src_ctx, segment, offset, @SEGMENT_MAIN_MEMORY, dest_offset, context, copy_size, wcopy_large_offset, kexit_info, new_dest_offset, offset, extra_size)
+    %build_address
+    SWAP3 %build_address
+    // stack: DST, SRC, copy_size, wcopy_large_offset, kexit_info, new_dest_offset, offset, extra_size
     %jump(memcpy_bytes)
 %endmacro

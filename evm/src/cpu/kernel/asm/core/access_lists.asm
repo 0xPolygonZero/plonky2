@@ -120,14 +120,20 @@ insert_storage_key:
     // stack: i, len, addr, key, value, retdest
     DUP4 DUP4 %journal_add_storage_loaded // Add a journal entry for the loaded storage key.
     // stack: i, len, addr, key, value, retdest
-    DUP1 %increment
-    DUP1 %increment
-    %stack (i_plus_2, i_plus_1, i, len, addr, key, value) -> (i, addr, i_plus_1, key, i_plus_2, value, i_plus_2, value)
-    %mstore_kernel(@SEGMENT_ACCESSED_STORAGE_KEYS) // Store new address at the end of the array.
-    %mstore_kernel(@SEGMENT_ACCESSED_STORAGE_KEYS) // Store new key after that
-    %mstore_kernel(@SEGMENT_ACCESSED_STORAGE_KEYS) // Store new value after that
-    // stack: i_plus_2, value, retdest
-    %increment
+    DUP1
+    PUSH @SEGMENT_ACCESSED_STORAGE_KEYS
+    %build_kernel_address
+
+    %stack(dst, i, len, addr, key, value) -> (addr, dst, dst, key, dst, value, i, value)
+    MSTORE_GENERAL // Store new address at the end of the array.
+    // stack: dst, key, dst, value, i, value, retdest
+    %increment SWAP1
+    MSTORE_GENERAL // Store new key after that
+    // stack: dst, value, i, value, retdest
+    %add_const(2) SWAP1
+    MSTORE_GENERAL // Store new value after that
+    // stack: i, value, retdest
+    %add_const(3)
     %mstore_global_metadata(@GLOBAL_METADATA_ACCESSED_STORAGE_KEYS_LEN) // Store new length.
     %stack (value, retdest) -> (retdest, 1, value) // Return 1 to indicate that the storage key was inserted.
     JUMP

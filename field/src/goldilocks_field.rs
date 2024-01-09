@@ -104,7 +104,7 @@ impl Field for GoldilocksField {
     /// Therefore      $a^(p-2)     = a^-1 (mod p)$
     ///
     /// The following code has been adapted from winterfell/math/src/field/f64/mod.rs
-    /// located at https://github.com/facebook/winterfell.
+    /// located at <https://github.com/facebook/winterfell>.
     fn try_inverse(&self) -> Option<Self> {
         if self.is_zero() {
             return None;

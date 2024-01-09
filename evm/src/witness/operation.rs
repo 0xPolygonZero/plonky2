@@ -19,9 +19,8 @@ use crate::extension_tower::BN_BASE;
 use crate::generation::state::GenerationState;
 use crate::memory::segments::Segment;
 use crate::util::u256_to_usize;
-use crate::witness::errors::MemoryError::{ContextTooLarge, SegmentTooLarge, VirtTooLarge};
+use crate::witness::errors::MemoryError::VirtTooLarge;
 use crate::witness::errors::ProgramError;
-use crate::witness::errors::ProgramError::MemoryError;
 use crate::witness::memory::{MemoryAddress, MemoryChannel, MemoryOp, MemoryOpKind};
 use crate::witness::operation::MemoryChannel::GeneralPurpose;
 use crate::witness::transition::fill_stack_fields;
@@ -58,6 +57,10 @@ pub(crate) enum Operation {
     MloadGeneral,
     MstoreGeneral,
 }
+
+// Contexts in the kernel are shifted by 2^64, so that they can be combined with
+// the segment and virtual address components in a single U256 word.
+pub(crate) const CONTEXT_SCALING_FACTOR: usize = 64;
 
 /// Adds a CPU row filled with the two inputs and the output of a logic operation.
 /// Generates a new logic operation and adds it to the vector of operation in `LogicStark`.
@@ -129,11 +132,10 @@ pub(crate) fn generate_keccak_general<F: Field>(
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
-    let [(context, _), (segment, log_in1), (base_virt, log_in2), (len, log_in3)] =
-        stack_pop_with_log_and_fill::<4, _>(state, &mut row)?;
+    let [(addr, _), (len, log_in1)] = stack_pop_with_log_and_fill::<2, _>(state, &mut row)?;
     let len = u256_to_usize(len)?;
 
-    let base_address = MemoryAddress::new_u256s(context, segment, base_virt)?;
+    let base_address = MemoryAddress::new_bundle(addr)?;
     let input = (0..len)
         .map(|i| {
             let address = MemoryAddress {
@@ -152,8 +154,6 @@ pub(crate) fn generate_keccak_general<F: Field>(
     keccak_sponge_log(state, base_address, input);
 
     state.traces.push_memory(log_in1);
-    state.traces.push_memory(log_in2);
-    state.traces.push_memory(log_in3);
     state.traces.push_cpu(row);
     Ok(())
 }
@@ -191,7 +191,7 @@ pub(crate) fn generate_pop<F: Field>(
 ) -> Result<(), ProgramError> {
     let [(_, _)] = stack_pop_with_log_and_fill::<1, _>(state, &mut row)?;
 
-    let diff = row.stack_len - F::from_canonical_usize(1);
+    let diff = row.stack_len - F::ONE;
     if let Some(inv) = diff.try_inverse() {
         row.general.stack_mut().stack_inv = inv;
         row.general.stack_mut().stack_inv_aux = F::ONE;
@@ -352,7 +352,11 @@ pub(crate) fn generate_get_context<F: Field>(
         let res = mem_write_gp_log_and_fill(3, address, state, &mut row, state.registers.stack_top);
         Some(res)
     };
-    push_no_write(state, state.registers.context.into());
+    push_no_write(
+        state,
+        // The fetched value needs to be scaled before being pushed.
+        U256::from(state.registers.context) << CONTEXT_SCALING_FACTOR,
+    );
     if let Some(log) = write {
         state.traces.push_memory(log);
     }
@@ -369,9 +373,10 @@ pub(crate) fn generate_set_context<F: Field>(
     let sp_to_save = state.registers.stack_len.into();
 
     let old_ctx = state.registers.context;
-    let new_ctx = u256_to_usize(ctx)?;
+    // The popped value needs to be scaled down.
+    let new_ctx = u256_to_usize(ctx >> CONTEXT_SCALING_FACTOR)?;
 
-    let sp_field = ContextMetadata::StackSize as usize;
+    let sp_field = ContextMetadata::StackSize.unscale();
     let old_sp_addr = MemoryAddress::new(old_ctx, Segment::ContextMetadata, sp_field);
     let new_sp_addr = MemoryAddress::new(new_ctx, Segment::ContextMetadata, sp_field);
 
@@ -390,7 +395,7 @@ pub(crate) fn generate_set_context<F: Field>(
         channel.used = F::ONE;
         channel.is_read = F::ONE;
         channel.addr_context = F::from_canonical_usize(new_ctx);
-        channel.addr_segment = F::from_canonical_usize(Segment::ContextMetadata as usize);
+        channel.addr_segment = F::from_canonical_usize(Segment::ContextMetadata.unscale());
         channel.addr_virtual = F::from_canonical_usize(new_sp_addr.virt);
         let val_limbs: [u64; 4] = sp_to_save.0;
         for (i, limb) in val_limbs.into_iter().enumerate() {
@@ -433,6 +438,7 @@ pub(crate) fn generate_set_context<F: Field>(
     state.traces.push_memory(log_write_old_sp);
     state.traces.push_memory(log_read_new_sp);
     state.traces.push_cpu(row);
+
     Ok(())
 }
 
@@ -575,7 +581,7 @@ pub(crate) fn generate_not<F: Field>(
 
     // This is necessary for the stack constraints for POP,
     // since the two flags are combined.
-    let diff = row.stack_len - F::from_canonical_usize(1);
+    let diff = row.stack_len - F::ONE;
     if let Some(inv) = diff.try_inverse() {
         row.general.stack_mut().stack_inv = inv;
         row.general.stack_mut().stack_inv_aux = F::ONE;
@@ -808,18 +814,16 @@ pub(crate) fn generate_mload_general<F: Field>(
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
-    let [(context, _), (segment, log_in1), (virt, log_in2)] =
-        stack_pop_with_log_and_fill::<3, _>(state, &mut row)?;
+    let [(addr, _)] = stack_pop_with_log_and_fill::<1, _>(state, &mut row)?;
 
-    let (val, log_read) = mem_read_gp_with_log_and_fill(
-        3,
-        MemoryAddress::new_u256s(context, segment, virt)?,
-        state,
-        &mut row,
-    );
+    let (val, log_read) =
+        mem_read_gp_with_log_and_fill(1, MemoryAddress::new_bundle(addr)?, state, &mut row);
     push_no_write(state, val);
 
-    let diff = row.stack_len - F::from_canonical_usize(4);
+    // Because MLOAD_GENERAL performs 1 pop and 1 push, it does not make use of the `stack_inv_aux` general columns.
+    // We hence can set the diff to 2 (instead of 1) so that the stack constraint for MSTORE_GENERAL applies to both
+    // operations, which are combined into a single CPU flag.
+    let diff = row.stack_len - F::TWO;
     if let Some(inv) = diff.try_inverse() {
         row.general.stack_mut().stack_inv = inv;
         row.general.stack_mut().stack_inv_aux = F::ONE;
@@ -828,8 +832,6 @@ pub(crate) fn generate_mload_general<F: Field>(
         row.general.stack_mut().stack_inv_aux = F::ZERO;
     }
 
-    state.traces.push_memory(log_in1);
-    state.traces.push_memory(log_in2);
     state.traces.push_memory(log_read);
     state.traces.push_cpu(row);
     Ok(())
@@ -839,15 +841,14 @@ pub(crate) fn generate_mload_32bytes<F: Field>(
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
-    let [(context, _), (segment, log_in1), (base_virt, log_in2), (len, log_in3)] =
-        stack_pop_with_log_and_fill::<4, _>(state, &mut row)?;
+    let [(addr, _), (len, log_in1)] = stack_pop_with_log_and_fill::<2, _>(state, &mut row)?;
     let len = u256_to_usize(len)?;
     if len > 32 {
         // The call to `U256::from_big_endian()` would panic.
         return Err(ProgramError::IntegerTooLarge);
     }
 
-    let base_address = MemoryAddress::new_u256s(context, segment, base_virt)?;
+    let base_address = MemoryAddress::new_bundle(addr)?;
     if usize::MAX - base_address.virt < len {
         return Err(ProgramError::MemoryError(VirtTooLarge {
             virt: base_address.virt.into(),
@@ -870,8 +871,6 @@ pub(crate) fn generate_mload_32bytes<F: Field>(
     byte_packing_log(state, base_address, bytes);
 
     state.traces.push_memory(log_in1);
-    state.traces.push_memory(log_in2);
-    state.traces.push_memory(log_in3);
     state.traces.push_cpu(row);
     Ok(())
 }
@@ -880,23 +879,12 @@ pub(crate) fn generate_mstore_general<F: Field>(
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
-    let [(val, _), (context, log_in1), (segment, log_in2), (virt, log_in3)] =
-        stack_pop_with_log_and_fill::<4, _>(state, &mut row)?;
+    let [(val, _), (addr, log_in1)] = stack_pop_with_log_and_fill::<2, _>(state, &mut row)?;
 
-    let address = MemoryAddress {
-        context: context
-            .try_into()
-            .map_err(|_| MemoryError(ContextTooLarge { context }))?,
-        segment: segment
-            .try_into()
-            .map_err(|_| MemoryError(SegmentTooLarge { segment }))?,
-        virt: virt
-            .try_into()
-            .map_err(|_| MemoryError(VirtTooLarge { virt }))?,
-    };
+    let address = MemoryAddress::new_bundle(addr)?;
     let log_write = mem_write_partial_log_and_fill(address, state, &mut row, val);
 
-    let diff = row.stack_len - F::from_canonical_usize(4);
+    let diff = row.stack_len - F::TWO;
     if let Some(inv) = diff.try_inverse() {
         row.general.stack_mut().stack_inv = inv;
         row.general.stack_mut().stack_inv_aux = F::ONE;
@@ -908,8 +896,6 @@ pub(crate) fn generate_mstore_general<F: Field>(
     }
 
     state.traces.push_memory(log_in1);
-    state.traces.push_memory(log_in2);
-    state.traces.push_memory(log_in3);
     state.traces.push_memory(log_write);
 
     state.traces.push_cpu(row);
@@ -922,19 +908,16 @@ pub(crate) fn generate_mstore_32bytes<F: Field>(
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
-    let [(context, _), (segment, log_in1), (base_virt, log_in2), (val, log_in3)] =
-        stack_pop_with_log_and_fill::<4, _>(state, &mut row)?;
+    let [(addr, _), (val, log_in1)] = stack_pop_with_log_and_fill::<2, _>(state, &mut row)?;
 
-    let base_address = MemoryAddress::new_u256s(context, segment, base_virt)?;
+    let base_address = MemoryAddress::new_bundle(addr)?;
 
     byte_unpacking_log(state, base_address, val, n as usize);
 
-    let new_offset = base_virt + n;
-    push_no_write(state, new_offset);
+    let new_addr = addr + n;
+    push_no_write(state, new_addr);
 
     state.traces.push_memory(log_in1);
-    state.traces.push_memory(log_in2);
-    state.traces.push_memory(log_in3);
     state.traces.push_cpu(row);
     Ok(())
 }

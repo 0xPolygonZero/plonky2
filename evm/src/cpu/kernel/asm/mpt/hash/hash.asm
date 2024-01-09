@@ -29,15 +29,13 @@ mpt_hash_hash_if_rlp:
 mpt_hash_hash_rlp:
     // stack: result, result_len, new_len, retdest
     %stack (result, result_len, new_len)
-        // context, segment, offset, value, len, trie_len, retdest
-        -> (0, @SEGMENT_RLP_RAW, 0, result, result_len, mpt_hash_hash_rlp_after_unpacking, new_len)
+        -> (@SEGMENT_RLP_RAW, result, result_len, mpt_hash_hash_rlp_after_unpacking, result_len, new_len)
+    // stack: addr, result, result_len, mpt_hash_hash_rlp_after_unpacking, result_len, new_len
     %jump(mstore_unpacking)
 mpt_hash_hash_rlp_after_unpacking:
-    // stack: result_len, new_len, retdest
-    PUSH 0 // offset
-    PUSH @SEGMENT_RLP_RAW // segment
-    PUSH 0 // context
-    // stack: result_addr: 3, result_len, new_len, retdest
+    // stack: result_addr, result_len, new_len, retdest
+    POP PUSH @SEGMENT_RLP_RAW // ctx == virt == 0
+    // stack: result_addr, result_len, new_len, retdest
     KECCAK_GENERAL
     // stack: hash, new_len, retdest
     %stack(hash, new_len, retdest) -> (retdest, hash, new_len)
@@ -79,23 +77,19 @@ encode_or_hash_concrete_node:
     %stack (node_type, node_ptr, encode_value, cur_len) -> (node_type, node_ptr, encode_value, cur_len, maybe_hash_node)
     %jump(encode_node)
 maybe_hash_node:
-    // stack: result_ptr, result_len, cur_len, retdest
+    // stack: result_addr, result_len, cur_len, retdest
     DUP2 %lt_const(32)
     %jumpi(pack_small_rlp)
 
     // result_len >= 32, so we hash the result.
-    // stack: result_ptr, result_len, cur_len, retdest
-    PUSH @SEGMENT_RLP_RAW // segment
-    PUSH 0 // context
-    // stack: result_addr: 3, result_len, cur_len, retdest
+    // stack: result_addr, result_len, cur_len, retdest
     KECCAK_GENERAL
     %stack (hash, cur_len, retdest) -> (retdest, hash, 32, cur_len)
     JUMP
 pack_small_rlp:
     // stack: result_ptr, result_len, cur_len, retdest
-    %stack (result_ptr, result_len)
-        -> (0, @SEGMENT_RLP_RAW, result_ptr, result_len,
-            after_packed_small_rlp, result_len)
+    %stack (result_ptr, result_len, cur_len)
+        -> (result_ptr, result_len, after_packed_small_rlp, result_len, cur_len)
     %jump(mload_packing)
 after_packed_small_rlp:
     %stack (result, result_len, cur_len, retdest) -> (retdest, result, result_len, cur_len)
@@ -206,7 +200,7 @@ encode_node_branch_prepend_prefix:
     %stack (result_len, result, cur_len, rlp_pos, rlp_start, node_payload_ptr, encode_value, retdest)
         -> (rlp_pos, result, result_len, %%after_unpacking,
             rlp_start, node_payload_ptr, encode_value, cur_len, retdest)
-    %jump(mstore_unpacking_rlp)
+    %jump(mstore_unpacking)
 %%after_unpacking:
     // stack: rlp_pos', rlp_start, node_payload_ptr, encode_value, cur_len, retdest
 %endmacro
@@ -246,7 +240,7 @@ encode_node_extension_after_hex_prefix:
 encode_node_extension_unpack:
     %stack (rlp_pos, rlp_start, result, result_len, node_payload_ptr, cur_len)
         -> (rlp_pos, result, result_len, encode_node_extension_after_unpacking, rlp_start, cur_len)
-    %jump(mstore_unpacking_rlp)
+    %jump(mstore_unpacking)
 encode_node_extension_after_unpacking:
     // stack: rlp_pos, rlp_start, cur_len, retdest
     %prepend_rlp_list_prefix

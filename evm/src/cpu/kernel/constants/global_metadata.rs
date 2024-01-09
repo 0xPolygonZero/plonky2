@@ -1,93 +1,105 @@
+use crate::memory::segments::Segment;
+
 /// These metadata fields contain global VM state, stored in the `Segment::Metadata` segment of the
 /// kernel's context (which is zero).
+///
+/// Each value is directly scaled by the corresponding `Segment::GlobalMetadata` value for faster
+/// memory access in the kernel.
+#[allow(clippy::enum_clike_unportable_variant)]
+#[repr(usize)]
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Ord, PartialOrd, Debug)]
 pub(crate) enum GlobalMetadata {
     /// The largest context ID that has been used so far in this execution. Tracking this allows us
     /// give each new context a unique ID, so that its memory will be zero-initialized.
-    LargestContext = 0,
+    LargestContext = Segment::GlobalMetadata as usize,
     /// The size of active memory, in bytes.
-    MemorySize = 1,
+    MemorySize,
     /// The size of the `TrieData` segment, in bytes. In other words, the next address available for
     /// appending additional trie data.
-    TrieDataSize = 2,
-    /// The size of the `TrieData` segment, in bytes. In other words, the next address available for
-    /// appending additional trie data.
-    RlpDataSize = 3,
+    TrieDataSize,
+    /// The size of the `TrieData` segment, in bytes, represented as a whole address.
+    /// In other words, the next address available for appending additional trie data.
+    RlpDataSize,
     /// A pointer to the root of the state trie within the `TrieData` buffer.
-    StateTrieRoot = 4,
+    StateTrieRoot,
     /// A pointer to the root of the transaction trie within the `TrieData` buffer.
-    TransactionTrieRoot = 5,
+    TransactionTrieRoot,
     /// A pointer to the root of the receipt trie within the `TrieData` buffer.
-    ReceiptTrieRoot = 6,
+    ReceiptTrieRoot,
 
     // The root digests of each Merkle trie before these transactions.
-    StateTrieRootDigestBefore = 7,
-    TransactionTrieRootDigestBefore = 8,
-    ReceiptTrieRootDigestBefore = 9,
+    StateTrieRootDigestBefore,
+    TransactionTrieRootDigestBefore,
+    ReceiptTrieRootDigestBefore,
 
     // The root digests of each Merkle trie after these transactions.
-    StateTrieRootDigestAfter = 10,
-    TransactionTrieRootDigestAfter = 11,
-    ReceiptTrieRootDigestAfter = 12,
+    StateTrieRootDigestAfter,
+    TransactionTrieRootDigestAfter,
+    ReceiptTrieRootDigestAfter,
 
     // Block metadata.
-    BlockBeneficiary = 13,
-    BlockTimestamp = 14,
-    BlockNumber = 15,
-    BlockDifficulty = 16,
-    BlockRandom = 17,
-    BlockGasLimit = 18,
-    BlockChainId = 19,
-    BlockBaseFee = 20,
-    BlockGasUsed = 21,
+    BlockBeneficiary,
+    BlockTimestamp,
+    BlockNumber,
+    BlockDifficulty,
+    BlockRandom,
+    BlockGasLimit,
+    BlockChainId,
+    BlockBaseFee,
+    BlockGasUsed,
     /// Before current transactions block values.
-    BlockGasUsedBefore = 22,
+    BlockGasUsedBefore,
     /// After current transactions block values.
-    BlockGasUsedAfter = 23,
+    BlockGasUsedAfter,
     /// Current block header hash
-    BlockCurrentHash = 24,
+    BlockCurrentHash,
 
     /// Gas to refund at the end of the transaction.
-    RefundCounter = 25,
+    RefundCounter,
     /// Length of the addresses access list.
-    AccessedAddressesLen = 26,
+    AccessedAddressesLen,
     /// Length of the storage keys access list.
-    AccessedStorageKeysLen = 27,
+    AccessedStorageKeysLen,
     /// Length of the self-destruct list.
-    SelfDestructListLen = 28,
+    SelfDestructListLen,
     /// Length of the bloom entry buffer.
-    BloomEntryLen = 29,
+    BloomEntryLen,
 
     /// Length of the journal.
-    JournalLen = 30,
+    JournalLen,
     /// Length of the `JournalData` segment.
-    JournalDataLen = 31,
+    JournalDataLen,
     /// Current checkpoint.
-    CurrentCheckpoint = 32,
-    TouchedAddressesLen = 33,
+    CurrentCheckpoint,
+    TouchedAddressesLen,
     // Gas cost for the access list in type-1 txns. See EIP-2930.
-    AccessListDataCost = 34,
+    AccessListDataCost,
     // Start of the access list in the RLP for type-1 txns.
-    AccessListRlpStart = 35,
+    AccessListRlpStart,
     // Length of the access list in the RLP for type-1 txns.
-    AccessListRlpLen = 36,
+    AccessListRlpLen,
     // Boolean flag indicating if the txn is a contract creation txn.
-    ContractCreation = 37,
-    IsPrecompileFromEoa = 38,
-    CallStackDepth = 39,
+    ContractCreation,
+    IsPrecompileFromEoa,
+    CallStackDepth,
     /// Transaction logs list length
-    LogsLen = 40,
-    LogsDataLen = 41,
-    LogsPayloadLen = 42,
-    TxnNumberBefore = 43,
-    TxnNumberAfter = 44,
+    LogsLen,
+    LogsDataLen,
+    LogsPayloadLen,
+    TxnNumberBefore,
+    TxnNumberAfter,
 
-    KernelHash = 45,
-    KernelLen = 46,
+    KernelHash,
+    KernelLen,
 }
 
 impl GlobalMetadata {
     pub(crate) const COUNT: usize = 47;
+
+    /// Unscales this virtual offset by their respective `Segment` value.
+    pub(crate) const fn unscale(&self) -> usize {
+        *self as usize - Segment::GlobalMetadata as usize
+    }
 
     pub(crate) const fn all() -> [Self; Self::COUNT] {
         [
