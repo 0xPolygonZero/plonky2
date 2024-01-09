@@ -409,7 +409,6 @@
     %mstore_u32
 %endmacro
 
-// Store a single byte to @SEGMENT_RLP_RAW.
 %macro swap_mstore
     // stack: addr, value
     SWAP1
