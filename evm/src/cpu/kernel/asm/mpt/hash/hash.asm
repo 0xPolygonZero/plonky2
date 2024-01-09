@@ -151,8 +151,8 @@ global encode_node_branch:
 
     // No value; append the empty string (0x80).
     // stack: value_ptr, rlp_pos', rlp_start, encode_value, cur_len, retdest
-    %stack (value_ptr, rlp_pos, rlp_start, encode_value) -> (rlp_pos, 0x80, rlp_pos, rlp_start)
-    %mstore_rlp
+    %stack (value_ptr, rlp_pos, rlp_start, encode_value) -> (0x80, rlp_pos, rlp_pos, rlp_start)
+    MSTORE_GENERAL
     // stack: rlp_pos', rlp_start, cur_len, retdest
     %increment
     // stack: rlp_pos'', rlp_start, cur_len, retdest
@@ -192,9 +192,9 @@ encode_node_branch_prepend_prefix:
     SWAP1 DUP1 %sub_const(32) %jumpi(%%unpack)
     // Otherwise, result is a hash, and we need to add the prefix 0x80 + 32 = 160.
     // stack: result_len, result, cur_len, rlp_pos, rlp_start, node_payload_ptr, encode_value, retdest
+    DUP4 // rlp_pos
     PUSH 160
-    DUP5 // rlp_pos
-    %mstore_rlp
+    MSTORE_GENERAL
     SWAP3 %increment SWAP3 // rlp_pos += 1
 %%unpack:
     %stack (result_len, result, cur_len, rlp_pos, rlp_start, node_payload_ptr, encode_value, retdest)
@@ -233,9 +233,9 @@ encode_node_extension_after_hex_prefix:
     // If result_len != 32, result is raw RLP, with an appropriate RLP prefix already.
     DUP4 %sub_const(32) %jumpi(encode_node_extension_unpack)
     // Otherwise, result is a hash, and we need to add the prefix 0x80 + 32 = 160.
+    DUP1 // rlp_pos
     PUSH 160
-    DUP2 // rlp_pos
-    %mstore_rlp
+    MSTORE_GENERAL
     %increment // rlp_pos += 1
 encode_node_extension_unpack:
     %stack (rlp_pos, rlp_start, result, result_len, node_payload_ptr, cur_len)
