@@ -101,6 +101,10 @@ global encode_account:
     DUP3 %add_const(2) %mload_trie_data // storage_root_ptr = value[2]
     // stack: storage_root_ptr, cur_len, rlp_pos_5, value_ptr, cur_len, retdest
 
+
+    PUSH debug_after_hash_storage_trie
+    POP
+
     // Hash storage trie.
     %mpt_hash_storage_trie
     // stack: storage_root_digest, new_len, rlp_pos_5, value_ptr, cur_len, retdest

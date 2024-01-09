@@ -10,6 +10,12 @@
     // stack: (empty)
 %endmacro
 
+%macro initialize_rlp_segment
+    PUSH 0x80
+    PUSH @ENCODED_EMPTY_NODE_POS
+    %mstore_rlp
+%endmacro
+
 %macro alloc_rlp_block
     // stack: (empty)
     %mload_global_metadata(@GLOBAL_METADATA_RLP_DATA_SIZE)
@@ -17,7 +23,7 @@
     // In our model it's fine to use memory in a sparse way, as long as the gaps aren't larger than
     // 2^16 or so. So instead of the caller specifying the size of the block they need, we'll just
     // allocate 0x10000 = 2^16 bytes, much larger than any RLP blob the EVM could possibly create.
-    DUP1 %add_const(0x10000)
+    DUP1 %add_const(@MAX_RLP_BLOB_SIZE)
     // stack: block_end, block_start
     %mstore_global_metadata(@GLOBAL_METADATA_RLP_DATA_SIZE)
     // stack: block_start

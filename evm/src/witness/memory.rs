@@ -190,6 +190,11 @@ impl MemoryState {
         }
 
         let segment = Segment::all()[address.segment];
+
+        if let Some(constant) = Segment::constant(&segment, address.virt) {
+            return constant;
+        }
+
         let val = self.contexts[address.context].segments[address.segment].get(address.virt);
         assert!(
             val.bits() <= segment.bit_range(),
@@ -207,6 +212,15 @@ impl MemoryState {
         }
 
         let segment = Segment::all()[address.segment];
+
+        if let Some(constant) = Segment::constant(&segment, address.virt) {
+            assert!(
+                constant == val,
+                "Attempting to set constant {} to incorrect value",
+                address.virt
+            );
+            return;
+        }
         assert!(
             val.bits() <= segment.bit_range(),
             "Value {} exceeds {:?} range of {} bits",

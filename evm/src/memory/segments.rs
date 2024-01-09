@@ -1,3 +1,4 @@
+use ethereum_types::U256;
 use num::traits::AsPrimitive;
 
 pub(crate) const SEGMENT_SCALING_FACTOR: usize = 32;
@@ -39,46 +40,40 @@ pub(crate) enum Segment {
     RlpRaw = 12 << SEGMENT_SCALING_FACTOR,
     /// Contains all trie data. It is owned by the kernel, so it only lives on context 0.
     TrieData = 13 << SEGMENT_SCALING_FACTOR,
-    /// A buffer used to store the encodings of a branch node's children.
-    TrieEncodedChild = 14 << SEGMENT_SCALING_FACTOR,
-    /// A buffer used to store the lengths of the encodings of a branch node's children.
-    TrieEncodedChildLen = 15 << SEGMENT_SCALING_FACTOR,
-    /// A table of values 2^i for i=0..255 for use with shift
-    /// instructions; initialised by `kernel/asm/shift.asm::init_shift_table()`.
-    ShiftTable = 16 << SEGMENT_SCALING_FACTOR,
-    JumpdestBits = 17 << SEGMENT_SCALING_FACTOR,
-    EcdsaTable = 18 << SEGMENT_SCALING_FACTOR,
-    BnWnafA = 19 << SEGMENT_SCALING_FACTOR,
-    BnWnafB = 20 << SEGMENT_SCALING_FACTOR,
-    BnTableQ = 21 << SEGMENT_SCALING_FACTOR,
-    BnPairing = 22 << SEGMENT_SCALING_FACTOR,
+    ShiftTable = 14 << SEGMENT_SCALING_FACTOR,
+    JumpdestBits = 15 << SEGMENT_SCALING_FACTOR,
+    EcdsaTable = 16 << SEGMENT_SCALING_FACTOR,
+    BnWnafA = 17 << SEGMENT_SCALING_FACTOR,
+    BnWnafB = 18 << SEGMENT_SCALING_FACTOR,
+    BnTableQ = 19 << SEGMENT_SCALING_FACTOR,
+    BnPairing = 20 << SEGMENT_SCALING_FACTOR,
     /// List of addresses that have been accessed in the current transaction.
-    AccessedAddresses = 23 << SEGMENT_SCALING_FACTOR,
+    AccessedAddresses = 21 << SEGMENT_SCALING_FACTOR,
     /// List of storage keys that have been accessed in the current transaction.
-    AccessedStorageKeys = 24 << SEGMENT_SCALING_FACTOR,
+    AccessedStorageKeys = 22 << SEGMENT_SCALING_FACTOR,
     /// List of addresses that have called SELFDESTRUCT in the current transaction.
-    SelfDestructList = 25 << SEGMENT_SCALING_FACTOR,
+    SelfDestructList = 23 << SEGMENT_SCALING_FACTOR,
     /// Contains the bloom filter of a transaction.
-    TxnBloom = 26 << SEGMENT_SCALING_FACTOR,
+    TxnBloom = 24 << SEGMENT_SCALING_FACTOR,
     /// Contains the bloom filter present in the block header.
-    GlobalBlockBloom = 27 << SEGMENT_SCALING_FACTOR,
+    GlobalBlockBloom = 25 << SEGMENT_SCALING_FACTOR,
     /// List of log pointers pointing to the LogsData segment.
-    Logs = 28 << SEGMENT_SCALING_FACTOR,
-    LogsData = 29 << SEGMENT_SCALING_FACTOR,
+    Logs = 26 << SEGMENT_SCALING_FACTOR,
+    LogsData = 27 << SEGMENT_SCALING_FACTOR,
     /// Journal of state changes. List of pointers to `JournalData`. Length in `GlobalMetadata`.
-    Journal = 30 << SEGMENT_SCALING_FACTOR,
-    JournalData = 31 << SEGMENT_SCALING_FACTOR,
-    JournalCheckpoints = 32 << SEGMENT_SCALING_FACTOR,
+    Journal = 28 << SEGMENT_SCALING_FACTOR,
+    JournalData = 29 << SEGMENT_SCALING_FACTOR,
+    JournalCheckpoints = 30 << SEGMENT_SCALING_FACTOR,
     /// List of addresses that have been touched in the current transaction.
-    TouchedAddresses = 33 << SEGMENT_SCALING_FACTOR,
+    TouchedAddresses = 31 << SEGMENT_SCALING_FACTOR,
     /// List of checkpoints for the current context. Length in `ContextMetadata`.
-    ContextCheckpoints = 34 << SEGMENT_SCALING_FACTOR,
+    ContextCheckpoints = 32 << SEGMENT_SCALING_FACTOR,
     /// List of 256 previous block hashes.
-    BlockHashes = 35 << SEGMENT_SCALING_FACTOR,
+    BlockHashes = 33 << SEGMENT_SCALING_FACTOR,
 }
 
 impl Segment {
-    pub(crate) const COUNT: usize = 36;
+    pub(crate) const COUNT: usize = 34;
 
     /// Unscales this segment by `SEGMENT_SCALING_FACTOR`.
     pub(crate) const fn unscale(&self) -> usize {
@@ -101,8 +96,6 @@ impl Segment {
             Self::TxnData,
             Self::RlpRaw,
             Self::TrieData,
-            Self::TrieEncodedChild,
-            Self::TrieEncodedChildLen,
             Self::ShiftTable,
             Self::JumpdestBits,
             Self::EcdsaTable,
@@ -143,8 +136,6 @@ impl Segment {
             Segment::TxnData => "SEGMENT_TXN_DATA",
             Segment::RlpRaw => "SEGMENT_RLP_RAW",
             Segment::TrieData => "SEGMENT_TRIE_DATA",
-            Segment::TrieEncodedChild => "SEGMENT_TRIE_ENCODED_CHILD",
-            Segment::TrieEncodedChildLen => "SEGMENT_TRIE_ENCODED_CHILD_LEN",
             Segment::ShiftTable => "SEGMENT_SHIFT_TABLE",
             Segment::JumpdestBits => "SEGMENT_JUMPDEST_BITS",
             Segment::EcdsaTable => "SEGMENT_KERNEL_ECDSA_TABLE",
@@ -184,8 +175,6 @@ impl Segment {
             Segment::TxnData => 8,
             Segment::RlpRaw => 8,
             Segment::TrieData => 256,
-            Segment::TrieEncodedChild => 256,
-            Segment::TrieEncodedChildLen => 6,
             Segment::ShiftTable => 256,
             Segment::JumpdestBits => 1,
             Segment::EcdsaTable => 256,
@@ -206,6 +195,19 @@ impl Segment {
             Segment::TouchedAddresses => 256,
             Segment::ContextCheckpoints => 256,
             Segment::BlockHashes => 256,
+        }
+    }
+
+    pub(crate) fn constant(&self, virt: usize) -> Option<U256> {
+        match self {
+            Segment::RlpRaw => {
+                if virt == 0xFFFFFFFF {
+                    Some(U256::from(0x80))
+                } else {
+                    None
+                }
+            }
+            _ => None,
         }
     }
 }
