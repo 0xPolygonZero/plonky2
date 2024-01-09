@@ -97,8 +97,9 @@ ecdsa_after_precompute_loop_contd:
     ISZERO %jumpi(ecdsa_after_precompute_loop_end)
     %jump(secp_double)
 ecdsa_after_precompute_loop_contd2:
-    %stack (accx, accy, i, a0, a1, b0, b1, retdest) -> (i, accx, accy, a0, a1, b0, b1, retdest)
-    %decrement %jump(ecdsa_after_precompute_loop)
+    %stack (accx, accy, i, a0, a1, b0, b1, retdest) -> (i, 1, accx, accy, a0, a1, b0, b1, retdest)
+    SUB // i - 1
+    %jump(ecdsa_after_precompute_loop)
 ecdsa_after_precompute_loop_end:
     // Check that the public key is not the point at infinity. See https://github.com/ethereum/eth-keys/pull/76 for discussion.
     DUP2 DUP2 ISZERO SWAP1 ISZERO MUL %jumpi(pk_is_infinity)

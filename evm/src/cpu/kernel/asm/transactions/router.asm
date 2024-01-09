@@ -5,10 +5,8 @@
 global route_txn:
     // stack: txn_counter, num_nibbles, retdest
     // First load transaction data into memory, where it will be parsed.
-    PUSH read_txn_from_memory
-    SWAP2 SWAP1
-    PUSH update_txn_trie
-    // stack: update_txn_trie, tx_counter, num_nibbles, read_txn_from_memory, retdest
+    %stack(txn_counter, num_nibbles) -> (update_txn_trie, txn_counter, num_nibbles, read_txn_from_memory)
+    // stack: update_txn_trie, txn_counter, num_nibbles, read_txn_from_memory, retdest
     %jump(read_rlp_to_memory)
 
 // At this point, the raw txn data is in memory.

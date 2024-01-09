@@ -84,8 +84,10 @@ global encode_rlp_multi_byte_string_prefix:
     %jumpi(encode_rlp_multi_byte_string_prefix_large)
     // Medium case; prefix is 0x80 + str_len.
     // stack: rlp_addr, str_len, retdest
-    DUP1
-    SWAP2 %add_const(0x80)
+    PUSH 0x80
+    DUP2
+    // stack: rlp_addr, 0x80, rlp_addr, str_len, retdest
+    SWAP3 ADD
     // stack: prefix, rlp_addr, rlp_addr, retdest
     MSTORE_GENERAL
     // stack: rlp_addr, retdest
@@ -178,7 +180,7 @@ global prepend_rlp_list_prefix:
 
     // If we got here, we have a small list, so we prepend 0xc0 + len at rlp_address 8.
     // stack: payload_len, end_rlp_addr, start_rlp_addr, retdest
-    DUP3 %decrement // offset of prefix
+    PUSH 1 DUP4 SUB // offset of prefix
     DUP2 %add_const(0xc0)
     // stack: prefix_byte, start_rlp_addr-1, payload_len, end_rlp_addr, start_rlp_addr, retdest
     MSTORE_GENERAL
@@ -198,7 +200,7 @@ prepend_rlp_list_prefix_big:
     DUP1 %num_bytes
     // stack: len_of_len, payload_len, end_rlp_addr, start_rlp_addr, retdest
     DUP1
-    DUP5 %decrement // start_rlp_addr - 1
+    PUSH 1 DUP6 SUB // start_rlp_addr - 1
     SUB
     // stack: prefix_start_rlp_addr, len_of_len, payload_len, end_rlp_addr, start_rlp_addr, retdest
     DUP2 %add_const(0xf7) DUP2 %swap_mstore // rlp[prefix_start_rlp_addr] = 0xf7 + len_of_len

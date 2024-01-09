@@ -12,17 +12,19 @@ global cmp_bignum:
     // stack: len, a_start_loc, b_start_loc, retdest
     SWAP1
     // stack: a_start_loc, len, b_start_loc, retdest
-    DUP2
-    // stack: len, a_start_loc, len, b_start_loc, retdest
+    PUSH 1
+    DUP3
+    SUB
+    // stack: len-1, a_start_loc, len, b_start_loc, retdest
     ADD
-    %decrement
     // stack: a_end_loc, len, b_start_loc, retdest
     SWAP2
     // stack: b_start_loc, len, a_end_loc, retdest
-    DUP2
-    // stack: len, b_start_loc, len, a_end_loc, retdest
+    PUSH 1
+    DUP3
+    SUB
+    // stack: len-1, b_start_loc, len, a_end_loc, retdest
     ADD
-    %decrement
     // stack: b_end_loc, len, a_end_loc, retdest
     %stack (b, l, a) -> (l, a, b)
     // stack: len, a_end_loc, b_end_loc, retdest
