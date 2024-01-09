@@ -289,6 +289,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
         let next_values = vars.get_next_values();
 
         let timestamp = local_values[TIMESTAMP];
+        let is_read = local_values[IS_READ];
         let addr_context = local_values[ADDR_CONTEXT];
         let addr_segment = local_values[ADDR_SEGMENT];
         let addr_virtual = local_values[ADDR_VIRTUAL];
@@ -305,10 +306,13 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
         let filter = local_values[FILTER];
         yield_constr.constraint(filter * (filter - P::ONES));
 
+        // IS_READ must be 0 or 1.
+        yield_constr.constraint(is_read * (is_read - P::ONES));
+
         // If this is a dummy row (filter is off), it must be a read. This means the prover can
         // insert reads which never appear in the CPU trace (which are harmless), but not writes.
         let is_dummy = P::ONES - filter;
-        let is_write = P::ONES - local_values[IS_READ];
+        let is_write = P::ONES - is_read;
         yield_constr.constraint(is_dummy * is_write);
 
         let context_first_change = local_values[CONTEXT_FIRST_CHANGE];
@@ -397,6 +401,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
         let addr_segment = local_values[ADDR_SEGMENT];
         let addr_virtual = local_values[ADDR_VIRTUAL];
         let value_limbs: Vec<_> = (0..8).map(|i| local_values[value_limb(i)]).collect();
+        let is_read = local_values[IS_READ];
         let timestamp = local_values[TIMESTAMP];
 
         let next_addr_context = next_values[ADDR_CONTEXT];
@@ -411,10 +416,14 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
         let constraint = builder.mul_sub_extension(filter, filter, filter);
         yield_constr.constraint(builder, constraint);
 
+        // IS_READ must be 0 or 1.
+        let constraint = builder.mul_sub_extension(is_read, is_read, is_read);
+        yield_constr.constraint(builder, constraint);
+
         // If this is a dummy row (filter is off), it must be a read. This means the prover can
         // insert reads which never appear in the CPU trace (which are harmless), but not writes.
         let is_dummy = builder.sub_extension(one, filter);
-        let is_write = builder.sub_extension(one, local_values[IS_READ]);
+        let is_write = builder.sub_extension(one, is_read);
         let is_dummy_write = builder.mul_extension(is_dummy, is_write);
         yield_constr.constraint(builder, is_dummy_write);
 
