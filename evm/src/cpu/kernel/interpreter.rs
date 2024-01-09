@@ -1196,7 +1196,7 @@ impl<'a> Interpreter<'a> {
         self.generation_state.registers.context = context;
     }
 
-    /// Writes the encoding of 0 to position @ENCODED_EMPTY_NODE_POS
+    /// Writes the encoding of 0 to position @ENCODED_EMPTY_NODE_POS.
     pub(crate) fn initialize_rlp_segment(&mut self) {
         self.generation_state.memory.set(
             MemoryAddress::new(0, Segment::RlpRaw, 0xFFFFFFFF),
