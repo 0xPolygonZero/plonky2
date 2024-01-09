@@ -204,7 +204,7 @@ fn eval_packed_store<P: PackedField>(
 }
 
 /// Circuit version of `eval_packed_store`.
-/// /// Evaluates constraints for MSTORE_GENERAL.
+/// Evaluates constraints for MSTORE_GENERAL.
 fn eval_ext_circuit_store<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
     lv: &CpuColumnsView<ExtensionTarget<D>>,

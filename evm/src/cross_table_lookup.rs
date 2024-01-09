@@ -506,16 +506,16 @@ impl<F: Field> CrossTableLookup<F> {
 
 /// Cross-table lookup data for one table.
 #[derive(Clone, Default)]
-pub(crate) struct CtlData<F: Field> {
+pub(crate) struct CtlData<'a, F: Field> {
     /// Data associated with all Z(x) polynomials for one table.
-    pub(crate) zs_columns: Vec<CtlZData<F>>,
+    pub(crate) zs_columns: Vec<CtlZData<'a, F>>,
 }
 
 /// Cross-table lookup data associated with one Z(x) polynomial.
 /// One Z(x) polynomial can be associated to multiple tables,
 /// built from the same STARK.
 #[derive(Clone)]
-pub(crate) struct CtlZData<F: Field> {
+pub(crate) struct CtlZData<'a, F: Field> {
     /// Helper columns to verify the Z polynomial values.
     pub(crate) helper_columns: Vec<PolynomialValues<F>>,
     /// Z polynomial values.
@@ -523,13 +523,13 @@ pub(crate) struct CtlZData<F: Field> {
     /// Cross-table lookup challenge.
     pub(crate) challenge: GrandProductChallenge<F>,
     /// Vector of column linear combinations for the current tables.
-    pub(crate) columns: Vec<Vec<Column<F>>>,
+    pub(crate) columns: Vec<&'a [Column<F>]>,
     /// Vector of filter columns for the current table.
     /// Each filter evaluates to either 1 or 0.
     pub(crate) filter: Vec<Option<Filter<F>>>,
 }
 
-impl<F: Field> CtlData<F> {
+impl<'a, F: Field> CtlData<'a, F> {
     /// Returns the number of cross-table lookup polynomials.
     pub(crate) fn len(&self) -> usize {
         self.zs_columns.len()
@@ -731,12 +731,12 @@ pub(crate) fn num_ctl_helper_columns_by_table<F: Field>(
 /// - `ctl_challenges` corresponds to the challenges used for CTLs.
 /// - `constraint_degree` is the maximal constraint degree for the table.
 /// For each `CrossTableLookup`, and each looking/looked table, the partial products for the CTL are computed, and added to the said table's `CtlZData`.
-pub(crate) fn cross_table_lookup_data<F: RichField, const D: usize>(
+pub(crate) fn cross_table_lookup_data<'a, F: RichField, const D: usize>(
     trace_poly_values: &[Vec<PolynomialValues<F>>; NUM_TABLES],
-    cross_table_lookups: &[CrossTableLookup<F>],
+    cross_table_lookups: &'a [CrossTableLookup<F>],
     ctl_challenges: &GrandProductChallengeSet<F>,
     constraint_degree: usize,
-) -> [CtlData<F>; NUM_TABLES] {
+) -> [CtlData<'a, F>; NUM_TABLES] {
     let mut ctl_data_per_table = [0; NUM_TABLES].map(|_| CtlData::default());
     for CrossTableLookup {
         looking_tables,
@@ -775,7 +775,7 @@ pub(crate) fn cross_table_lookup_data<F: RichField, const D: usize>(
                 let mut columns = Vec::with_capacity(count);
                 let mut filter = Vec::with_capacity(count);
                 for (col, filt) in cols_filts {
-                    columns.push(col.clone());
+                    columns.push(&col[..]);
                     filter.push(filt.clone());
                 }
                 ctl_data_per_table[table].zs_columns.push(CtlZData {
@@ -794,7 +794,7 @@ pub(crate) fn cross_table_lookup_data<F: RichField, const D: usize>(
                     helper_columns: vec![],
                     z: looked_poly,
                     challenge,
-                    columns: vec![looked_table.columns.clone()],
+                    columns: vec![&looked_table.columns[..]],
                     filter: vec![looked_table.filter.clone()],
                 });
         }
@@ -973,7 +973,7 @@ fn partial_sums<F: Field>(
 
 /// Data necessary to check the cross-table lookups of a given table.
 #[derive(Clone)]
-pub(crate) struct CtlCheckVars<F, FE, P, const D2: usize>
+pub(crate) struct CtlCheckVars<'a, F, FE, P, const D2: usize>
 where
     F: Field,
     FE: FieldExtension<D2, BaseField = F>,
@@ -989,13 +989,13 @@ where
     /// Cross-table lookup challenges.
     pub(crate) challenges: GrandProductChallenge<F>,
     /// Column linear combinations of the `CrossTableLookup`s.
-    pub(crate) columns: Vec<Vec<Column<F>>>,
+    pub(crate) columns: Vec<&'a [Column<F>]>,
     /// Filter that evaluates to either 1 or 0.
     pub(crate) filter: Vec<Option<Filter<F>>>,
 }
 
 impl<'a, F: RichField + Extendable<D>, const D: usize>
-    CtlCheckVars<F, F::Extension, F::Extension, D>
+    CtlCheckVars<'a, F, F::Extension, F::Extension, D>
 {
     /// Extracts the `CtlCheckVars` for each STARK.
     pub(crate) fn from_proofs<C: GenericConfig<D, F = F>>(
@@ -1067,7 +1067,7 @@ impl<'a, F: RichField + Extendable<D>, const D: usize>
                     let mut columns = Vec::with_capacity(count);
                     let mut filter = Vec::with_capacity(count);
                     for (col, filt) in cols_filts {
-                        columns.push(col.clone());
+                        columns.push(&col[..]);
                         filter.push(filt.clone());
                     }
                     let helper_columns = ctl_zs[table]
@@ -1095,7 +1095,7 @@ impl<'a, F: RichField + Extendable<D>, const D: usize>
 
                 z_indices[looked_table.table as usize] += 1;
 
-                let columns = vec![looked_table.columns.clone()];
+                let columns = vec![&looked_table.columns[..]];
                 let filter = vec![looked_table.filter.clone()];
                 ctl_vars_per_table[looked_table.table as usize].push(Self {
                     helper_columns: vec![],
