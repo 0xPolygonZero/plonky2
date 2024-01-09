@@ -802,12 +802,14 @@ pub(crate) fn cross_table_lookup_data<'a, F: RichField, const D: usize>(
     ctl_data_per_table
 }
 
+type ColumnFilter<'a, F> = (&'a [Column<F>], &'a Option<Filter<F>>);
+
 /// Given a STARK's trace, and the data associated to one lookup (either CTL or range check),
 /// returns the associated helper polynomials.
 pub(crate) fn get_helper_cols<F: Field>(
     trace: &[PolynomialValues<F>],
     degree: usize,
-    columns_filters: &[(&[Column<F>], &Option<Filter<F>>)],
+    columns_filters: &[ColumnFilter<F>],
     challenge: GrandProductChallenge<F>,
     constraint_degree: usize,
 ) -> Vec<PolynomialValues<F>> {
@@ -940,7 +942,7 @@ fn ctl_helper_zs_cols<F: Field>(
 /// Returns the helper columns and `z`.
 fn partial_sums<F: Field>(
     trace: &[PolynomialValues<F>],
-    columns_filters: &[(&[Column<F>], &Option<Filter<F>>)],
+    columns_filters: &[ColumnFilter<F>],
     challenge: GrandProductChallenge<F>,
     constraint_degree: usize,
 ) -> Vec<PolynomialValues<F>> {
