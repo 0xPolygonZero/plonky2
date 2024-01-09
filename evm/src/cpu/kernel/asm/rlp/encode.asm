@@ -29,12 +29,11 @@ global encode_rlp_256:
 // RLP-encode a fixed-length string with the given byte length. Assumes string < 2^(8 * len).
 global encode_rlp_fixed:
     // stack: len, rlp_addr, string, retdest
-    DUP1
+    DUP2
+    DUP2
     %add_const(0x80)
-    // stack: first_byte, len, rlp_addr, string, retdest
-    DUP3
-    // stack: rlp_addr, first_byte, len, rlp_addr, string, retdest
-    %mstore_rlp
+    // stack: first_byte, rlp_addr, len, rlp_addr, string, retdest
+    MSTORE_GENERAL
     // stack: len, rlp_addr, string, retdest
     SWAP1
     %increment // increment rlp_addr
@@ -51,19 +50,17 @@ encode_rlp_fixed_finish:
 // I.e. writes encode(encode(string). Assumes string < 2^(8 * len).
 global doubly_encode_rlp_fixed:
     // stack: len, rlp_addr, string, retdest
-    DUP1
+    DUP2
+    DUP2
     %add_const(0x81)
-    // stack: first_byte, len, rlp_addr, string, retdest
-    DUP3
-    // stack: rlp_addr, first_byte, len, rlp_addr, string, retdest
-    %mstore_rlp
+    // stack: first_byte, rlp_addr, len, rlp_addr, string, retdest
+    MSTORE_GENERAL
     // stack: len, rlp_addr, string, retdest
-    DUP1
+    DUP2 %increment
+    DUP2
     %add_const(0x80)
-    // stack: second_byte, len, original_rlp_addr, string, retdest
-    DUP3 %increment
-    // stack: rlp_addr', second_byte, len, rlp_addr, string, retdest
-    %mstore_rlp
+    // stack: second_byte, rlp_addr', len, original_rlp_addr, string, retdest
+    MSTORE_GENERAL
     // stack: len, rlp_addr, string, retdest
     SWAP1
     %add_const(2) // advance past the two prefix bytes
@@ -87,11 +84,10 @@ global encode_rlp_multi_byte_string_prefix:
     %jumpi(encode_rlp_multi_byte_string_prefix_large)
     // Medium case; prefix is 0x80 + str_len.
     // stack: rlp_addr, str_len, retdest
-    SWAP1 %add_const(0x80)
-    // stack: prefix, rlp_addr, retdest
-    DUP2
-    // stack: rlp_addr, prefix, rlp_addr, retdest
-    %mstore_rlp
+    DUP1
+    SWAP2 %add_const(0x80)
+    // stack: prefix, rlp_addr, rlp_addr, retdest
+    MSTORE_GENERAL
     // stack: rlp_addr, retdest
     %increment
     // stack: rlp_addr', retdest
@@ -104,12 +100,11 @@ encode_rlp_multi_byte_string_prefix_large:
     %num_bytes
     // stack: len_of_len, rlp_addr, str_len, retdest
     SWAP1
-    DUP2 // len_of_len
+    DUP1 // rlp_addr
+    DUP3 // len_of_len
     %add_const(0xb7)
-    // stack: first_byte, rlp_addr, len_of_len, str_len, retdest
-    DUP2
-    // stack: rlp_addr, first_byte, rlp_addr, len_of_len, str_len, retdest
-    %mstore_rlp
+    // stack: first_byte, rlp_addr, rlp_addr, len_of_len, str_len, retdest
+    MSTORE_GENERAL
     // stack: rlp_addr, len_of_len, str_len, retdest
     %increment
     // stack: rlp_addr', len_of_len, str_len, retdest
@@ -132,12 +127,11 @@ global encode_rlp_list_prefix:
     %jumpi(encode_rlp_list_prefix_large)
     // Small case: prefix is just 0xc0 + length.
     // stack: rlp_addr, payload_len, retdest
-    SWAP1
+    DUP1
+    SWAP2
     %add_const(0xc0)
-    // stack: prefix, rlp_addr, retdest
-    DUP2
-    // stack: rlp_addr, prefix, rlp_addr, retdest
-    %mstore_rlp
+    // stack: prefix, rlp_addr, rlp_addr, retdest
+    MSTORE_GENERAL
     // stack: rlp_addr, retdest
     %increment
     SWAP1
@@ -147,10 +141,10 @@ encode_rlp_list_prefix_large:
     // stack: rlp_addr, payload_len, retdest
     DUP2 %num_bytes
     // stack: len_of_len, rlp_addr, payload_len, retdest
-    DUP1 %add_const(0xf7)
-    // stack: first_byte, len_of_len, rlp_addr, payload_len, retdest
-    DUP3 // rlp_addr
-    %mstore_rlp
+    DUP2
+    DUP2 %add_const(0xf7)
+    // stack: first_byte, rlp_addr, len_of_len, rlp_addr, payload_len, retdest
+    MSTORE_GENERAL
     // stack: len_of_len, rlp_addr, payload_len, retdest
     SWAP1 %increment
     // stack: rlp_addr', len_of_len, payload_len, retdest
@@ -184,10 +178,10 @@ global prepend_rlp_list_prefix:
 
     // If we got here, we have a small list, so we prepend 0xc0 + len at rlp_address 8.
     // stack: payload_len, end_rlp_addr, start_rlp_addr, retdest
-    DUP1 %add_const(0xc0)
-    // stack: prefix_byte, payload_len, end_rlp_addr, start_rlp_addr, retdest
-    DUP4 %decrement // offset of prefix
-    %mstore_rlp
+    DUP3 %decrement // offset of prefix
+    DUP2 %add_const(0xc0)
+    // stack: prefix_byte, start_rlp_addr-1, payload_len, end_rlp_addr, start_rlp_addr, retdest
+    MSTORE_GENERAL
     // stack: payload_len, end_rlp_addr, start_rlp_addr, retdest
     %increment
     // stack: rlp_len, end_rlp_addr, start_rlp_addr, retdest
@@ -207,7 +201,7 @@ prepend_rlp_list_prefix_big:
     DUP5 %decrement // start_rlp_addr - 1
     SUB
     // stack: prefix_start_rlp_addr, len_of_len, payload_len, end_rlp_addr, start_rlp_addr, retdest
-    DUP2 %add_const(0xf7) DUP2 %mstore_rlp // rlp[prefix_start_rlp_addr] = 0xf7 + len_of_len
+    DUP2 %add_const(0xf7) DUP2 %swap_mstore // rlp[prefix_start_rlp_addr] = 0xf7 + len_of_len
     // stack: prefix_start_rlp_addr, len_of_len, payload_len, end_rlp_addr, start_rlp_addr, retdest
     DUP1 %increment // start_len_rlp_addr = prefix_start_rlp_addr + 1
     %stack (start_len_rlp_addr, prefix_start_rlp_addr, len_of_len, payload_len, end_rlp_addr, start_rlp_addr, retdest)
