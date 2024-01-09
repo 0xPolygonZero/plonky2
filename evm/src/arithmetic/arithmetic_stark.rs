@@ -11,7 +11,7 @@ use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::util::transpose;
 use static_assertions::const_assert;
 
-use super::columns::NUM_ARITH_COLUMNS;
+use super::columns::{op_flags, NUM_ARITH_COLUMNS};
 use super::shift;
 use crate::all_stark::Table;
 use crate::arithmetic::columns::{NUM_SHARED_COLS, RANGE_COUNTER, RC_FREQUENCIES, SHARED_COLS};
@@ -208,6 +208,12 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ArithmeticSta
         let lv: &[P; NUM_ARITH_COLUMNS] = vars.get_local_values().try_into().unwrap();
         let nv: &[P; NUM_ARITH_COLUMNS] = vars.get_next_values().try_into().unwrap();
 
+        // Flags must be boolean.
+        for flag_idx in op_flags() {
+            let flag = lv[flag_idx];
+            yield_constr.constraint(flag * (flag - P::ONES));
+        }
+
         // Check that `OPCODE_COL` holds 0 if the operation is not a range_check.
         let opcode_constraint = (P::ONES - lv[columns::IS_RANGE_CHECK]) * lv[columns::OPCODE_COL];
         yield_constr.constraint(opcode_constraint);
@@ -247,6 +253,13 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ArithmeticSta
             vars.get_local_values().try_into().unwrap();
         let nv: &[ExtensionTarget<D>; NUM_ARITH_COLUMNS] =
             vars.get_next_values().try_into().unwrap();
+
+        // Flags must be boolean.
+        for flag_idx in op_flags() {
+            let flag = lv[flag_idx];
+            let constraint = builder.mul_sub_extension(flag, flag, flag);
+            yield_constr.constraint(builder, constraint);
+        }
 
         // Check that `OPCODE_COL` holds 0 if the operation is not a range_check.
         let opcode_constraint = builder.arithmetic_extension(

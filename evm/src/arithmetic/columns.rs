@@ -43,6 +43,10 @@ pub(crate) const IS_RANGE_CHECK: usize = IS_SHR + 1;
 pub(crate) const OPCODE_COL: usize = IS_RANGE_CHECK + 1;
 pub(crate) const START_SHARED_COLS: usize = OPCODE_COL + 1;
 
+pub(crate) const fn op_flags() -> Range<usize> {
+    IS_ADD..IS_RANGE_CHECK + 1
+}
+
 /// Within the Arithmetic Unit, there are shared columns which can be
 /// used by any arithmetic circuit, depending on which one is active
 /// this cycle.
