@@ -4,7 +4,7 @@ use num::traits::AsPrimitive;
 pub(crate) const SEGMENT_SCALING_FACTOR: usize = 32;
 
 /// This contains all the existing memory segments. The values in the enum are shifted by 32 bits
-/// to allow for convenient address components (context / segement / virtual) bundling in the kernel.
+/// to allow for convenient address components (context / segment / virtual) bundling in the kernel.
 #[allow(dead_code)]
 #[allow(clippy::enum_clike_unportable_variant)]
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Ord, PartialOrd, Debug)]
