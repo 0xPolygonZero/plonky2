@@ -1,3 +1,9 @@
+//! plonky2 proof definition.
+//!
+//! Proofs can be later compressed to reduce their size, into either
+//! [`CompressedProof`] or [`CompressedProofWithPublicInputs`] formats.
+//! The latter can be directly passed to a verifier to assert its correctness.
+
 use alloc::vec;
 use alloc::vec::Vec;
 

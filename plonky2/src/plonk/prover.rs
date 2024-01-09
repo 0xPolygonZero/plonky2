@@ -1,3 +1,5 @@
+//! plonky2 prover implementation.
+
 use alloc::vec::Vec;
 use alloc::{format, vec};
 use core::cmp::min;

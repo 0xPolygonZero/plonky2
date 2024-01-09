@@ -1,3 +1,5 @@
+//! Logic for building plonky2 circuits.
+
 use alloc::collections::BTreeMap;
 use alloc::sync::Arc;
 use alloc::vec;

@@ -1,3 +1,17 @@
+//! Circuit data specific to the prover and the verifier.
+//!
+//! This module also defines a [`CircuitConfig`] to be customized
+//! when building circuits for arbitrary statements.
+//!
+//! After building a circuit, one obtains an instance of [`CircuitData`].
+//! This contains both prover and verifier data, allowing to generate
+//! proofs for the given circuit and verify them.
+//!
+//! Most of the [`CircuitData`] is actually prover-specific, and can be
+//! extracted by calling [`CircuitData::prover_data`] method.
+//! The verifier data can similarly be extracted by calling [`CircuitData::verifier_data`].
+//! This is useful to allow even small devices to verify plonky2 proofs.
+
 use alloc::collections::BTreeMap;
 use alloc::vec;
 use alloc::vec::Vec;
