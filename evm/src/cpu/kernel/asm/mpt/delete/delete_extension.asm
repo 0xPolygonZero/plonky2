@@ -37,18 +37,10 @@ after_mpt_delete_extension_branch:
     // stack: child_type, updated_child_node_ptr, node_payload_ptr, node_len, node_key, retdest
     POP
     // stack: updated_child_node_ptr, node_payload_ptr, node_len, node_key, retdest
-    SWAP1
-    // stack: extension_ptr, updated_child_node_ptr, node_len, node_key, retdest
-    PUSH @MPT_NODE_EXTENSION DUP2 %mstore_trie_data
-    // stack: extension_ptr, updated_child_node_ptr, node_len, node_key, retdest
-    DUP3 DUP2 %mstore_trie_data // Append node_len to our node
-    // stack: extension_ptr, updated_child_node_ptr, node_len, node_key, retdest
-    DUP4 DUP2 %mstore_trie_data // Append node_key to our node
-    // stack: extension_ptr, updated_child_node_ptr, node_len, node_key, retdest
-    SWAP1 DUP2 %mstore_trie_data // Append updated_child_node_ptr to our node
-    // stack: extension_ptr, node_len, node_key, retdest
+    DUP2 %add_const(2) %mstore_trie_data
+    // stack: node_payload_ptr, node_len, node_key, retdest
+    %decrement
     %stack (extension_ptr, node_len, node_key, retdest) -> (retdest, extension_ptr)
-    // stack: extension_ptr, retdest
     JUMP
 
 after_mpt_delete_extension_extension:
