@@ -11,7 +11,7 @@ use super::membus::NUM_GP_CHANNELS;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::kernel::constants::context_metadata::ContextMetadata;
-use crate::memory::segments::{Segment, SEGMENT_SCALING_FACTOR};
+use crate::memory::segments::Segment;
 use crate::memory::VALUE_LIMBS;
 
 // If true, the instruction will keep the current context for the next row.

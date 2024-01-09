@@ -9,7 +9,7 @@ use super::cpu_stark::get_addr;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::stack;
-use crate::memory::segments::{Segment, SEGMENT_SCALING_FACTOR};
+use crate::memory::segments::Segment;
 
 const fn get_addr_load<T: Copy>(lv: &CpuColumnsView<T>) -> (T, T, T) {
     get_addr(lv, 0)

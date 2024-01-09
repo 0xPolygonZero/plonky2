@@ -22,7 +22,7 @@ use crate::cpu::{
 };
 use crate::cross_table_lookup::{Column, Filter, TableWithColumns};
 use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
-use crate::memory::segments::{Segment, SEGMENT_SCALING_FACTOR};
+use crate::memory::segments::Segment;
 use crate::memory::{NUM_CHANNELS, VALUE_LIMBS};
 use crate::stark::Stark;
 
@@ -345,11 +345,9 @@ pub(crate) fn ctl_data_memory_old_sp_write_set_context<F: Field>() -> Vec<Column
     let mut cols = vec![
         Column::constant(F::ZERO),       // is_read
         Column::single(COL_MAP.context), // addr_context
-        Column::constant(F::from_canonical_u64(
-            Segment::ContextMetadata as u64 >> SEGMENT_SCALING_FACTOR,
-        )), // addr_segment
-        Column::constant(F::from_canonical_u64(
-            ContextMetadata::StackSize as u64 - Segment::ContextMetadata as u64,
+        Column::constant(F::from_canonical_usize(Segment::ContextMetadata.unscale())), // addr_segment
+        Column::constant(F::from_canonical_usize(
+            ContextMetadata::StackSize.unscale(),
         )), // addr_virtual
     ];
 
@@ -372,9 +370,7 @@ pub(crate) fn ctl_data_memory_new_sp_read_set_context<F: Field>() -> Vec<Column<
     let mut cols = vec![
         Column::constant(F::ONE),                         // is_read
         Column::single(COL_MAP.mem_channels[0].value[2]), // addr_context (in the top of the stack)
-        Column::constant(F::from_canonical_u64(
-            Segment::ContextMetadata as u64 >> SEGMENT_SCALING_FACTOR,
-        )), // addr_segment
+        Column::constant(F::from_canonical_usize(Segment::ContextMetadata.unscale())), // addr_segment
         Column::constant(F::from_canonical_u64(
             ContextMetadata::StackSize as u64 - Segment::ContextMetadata as u64,
         )), // addr_virtual
