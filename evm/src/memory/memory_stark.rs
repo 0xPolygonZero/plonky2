@@ -305,6 +305,10 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
         let filter = local_values[FILTER];
         yield_constr.constraint(filter * (filter - P::ONES));
 
+        // IS_READ must be 0 or 1.
+        // This is implied by the MemoryStark CTL, where corresponding values are either
+        // hardcoded to 0/1, or boolean-constrained in their respective STARK modules.
+
         // If this is a dummy row (filter is off), it must be a read. This means the prover can
         // insert reads which never appear in the CPU trace (which are harmless), but not writes.
         let is_dummy = P::ONES - filter;
@@ -410,6 +414,10 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
         let filter = local_values[FILTER];
         let constraint = builder.mul_sub_extension(filter, filter, filter);
         yield_constr.constraint(builder, constraint);
+
+        // IS_READ must be 0 or 1.
+        // This is implied by the MemoryStark CTL, where corresponding values are either
+        // hardcoded to 0/1, or boolean-constrained in their respective STARK modules.
 
         // If this is a dummy row (filter is off), it must be a read. This means the prover can
         // insert reads which never appear in the CPU trace (which are harmless), but not writes.
