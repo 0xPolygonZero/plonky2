@@ -59,7 +59,7 @@ impl<F: Field> GenerationState<F> {
         let (trie_roots_ptrs, trie_data) =
             load_all_mpts(trie_inputs).expect("Invalid MPT data for preinitialization");
 
-        self.memory.contexts[0].segments[Segment::TrieData as usize].content = trie_data;
+        self.memory.contexts[0].segments[Segment::TrieData.unscale()].content = trie_data;
 
         trie_roots_ptrs
     }
@@ -134,13 +134,11 @@ impl<F: Field> GenerationState<F> {
         }
 
         let ctx = self.registers.context;
-        let returndata_size_addr = MemoryAddress::new(
-            ctx,
-            Segment::ContextMetadata,
-            ContextMetadata::ReturndataSize as usize,
-        );
+        let returndata_offset = ContextMetadata::ReturndataSize.unscale();
+        let returndata_size_addr =
+            MemoryAddress::new(ctx, Segment::ContextMetadata, returndata_offset);
         let returndata_size = u256_to_usize(self.memory.get(returndata_size_addr))?;
-        let code = self.memory.contexts[ctx].segments[Segment::Returndata as usize].content
+        let code = self.memory.contexts[ctx].segments[Segment::Returndata.unscale()].content
             [..returndata_size]
             .iter()
             .map(|x| x.low_u32() as u8)

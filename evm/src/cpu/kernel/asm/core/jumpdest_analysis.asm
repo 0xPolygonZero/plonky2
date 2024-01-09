@@ -10,8 +10,9 @@ loop:
     DUP3 DUP2 GT // i > final_pos
     %jumpi(proof_not_ok)
 
-    // stack: i, ctx, final_pos, retdest
-    %stack (i, ctx) -> (ctx, @SEGMENT_CODE, i, i, ctx)
+    // stack: i, ctx, code_len, retdest
+    %stack (i, ctx) -> (ctx, i, i, ctx)
+    ADD // combine context and offset to make an address (SEGMENT_CODE == 0)
     MLOAD_GENERAL
     // stack: opcode, i, ctx, final_pos, retdest
 
@@ -22,8 +23,11 @@ loop:
     // stack: opcode != JUMPDEST, opcode, i, ctx, final_pos, retdest
     %jumpi(continue)
 
-    // stack: JUMPDEST, i, ctx, final_pos, retdest
-    %stack (JUMPDEST, i, ctx) -> (1, ctx, @SEGMENT_JUMPDEST_BITS, i, JUMPDEST, i, ctx)
+    // stack: JUMPDEST, i, ctx, code_len, retdest
+    %stack (JUMPDEST, i, ctx) -> (ctx, @SEGMENT_JUMPDEST_BITS, i, JUMPDEST, i, ctx)
+    %build_address
+    PUSH 1
+    // stack: 1, addr, JUMPDEST, i, ctx
     MSTORE_GENERAL
 
 continue:
@@ -38,7 +42,9 @@ continue:
 proof_ok:
     // stack: i, ctx, final_pos, retdest
     // We already know final pos is a jumpdest
-    %stack (i, ctx, final_pos) -> (1, ctx, @SEGMENT_JUMPDEST_BITS, i)
+    %stack (i, ctx, final_pos) -> (ctx, @SEGMENT_JUMPDEST_BITS, i)
+    %build_address
+    PUSH 1
     MSTORE_GENERAL
     JUMP
 proof_not_ok:
@@ -107,7 +113,8 @@ global write_table_if_jumpdest:
     // stack: proof_prefix_addr, jumpdest, ctx, retdest
     %stack
         (proof_prefix_addr, jumpdest, ctx) ->
-        (ctx, @SEGMENT_CODE, jumpdest, jumpdest, ctx, proof_prefix_addr)
+        (ctx, jumpdest, jumpdest, ctx, proof_prefix_addr)
+    ADD // combine context and offset to make an address (SEGMENT_CODE == 0)
     MLOAD_GENERAL
     // stack: opcode, jumpdest, ctx, proof_prefix_addr, retdest
 
@@ -127,7 +134,8 @@ global write_table_if_jumpdest:
     
     %stack
         (proof_prefix_addr, ctx) ->
-        (ctx, @SEGMENT_CODE, proof_prefix_addr, 32, proof_prefix_addr, ctx)
+        (ctx, proof_prefix_addr, 32, proof_prefix_addr, ctx)
+    ADD // combine context and offset to make an address (SEGMENT_CODE == 0)
     %mload_packing
     // packed_opcodes, proof_prefix_addr, ctx, jumpdest, retdest
     DUP1 %shl_const(1)
@@ -263,6 +271,12 @@ return:
     // stack: proof_prefix_addr, jumpdest, ctx, retdest
     %pop3
     JUMP
+
+%macro write_table_if_jumpdest
+    %stack (proof_prefix_addr, jumpdest, ctx) -> (proof_prefix_addr, jumpdest, ctx, %%after)
+    %jump(write_table_if_jumpdest)
+%%after:
+%endmacro
 
 // Write the jumpdest table. This is done by
 // non-deterministically guessing the sequence of jumpdest

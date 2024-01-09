@@ -423,3 +423,36 @@
     ISZERO
     // stack: not b
 %endmacro
+
+%macro build_address
+    // stack: ctx, seg, off
+    ADD
+    ADD
+    // stack: addr
+%endmacro
+
+%macro build_address_no_offset
+    // stack: ctx, seg
+    ADD
+    // stack: addr
+%endmacro
+
+%macro build_kernel_address
+    // stack: seg, off
+    ADD
+    // stack: addr (ctx == 0)
+%endmacro
+
+%macro build_address_with_ctx_no_offset(seg)
+    // stack: ctx
+    PUSH $seg
+    ADD
+    // stack: addr
+%endmacro
+
+%macro build_address_with_ctx_no_segment(off)
+    // stack: ctx
+    PUSH $off
+    ADD
+    // stack: addr
+%endmacro

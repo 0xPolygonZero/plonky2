@@ -28,6 +28,7 @@ use crate::util::{biguint_to_mem_vec, mem_vec_to_biguint, u256_to_u8, u256_to_us
 use crate::witness::errors::ProverInputError::*;
 use crate::witness::errors::{ProgramError, ProverInputError};
 use crate::witness::memory::MemoryAddress;
+use crate::witness::operation::CONTEXT_SCALING_FACTOR;
 use crate::witness::util::{current_context_peek, stack_peek};
 
 /// Prover input function represented as a scoped function name.
@@ -147,7 +148,7 @@ impl<F: Field> GenerationState<F> {
     fn run_account_code(&mut self) -> Result<U256, ProgramError> {
         // stack: codehash, ctx, ...
         let codehash = stack_peek(self, 0)?;
-        let context = stack_peek(self, 1)?;
+        let context = stack_peek(self, 1)? >> CONTEXT_SCALING_FACTOR;
         let context = u256_to_usize(context)?;
         let mut address = MemoryAddress::new(context, Segment::Code, 0);
         let code = self
@@ -198,11 +199,11 @@ impl<F: Field> GenerationState<F> {
         m_start_loc: usize,
     ) -> (Vec<U256>, Vec<U256>) {
         let n = self.memory.contexts.len();
-        let a = &self.memory.contexts[n - 1].segments[Segment::KernelGeneral as usize].content
+        let a = &self.memory.contexts[n - 1].segments[Segment::KernelGeneral.unscale()].content
             [a_start_loc..a_start_loc + len];
-        let b = &self.memory.contexts[n - 1].segments[Segment::KernelGeneral as usize].content
+        let b = &self.memory.contexts[n - 1].segments[Segment::KernelGeneral.unscale()].content
             [b_start_loc..b_start_loc + len];
-        let m = &self.memory.contexts[n - 1].segments[Segment::KernelGeneral as usize].content
+        let m = &self.memory.contexts[n - 1].segments[Segment::KernelGeneral.unscale()].content
             [m_start_loc..m_start_loc + len];
 
         let a_biguint = mem_vec_to_biguint(a);
@@ -249,11 +250,7 @@ impl<F: Field> GenerationState<F> {
     /// Return the next used jump addres
     fn run_next_jumpdest_table_address(&mut self) -> Result<U256, ProgramError> {
         let context = self.registers.context;
-        let code_len = u256_to_usize(self.memory.get(MemoryAddress {
-            context,
-            segment: Segment::ContextMetadata as usize,
-            virt: ContextMetadata::CodeSize as usize,
-        }))?;
+        let code_len = u256_to_usize(self.get_code_len()?.into());
 
         if self.jumpdest_proofs.is_none() {
             self.generate_jumpdest_proofs()?;
@@ -313,6 +310,7 @@ impl<F: Field> GenerationState<F> {
             self.jumpdest_proofs = Some(HashMap::new());
             return Ok(());
         };
+        log::debug!("jumpdest_table = {:?}", jumpdest_table);
 
         // Return to the state before starting the simulation
         self.rollback(checkpoint);
@@ -349,22 +347,22 @@ impl<F: Field> GenerationState<F> {
         let code_len = self.get_code_len()?;
         let code = (0..code_len)
             .map(|i| {
-                u256_to_u8(self.memory.get(MemoryAddress {
-                    context: self.registers.context,
-                    segment: Segment::Code as usize,
-                    virt: i,
-                }))
+                u256_to_u8(self.memory.get(MemoryAddress::new(
+                    self.registers.context,
+                    Segment::Code,
+                    i,
+                )))
             })
             .collect::<Result<Vec<u8>, _>>()?;
         Ok(code)
     }
 
     fn get_code_len(&self) -> Result<usize, ProgramError> {
-        let code_len = u256_to_usize(self.memory.get(MemoryAddress {
-            context: self.registers.context,
-            segment: Segment::ContextMetadata as usize,
-            virt: ContextMetadata::CodeSize as usize,
-        }))?;
+        let code_len = u256_to_usize(self.memory.get(MemoryAddress::new(
+            self.registers.context,
+            Segment::ContextMetadata,
+            ContextMetadata::CodeSize.unscale(),
+        )))?;
         Ok(code_len)
     }
 
@@ -373,11 +371,7 @@ impl<F: Field> GenerationState<F> {
         for (pos, opcode) in CodeIterator::new(code) {
             if opcode == JUMPDEST_OPCODE {
                 self.memory.set(
-                    MemoryAddress {
-                        context: self.registers.context,
-                        segment: Segment::JumpdestBits as usize,
-                        virt: pos,
-                    },
+                    MemoryAddress::new(self.registers.context, Segment::JumpdestBits, pos),
                     U256::one(),
                 );
             }

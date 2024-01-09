@@ -1,18 +1,27 @@
 // Load the given normalized transaction field from memory.
 %macro mload_txn_field(field)
+    // Transaction fields are already scaled by their corresponding segment,
+    // effectively making them the direct memory position to read from /
+    // write to.
+
     // stack: (empty)
     PUSH $field
-    // stack: offset
-    %mload_kernel(@SEGMENT_NORMALIZED_TXN)
+    // stack: addr
+    MLOAD_GENERAL
     // stack: value
 %endmacro
 
 // Store the given normalized transaction field to memory.
 %macro mstore_txn_field(field)
+    // Transaction fields are already scaled by their corresponding segment,
+    // effectively making them the direct memory position to read from /
+    // write to.
+
     // stack: value
     PUSH $field
-    // stack: offset, value
-    %mstore_kernel(@SEGMENT_NORMALIZED_TXN)
+    // stack: addr, value
+    SWAP1
+    MSTORE_GENERAL
     // stack: (empty)
 %endmacro
 

@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use ethereum_types::U256;
 use hex_literal::hex;
+use static_assertions::const_assert;
 
 use crate::cpu::kernel::constants::context_metadata::ContextMetadata;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
@@ -58,16 +59,19 @@ pub(crate) fn evm_constants() -> HashMap<String, U256> {
     c.insert(CALL_STACK_LIMIT.0.into(), U256::from(CALL_STACK_LIMIT.1));
 
     for segment in Segment::all() {
-        c.insert(segment.var_name().into(), (segment as u32).into());
+        c.insert(segment.var_name().into(), (segment as usize).into());
     }
     for txn_field in NormalizedTxnField::all() {
-        c.insert(txn_field.var_name().into(), (txn_field as u32).into());
+        // These offsets are already scaled by their respective segment.
+        c.insert(txn_field.var_name().into(), (txn_field as usize).into());
     }
     for txn_field in GlobalMetadata::all() {
-        c.insert(txn_field.var_name().into(), (txn_field as u32).into());
+        // These offsets are already scaled by their respective segment.
+        c.insert(txn_field.var_name().into(), (txn_field as usize).into());
     }
     for txn_field in ContextMetadata::all() {
-        c.insert(txn_field.var_name().into(), (txn_field as u32).into());
+        // These offsets are already scaled by their respective segment.
+        c.insert(txn_field.var_name().into(), (txn_field as usize).into());
     }
     for trie_type in PartialTrieType::all() {
         c.insert(trie_type.var_name().into(), (trie_type as u32).into());
@@ -86,11 +90,22 @@ pub(crate) fn evm_constants() -> HashMap<String, U256> {
     c
 }
 
-const MISC_CONSTANTS: [(&str, [u8; 32]); 1] = [
+const MISC_CONSTANTS: [(&str, [u8; 32]); 3] = [
     // Base for limbs used in bignum arithmetic.
     (
         "BIGNUM_LIMB_BASE",
         hex!("0000000000000000000000000000000100000000000000000000000000000000"),
+    ),
+    // Position in SEGMENT_RLP_RAW where the empty node encoding is stored. It is
+    // equal to u32::MAX + @SEGMENT_RLP_RAW so that all rlp pointers are much smaller than that.
+    (
+        "ENCODED_EMPTY_NODE_POS",
+        hex!("0000000000000000000000000000000000000000000000000000000CFFFFFFFF"),
+    ),
+    // 0x10000 = 2^16 bytes, much larger than any RLP blob the EVM could possibly create.
+    (
+        "MAX_RLP_BLOB_SIZE",
+        hex!("0000000000000000000000000000000000000000000000000000000000010000"),
     ),
 ];
 

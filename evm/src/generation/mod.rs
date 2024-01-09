@@ -47,13 +47,17 @@ use crate::witness::util::{mem_write_log, stack_peek};
 /// Inputs needed for trace generation.
 #[derive(Clone, Debug, Deserialize, Serialize, Default)]
 pub struct GenerationInputs {
+    /// The index of the transaction being proven within its block.
     pub txn_number_before: U256,
+    /// The cumulative gas used through the execution of all transactions prior the current one.
     pub gas_used_before: U256,
+    /// The cumulative gas used after the execution of the current transaction. The exact gas used
+    /// by the current transaction is `gas_used_after` - `gas_used_before`.
     pub gas_used_after: U256,
 
-    // A None would yield an empty proof, otherwise this contains the encoding of a transaction.
+    /// A None would yield an empty proof, otherwise this contains the encoding of a transaction.
     pub signed_txn: Option<Vec<u8>>,
-    // Withdrawal pairs `(addr, amount)`. At the end of the txs, `amount` is added to `addr`'s balance. See EIP-4895.
+    /// Withdrawal pairs `(addr, amount)`. At the end of the txs, `amount` is added to `addr`'s balance. See EIP-4895.
     pub withdrawals: Vec<(Address, U256)>,
     pub tries: TrieInputs,
     /// Expected trie roots after the transactions are executed.
@@ -68,8 +72,10 @@ pub struct GenerationInputs {
     /// All account smart contracts that are invoked will have an entry present.
     pub contract_code: HashMap<H256, Vec<u8>>,
 
+    /// Information contained in the block header.
     pub block_metadata: BlockMetadata,
 
+    /// The hash of the current block, and a list of the 256 previous block hashes.
     pub block_hashes: BlockHashes,
 }
 
@@ -159,7 +165,8 @@ fn apply_metadata_and_tries_memops<F: RichField + Extendable<D>, const D: usize>
         .map(|(field, val)| {
             mem_write_log(
                 channel,
-                MemoryAddress::new(0, Segment::GlobalMetadata, field as usize),
+                // These fields are already scaled by their segment, and are in context 0 (kernel).
+                MemoryAddress::new_bundle(U256::from(field as usize)).unwrap(),
                 state,
                 val,
             )
@@ -366,11 +373,11 @@ fn simulate_cpu_between_labels_and_get_user_jumps<F: Field>(
             let mut halt = state.registers.is_kernel
                 && pc == halt_pc
                 && state.registers.context == initial_context;
-            let Ok(opcode) = u256_to_u8(state.memory.get(MemoryAddress {
+            let Ok(opcode) = u256_to_u8(state.memory.get(MemoryAddress::new(
                 context,
-                segment: Segment::Code as usize,
-                virt: state.registers.program_counter,
-            })) else {
+                Segment::Code,
+                state.registers.program_counter,
+            ))) else {
                 log::debug!(
                     "Simulated CPU halted after {} cycles",
                     state.traces.clock() - initial_clock
@@ -394,18 +401,13 @@ fn simulate_cpu_between_labels_and_get_user_jumps<F: Field>(
                     return Some(jumpdest_addresses);
                 };
                 state.memory.set(
-                    MemoryAddress {
-                        context,
-                        segment: Segment::JumpdestBits as usize,
-                        virt: jumpdest,
-                    },
+                    MemoryAddress::new(context, Segment::JumpdestBits, jumpdest),
                     U256::one(),
                 );
-                let jumpdest_opcode = state.memory.get(MemoryAddress {
-                    context,
-                    segment: Segment::Code as usize,
-                    virt: jumpdest,
-                });
+                let jumpdest_opcode =
+                    state
+                        .memory
+                        .get(MemoryAddress::new(context, Segment::Code, jumpdest));
                 if let Some(ctx_addresses) = jumpdest_addresses.get_mut(&context) {
                     ctx_addresses.insert(jumpdest);
                 } else {

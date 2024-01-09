@@ -54,7 +54,7 @@ fn constrain_channel_packed<P: PackedField>(
     yield_constr.constraint(filter * (channel.is_read - P::Scalar::from_bool(is_read)));
     yield_constr.constraint(filter * (channel.addr_context - lv.context));
     yield_constr.constraint(
-        filter * (channel.addr_segment - P::Scalar::from_canonical_u64(Segment::Stack as u64)),
+        filter * (channel.addr_segment - P::Scalar::from_canonical_usize(Segment::Stack.unscale())),
     );
     // Top of the stack is at `addr = lv.stack_len - 1`.
     let addr_virtual = lv.stack_len - P::ONES - offset;
@@ -94,7 +94,7 @@ fn constrain_channel_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     {
         let constr = builder.arithmetic_extension(
             F::ONE,
-            -F::from_canonical_u64(Segment::Stack as u64),
+            -F::from_canonical_usize(Segment::Stack.unscale()),
             filter,
             channel.addr_segment,
             filter,
@@ -335,6 +335,9 @@ pub(crate) fn eval_packed<P: PackedField>(
 
     eval_packed_dup(n, lv, nv, yield_constr);
     eval_packed_swap(n, lv, nv, yield_constr);
+
+    // For both, disable the partial channel.
+    yield_constr.constraint(lv.op.dup_swap * lv.partial_channel.used);
 }
 
 /// Circuit version of `eval_packed`.
@@ -354,4 +357,10 @@ pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
 
     eval_ext_circuit_dup(builder, n, lv, nv, yield_constr);
     eval_ext_circuit_swap(builder, n, lv, nv, yield_constr);
+
+    // For both, disable the partial channel.
+    {
+        let constr = builder.mul_extension(lv.op.dup_swap, lv.partial_channel.used);
+        yield_constr.constraint(builder, constr);
+    }
 }

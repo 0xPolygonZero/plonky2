@@ -299,11 +299,11 @@ fn perform_op<F: Field>(
 
     state.registers.gas_used += gas_to_charge(op);
 
-    let gas_limit_address = MemoryAddress {
-        context: state.registers.context,
-        segment: Segment::ContextMetadata as usize,
-        virt: ContextMetadata::GasLimit as usize,
-    };
+    let gas_limit_address = MemoryAddress::new(
+        state.registers.context,
+        Segment::ContextMetadata,
+        ContextMetadata::GasLimit.unscale(), // context offsets are already scaled
+    );
     if !state.registers.is_kernel {
         let gas_limit = TryInto::<u64>::try_into(state.memory.get(gas_limit_address));
         match gas_limit {
@@ -345,14 +345,14 @@ pub(crate) fn fill_stack_fields<F: Field>(
         channel.used = F::ONE;
         channel.is_read = F::ONE;
         channel.addr_context = F::from_canonical_usize(state.registers.context);
-        channel.addr_segment = F::from_canonical_usize(Segment::Stack as usize);
+        channel.addr_segment = F::from_canonical_usize(Segment::Stack.unscale());
         channel.addr_virtual = F::from_canonical_usize(state.registers.stack_len - 1);
 
-        let address = MemoryAddress {
-            context: state.registers.context,
-            segment: Segment::Stack as usize,
-            virt: state.registers.stack_len - 1,
-        };
+        let address = MemoryAddress::new(
+            state.registers.context,
+            Segment::Stack,
+            state.registers.stack_len - 1,
+        );
 
         let mem_op = MemoryOp::new(
             GeneralPurpose(0),
@@ -395,13 +395,7 @@ fn try_perform_instruction<F: Field>(
     if state.registers.is_kernel {
         log_kernel_instruction(state, op);
     } else {
-        log::debug!(
-            "User instruction: {:?}, pc = {:?}, ctx = {:?}, stack = {:?}",
-            op,
-            state.registers.program_counter,
-            state.registers.context,
-            state.stack()
-        );
+        log::debug!("User instruction: {:?}", op);
     }
 
     fill_op_flag(op, &mut row);
@@ -500,7 +494,7 @@ pub(crate) fn transition<F: Field>(state: &mut GenerationState<F>) -> anyhow::Re
                     e,
                     offset_name,
                     state.stack(),
-                    state.memory.contexts[0].segments[Segment::KernelGeneral as usize].content,
+                    state.memory.contexts[0].segments[Segment::KernelGeneral.unscale()].content,
                 );
             }
             state.rollback(checkpoint);

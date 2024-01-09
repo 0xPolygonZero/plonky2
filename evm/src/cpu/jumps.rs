@@ -87,7 +87,8 @@ pub(crate) fn eval_packed_jump_jumpi<P: PackedField>(
     yield_constr.constraint_transition(new_filter * (channel.is_read - P::ONES));
     yield_constr.constraint_transition(new_filter * (channel.addr_context - nv.context));
     yield_constr.constraint_transition(
-        new_filter * (channel.addr_segment - P::Scalar::from_canonical_u64(Segment::Stack as u64)),
+        new_filter
+            * (channel.addr_segment - P::Scalar::from_canonical_usize(Segment::Stack.unscale())),
     );
     let addr_virtual = nv.stack_len - P::ONES;
     yield_constr.constraint_transition(new_filter * (channel.addr_virtual - addr_virtual));
@@ -134,7 +135,7 @@ pub(crate) fn eval_packed_jump_jumpi<P: PackedField>(
     yield_constr.constraint(
         filter
             * (jumpdest_flag_channel.addr_segment
-                - P::Scalar::from_canonical_u64(Segment::JumpdestBits as u64)),
+                - P::Scalar::from_canonical_usize(Segment::JumpdestBits.unscale())),
     );
     yield_constr.constraint(filter * (jumpdest_flag_channel.addr_virtual - dst[0]));
 
@@ -142,6 +143,8 @@ pub(crate) fn eval_packed_jump_jumpi<P: PackedField>(
     for &channel in &lv.mem_channels[2..NUM_GP_CHANNELS - 1] {
         yield_constr.constraint(filter * channel.used);
     }
+    yield_constr.constraint(filter * lv.partial_channel.used);
+
     // Channel 1 is unused by the `JUMP` instruction.
     yield_constr.constraint(is_jump * lv.mem_channels[1].used);
 
@@ -203,7 +206,7 @@ pub(crate) fn eval_ext_circuit_jump_jumpi<F: RichField + Extendable<D>, const D:
     {
         let constr = builder.arithmetic_extension(
             F::ONE,
-            -F::from_canonical_u64(Segment::Stack as u64),
+            -F::from_canonical_usize(Segment::Stack.unscale()),
             new_filter,
             channel.addr_segment,
             new_filter,
@@ -306,7 +309,7 @@ pub(crate) fn eval_ext_circuit_jump_jumpi<F: RichField + Extendable<D>, const D:
     {
         let constr = builder.arithmetic_extension(
             F::ONE,
-            -F::from_canonical_u64(Segment::JumpdestBits as u64),
+            -F::from_canonical_usize(Segment::JumpdestBits.unscale()),
             filter,
             jumpdest_flag_channel.addr_segment,
             filter,
@@ -322,6 +325,10 @@ pub(crate) fn eval_ext_circuit_jump_jumpi<F: RichField + Extendable<D>, const D:
     // Disable unused memory channels
     for &channel in &lv.mem_channels[2..NUM_GP_CHANNELS - 1] {
         let constr = builder.mul_extension(filter, channel.used);
+        yield_constr.constraint(builder, constr);
+    }
+    {
+        let constr = builder.mul_extension(filter, lv.partial_channel.used);
         yield_constr.constraint(builder, constr);
     }
     // Channel 1 is unused by the `JUMP` instruction.
