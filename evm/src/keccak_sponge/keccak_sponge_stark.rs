@@ -859,11 +859,7 @@ mod tests {
         let expected_output = keccak(&input);
 
         let op = KeccakSpongeOp {
-            base_address: MemoryAddress {
-                context: 0,
-                segment: Segment::Code as usize,
-                virt: 0,
-            },
+            base_address: MemoryAddress::new(0, Segment::Code, 0),
             timestamp: 0,
             input,
         };

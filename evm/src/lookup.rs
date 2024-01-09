@@ -195,6 +195,8 @@ pub(crate) fn eval_packed_lookups_generic<F, FE, P, S, const D: usize, const D2:
                 .fold(P::ZEROS, |acc, x| acc + *x)
                 * table_with_challenge
                 - lookup.frequencies_column.eval(local_values);
+            // Check that in the first row, z = 0;
+            yield_constr.constraint_first_row(z);
             yield_constr.constraint((next_z - z) * table_with_challenge - y);
             start += num_helper_columns;
         }
@@ -269,6 +271,8 @@ pub(crate) fn eval_ext_lookups_circuit<
             y = builder.mul_extension(y, table_with_challenge);
             y = builder.sub_extension(y, frequencies_column);
 
+            // Check that in the first row, z = 0;
+            yield_constr.constraint_first_row(builder, z);
             let mut constraint = builder.sub_extension(next_z, z);
             constraint = builder.mul_extension(constraint, table_with_challenge);
             constraint = builder.sub_extension(constraint, y);

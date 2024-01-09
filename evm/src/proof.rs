@@ -270,7 +270,7 @@ impl ExtraBlockData {
 /// Memory values which are public.
 /// Note: All the larger integers are encoded with 32-bit limbs in little-endian order.
 #[derive(Eq, PartialEq, Debug)]
-pub(crate) struct PublicValuesTarget {
+pub struct PublicValuesTarget {
     /// Trie hashes before the execution of the local state transition.
     pub trie_roots_before: TrieRootsTarget,
     /// Trie hashes after the execution of the local state transition.
@@ -485,7 +485,7 @@ impl PublicValuesTarget {
 /// Circuit version of `TrieRoots`.
 /// `Target`s for trie hashes. Since a `Target` holds a 32-bit limb, each hash requires 8 `Target`s.
 #[derive(Eq, PartialEq, Debug, Copy, Clone)]
-pub(crate) struct TrieRootsTarget {
+pub struct TrieRootsTarget {
     /// Targets for the state trie hash.
     pub(crate) state_root: [Target; 8],
     /// Targets for the transactions trie hash.
@@ -556,7 +556,7 @@ impl TrieRootsTarget {
 /// Metadata contained in a block header. Those are identical between
 /// all state transition proofs within the same block.
 #[derive(Eq, PartialEq, Debug, Copy, Clone)]
-pub(crate) struct BlockMetadataTarget {
+pub struct BlockMetadataTarget {
     /// `Target`s for the address of this block's producer.
     pub(crate) block_beneficiary: [Target; 5],
     /// `Target` for the timestamp of this block.
@@ -681,7 +681,7 @@ impl BlockMetadataTarget {
 /// When the block number is less than 256, dummy values, i.e. `H256::default()`,
 /// should be used for the additional block hashes.
 #[derive(Eq, PartialEq, Debug, Copy, Clone)]
-pub(crate) struct BlockHashesTarget {
+pub struct BlockHashesTarget {
     /// `Target`s for the previous 256 hashes to the current block. The leftmost hash, i.e. `prev_hashes[0..8]`,
     /// is the oldest, and the rightmost, i.e. `prev_hashes[255 * 7..255 * 8]` is the hash of the parent block.
     pub(crate) prev_hashes: [Target; 2048],
@@ -739,7 +739,7 @@ impl BlockHashesTarget {
 /// Additional block data that are specific to the local transaction being proven,
 /// unlike `BlockMetadata`.
 #[derive(Eq, PartialEq, Debug, Copy, Clone)]
-pub(crate) struct ExtraBlockDataTarget {
+pub struct ExtraBlockDataTarget {
     /// `Target`s for the state trie digest of the checkpoint block.
     pub checkpoint_state_trie_root: [Target; 8],
     /// `Target` for the transaction count prior execution of the local state transition, starting

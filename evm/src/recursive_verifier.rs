@@ -454,78 +454,94 @@ pub(crate) fn get_memory_extra_looking_sum_circuit<F: RichField + Extendable<D>,
     // Add metadata writes.
     let block_fields_scalars = [
         (
-            GlobalMetadata::BlockTimestamp as usize,
+            GlobalMetadata::BlockTimestamp,
             public_values.block_metadata.block_timestamp,
         ),
         (
-            GlobalMetadata::BlockNumber as usize,
+            GlobalMetadata::BlockNumber,
             public_values.block_metadata.block_number,
         ),
         (
-            GlobalMetadata::BlockDifficulty as usize,
+            GlobalMetadata::BlockDifficulty,
             public_values.block_metadata.block_difficulty,
         ),
         (
-            GlobalMetadata::BlockGasLimit as usize,
+            GlobalMetadata::BlockGasLimit,
             public_values.block_metadata.block_gaslimit,
         ),
         (
-            GlobalMetadata::BlockChainId as usize,
+            GlobalMetadata::BlockChainId,
             public_values.block_metadata.block_chain_id,
         ),
         (
-            GlobalMetadata::BlockGasUsed as usize,
+            GlobalMetadata::BlockGasUsed,
             public_values.block_metadata.block_gas_used,
         ),
         (
-            GlobalMetadata::BlockGasUsedBefore as usize,
+            GlobalMetadata::BlockGasUsedBefore,
             public_values.extra_block_data.gas_used_before,
         ),
         (
-            GlobalMetadata::BlockGasUsedAfter as usize,
+            GlobalMetadata::BlockGasUsedAfter,
             public_values.extra_block_data.gas_used_after,
         ),
         (
-            GlobalMetadata::TxnNumberBefore as usize,
+            GlobalMetadata::TxnNumberBefore,
             public_values.extra_block_data.txn_number_before,
         ),
         (
-            GlobalMetadata::TxnNumberAfter as usize,
+            GlobalMetadata::TxnNumberAfter,
             public_values.extra_block_data.txn_number_after,
         ),
     ];
 
-    let beneficiary_random_base_fee_cur_hash_fields: [(usize, &[Target]); 4] = [
+    let beneficiary_random_base_fee_cur_hash_fields: [(GlobalMetadata, &[Target]); 4] = [
         (
-            GlobalMetadata::BlockBeneficiary as usize,
+            GlobalMetadata::BlockBeneficiary,
             &public_values.block_metadata.block_beneficiary,
         ),
         (
-            GlobalMetadata::BlockRandom as usize,
+            GlobalMetadata::BlockRandom,
             &public_values.block_metadata.block_random,
         ),
         (
-            GlobalMetadata::BlockBaseFee as usize,
+            GlobalMetadata::BlockBaseFee,
             &public_values.block_metadata.block_base_fee,
         ),
         (
-            GlobalMetadata::BlockCurrentHash as usize,
+            GlobalMetadata::BlockCurrentHash,
             &public_values.block_hashes.cur_hash,
         ),
     ];
 
-    let metadata_segment = builder.constant(F::from_canonical_u32(Segment::GlobalMetadata as u32));
+    let metadata_segment =
+        builder.constant(F::from_canonical_usize(Segment::GlobalMetadata.unscale()));
     block_fields_scalars.map(|(field, target)| {
         // Each of those fields fit in 32 bits, hence in a single Target.
-        sum = add_data_write(builder, challenge, sum, metadata_segment, field, &[target]);
+        sum = add_data_write(
+            builder,
+            challenge,
+            sum,
+            metadata_segment,
+            field.unscale(),
+            &[target],
+        );
     });
 
     beneficiary_random_base_fee_cur_hash_fields.map(|(field, targets)| {
-        sum = add_data_write(builder, challenge, sum, metadata_segment, field, targets);
+        sum = add_data_write(
+            builder,
+            challenge,
+            sum,
+            metadata_segment,
+            field.unscale(),
+            targets,
+        );
     });
 
     // Add block hashes writes.
-    let block_hashes_segment = builder.constant(F::from_canonical_u32(Segment::BlockHashes as u32));
+    let block_hashes_segment =
+        builder.constant(F::from_canonical_usize(Segment::BlockHashes.unscale()));
     for i in 0..256 {
         sum = add_data_write(
             builder,
@@ -538,7 +554,8 @@ pub(crate) fn get_memory_extra_looking_sum_circuit<F: RichField + Extendable<D>,
     }
 
     // Add block bloom filters writes.
-    let bloom_segment = builder.constant(F::from_canonical_u32(Segment::GlobalBlockBloom as u32));
+    let bloom_segment =
+        builder.constant(F::from_canonical_usize(Segment::GlobalBlockBloom.unscale()));
     for i in 0..8 {
         sum = add_data_write(
             builder,
@@ -553,33 +570,40 @@ pub(crate) fn get_memory_extra_looking_sum_circuit<F: RichField + Extendable<D>,
     // Add trie roots writes.
     let trie_fields = [
         (
-            GlobalMetadata::StateTrieRootDigestBefore as usize,
+            GlobalMetadata::StateTrieRootDigestBefore,
             public_values.trie_roots_before.state_root,
         ),
         (
-            GlobalMetadata::TransactionTrieRootDigestBefore as usize,
+            GlobalMetadata::TransactionTrieRootDigestBefore,
             public_values.trie_roots_before.transactions_root,
         ),
         (
-            GlobalMetadata::ReceiptTrieRootDigestBefore as usize,
+            GlobalMetadata::ReceiptTrieRootDigestBefore,
             public_values.trie_roots_before.receipts_root,
         ),
         (
-            GlobalMetadata::StateTrieRootDigestAfter as usize,
+            GlobalMetadata::StateTrieRootDigestAfter,
             public_values.trie_roots_after.state_root,
         ),
         (
-            GlobalMetadata::TransactionTrieRootDigestAfter as usize,
+            GlobalMetadata::TransactionTrieRootDigestAfter,
             public_values.trie_roots_after.transactions_root,
         ),
         (
-            GlobalMetadata::ReceiptTrieRootDigestAfter as usize,
+            GlobalMetadata::ReceiptTrieRootDigestAfter,
             public_values.trie_roots_after.receipts_root,
         ),
     ];
 
     trie_fields.map(|(field, targets)| {
-        sum = add_data_write(builder, challenge, sum, metadata_segment, field, &targets);
+        sum = add_data_write(
+            builder,
+            challenge,
+            sum,
+            metadata_segment,
+            field.unscale(),
+            &targets,
+        );
     });
 
     // Add kernel hash and kernel length.
@@ -590,7 +614,7 @@ pub(crate) fn get_memory_extra_looking_sum_circuit<F: RichField + Extendable<D>,
         challenge,
         sum,
         metadata_segment,
-        GlobalMetadata::KernelHash as usize,
+        GlobalMetadata::KernelHash.unscale(),
         &kernel_hash_targets,
     );
     let kernel_len_target = builder.constant(F::from_canonical_usize(KERNEL.code.len()));
@@ -599,7 +623,7 @@ pub(crate) fn get_memory_extra_looking_sum_circuit<F: RichField + Extendable<D>,
         challenge,
         sum,
         metadata_segment,
-        GlobalMetadata::KernelLen as usize,
+        GlobalMetadata::KernelLen.unscale(),
         &[kernel_len_target],
     );
 
@@ -836,7 +860,7 @@ pub(crate) fn set_stark_proof_target<F, C: GenericConfig<D, F = F>, W, const D: 
     set_fri_proof_target(witness, &proof_target.opening_proof, &proof.opening_proof);
 }
 
-pub(crate) fn set_public_value_targets<F, W, const D: usize>(
+pub fn set_public_value_targets<F, W, const D: usize>(
     witness: &mut W,
     public_values_target: &PublicValuesTarget,
     public_values: &PublicValues,

@@ -623,7 +623,7 @@ impl GrandProductChallenge<Target> {
 
 /// Like `PermutationChallenge`, but with `num_challenges` copies to boost soundness.
 #[derive(Clone, Eq, PartialEq, Debug)]
-pub(crate) struct GrandProductChallengeSet<T: Copy + Eq + PartialEq + Debug> {
+pub struct GrandProductChallengeSet<T: Copy + Eq + PartialEq + Debug> {
     pub(crate) challenges: Vec<GrandProductChallenge<T>>,
 }
 

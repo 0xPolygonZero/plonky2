@@ -75,23 +75,21 @@ fn test_empty_txn_list() -> anyhow::Result<()> {
     };
 
     // Initialize the preprocessed circuits for the zkEVM.
-    // The provided ranges are the minimal ones to prove an empty list, except the one of the CPU
-    // that is wrong for testing purposes, see below.
-    let mut all_circuits = AllRecursiveCircuits::<F, C, D>::new(
+    let all_circuits = AllRecursiveCircuits::<F, C, D>::new(
         &all_stark,
-        &[16..17, 10..11, 11..12, 14..15, 9..11, 12..13, 17..18], // Minimal ranges to prove an empty list
+        &[16..17, 10..11, 12..13, 14..15, 9..11, 12..13, 17..18], // Minimal ranges to prove an empty list
         &config,
     );
 
     {
         let gate_serializer = DefaultGateSerializer;
-        let generator_serializer = DefaultGeneratorSerializer {
+        let generator_serializer = DefaultGeneratorSerializer::<C, D> {
             _phantom: PhantomData::<C>,
         };
 
         let timing = TimingTree::new("serialize AllRecursiveCircuits", log::Level::Info);
         let all_circuits_bytes = all_circuits
-            .to_bytes(&gate_serializer, &generator_serializer)
+            .to_bytes(false, &gate_serializer, &generator_serializer)
             .map_err(|_| anyhow::Error::msg("AllRecursiveCircuits serialization failed."))?;
         timing.filter(Duration::from_millis(100)).print();
         info!(
@@ -102,6 +100,7 @@ fn test_empty_txn_list() -> anyhow::Result<()> {
         let timing = TimingTree::new("deserialize AllRecursiveCircuits", log::Level::Info);
         let all_circuits_from_bytes = AllRecursiveCircuits::<F, C, D>::from_bytes(
             &all_circuits_bytes,
+            false,
             &gate_serializer,
             &generator_serializer,
         )
@@ -110,20 +109,6 @@ fn test_empty_txn_list() -> anyhow::Result<()> {
 
         assert_eq!(all_circuits, all_circuits_from_bytes);
     }
-
-    let mut timing = TimingTree::new("prove", log::Level::Info);
-    // We're missing some preprocessed circuits.
-    assert!(all_circuits
-        .prove_root(&all_stark, &config, inputs.clone(), &mut timing, None)
-        .is_err());
-
-    // Expand the preprocessed circuits.
-    // We pass an empty range if we don't want to add different table sizes.
-    all_circuits.expand(
-        &all_stark,
-        &[0..0, 0..0, 12..13, 0..0, 0..0, 0..0, 0..0],
-        &StarkConfig::standard_fast_config(),
-    );
 
     let mut timing = TimingTree::new("prove", log::Level::Info);
     let (root_proof, public_values) =
