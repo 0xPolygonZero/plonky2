@@ -70,7 +70,7 @@ fn test_after_mpt_delete_extension_branch() -> Result<()> {
     .into();
     let key = nibbles.merge_nibbles(&Nibbles {
         packed: U512::zero(),
-        count: 64 - 2 * 5,
+        count: 64 - nibbles.count,
     });
     test_state_trie(state_trie, key, test_account_2())
 }
