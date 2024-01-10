@@ -51,6 +51,10 @@ pub(crate) struct GenerationState<F: Field> {
     /// Pointers, within the `TrieData` segment, of the three MPTs.
     pub(crate) trie_root_ptrs: TrieRootPtrs,
 
+    /// A hash map where the key is a context in the user's code and the value is the set of
+    /// jump destinations with its corresponding "proof". A "proof" for a jump destination is
+    /// either 0 or an address i > 32 in the code (not necessarily pointing to an opcode) such that
+    /// for every j in [i, i+32] it holds that code[j] < 0x7f - j + i.
     pub(crate) jumpdest_proofs: Option<HashMap<usize, Vec<usize>>>,
 }
 

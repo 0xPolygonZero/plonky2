@@ -312,7 +312,6 @@ impl<F: Field> GenerationState<F> {
             self.jumpdest_proofs = Some(HashMap::new());
             return Ok(());
         };
-        log::debug!("jumpdest_table = {:?}", jumpdest_table);
 
         // Return to the state before starting the simulation
         self.rollback(checkpoint);
@@ -383,7 +382,7 @@ impl<F: Field> GenerationState<F> {
     }
 }
 
-/// For all address in `jumpdest_table`, each bounded by larges_address,
+/// For all address in `jumpdest_table`, each bounded by `largest_address`,
 /// this function searches for a proof. A proof is the closest address
 /// for which none of the previous 32 bytes in the code (including opcodes
 /// and pushed bytes are PUSHXX and the address is in its range. It returns
@@ -403,11 +402,12 @@ fn get_proofs_and_jumpdests(
                     .iter()
                     .enumerate()
                     .fold(true, |acc, (prefix_pos, &byte)| {
-                        acc && (byte > PUSH32_OPCODE
-                            || (prefix_start + prefix_pos) as i32
-                                + (byte as i32 - PUSH1_OPCODE as i32)
-                                + 1
-                                < pos as i32)
+                        let cond1 = byte > PUSH32_OPCODE;
+                        let cond2 = (prefix_start + prefix_pos) as i32
+                            + (byte as i32 - PUSH1_OPCODE as i32)
+                            + 1
+                            < pos as i32;
+                        acc && (cond1 || cond2)
                     })
             } else {
                 false
@@ -425,6 +425,8 @@ fn get_proofs_and_jumpdests(
     proofs
 }
 
+/// An iterator over the EVM code contained in `code`, which skips the bytes
+/// that are the arguments of a PUSHXX opcode.
 struct CodeIterator<'a> {
     code: &'a [u8],
     pos: usize,
