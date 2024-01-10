@@ -16,7 +16,8 @@ use crate::constraint_consumer::ConstraintConsumer;
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
 use crate::cross_table_lookup::{
-    verify_cross_table_lookups, CtlCheckVars, GrandProductChallenge, GrandProductChallengeSet,
+    num_ctl_helper_columns_by_table, verify_cross_table_lookups, CtlCheckVars,
+    GrandProductChallenge, GrandProductChallengeSet,
 };
 use crate::evaluation_frame::StarkEvaluationFrame;
 use crate::lookup::LookupCheckVars;
@@ -56,11 +57,17 @@ where
         cross_table_lookups,
     } = all_stark;
 
+    let num_ctl_helper_cols = num_ctl_helper_columns_by_table(
+        cross_table_lookups,
+        all_stark.arithmetic_stark.constraint_degree(),
+    );
+
     let ctl_vars_per_table = CtlCheckVars::from_proofs(
         &all_proof.stark_proofs,
         cross_table_lookups,
         &ctl_challenges,
         &num_lookup_columns,
+        &num_ctl_helper_cols,
     );
 
     verify_stark_proof_with_challenges(
@@ -300,7 +307,12 @@ pub(crate) fn verify_stark_proof_with_challenges<
     config: &StarkConfig,
 ) -> Result<()> {
     log::debug!("Checking proof: {}", type_name::<S>());
-    validate_proof_shape(stark, proof, config, ctl_vars.len())?;
+    let num_ctl_polys = ctl_vars
+        .iter()
+        .map(|ctl| ctl.helper_columns.len())
+        .sum::<usize>();
+    let num_ctl_z_polys = ctl_vars.len();
+    validate_proof_shape(stark, proof, config, num_ctl_polys, num_ctl_z_polys)?;
     let StarkOpeningSet {
         local_values,
         next_values,
@@ -374,11 +386,16 @@ pub(crate) fn verify_stark_proof_with_challenges<
         proof.quotient_polys_cap.clone(),
     ];
 
+    let num_ctl_zs = ctl_vars
+        .iter()
+        .map(|ctl| ctl.helper_columns.len())
+        .collect::<Vec<_>>();
     verify_fri_proof::<F, C, D>(
         &stark.fri_instance(
             challenges.stark_zeta,
             F::primitive_root_of_unity(degree_bits),
-            ctl_zs_first.len(),
+            num_ctl_polys,
+            num_ctl_zs,
             config,
         ),
         &proof.openings.to_fri_openings(),
@@ -395,6 +412,7 @@ fn validate_proof_shape<F, C, S, const D: usize>(
     stark: &S,
     proof: &StarkProof<F, C, D>,
     config: &StarkConfig,
+    num_ctl_helpers: usize,
     num_ctl_zs: usize,
 ) -> anyhow::Result<()>
 where
@@ -424,7 +442,8 @@ where
     let degree_bits = proof.recover_degree_bits(config);
     let fri_params = config.fri_params(degree_bits);
     let cap_height = fri_params.config.cap_height;
-    let num_auxiliary = num_ctl_zs + stark.num_lookup_helper_columns(config);
+
+    let num_auxiliary = num_ctl_helpers + stark.num_lookup_helper_columns(config) + num_ctl_zs;
 
     ensure!(trace_cap.height() == cap_height);
     ensure!(auxiliary_polys_cap.height() == cap_height);
