@@ -364,7 +364,7 @@ fn simulate_cpu_between_labels_and_get_user_jumps<F: Field>(
         log::debug!("Simulating CPU for jumpdest analysis.");
 
         loop {
-            // skip jumdest table validations in simulations
+            // skip jumpdest table validations in simulations
             if state.registers.program_counter == KERNEL.global_labels["jumpdest_analysis"] {
                 state.registers.program_counter = KERNEL.global_labels["jumpdest_analysis_end"]
             }

@@ -169,7 +169,7 @@ impl<F: Field> GenerationState<F> {
             .collect()
     }
 
-    /// Clone everything but the traces
+    /// Clones everything but the traces.
     pub(crate) fn soft_clone(&self) -> GenerationState<F> {
         Self {
             inputs: self.inputs.clone(),

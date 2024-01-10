@@ -41,7 +41,7 @@ continue:
 
 proof_ok:
     // stack: i, ctx, final_pos, retdest
-    // We already know final pos is a jumpdest
+    // We already know final_pos is a jumpdest
     %stack (i, ctx, final_pos) -> (ctx, @SEGMENT_JUMPDEST_BITS, i)
     %build_address
     PUSH 1
@@ -99,7 +99,7 @@ code_bytes_to_skip:
     %endrep
 
 
-// A proof attesting that jumpdest is a valid jump destinations is
+// A proof attesting that jumpdest is a valid jump destination is
 // either 0 or an index 0 < i <= jumpdest - 32.
 // A proof is valid if:
 // - i == 0 and we can go from the first opcode to jumpdest and code[jumpdest] = 0x5b

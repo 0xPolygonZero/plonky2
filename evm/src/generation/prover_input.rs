@@ -247,7 +247,8 @@ impl<F: Field> GenerationState<F> {
             _ => Err(ProgramError::ProverInputError(InvalidInput)),
         }
     }
-    /// Return the next used jump addres
+
+    /// Returns the next used jump address.
     fn run_next_jumpdest_table_address(&mut self) -> Result<U256, ProgramError> {
         let context = self.registers.context;
         let code_len = u256_to_usize(self.get_code_len()?.into());
@@ -299,7 +300,6 @@ impl<F: Field> GenerationState<F> {
         let code = self.get_current_code()?;
         // We need to set the simulated jumpdest bits to one as otherwise
         // the simulation will fail.
-        // self.set_jumpdest_bits(&code);
 
         // Simulate the user's code and (unnecessarily) part of the kernel code, skipping the validate table call
         let Some(jumpdest_table) = simulate_cpu_between_labels_and_get_user_jumps(
@@ -383,7 +383,7 @@ impl<F: Field> GenerationState<F> {
 /// this function searches for a proof. A proof is the closest address
 /// for which none of the previous 32 bytes in the code (including opcodes
 /// and pushed bytes are PUSHXX and the address is in its range. It returns
-/// a vector of even size containing proofs followed by their addresses
+/// a vector of even size containing proofs followed by their addresses.
 fn get_proofs_and_jumpdests(
     code: &[u8],
     largest_address: usize,
