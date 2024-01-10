@@ -86,6 +86,8 @@ global extcodesize:
 // Checks that the hash of the loaded code corresponds to the `codehash` in the state trie.
 // Pre stack: address, ctx, retdest
 // Post stack: code_size
+//
+// NOTE: The provided `dest` **MUST** have a virtual address of 0.
 global load_code:
     %stack (address, ctx, retdest) -> (extcodehash, address, load_code_ctd, ctx, retdest)
     JUMP
@@ -94,8 +96,9 @@ load_code_ctd:
     DUP1 ISZERO %jumpi(load_code_non_existent_account)
     // Load the code non-deterministically in memory and return the length.
     PROVER_INPUT(account_code)
-    %stack (code_size, codehash, ctx, retdest) -> (ctx, @SEGMENT_CODE, 0, code_size, codehash, retdest, code_size)
+    %stack (code_size, codehash, ctx, retdest) -> (ctx, code_size, codehash, retdest, code_size)
     // Check that the hash of the loaded code equals `codehash`.
+    // ctx == DST, as SEGMENT_CODE == offset == 0.
     KECCAK_GENERAL
     // stack: shouldbecodehash, codehash, retdest, code_size
     %assert_eq
@@ -103,9 +106,9 @@ load_code_ctd:
     JUMP
 
 load_code_non_existent_account:
-    // Write 0 at address 0 for soundness.
-    // stack: codehash, ctx, retdest
-    %stack (codehash, ctx, retdest) -> (0, ctx, @SEGMENT_CODE, 0, retdest, 0)
+    // Write 0 at address 0 for soundness: SEGMENT_CODE == 0, hence ctx == addr.
+    // stack: codehash, addr, retdest
+    %stack (codehash, addr, retdest) -> (0, addr, retdest, 0)
     MSTORE_GENERAL
     // stack: retdest, 0
     JUMP
@@ -120,10 +123,14 @@ global load_code_padded:
     %jump(load_code)
 
 load_code_padded_ctd:
-    %stack (code_size, ctx, retdest) -> (ctx, @SEGMENT_CODE, code_size, 0, ctx, retdest, code_size)
+    // SEGMENT_CODE == 0.
+    // stack: code_size, ctx, retdest
+    %stack (code_size, ctx, retdest) -> (ctx, code_size, 0, retdest, code_size)
+    ADD 
+    // stack: addr, 0, retdest, code_size
     MSTORE_32BYTES_32
-    // stack: last_offset, ctx, retdest, code_size
-    %stack (last_offset, ctx) -> (0, ctx, @SEGMENT_CODE, last_offset)
+    // stack: addr', retdest, code_size
+    PUSH 0
     MSTORE_GENERAL
     // stack: retdest, code_size
     JUMP

@@ -1,97 +1,105 @@
+use crate::memory::segments::Segment;
+
 /// These metadata fields contain global VM state, stored in the `Segment::Metadata` segment of the
 /// kernel's context (which is zero).
+///
+/// Each value is directly scaled by the corresponding `Segment::GlobalMetadata` value for faster
+/// memory access in the kernel.
+#[allow(clippy::enum_clike_unportable_variant)]
+#[repr(usize)]
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Ord, PartialOrd, Debug)]
 pub(crate) enum GlobalMetadata {
     /// The largest context ID that has been used so far in this execution. Tracking this allows us
     /// give each new context a unique ID, so that its memory will be zero-initialized.
-    LargestContext = 0,
+    LargestContext = Segment::GlobalMetadata as usize,
     /// The size of active memory, in bytes.
-    MemorySize = 1,
+    MemorySize,
     /// The size of the `TrieData` segment, in bytes. In other words, the next address available for
     /// appending additional trie data.
-    TrieDataSize = 2,
-    /// The size of the `TrieData` segment, in bytes. In other words, the next address available for
-    /// appending additional trie data.
-    RlpDataSize = 3,
+    TrieDataSize,
+    /// The size of the `TrieData` segment, in bytes, represented as a whole address.
+    /// In other words, the next address available for appending additional trie data.
+    RlpDataSize,
     /// A pointer to the root of the state trie within the `TrieData` buffer.
-    StateTrieRoot = 4,
+    StateTrieRoot,
     /// A pointer to the root of the transaction trie within the `TrieData` buffer.
-    TransactionTrieRoot = 5,
+    TransactionTrieRoot,
     /// A pointer to the root of the receipt trie within the `TrieData` buffer.
-    ReceiptTrieRoot = 6,
+    ReceiptTrieRoot,
 
     // The root digests of each Merkle trie before these transactions.
-    StateTrieRootDigestBefore = 7,
-    TransactionTrieRootDigestBefore = 8,
-    ReceiptTrieRootDigestBefore = 9,
+    StateTrieRootDigestBefore,
+    TransactionTrieRootDigestBefore,
+    ReceiptTrieRootDigestBefore,
 
     // The root digests of each Merkle trie after these transactions.
-    StateTrieRootDigestAfter = 10,
-    TransactionTrieRootDigestAfter = 11,
-    ReceiptTrieRootDigestAfter = 12,
-
-    /// The sizes of the `TrieEncodedChild` and `TrieEncodedChildLen` buffers. In other words, the
-    /// next available offset in these buffers.
-    TrieEncodedChildSize = 13,
+    StateTrieRootDigestAfter,
+    TransactionTrieRootDigestAfter,
+    ReceiptTrieRootDigestAfter,
 
     // Block metadata.
-    BlockBeneficiary = 14,
-    BlockTimestamp = 15,
-    BlockNumber = 16,
-    BlockDifficulty = 17,
-    BlockRandom = 18,
-    BlockGasLimit = 19,
-    BlockChainId = 20,
-    BlockBaseFee = 21,
-    BlockGasUsed = 22,
+    BlockBeneficiary,
+    BlockTimestamp,
+    BlockNumber,
+    BlockDifficulty,
+    BlockRandom,
+    BlockGasLimit,
+    BlockChainId,
+    BlockBaseFee,
+    BlockGasUsed,
     /// Before current transactions block values.
-    BlockGasUsedBefore = 23,
+    BlockGasUsedBefore,
     /// After current transactions block values.
-    BlockGasUsedAfter = 24,
+    BlockGasUsedAfter,
     /// Current block header hash
-    BlockCurrentHash = 25,
+    BlockCurrentHash,
 
     /// Gas to refund at the end of the transaction.
-    RefundCounter = 26,
+    RefundCounter,
     /// Length of the addresses access list.
-    AccessedAddressesLen = 27,
+    AccessedAddressesLen,
     /// Length of the storage keys access list.
-    AccessedStorageKeysLen = 28,
+    AccessedStorageKeysLen,
     /// Length of the self-destruct list.
-    SelfDestructListLen = 29,
+    SelfDestructListLen,
     /// Length of the bloom entry buffer.
-    BloomEntryLen = 30,
+    BloomEntryLen,
 
     /// Length of the journal.
-    JournalLen = 31,
+    JournalLen,
     /// Length of the `JournalData` segment.
-    JournalDataLen = 32,
+    JournalDataLen,
     /// Current checkpoint.
-    CurrentCheckpoint = 33,
-    TouchedAddressesLen = 34,
+    CurrentCheckpoint,
+    TouchedAddressesLen,
     // Gas cost for the access list in type-1 txns. See EIP-2930.
-    AccessListDataCost = 35,
+    AccessListDataCost,
     // Start of the access list in the RLP for type-1 txns.
-    AccessListRlpStart = 36,
+    AccessListRlpStart,
     // Length of the access list in the RLP for type-1 txns.
-    AccessListRlpLen = 37,
+    AccessListRlpLen,
     // Boolean flag indicating if the txn is a contract creation txn.
-    ContractCreation = 38,
-    IsPrecompileFromEoa = 39,
-    CallStackDepth = 40,
+    ContractCreation,
+    IsPrecompileFromEoa,
+    CallStackDepth,
     /// Transaction logs list length
-    LogsLen = 41,
-    LogsDataLen = 42,
-    LogsPayloadLen = 43,
-    TxnNumberBefore = 44,
-    TxnNumberAfter = 45,
+    LogsLen,
+    LogsDataLen,
+    LogsPayloadLen,
+    TxnNumberBefore,
+    TxnNumberAfter,
 
-    KernelHash = 46,
-    KernelLen = 47,
+    KernelHash,
+    KernelLen,
 }
 
 impl GlobalMetadata {
-    pub(crate) const COUNT: usize = 48;
+    pub(crate) const COUNT: usize = 47;
+
+    /// Unscales this virtual offset by their respective `Segment` value.
+    pub(crate) const fn unscale(&self) -> usize {
+        *self as usize - Segment::GlobalMetadata as usize
+    }
 
     pub(crate) const fn all() -> [Self; Self::COUNT] {
         [
@@ -108,7 +116,6 @@ impl GlobalMetadata {
             Self::StateTrieRootDigestAfter,
             Self::TransactionTrieRootDigestAfter,
             Self::ReceiptTrieRootDigestAfter,
-            Self::TrieEncodedChildSize,
             Self::BlockBeneficiary,
             Self::BlockTimestamp,
             Self::BlockNumber,
@@ -162,7 +169,6 @@ impl GlobalMetadata {
             Self::StateTrieRootDigestAfter => "GLOBAL_METADATA_STATE_TRIE_DIGEST_AFTER",
             Self::TransactionTrieRootDigestAfter => "GLOBAL_METADATA_TXN_TRIE_DIGEST_AFTER",
             Self::ReceiptTrieRootDigestAfter => "GLOBAL_METADATA_RECEIPT_TRIE_DIGEST_AFTER",
-            Self::TrieEncodedChildSize => "GLOBAL_METADATA_TRIE_ENCODED_CHILD_SIZE",
             Self::BlockBeneficiary => "GLOBAL_METADATA_BLOCK_BENEFICIARY",
             Self::BlockTimestamp => "GLOBAL_METADATA_BLOCK_TIMESTAMP",
             Self::BlockNumber => "GLOBAL_METADATA_BLOCK_NUMBER",

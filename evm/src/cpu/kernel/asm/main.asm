@@ -2,9 +2,7 @@ global main:
     // First, hash the kernel code
     %mload_global_metadata(@GLOBAL_METADATA_KERNEL_LEN)
     PUSH 0
-    PUSH 0
-    PUSH 0
-    // stack: context, segment, virt, len
+    // stack: addr, len
     KECCAK_GENERAL
     // stack: hash
     %mload_global_metadata(@GLOBAL_METADATA_KERNEL_HASH)
@@ -13,6 +11,13 @@ global main:
 
     // Initialise the shift table
     %shift_table_init
+
+    // Initialize the RLP DATA pointer to its initial position (ctx == virt == 0, segment = RLP)
+    PUSH @SEGMENT_RLP_RAW
+    %mstore_global_metadata(@GLOBAL_METADATA_RLP_DATA_SIZE)
+
+    // Encode constant nodes
+    %initialize_rlp_segment
    
     // Initialize the state, transaction and receipt trie root pointers.
     PROVER_INPUT(trie_ptr::state)

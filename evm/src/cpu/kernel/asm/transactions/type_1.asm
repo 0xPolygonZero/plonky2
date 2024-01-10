@@ -8,11 +8,14 @@
 
 global process_type_1_txn:
     // stack: retdest
-    PUSH 1 // initial pos, skipping over the 0x01 byte
-    // stack: pos, retdest
+    // Initial rlp address offset of 1 (skipping over the 0x01 byte)
+    PUSH 1
+    PUSH @SEGMENT_RLP_RAW
+    %build_kernel_address
+    // stack: rlp_addr, retdest
     %decode_rlp_list_len
     // We don't actually need the length.
-    %stack (pos, len) -> (pos)
+    %stack (rlp_addr, len) -> (rlp_addr)
 
     %store_chain_id_present_true
     %decode_and_store_chain_id
@@ -27,7 +30,7 @@ global process_type_1_txn:
     %decode_and_store_r
     %decode_and_store_s
 
-    // stack: pos, retdest
+    // stack: rlp_addr, retdest
     POP
     // stack: retdest
 
@@ -36,83 +39,79 @@ global process_type_1_txn:
 // over keccak256(0x01 || rlp([chainId, nonce, gasPrice, gasLimit, to, value, data, accessList])).
 type_1_compute_signed_data:
     %alloc_rlp_block
-    // stack: rlp_start, retdest
+    // stack: rlp_addr_start, retdest
     %mload_txn_field(@TXN_FIELD_CHAIN_ID)
-    // stack: chain_id, rlp_start, retdest
+    // stack: chain_id, rlp_addr_start, retdest
     DUP2
-    // stack: rlp_pos, chain_id, rlp_start, retdest
+    // stack: rlp_addr, chain_id, rlp_addr_start, retdest
     %encode_rlp_scalar
-    // stack: rlp_pos, rlp_start, retdest
+    // stack: rlp_addr, rlp_addr_start, retdest
 
     %mload_txn_field(@TXN_FIELD_NONCE)
     SWAP1 %encode_rlp_scalar
-    // stack: rlp_pos, rlp_start, retdest
+    // stack: rlp_addr, rlp_addr_start, retdest
 
     %mload_txn_field(@TXN_FIELD_MAX_FEE_PER_GAS)
     SWAP1 %encode_rlp_scalar
-    // stack: rlp_pos, rlp_start, retdest
+    // stack: rlp_addr, rlp_addr_start, retdest
 
     %mload_txn_field(@TXN_FIELD_GAS_LIMIT)
     SWAP1 %encode_rlp_scalar
-    // stack: rlp_pos, rlp_start, retdest
+    // stack: rlp_addr, rlp_addr_start, retdest
 
     %mload_txn_field(@TXN_FIELD_TO)
     %mload_global_metadata(@GLOBAL_METADATA_CONTRACT_CREATION) %jumpi(zero_to)
-    // stack: to, rlp_pos, rlp_start, retdest
+    // stack: to, rlp_addr, rlp_addr_start, retdest
     SWAP1 %encode_rlp_160
     %jump(after_to)
 zero_to:
-    // stack: to, rlp_pos, rlp_start, retdest
+    // stack: to, rlp_addr, rlp_addr_start, retdest
     SWAP1 %encode_rlp_scalar
-    // stack: rlp_pos, rlp_start, retdest
+    // stack: rlp_addr, rlp_addr_start, retdest
 
 after_to:
     %mload_txn_field(@TXN_FIELD_VALUE)
     SWAP1 %encode_rlp_scalar
-    // stack: rlp_pos, rlp_start, retdest
+    // stack: rlp_addr, rlp_addr_start, retdest
 
     // Encode txn data.
     %mload_txn_field(@TXN_FIELD_DATA_LEN)
-    PUSH 0 // ADDR.virt
-    PUSH @SEGMENT_TXN_DATA
-    PUSH 0 // ADDR.context
-    // stack: ADDR: 3, len, rlp_pos, rlp_start, retdest
+    PUSH @SEGMENT_TXN_DATA // ctx == virt == 0
+    // stack: ADDR, len, rlp_addr, rlp_addr_start, retdest
     PUSH after_serializing_txn_data
-    // stack: after_serializing_txn_data, ADDR: 3, len, rlp_pos, rlp_start, retdest
-    SWAP5
-    // stack: rlp_pos, ADDR: 3, len, after_serializing_txn_data, rlp_start, retdest
+    // stack: after_serializing_txn_data, ADDR, len, rlp_addr, rlp_addr_start, retdest
+    SWAP3
+    // stack: rlp_addr, ADDR, len, after_serializing_txn_data, rlp_addr_start, retdest
     %jump(encode_rlp_string)
 
 after_serializing_txn_data:
     // Instead of manually encoding the access list, we just copy the raw RLP from the transaction.
     %mload_global_metadata(@GLOBAL_METADATA_ACCESS_LIST_RLP_START)
     %mload_global_metadata(@GLOBAL_METADATA_ACCESS_LIST_RLP_LEN)
-    %stack (al_len, al_start, rlp_pos, rlp_start, retdest) ->
+    %stack (al_len, al_start, rlp_addr, rlp_addr_start, retdest) ->
         (
-            0, @SEGMENT_RLP_RAW, rlp_pos,
-            0, @SEGMENT_RLP_RAW, al_start,
+            rlp_addr,
+            al_start,
             al_len,
             after_serializing_access_list,
-            rlp_pos, rlp_start, retdest)
+            rlp_addr, rlp_addr_start, retdest)
     %jump(memcpy_bytes)
 after_serializing_access_list:
-    // stack: rlp_pos, rlp_start, retdest
+    // stack: rlp_addr, rlp_addr_start, retdest
     %mload_global_metadata(@GLOBAL_METADATA_ACCESS_LIST_RLP_LEN) ADD
-    // stack: rlp_pos, rlp_start, retdest
+    // stack: rlp_addr, rlp_addr_start, retdest
     %prepend_rlp_list_prefix
-    // stack: prefix_start_pos, rlp_len, retdest
+    // stack: prefix_start_rlp_addr, rlp_len, retdest
 
     // Store a `1` in front of the RLP
     %decrement
-    %stack (pos) -> (1, 0, @SEGMENT_RLP_RAW, pos, pos)
+    %stack (rlp_addr) -> (1, rlp_addr, rlp_addr)
     MSTORE_GENERAL
-    // stack: pos, rlp_len, retdest
+    // stack: rlp_addr, rlp_len, retdest
 
     // Hash the RLP + the leading `1`
     SWAP1 %increment SWAP1
-    PUSH @SEGMENT_RLP_RAW
-    PUSH 0 // context
-    // stack: ADDR: 3, len, retdest
+    // stack: ADDR, len, retdest
     KECCAK_GENERAL
     // stack: hash, retdest
 

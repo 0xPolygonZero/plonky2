@@ -58,7 +58,9 @@ global handle_precompiles_from_eoa:
     %mload_txn_field(@TXN_FIELD_DATA_LEN)
     %stack (calldata_size, new_ctx) -> (calldata_size, new_ctx, calldata_size)
     %set_new_ctx_calldata_size
-    %stack (new_ctx, calldata_size) -> (new_ctx, @SEGMENT_CALLDATA, 0, 0, @SEGMENT_TXN_DATA, 0, calldata_size, handle_precompiles_from_eoa_finish, new_ctx)
+    %stack (new_ctx, calldata_size) -> (@SEGMENT_TXN_DATA, @SEGMENT_CALLDATA, new_ctx, calldata_size, handle_precompiles_from_eoa_finish, new_ctx)
+    SWAP2 %build_address_no_offset // DST
+    // stack: DST, SRC, calldata_size, handle_precompiles_from_eoa_finish, new_ctx
     %jump(memcpy_bytes)
 
 handle_precompiles_from_eoa_finish:

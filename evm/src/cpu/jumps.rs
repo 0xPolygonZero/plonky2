@@ -87,7 +87,8 @@ pub(crate) fn eval_packed_jump_jumpi<P: PackedField>(
     yield_constr.constraint_transition(new_filter * (channel.is_read - P::ONES));
     yield_constr.constraint_transition(new_filter * (channel.addr_context - nv.context));
     yield_constr.constraint_transition(
-        new_filter * (channel.addr_segment - P::Scalar::from_canonical_u64(Segment::Stack as u64)),
+        new_filter
+            * (channel.addr_segment - P::Scalar::from_canonical_usize(Segment::Stack.unscale())),
     );
     let addr_virtual = nv.stack_len - P::ONES;
     yield_constr.constraint_transition(new_filter * (channel.addr_virtual - addr_virtual));
@@ -134,7 +135,7 @@ pub(crate) fn eval_packed_jump_jumpi<P: PackedField>(
     yield_constr.constraint(
         filter
             * (jumpdest_flag_channel.addr_segment
-                - P::Scalar::from_canonical_u64(Segment::JumpdestBits as u64)),
+                - P::Scalar::from_canonical_usize(Segment::JumpdestBits.unscale())),
     );
     yield_constr.constraint(filter * (jumpdest_flag_channel.addr_virtual - dst[0]));
 
@@ -205,7 +206,7 @@ pub(crate) fn eval_ext_circuit_jump_jumpi<F: RichField + Extendable<D>, const D:
     {
         let constr = builder.arithmetic_extension(
             F::ONE,
-            -F::from_canonical_u64(Segment::Stack as u64),
+            -F::from_canonical_usize(Segment::Stack.unscale()),
             new_filter,
             channel.addr_segment,
             new_filter,
@@ -308,7 +309,7 @@ pub(crate) fn eval_ext_circuit_jump_jumpi<F: RichField + Extendable<D>, const D:
     {
         let constr = builder.arithmetic_extension(
             F::ONE,
-            -F::from_canonical_u64(Segment::JumpdestBits as u64),
+            -F::from_canonical_usize(Segment::JumpdestBits.unscale()),
             filter,
             jumpdest_flag_channel.addr_segment,
             filter,
