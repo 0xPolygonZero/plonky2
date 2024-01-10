@@ -9,7 +9,7 @@ use serde::{Serialize, Deserialize};
 use num::bigint::BigUint;
 use num::{Integer, One};
 use rand::RngCore;
-use std::str::FromStr;
+use core::str::FromStr;
 
 use crate::types::{Field, Sample};
 use crate::types::PrimeField as native_pf;
@@ -82,7 +82,7 @@ impl Field for Bn254Field {
     const TWO: Self = Self([2, 0, 0, 0]);
 
     const NEG_ONE: Self = Self([
-        4891460686036598785 as u64,
+        4891460686036598784 as u64,
         2896914383306846353 as u64,
         13281191951274694749 as u64,
         3486998266802970665 as u64
@@ -122,7 +122,8 @@ impl Field for Bn254Field {
 
     fn from_noncanonical_biguint(n: BigUint) -> Self {
         Self(
-            n.to_u64_digits()
+            n.mod_floor(&Self::order())
+                .to_u64_digits()
                 .into_iter()
                 .pad_using(4, |_| 0)
                 .collect::<Vec<_>>()[..]
