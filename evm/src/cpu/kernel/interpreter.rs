@@ -5,7 +5,8 @@ use std::collections::HashMap;
 use std::ops::Range;
 
 use anyhow::bail;
-use ethereum_types::{U256, U512};
+use eth_trie_utils::partial_trie::PartialTrie;
+use ethereum_types::{BigEndianHash, H160, H256, U256, U512};
 use keccak_hash::keccak;
 use plonky2::field::goldilocks_field::GoldilocksField;
 
@@ -16,11 +17,13 @@ use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
 use crate::cpu::kernel::constants::txn_fields::NormalizedTxnField;
 use crate::cpu::stack::MAX_USER_STACK_SIZE;
 use crate::extension_tower::BN_BASE;
+use crate::generation::mpt::load_all_mpts;
 use crate::generation::prover_input::ProverInputFn;
-use crate::generation::state::GenerationState;
+use crate::generation::rlp::all_rlp_prover_inputs_reversed;
+use crate::generation::state::{all_withdrawals_prover_inputs_reversed, GenerationState};
 use crate::generation::GenerationInputs;
 use crate::memory::segments::{Segment, SEGMENT_SCALING_FACTOR};
-use crate::util::u256_to_usize;
+use crate::util::{h2u, u256_to_usize};
 use crate::witness::errors::{ProgramError, ProverInputError};
 use crate::witness::gas::gas_to_charge;
 use crate::witness::memory::{MemoryAddress, MemoryContextState, MemorySegmentState, MemoryState};
@@ -179,6 +182,137 @@ impl<'a> Interpreter<'a> {
         }
 
         result
+    }
+
+    /// Initialize interpreter state given `GenerationInputs`. This assumes that the
+    /// loaded code is the KERNEL code.
+    pub(crate) fn initialize_interpreter_state_with_kernel(&mut self, inputs: GenerationInputs) {
+        self.initialize_interpreter_state(inputs, KERNEL.code_hash, KERNEL.code.len());
+    }
+
+    /// Initialize interpreter state given `GenerationInputs`.
+    pub(crate) fn initialize_interpreter_state(
+        &mut self,
+        inputs: GenerationInputs,
+        kernel_hash: H256,
+        kernel_code_len: usize,
+    ) {
+        let tries = &inputs.tries;
+
+        // Set state's inputs.
+        self.generation_state.inputs = inputs.clone();
+
+        // Initialize the MPT's pointers.
+        let (trie_root_ptrs, trie_data) =
+            load_all_mpts(tries).expect("Invalid MPT data for preinitialization");
+        let trie_roots_after = &inputs.trie_roots_after;
+        self.generation_state.trie_root_ptrs = trie_root_ptrs;
+
+        // Initialize the `TrieData` segment.
+        for (i, data) in trie_data.iter().enumerate() {
+            let trie_addr = MemoryAddress::new(0, Segment::TrieData, i);
+            self.generation_state.memory.set(trie_addr, data.into());
+        }
+
+        // Update the RLP and withdrawal prover inputs.
+        let rlp_prover_inputs =
+            all_rlp_prover_inputs_reversed(inputs.clone().signed_txn.as_ref().unwrap_or(&vec![]));
+        let withdrawal_prover_inputs = all_withdrawals_prover_inputs_reversed(&inputs.withdrawals);
+        self.generation_state.rlp_prover_inputs = rlp_prover_inputs;
+        self.generation_state.withdrawal_prover_inputs = withdrawal_prover_inputs;
+
+        // Set `GlobalMetadata` values.
+        let metadata = &inputs.block_metadata;
+        let global_metadata_to_set = [
+            (
+                GlobalMetadata::BlockBeneficiary,
+                U256::from_big_endian(&metadata.block_beneficiary.0),
+            ),
+            (GlobalMetadata::BlockTimestamp, metadata.block_timestamp),
+            (GlobalMetadata::BlockNumber, metadata.block_number),
+            (GlobalMetadata::BlockDifficulty, metadata.block_difficulty),
+            (
+                GlobalMetadata::BlockRandom,
+                metadata.block_random.into_uint(),
+            ),
+            (GlobalMetadata::BlockGasLimit, metadata.block_gaslimit),
+            (GlobalMetadata::BlockChainId, metadata.block_chain_id),
+            (GlobalMetadata::BlockBaseFee, metadata.block_base_fee),
+            (
+                GlobalMetadata::BlockCurrentHash,
+                h2u(inputs.block_hashes.cur_hash),
+            ),
+            (GlobalMetadata::BlockGasUsed, metadata.block_gas_used),
+            (GlobalMetadata::BlockGasUsedBefore, inputs.gas_used_before),
+            (GlobalMetadata::BlockGasUsedAfter, inputs.gas_used_after),
+            (GlobalMetadata::TxnNumberBefore, inputs.txn_number_before),
+            (
+                GlobalMetadata::TxnNumberAfter,
+                inputs.txn_number_before + if inputs.signed_txn.is_some() { 1 } else { 0 },
+            ),
+            (
+                GlobalMetadata::StateTrieRootDigestBefore,
+                h2u(tries.state_trie.hash()),
+            ),
+            (
+                GlobalMetadata::TransactionTrieRootDigestBefore,
+                h2u(tries.transactions_trie.hash()),
+            ),
+            (
+                GlobalMetadata::ReceiptTrieRootDigestBefore,
+                h2u(tries.receipts_trie.hash()),
+            ),
+            (
+                GlobalMetadata::StateTrieRootDigestAfter,
+                h2u(trie_roots_after.state_root),
+            ),
+            (
+                GlobalMetadata::TransactionTrieRootDigestAfter,
+                h2u(trie_roots_after.transactions_root),
+            ),
+            (
+                GlobalMetadata::ReceiptTrieRootDigestAfter,
+                h2u(trie_roots_after.receipts_root),
+            ),
+            (GlobalMetadata::KernelHash, h2u(kernel_hash)),
+            (GlobalMetadata::KernelLen, kernel_code_len.into()),
+        ];
+
+        self.set_global_metadata_multi_fields(&global_metadata_to_set);
+
+        // Set final block bloom values.
+        let final_block_bloom_fields = (0..8)
+            .map(|i| {
+                (
+                    MemoryAddress::new_u256s(
+                        U256::zero(),
+                        (Segment::GlobalBlockBloom.unscale()).into(),
+                        i.into(),
+                    )
+                    .unwrap(),
+                    metadata.block_bloom[i],
+                )
+            })
+            .collect::<Vec<_>>();
+
+        self.set_memory_multi_addresses(&final_block_bloom_fields);
+
+        // Set previous block hash.
+        let block_hashes_fields = (0..256)
+            .map(|i| {
+                (
+                    MemoryAddress::new_u256s(
+                        U256::zero(),
+                        (Segment::BlockHashes.unscale()).into(),
+                        i.into(),
+                    )
+                    .unwrap(),
+                    h2u(inputs.block_hashes.prev_hashes[i]),
+                )
+            })
+            .collect::<Vec<_>>();
+
+        self.set_memory_multi_addresses(&block_hashes_fields);
     }
 
     fn checkpoint(&self) -> InterpreterCheckpoint {
