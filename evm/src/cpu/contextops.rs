@@ -105,7 +105,7 @@ fn eval_packed_get<P: PackedField>(
 }
 
 /// Circuit version of `eval_packed_get`.
-/// Evalutes constraints for GET_CONTEXT.
+/// Evaluates constraints for GET_CONTEXT.
 fn eval_ext_circuit_get<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     lv: &CpuColumnsView<ExtensionTarget<D>>,

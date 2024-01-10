@@ -59,7 +59,7 @@ fn apply_perm<T: Eq + Hash + Clone>(permutation: Vec<Vec<usize>>, mut lst: Vec<T
 /// This function does STEP 1.
 /// Given 2 lists A, B find a permutation P such that P . A = B.
 pub(crate) fn find_permutation<T: Eq + Hash + Clone>(lst_a: &[T], lst_b: &[T]) -> Vec<Vec<usize>> {
-    // We should check to ensure that A and B are indeed rearrangments of each other.
+    // We should check to ensure that A and B are indeed rearrangements of each other.
     assert!(is_permutation(lst_a, lst_b));
 
     let n = lst_a.len();
