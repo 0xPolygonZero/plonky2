@@ -87,9 +87,9 @@ ecdsa_after_precompute_loop:
     %mul_const(2) ADD %mul_const(2) ADD %mul_const(2) ADD
     %stack (index, i, accx, accy, a0, a1, b0, b1, retdest) -> (index, index, i, accx, accy, a0, a1, b0, b1, retdest)
     %mul_const(2) %add_const(1)
-    %mload_kernel(@SEGMENT_KERNEL_ECDSA_TABLE)
+    %mload_current(@SEGMENT_ECDSA_TABLE)
     SWAP1 %mul_const(2)
-    %mload_kernel(@SEGMENT_KERNEL_ECDSA_TABLE)
+    %mload_current(@SEGMENT_ECDSA_TABLE)
     %stack (Px, Py, i, accx, accy, a0, a1, b0, b1, retdest) -> (Px, Py, accx, accy, ecdsa_after_precompute_loop_contd, i, a0, a1, b0, b1, retdest)
     %jump(secp_add_valid_points)
 ecdsa_after_precompute_loop_contd:
