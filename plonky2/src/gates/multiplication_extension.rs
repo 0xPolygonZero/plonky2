@@ -16,7 +16,7 @@ use crate::plonk::circuit_data::{CircuitConfig, CommonCircuitData};
 use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 use crate::util::serialization::{Buffer, IoResult, Read, Write};
 
-/// A gate which can perform a weighted multiplication, i.e. `result = c0 x y`. If the config
+/// A gate which can perform a weighted multiplication, i.e. `result = c0.x.y`. If the config
 /// supports enough routed wires, it can support several such operations in one gate.
 #[derive(Debug, Clone)]
 pub struct MulExtensionGate<const D: usize> {

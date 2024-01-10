@@ -181,7 +181,8 @@ pub struct CircuitBuilder<F: RichField + Extendable<D>, const D: usize> {
     /// List of constant generators used to fill the constant wires.
     constant_generators: Vec<ConstantGenerator<F>>,
 
-    /// Rows for each LUT: LookupWire contains: first `LookupGate`, first [`LookupTableGate`], last `LookupTableGate`.
+    /// Rows for each LUT: [`LookupWire`] contains: first [`LookupGate`], first and last
+    /// [LookupTableGate](crate::gates::lookup_table::LookupTableGate).
     lookup_rows: Vec<LookupWire>,
 
     /// For each LUT index, vector of `(looking_in, looking_out)` pairs.
@@ -1007,7 +1008,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// In PLONK's permutation argument, there's a slight chance of division by zero. We can
     /// mitigate this by randomizing some unused witness elements, so if proving fails with
     /// division by zero, the next attempt will have an (almost) independent chance of success.
-    /// See https://github.com/0xPolygonZero/plonky2/issues/456
+    /// See <https://github.com/0xPolygonZero/plonky2/issues/456>.
     fn randomize_unused_pi_wires(&mut self, pi_gate: usize) {
         for wire in PublicInputGate::wires_public_inputs_hash().end..self.config.num_wires {
             self.add_simple_generator(RandomValueGenerator {

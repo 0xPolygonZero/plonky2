@@ -40,7 +40,7 @@ impl<F: Field> Lookup<F> {
     }
 }
 
-/// logUp protocol from https://ia.cr/2022/1530
+/// logUp protocol from <https://ia.cr/2022/1530>
 /// Compute the helper columns for the lookup argument.
 /// Given columns `f0,...,fk` and a column `t`, such that `∪fi ⊆ t`, and challenges `x`,
 /// this computes the helper columns `h_i = 1/(x+f_2i) + 1/(x+f_2i+1)`, `g = 1/(x+t)`,
