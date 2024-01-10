@@ -73,9 +73,6 @@ fn test_add11_yml() {
 
     let txn = hex!("f863800a83061a8094095e7baea6a6c7c4c2dfeb977efac326af552d87830186a0801ba0ffb600e63115a7362e7811894a91d8ba4330e526f22121c994c4692035dfdfd5a06198379fcac8de3dbfac48b165df4bf88e2088f294b61efb9a65fe2281c76e16");
 
-    let initial_stack = vec![];
-    let mut interpreter = Interpreter::new_with_kernel(0, initial_stack);
-
     let gas_used = 0xa868u64.into();
 
     let expected_state_trie_after = {
@@ -163,7 +160,9 @@ fn test_add11_yml() {
         },
     };
 
-    interpreter.initialize_interpreter_state_with_kernel(tries_inputs);
+    let initial_stack = vec![];
+    let mut interpreter =
+        Interpreter::new_with_generation_inputs_and_kernel(0, initial_stack, tries_inputs);
 
     let route_txn_label = KERNEL.global_labels["main"];
     // Switch context and initialize memory with the data we need for the tests.
@@ -227,9 +226,6 @@ fn test_add11_yml_with_exception() {
     let txn = hex!("f863800a83061a8094095e7baea6a6c7c4c2dfeb977efac326af552d87830186a0801ba0ffb600e63115a7362e7811894a91d8ba4330e526f22121c994c4692035dfdfd5a06198379fcac8de3dbfac48b165df4bf88e2088f294b61efb9a65fe2281c76e16");
     let txn_gas_limit = 400_000;
     let gas_price = 10;
-
-    let initial_stack = vec![];
-    let mut interpreter = Interpreter::new_with_kernel(0, initial_stack);
 
     // Here, since the transaction fails, it consumes its gas limit, and does nothing else.
     let expected_state_trie_after = {
@@ -306,7 +302,9 @@ fn test_add11_yml_with_exception() {
         },
     };
 
-    interpreter.initialize_interpreter_state_with_kernel(tries_inputs);
+    let initial_stack = vec![];
+    let mut interpreter =
+        Interpreter::new_with_generation_inputs_and_kernel(0, initial_stack, tries_inputs);
 
     let route_txn_label = KERNEL.global_labels["main"];
     // Switch context and initialize memory with the data we need for the tests.

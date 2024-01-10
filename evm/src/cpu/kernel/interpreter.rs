@@ -153,6 +153,18 @@ impl<'a> Interpreter<'a> {
         result
     }
 
+    /// Returns an `Interpreter` given `GenerationInputs`, and assuming we are
+    /// initializing with the `KERNEL` code.
+    pub(crate) fn new_with_generation_inputs_and_kernel(
+        initial_offset: usize,
+        initial_stack: Vec<U256>,
+        inputs: GenerationInputs,
+    ) -> Self {
+        let mut result = Self::new_with_kernel(initial_offset, initial_stack);
+        result.initialize_interpreter_state_with_kernel(inputs);
+        result
+    }
+
     pub(crate) fn new(
         code: &'a [u8],
         initial_offset: usize,
