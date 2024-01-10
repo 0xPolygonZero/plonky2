@@ -7,3 +7,6 @@ pub mod merkle_tree;
 pub mod path_compression;
 pub mod poseidon;
 pub mod poseidon_goldilocks;
+pub mod poseidon_bn254;
+pub mod poseidon_bn254_goldilocks_hash;
+pub mod poseidon_bn254_constants;

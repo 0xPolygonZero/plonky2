@@ -30,6 +30,12 @@ fn biguint_from_array(arr: [u64; 4]) -> BigUint {
     ])
 }
 
+impl Bn254Field {
+    pub fn from_noncanonical_str(n: &str) -> Self {
+        Self::from_noncanonical_biguint(BigUint::from_str(n).unwrap())
+    }
+}
+
 impl Default for Bn254Field {
     fn default() -> Self {
         Self::ZERO
