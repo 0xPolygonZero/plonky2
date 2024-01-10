@@ -240,6 +240,7 @@ impl<F: Field> GenerationState<F> {
         }
     }
 
+    /// Generate the either the next used jump address or the the proof for the last jump address.
     fn run_jumpdest_table(&mut self, input_fn: &ProverInputFn) -> Result<U256, ProgramError> {
         match input_fn.0[1].as_str() {
             "next_address" => self.run_next_jumpdest_table_address(),
@@ -293,6 +294,7 @@ impl<F: Field> GenerationState<F> {
 }
 
 impl<F: Field> GenerationState<F> {
+    /// Simulate the user's code and store all the jump addresses with their respective contexts.
     fn generate_jumpdest_proofs(&mut self) -> Result<(), ProgramError> {
         let checkpoint = self.checkpoint();
         let memory = self.memory.clone();
@@ -322,6 +324,8 @@ impl<F: Field> GenerationState<F> {
         Ok(())
     }
 
+    /// Given a HashMap containing the contexts and the jumpdest addresses, compute their respective proofs,
+    /// by calling `get_proofs_and_jumpdests`
     pub(crate) fn set_proofs_and_jumpdests(
         &mut self,
         jumpdest_table: HashMap<usize, std::collections::BTreeSet<usize>>,

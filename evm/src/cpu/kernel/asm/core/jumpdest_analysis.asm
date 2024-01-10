@@ -2,7 +2,7 @@
 // for the given context's code.
 // Pre stack: init_pos, ctx, final_pos, retdest
 // Post stack: (empty)
-global verify_path_and_write_table:
+global verify_path_and_write_jumpdest_table:
 loop:
     // stack: i, ctx, final_pos, retdest
     DUP3 DUP2 EQ // i == final_pos
@@ -10,7 +10,7 @@ loop:
     DUP3 DUP2 GT // i > final_pos
     %jumpi(proof_not_ok)
 
-    // stack: i, ctx, code_len, retdest
+     // stack: i, ctx, final_pos, retdest
     %stack (i, ctx) -> (ctx, i, i, ctx)
     ADD // combine context and offset to make an address (SEGMENT_CODE == 0)
     MLOAD_GENERAL
@@ -124,7 +124,7 @@ global write_table_if_jumpdest:
     SWAP2 DUP1
     // stack: proof_prefix_addr, proof_prefix_addr, ctx, jumpdest
     ISZERO
-    %jumpi(verify_path_and_write_table)
+    %jumpi(verify_path_and_write_jumpdest_table)
 
 
     // stack: proof_prefix_addr, ctx, jumpdest, retdest
@@ -266,7 +266,7 @@ global write_table_if_jumpdest:
     %add_const(32)
 
     // check the remaining path
-    %jump(verify_path_and_write_table)
+    %jump(verify_path_and_write_jumpdest_table)
 return:
     // stack: proof_prefix_addr, jumpdest, ctx, retdest
     %pop3

@@ -379,7 +379,7 @@ fn simulate_cpu_between_labels_and_get_user_jumps<F: Field>(
                 state.registers.program_counter,
             ))) else {
                 log::debug!(
-                    "Simulated CPU halted after {} cycles",
+                    "Simulated CPU for jumpdest analysis halted after {} cycles",
                     state.traces.clock() - initial_clock
                 );
                 return Some(jumpdest_addresses);
@@ -395,7 +395,7 @@ fn simulate_cpu_between_labels_and_get_user_jumps<F: Field>(
                 // Avoid deeper calls to abort
                 let Ok(jumpdest) = u256_to_usize(state.registers.stack_top) else {
                     log::debug!(
-                        "Simulated CPU halted after {} cycles",
+                        "Simulated CPU for jumpdest analysis halted after {} cycles",
                         state.traces.clock() - initial_clock
                     );
                     return Some(jumpdest_addresses);
@@ -416,7 +416,7 @@ fn simulate_cpu_between_labels_and_get_user_jumps<F: Field>(
             }
             if halt || transition(state).is_err() {
                 log::debug!(
-                    "Simulated CPU halted after {} cycles",
+                    "Simulated CPU for jumpdest analysis halted after {} cycles",
                     state.traces.clock() - initial_clock
                 );
                 return Some(jumpdest_addresses);
