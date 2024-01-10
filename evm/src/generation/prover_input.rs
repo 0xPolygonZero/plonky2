@@ -43,6 +43,7 @@ impl<F: Field> GenerationState<F> {
             "sf" => self.run_sf(input_fn),
             "ffe" => self.run_ffe(input_fn),
             "rlp" => self.run_rlp(),
+            "rlp_old" => self.run_rlp_old(),
             "current_hash" => self.run_current_hash(),
             "account_code" => self.run_account_code(),
             "bignum_modmul" => self.run_bignum_modmul(),
@@ -124,6 +125,13 @@ impl<F: Field> GenerationState<F> {
     /// RLP data.
     fn run_rlp(&mut self) -> Result<U256, ProgramError> {
         self.rlp_prover_inputs
+            .pop()
+            .ok_or(ProgramError::ProverInputError(OutOfRlpData))
+    }
+
+    /// RLP data old.
+    fn run_rlp_old(&mut self) -> Result<U256, ProgramError> {
+        self.rlp_prover_inputs_old
             .pop()
             .ok_or(ProgramError::ProverInputError(OutOfRlpData))
     }
