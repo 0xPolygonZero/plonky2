@@ -54,7 +54,7 @@ impl TimingTree {
 
     /// Whether this scope is still in scope.
     #[cfg(feature = "timing")]
-    fn is_open(&self) -> bool {
+    const fn is_open(&self) -> bool {
         self.exit_time.is_none()
     }
 

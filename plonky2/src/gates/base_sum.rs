@@ -31,7 +31,7 @@ pub struct BaseSumGate<const B: usize> {
 }
 
 impl<const B: usize> BaseSumGate<B> {
-    pub fn new(num_limbs: usize) -> Self {
+    pub const fn new(num_limbs: usize) -> Self {
         Self { num_limbs }
     }
 
@@ -45,7 +45,7 @@ impl<const B: usize> BaseSumGate<B> {
     pub const START_LIMBS: usize = 1;
 
     /// Returns the index of the `i`th limb wire.
-    pub fn limbs(&self) -> Range<usize> {
+    pub const fn limbs(&self) -> Range<usize> {
         Self::START_LIMBS..Self::START_LIMBS + self.num_limbs
     }
 }
