@@ -21,10 +21,10 @@ compression_loop:
     // stack: addr, cur_block, retdest
     POP
     // stack: cur_block, retdest
-    PUSH 0
     PUSH 1
+    PUSH 0
     %mload_current_general
-    // stack: num_blocks, cur_block, retdest
+    // stack: num_blocks, 1, cur_block, retdest
     SUB
     // stack: num_blocks - 1, cur_block, retdest
     DUP2

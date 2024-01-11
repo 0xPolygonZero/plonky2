@@ -5,11 +5,7 @@ global num_bytes:
     DUP1 ISZERO %jumpi(return_1)
     // Non-deterministically guess the number of bits
     PROVER_INPUT(num_bits)
-    // stack: num_bits, x
-    SWAP1
-    PUSH 1
-    DUP3
-    // stack: num_bits, 1, x, num_bits
+    %stack(num_bits, x) -> (num_bits, 1, x, num_bits)
     SUB
     SHR
     // stack: 1, num_bits
