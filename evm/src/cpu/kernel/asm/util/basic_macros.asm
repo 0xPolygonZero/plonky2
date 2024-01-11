@@ -8,6 +8,19 @@
     jumpi
 %endmacro
 
+// Jump to `jumpdest` if the top of the stack is != c
+%macro jump_neq_const(c, jumpdest)
+    PUSH $c
+    SUB
+    %jumpi($jumpdest)
+%endmacro
+
+// Jump to `jumpdest` if the top of the stack is < c
+%macro jumpi_lt_const(c, jumpdest)
+    %ge_const($c)
+    %jumpi($jumpdest)
+%endmacro
+
 %macro pop2
     %rep 2
         POP

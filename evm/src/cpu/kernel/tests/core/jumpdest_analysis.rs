@@ -27,7 +27,7 @@ fn test_jumpdest_analysis() -> Result<()> {
         jumpdest,
     ];
 
-    let expected_jumpdest_bits = vec![false, true, false, false, false, true, false, true];
+    let jumpdest_bits = vec![false, true, false, false, false, true, false, true];
 
     // Contract creation transaction.
     let initial_stack = vec![
@@ -37,12 +37,10 @@ fn test_jumpdest_analysis() -> Result<()> {
     ];
     let mut interpreter = Interpreter::new_with_kernel(jumpdest_analysis, initial_stack);
     interpreter.set_code(CONTEXT, code);
+    interpreter.set_jumpdest_bits(CONTEXT, jumpdest_bits);
+
     interpreter.run()?;
     assert_eq!(interpreter.stack(), vec![]);
-    assert_eq!(
-        interpreter.get_jumpdest_bits(CONTEXT),
-        expected_jumpdest_bits
-    );
 
     Ok(())
 }

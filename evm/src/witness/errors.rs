@@ -36,4 +36,6 @@ pub enum ProverInputError {
     InvalidInput,
     InvalidFunction,
     NumBitsError,
+    InvalidJumpDestination,
+    InvalidJumpdestSimulation,
 }
