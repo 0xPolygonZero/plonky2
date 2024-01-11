@@ -86,6 +86,14 @@ encode_rlp_scalar_small:
     JUMP
 
 // Convenience macro to call encode_rlp_scalar and return where we left off.
+// It takes swapped inputs, i.e. `scalar, rlp_addr` instead of `rlp_addr, scalar`.
+%macro encode_rlp_scalar_swapped_inputs
+    %stack (scalar, rlp_addr) -> (rlp_addr, scalar, %%after)
+    %jump(encode_rlp_scalar)
+%%after:
+%endmacro
+
+// Convenience macro to call encode_rlp_scalar and return where we left off.
 %macro encode_rlp_scalar
     %stack (rlp_addr, scalar) -> (rlp_addr, scalar, %%after)
     %jump(encode_rlp_scalar)

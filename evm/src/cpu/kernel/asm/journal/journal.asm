@@ -199,8 +199,9 @@
 %endmacro
 
 %macro pop_checkpoint
+    PUSH 1
     %mload_context_metadata(@CTX_METADATA_CHECKPOINTS_LEN)
     // stack: i
-    %decrement
+    SUB
     %mstore_context_metadata(@CTX_METADATA_CHECKPOINTS_LEN)
 %endmacro

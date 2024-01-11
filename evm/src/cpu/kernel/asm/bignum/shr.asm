@@ -42,9 +42,9 @@ shr_loop:
     // stack: i, carry << 127 | a[i] >> 1, i, new_carry, start_loc, retdest
     %mstore_current_general
     // stack: i, new_carry, start_loc, retdest
-    DUP1
-    // stack: i, i, new_carry, start_loc, retdest
-    %decrement
+    PUSH 1
+    DUP2
+    SUB
     // stack: i-1, i, new_carry, start_loc, retdest
     SWAP1
     // stack: i, i-1, new_carry, start_loc, retdest
