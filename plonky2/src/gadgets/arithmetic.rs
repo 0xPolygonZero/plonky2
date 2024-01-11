@@ -381,9 +381,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         // if x is zero, result should be `0`, otherwise result should be `1`
         let result = self.mul(x, inv);
 
-        // Enforce the result through arithmetic        
-        let tmp = self.sub(result, one);        // (x * inv - 1)
-        let tmp = self.mul(tmp, x);             // (x * inv - 1) * x
+        // Enforce the result through arithmetic
+        let tmp = self.sub(result, one); // (x * inv - 1)
+        let tmp = self.mul(tmp, x); // (x * inv - 1) * x
 
         // If everything has been done correctly, `(x * inv - 1) * x` will always equal 0
         // this is because either `x * inv` equals `1`, making `(x * inv - 1)` equal `0`

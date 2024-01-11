@@ -345,7 +345,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D> for Non
 
     fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
         let to_test_value = witness.get_target(self.to_test);
-        
+
         let inv_value = if to_test_value.is_zero() {
             F::ONE
         } else {
@@ -363,7 +363,10 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D> for Non
     fn deserialize(src: &mut Buffer, _common_data: &CommonCircuitData<F, D>) -> IoResult<Self> {
         let to_test = src.read_target()?;
         let dummy = src.read_target()?;
-        Ok(Self { to_test, inv: dummy })
+        Ok(Self {
+            to_test,
+            inv: dummy,
+        })
     }
 }
 
