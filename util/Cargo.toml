@@ -7,3 +7,7 @@ edition = "2021"
 
 [dev-dependencies]
 rand = { version = "0.8.5", default-features = false, features = ["getrandom"] }
+
+# Display math equations properly in documentation
+[package.metadata.docs.rs]
+rustdoc-args = ["--html-in-header", ".cargo/katex-header.html"]
