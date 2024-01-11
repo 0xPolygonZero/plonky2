@@ -8,7 +8,7 @@ use crate::field::types::Field64;
 use crate::gates::arithmetic_base::ArithmeticGate;
 use crate::gates::exponentiation::ExponentiationGate;
 use crate::hash::hash_types::RichField;
-use crate::iop::generator::{GeneratedValues, SimpleGenerator};
+use crate::iop::generator::{GeneratedValues, NonzeroTestGenerator, SimpleGenerator};
 use crate::iop::target::{BoolTarget, Target};
 use crate::iop::witness::{PartitionWitness, Witness, WitnessWrite};
 use crate::plonk::circuit_builder::CircuitBuilder;
@@ -371,6 +371,27 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         equal
     }
+
+    pub fn is_nonzero(&mut self, x: Target) -> BoolTarget {
+        let zero = self.zero();
+        let one = self.one();
+        let inv = self.add_virtual_target();
+        self.add_simple_generator(NonzeroTestGenerator { to_test: x, inv });
+
+        // if x is zero, result should be `0`, otherwise result should be `1`
+        let result = self.mul(x, inv);
+
+        // Enforce the result through arithmetic
+        let tmp = self.sub(result, one); // (x * inv - 1)
+        let tmp = self.mul(tmp, x); // (x * inv - 1) * x
+
+        // If everything has been done correctly, `(x * inv - 1) * x` will always equal 0
+        // this is because either `x * inv` equals `1`, making `(x * inv - 1)` equal `0`
+        // or `x` equals `0`
+        self.connect(tmp, zero);
+
+        BoolTarget::new_unsafe(result)
+    }
 }
 
 #[derive(Debug, Default)]
@@ -424,4 +445,54 @@ pub(crate) struct BaseArithmeticOperation<F: Field64> {
     multiplicand_0: Target,
     multiplicand_1: Target,
     addend: Target,
+}
+
+#[cfg(test)]
+mod tests {
+    use anyhow::Result;
+
+    use crate::field::types::Field;
+    use crate::iop::witness::{PartialWitness, WitnessWrite};
+    use crate::plonk::circuit_builder::CircuitBuilder;
+    use crate::plonk::circuit_data::CircuitConfig;
+    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
+    use crate::plonk::verifier::verify;
+
+    fn nonzero_rand<F: Field>() -> F {
+        loop {
+            let f = F::rand();
+            if f.is_nonzero() {
+                return f;
+            }
+        }
+    }
+
+    #[test]
+    fn test_is_nonzero() -> Result<()> {
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+
+        let config = CircuitConfig::standard_recursion_config();
+
+        let mut pw = PartialWitness::<F>::new();
+        let mut builder = CircuitBuilder::<F, D>::new(config);
+
+        let vs = [F::ZERO, nonzero_rand()];
+        let ts = builder.add_virtual_target_arr::<2>();
+        pw.set_target_arr(&ts, &vs);
+
+        let _false = builder._false();
+        let _true = builder._true();
+        let nz0 = builder.is_nonzero(ts[0]);
+        let nz1 = builder.is_nonzero(ts[1]);
+
+        builder.connect(nz0.target, _false.target);
+        builder.connect(nz1.target, _true.target);
+
+        let data = builder.build::<C>();
+        let proof = data.prove(pw)?;
+
+        verify(proof, &data.verifier_only, &data.common)
+    }
 }

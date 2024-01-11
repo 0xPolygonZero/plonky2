@@ -331,7 +331,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D> for Ran
 #[derive(Debug, Default)]
 pub struct NonzeroTestGenerator {
     pub(crate) to_test: Target,
-    pub(crate) dummy: Target,
+    pub(crate) inv: Target,
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D> for NonzeroTestGenerator {
@@ -346,24 +346,27 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D> for Non
     fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
         let to_test_value = witness.get_target(self.to_test);
 
-        let dummy_value = if to_test_value == F::ZERO {
+        let inv_value = if to_test_value.is_zero() {
             F::ONE
         } else {
             to_test_value.inverse()
         };
 
-        out_buffer.set_target(self.dummy, dummy_value);
+        out_buffer.set_target(self.inv, inv_value);
     }
 
     fn serialize(&self, dst: &mut Vec<u8>, _common_data: &CommonCircuitData<F, D>) -> IoResult<()> {
         dst.write_target(self.to_test)?;
-        dst.write_target(self.dummy)
+        dst.write_target(self.inv)
     }
 
     fn deserialize(src: &mut Buffer, _common_data: &CommonCircuitData<F, D>) -> IoResult<Self> {
         let to_test = src.read_target()?;
         let dummy = src.read_target()?;
-        Ok(Self { to_test, dummy })
+        Ok(Self {
+            to_test,
+            inv: dummy,
+        })
     }
 }
 
