@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 
 use ethereum_types::{Address, BigEndianHash, H160, H256, U256};
 use keccak_hash::keccak;
@@ -50,6 +50,12 @@ pub(crate) struct GenerationState<F: Field> {
 
     /// Pointers, within the `TrieData` segment, of the three MPTs.
     pub(crate) trie_root_ptrs: TrieRootPtrs,
+
+    /// A hash map where the key is a context in the user's code and the value is the set of
+    /// jump destinations with its corresponding "proof". A "proof" for a jump destination is
+    /// either 0 or an address i > 32 in the code (not necessarily pointing to an opcode) such that
+    /// for every j in [i, i+32] it holds that code[j] < 0x7f - j + i.
+    pub(crate) jumpdest_proofs: Option<HashMap<usize, Vec<usize>>>,
 }
 
 impl<F: Field> GenerationState<F> {
@@ -91,6 +97,7 @@ impl<F: Field> GenerationState<F> {
                 txn_root_ptr: 0,
                 receipt_root_ptr: 0,
             },
+            jumpdest_proofs: None,
         };
         let trie_root_ptrs = state.preinitialize_mpts(&inputs.tries);
 
@@ -165,11 +172,31 @@ impl<F: Field> GenerationState<F> {
             .map(|i| stack_peek(self, i).unwrap())
             .collect()
     }
+
+    /// Clones everything but the traces.
+    pub(crate) fn soft_clone(&self) -> GenerationState<F> {
+        Self {
+            inputs: self.inputs.clone(),
+            registers: self.registers,
+            memory: self.memory.clone(),
+            traces: Traces::default(),
+            rlp_prover_inputs: self.rlp_prover_inputs.clone(),
+            state_key_to_address: self.state_key_to_address.clone(),
+            bignum_modmul_result_limbs: self.bignum_modmul_result_limbs.clone(),
+            withdrawal_prover_inputs: self.withdrawal_prover_inputs.clone(),
+            trie_root_ptrs: TrieRootPtrs {
+                state_root_ptr: 0,
+                txn_root_ptr: 0,
+                receipt_root_ptr: 0,
+            },
+            jumpdest_proofs: None,
+        }
+    }
 }
 
 /// Withdrawals prover input array is of the form `[addr0, amount0, ..., addrN, amountN, U256::MAX, U256::MAX]`.
 /// Returns the reversed array.
-fn all_withdrawals_prover_inputs_reversed(withdrawals: &[(Address, U256)]) -> Vec<U256> {
+pub(crate) fn all_withdrawals_prover_inputs_reversed(withdrawals: &[(Address, U256)]) -> Vec<U256> {
     let mut withdrawal_prover_inputs = withdrawals
         .iter()
         .flat_map(|w| [U256::from((w.0).0.as_slice()), w.1])

@@ -4,7 +4,7 @@ use std::str::FromStr;
 use anyhow::{anyhow, Result};
 use eth_trie_utils::nibbles::Nibbles;
 use eth_trie_utils::partial_trie::{HashedPartialTrie, Node, PartialTrie};
-use ethereum_types::{Address, H256, U256};
+use ethereum_types::{Address, BigEndianHash, H256, U256};
 use hex_literal::hex;
 use keccak_hash::keccak;
 
@@ -17,56 +17,9 @@ use crate::generation::mpt::{AccountRlp, LegacyReceiptRlp};
 use crate::generation::rlp::all_rlp_prover_inputs_reversed;
 use crate::generation::TrieInputs;
 use crate::memory::segments::Segment;
-use crate::proof::TrieRoots;
+use crate::proof::{BlockHashes, BlockMetadata, TrieRoots};
 use crate::util::h2u;
-
-// Stolen from `tests/mpt/insert.rs`
-// Prepare the interpreter by loading the initial MPTs and
-// by setting all `GlobalMetadata` and necessary code into memory.
-fn prepare_interpreter(
-    interpreter: &mut Interpreter,
-    trie_inputs: TrieInputs,
-    transaction: &[u8],
-    contract_code: HashMap<H256, Vec<u8>>,
-) {
-    initialize_mpts(interpreter, &trie_inputs);
-    assert_eq!(interpreter.stack(), vec![]);
-
-    // Set necessary `GlobalMetadata`.
-    let global_metadata_to_set = [
-        (
-            GlobalMetadata::StateTrieRootDigestBefore,
-            h2u(trie_inputs.state_trie.hash()),
-        ),
-        (
-            GlobalMetadata::TransactionTrieRootDigestBefore,
-            h2u(trie_inputs.transactions_trie.hash()),
-        ),
-        (
-            GlobalMetadata::ReceiptTrieRootDigestBefore,
-            h2u(trie_inputs.receipts_trie.hash()),
-        ),
-        (GlobalMetadata::TxnNumberAfter, 1.into()),
-        (GlobalMetadata::BlockGasUsedAfter, 0xa868u64.into()),
-        (GlobalMetadata::BlockGasLimit, 1_000_000.into()),
-        (GlobalMetadata::BlockBaseFee, 10.into()),
-        (
-            GlobalMetadata::BlockBeneficiary,
-            U256::from_big_endian(
-                &Address::from(hex!("2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")).0,
-            ),
-        ),
-    ];
-
-    interpreter.set_global_metadata_multi_fields(&global_metadata_to_set);
-
-    // Set contract code and transaction.
-    interpreter.generation_state.inputs.contract_code = contract_code;
-
-    interpreter.generation_state.inputs.signed_txn = Some(transaction.to_vec());
-    let rlp_prover_inputs = all_rlp_prover_inputs_reversed(transaction);
-    interpreter.generation_state.rlp_prover_inputs = rlp_prover_inputs;
-}
+use crate::GenerationInputs;
 
 #[test]
 fn test_add11_yml() {
@@ -120,10 +73,8 @@ fn test_add11_yml() {
 
     let txn = hex!("f863800a83061a8094095e7baea6a6c7c4c2dfeb977efac326af552d87830186a0801ba0ffb600e63115a7362e7811894a91d8ba4330e526f22121c994c4692035dfdfd5a06198379fcac8de3dbfac48b165df4bf88e2088f294b61efb9a65fe2281c76e16");
 
-    let initial_stack = vec![];
-    let mut interpreter = Interpreter::new_with_kernel(0, initial_stack);
+    let gas_used = 0xa868u64.into();
 
-    prepare_interpreter(&mut interpreter, tries_before.clone(), &txn, contract_code);
     let expected_state_trie_after = {
         let beneficiary_account_after = AccountRlp {
             nonce: 1.into(),
@@ -158,7 +109,7 @@ fn test_add11_yml() {
     };
     let receipt_0 = LegacyReceiptRlp {
         status: true,
-        cum_gas_used: 0xa868u64.into(),
+        cum_gas_used: gas_used,
         bloom: vec![0; 256].into(),
         logs: vec![],
     };
@@ -179,24 +130,41 @@ fn test_add11_yml() {
         receipts_root: receipts_trie.hash(),
     };
 
-    // Set trie roots after the transaction was executed.
-    let metadata_to_set = [
-        (
-            GlobalMetadata::StateTrieRootDigestAfter,
-            h2u(trie_roots_after.state_root),
-        ),
-        (
-            GlobalMetadata::TransactionTrieRootDigestAfter,
-            h2u(trie_roots_after.transactions_root),
-        ),
-        (
-            GlobalMetadata::ReceiptTrieRootDigestAfter,
-            h2u(trie_roots_after.receipts_root),
-        ),
-    ];
-    interpreter.set_global_metadata_multi_fields(&metadata_to_set);
+    let block_metadata = BlockMetadata {
+        block_beneficiary: Address::from(beneficiary),
+        block_timestamp: 0x03e8.into(),
+        block_number: 1.into(),
+        block_difficulty: 0x020000.into(),
+        block_random: H256::from_uint(&0x020000.into()),
+        block_gaslimit: 0xff112233u32.into(),
+        block_chain_id: 1.into(),
+        block_base_fee: 0xa.into(),
+        block_gas_used: gas_used,
+        block_bloom: [0.into(); 8],
+    };
 
-    let route_txn_label = KERNEL.global_labels["hash_initial_tries"];
+    let tries_inputs = GenerationInputs {
+        signed_txn: Some(txn.to_vec()),
+        withdrawals: vec![],
+        tries: tries_before,
+        trie_roots_after,
+        contract_code: contract_code.clone(),
+        block_metadata,
+        checkpoint_state_trie_root: HashedPartialTrie::from(Node::Empty).hash(),
+        txn_number_before: 0.into(),
+        gas_used_before: 0.into(),
+        gas_used_after: gas_used,
+        block_hashes: BlockHashes {
+            prev_hashes: vec![H256::default(); 256],
+            cur_hash: H256::default(),
+        },
+    };
+
+    let initial_stack = vec![];
+    let mut interpreter =
+        Interpreter::new_with_generation_inputs_and_kernel(0, initial_stack, tries_inputs);
+
+    let route_txn_label = KERNEL.global_labels["main"];
     // Switch context and initialize memory with the data we need for the tests.
     interpreter.generation_state.registers.program_counter = route_txn_label;
     interpreter.set_context_metadata_field(0, ContextMetadata::GasLimit, 1_000_000.into());
@@ -259,10 +227,6 @@ fn test_add11_yml_with_exception() {
     let txn_gas_limit = 400_000;
     let gas_price = 10;
 
-    let initial_stack = vec![];
-    let mut interpreter = Interpreter::new_with_kernel(0, initial_stack);
-
-    prepare_interpreter(&mut interpreter, tries_before.clone(), &txn, contract_code);
     // Here, since the transaction fails, it consumes its gas limit, and does nothing else.
     let expected_state_trie_after = {
         let beneficiary_account_after = beneficiary_account_before;
@@ -308,26 +272,41 @@ fn test_add11_yml_with_exception() {
         receipts_root: receipts_trie.hash(),
     };
 
-    // Set trie roots after the transaction was executed.
-    let metadata_to_set = [
-        (
-            GlobalMetadata::StateTrieRootDigestAfter,
-            h2u(trie_roots_after.state_root),
-        ),
-        (
-            GlobalMetadata::TransactionTrieRootDigestAfter,
-            h2u(trie_roots_after.transactions_root),
-        ),
-        (
-            GlobalMetadata::ReceiptTrieRootDigestAfter,
-            h2u(trie_roots_after.receipts_root),
-        ),
-        // The gas used in this case is the transaction gas limit
-        (GlobalMetadata::BlockGasUsedAfter, txn_gas_limit.into()),
-    ];
-    interpreter.set_global_metadata_multi_fields(&metadata_to_set);
+    let block_metadata = BlockMetadata {
+        block_beneficiary: Address::from(beneficiary),
+        block_timestamp: 0x03e8.into(),
+        block_number: 1.into(),
+        block_difficulty: 0x020000.into(),
+        block_random: H256::from_uint(&0x020000.into()),
+        block_gaslimit: 0xff112233u32.into(),
+        block_chain_id: 1.into(),
+        block_base_fee: 0xa.into(),
+        block_gas_used: txn_gas_limit.into(),
+        block_bloom: [0.into(); 8],
+    };
 
-    let route_txn_label = KERNEL.global_labels["hash_initial_tries"];
+    let tries_inputs = GenerationInputs {
+        signed_txn: Some(txn.to_vec()),
+        withdrawals: vec![],
+        tries: tries_before,
+        trie_roots_after,
+        contract_code: contract_code.clone(),
+        block_metadata,
+        checkpoint_state_trie_root: HashedPartialTrie::from(Node::Empty).hash(),
+        txn_number_before: 0.into(),
+        gas_used_before: 0.into(),
+        gas_used_after: txn_gas_limit.into(),
+        block_hashes: BlockHashes {
+            prev_hashes: vec![H256::default(); 256],
+            cur_hash: H256::default(),
+        },
+    };
+
+    let initial_stack = vec![];
+    let mut interpreter =
+        Interpreter::new_with_generation_inputs_and_kernel(0, initial_stack, tries_inputs);
+
+    let route_txn_label = KERNEL.global_labels["main"];
     // Switch context and initialize memory with the data we need for the tests.
     interpreter.generation_state.registers.program_counter = route_txn_label;
     interpreter.set_context_metadata_field(0, ContextMetadata::GasLimit, 1_000_000.into());
