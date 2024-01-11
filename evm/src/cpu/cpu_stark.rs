@@ -413,6 +413,30 @@ pub(crate) fn ctl_filter_set_context<F: Field>() -> Filter<F> {
     )
 }
 
+pub(crate) fn disable_unused_channels<P: PackedField>(
+    lv: &CpuColumnsView<P>,
+    filter: P,
+    channels: Vec<usize>,
+    yield_constr: &mut ConstraintConsumer<P>,
+) {
+    for i in channels {
+        yield_constr.constraint(filter * lv.mem_channels[i].used);
+    }
+}
+
+pub(crate) fn disable_unused_channels_circuit<F: RichField + Extendable<D>, const D: usize>(
+    builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
+    lv: &CpuColumnsView<ExtensionTarget<D>>,
+    filter: ExtensionTarget<D>,
+    channels: Vec<usize>,
+    yield_constr: &mut RecursiveConstraintConsumer<F, D>,
+) {
+    for i in channels {
+        let constr = builder.mul_extension(filter, lv.mem_channels[i].used);
+        yield_constr.constraint(builder, constr);
+    }
+}
+
 /// Structure representing the CPU Stark.
 #[derive(Copy, Clone, Default)]
 pub(crate) struct CpuStark<F, const D: usize> {

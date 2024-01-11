@@ -7,6 +7,7 @@ use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 
 use super::columns::ops::OpsColumnsView;
+use super::cpu_stark::{disable_unused_channels, disable_unused_channels_circuit};
 use super::membus::NUM_GP_CHANNELS;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::CpuColumnsView;
@@ -36,30 +37,6 @@ const KEEPS_CONTEXT: OpsColumnsView<bool> = OpsColumnsView {
     syscall: true,
     exception: true,
 };
-
-fn disable_unused_channels<P: PackedField>(
-    lv: &CpuColumnsView<P>,
-    filter: P,
-    channels: Vec<usize>,
-    yield_constr: &mut ConstraintConsumer<P>,
-) {
-    for i in channels {
-        yield_constr.constraint(filter * lv.mem_channels[i].used);
-    }
-}
-
-fn disable_unused_channels_circuit<F: RichField + Extendable<D>, const D: usize>(
-    builder: &mut CircuitBuilder<F, D>,
-    lv: &CpuColumnsView<ExtensionTarget<D>>,
-    filter: ExtensionTarget<D>,
-    channels: Vec<usize>,
-    yield_constr: &mut RecursiveConstraintConsumer<F, D>,
-) {
-    for i in channels {
-        let constr = builder.mul_extension(filter, lv.mem_channels[i].used);
-        yield_constr.constraint(builder, constr);
-    }
-}
 
 fn eval_packed_keep<P: PackedField>(
     lv: &CpuColumnsView<P>,
