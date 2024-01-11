@@ -63,7 +63,7 @@ where
 }
 
 /// Standard addition formula for elliptic curves, restricted to the cases  
-/// https://en.wikipedia.org/wiki/Elliptic_curve#Algebraic_interpretation
+/// <https://en.wikipedia.org/wiki/Elliptic_curve#Algebraic_interpretation>
 impl<T: FieldExt> Add for Curve<T> {
     type Output = Self;
 
@@ -201,7 +201,7 @@ pub(crate) fn bn_tate(p: Curve<BN254>, q: Curve<Fp2<BN254>>) -> Fp12<BN254> {
 }
 
 /// Standard code for miller loop, can be found on page 99 at this url:
-/// https://static1.squarespace.com/static/5fdbb09f31d71c1227082339/t/5ff394720493bd28278889c6/1609798774687/PairingsForBeginners.pdf#page=107
+/// <https://static1.squarespace.com/static/5fdbb09f31d71c1227082339/t/5ff394720493bd28278889c6/1609798774687/PairingsForBeginners.pdf#page=107>
 /// where BN_EXP is a hardcoding of the array of Booleans that the loop traverses
 pub(crate) fn bn_miller_loop(p: Curve<BN254>, q: Curve<Fp2<BN254>>) -> Fp12<BN254> {
     let mut r = p;
