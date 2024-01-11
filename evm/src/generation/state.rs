@@ -169,7 +169,7 @@ impl<F: Field> GenerationState<F> {
 
 /// Withdrawals prover input array is of the form `[addr0, amount0, ..., addrN, amountN, U256::MAX, U256::MAX]`.
 /// Returns the reversed array.
-fn all_withdrawals_prover_inputs_reversed(withdrawals: &[(Address, U256)]) -> Vec<U256> {
+pub(crate) fn all_withdrawals_prover_inputs_reversed(withdrawals: &[(Address, U256)]) -> Vec<U256> {
     let mut withdrawal_prover_inputs = withdrawals
         .iter()
         .flat_map(|w| [U256::from((w.0).0.as_slice()), w.1])
