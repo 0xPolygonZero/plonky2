@@ -373,27 +373,24 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     pub fn is_nonzero(&mut self, x: Target) -> BoolTarget {
-        self.is_nonzero_helper::<false>(x)
-    }
+        let zero = self.zero();
+        let one = self.one();
+        let inv = self.add_virtual_target();
+        self.add_simple_generator(NonzeroTestGenerator { to_test: x, inv });
 
-    fn is_nonzero_helper<const MALICIOUS: bool>(&mut self, x: Target) -> BoolTarget {
-        // `result = x != 0`, meaning `x == 0` should result in `0` and all other values of x should result in `1`
-        let result = self.add_virtual_bool_target_safe();
-        self.add_simple_generator(NonzeroTestGenerator { to_test: x, result });
+        // if x is zero, result should be `0`, otherwise result should be `1`
+        let result = self.mul(x, inv);
 
-        #[cfg(test)]
-        let result = if MALICIOUS { self.not(result) } else { result };
+        // Enforce the result through arithmetic        
+        let tmp = self.sub(result, one);        // (x * inv - 1)
+        let tmp = self.mul(tmp, x);             // (x * inv - 1) * x
 
-        // Enforce the result through arithmetic
-        let neg = self.not(result); // neg ∈ {0, 1}
-        let denom = self.add(x, neg.target); // denom ∈ { 0+0, 0+1, x+0, x+1}
-        let div = self.div(x, denom); // div ∈ {0/0, 0/1, x/x, x/(x+1)}
+        // If everything has been done correctly, `(x * inv - 1) * x` will always equal 0
+        // this is because either `x * inv` equals `1`, making `(x * inv - 1)` equal `0`
+        // or `x` equals `0`
+        self.connect(tmp, zero);
 
-        // if result was injected honestly, div will be equal to it
-        // if result was injected dishonestly, div will be 0/0 or x/x+1
-        self.connect(result.target, div);
-
-        result
+        BoolTarget::new_unsafe(result)
     }
 }
 
@@ -497,49 +494,5 @@ mod tests {
         let proof = data.prove(pw)?;
 
         verify(proof, &data.verifier_only, &data.common)
-    }
-
-    #[should_panic]
-    #[test]
-    fn test_is_nonzero_malicious_false() {
-        const D: usize = 2;
-        type C = PoseidonGoldilocksConfig;
-        type F = <C as GenericConfig<D>>::F;
-
-        let config = CircuitConfig::standard_recursion_config();
-
-        let mut pw = PartialWitness::<F>::new();
-        let mut builder = CircuitBuilder::<F, D>::new(config);
-
-        let v = nonzero_rand();
-        let t = builder.add_virtual_target();
-        pw.set_target(t, v);
-
-        let _nz0 = builder.is_nonzero_helper::<true>(t);
-
-        let data = builder.build::<C>();
-        let _proof = data.prove(pw);
-    }
-
-    #[should_panic]
-    #[test]
-    fn test_is_nonzero_malicious_true() {
-        const D: usize = 2;
-        type C = PoseidonGoldilocksConfig;
-        type F = <C as GenericConfig<D>>::F;
-
-        let config = CircuitConfig::standard_recursion_config();
-
-        let mut pw = PartialWitness::<F>::new();
-        let mut builder = CircuitBuilder::<F, D>::new(config);
-
-        let v = F::ZERO;
-        let t = builder.add_virtual_target();
-        pw.set_target(t, v);
-
-        let _nz0 = builder.is_nonzero_helper::<true>(t);
-
-        let data = builder.build::<C>();
-        let _proof = data.prove(pw);
     }
 }

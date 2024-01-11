@@ -9,7 +9,7 @@ use crate::field::extension::Extendable;
 use crate::field::types::Field;
 use crate::hash::hash_types::RichField;
 use crate::iop::ext_target::ExtensionTarget;
-use crate::iop::target::{BoolTarget, Target};
+use crate::iop::target::Target;
 use crate::iop::wire::Wire;
 use crate::iop::witness::{PartialWitness, PartitionWitness, Witness, WitnessWrite};
 use crate::plonk::circuit_data::{CommonCircuitData, ProverOnlyCircuitData};
@@ -331,7 +331,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D> for Ran
 #[derive(Debug, Default)]
 pub struct NonzeroTestGenerator {
     pub(crate) to_test: Target,
-    pub(crate) result: BoolTarget,
+    pub(crate) inv: Target,
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D> for NonzeroTestGenerator {
@@ -345,18 +345,25 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D> for Non
 
     fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
         let to_test_value = witness.get_target(self.to_test);
-        out_buffer.set_bool_target(self.result, to_test_value.is_nonzero());
+        
+        let inv_value = if to_test_value.is_zero() {
+            F::ONE
+        } else {
+            to_test_value.inverse()
+        };
+
+        out_buffer.set_target(self.inv, inv_value);
     }
 
     fn serialize(&self, dst: &mut Vec<u8>, _common_data: &CommonCircuitData<F, D>) -> IoResult<()> {
         dst.write_target(self.to_test)?;
-        dst.write_target_bool(self.result)
+        dst.write_target(self.inv)
     }
 
     fn deserialize(src: &mut Buffer, _common_data: &CommonCircuitData<F, D>) -> IoResult<Self> {
         let to_test = src.read_target()?;
-        let result = src.read_target_bool()?;
-        Ok(Self { to_test, result })
+        let dummy = src.read_target()?;
+        Ok(Self { to_test, inv: dummy })
     }
 }
 
