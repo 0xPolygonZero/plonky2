@@ -138,11 +138,6 @@ fn eval_packed_dup<P: PackedField>(
 
     // Disable next top.
     yield_constr.constraint(filter * nv.mem_channels[0].used);
-
-    // Constrain unused channels.
-    for i in 3..NUM_GP_CHANNELS {
-        yield_constr.constraint(filter * lv.mem_channels[i].used);
-    }
 }
 
 /// Circuit version of `eval_packed_dup`.
@@ -205,12 +200,6 @@ fn eval_ext_circuit_dup<F: RichField + Extendable<D>, const D: usize>(
         let constr = builder.mul_extension(filter, nv.mem_channels[0].used);
         yield_constr.constraint(builder, constr);
     }
-
-    // Constrain unused channels.
-    for i in 3..NUM_GP_CHANNELS {
-        let constr = builder.mul_extension(filter, lv.mem_channels[i].used);
-        yield_constr.constraint(builder, constr);
-    }
 }
 
 /// Evaluates constraints for SWAP.
@@ -245,11 +234,6 @@ fn eval_packed_swap<P: PackedField>(
 
     // Disable next top.
     yield_constr.constraint(filter * nv.mem_channels[0].used);
-
-    // Constrain unused channels.
-    for i in 3..NUM_GP_CHANNELS {
-        yield_constr.constraint(filter * lv.mem_channels[i].used);
-    }
 }
 
 /// Circuit version of `eval_packed_swap`.
@@ -312,12 +296,6 @@ fn eval_ext_circuit_swap<F: RichField + Extendable<D>, const D: usize>(
     // Disable next top.
     {
         let constr = builder.mul_extension(filter, nv.mem_channels[0].used);
-        yield_constr.constraint(builder, constr);
-    }
-
-    // Constrain unused channels.
-    for i in 3..NUM_GP_CHANNELS {
-        let constr = builder.mul_extension(filter, lv.mem_channels[i].used);
         yield_constr.constraint(builder, constr);
     }
 }

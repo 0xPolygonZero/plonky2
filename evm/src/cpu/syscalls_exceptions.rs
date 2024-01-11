@@ -17,7 +17,6 @@ use crate::memory::segments::Segment;
 
 // Copy the constant but make it `usize`.
 const BYTES_PER_OFFSET: usize = crate::cpu::kernel::assembler::BYTES_PER_OFFSET as usize;
-const_assert!(BYTES_PER_OFFSET < NUM_GP_CHANNELS); // Reserve one channel for stack push
 
 /// Evaluates constraints for syscalls and exceptions.
 pub(crate) fn eval_packed<P: PackedField>(
@@ -28,6 +27,12 @@ pub(crate) fn eval_packed<P: PackedField>(
     let filter_syscall = lv.op.syscall;
     let filter_exception = lv.op.exception;
     let total_filter = filter_syscall + filter_exception;
+
+    // First, constrain filters to be boolean.
+    // Ensuring they are mutually exclusive is done in other modules
+    // through the `is_cpu_cycle` variable.
+    yield_constr.constraint(filter_syscall * (filter_syscall - P::ONES));
+    yield_constr.constraint(filter_exception * (filter_exception - P::ONES));
 
     // If exception, ensure we are not in kernel mode
     yield_constr.constraint(filter_exception * lv.is_kernel_mode);
@@ -65,41 +70,38 @@ pub(crate) fn eval_packed<P: PackedField>(
     let exc_handler_addr_start =
         exc_jumptable_start + exc_code * P::Scalar::from_canonical_usize(BYTES_PER_OFFSET);
 
-    for (i, channel) in lv.mem_channels[1..BYTES_PER_OFFSET + 1].iter().enumerate() {
-        // Set `used` and `is_read`.
-        yield_constr.constraint(total_filter * (channel.used - P::ONES));
-        yield_constr.constraint(total_filter * (channel.is_read - P::ONES));
+    let jumpdest_channel = lv.mem_channels[1];
 
-        // Set kernel context and code segment
-        yield_constr.constraint(total_filter * channel.addr_context);
-        yield_constr.constraint(total_filter * (channel.addr_segment - code_segment));
+    // Set `used` and `is_read`.
+    // The channel is not used: the reads will be done with the byte packing CTL.
+    yield_constr.constraint(total_filter * (jumpdest_channel.used));
+    yield_constr.constraint(total_filter * (jumpdest_channel.is_read - P::ONES));
 
-        // Set address, using a separate channel for each of the `BYTES_PER_OFFSET` limbs.
-        let limb_address_syscall = opcode_handler_addr_start + P::Scalar::from_canonical_usize(i);
-        let limb_address_exception = exc_handler_addr_start + P::Scalar::from_canonical_usize(i);
+    // Set kernel context and code segment
+    yield_constr.constraint(total_filter * jumpdest_channel.addr_context);
+    yield_constr.constraint(total_filter * (jumpdest_channel.addr_segment - code_segment));
 
-        yield_constr.constraint(filter_syscall * (channel.addr_virtual - limb_address_syscall));
-        yield_constr.constraint(filter_exception * (channel.addr_virtual - limb_address_exception));
+    // Set address.
+    yield_constr
+        .constraint(filter_syscall * (jumpdest_channel.addr_virtual - opcode_handler_addr_start));
+    yield_constr
+        .constraint(filter_exception * (jumpdest_channel.addr_virtual - exc_handler_addr_start));
+
+    // Set higher limbs to zero.
+    for &limb in &jumpdest_channel.value[1..] {
+        yield_constr.constraint(total_filter * limb);
     }
 
     // Disable unused channels
-    for channel in &lv.mem_channels[BYTES_PER_OFFSET + 1..NUM_GP_CHANNELS] {
+    for channel in &lv.mem_channels[2..NUM_GP_CHANNELS] {
         yield_constr.constraint(total_filter * channel.used);
     }
 
     // Set program counter to the handler address
-    // The addresses are big-endian in memory
-    let target = lv.mem_channels[1..BYTES_PER_OFFSET + 1]
-        .iter()
-        .map(|channel| channel.value[0])
-        .fold(P::ZEROS, |cumul, limb| {
-            cumul * P::Scalar::from_canonical_u64(256) + limb
-        });
-    yield_constr.constraint_transition(total_filter * (nv.program_counter - target));
+    yield_constr
+        .constraint_transition(total_filter * (nv.program_counter - jumpdest_channel.value[0]));
     // Set kernel mode
     yield_constr.constraint_transition(total_filter * (nv.is_kernel_mode - P::ONES));
-    // Maintain current context
-    yield_constr.constraint_transition(total_filter * (nv.context - lv.context));
     // Reset gas counter to zero.
     yield_constr.constraint_transition(total_filter * nv.gas);
 
@@ -131,6 +133,14 @@ pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let filter_syscall = lv.op.syscall;
     let filter_exception = lv.op.exception;
     let total_filter = builder.add_extension(filter_syscall, filter_exception);
+
+    // First, constrain filters to be boolean.
+    // Ensuring they are mutually exclusive is done in other modules
+    // through the `is_cpu_cycle` variable.
+    let constr = builder.mul_sub_extension(filter_syscall, filter_syscall, filter_syscall);
+    yield_constr.constraint(builder, constr);
+    let constr = builder.mul_sub_extension(filter_exception, filter_exception, filter_exception);
+    yield_constr.constraint(builder, constr);
 
     // Ensure that, if exception, we are not in kernel mode
     let constr = builder.mul_extension(filter_exception, lv.is_kernel_mode);
@@ -183,61 +193,58 @@ pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
         exc_jumptable_start,
     );
 
-    for (i, channel) in lv.mem_channels[1..BYTES_PER_OFFSET + 1].iter().enumerate() {
-        // Set `used` and `is_read`.
-        {
-            let constr = builder.mul_sub_extension(total_filter, channel.used, total_filter);
-            yield_constr.constraint(builder, constr);
-        }
-        {
-            let constr = builder.mul_sub_extension(total_filter, channel.is_read, total_filter);
-            yield_constr.constraint(builder, constr);
-        }
+    let jumpdest_channel = lv.mem_channels[1];
 
-        // Set kernel context and code segment
-        {
-            let constr = builder.mul_extension(total_filter, channel.addr_context);
-            yield_constr.constraint(builder, constr);
-        }
-        {
-            let constr = builder.arithmetic_extension(
-                F::ONE,
-                -code_segment,
-                total_filter,
-                channel.addr_segment,
-                total_filter,
-            );
-            yield_constr.constraint(builder, constr);
-        }
-
-        // Set address, using a separate channel for each of the `BYTES_PER_OFFSET` limbs.
-        {
-            let diff_syscall =
-                builder.sub_extension(channel.addr_virtual, opcode_handler_addr_start);
-            let constr = builder.arithmetic_extension(
-                F::ONE,
-                -F::from_canonical_usize(i),
-                filter_syscall,
-                diff_syscall,
-                filter_syscall,
-            );
-            yield_constr.constraint(builder, constr);
-
-            let diff_exception =
-                builder.sub_extension(channel.addr_virtual, exc_handler_addr_start);
-            let constr = builder.arithmetic_extension(
-                F::ONE,
-                -F::from_canonical_usize(i),
-                filter_exception,
-                diff_exception,
-                filter_exception,
-            );
-            yield_constr.constraint(builder, constr);
-        }
+    // Set `used` and `is_read`.
+    // The channel is not used: the reads will be done with the byte packing CTL.
+    {
+        let constr = builder.mul_extension(total_filter, jumpdest_channel.used);
+        yield_constr.constraint(builder, constr);
+    }
+    {
+        let constr =
+            builder.mul_sub_extension(total_filter, jumpdest_channel.is_read, total_filter);
+        yield_constr.constraint(builder, constr);
     }
 
-    // Disable unused channels (the last channel is used to push to the stack)
-    for channel in &lv.mem_channels[BYTES_PER_OFFSET + 1..NUM_GP_CHANNELS] {
+    // Set kernel context and code segment
+    {
+        let constr = builder.mul_extension(total_filter, jumpdest_channel.addr_context);
+        yield_constr.constraint(builder, constr);
+    }
+    {
+        let constr = builder.arithmetic_extension(
+            F::ONE,
+            -code_segment,
+            total_filter,
+            jumpdest_channel.addr_segment,
+            total_filter,
+        );
+        yield_constr.constraint(builder, constr);
+    }
+
+    // Set address.
+    {
+        let diff_syscall =
+            builder.sub_extension(jumpdest_channel.addr_virtual, opcode_handler_addr_start);
+        let constr = builder.mul_extension((filter_syscall), diff_syscall);
+        yield_constr.constraint(builder, constr);
+    }
+    {
+        let diff_exception =
+            builder.sub_extension(jumpdest_channel.addr_virtual, exc_handler_addr_start);
+        let constr = builder.mul_extension(filter_exception, diff_exception);
+        yield_constr.constraint(builder, constr);
+    }
+
+    // Set higher limbs to zero.
+    for &limb in &jumpdest_channel.value[1..] {
+        let constr = builder.mul_extension(total_filter, limb);
+        yield_constr.constraint(builder, constr);
+    }
+
+    // Disable unused channels
+    for channel in &lv.mem_channels[2..NUM_GP_CHANNELS] {
         let constr = builder.mul_extension(total_filter, channel.used);
         yield_constr.constraint(builder, constr);
     }
@@ -245,25 +252,13 @@ pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     // Set program counter to the handler address
     // The addresses are big-endian in memory
     {
-        let target = lv.mem_channels[1..BYTES_PER_OFFSET + 1]
-            .iter()
-            .map(|channel| channel.value[0])
-            .fold(builder.zero_extension(), |cumul, limb| {
-                builder.mul_const_add_extension(F::from_canonical_u64(256), cumul, limb)
-            });
-        let diff = builder.sub_extension(nv.program_counter, target);
+        let diff = builder.sub_extension(nv.program_counter, jumpdest_channel.value[0]);
         let constr = builder.mul_extension(total_filter, diff);
         yield_constr.constraint_transition(builder, constr);
     }
     // Set kernel mode
     {
         let constr = builder.mul_sub_extension(total_filter, nv.is_kernel_mode, total_filter);
-        yield_constr.constraint_transition(builder, constr);
-    }
-    // Maintain current context
-    {
-        let diff = builder.sub_extension(nv.context, lv.context);
-        let constr = builder.mul_extension(total_filter, diff);
         yield_constr.constraint_transition(builder, constr);
     }
     // Reset gas counter to zero.

@@ -1,3 +1,17 @@
+//! Circuit data specific to the prover and the verifier.
+//!
+//! This module also defines a [`CircuitConfig`] to be customized
+//! when building circuits for arbitrary statements.
+//!
+//! After building a circuit, one obtains an instance of [`CircuitData`].
+//! This contains both prover and verifier data, allowing to generate
+//! proofs for the given circuit and verify them.
+//!
+//! Most of the [`CircuitData`] is actually prover-specific, and can be
+//! extracted by calling [`CircuitData::prover_data`] method.
+//! The verifier data can similarly be extracted by calling [`CircuitData::verifier_data`].
+//! This is useful to allow even small devices to verify plonky2 proofs.
+
 use alloc::collections::BTreeMap;
 use alloc::vec;
 use alloc::vec::Vec;
@@ -38,10 +52,22 @@ use crate::util::serialization::{
 };
 use crate::util::timing::TimingTree;
 
+/// Configuration to be used when building a circuit. This defines the shape of the circuit
+/// as well as its targeted security level and sub-protocol (e.g. FRI) parameters.
+///
+/// It supports a [`Default`] implementation tailored for recursion with Poseidon hash (of width 12)
+/// as internal hash function and FRI rate of 1/8.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct CircuitConfig {
+    /// The number of wires available at each row. This corresponds to the "width" of the circuit,
+    /// and consists in the sum of routed wires and advice wires.
     pub num_wires: usize,
+    /// The number of routed wires, i.e. wires that will be involved in Plonk's permutation argument.
+    /// This allows copy constraints, i.e. enforcing that two distant values in a circuit are equal.
+    /// Non-routed wires are called advice wires.
     pub num_routed_wires: usize,
+    /// The number of constants that can be used per gate. If a gate requires more constants than the config
+    /// allows, the [`CircuitBuilder`] will complain when trying to add this gate to its set of gates.
     pub num_constants: usize,
     /// Whether to use a dedicated gate for base field arithmetic, rather than using a single gate
     /// for both base field and extension field arithmetic.
@@ -50,6 +76,8 @@ pub struct CircuitConfig {
     /// The number of challenge points to generate, for IOPs that have soundness errors of (roughly)
     /// `degree / |F|`.
     pub num_challenges: usize,
+    /// A boolean to activate the zero-knowledge property. When this is set to `false`, proofs *may*
+    /// leak additional information.
     pub zero_knowledge: bool,
     /// A cap on the quotient polynomial's degree factor. The actual degree factor is derived
     /// systematically, but will never exceed this value.

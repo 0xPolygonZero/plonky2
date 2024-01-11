@@ -1,3 +1,5 @@
+//! Utility module for helper methods and plonky2 serialization logic.
+
 use alloc::vec::Vec;
 
 use plonky2_maybe_rayon::*;

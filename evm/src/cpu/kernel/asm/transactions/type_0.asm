@@ -61,7 +61,7 @@ process_v_new_style:
     %sub_const(35)
     DUP1
     // stack: v - 35, v - 35, rlp_addr, retdest
-    %div_const(2)
+    %div2
     // stack: chain_id, v - 35, rlp_addr, retdest
     %mstore_txn_field(@TXN_FIELD_CHAIN_ID)
 
@@ -94,11 +94,11 @@ type_0_compute_signed_data:
     // stack: rlp_addr, rlp_addr_start, retdest
 
     %mload_txn_field(@TXN_FIELD_MAX_FEE_PER_GAS)
-    SWAP1 %encode_rlp_scalar
+    %encode_rlp_scalar_swapped_inputs
     // stack: rlp_addr, rlp_addr_start, retdest
 
     %mload_txn_field(@TXN_FIELD_GAS_LIMIT)
-    SWAP1 %encode_rlp_scalar
+    %encode_rlp_scalar_swapped_inputs
     // stack: rlp_addr, rlp_addr_start, retdest
 
     %mload_txn_field(@TXN_FIELD_TO)
@@ -108,12 +108,12 @@ type_0_compute_signed_data:
     %jump(after_to)
 zero_to:
     // stack: to, rlp_addr, rlp_addr_start, retdest
-    SWAP1 %encode_rlp_scalar
+    %encode_rlp_scalar_swapped_inputs
     // stack: rlp_addr, rlp_addr_start, retdest
 
 after_to:
     %mload_txn_field(@TXN_FIELD_VALUE)
-    SWAP1 %encode_rlp_scalar
+    %encode_rlp_scalar_swapped_inputs
     // stack: rlp_addr, rlp_addr_start, retdest
 
     // Encode txn data.
@@ -133,15 +133,15 @@ after_serializing_txn_data:
     // stack: rlp_addr, rlp_addr_start, retdest
 
     %mload_txn_field(@TXN_FIELD_CHAIN_ID)
-    SWAP1 %encode_rlp_scalar
+    %encode_rlp_scalar_swapped_inputs
     // stack: rlp_addr, rlp_addr_start, retdest
 
     PUSH 0
-    SWAP1 %encode_rlp_scalar
+    %encode_rlp_scalar_swapped_inputs
     // stack: rlp_addr, rlp_addr_start, retdest
 
     PUSH 0
-    SWAP1 %encode_rlp_scalar
+    %encode_rlp_scalar_swapped_inputs
     // stack: rlp_addr, rlp_addr_start, retdest
 
 finish_rlp_list:

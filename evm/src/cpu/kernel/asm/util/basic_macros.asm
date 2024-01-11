@@ -8,6 +8,19 @@
     jumpi
 %endmacro
 
+// Jump to `jumpdest` if the top of the stack is != c
+%macro jump_neq_const(c, jumpdest)
+    PUSH $c
+    SUB
+    %jumpi($jumpdest)
+%endmacro
+
+// Jump to `jumpdest` if the top of the stack is < c
+%macro jumpi_lt_const(c, jumpdest)
+    %ge_const($c)
+    %jumpi($jumpdest)
+%endmacro
+
 %macro pop2
     %rep 2
         POP
@@ -271,9 +284,9 @@
 
 %macro ceil_div
     // stack: x, y
-    DUP2
-    // stack: y, x, y
-    %decrement
+    PUSH 1
+    DUP3
+    SUB // y - 1
     // stack: y - 1, x, y
     ADD
     DIV
@@ -333,7 +346,10 @@
 %endmacro
 
 %macro div2
-    %div_const(2)
+    // stack: x
+    PUSH 1
+    SHR
+    // stack: x >> 1
 %endmacro
 
 %macro iseven
