@@ -3,8 +3,8 @@
 //! This module defines a [`Hasher`] trait as well as its recursive
 //! counterpart [`AlgebraicHasher`] for in-circuit hashing. It also
 //! provides concrete configurations, one fully recursive leveraging
-//! Poseidon hash function both internally and natively, and one mixing
-//! Poseidon internally and truncated Keccak externally.
+//! the Poseidon hash function both internally and natively, and one
+//! mixing Poseidon internally and truncated Keccak externally.
 
 use alloc::vec;
 use alloc::vec::Vec;

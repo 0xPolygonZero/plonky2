@@ -17,7 +17,7 @@ use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 use crate::util::serialization::{Buffer, IoResult, Read, Write};
 
 /// A gate which can perform a weighted multiply-add, i.e. `result = c0.x.y + c1.z`. If the config
-/// supports enough routed wires, it can support several such operations in one gate.
+/// has enough routed wires, it can support several such operations in one gate.
 #[derive(Debug, Clone)]
 pub struct ArithmeticExtensionGate<const D: usize> {
     /// Number of arithmetic operations performed by an arithmetic gate.

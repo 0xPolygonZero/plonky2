@@ -17,8 +17,8 @@ use crate::plonk::circuit_data::CircuitConfig;
 /// the [PartialWitness](crate::iop::witness::PartialWitness) interface.
 ///
 /// There are different "variants" of the `Target` type, namely [`ExtensionTarget`],
-/// [ExtensionAlgebraTarget](crate::iop::ext_target::ExtensionAlgebraTarget), but the `Target`
-/// type is the default one for most circuits verifying some simple statement.
+/// [ExtensionAlgebraTarget](crate::iop::ext_target::ExtensionAlgebraTarget).
+/// The `Target` type is the default one for most circuits verifying some simple statement.
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize)]
 pub enum Target {
     /// A target that has a fixed location in the witness (seen as a `degree x num_wires` grid).

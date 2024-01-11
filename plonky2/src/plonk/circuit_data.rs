@@ -66,6 +66,8 @@ pub struct CircuitConfig {
     /// This allows copy constraints, i.e. enforcing that two distant values in a circuit are equal.
     /// Non-routed wires are called advice wires.
     pub num_routed_wires: usize,
+    /// The number of constants that can be used per gate. If a gate requires more constants than the config
+    /// allows, the [`CircuitBuilder`] will complain when trying to add this gate to its set of gates.
     pub num_constants: usize,
     /// Whether to use a dedicated gate for base field arithmetic, rather than using a single gate
     /// for both base field and extension field arithmetic.

@@ -14,7 +14,7 @@
 //! instance, to define a multiplication, one can set q_M=1, q_L=q_R=0, q_O = -1 and q_C = 0.
 //! Hence, the gate equation simplifies to a.b - c = 0, or a.b = c.
 //!
-//! However, such gate is fairly limited for more complex computations. Hence, when a computation may
+//! However, such a gate is fairly limited for more complex computations. Hence, when a computation may
 //! require too many of these "vanilla" gates, or when a computation arises often within the same circuit,
 //! one may want to construct a tailored custom gate. These custom gates can use more selectors and are
 //! not necessarily limited to 2 inputs + 1 output = 3 wires.

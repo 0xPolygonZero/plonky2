@@ -486,7 +486,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     /// Adds a gate type to the set of gates to be used in this circuit. This can be useful
-    /// in conditional recursion to uniformize the gates set of the different circuits.
+    /// in conditional recursion to uniformize the set of gates of the different circuits.
     pub fn add_gate_to_gate_set(&mut self, gate: GateRef<F, D>) {
         self.gates.insert(gate);
     }
@@ -575,12 +575,12 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.constant(F::NEG_ONE)
     }
 
-    /// Returns a rootable boolean target set to false.
+    /// Returns a routable boolean target set to false.
     pub fn _false(&mut self) -> BoolTarget {
         BoolTarget::new_unsafe(self.zero())
     }
 
-    /// Returns a rootable boolean target set to true.
+    /// Returns a routable boolean target set to true.
     pub fn _true(&mut self) -> BoolTarget {
         BoolTarget::new_unsafe(self.one())
     }

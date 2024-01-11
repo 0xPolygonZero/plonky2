@@ -1,4 +1,6 @@
-//! Fast Reed-Solomon IOP (FRI) protocol and its circuit version
+//! Fast Reed-Solomon IOP (FRI) protocol.
+//!
+//! It provides both a native implementation and an in-circuit version
 //! of the FRI verifier for recursive proof composition.
 
 use alloc::vec::Vec;
