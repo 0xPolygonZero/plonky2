@@ -190,7 +190,7 @@ pub(crate) fn ctl_filter_byte_unpacking<F: Field>() -> Filter<F> {
     )
 }
 
-/// /// Creates the vector of `Columns` corresponding to three consecutive (byte) reads in memory.
+/// Creates the vector of `Columns` corresponding to three consecutive (byte) reads in memory.
 /// It's used by syscalls and exceptions to read an address in a jumptable.
 pub(crate) fn ctl_data_jumptable_read<F: Field>() -> Vec<Column<F>> {
     let is_read = Column::constant(F::ONE);
@@ -413,6 +413,9 @@ pub(crate) fn ctl_filter_set_context<F: Field>() -> Filter<F> {
     )
 }
 
+/// Disable the specified memory channels.
+/// Since channel 0 contains the top of the stack and is handled specially,
+/// channels to disable are 1, 2 or both. All cases can be expressed as a vec.
 pub(crate) fn disable_unused_channels<P: PackedField>(
     lv: &CpuColumnsView<P>,
     filter: P,
@@ -424,6 +427,10 @@ pub(crate) fn disable_unused_channels<P: PackedField>(
     }
 }
 
+/// Circuit version of `disable_unused_channels`.
+/// Disable the specified memory channels.
+/// Since channel 0 contains the top of the stack and is handled specially,
+/// channels to disable are 1, 2 or both. All cases can be expressed as a vec.
 pub(crate) fn disable_unused_channels_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
     lv: &CpuColumnsView<ExtensionTarget<D>>,
