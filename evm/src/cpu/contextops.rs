@@ -37,6 +37,30 @@ const KEEPS_CONTEXT: OpsColumnsView<bool> = OpsColumnsView {
     exception: true,
 };
 
+fn disable_unused_channels<P: PackedField>(
+    lv: &CpuColumnsView<P>,
+    filter: P,
+    channels: Vec<usize>,
+    yield_constr: &mut ConstraintConsumer<P>,
+) {
+    for i in channels {
+        yield_constr.constraint(filter * lv.mem_channels[i].used);
+    }
+}
+
+fn disable_unused_channels_circuit<F: RichField + Extendable<D>, const D: usize>(
+    builder: &mut CircuitBuilder<F, D>,
+    lv: &CpuColumnsView<ExtensionTarget<D>>,
+    filter: ExtensionTarget<D>,
+    channels: Vec<usize>,
+    yield_constr: &mut RecursiveConstraintConsumer<F, D>,
+) {
+    for i in channels {
+        let constr = builder.mul_extension(filter, lv.mem_channels[i].used);
+        yield_constr.constraint(builder, constr);
+    }
+}
+
 fn eval_packed_keep<P: PackedField>(
     lv: &CpuColumnsView<P>,
     nv: &CpuColumnsView<P>,
@@ -95,12 +119,7 @@ fn eval_packed_get<P: PackedField>(
     yield_constr.constraint(filter * (nv.stack_len - (lv.stack_len + P::ONES)));
 
     // Unused channels.
-    for i in 1..NUM_GP_CHANNELS {
-        if i != 2 {
-            let channel = lv.mem_channels[i];
-            yield_constr.constraint(filter * channel.used);
-        }
-    }
+    disable_unused_channels(lv, filter, vec![1], yield_constr);
     yield_constr.constraint(filter * nv.mem_channels[0].used);
 }
 
@@ -137,13 +156,7 @@ fn eval_ext_circuit_get<F: RichField + Extendable<D>, const D: usize>(
     }
 
     // Unused channels.
-    for i in 1..NUM_GP_CHANNELS {
-        if i != 2 {
-            let channel = lv.mem_channels[i];
-            let constr = builder.mul_extension(filter, channel.used);
-            yield_constr.constraint(builder, constr);
-        }
-    }
+    disable_unused_channels_circuit(builder, lv, filter, vec![1], yield_constr);
     {
         let constr = builder.mul_extension(filter, nv.mem_channels[0].used);
         yield_constr.constraint(builder, constr);

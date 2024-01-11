@@ -267,14 +267,17 @@ fn ctl_memory<F: Field>() -> CrossTableLookup<F> {
             Some(byte_packing_stark::ctl_looking_memory_filter(i)),
         )
     });
-    let all_lookers = iter::once(cpu_memory_code_read)
-        .chain(cpu_memory_gp_ops)
-        .chain(iter::once(cpu_push_write_ops))
-        .chain(iter::once(cpu_set_context_write))
-        .chain(iter::once(cpu_set_context_read))
-        .chain(keccak_sponge_reads)
-        .chain(byte_packing_ops)
-        .collect();
+    let all_lookers = vec![
+        cpu_memory_code_read,
+        cpu_push_write_ops,
+        cpu_set_context_write,
+        cpu_set_context_read,
+    ]
+    .into_iter()
+    .chain(cpu_memory_gp_ops)
+    .chain(keccak_sponge_reads)
+    .chain(byte_packing_ops)
+    .collect();
     let memory_looked = TableWithColumns::new(
         Table::Memory,
         memory_stark::ctl_data(),
