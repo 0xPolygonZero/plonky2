@@ -153,7 +153,7 @@ impl<'a> Interpreter<'a> {
         result
     }
 
-    /// Returns an `Interpreter` given `GenerationInputs`, and assuming we are
+    /// Returns an instance of `Interpreter` given `GenerationInputs`, and assuming we are
     /// initializing with the `KERNEL` code.
     pub(crate) fn new_with_generation_inputs_and_kernel(
         initial_offset: usize,
@@ -196,13 +196,12 @@ impl<'a> Interpreter<'a> {
         result
     }
 
-    /// Initialize interpreter state given `GenerationInputs`. This assumes that the
-    /// loaded code is the KERNEL code.
+    /// Initializes the interpreter state given `GenerationInputs`, using the KERNEL code.
     pub(crate) fn initialize_interpreter_state_with_kernel(&mut self, inputs: GenerationInputs) {
         self.initialize_interpreter_state(inputs, KERNEL.code_hash, KERNEL.code.len());
     }
 
-    /// Initialize interpreter state given `GenerationInputs`.
+    /// Initializes the interpreter state given `GenerationInputs`.
     pub(crate) fn initialize_interpreter_state(
         &mut self,
         inputs: GenerationInputs,
