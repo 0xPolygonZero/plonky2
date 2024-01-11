@@ -10,7 +10,7 @@ use super::mpt::{load_all_mpts, TrieRootPtrs};
 use super::TrieInputs;
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::constants::context_metadata::ContextMetadata;
-use crate::generation::rlp::{all_rlp_prover_inputs_reversed, all_rlp_prover_inputs_reversed_old};
+use crate::generation::rlp::all_rlp_prover_inputs_reversed;
 use crate::generation::GenerationInputs;
 use crate::memory::segments::Segment;
 use crate::util::u256_to_usize;
@@ -35,8 +35,6 @@ pub(crate) struct GenerationState<F: Field> {
     /// Prover inputs containing RLP data, in reverse order so that the next input can be obtained
     /// via `pop()`.
     pub(crate) rlp_prover_inputs: Vec<U256>,
-
-    pub(crate) rlp_prover_inputs_old: Vec<U256>,
 
     pub(crate) withdrawal_prover_inputs: Vec<U256>,
 
@@ -82,9 +80,6 @@ impl<F: Field> GenerationState<F> {
 
         let rlp_prover_inputs =
             all_rlp_prover_inputs_reversed(inputs.clone().signed_txn.as_ref().unwrap_or(&vec![]));
-        let rlp_prover_inputs_old = all_rlp_prover_inputs_reversed_old(
-            inputs.clone().signed_txn.as_ref().unwrap_or(&vec![]),
-        );
         let withdrawal_prover_inputs = all_withdrawals_prover_inputs_reversed(&inputs.withdrawals);
         let bignum_modmul_result_limbs = Vec::new();
 
@@ -94,7 +89,6 @@ impl<F: Field> GenerationState<F> {
             memory: MemoryState::new(kernel_code),
             traces: Traces::default(),
             rlp_prover_inputs,
-            rlp_prover_inputs_old,
             withdrawal_prover_inputs,
             state_key_to_address: HashMap::new(),
             bignum_modmul_result_limbs,
