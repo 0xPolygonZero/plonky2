@@ -28,6 +28,12 @@ pub(crate) fn eval_packed<P: PackedField>(
     let filter_exception = lv.op.exception;
     let total_filter = filter_syscall + filter_exception;
 
+    // First, constrain filters to be boolean.
+    // Ensuring they are mutually exclusive is done in other modules
+    // through the `is_cpu_cycle` variable.
+    yield_constr.constraint(filter_syscall * (filter_syscall - P::ONES));
+    yield_constr.constraint(filter_exception * (filter_exception - P::ONES));
+
     // If exception, ensure we are not in kernel mode
     yield_constr.constraint(filter_exception * lv.is_kernel_mode);
 
@@ -127,6 +133,14 @@ pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let filter_syscall = lv.op.syscall;
     let filter_exception = lv.op.exception;
     let total_filter = builder.add_extension(filter_syscall, filter_exception);
+
+    // First, constrain filters to be boolean.
+    // Ensuring they are mutually exclusive is done in other modules
+    // through the `is_cpu_cycle` variable.
+    let constr = builder.mul_sub_extension(filter_syscall, filter_syscall, filter_syscall);
+    yield_constr.constraint(builder, constr);
+    let constr = builder.mul_sub_extension(filter_exception, filter_exception, filter_exception);
+    yield_constr.constraint(builder, constr);
 
     // Ensure that, if exception, we are not in kernel mode
     let constr = builder.mul_extension(filter_exception, lv.is_kernel_mode);

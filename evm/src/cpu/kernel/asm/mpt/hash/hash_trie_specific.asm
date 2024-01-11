@@ -101,6 +101,10 @@ global encode_account:
     DUP3 %add_const(2) %mload_trie_data // storage_root_ptr = value[2]
     // stack: storage_root_ptr, cur_len, rlp_pos_5, value_ptr, cur_len, retdest
 
+
+    PUSH debug_after_hash_storage_trie
+    POP
+
     // Hash storage trie.
     %mpt_hash_storage_trie
     // stack: storage_root_digest, new_len, rlp_pos_5, value_ptr, cur_len, retdest
@@ -322,8 +326,8 @@ encode_nonzero_receipt_type:
     // stack: rlp_receipt_len, txn_type, rlp_addr, value_ptr, retdest
     DUP3 %encode_rlp_multi_byte_string_prefix
     // stack: rlp_addr, txn_type, old_rlp_addr, value_ptr, retdest
-    DUP2 DUP2
-    %mstore_rlp
+    DUP1 DUP3
+    MSTORE_GENERAL
     %increment
     // stack: rlp_addr, txn_type, old_rlp_addr, value_ptr, retdest
     %stack (rlp_addr, txn_type, old_rlp_addr, value_ptr, retdest) -> (rlp_addr, value_ptr, retdest)

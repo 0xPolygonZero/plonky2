@@ -140,12 +140,14 @@ enum InterpreterMemOpKind {
 
 impl<'a> Interpreter<'a> {
     pub(crate) fn new_with_kernel(initial_offset: usize, initial_stack: Vec<U256>) -> Self {
-        Self::new(
+        let mut result = Self::new(
             &KERNEL.code,
             initial_offset,
             initial_stack,
             &KERNEL.prover_inputs,
-        )
+        );
+        result.initialize_rlp_segment();
+        result
     }
 
     pub(crate) fn new(
@@ -1192,6 +1194,14 @@ impl<'a> Interpreter<'a> {
             assert!(self.is_kernel());
         }
         self.generation_state.registers.context = context;
+    }
+
+    /// Writes the encoding of 0 to position @ENCODED_EMPTY_NODE_POS.
+    pub(crate) fn initialize_rlp_segment(&mut self) {
+        self.generation_state.memory.set(
+            MemoryAddress::new(0, Segment::RlpRaw, 0xFFFFFFFF),
+            128.into(),
+        )
     }
 }
 

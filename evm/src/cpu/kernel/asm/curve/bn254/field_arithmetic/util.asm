@@ -1,7 +1,7 @@
 // Load a single value from bn254 pairings memory.
 %macro mload_bn254_pairing
     // stack: offset
-    %mload_current(@SEGMENT_KERNEL_BN_PAIRING)
+    %mload_current(@SEGMENT_BN_PAIRING)
     // stack: value
 %endmacro
 
@@ -9,14 +9,14 @@
     // stack:
     PUSH $offset
     // stack: offset
-    %mload_current(@SEGMENT_KERNEL_BN_PAIRING)
+    %mload_current(@SEGMENT_BN_PAIRING)
     // stack: value
 %endmacro
 
 // Store a single value to bn254 pairings memory.
 %macro mstore_bn254_pairing
     // stack: offset, value
-    %mstore_current(@SEGMENT_KERNEL_BN_PAIRING)
+    %mstore_current(@SEGMENT_BN_PAIRING)
     // stack:
 %endmacro
 
@@ -24,7 +24,7 @@
     // stack: value
     PUSH $offset
     // stack: offset, value
-    %mstore_current(@SEGMENT_KERNEL_BN_PAIRING)
+    %mstore_current(@SEGMENT_BN_PAIRING)
     // stack:
 %endmacro
 

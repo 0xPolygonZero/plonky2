@@ -37,10 +37,6 @@ pub(crate) enum GlobalMetadata {
     TransactionTrieRootDigestAfter,
     ReceiptTrieRootDigestAfter,
 
-    /// The sizes of the `TrieEncodedChild` and `TrieEncodedChildLen` buffers. In other words, the
-    /// next available offset in these buffers.
-    TrieEncodedChildSize,
-
     // Block metadata.
     BlockBeneficiary,
     BlockTimestamp,
@@ -98,7 +94,7 @@ pub(crate) enum GlobalMetadata {
 }
 
 impl GlobalMetadata {
-    pub(crate) const COUNT: usize = 48;
+    pub(crate) const COUNT: usize = 47;
 
     /// Unscales this virtual offset by their respective `Segment` value.
     pub(crate) const fn unscale(&self) -> usize {
@@ -120,7 +116,6 @@ impl GlobalMetadata {
             Self::StateTrieRootDigestAfter,
             Self::TransactionTrieRootDigestAfter,
             Self::ReceiptTrieRootDigestAfter,
-            Self::TrieEncodedChildSize,
             Self::BlockBeneficiary,
             Self::BlockTimestamp,
             Self::BlockNumber,
@@ -174,7 +169,6 @@ impl GlobalMetadata {
             Self::StateTrieRootDigestAfter => "GLOBAL_METADATA_STATE_TRIE_DIGEST_AFTER",
             Self::TransactionTrieRootDigestAfter => "GLOBAL_METADATA_TXN_TRIE_DIGEST_AFTER",
             Self::ReceiptTrieRootDigestAfter => "GLOBAL_METADATA_RECEIPT_TRIE_DIGEST_AFTER",
-            Self::TrieEncodedChildSize => "GLOBAL_METADATA_TRIE_ENCODED_CHILD_SIZE",
             Self::BlockBeneficiary => "GLOBAL_METADATA_BLOCK_BENEFICIARY",
             Self::BlockTimestamp => "GLOBAL_METADATA_BLOCK_TIMESTAMP",
             Self::BlockNumber => "GLOBAL_METADATA_BLOCK_NUMBER",

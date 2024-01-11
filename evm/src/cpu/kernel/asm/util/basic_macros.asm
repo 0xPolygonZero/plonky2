@@ -271,9 +271,9 @@
 
 %macro ceil_div
     // stack: x, y
-    DUP2
-    // stack: y, x, y
-    %decrement
+    PUSH 1
+    DUP3
+    SUB // y - 1
     // stack: y - 1, x, y
     ADD
     DIV
@@ -333,7 +333,10 @@
 %endmacro
 
 %macro div2
-    %div_const(2)
+    // stack: x
+    PUSH 1
+    SHR
+    // stack: x >> 1
 %endmacro
 
 %macro iseven

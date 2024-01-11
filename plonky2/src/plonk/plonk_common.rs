@@ -1,3 +1,5 @@
+//! Utility methods and constants for Plonk.
+
 use alloc::vec;
 use alloc::vec::Vec;
 

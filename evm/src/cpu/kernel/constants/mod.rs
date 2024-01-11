@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use ethereum_types::U256;
 use hex_literal::hex;
+use static_assertions::const_assert;
 
 use crate::cpu::kernel::constants::context_metadata::ContextMetadata;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
@@ -89,11 +90,22 @@ pub(crate) fn evm_constants() -> HashMap<String, U256> {
     c
 }
 
-const MISC_CONSTANTS: [(&str, [u8; 32]); 1] = [
+const MISC_CONSTANTS: [(&str, [u8; 32]); 3] = [
     // Base for limbs used in bignum arithmetic.
     (
         "BIGNUM_LIMB_BASE",
         hex!("0000000000000000000000000000000100000000000000000000000000000000"),
+    ),
+    // Position in SEGMENT_RLP_RAW where the empty node encoding is stored. It is
+    // equal to u32::MAX + @SEGMENT_RLP_RAW so that all rlp pointers are much smaller than that.
+    (
+        "ENCODED_EMPTY_NODE_POS",
+        hex!("0000000000000000000000000000000000000000000000000000000CFFFFFFFF"),
+    ),
+    // 0x10000 = 2^16 bytes, much larger than any RLP blob the EVM could possibly create.
+    (
+        "MAX_RLP_BLOB_SIZE",
+        hex!("0000000000000000000000000000000000000000000000000000000000010000"),
     ),
 ];
 

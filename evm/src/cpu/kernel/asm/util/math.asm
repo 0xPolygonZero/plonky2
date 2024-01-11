@@ -5,7 +5,7 @@ log2_floor_helper:
     ISZERO
     %jumpi(end)
     // stack: val, counter, retdest
-    %div_const(2)
+    %div2
     // stack: val/2, counter, retdest
     SWAP1
     %increment
@@ -22,7 +22,7 @@ end:
 
 global log2_floor:
     // stack: val, retdest
-    %div_const(2)
+    %div2
     // stack: val/2, retdest
     PUSH 0
     // stack: 0, val/2, retdest

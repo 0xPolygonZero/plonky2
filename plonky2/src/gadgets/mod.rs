@@ -1,3 +1,7 @@
+//! Helper gadgets providing additional methods to
+//! [CircuitBuilder](crate::plonk::circuit_builder::CircuitBuilder),
+//! to ease circuit creation.
+
 pub mod arithmetic;
 pub mod arithmetic_extension;
 pub mod hash;

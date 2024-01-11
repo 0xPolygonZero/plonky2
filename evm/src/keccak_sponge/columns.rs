@@ -32,7 +32,7 @@ pub(crate) struct KeccakSpongeColumnsView<T: Copy> {
     /// not a padding byte; 0 otherwise.
     pub is_full_input_block: T,
 
-    /// The context of the base addresss at which we will read the input block.
+    /// The context of the base address at which we will read the input block.
     pub context: T,
     /// The segment of the base address at which we will read the input block.
     pub segment: T,

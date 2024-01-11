@@ -1,5 +1,6 @@
 use std::iter;
 
+use itertools::Itertools;
 use plonky2::field::extension::Extendable;
 use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
