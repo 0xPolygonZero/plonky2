@@ -48,15 +48,15 @@ type_1_compute_signed_data:
     // stack: rlp_addr, rlp_addr_start, retdest
 
     %mload_txn_field(@TXN_FIELD_NONCE)
-    SWAP1 %encode_rlp_scalar
+    %encode_rlp_scalar_swapped_inputs
     // stack: rlp_addr, rlp_addr_start, retdest
 
     %mload_txn_field(@TXN_FIELD_MAX_FEE_PER_GAS)
-    SWAP1 %encode_rlp_scalar
+    %encode_rlp_scalar_swapped_inputs
     // stack: rlp_addr, rlp_addr_start, retdest
 
     %mload_txn_field(@TXN_FIELD_GAS_LIMIT)
-    SWAP1 %encode_rlp_scalar
+    %encode_rlp_scalar_swapped_inputs
     // stack: rlp_addr, rlp_addr_start, retdest
 
     %mload_txn_field(@TXN_FIELD_TO)
@@ -66,12 +66,12 @@ type_1_compute_signed_data:
     %jump(after_to)
 zero_to:
     // stack: to, rlp_addr, rlp_addr_start, retdest
-    SWAP1 %encode_rlp_scalar
+    %encode_rlp_scalar_swapped_inputs
     // stack: rlp_addr, rlp_addr_start, retdest
 
 after_to:
     %mload_txn_field(@TXN_FIELD_VALUE)
-    SWAP1 %encode_rlp_scalar
+    %encode_rlp_scalar_swapped_inputs
     // stack: rlp_addr, rlp_addr_start, retdest
 
     // Encode txn data.

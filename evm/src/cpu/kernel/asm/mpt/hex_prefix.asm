@@ -27,7 +27,7 @@ first_byte:
     // stack: rlp_addr, num_nibbles, packed_nibbles, terminated, retdest
     // get the first nibble, if num_nibbles is odd, or zero otherwise
     SWAP2
-    // stack: packed_nibbles, num_nibbbles, rlp_addr, terminated, retdest
+    // stack: packed_nibbles, num_nibbles, rlp_addr, terminated, retdest
     DUP2 DUP1
     %mod_const(2)
     // stack: parity, num_nibbles, packed_nibbles, num_nibbles, rlp_addr, terminated, retdest
@@ -50,7 +50,7 @@ first_byte:
     ADD
     // stack: first_byte, rlp_addr, retdest
     DUP2
-    %mstore_rlp
+    %swap_mstore
     %increment
     // stack: rlp_addr', retdest
     SWAP1
@@ -88,7 +88,7 @@ rlp_header_medium:
     // stack: hp_len, rlp_addr, num_nibbles, packed_nibbles, terminated, retdest
     %add_const(0x80) // value = 0x80 + hp_len
     DUP2
-    %mstore_rlp
+    %swap_mstore
     // stack: rlp_addr, num_nibbles, packed_nibbles, terminated, retdest
     // rlp_addr += 1
     %increment
@@ -108,14 +108,14 @@ rlp_header_large:
     // In practice hex-prefix length will never exceed 256, so the length of the
     // length will always be 1 byte in this case.
 
+    DUP2 // rlp_addr
     PUSH 0xb8 // value = 0xb7 + len_of_len = 0xb8
-    DUP3
-    %mstore_rlp
+    MSTORE_GENERAL
     // stack: rlp_addr, value, hp_len, i, rlp_addr, num_nibbles, packed_nibbles, terminated, retdest
 
     // stack: hp_len, rlp_addr, num_nibbles, packed_nibbles, terminated, retdest
     DUP2 %increment
-    %mstore_rlp
+    %swap_mstore
 
     // stack: rlp_addr, num_nibbles, packed_nibbles, terminated, retdest
     // rlp_addr += 2

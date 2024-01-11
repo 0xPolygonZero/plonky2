@@ -359,7 +359,7 @@ zero_hash:
     // stack: num_bytes
     %add_const(31)
     // stack: 31 + num_bytes
-    %div_const(32)
+    %shr_const(5)
     // stack: (num_bytes + 31) / 32
 %endmacro
 
@@ -372,7 +372,7 @@ zero_hash:
     SWAP1
     // stack: num_words, num_words * GAS_MEMORY
     %square
-    %div_const(512)
+    %shr_const(9)
     // stack: num_words^2 / 512, num_words * GAS_MEMORY
     ADD
     // stack: cost = num_words^2 / 512 + num_words * GAS_MEMORY
@@ -422,8 +422,9 @@ zero_hash:
 %endmacro
 
 %macro decrement_call_depth
+    PUSH 1
     %mload_global_metadata(@GLOBAL_METADATA_CALL_STACK_DEPTH)
-    %decrement
+    SUB
     %mstore_global_metadata(@GLOBAL_METADATA_CALL_STACK_DEPTH)
 %endmacro
 

@@ -974,7 +974,10 @@ impl<F: RichField + Extendable<D>, const D: usize> StarkOpeningSet<F, D> {
         auxiliary_polys_commitment: &PolynomialBatch<F, C, D>,
         quotient_commitment: &PolynomialBatch<F, C, D>,
         num_lookup_columns: usize,
+        num_ctl_polys: &[usize],
     ) -> Self {
+        let total_num_helper_cols: usize = num_ctl_polys.iter().sum();
+
         // Batch evaluates polynomials on the LDE, at a point `z`.
         let eval_commitment = |z: F::Extension, c: &PolynomialBatch<F, C, D>| {
             c.polynomials
@@ -989,6 +992,9 @@ impl<F: RichField + Extendable<D>, const D: usize> StarkOpeningSet<F, D> {
                 .map(|p| p.eval(z))
                 .collect::<Vec<_>>()
         };
+
+        let auxiliary_first = eval_commitment_base(F::ONE, auxiliary_polys_commitment);
+        let ctl_zs_first = auxiliary_first[num_lookup_columns + total_num_helper_cols..].to_vec();
         // `g * zeta`.
         let zeta_next = zeta.scalar_mul(g);
         Self {
@@ -996,9 +1002,7 @@ impl<F: RichField + Extendable<D>, const D: usize> StarkOpeningSet<F, D> {
             next_values: eval_commitment(zeta_next, trace_commitment),
             auxiliary_polys: eval_commitment(zeta, auxiliary_polys_commitment),
             auxiliary_polys_next: eval_commitment(zeta_next, auxiliary_polys_commitment),
-            ctl_zs_first: eval_commitment_base(F::ONE, auxiliary_polys_commitment)
-                [num_lookup_columns..]
-                .to_vec(),
+            ctl_zs_first,
             quotient_polys: eval_commitment(zeta, quotient_commitment),
         }
     }
@@ -1051,7 +1055,7 @@ pub(crate) struct StarkOpeningSetTarget<const D: usize> {
     pub auxiliary_polys: Vec<ExtensionTarget<D>>,
     /// `ExtensionTarget`s for the opening of lookups and cross-table lookups `Z` polynomials at `g * zeta`.
     pub auxiliary_polys_next: Vec<ExtensionTarget<D>>,
-    /// /// `ExtensionTarget`s for the opening of lookups and cross-table lookups `Z` polynomials at 1.
+    /// `ExtensionTarget`s for the opening of lookups and cross-table lookups `Z` polynomials at 1.
     pub ctl_zs_first: Vec<Target>,
     /// `ExtensionTarget`s for the opening of quotient polynomials at `zeta`.
     pub quotient_polys: Vec<ExtensionTarget<D>>,

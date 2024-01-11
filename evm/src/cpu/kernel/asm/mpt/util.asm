@@ -11,9 +11,9 @@
 %endmacro
 
 %macro initialize_rlp_segment
-    PUSH 0x80
     PUSH @ENCODED_EMPTY_NODE_POS
-    %mstore_rlp
+    PUSH 0x80
+    MSTORE_GENERAL
 %endmacro
 
 %macro alloc_rlp_block

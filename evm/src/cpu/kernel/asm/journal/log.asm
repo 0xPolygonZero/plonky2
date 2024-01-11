@@ -8,8 +8,9 @@ global revert_log:
     // stack: entry_type, ptr, retdest
     POP
     // First, reduce the number of logs.
+    PUSH 1
     %mload_global_metadata(@GLOBAL_METADATA_LOGS_LEN)
-    %decrement
+    SUB
     %mstore_global_metadata(@GLOBAL_METADATA_LOGS_LEN)
     // stack: ptr, retdest
     // Second, restore payload length.

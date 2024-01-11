@@ -326,8 +326,8 @@ encode_nonzero_receipt_type:
     // stack: rlp_receipt_len, txn_type, rlp_addr, value_ptr, retdest
     DUP3 %encode_rlp_multi_byte_string_prefix
     // stack: rlp_addr, txn_type, old_rlp_addr, value_ptr, retdest
-    DUP2 DUP2
-    %mstore_rlp
+    DUP1 DUP3
+    MSTORE_GENERAL
     %increment
     // stack: rlp_addr, txn_type, old_rlp_addr, value_ptr, retdest
     %stack (rlp_addr, txn_type, old_rlp_addr, value_ptr, retdest) -> (rlp_addr, value_ptr, retdest)
