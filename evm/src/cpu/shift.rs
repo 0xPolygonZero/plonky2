@@ -48,7 +48,7 @@ pub(crate) fn eval_packed<P: PackedField>(
     yield_constr.constraint(is_shift * (two_exp.addr_virtual - displacement.value[0]));
 
     // Other channels must be unused
-    for chan in &lv.mem_channels[3..NUM_GP_CHANNELS - 1] {
+    for chan in &lv.mem_channels[3..NUM_GP_CHANNELS] {
         yield_constr.constraint(is_shift * chan.used); // channel is not used
     }
 
@@ -116,7 +116,7 @@ pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     yield_constr.constraint(builder, t);
 
     // Other channels must be unused
-    for chan in &lv.mem_channels[3..NUM_GP_CHANNELS - 1] {
+    for chan in &lv.mem_channels[3..NUM_GP_CHANNELS] {
         let t = builder.mul_extension(is_shift, chan.used);
         yield_constr.constraint(builder, t);
     }

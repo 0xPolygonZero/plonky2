@@ -4,8 +4,8 @@ use keccak_hash::keccak;
 use plonky2::field::types::Field;
 
 use super::util::{
-    byte_packing_log, byte_unpacking_log, mem_write_partial_log_and_fill, push_no_write,
-    push_with_write,
+    byte_packing_log, byte_unpacking_log, mem_read_with_log, mem_write_log,
+    mem_write_partial_log_and_fill, push_no_write, push_with_write,
 };
 use crate::arithmetic::BinaryOperator;
 use crate::cpu::columns::CpuColumnsView;
@@ -349,7 +349,7 @@ pub(crate) fn generate_get_context<F: Field>(
             Segment::Stack,
             state.registers.stack_len - 1,
         );
-        let res = mem_write_gp_log_and_fill(3, address, state, &mut row, state.registers.stack_top);
+        let res = mem_write_gp_log_and_fill(2, address, state, &mut row, state.registers.stack_top);
         Some(res)
     };
     push_no_write(
@@ -380,7 +380,10 @@ pub(crate) fn generate_set_context<F: Field>(
     let old_sp_addr = MemoryAddress::new(old_ctx, Segment::ContextMetadata, sp_field);
     let new_sp_addr = MemoryAddress::new(new_ctx, Segment::ContextMetadata, sp_field);
 
-    let log_write_old_sp = mem_write_gp_log_and_fill(1, old_sp_addr, state, &mut row, sp_to_save);
+    // This channel will hold in limb 0 and 1 the one-limb value of two separate memory operations:
+    // the old stack pointer write and the new stack pointer read.
+    // Channels only matter for time stamps: the write must happen before the read.
+    let log_write_old_sp = mem_write_log(GeneralPurpose(1), old_sp_addr, state, sp_to_save);
     let (new_sp, log_read_new_sp) = if old_ctx == new_ctx {
         let op = MemoryOp::new(
             MemoryChannel::GeneralPurpose(2),
@@ -389,23 +392,9 @@ pub(crate) fn generate_set_context<F: Field>(
             MemoryOpKind::Read,
             sp_to_save,
         );
-
-        let channel = &mut row.mem_channels[2];
-        assert_eq!(channel.used, F::ZERO);
-        channel.used = F::ONE;
-        channel.is_read = F::ONE;
-        channel.addr_context = F::from_canonical_usize(new_ctx);
-        channel.addr_segment = F::from_canonical_usize(Segment::ContextMetadata.unscale());
-        channel.addr_virtual = F::from_canonical_usize(new_sp_addr.virt);
-        let val_limbs: [u64; 4] = sp_to_save.0;
-        for (i, limb) in val_limbs.into_iter().enumerate() {
-            channel.value[2 * i] = F::from_canonical_u32(limb as u32);
-            channel.value[2 * i + 1] = F::from_canonical_u32((limb >> 32) as u32);
-        }
-
         (sp_to_save, op)
     } else {
-        mem_read_gp_with_log_and_fill(2, new_sp_addr, state, &mut row)
+        mem_read_with_log(GeneralPurpose(2), new_sp_addr, state)
     };
 
     // If the new stack isn't empty, read stack_top from memory.
@@ -425,7 +414,7 @@ pub(crate) fn generate_set_context<F: Field>(
 
         let new_top_addr = MemoryAddress::new(new_ctx, Segment::Stack, new_sp - 1);
         let (new_top, log_read_new_top) =
-            mem_read_gp_with_log_and_fill(3, new_top_addr, state, &mut row);
+            mem_read_gp_with_log_and_fill(2, new_top_addr, state, &mut row);
         state.registers.stack_top = new_top;
         state.traces.push_memory(log_read_new_top);
     } else {
@@ -705,27 +694,30 @@ pub(crate) fn generate_syscall<F: Field>(
     let handler_addr_addr =
         handler_jumptable_addr + (opcode as usize) * (BYTES_PER_OFFSET as usize);
     assert_eq!(BYTES_PER_OFFSET, 3, "Code below assumes 3 bytes per offset");
-    let (handler_addr0, log_in0) = mem_read_gp_with_log_and_fill(
-        1,
-        MemoryAddress::new(0, Segment::Code, handler_addr_addr),
-        state,
-        &mut row,
-    );
-    let (handler_addr1, log_in1) = mem_read_gp_with_log_and_fill(
-        2,
-        MemoryAddress::new(0, Segment::Code, handler_addr_addr + 1),
-        state,
-        &mut row,
-    );
-    let (handler_addr2, log_in2) = mem_read_gp_with_log_and_fill(
-        3,
-        MemoryAddress::new(0, Segment::Code, handler_addr_addr + 2),
-        state,
-        &mut row,
-    );
+    let base_address = MemoryAddress::new(0, Segment::Code, handler_addr_addr);
+    let bytes = (0..BYTES_PER_OFFSET as usize)
+        .map(|i| {
+            let address = MemoryAddress {
+                virt: base_address.virt + i,
+                ..base_address
+            };
+            let val = state.memory.get(address);
+            val.low_u32() as u8
+        })
+        .collect_vec();
 
-    let handler_addr = (handler_addr0 << 16) + (handler_addr1 << 8) + handler_addr2;
-    let new_program_counter = u256_to_usize(handler_addr)?;
+    let packed_int = U256::from_big_endian(&bytes);
+
+    let jumptable_channel = &mut row.mem_channels[1];
+    jumptable_channel.is_read = F::ONE;
+    jumptable_channel.addr_context = F::ZERO;
+    jumptable_channel.addr_segment = F::from_canonical_usize(Segment::Code as usize);
+    jumptable_channel.addr_virtual = F::from_canonical_usize(handler_addr_addr);
+    jumptable_channel.value[0] = F::from_canonical_usize(u256_to_usize(packed_int)?);
+
+    byte_packing_log(state, base_address, bytes);
+
+    let new_program_counter = u256_to_usize(packed_int)?;
 
     let gas = U256::from(state.registers.gas_used);
 
@@ -734,14 +726,15 @@ pub(crate) fn generate_syscall<F: Field>(
         + (gas << 192);
 
     // `ArithmeticStark` range checks `mem_channels[0]`, which contains
-    // the top of the stack, `mem_channels[1]`, `mem_channels[2]` and
-    // next_row's `mem_channels[0]` which contains the next top of the stack.
+    // the top of the stack, `mem_channels[1]`, which contains the new PC,
+    // `mem_channels[2]`, which is empty, and next_row's `mem_channels[0]`,
+    // which contains the next top of the stack.
     // Our goal here is to range-check the gas, contained in syscall_info,
     // stored in the next stack top.
     let range_check_op = arithmetic::Operation::range_check(
         state.registers.stack_top,
-        handler_addr0,
-        handler_addr1,
+        packed_int,
+        U256::from(0),
         U256::from(opcode),
         syscall_info,
     );
@@ -757,9 +750,6 @@ pub(crate) fn generate_syscall<F: Field>(
     log::debug!("Syscall to {}", KERNEL.offset_name(new_program_counter));
 
     state.traces.push_arithmetic(range_check_op);
-    state.traces.push_memory(log_in0);
-    state.traces.push_memory(log_in1);
-    state.traces.push_memory(log_in2);
     state.traces.push_cpu(row);
 
     Ok(())
@@ -950,27 +940,29 @@ pub(crate) fn generate_exception<F: Field>(
     let handler_addr_addr =
         handler_jumptable_addr + (exc_code as usize) * (BYTES_PER_OFFSET as usize);
     assert_eq!(BYTES_PER_OFFSET, 3, "Code below assumes 3 bytes per offset");
-    let (handler_addr0, log_in0) = mem_read_gp_with_log_and_fill(
-        1,
-        MemoryAddress::new(0, Segment::Code, handler_addr_addr),
-        state,
-        &mut row,
-    );
-    let (handler_addr1, log_in1) = mem_read_gp_with_log_and_fill(
-        2,
-        MemoryAddress::new(0, Segment::Code, handler_addr_addr + 1),
-        state,
-        &mut row,
-    );
-    let (handler_addr2, log_in2) = mem_read_gp_with_log_and_fill(
-        3,
-        MemoryAddress::new(0, Segment::Code, handler_addr_addr + 2),
-        state,
-        &mut row,
-    );
+    let base_address = MemoryAddress::new(0, Segment::Code, handler_addr_addr);
+    let bytes = (0..BYTES_PER_OFFSET as usize)
+        .map(|i| {
+            let address = MemoryAddress {
+                virt: base_address.virt + i,
+                ..base_address
+            };
+            let val = state.memory.get(address);
+            val.low_u32() as u8
+        })
+        .collect_vec();
 
-    let handler_addr = (handler_addr0 << 16) + (handler_addr1 << 8) + handler_addr2;
-    let new_program_counter = u256_to_usize(handler_addr)?;
+    let packed_int = U256::from_big_endian(&bytes);
+
+    let jumptable_channel = &mut row.mem_channels[1];
+    jumptable_channel.is_read = F::ONE;
+    jumptable_channel.addr_context = F::ZERO;
+    jumptable_channel.addr_segment = F::from_canonical_usize(Segment::Code as usize);
+    jumptable_channel.addr_virtual = F::from_canonical_usize(handler_addr_addr);
+    jumptable_channel.value[0] = F::from_canonical_usize(u256_to_usize(packed_int)?);
+
+    byte_packing_log(state, base_address, bytes);
+    let new_program_counter = u256_to_usize(packed_int)?;
 
     let gas = U256::from(state.registers.gas_used);
 
@@ -982,14 +974,15 @@ pub(crate) fn generate_exception<F: Field>(
     let opcode = state.memory.get(address);
 
     // `ArithmeticStark` range checks `mem_channels[0]`, which contains
-    // the top of the stack, `mem_channels[1]`, `mem_channels[2]` and
-    // next_row's `mem_channels[0]` which contains the next top of the stack.
+    // the top of the stack, `mem_channels[1]`, which contains the new PC,
+    // `mem_channels[2]`, which is empty, and next_row's `mem_channels[0]`,
+    // which contains the next top of the stack.
     // Our goal here is to range-check the gas, contained in syscall_info,
     // stored in the next stack top.
     let range_check_op = arithmetic::Operation::range_check(
         state.registers.stack_top,
-        handler_addr0,
-        handler_addr1,
+        packed_int,
+        U256::from(0),
         opcode,
         exc_info,
     );
@@ -1004,9 +997,6 @@ pub(crate) fn generate_exception<F: Field>(
 
     log::debug!("Exception to {}", KERNEL.offset_name(new_program_counter));
     state.traces.push_arithmetic(range_check_op);
-    state.traces.push_memory(log_in0);
-    state.traces.push_memory(log_in1);
-    state.traces.push_memory(log_in2);
     state.traces.push_cpu(row);
 
     Ok(())

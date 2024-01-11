@@ -16,7 +16,7 @@ use crate::cpu::kernel::tests::account_code::initialize_mpts;
 use crate::generation::mpt::{AccountRlp, LegacyReceiptRlp};
 use crate::generation::rlp::all_rlp_prover_inputs_reversed;
 use crate::generation::TrieInputs;
-use crate::memory::segments::{Segment, SEGMENT_SCALING_FACTOR};
+use crate::memory::segments::Segment;
 use crate::proof::{BlockHashes, BlockMetadata, TrieRoots};
 use crate::util::h2u;
 use crate::GenerationInputs;
