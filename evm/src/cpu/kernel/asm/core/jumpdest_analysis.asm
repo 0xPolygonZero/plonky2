@@ -104,9 +104,18 @@ code_bytes_to_skip:
 // A proof is valid if:
 // - i == 0 and we can go from the first opcode to jumpdest and code[jumpdest] = 0x5b
 // - i > 0 and:
-//     - for j in {i+0,..., i+31} code[j] != PUSHk for all k >= 32 - j - i,
-//     - we can go from opcode i+32 to jumpdest,
-//     - code[jumpdest] = 0x5b.
+//     a) for j in {i+0,..., i+31} code[j] != PUSHk for all k >= 32 - j - i,
+//     b) we can go from opcode i+32 to jumpdest,
+//     c) code[jumpdest] = 0x5b.
+// To reduce the number of instructions, when i > 32 we load all the bytes code[j], ...,
+// code[j + 31] in a single 32-byte word, and check a) directly on the packed bytes.
+// We perform the "packed verification" computing a boolean formula evaluated on the bits of 
+// code[j],..., code[j+31] of the form p_1 AND p_2 AND p_3 AND p_4 AND p_5, where:
+//     - p_k is either TRUE, for one subset of the j's which depends on k (for example,
+//       for k = 1, it is TRUE for the first 15 positions), or has_prefix_k => bit_{k + 1}_is_0
+//       for the j's not in the subset.
+//     - has_prefix_k is a predicate that is TRUE if and only if code[j] has the same prefix of size k + 2
+//       as PUSH{32-(j-i)}.
 // stack: proof_prefix_addr, jumpdest, ctx, retdest
 // stack: (empty)
 global write_table_if_jumpdest:
@@ -197,7 +206,7 @@ global write_table_if_jumpdest:
     SWAP1 
 
     // Compute in_range' = in_range AND
-    //   - (0xFF|X⁷)³² for bytes in positions 1-2, 8-11, 16-19, and 24-27 
+    //   - (0xFF|X⁷)³² for bytes in positions 1-3, 8-11, 16-19, and 24-27 
     //   - (has_prefix => is_0_at_6 |X⁷)³² on the rest
     // Compute also that ~has_prefix = ~has_prefix OR is_0_at_4 for all bytes.
 
@@ -294,7 +303,7 @@ global jumpdest_analysis:
     // and the next prover input should contain a proof for address'.
     PROVER_INPUT(jumpdest_table::next_address)
     DUP1 %jumpi(check_proof)
-    // If proof == 0 there are no more jump destinations to check
+    // If address == 0 there are no more jump destinations to check
     POP
 // This is just a hook used for avoiding verification of the jumpdest
 // table in another context. It is useful during proof generation,
@@ -303,7 +312,7 @@ global jumpdest_analysis_end:
     %pop2
     JUMP
 check_proof:
-    // stack: proof, ctx, code_len, retdest
+    // stack: address, ctx, code_len, retdest
     DUP3 DUP2 %assert_le
     %decrement
     // stack: proof, ctx, code_len, retdest
