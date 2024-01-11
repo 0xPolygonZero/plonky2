@@ -154,7 +154,7 @@ global write_table_if_jumpdest:
     //   - (0xFF|X⁷)³² for the first 15 bytes
     //   - (has_prefix => is_0_at_4 |X⁷)³² for the next 15 bytes
     //   - (~has_prefix|X⁷)³² for the last byte
-    // Compute also ~has_prefix = ~has_prefix OR is_0_at_4 for all bytes. We don't need to update ~hash_prefix
+    // Compute also ~has_prefix = ~has_prefix OR is_0_at_4 for all bytes. We don't need to update ~has_prefix
     // for the second half but it takes less cycles if we do it.
     DUP2 %shl_const(3)
     NOT
@@ -283,7 +283,7 @@ return:
 // addresses used during program execution within the current context.
 // For each jumpdest address we also non-deterministically guess
 // a proof, which is another address in the code such that 
-// is_jumpdest don't abort, when the proof is at the top of the stack
+// is_jumpdest doesn't abort, when the proof is at the top of the stack
 // an the jumpdest address below. If that's the case we set the
 // corresponding bit in @SEGMENT_JUMPDEST_BITS to 1.
 // 
@@ -297,7 +297,7 @@ global jumpdest_analysis:
     // If proof == 0 there are no more jump destinations to check
     POP
 // This is just a hook used for avoiding verification of the jumpdest
-// table in another contexts. It is useful during proof generation,
+// table in another context. It is useful during proof generation,
 // allowing the avoidance of table verification when simulating user code.
 global jumpdest_analysis_end:
     %pop2

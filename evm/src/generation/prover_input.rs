@@ -240,7 +240,7 @@ impl<F: Field> GenerationState<F> {
         }
     }
 
-    /// Generate the either the next used jump address or the the proof for the last jump address.
+    /// Generate either the next used jump address or the proof for the last jump address.
     fn run_jumpdest_table(&mut self, input_fn: &ProverInputFn) -> Result<U256, ProgramError> {
         match input_fn.0[1].as_str() {
             "next_address" => self.run_next_jumpdest_table_address(),
@@ -385,7 +385,7 @@ impl<F: Field> GenerationState<F> {
 /// For all address in `jumpdest_table`, each bounded by `largest_address`,
 /// this function searches for a proof. A proof is the closest address
 /// for which none of the previous 32 bytes in the code (including opcodes
-/// and pushed bytes are PUSHXX and the address is in its range. It returns
+/// and pushed bytes) are PUSHXX and the address is in its range. It returns
 /// a vector of even size containing proofs followed by their addresses.
 fn get_proofs_and_jumpdests(
     code: &[u8],
