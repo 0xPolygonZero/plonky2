@@ -201,12 +201,7 @@ fn eval_packed_set<P: PackedField>(
     }
 
     // Unused channels.
-    for i in 1..NUM_GP_CHANNELS {
-        if i != 2 {
-            let channel = lv.mem_channels[i];
-            yield_constr.constraint(filter * channel.used);
-        }
-    }
+    disable_unused_channels(lv, filter, vec![1], yield_constr);
     yield_constr.constraint(filter * new_top_channel.used);
 }
 
@@ -260,13 +255,7 @@ fn eval_ext_circuit_set<F: RichField + Extendable<D>, const D: usize>(
     }
 
     // Unused channels.
-    for i in 1..NUM_GP_CHANNELS {
-        if i != 2 {
-            let channel = lv.mem_channels[i];
-            let constr = builder.mul_extension(filter, channel.used);
-            yield_constr.constraint(builder, constr);
-        }
-    }
+    disable_unused_channels_circuit(builder, lv, filter, vec![1], yield_constr);
     {
         let constr = builder.mul_extension(filter, new_top_channel.used);
         yield_constr.constraint(builder, constr);
