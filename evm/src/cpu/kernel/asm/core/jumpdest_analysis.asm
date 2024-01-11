@@ -229,7 +229,7 @@ global write_table_if_jumpdest:
     SWAP1 
 
     // Compute in_range' = in_range AND
-    //   - (0xFF|X⁷)³² for bytes in positions 1-7 and 16-23 
+    //   - (0xFF|X⁷)³² for bytes in 1, 4-5, 8-9, 12-13, 16-17, 20-21, 24-25, 28-29
     //   - (has_prefix => is_0_at_7 |X⁷)³² on the rest
     // Compute also that ~has_prefix = ~has_prefix OR is_0_at_7 for all bytes.
 
