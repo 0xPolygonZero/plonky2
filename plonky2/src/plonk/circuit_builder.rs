@@ -546,7 +546,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.connect(x, one);
     }
 
-    fn add_generators(&mut self, generators: Vec<WitnessGeneratorRef<F, D>>) {
+    pub fn add_generators(&mut self, generators: Vec<WitnessGeneratorRef<F, D>>) {
         self.generators.extend(generators);
     }
 
