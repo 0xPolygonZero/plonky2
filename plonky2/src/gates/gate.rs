@@ -30,16 +30,17 @@ use crate::util::serialization::{Buffer, IoResult};
 /// Vanilla Plonk arithmetization only supports basic fan-in 2 / fan-out 1 arithmetic gates,
 /// each of the form
 ///
-/// $$ a.b.q_M + a.q_L + b.q_R + c.q_O + q_C = 0 $$
+/// $$ a.b \cdot q_M + a \cdot q_L + b \cdot q_R + c \cdot q_O + q_C = 0 $$
 ///
 /// where:
-/// - q_M, q_L, q_R and q_O are boolean selectors,
-/// - a, b and c are values used as inputs and output respectively,
-/// - q_C is a constant (possibly 0).
+/// - $q_M$, $q_L$, $q_R$ and $q_O$ are boolean selectors,
+/// - $a$, $b$ and $c$ are values used as inputs and output respectively,
+/// - $q_C$ is a constant (possibly 0).
 ///
 /// This allows expressing simple operations like multiplication, addition, etc. For
-/// instance, to define a multiplication, one can set q_M=1, q_L=q_R=0, q_O = -1 and q_C = 0.
-/// Hence, the gate equation simplifies to a.b - c = 0, or a.b = c.
+/// instance, to define a multiplication, one can set $q_M=1$, $q_L=q_R=0$, $q_O = -1$ and $q_C = 0$.
+///
+/// Hence, the gate equation simplifies to $a.b - c = 0$, or equivalently to $a.b = c$.
 ///
 /// However, such a gate is fairly limited for more complex computations. Hence, when a computation may
 /// require too many of these "vanilla" gates, or when a computation arises often within the same circuit,
