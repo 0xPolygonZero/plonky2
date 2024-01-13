@@ -86,14 +86,14 @@ One can note that every element that ever appears on the stack has been pushed. 
   \item Syscalls, exceptions and prover inputs are range-checked in ``ArithmeticStark''.
   \item The inputs and outputs of binary and ternary arithmetic operations are range-checked in ``ArithmeticStark''.
   \item The inputs' bits of logic operations are checked to be either 1 or 0 in ``LogicStark''. Since ``LogicStark'' only deals with bitwise operations, this is enough to have range-checked outputs as well.
-  \item The inputs of Keccak operations are range-checked in ``KeccakStark''. The output digest is written as bytes in ``KeccakStark''. Those bytes are used to reconstruct the associated 32-bit limbs checked against the limbs in ``CpuStark''. This implictly ensures that the output is range-checked.
+  \item The inputs of Keccak operations are range-checked in ``KeccakStark''. The output digest is written as bytes in ``KeccakStark''. Those bytes are used to reconstruct the associated 32-bit limbs checked against the limbs in ``CpuStark''. This implicitly ensures that the output is range-checked.
 \end{enumerate}
 Note that some operations do not require a range-check:
 \begin{enumerate}
   \item ``MSTORE\_GENERAL'' read the value to write from the stack. Thus, the written value was already range-checked by a previous push.
   \item ``EQ'' reads two -- already range-checked -- elements on the stack, and checks they are equal. The output is either 0 or 1, and does therefore not need to be checked.
   \item ``NOT'' reads one -- already range-checked -- element. The result is constrained to be equal to $\texttt{0xFFFFFFFF} - \texttt{input}$, which implicitly enforces the range check.
-  \item ``PC'': the program counter cannot be greater than $2^{32}$ in user mode. Indeed, the user code cannot be longer than $2^{32}$, and jumps are constrainted to be JUMPDESTs. Moreover, in kernel mode, every jump is towards a location within the kernel, and the kernel code is smaller than $2^{32}$. These two points implicitly enforce $PC$'s range check.
+  \item ``PC'': the program counter cannot be greater than $2^{32}$ in user mode. Indeed, the user code cannot be longer than $2^{32}$, and jumps are constrained to be JUMPDESTs. Moreover, in kernel mode, every jump is towards a location within the kernel, and the kernel code is smaller than $2^{32}$. These two points implicitly enforce $PC$'s range check.
   \item ``GET\_CONTEXT'', ``DUP'' and ``SWAP'' all read and push values that were already written in memory. The pushed values were therefore already range-checked.
 \end{enumerate}
 Range-checks are performed on the range $[0, 2^{16} - 1]$, to limit the trace length.
@@ -120,7 +120,7 @@ However, the equation is too high degree. To circumvent this issue, Häbock sugg
   d_i = \frac{1}{\alpha + t_i}
 \end{gather*}
 
-The $h$ helper columns can be batched together to save columns. We can batch at most $\texttt{contraint\_degree} - 1$ helper functions together. In our case, we batch them 2 by 2. At row $i$, we now have:
+The $h$ helper columns can be batched together to save columns. We can batch at most $\texttt{constraint\_degree} - 1$ helper functions together. In our case, we batch them 2 by 2. At row $i$, we now have:
 \begin{align*}
   h_i^k = \frac{1}{\alpha + s_i^{2k}} + \frac{1}{\alpha + s_i^{2k+1}} \forall 1 \leq k \leq c/2 \\
 \end{align*}
