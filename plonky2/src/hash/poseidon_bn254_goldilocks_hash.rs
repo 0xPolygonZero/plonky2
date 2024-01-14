@@ -127,7 +127,7 @@ impl<F: RichField> Hasher<F> for PoseidonBn254Hash {
 
                 let sized_bytes: [u8; 32] = bytes.try_into().unwrap();
                 state[j + 1] =
-                    Bn254Field::from_noncanonical_biguint(BigUint::from_bytes_le(&sized_bytes));
+                Bn254Field::from_noncanonical_biguint(BigUint::from_bytes_le(&sized_bytes));
             }
             permution(&mut state);
         }
@@ -174,14 +174,9 @@ impl<F: RichField> Hasher<F> for PoseidonBn254Hash {
 
 #[cfg(test)]
 pub mod tests {
-    use core::str::FromStr;
-
-    use num::bigint::BigUint;
-
     use super::*;
     use crate::field::bn254::Bn254Field;
     use crate::field::goldilocks_field::GoldilocksField;
-    use crate::field::types::Field;
 
     #[test]
     fn test_byte_methods() {

@@ -180,7 +180,7 @@ where
         )
     );
 
-    let mut challenger = Challenger::<F, C::Hasher>::new();
+    let mut challenger = Challenger::<F, C::InnerHasher>::new();
 
     // Observe the instance.
     challenger.observe_hash::<C::Hasher>(prover_data.circuit_digest);

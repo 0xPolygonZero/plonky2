@@ -3,14 +3,14 @@ use plonky2::field::types::Field;
 use plonky2::iop::witness::{PartialWitness, WitnessWrite};
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::circuit_data::CircuitConfig;
-use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
+use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig, PoseidonBn254GoldilocksConfig};
 
 /// An example of using Plonky2 to prove a statement of the form
 /// "I know n * (n + 1) * ... * (n + 99)".
 /// When n == 1, this is proving knowledge of 100!.
 fn main() -> Result<()> {
     const D: usize = 2;
-    type C = PoseidonGoldilocksConfig;
+    type C = PoseidonBn254GoldilocksConfig;
     type F = <C as GenericConfig<D>>::F;
 
     let config = CircuitConfig::standard_recursion_config();

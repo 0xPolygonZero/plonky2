@@ -13,7 +13,7 @@ use crate::util::{h256_limbs, u256_limbs, u256_to_u32, u256_to_u64};
 use crate::witness::errors::ProgramError;
 
 fn observe_root<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
-    challenger: &mut Challenger<F, C::Hasher>,
+    challenger: &mut Challenger::<F, C::InnerHasher>,
     root: H256,
 ) {
     for limb in root.into_uint().0.into_iter() {
@@ -23,7 +23,7 @@ fn observe_root<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const 
 }
 
 fn observe_trie_roots<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
-    challenger: &mut Challenger<F, C::Hasher>,
+    challenger: &mut Challenger::<F, C::InnerHasher>,
     trie_roots: &TrieRoots,
 ) {
     observe_root::<F, C, D>(challenger, trie_roots.state_root);
@@ -51,7 +51,7 @@ fn observe_block_metadata<
     C: GenericConfig<D, F = F>,
     const D: usize,
 >(
-    challenger: &mut Challenger<F, C::Hasher>,
+    challenger: &mut Challenger::<F, C::InnerHasher>,
     block_metadata: &BlockMetadata,
 ) -> Result<(), ProgramError> {
     challenger.observe_elements(
@@ -101,7 +101,7 @@ fn observe_extra_block_data<
     C: GenericConfig<D, F = F>,
     const D: usize,
 >(
-    challenger: &mut Challenger<F, C::Hasher>,
+    challenger: &mut Challenger::<F, C::InnerHasher>,
     extra_data: &ExtraBlockData,
 ) -> Result<(), ProgramError> {
     challenger.observe_elements(&h256_limbs(extra_data.checkpoint_state_trie_root));
@@ -135,7 +135,7 @@ fn observe_block_hashes<
     C: GenericConfig<D, F = F>,
     const D: usize,
 >(
-    challenger: &mut Challenger<F, C::Hasher>,
+    challenger: &mut Challenger::<F, C::InnerHasher>,
     block_hashes: &BlockHashes,
 ) {
     for i in 0..256 {
@@ -163,7 +163,7 @@ pub(crate) fn observe_public_values<
     C: GenericConfig<D, F = F>,
     const D: usize,
 >(
-    challenger: &mut Challenger<F, C::Hasher>,
+    challenger: &mut Challenger::<F, C::InnerHasher>,
     public_values: &PublicValues,
 ) -> Result<(), ProgramError> {
     observe_trie_roots::<F, C, D>(challenger, &public_values.trie_roots_before);
@@ -196,7 +196,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> A
         &self,
         config: &StarkConfig,
     ) -> Result<AllProofChallenges<F, D>, ProgramError> {
-        let mut challenger = Challenger::<F, C::Hasher>::new();
+        let mut challenger = Challenger::<F, C::InnerHasher>::new();
 
         for proof in &self.stark_proofs {
             challenger.observe_cap(&proof.proof.trace_cap);
@@ -227,7 +227,7 @@ where
     /// Computes all Fiat-Shamir challenges used in the STARK proof.
     pub(crate) fn get_challenges(
         &self,
-        challenger: &mut Challenger<F, C::Hasher>,
+        challenger: &mut Challenger::<F, C::InnerHasher>,
         config: &StarkConfig,
     ) -> StarkProofChallenges<F, D> {
         let degree_bits = self.recover_degree_bits(config);

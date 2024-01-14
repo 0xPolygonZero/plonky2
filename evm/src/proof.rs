@@ -847,7 +847,7 @@ where
     C: GenericConfig<D, F = F>,
 {
     /// Initial Fiat-Shamir state.
-    pub(crate) init_challenger_state: <C::Hasher as Hasher<F>>::Permutation,
+    pub(crate) init_challenger_state: <C::InnerHasher as Hasher<F>>::Permutation,
     /// Proof for a single STARK.
     pub(crate) proof: StarkProof<F, C, D>,
 }

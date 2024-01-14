@@ -230,7 +230,7 @@ mod tests {
     use super::*;
     use crate::field::extension::Extendable;
     use crate::hash::merkle_proofs::verify_merkle_proof_to_cap;
-    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
+    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig, PoseidonBn254GoldilocksConfig};
 
     fn random_data<F: RichField>(n: usize, k: usize) -> Vec<Vec<F>> {
         (0..n).map(|_| F::rand_vec(k)).collect()
@@ -284,7 +284,7 @@ mod tests {
     #[test]
     fn test_merkle_trees() -> Result<()> {
         const D: usize = 2;
-        type C = PoseidonGoldilocksConfig;
+        type C = PoseidonBn254GoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
 
         let log_n = 8;

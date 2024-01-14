@@ -176,7 +176,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     pub fn prove_openings(
         instance: &FriInstanceInfo<F, D>,
         oracles: &[&Self],
-        challenger: &mut Challenger<F, C::Hasher>,
+        challenger: &mut Challenger<F, C::InnerHasher>,
         fri_params: &FriParams,
         timing: &mut TimingTree,
     ) -> FriProof<F, C::Hasher, D> {

@@ -23,7 +23,7 @@ pub fn fri_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const
     lde_polynomial_coeffs: PolynomialCoeffs<F::Extension>,
     // Evaluation of the polynomial on the large domain.
     lde_polynomial_values: PolynomialValues<F::Extension>,
-    challenger: &mut Challenger<F, C::Hasher>,
+    challenger: &mut Challenger<F, C::InnerHasher>,
     fri_params: &FriParams,
     timing: &mut TimingTree,
 ) -> FriProof<F, C::Hasher, D> {
@@ -69,7 +69,7 @@ type FriCommitedTrees<F, C, const D: usize> = (
 fn fri_committed_trees<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
     mut coeffs: PolynomialCoeffs<F::Extension>,
     mut values: PolynomialValues<F::Extension>,
-    challenger: &mut Challenger<F, C::Hasher>,
+    challenger: &mut Challenger<F, C::InnerHasher>,
     fri_params: &FriParams,
 ) -> FriCommitedTrees<F, C, D> {
     let mut trees = Vec::with_capacity(fri_params.reduction_arity_bits.len());
@@ -113,7 +113,7 @@ fn fri_committed_trees<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>,
 
 /// Performs the proof-of-work (a.k.a. grinding) step of the FRI protocol. Returns the PoW witness.
 fn fri_proof_of_work<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
-    challenger: &mut Challenger<F, C::Hasher>,
+    challenger: &mut Challenger<F, C::InnerHasher>,
     config: &FriConfig,
 ) -> F {
     let min_leading_zeros = config.proof_of_work_bits + (64 - F::order().bits()) as u32;
@@ -166,7 +166,7 @@ fn fri_prover_query_rounds<
 >(
     initial_merkle_trees: &[&MerkleTree<F, C::Hasher>],
     trees: &[MerkleTree<F, C::Hasher>],
-    challenger: &mut Challenger<F, C::Hasher>,
+    challenger: &mut Challenger<F, C::InnerHasher>,
     n: usize,
     fri_params: &FriParams,
 ) -> Vec<FriQueryRound<F, C::Hasher, D>> {
