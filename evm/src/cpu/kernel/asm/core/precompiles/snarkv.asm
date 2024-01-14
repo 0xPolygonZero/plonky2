@@ -32,21 +32,21 @@ loading_loop:
     GET_CONTEXT
     %stack (ctx, px) -> (ctx, @SEGMENT_CALLDATA, px, 32, loading_loop_contd, px)
     %build_address
-    %jump(mload_packing)
+    %mload_packing
 loading_loop_contd:
     // stack: x, px, i, k, kexit_info
     SWAP1 %add_const(32)
     GET_CONTEXT
     %stack (ctx, py) -> (ctx, @SEGMENT_CALLDATA, py, 32, loading_loop_contd2, py)
     %build_address
-    %jump(mload_packing)
+    %mload_packing
 loading_loop_contd2:
     // stack: y, py, x, i, k, kexit_info
     SWAP1 %add_const(32)
     GET_CONTEXT
     %stack (ctx, px_im) -> (ctx, @SEGMENT_CALLDATA, px_im, 32, loading_loop_contd3, px_im)
     %build_address
-    %jump(mload_packing)
+    %mload_packing
 loading_loop_contd3:
     // stack: x_im, px_im, y, x, i, k, kexit_info
     SWAP1 %add_const(32)
@@ -54,7 +54,7 @@ loading_loop_contd3:
     GET_CONTEXT
     %stack (ctx, px_re) -> (ctx, @SEGMENT_CALLDATA, px_re, 32, loading_loop_contd4, px_re)
     %build_address
-    %jump(mload_packing)
+    %mload_packing
 loading_loop_contd4:
     // stack: x_re, px_re, x_im, y, x, i, k, kexit_info
     SWAP1 %add_const(32)
@@ -62,7 +62,7 @@ loading_loop_contd4:
     GET_CONTEXT
     %stack (ctx, py_im) -> (ctx, @SEGMENT_CALLDATA, py_im, 32, loading_loop_contd5, py_im)
     %build_address
-    %jump(mload_packing)
+    %mload_packing
 loading_loop_contd5:
     // stack: y_im, py_im, x_re, x_im, y, x, i, k, kexit_info
     SWAP1 %add_const(32)
@@ -70,7 +70,7 @@ loading_loop_contd5:
     GET_CONTEXT
     %stack (ctx, py_re) -> (ctx, @SEGMENT_CALLDATA, py_re, 32, loading_loop_contd6)
     %build_address
-    %jump(mload_packing)
+    %mload_packing
 loading_loop_contd6:
     // stack: y_re, y_im, x_re, x_im, y, x, i, k, kexit_info
     SWAP1  // the EVM serializes the imaginary part first

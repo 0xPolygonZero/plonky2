@@ -64,7 +64,7 @@ global sys_calldataload:
     GET_CONTEXT
     %build_address
     // stack: addr, 32, sys_calldataload_after_mload_packing, kexit_info
-    %jump(mload_packing)
+    %mload_packing
 sys_calldataload_after_mload_packing:
     // stack: value, kexit_info
     SWAP1

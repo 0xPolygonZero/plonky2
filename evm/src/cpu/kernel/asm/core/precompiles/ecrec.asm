@@ -21,25 +21,25 @@ global precompile_ecrec:
     GET_CONTEXT
     // stack: ctx, @SEGMENT_CALLDATA, 96, 32, ecrec_return, kexit_info
     %build_address
-    %mload_packing
+    MLOAD_32BYTES
     // stack: s, ecrec_return, kexit_info
     %stack () -> (@SEGMENT_CALLDATA, 64, 32)
     GET_CONTEXT
     // stack: ctx, @SEGMENT_CALLDATA, 64, 32, s, ecrec_return, kexit_info
     %build_address
-    %mload_packing
+    MLOAD_32BYTES
     // stack: r, s, ecrec_return, kexit_info
     %stack () -> (@SEGMENT_CALLDATA, 32, 32)
     GET_CONTEXT
     // stack: ctx, @SEGMENT_CALLDATA, 32, 32, r, s, ecrec_return, kexit_info
     %build_address
-    %mload_packing
+    MLOAD_32BYTES
     // stack: v, r, s, ecrec_return, kexit_info
     %stack () -> (@SEGMENT_CALLDATA, 32)
     GET_CONTEXT
     // stack: ctx, @SEGMENT_CALLDATA, 32, v, r, s, ecrec_return, kexit_info
     %build_address_no_offset
-    %mload_packing
+    MLOAD_32BYTES
     // stack: hash, v, r, s, ecrec_return, kexit_info
     %jump(ecrecover)
 ecrec_return:

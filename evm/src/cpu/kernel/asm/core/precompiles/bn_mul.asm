@@ -21,19 +21,19 @@ global precompile_bn_mul:
     GET_CONTEXT
     // stack: ctx, @SEGMENT_CALLDATA, 64, 32, bn_mul_return, kexit_info
     %build_address
-    %mload_packing
+    MLOAD_32BYTES
     // stack: n, bn_mul_return, kexit_info
     %stack () -> (@SEGMENT_CALLDATA, 32, 32)
     GET_CONTEXT
     // stack: ctx, @SEGMENT_CALLDATA, 32, 32, n, bn_mul_return, kexit_info
     %build_address
-    %mload_packing
+    MLOAD_32BYTES
     // stack: y, n, bn_mul_return, kexit_info
     %stack () -> (@SEGMENT_CALLDATA, 32)
     GET_CONTEXT
     // stack: ctx, @SEGMENT_CALLDATA, 32, y, n, bn_mul_return, kexit_info
     %build_address_no_offset
-    %mload_packing
+    MLOAD_32BYTES
     // stack: x, y, n, bn_mul_return, kexit_info
     %jump(bn_mul)
 bn_mul_return:

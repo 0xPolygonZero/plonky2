@@ -2,7 +2,7 @@
 %macro mload_u32
     // stack: addr
     %stack (addr) -> (addr, 4, %%after)
-    %jump(mload_packing)
+    %mload_packing
 %%after:
 %endmacro
 
@@ -52,7 +52,7 @@
 %macro mload_u256
     // stack: addr
     %stack (addr) -> (addr, 32, %%after)
-    %jump(mload_packing)
+    %mload_packing
 %%after:
 %endmacro
 
