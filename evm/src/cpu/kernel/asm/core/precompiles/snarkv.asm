@@ -124,6 +124,6 @@ got_result:
     // Store the result bool (repr. by a U256) to the parent's return data using `mstore_unpacking`.
     %mstore_parent_context_metadata(@CTX_METADATA_RETURNDATA_SIZE, 32)
     %mload_context_metadata(@CTX_METADATA_PARENT_CONTEXT)
-    %stack (parent_ctx, address) -> (parent_ctx, @SEGMENT_RETURNDATA, address, 32, pop_and_return_success)
+    %stack (parent_ctx, address) -> (parent_ctx, @SEGMENT_RETURNDATA, address, pop_and_return_success)
     %build_address_no_offset
-    %jump(mstore_unpacking)
+    %mstore_unpacking_32
