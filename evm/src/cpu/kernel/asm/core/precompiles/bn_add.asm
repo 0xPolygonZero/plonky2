@@ -14,32 +14,32 @@ global precompile_bn_add:
 
     %charge_gas_const(@BN_ADD_GAS)
 
-    // Load x0, y0, x1, y1 from the call data using `mload_packing`.
+    // Load x0, y0, x1, y1 from the call data using `MLOAD_32BYTES`.
     PUSH bn_add_return
     // stack: bn_add_return, kexit_info
     %stack () -> (@SEGMENT_CALLDATA, 96, 32)
     GET_CONTEXT
     // stack: ctx, @SEGMENT_CALLDATA, 96, 32, bn_add_return, kexit_info
     %build_address
-    %mload_packing
+    MLOAD_32BYTES
     // stack: y1, bn_add_return, kexit_info
     %stack () -> (@SEGMENT_CALLDATA, 64, 32)
     GET_CONTEXT
     // stack: ctx, @SEGMENT_CALLDATA, 64, 32, y1, bn_add_return, kexit_info
     %build_address
-    %mload_packing
+    MLOAD_32BYTES
     // stack: x1, y1, bn_add_return, kexit_info
     %stack () -> (@SEGMENT_CALLDATA, 32, 32)
     GET_CONTEXT
     // stack: ctx, @SEGMENT_CALLDATA, 32, 32, x1, y1, bn_add_return, kexit_info
     %build_address
-    %mload_packing
+    MLOAD_32BYTES
     // stack: y0, x1, y1, bn_add_return, kexit_info
     %stack () -> (@SEGMENT_CALLDATA, 32)
     GET_CONTEXT
     // stack: ctx, @SEGMENT_CALLDATA, 32, y0, x1, y1, bn_add_return, kexit_info
     %build_address_no_offset
-    %mload_packing
+    MLOAD_32BYTES
     // stack: x0, y0, x1, y1, bn_add_return, kexit_info
     %jump(bn_add)
 bn_add_return:

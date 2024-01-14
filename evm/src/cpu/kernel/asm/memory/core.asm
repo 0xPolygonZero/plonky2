@@ -1,9 +1,8 @@
 // Load a big-endian u32, consisting of 4 bytes (c_3, c_2, c_1, c_0).
 %macro mload_u32
     // stack: addr
-    %stack (addr) -> (addr, 4, %%after)
-    %jump(mload_packing)
-%%after:
+    %stack (addr) -> (addr, 4)
+    MLOAD_32BYTES
 %endmacro
 
 // Load a little-endian u32, consisting of 4 bytes (c_0, c_1, c_2, c_3).
@@ -51,9 +50,8 @@
 // Load a big-endian u256.
 %macro mload_u256
     // stack: addr
-    %stack (addr) -> (addr, 32, %%after)
-    %jump(mload_packing)
-%%after:
+    %stack (addr) -> (addr, 32)
+    MLOAD_32BYTES
 %endmacro
 
 // Store a big-endian u32, consisting of 4 bytes (c_3, c_2, c_1, c_0).

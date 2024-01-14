@@ -1,22 +1,5 @@
 // Methods for encoding integers as bytes in memory, as well as the reverse,
-// decoding bytes as integers. All big-endian.
-
-// Given a pointer to some bytes in memory, pack them into a word. Assumes 0 < len <= 32.
-// Pre stack: addr, len, retdest
-// Post stack: packed_value
-global mload_packing:
-    // stack: addr, len, retdest
-    MLOAD_32BYTES
-    // stack: packed_value, retdest
-    SWAP1
-    // stack: retdest, packed_value
-    JUMP
-
-%macro mload_packing
-    %stack (addr, len) -> (addr, len, %%after)
-    %jump(mload_packing)
-%%after:
-%endmacro
+// decoding bytes as integers. All big-endian unless specified.
 
 global mload_packing_u64_LE:
     // stack: addr, retdest

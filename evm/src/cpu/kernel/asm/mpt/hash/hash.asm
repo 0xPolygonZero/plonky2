@@ -89,8 +89,8 @@ maybe_hash_node:
 pack_small_rlp:
     // stack: result_ptr, result_len, cur_len, retdest
     %stack (result_ptr, result_len, cur_len)
-        -> (result_ptr, result_len, after_packed_small_rlp, result_len, cur_len)
-    %jump(mload_packing)
+        -> (result_ptr, result_len, result_len, cur_len)
+    MLOAD_32BYTES
 after_packed_small_rlp:
     %stack (result, result_len, cur_len, retdest) -> (retdest, result, result_len, cur_len)
     JUMP
