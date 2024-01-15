@@ -42,7 +42,7 @@ continue:
 proof_ok:
     // stack: i, ctx, final_pos, retdest
     // We already know final_pos is a jumpdest
-    %stack (i, ctx, final_pos) -> (ctx, @SEGMENT_JUMPDEST_BITS, i)
+    %stack (i, ctx, final_pos) -> (ctx, @SEGMENT_JUMPDEST_BITS, final_pos)
     %build_address
     PUSH 1
     MSTORE_GENERAL
