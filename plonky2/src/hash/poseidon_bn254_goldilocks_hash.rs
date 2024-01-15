@@ -2,12 +2,12 @@ use core::fmt;
 use std::error::Error;
 use std::marker::PhantomData;
 
+use ff::{Field as ff_Field, PrimeField};
 use num::bigint::BigUint;
-use plonky2_field::types::PrimeField;
 use serde::de::Visitor;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use crate::field::bn254::Bn254Field;
+use crate::field::bn254::{Bn254Field, Bn254FieldRepr};
 use crate::field::types::Field;
 use crate::hash::hash_types::RichField;
 use crate::hash::poseidon::PoseidonPermutation;
@@ -22,23 +22,30 @@ pub struct PoseidonBn254HashOut<F: Field> {
     _phantom: PhantomData<F>,
 }
 
+fn hash_out_to_bytes<F: Field>(hash: PoseidonBn254HashOut<F>) -> Vec<u8> {
+    let binding = hash.value.to_repr();
+    let limbs = binding.as_ref();
+    limbs.to_vec()
+}
+
 impl<F: RichField> GenericHashOut<F> for PoseidonBn254HashOut<F> {
     fn to_bytes(&self) -> Vec<u8> {
-        self.value.to_canonical_biguint().to_bytes_le()
+        hash_out_to_bytes(*self)
     }
 
     fn from_bytes(bytes: &[u8]) -> Self {
         let sized_bytes: [u8; 32] = bytes.try_into().unwrap();
-        PoseidonBn254HashOut {
-            value: Bn254Field::from_noncanonical_biguint(BigUint::from_bytes_le(
-                &sized_bytes, // bytes.first_chunk::<32>().unwrap(),
-            )),
+        let fr_repr = Bn254FieldRepr(sized_bytes);
+        let fr = Bn254Field::from_repr(fr_repr).unwrap();
+
+        Self {
+            value: fr,
             _phantom: PhantomData,
         }
     }
 
     fn to_vec(&self) -> Vec<F> {
-        let bytes = self.to_bytes();
+        let bytes = hash_out_to_bytes(*self);
         bytes
             // Chunks of 7 bytes since 8 bytes would allow collisions.
             .chunks(7)
@@ -126,8 +133,8 @@ impl<F: RichField> Hasher<F> for PoseidonBn254Hash {
                 }
 
                 let sized_bytes: [u8; 32] = bytes.try_into().unwrap();
-                state[j + 1] =
-                Bn254Field::from_noncanonical_biguint(BigUint::from_bytes_le(&sized_bytes));
+                let fr_repr = Bn254FieldRepr(sized_bytes);
+                state[j + 1] = Bn254Field::from_repr(fr_repr).unwrap();
             }
             permutation(&mut state);
         }
@@ -164,6 +171,7 @@ impl<F: RichField> Hasher<F> for PoseidonBn254Hash {
     fn two_to_one(left: Self::Hash, right: Self::Hash) -> Self::Hash {
         let mut state = [Bn254Field::ZERO, Bn254Field::ZERO, left.value, right.value];
         permutation(&mut state);
+
         PoseidonBn254HashOut {
             value: state[0],
             _phantom: PhantomData,
@@ -181,9 +189,10 @@ pub mod tests {
     fn test_byte_methods() {
         type F = GoldilocksField;
 
-        let fr = Bn254Field::from_noncanonical_str(
+        let fr = Bn254Field::from_str_vartime(
             "11575173631114898451293296430061690731976535592475236587664058405912382527658",
-        );
+        )
+        .unwrap();
         let hash = PoseidonBn254HashOut::<F> {
             value: fr,
             _phantom: PhantomData,
@@ -197,9 +206,10 @@ pub mod tests {
 
     #[test]
     fn test_serialization() {
-        let fr = Bn254Field::from_noncanonical_str(
-                "11575173631114898451293296430061690731976535592475236587664058405912382527658",
-        );
+        let fr = Bn254Field::from_str_vartime(
+            "11575173631114898451293296430061690731976535592475236587664058405912382527658",
+        )
+        .unwrap();
         let hash = PoseidonBn254HashOut::<GoldilocksField> {
             value: fr,
             _phantom: PhantomData,

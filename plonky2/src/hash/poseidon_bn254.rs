@@ -1,10 +1,9 @@
 use core::ops::{AddAssign, MulAssign};
 
-use plonky2_field::ops::Square;
+use ff::Field;
 use unroll::unroll_for_loops;
 
 use crate::field::bn254::Bn254Field;
-use crate::field::types::Field;
 use crate::hash::poseidon_bn254_constants::{C_CONSTANTS, M_MATRIX, P_MATRIX, S_CONSTANTS};
 
 pub const RATE: usize = 3;
@@ -122,10 +121,10 @@ fn mix(state: &mut PoseidonState, constant_matrix: &[Vec<Bn254Field>]) {
 #[cfg(test)]
 mod permutation_tests {
     use anyhow::Ok;
+    use ff::{Field as ff_Field, PrimeField};
 
     use super::{permutation, WIDTH};
     use crate::field::bn254::Bn254Field;
-    use crate::field::types::Field;
 
     #[test]
     fn test_permuation() -> Result<(), anyhow::Error> {
@@ -136,55 +135,56 @@ mod permutation_tests {
         // 4. random elements of Bn254.
         // Expected output calculated from this poseidon implementation:  https://github.com/iden3/go-iden3-crypto/blob/master/poseidon/poseidon.go#L65
 
-        let max_value = Bn254Field::from_noncanonical_str(
+        let max_value = Bn254Field::from_str_vartime(
             "21888242871839275222246405745257275088548364400416034343698204186575808495616",
-        );
+        )
+        .unwrap();
 
         let test_vectors: Vec<([Bn254Field; 4], [Bn254Field; 4])> = vec![
             (
                 [Bn254Field::ZERO; 4],
                 [
-                    Bn254Field::from_noncanonical_str("5317387130258456662214331362918410991734007599705406860481038345552731150762"),
-                    Bn254Field::from_noncanonical_str("17768273200467269691696191901389126520069745877826494955630904743826040320364"),
-                    Bn254Field::from_noncanonical_str("19413739268543925182080121099097652227979760828059217876810647045303340666757"),
-                    Bn254Field::from_noncanonical_str("3717738800218482999400886888123026296874264026760636028937972004600663725187"),
+                    Bn254Field::from_str_vartime("5317387130258456662214331362918410991734007599705406860481038345552731150762").unwrap(),
+                    Bn254Field::from_str_vartime("17768273200467269691696191901389126520069745877826494955630904743826040320364").unwrap(),
+                    Bn254Field::from_str_vartime("19413739268543925182080121099097652227979760828059217876810647045303340666757").unwrap(),
+                    Bn254Field::from_str_vartime("3717738800218482999400886888123026296874264026760636028937972004600663725187").unwrap(),
                 ]
             ),
             (
                 [
-                    Bn254Field::from_noncanonical_str("0"),
-                    Bn254Field::from_noncanonical_str("1"),
-                    Bn254Field::from_noncanonical_str("2"),
-                    Bn254Field::from_noncanonical_str("3"),
+                    Bn254Field::from_str_vartime("0").unwrap(),
+                    Bn254Field::from_str_vartime("1").unwrap(),
+                    Bn254Field::from_str_vartime("2").unwrap(),
+                    Bn254Field::from_str_vartime("3").unwrap(),
                 ],
                 [
-                    Bn254Field::from_noncanonical_str("6542985608222806190361240322586112750744169038454362455181422643027100751666"),
-                    Bn254Field::from_noncanonical_str("3478427836468552423396868478117894008061261013954248157992395910462939736589"),
-                    Bn254Field::from_noncanonical_str("1904980799580062506738911865015687096398867595589699208837816975692422464009"),
-                    Bn254Field::from_noncanonical_str("11971464497515232077059236682405357499403220967704831154657374522418385384151"),
+                    Bn254Field::from_str_vartime("6542985608222806190361240322586112750744169038454362455181422643027100751666").unwrap(),
+                    Bn254Field::from_str_vartime("3478427836468552423396868478117894008061261013954248157992395910462939736589").unwrap(),
+                    Bn254Field::from_str_vartime("1904980799580062506738911865015687096398867595589699208837816975692422464009").unwrap(),
+                    Bn254Field::from_str_vartime("11971464497515232077059236682405357499403220967704831154657374522418385384151").unwrap(),
                 ]
             ),
             (
                 [max_value; 4],
                 [
-                    Bn254Field::from_noncanonical_str("13055670547682322550638362580666986963569035646873545133474324633020685301274"),
-                    Bn254Field::from_noncanonical_str("19087936485076376314486368416882351797015004625427655501762827988254486144933"),
-                    Bn254Field::from_noncanonical_str("10391468779200270580383536396630001155994223659670674913170907401637624483385"),
-                    Bn254Field::from_noncanonical_str("17202557688472898583549180366140168198092766974201433936205272956998081177816"),
+                    Bn254Field::from_str_vartime("13055670547682322550638362580666986963569035646873545133474324633020685301274").unwrap(),
+                    Bn254Field::from_str_vartime("19087936485076376314486368416882351797015004625427655501762827988254486144933").unwrap(),
+                    Bn254Field::from_str_vartime("10391468779200270580383536396630001155994223659670674913170907401637624483385").unwrap(),
+                    Bn254Field::from_str_vartime("17202557688472898583549180366140168198092766974201433936205272956998081177816").unwrap(),
                 ]
             ),
             (
                 [
-                    Bn254Field::from_noncanonical_str("6542985608222806190361240322586112750744169038454362455181422643027100751666"),
-                    Bn254Field::from_noncanonical_str("3478427836468552423396868478117894008061261013954248157992395910462939736589"),
-                    Bn254Field::from_noncanonical_str("1904980799580062506738911865015687096398867595589699208837816975692422464009"),
-                    Bn254Field::from_noncanonical_str("11971464497515232077059236682405357499403220967704831154657374522418385384151"),
+                    Bn254Field::from_str_vartime("6542985608222806190361240322586112750744169038454362455181422643027100751666").unwrap(),
+                    Bn254Field::from_str_vartime("3478427836468552423396868478117894008061261013954248157992395910462939736589").unwrap(),
+                    Bn254Field::from_str_vartime("1904980799580062506738911865015687096398867595589699208837816975692422464009").unwrap(),
+                    Bn254Field::from_str_vartime("11971464497515232077059236682405357499403220967704831154657374522418385384151").unwrap(),
                 ],
                 [
-                    Bn254Field::from_noncanonical_str("21792249080447013894140672594027696524030291802493510986509431008224624594361"),
-                    Bn254Field::from_noncanonical_str("3536096706123550619294332177231935214243656967137545251021848527424156573335"),
-                    Bn254Field::from_noncanonical_str("14869351042206255711434675256184369368509719143073814271302931417334356905217"),
-                    Bn254Field::from_noncanonical_str("5027523131326906886284185656868809493297314443444919363729302983434650240523"),
+                    Bn254Field::from_str_vartime("21792249080447013894140672594027696524030291802493510986509431008224624594361").unwrap(),
+                    Bn254Field::from_str_vartime("3536096706123550619294332177231935214243656967137545251021848527424156573335").unwrap(),
+                    Bn254Field::from_str_vartime("14869351042206255711434675256184369368509719143073814271302931417334356905217").unwrap(),
+                    Bn254Field::from_str_vartime("5027523131326906886284185656868809493297314443444919363729302983434650240523").unwrap(),
                 ]
             ),
         ];
