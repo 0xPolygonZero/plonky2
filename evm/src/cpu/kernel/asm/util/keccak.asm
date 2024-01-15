@@ -55,12 +55,10 @@ sys_keccak256_empty:
     // Since KECCAK_GENERAL takes its input from memory, we will first write
     // a's bytes to @SEGMENT_KERNEL_GENERAL[0..32], then b's bytes to
     // @SEGMENT_KERNEL_GENERAL[32..64].
-    %stack (a) -> (@SEGMENT_KERNEL_GENERAL, a, 32, %%after_mstore_a)
-    %jump(mstore_unpacking)
-%%after_mstore_a:
-    %stack (addr, b) -> (addr, b, 32, %%after_mstore_b)
-    %jump(mstore_unpacking)
-%%after_mstore_b:
+    %stack (a) -> (@SEGMENT_KERNEL_GENERAL, a)
+    MSTORE_32BYTES_32
+    %stack (addr, b) -> (addr, b)
+    MSTORE_32BYTES_32
     %stack (addr) -> (addr, 64, 64) // reset the address offset
     SUB
     KECCAK_GENERAL
