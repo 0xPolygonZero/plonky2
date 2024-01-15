@@ -365,7 +365,9 @@ fn simulate_cpu_between_labels_and_get_user_jumps<F: Field>(
 
         loop {
             // skip jumpdest table validations in simulations
-            if state.registers.program_counter == KERNEL.global_labels["jumpdest_analysis"] {
+            if state.registers.is_kernel
+                && state.registers.program_counter == KERNEL.global_labels["jumpdest_analysis"]
+            {
                 state.registers.program_counter = KERNEL.global_labels["jumpdest_analysis_end"]
             }
             let pc = state.registers.program_counter;
