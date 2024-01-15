@@ -329,30 +329,3 @@ global mstore_unpacking_u64_LE:
     %jump(mstore_unpacking_u64_LE)
 %%after:
 %endmacro
-
-%macro mstore_unpacking_4
-    // stack: addr, value, retdest
-    MSTORE_32BYTES_4
-    // stack: addr', retdest
-    SWAP1
-    // stack: retdest, addr'
-    JUMP
-%endmacro
-
-%macro mstore_unpacking_20
-    // stack: addr, value, retdest
-    MSTORE_32BYTES_20
-    // stack: addr', retdest
-    SWAP1
-    // stack: retdest, addr'
-    JUMP
-%endmacro
-
-%macro mstore_unpacking_32
-    // stack: addr, value, retdest
-    MSTORE_32BYTES_32
-    // stack: addr', retdest
-    SWAP1
-    // stack: retdest, addr'
-    JUMP
-%endmacro
