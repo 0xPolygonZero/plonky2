@@ -1,6 +1,7 @@
 use core::ops::{AddAssign, MulAssign};
 
 use plonky2_field::ops::Square;
+use unroll::unroll_for_loops;
 
 use crate::field::bn254::Bn254Field;
 use crate::field::types::Field;
@@ -14,19 +15,23 @@ pub const GOLDILOCKS_ELEMENTS: usize = 3;
 
 pub type PoseidonState = [Bn254Field; WIDTH];
 
-pub fn permution(state: &mut PoseidonState) {
+#[inline(always)]
+pub fn permutation(state: &mut PoseidonState) {
     ark(state, 0);
     full_rounds(state, true);
     partial_rounds(state);
     full_rounds(state, false);
 }
 
+#[inline(always)]
+#[unroll_for_loops]
 fn ark(state: &mut PoseidonState, it: usize) {
     for i in 0..WIDTH {
         state[i].add_assign(C_CONSTANTS[it + i]);
     }
 }
 
+#[inline(always)]
 fn exp5(mut x: Bn254Field) -> Bn254Field {
     let aux = x;
     x = x.square();
@@ -36,12 +41,16 @@ fn exp5(mut x: Bn254Field) -> Bn254Field {
     x
 }
 
+#[inline(always)]
+#[unroll_for_loops]
 fn exp5_state(state: &mut PoseidonState) {
     for state_element in state.iter_mut().take(WIDTH) {
         *state_element = exp5(*state_element);
     }
 }
 
+#[inline(always)]
+#[unroll_for_loops]
 fn full_rounds(state: &mut PoseidonState, first: bool) {
     for i in 0..FULL_ROUNDS / 2 - 1 {
         exp5_state(state);
@@ -65,6 +74,8 @@ fn full_rounds(state: &mut PoseidonState, first: bool) {
     }
 }
 
+#[inline(always)]
+#[unroll_for_loops]
 fn partial_rounds(state: &mut PoseidonState) {
     for i in 0..PARTIAL_ROUNDS {
         state[0] = exp5(state[0]);
@@ -90,6 +101,8 @@ fn partial_rounds(state: &mut PoseidonState) {
     }
 }
 
+#[inline(always)]
+#[unroll_for_loops]
 fn mix(state: &mut PoseidonState, constant_matrix: &[Vec<Bn254Field>]) {
     let mut result: PoseidonState = [Bn254Field::ZERO; WIDTH];
 
@@ -110,7 +123,7 @@ fn mix(state: &mut PoseidonState, constant_matrix: &[Vec<Bn254Field>]) {
 mod permutation_tests {
     use anyhow::Ok;
 
-    use super::{permution, WIDTH};
+    use super::{permutation, WIDTH};
     use crate::field::bn254::Bn254Field;
     use crate::field::types::Field;
 
@@ -177,7 +190,7 @@ mod permutation_tests {
         ];
 
         for (mut input, expected_output) in test_vectors.into_iter() {
-            permution(&mut input);
+            permutation(&mut input);
             for i in 0..WIDTH {
                 assert_eq!(input[i], expected_output[i]);
             }

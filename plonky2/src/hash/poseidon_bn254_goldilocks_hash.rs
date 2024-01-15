@@ -11,7 +11,7 @@ use crate::field::bn254::Bn254Field;
 use crate::field::types::Field;
 use crate::hash::hash_types::RichField;
 use crate::hash::poseidon::PoseidonPermutation;
-use crate::hash::poseidon_bn254::{permution, GOLDILOCKS_ELEMENTS, RATE};
+use crate::hash::poseidon_bn254::{permutation, GOLDILOCKS_ELEMENTS, RATE};
 use crate::plonk::config::{GenericHashOut, Hasher};
 
 pub const NUM_HASH_OUT_ELTS: usize = 1;
@@ -129,7 +129,7 @@ impl<F: RichField> Hasher<F> for PoseidonBn254Hash {
                 state[j + 1] =
                 Bn254Field::from_noncanonical_biguint(BigUint::from_bytes_le(&sized_bytes));
             }
-            permution(&mut state);
+            permutation(&mut state);
         }
 
         PoseidonBn254HashOut {
@@ -163,8 +163,7 @@ impl<F: RichField> Hasher<F> for PoseidonBn254Hash {
 
     fn two_to_one(left: Self::Hash, right: Self::Hash) -> Self::Hash {
         let mut state = [Bn254Field::ZERO, Bn254Field::ZERO, left.value, right.value];
-        permution(&mut state);
-
+        permutation(&mut state);
         PoseidonBn254HashOut {
             value: state[0],
             _phantom: PhantomData,

@@ -4,15 +4,15 @@ use core::fmt::{Debug, Display, Formatter};
 use core::hash::{Hash, Hasher};
 use core::iter::{Product, Sum};
 use core::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
+use core::str::FromStr;
+
 use itertools::Itertools;
-use serde::{Serialize, Deserialize};
 use num::bigint::BigUint;
 use num::{Integer, One};
 use rand::RngCore;
-use core::str::FromStr;
+use serde::{Deserialize, Serialize};
 
-use crate::types::{Field, Sample};
-use crate::types::PrimeField as native_pf;
+use crate::types::{Field, PrimeField as native_pf, Sample};
 
 #[derive(Copy, Clone, Serialize, Deserialize)]
 pub struct Bn254Field(pub [u64; 4]);
@@ -48,7 +48,6 @@ impl PartialEq for Bn254Field {
     }
 }
 
-
 impl Eq for Bn254Field {}
 
 impl Hash for Bn254Field {
@@ -72,8 +71,8 @@ impl Debug for Bn254Field {
 impl Sample for Bn254Field {
     #[inline]
     fn sample<R>(rng: &mut R) -> Self
-        where
-            R: rand::RngCore + ?Sized,
+    where
+        R: rand::RngCore + ?Sized,
     {
         use num::bigint::RandBigInt;
         Self::from_noncanonical_biguint(rng.gen_biguint_below(&Self::order()))
@@ -91,7 +90,7 @@ impl Field for Bn254Field {
         4891460686036598784 as u64,
         2896914383306846353 as u64,
         13281191951274694749 as u64,
-        3486998266802970665 as u64
+        3486998266802970665 as u64,
     ]);
 
     const TWO_ADICITY: usize = 28;
@@ -100,17 +99,15 @@ impl Field for Bn254Field {
 
     const MULTIPLICATIVE_GROUP_GENERATOR: Self = Self([5, 0, 0, 0]);
 
-    const POWER_OF_TWO_GENERATOR: Self = Self([
-        268435456 as u64,
-        0,
-        0,
-        0
-    ]);
+    const POWER_OF_TWO_GENERATOR: Self = Self([268435456 as u64, 0, 0, 0]);
 
     const BITS: usize = 254;
 
     fn order() -> BigUint {
-        BigUint::from_str("21888242871839275222246405745257275088548364400416034343698204186575808495617").unwrap()
+        BigUint::from_str(
+            "21888242871839275222246405745257275088548364400416034343698204186575808495617",
+        )
+        .unwrap()
     }
 
     fn characteristic() -> BigUint {
@@ -232,7 +229,7 @@ impl Mul for Bn254Field {
     }
 }
 
-impl MulAssign for Bn254Field{
+impl MulAssign for Bn254Field {
     #[inline]
     fn mul_assign(&mut self, rhs: Self) {
         *self = *self * rhs;
