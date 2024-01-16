@@ -59,11 +59,11 @@ global start_txn:
 
     // If the prover has no txn for us to process, halt.
     PROVER_INPUT(no_txn)
-    %jumpi(execute_withdrawals)
+    %jumpi(pre_execute_withdrawals)
 
     // Call route_txn. When we return, we will process the txn receipt.
     PUSH txn_after
-    // stack: retdest, prev_gas_used, txn_counter, num_nibbles, next_num_nibbles, next_txn_counter, txn_nb
+    // stack: retdest, prev_gas_used, txn_counter, num_nibbles, next_txn_counter, next_num_nibbles, txn_nb
     DUP4 DUP4
 
     %jump(route_txn)
@@ -73,10 +73,14 @@ global txn_after:
     %process_receipt
     // stack: new_cum_gas, txn_counter, num_nibbles, txn_nb
     SWAP3 %increment SWAP3
+    %jump(execute_withdrawals)
 
-global execute_withdrawals:
-    // stack: cum_gas, txn_counter, num_nibbles, txn_nb
+global pre_execute_withdrawals:
+    // stack: cum_gas, txn_counter, num_nibbles, next_txn_counter, next_num_nibbles, txn_nb
+    %stack (cum_gas, txn_counter, num_nibbles, next_txn_counter, next_num_nibbles) -> (cum_gas, txn_counter, num_nibbles)
+execute_withdrawals:
     %withdrawals
+
 global hash_final_tries:
     // stack: cum_gas, txn_counter, num_nibbles, txn_nb
     // Check that we end up with the correct `cum_gas`, `txn_nb` and bloom filter.
