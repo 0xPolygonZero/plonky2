@@ -105,7 +105,7 @@ global precompile_blake2_f:
     GET_CONTEXT
     // stack: ctx, @SEGMENT_CALLDATA, 4, h_0..h_7, m_0..m_15, t_0, t_1, flag, blake2_f_contd, kexit_info
     %build_address_no_offset
-    %mload_packing
+    MLOAD_32BYTES
     // stack: rounds, h_0..h_7, m_0..m_15, t_0, t_1, flag, blake2_f_contd, kexit_info
     
     DUP1

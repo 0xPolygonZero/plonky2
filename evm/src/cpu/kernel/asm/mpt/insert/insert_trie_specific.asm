@@ -81,7 +81,7 @@ global scalar_to_rlp:
     DUP2 DUP2 SUB // len of the key
     // stack: len, addr', init_addr, retdest
     DUP3
-    %mload_packing
+    MLOAD_32BYTES
     // stack: packed_key, addr', init_addr, retdest
     SWAP2 %pop2
     // stack: key, retdest

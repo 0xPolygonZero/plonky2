@@ -42,7 +42,7 @@ continue:
 proof_ok:
     // stack: i, ctx, final_pos, retdest
     // We already know final_pos is a jumpdest
-    %stack (i, ctx, final_pos) -> (ctx, @SEGMENT_JUMPDEST_BITS, i)
+    %stack (i, ctx, final_pos) -> (ctx, @SEGMENT_JUMPDEST_BITS, final_pos)
     %build_address
     PUSH 1
     MSTORE_GENERAL
@@ -145,7 +145,7 @@ global write_table_if_jumpdest:
         (proof_prefix_addr, ctx) ->
         (ctx, proof_prefix_addr, 32, proof_prefix_addr, ctx)
     ADD // combine context and offset to make an address (SEGMENT_CODE == 0)
-    %mload_packing
+    MLOAD_32BYTES
     // packed_opcodes, proof_prefix_addr, ctx, jumpdest, retdest
     DUP1 %shl_const(1)
     DUP2 %shl_const(2)

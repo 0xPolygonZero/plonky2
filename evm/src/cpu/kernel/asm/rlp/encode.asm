@@ -1,28 +1,20 @@
-// RLP-encode a fixed-length 160 bit (20 byte) string. Assumes string < 2^160.
+// Convenience macro to RLP-encode a fixed-length 160 bit (20 byte) string
+// and return where we left off. Assumes string < 2^160.
 // Pre stack: rlp_addr, string, retdest
 // Post stack: rlp_addr
-global encode_rlp_160:
-    PUSH 20
-    %jump(encode_rlp_fixed)
-
-// Convenience macro to call encode_rlp_160 and return where we left off.
 %macro encode_rlp_160
-    %stack (rlp_addr, string) -> (rlp_addr, string, %%after)
-    %jump(encode_rlp_160)
+    %stack (rlp_addr, string) -> (20, rlp_addr, string, %%after)
+    %jump(encode_rlp_fixed)
 %%after:
 %endmacro
 
-// RLP-encode a fixed-length 256 bit (32 byte) string.
+// Convenience macro to RLP-encode a fixed-length 256 bit (32 byte) string
+// and return where we left off.
 // Pre stack: rlp_addr, string, retdest
 // Post stack: rlp_addr
-global encode_rlp_256:
-    PUSH 32
-    %jump(encode_rlp_fixed)
-
-// Convenience macro to call encode_rlp_256 and return where we left off.
 %macro encode_rlp_256
-    %stack (rlp_addr, string) -> (rlp_addr, string, %%after)
-    %jump(encode_rlp_256)
+    %stack (rlp_addr, string) -> (32, rlp_addr, string, %%after)
+    %jump(encode_rlp_fixed)
 %%after:
 %endmacro
 
