@@ -63,13 +63,14 @@ global encode_or_hash_node:
     // Load the hash and return (hash, 32).
     // stack: node_type, node_ptr, encode_value, cur_len, retdest
     POP
-    // Update the length of the `TrieData` segment: there are only two 
-    // elements in a hash node.
+    
     // stack: node_ptr, encode_value, cur_len, retdest
     %increment // Skip over node type prefix
     // stack: hash_ptr, encode_value, cur_len, retdest
     %mload_trie_data
     // stack: hash, encode_value, cur_len, retdest
+    // Update the length of the `TrieData` segment: there are only two 
+    // elements in a hash node.
     SWAP2 %add_const(2)
     %stack (cur_len, encode_value, hash, retdest) -> (retdest, hash, 32, cur_len)
     JUMP
@@ -250,10 +251,6 @@ encode_node_extension_after_unpacking:
 
 global encode_node_leaf:
     // stack: node_type, node_payload_ptr, encode_value, cur_len, retdest
-    // `TrieData` holds the node type, the number of nibbles, the nibbles,
-    // the pointer to the value and the value.
-    // First, we add 4 for the node type, the number of nibbles, the nibbles
-    // and the pointer to the value.
     POP
     // stack: node_payload_ptr, encode_value, cur_len, retdest
     %alloc_rlp_block
@@ -279,6 +276,10 @@ encode_node_leaf_after_hex_prefix:
     JUMP
 encode_node_leaf_after_encode_value:
     // stack: rlp_end_pos, cur_len, rlp_start, retdest
+    // `TrieData` holds the node type, the number of nibbles, the nibbles,
+    // the pointer to the value and the value.
+    // We add 4 for the node type, the number of nibbles, the nibbles
+    // and the pointer to the value.
     SWAP1 %add_const(4)
     %stack(cur_len, rlp_end_pos, rlp_start, retdest) -> (rlp_end_pos, rlp_start, cur_len, retdest)
     %prepend_rlp_list_prefix
