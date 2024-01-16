@@ -182,22 +182,19 @@ encode_node_branch_prepend_prefix:
     // stack: node_payload_ptr, encode_value, cur_len, %%after_encode, rlp_pos, rlp_start, node_payload_ptr, encode_value, cur_len, retdest
     %add_const($i) %mload_trie_data
     // stack: child_i_ptr, encode_value, cur_len, %%after_encode, rlp_pos, rlp_start, node_payload_ptr, encode_value, cur_len, retdest
-    %stack 
-        (child_i_ptr, encode_value, cur_len, after_encode, rlp_pos, rlp_start, node_payload_ptr, encode_value, cur_len, retdest) ->
-        (child_i_ptr, encode_value, cur_len, after_encode, rlp_pos, rlp_start, node_payload_ptr, encode_value, retdest)
     %jump(encode_or_hash_node)
 %%after_encode:
-    // stack: result, result_len, cur_len, rlp_pos, rlp_start, node_payload_ptr, encode_value, retdest
+    // stack: result, result_len, cur_len, rlp_pos, rlp_start, node_payload_ptr, encode_value, old_len, retdest
     // If result_len != 32, result is raw RLP, with an appropriate RLP prefix already.
     SWAP1 DUP1 %sub_const(32) %jumpi(%%unpack)
     // Otherwise, result is a hash, and we need to add the prefix 0x80 + 32 = 160.
-    // stack: result_len, result, cur_len, rlp_pos, rlp_start, node_payload_ptr, encode_value, retdest
+    // stack: result_len, result, cur_len, rlp_pos, rlp_start, node_payload_ptr, encode_value, old_len, retdest
     DUP4 // rlp_pos
     PUSH 160
     MSTORE_GENERAL
     SWAP3 %increment SWAP3 // rlp_pos += 1
 %%unpack:
-    %stack (result_len, result, cur_len, rlp_pos, rlp_start, node_payload_ptr, encode_value, retdest)
+    %stack (result_len, result, cur_len, rlp_pos, rlp_start, node_payload_ptr, encode_value, old_len, retdest)
         -> (rlp_pos, result, result_len, %%after_unpacking,
             rlp_start, node_payload_ptr, encode_value, cur_len, retdest)
     %jump(mstore_unpacking)
