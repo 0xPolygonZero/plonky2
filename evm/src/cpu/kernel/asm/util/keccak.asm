@@ -57,7 +57,7 @@ sys_keccak256_empty:
     // @SEGMENT_KERNEL_GENERAL[32..64].
     %stack (a) -> (@SEGMENT_KERNEL_GENERAL, a)
     MSTORE_32BYTES_32
-    %stack (addr, b) -> (addr, b)
+    // stack: addr, b
     MSTORE_32BYTES_32
     %stack (addr) -> (addr, 64, 64) // reset the address offset
     SUB

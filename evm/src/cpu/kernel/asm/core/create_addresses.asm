@@ -41,17 +41,14 @@ global get_create2_address:
     %stack (sender, code_hash, salt, retdest) -> (@SEGMENT_KERNEL_GENERAL, 1, sender, salt, code_hash, retdest)
     ADD
     MSTORE_32BYTES_20
-get_create2_address_contd:
     POP
     %stack (salt, code_hash, retdest) -> (@SEGMENT_KERNEL_GENERAL, 21, salt, code_hash, retdest)
     ADD
     MSTORE_32BYTES_32
-get_create2_address_contd2:
     POP
     %stack (code_hash, retdest) -> (@SEGMENT_KERNEL_GENERAL, 53, code_hash, retdest)
     ADD
     MSTORE_32BYTES_32
-get_create2_address_finish:
     POP
     %stack (retdest) -> (@SEGMENT_KERNEL_GENERAL, 85, retdest) // offset == context == 0
     // addr, len, retdest

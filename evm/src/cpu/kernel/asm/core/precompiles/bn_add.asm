@@ -56,7 +56,6 @@ bn_add_return:
     %stack (parent_ctx, x, y) -> (parent_ctx, @SEGMENT_RETURNDATA, x, parent_ctx, y)
     %build_address_no_offset
     MSTORE_32BYTES_32
-bn_add_contd6:
     POP
     %stack (parent_ctx, y) -> (parent_ctx, @SEGMENT_RETURNDATA, 32, y)
     %build_address
