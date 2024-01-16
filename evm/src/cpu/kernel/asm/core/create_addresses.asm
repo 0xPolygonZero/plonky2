@@ -44,7 +44,6 @@ global get_create2_address:
     // stack: addr, sender, code_hash, salt, retdest
     %increment
     %stack (addr, sender, code_hash, salt, retdest) -> (addr, sender, salt, code_hash, retdest)
-    ADD
     MSTORE_32BYTES_20
     // stack: addr, salt, code_hash, retdest
     MSTORE_32BYTES_32
