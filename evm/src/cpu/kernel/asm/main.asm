@@ -47,14 +47,15 @@ global start_txn:
     // is handled outside of the kernel.
     %mload_global_metadata(@GLOBAL_METADATA_TXN_NUMBER_BEFORE)
     // stack: txn_nb
-    %mload_global_metadata(@GLOBAL_METADATA_BLOCK_GAS_USED_BEFORE)
-    // stack: init_used_gas, txn_nb
-    DUP2 %scalar_to_rlp
-    // stack: txn_counter, init_gas_used, txn_nb
+    DUP1 %scalar_to_rlp
+    // stack: txn_counter, txn_nb
     DUP1 %num_bytes %mul_const(2)
-    // stack: num_nibbles, txn_counter, init_gas_used, txn_nb
-    SWAP2
-    // stack: init_gas_used, txn_counter, num_nibbles, txn_nb
+    // stack: num_nibbles, txn_counter, txn_nb
+    %increment_bounded_rlp
+    // stack: txn_counter, num_nibbles, next_txn_counter, next_num_nibbles,  txn_nb
+    %mload_global_metadata(@GLOBAL_METADATA_BLOCK_GAS_USED_BEFORE)
+
+    // stack: init_gas_used, txn_counter, num_nibbles, next_txn_counter, next_num_nibbles, txn_nb
 
     // If the prover has no txn for us to process, halt.
     PROVER_INPUT(no_txn)
@@ -62,9 +63,9 @@ global start_txn:
 
     // Call route_txn. When we return, we will process the txn receipt.
     PUSH txn_after
-    // stack: retdest, prev_gas_used, txn_counter, num_nibbles, txn_nb
-    DUP4 DUP4 %increment_bounded_rlp
-    %stack (next_txn_counter, next_num_nibbles, retdest, prev_gas_used, txn_counter, num_nibbles) -> (txn_counter, num_nibbles, retdest, prev_gas_used, txn_counter, num_nibbles, next_txn_counter, next_num_nibbles)
+    // stack: retdest, prev_gas_used, txn_counter, num_nibbles, next_num_nibbles, next_txn_counter, txn_nb
+    DUP4 DUP4
+
     %jump(route_txn)
 
 global txn_after:

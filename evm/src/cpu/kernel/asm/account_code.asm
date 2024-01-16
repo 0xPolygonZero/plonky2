@@ -2,13 +2,13 @@ global sys_extcodehash:
     // stack: kexit_info, address
     SWAP1 %u256_to_addr
     // stack: address, kexit_info
-    DUP1 %insert_accessed_addresses
+    SWAP1
+    DUP2 %insert_accessed_addresses
     // stack: cold_access, address, kexit_info
     PUSH @GAS_COLDACCOUNTACCESS_MINUS_WARMACCESS
     MUL
     PUSH @GAS_WARMACCESS
     ADD
-    %stack (gas, address, kexit_info) -> (gas, kexit_info, address)
     %charge_gas
     // stack: kexit_info, address
 
@@ -57,13 +57,13 @@ global sys_extcodesize:
     // stack: kexit_info, address
     SWAP1 %u256_to_addr
     // stack: address, kexit_info
-    DUP1 %insert_accessed_addresses
-    // stack: cold_access, address, kexit_info
+    SWAP1
+    DUP2 %insert_accessed_addresses
+    // stack: cold_access, kexit_info
     PUSH @GAS_COLDACCOUNTACCESS_MINUS_WARMACCESS
     MUL
     PUSH @GAS_WARMACCESS
     ADD
-    %stack (gas, address, kexit_info) -> (gas, kexit_info, address)
     %charge_gas
     // stack: kexit_info, address
 
