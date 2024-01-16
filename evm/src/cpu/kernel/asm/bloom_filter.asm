@@ -142,19 +142,20 @@ logs_bloom_end:
 // Also updates the block bloom filter.
 %macro bloom_write_bit
     // stack: byte_index, byte_bit_index
+    PUSH @SEGMENT_TXN_BLOOM
+    %build_kernel_address
     PUSH 1
     DUP3
-    // stack: byte_bit_index, 1, byte_index, byte_bit_index
+    // stack: byte_bit_index, 1, byte_addr, byte_bit_index
     PUSH 7 SUB
     SHL
     // Updates the current txn bloom filter.
     SWAP2 POP DUP1
-    %mload_kernel(@SEGMENT_TXN_BLOOM)
-    // stack: old_bloom_byte, byte_index, one_shifted_by_index
+    MLOAD_GENERAL
+    // stack: old_bloom_byte, byte_addr, one_shifted_by_index
     DUP3 OR
-    // stack: new_bloom_byte, byte_index, one_shifted_by_index
-    SWAP1
-    %mstore_kernel(@SEGMENT_TXN_BLOOM)
+    // stack: new_bloom_byte, byte_addr, one_shifted_by_index
+    MSTORE_GENERAL
     // stack: one_shifted_by_index
     POP
     // stack: empty

@@ -446,6 +446,14 @@
     // stack: addr (ctx == 0)
 %endmacro
 
+%macro build_address_with_ctx(seg, off)
+    // stack: ctx
+    PUSH $seg
+    PUSH $off
+    %build_address
+    // stack: addr
+%endmacro
+
 %macro build_address_with_ctx_no_offset(seg)
     // stack: ctx
     PUSH $seg

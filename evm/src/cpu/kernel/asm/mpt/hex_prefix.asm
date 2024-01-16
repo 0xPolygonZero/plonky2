@@ -111,7 +111,6 @@ rlp_header_large:
     DUP2 // rlp_addr
     PUSH 0xb8 // value = 0xb7 + len_of_len = 0xb8
     MSTORE_GENERAL
-    // stack: rlp_addr, value, hp_len, i, rlp_addr, num_nibbles, packed_nibbles, terminated, retdest
 
     // stack: hp_len, rlp_addr, num_nibbles, packed_nibbles, terminated, retdest
     DUP2 %increment

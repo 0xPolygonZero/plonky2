@@ -195,7 +195,8 @@ prepend_rlp_list_prefix_big:
     PUSH 1 DUP6 SUB // start_rlp_addr - 1
     SUB
     // stack: prefix_start_rlp_addr, len_of_len, payload_len, end_rlp_addr, start_rlp_addr, retdest
-    DUP2 %add_const(0xf7) DUP2 %swap_mstore // rlp[prefix_start_rlp_addr] = 0xf7 + len_of_len
+    DUP1
+    DUP3 %add_const(0xf7) MSTORE_GENERAL // rlp[prefix_start_rlp_addr] = 0xf7 + len_of_len
     // stack: prefix_start_rlp_addr, len_of_len, payload_len, end_rlp_addr, start_rlp_addr, retdest
     DUP1 %increment // start_len_rlp_addr = prefix_start_rlp_addr + 1
     %stack (start_len_rlp_addr, prefix_start_rlp_addr, len_of_len, payload_len, end_rlp_addr, start_rlp_addr, retdest)
