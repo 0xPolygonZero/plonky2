@@ -59,7 +59,7 @@ global start_txn:
 
     // If the prover has no txn for us to process, halt.
     PROVER_INPUT(no_txn)
-    %jumpi(pre_execute_withdrawals)
+    %jumpi(execute_withdrawals)
 
     // Call route_txn. When we return, we will process the txn receipt.
     PUSH txn_after
@@ -73,12 +73,12 @@ global txn_after:
     %process_receipt
     // stack: new_cum_gas, txn_counter, num_nibbles, txn_nb
     SWAP3 %increment SWAP3
-    %jump(execute_withdrawals)
+    %jump(execute_withdrawals_post_stack_op)
 
-global pre_execute_withdrawals:
+global execute_withdrawals:
     // stack: cum_gas, txn_counter, num_nibbles, next_txn_counter, next_num_nibbles, txn_nb
     %stack (cum_gas, txn_counter, num_nibbles, next_txn_counter, next_num_nibbles) -> (cum_gas, txn_counter, num_nibbles)
-execute_withdrawals:
+execute_withdrawals_post_stack_op:
     %withdrawals
 
 global hash_final_tries:
