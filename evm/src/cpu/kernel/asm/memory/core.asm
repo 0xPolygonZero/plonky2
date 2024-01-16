@@ -225,12 +225,31 @@
     // stack: value
 %endmacro
 
+// Load a single value from the given segment of kernel (context 0) memory.
+%macro mload_kernel_no_offset(segment)
+    // stack: empty
+    PUSH $segment
+    // stack: addr
+    MLOAD_GENERAL
+    // stack: value
+%endmacro
+
 // Store a single value from the given segment of kernel (context 0) memory.
 %macro mstore_kernel(segment)
     // stack: offset, value
     PUSH $segment
     // stack: segment, offset, value
     %build_kernel_address
+    // stack: addr, value
+    SWAP1
+    MSTORE_GENERAL
+    // stack: (empty)
+%endmacro
+
+// Store a single value from the given segment of kernel (context 0) memory.
+%macro mstore_kernel_no_offset(segment)
+    // stack: value
+    PUSH $segment
     // stack: addr, value
     SWAP1
     MSTORE_GENERAL

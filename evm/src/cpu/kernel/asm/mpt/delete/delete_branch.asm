@@ -43,7 +43,10 @@ update_branch:
 // If it's one, transform the branch node into an leaf/extension node and return it.
 maybe_normalize_branch:
     // stack: updated_child_ptr, first_nibble, node_payload_ptr, retdest
-    PUSH 0 %mstore_kernel_general(0) PUSH 0 %mstore_kernel_general(1)
+    PUSH 0
+    PUSH @SEGMENT_KERNEL_GENERAL
+    MSTORE_32BYTES_2
+    POP
     // stack: updated_child_ptr, first_nibble, node_payload_ptr, retdest
     PUSH 0
 // Loop from i=0..16 excluding `first_nibble` and store the number of non-empty children in
@@ -61,7 +64,7 @@ loop_eq_first_nibble:
     %increment %jump(loop)
 loop_non_empty:
     // stack: i, updated_child_ptr, first_nibble, node_payload_ptr, retdest
-    %mload_kernel_general(0) %increment %mstore_kernel_general(0)
+    %mload_kernel_no_offset(@SEGMENT_KERNEL_GENERAL) %increment %mstore_kernel_no_offset(@SEGMENT_KERNEL_GENERAL)
     DUP1 %mstore_kernel_general(1)
     %increment %jump(loop)
 loop_end:
@@ -69,8 +72,8 @@ loop_end:
     POP
     // stack: updated_child_ptr, first_nibble, node_payload_ptr, retdest
     // If there's more than one non-empty child, simply update the branch node.
-    %mload_kernel_general(0) %gt_const(1) %jumpi(update_branch)
-    %mload_kernel_general(0) ISZERO %jumpi(panic) // This should never happen.
+    %mload_kernel_no_offset(@SEGMENT_KERNEL_GENERAL) %gt_const(1) %jumpi(update_branch)
+    %mload_kernel_no_offset(@SEGMENT_KERNEL_GENERAL) ISZERO %jumpi(panic) // This should never happen.
     // Otherwise, transform the branch node into a leaf/extension node.
     // stack: updated_child_ptr, first_nibble, node_payload_ptr, retdest
     %mload_kernel_general(1)
