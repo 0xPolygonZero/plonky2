@@ -25,12 +25,15 @@ global insert_accessed_addresses:
     // stack: addr, retdest
     %mload_global_metadata(@GLOBAL_METADATA_ACCESSED_ADDRESSES_LEN)
     // stack: len, addr, retdest
-    PUSH 0
+    PUSH @SEGMENT_ACCESSED_ADDRESSES ADD
+    PUSH @SEGMENT_ACCESSED_ADDRESSES
 insert_accessed_addresses_loop:
+    // `i` and `len` are both scaled by SEGMENT_ACCESSED_ADDRESSES
     %stack (i, len, addr, retdest) -> (i, len, i, len, addr, retdest)
     EQ %jumpi(insert_address)
     // stack: i, len, addr, retdest
-    DUP1 %mload_kernel(@SEGMENT_ACCESSED_ADDRESSES)
+    DUP1
+    MLOAD_GENERAL
     // stack: loaded_addr, i, len, addr, retdest
     DUP4
     // stack: addr, loaded_addr, i, len, addr, retdest
@@ -42,9 +45,10 @@ insert_accessed_addresses_loop:
 insert_address:
     %stack (i, len, addr, retdest) -> (i, addr, len, retdest)
     DUP2 %journal_add_account_loaded // Add a journal entry for the loaded account.
-    %mstore_kernel(@SEGMENT_ACCESSED_ADDRESSES) // Store new address at the end of the array.
+    %swap_mstore // Store new address at the end of the array.
     // stack: len, retdest
     %increment
+    %sub_const(@SEGMENT_ACCESSED_ADDRESSES) // unscale `len`
     %mstore_global_metadata(@GLOBAL_METADATA_ACCESSED_ADDRESSES_LEN) // Store new length.
     PUSH 1 // Return 1 to indicate that the address was inserted.
     SWAP1 JUMP
@@ -59,12 +63,14 @@ global remove_accessed_addresses:
     // stack: addr, retdest
     %mload_global_metadata(@GLOBAL_METADATA_ACCESSED_ADDRESSES_LEN)
     // stack: len, addr, retdest
-    PUSH 0
+    PUSH @SEGMENT_ACCESSED_ADDRESSES ADD
+    PUSH @SEGMENT_ACCESSED_ADDRESSES
 remove_accessed_addresses_loop:
+    // `i` and `len` are both scaled by SEGMENT_ACCESSED_ADDRESSES
     %stack (i, len, addr, retdest) -> (i, len, i, len, addr, retdest)
     EQ %jumpi(panic)
     // stack: i, len, addr, retdest
-    DUP1 %mload_kernel(@SEGMENT_ACCESSED_ADDRESSES)
+    DUP1 MLOAD_GENERAL
     // stack: loaded_addr, i, len, addr, retdest
     DUP4
     // stack: addr, loaded_addr, i, len, addr, retdest
@@ -74,12 +80,15 @@ remove_accessed_addresses_loop:
     %jump(remove_accessed_addresses_loop)
 remove_accessed_addresses_found:
     %stack (i, len, addr, retdest) -> (len, 1, i, retdest)
-    SUB DUP1 %mstore_global_metadata(@GLOBAL_METADATA_ACCESSED_ADDRESSES_LEN) // Decrement the access list length.
+    SUB  // len -= 1
+    PUSH @SEGMENT_ACCESSED_ADDRESSES
+    DUP2 SUB // unscale `len`
+    %mstore_global_metadata(@GLOBAL_METADATA_ACCESSED_ADDRESSES_LEN) // Decrement the access list length.
     // stack: len-1, i, retdest
-    %mload_kernel(@SEGMENT_ACCESSED_ADDRESSES) // Load the last address in the access list.
+    MLOAD_GENERAL // Load the last address in the access list.
     // stack: last_addr, i, retdest
-    SWAP1
-    %mstore_kernel(@SEGMENT_ACCESSED_ADDRESSES) // Store the last address at the position of the removed address.
+    MSTORE_GENERAL
+    // Store the last address at the position of the removed address.
     JUMP
 
 
@@ -97,14 +106,16 @@ global insert_accessed_storage_keys:
     // stack: addr, key, value, retdest
     %mload_global_metadata(@GLOBAL_METADATA_ACCESSED_STORAGE_KEYS_LEN)
     // stack: len, addr, key, value, retdest
-    PUSH 0
+    PUSH @SEGMENT_ACCESSED_STORAGE_KEYS ADD
+    PUSH @SEGMENT_ACCESSED_STORAGE_KEYS
 insert_accessed_storage_keys_loop:
+    // `i` and `len` are both scaled by SEGMENT_ACCESSED_STORAGE_KEYS
     %stack (i, len, addr, key, value, retdest) -> (i, len, i, len, addr, key, value, retdest)
     EQ %jumpi(insert_storage_key)
     // stack: i, len, addr, key, value, retdest
-    DUP1 %increment %mload_kernel(@SEGMENT_ACCESSED_STORAGE_KEYS)
+    DUP1 %increment MLOAD_GENERAL
     // stack: loaded_key, i, len, addr, key, value, retdest
-    DUP2 %mload_kernel(@SEGMENT_ACCESSED_STORAGE_KEYS)
+    DUP2 MLOAD_GENERAL
     // stack: loaded_addr, loaded_key, i, len, addr, key, value, retdest
     DUP5 EQ
     // stack: loaded_addr==addr, loaded_key, i, len, addr, key, value, retdest
@@ -120,20 +131,18 @@ insert_storage_key:
     // stack: i, len, addr, key, value, retdest
     DUP4 DUP4 %journal_add_storage_loaded // Add a journal entry for the loaded storage key.
     // stack: i, len, addr, key, value, retdest
-    DUP1
-    PUSH @SEGMENT_ACCESSED_STORAGE_KEYS
-    %build_kernel_address
 
-    %stack(dst, i, len, addr, key, value) -> (addr, dst, dst, key, dst, value, i, value)
+    %stack(dst, len, addr, key, value) -> (addr, dst, dst, key, dst, value, dst, @SEGMENT_ACCESSED_STORAGE_KEYS, value)
     MSTORE_GENERAL // Store new address at the end of the array.
-    // stack: dst, key, dst, value, i, value, retdest
+    // stack: dst, key, dst, value, dst, segment, value, retdest
     %increment SWAP1
     MSTORE_GENERAL // Store new key after that
-    // stack: dst, value, i, value, retdest
+    // stack: dst, value, dst, segment, value, retdest
     %add_const(2) SWAP1
     MSTORE_GENERAL // Store new value after that
-    // stack: i, value, retdest
+    // stack: dst, segment, value, retdest
     %add_const(3)
+    SUB // unscale dst
     %mstore_global_metadata(@GLOBAL_METADATA_ACCESSED_STORAGE_KEYS_LEN) // Store new length.
     %stack (value, retdest) -> (retdest, 1, value) // Return 1 to indicate that the storage key was inserted.
     JUMP
@@ -141,7 +150,7 @@ insert_storage_key:
 insert_accessed_storage_keys_found:
     // stack: i, len, addr, key, value, retdest
     %add_const(2)
-    %mload_kernel(@SEGMENT_ACCESSED_STORAGE_KEYS)
+    MLOAD_GENERAL
     %stack (original_value, len, addr, key, value, retdest) -> (retdest, 0, original_value) // Return 0 to indicate that the storage key was already present.
     JUMP
 
@@ -151,14 +160,16 @@ global remove_accessed_storage_keys:
     // stack: addr, key, retdest
     %mload_global_metadata(@GLOBAL_METADATA_ACCESSED_STORAGE_KEYS_LEN)
     // stack: len, addr, key, retdest
-    PUSH 0
+    PUSH @SEGMENT_ACCESSED_STORAGE_KEYS ADD
+    PUSH @SEGMENT_ACCESSED_STORAGE_KEYS
 remove_accessed_storage_keys_loop:
+    // `i` and `len` are both scaled by SEGMENT_ACCESSED_STORAGE_KEYS
     %stack (i, len, addr, key, retdest) -> (i, len, i, len, addr, key, retdest)
     EQ %jumpi(panic)
     // stack: i, len, addr, key, retdest
-    DUP1 %increment %mload_kernel(@SEGMENT_ACCESSED_STORAGE_KEYS)
+    DUP1 %increment MLOAD_GENERAL
     // stack: loaded_key, i, len, addr, key, retdest
-    DUP2 %mload_kernel(@SEGMENT_ACCESSED_STORAGE_KEYS)
+    DUP2 MLOAD_GENERAL
     // stack: loaded_addr, loaded_key, i, len, addr, key, retdest
     DUP5 EQ
     // stack: loaded_addr==addr, loaded_key, i, len, addr, key, retdest
@@ -172,18 +183,21 @@ remove_accessed_storage_keys_loop:
 
 remove_accessed_storage_keys_found:
     %stack (i, len, addr, key, retdest) -> (len, 3, i, retdest)
-    SUB DUP1 %mstore_global_metadata(@GLOBAL_METADATA_ACCESSED_STORAGE_KEYS_LEN) // Decrease the access list length.
+    SUB 
+    PUSH @SEGMENT_ACCESSED_STORAGE_KEYS
+    DUP2 SUB // unscale
+    %mstore_global_metadata(@GLOBAL_METADATA_ACCESSED_STORAGE_KEYS_LEN) // Decrease the access list length.
     // stack: len-3, i, retdest
-    DUP1 %add_const(2) %mload_kernel(@SEGMENT_ACCESSED_STORAGE_KEYS)
+    DUP1 %add_const(2) MLOAD_GENERAL
     // stack: last_value, len-3, i, retdest
-    DUP2 %add_const(1) %mload_kernel(@SEGMENT_ACCESSED_STORAGE_KEYS)
+    DUP2 %add_const(1) MLOAD_GENERAL
     // stack: last_key, last_value, len-3, i, retdest
-    DUP3 %mload_kernel(@SEGMENT_ACCESSED_STORAGE_KEYS)
+    DUP3 MLOAD_GENERAL
     // stack: last_addr, last_key, last_value, len-3, i, retdest
-    DUP5 %mstore_kernel(@SEGMENT_ACCESSED_STORAGE_KEYS) // Move the last tuple to the position of the removed tuple.
+    DUP5 %swap_mstore // Move the last tuple to the position of the removed tuple.
     // stack: last_key, last_value, len-3, i, retdest
-    DUP4 %add_const(1) %mstore_kernel(@SEGMENT_ACCESSED_STORAGE_KEYS)
+    DUP4 %add_const(1) %swap_mstore
     // stack: last_value, len-3, i, retdest
-    DUP3 %add_const(2) %mstore_kernel(@SEGMENT_ACCESSED_STORAGE_KEYS)
+    DUP3 %add_const(2) %swap_mstore
     // stack: len-3, i, retdest
     %pop2 JUMP
