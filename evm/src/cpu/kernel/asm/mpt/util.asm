@@ -158,9 +158,9 @@
     DUP3 DUP6 MUL ISZERO %jumpi(%%return)
 
     // first_nib_2 = (key_2 >> (bits_2 - 4)) & 0xF
-    DUP6 DUP6 %sub_const(4) SHR %and_const(0xF)
+    DUP6 PUSH 4 DUP7 SUB SHR %and_const(0xF)
     // first_nib_1 = (key_1 >> (bits_1 - 4)) & 0xF
-    DUP5 DUP5 %sub_const(4) SHR %and_const(0xF)
+    DUP5 PUSH 4 DUP6 SUB SHR %and_const(0xF)
     // stack: first_nib_1, first_nib_2, len_common, key_common, bits_1, key_1, bits_2, key_2
 
     // if first_nib_1 != first_nib_2: break
@@ -204,8 +204,8 @@
     %pop2
 %%return:
     // stack: len_common, key_common, bits_1, key_1, bits_2, key_2
-    SWAP2 %div_const(4) SWAP2 // bits_1 -> len_1 (in nibbles)
-    SWAP4 %div_const(4) SWAP4 // bits_2 -> len_2 (in nibbles)
+    SWAP2 %shr_const(2) SWAP2 // bits_1 -> len_1 (in nibbles)
+    SWAP4 %shr_const(2) SWAP4 // bits_2 -> len_2 (in nibbles)
     // stack: len_common, key_common, len_1, key_1, len_2, key_2
 %endmacro
 

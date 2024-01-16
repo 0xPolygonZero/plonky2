@@ -186,7 +186,9 @@ encode_node_branch_prepend_prefix:
 %%after_encode:
     // stack: result, result_len, cur_len, rlp_pos, rlp_start, node_payload_ptr, encode_value, old_len, retdest
     // If result_len != 32, result is raw RLP, with an appropriate RLP prefix already.
-    SWAP1 DUP1 %sub_const(32) %jumpi(%%unpack)
+    SWAP1 
+    PUSH 32 DUP2 SUB
+    %jumpi(%%unpack)
     // Otherwise, result is a hash, and we need to add the prefix 0x80 + 32 = 160.
     // stack: result_len, result, cur_len, rlp_pos, rlp_start, node_payload_ptr, encode_value, old_len, retdest
     DUP4 // rlp_pos
@@ -228,7 +230,8 @@ encode_node_extension_after_encode_child:
 encode_node_extension_after_hex_prefix:
     // stack: rlp_pos, rlp_start, result, result_len, node_payload_ptr, cur_len, retdest
     // If result_len != 32, result is raw RLP, with an appropriate RLP prefix already.
-    DUP4 %sub_const(32) %jumpi(encode_node_extension_unpack)
+    PUSH 32 DUP5 SUB
+    %jumpi(encode_node_extension_unpack)
     // Otherwise, result is a hash, and we need to add the prefix 0x80 + 32 = 160.
     DUP1 // rlp_pos
     PUSH 160

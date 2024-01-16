@@ -28,8 +28,8 @@ first_byte:
     // get the first nibble, if num_nibbles is odd, or zero otherwise
     SWAP2
     // stack: packed_nibbles, num_nibbles, rlp_addr, terminated, retdest
-    DUP2 DUP1
-    %mod_const(2)
+    DUP2 
+    PUSH 2 DUP2 MOD
     // stack: parity, num_nibbles, packed_nibbles, num_nibbles, rlp_addr, terminated, retdest
     SWAP1 SUB
     %mul_const(4)
@@ -61,12 +61,12 @@ remaining_bytes:
     SWAP2
     PUSH @U256_MAX
     // stack: U256_MAX, packed_nibbles, num_nibbles, rlp_addr, ret_dest
-    SWAP1 SWAP2 DUP1
-    %mod_const(2)
+    SWAP1 SWAP2
+    PUSH 2 DUP2 MOD
     // stack: parity, num_nibbles, U256_MAX, packed_nibbles, rlp_addr, ret_dest
     SWAP1 SUB DUP1
     // stack: num_nibbles - parity, num_nibbles - parity, U256_MAX, packed_nibbles, rlp_addr, ret_dest
-    %div_const(2)
+    %div2
     // stack: rem_bytes, num_nibbles - parity, U256_MAX, packed_nibbles, rlp_addr, ret_dest
     SWAP2 SWAP1
     // stack: num_nibbles - parity, U256_MAX, rem_bytes, packed_nibbles, rlp_addr, ret_dest
