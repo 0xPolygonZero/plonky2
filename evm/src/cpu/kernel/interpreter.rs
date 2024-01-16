@@ -1020,8 +1020,6 @@ impl<'a> Interpreter<'a> {
         let addr = self.pop()?;
         let (context, segment, offset) = unpack_address!(addr);
 
-        // Not strictly needed but here to avoid surprises with MSIZE.
-        assert_ne!(segment, Segment::MainMemory, "Call KECCAK256 instead.");
         let size = self.pop()?.as_usize();
         let bytes = (offset..offset + size)
             .map(|i| {
@@ -1093,11 +1091,32 @@ impl<'a> Interpreter<'a> {
 
     fn run_jump(&mut self) -> anyhow::Result<(), ProgramError> {
         let x = self.pop()?;
+
+        let jumpdest_bit = if self.generation_state.memory.contexts[self.context()].segments
+            [Segment::JumpdestBits.unscale()]
+        .content
+        .len()
+            > x.low_u32() as usize
+        {
+            self.generation_state.memory.get(MemoryAddress {
+                context: self.context(),
+                segment: Segment::JumpdestBits.unscale(),
+                virt: x.low_u32() as usize,
+            })
+        } else {
+            0.into()
+        };
+
         // Check that the destination is valid.
         let x: u32 = x
             .try_into()
             .map_err(|_| ProgramError::InvalidJumpDestination)?;
-        self.jump_to(x as usize)
+
+        if !self.is_kernel() && jumpdest_bit != U256::one() {
+            return Err(ProgramError::InvalidJumpDestination);
+        }
+
+        self.jump_to(x as usize, false)
     }
 
     fn run_jumpi(&mut self) -> anyhow::Result<(), ProgramError> {
@@ -1107,9 +1126,26 @@ impl<'a> Interpreter<'a> {
             let x: u32 = x
                 .try_into()
                 .map_err(|_| ProgramError::InvalidJumpiDestination)?;
-            self.jump_to(x as usize)?;
+            self.jump_to(x as usize, true)?;
         }
+        let jumpdest_bit = if self.generation_state.memory.contexts[self.context()].segments
+            [Segment::JumpdestBits.unscale()]
+        .content
+        .len()
+            > x.low_u32() as usize
+        {
+            self.generation_state.memory.get(MemoryAddress {
+                context: self.context(),
+                segment: Segment::JumpdestBits.unscale(),
+                virt: x.low_u32() as usize,
+            })
+        } else {
+            0.into()
+        };
 
+        if !b.is_zero() && !self.is_kernel() && jumpdest_bit != U256::one() {
+            return Err(ProgramError::InvalidJumpiDestination);
+        }
         Ok(())
     }
 
@@ -1129,13 +1165,19 @@ impl<'a> Interpreter<'a> {
         Ok(())
     }
 
-    fn jump_to(&mut self, offset: usize) -> anyhow::Result<(), ProgramError> {
-        // The JUMPDEST rule is not enforced in kernel mode.
-        if !self.is_kernel() && self.jumpdests.binary_search(&offset).is_err() {
-            return Err(ProgramError::InvalidJumpDestination);
-        }
-
+    fn jump_to(&mut self, offset: usize, is_jumpi: bool) -> anyhow::Result<(), ProgramError> {
         self.generation_state.registers.program_counter = offset;
+
+        if offset == KERNEL.global_labels["observe_new_address"] {
+            let tip_u256 = stack_peek(&self.generation_state, 0)?;
+            let tip_h256 = H256::from_uint(&tip_u256);
+            let tip_h160 = H160::from(tip_h256);
+            self.generation_state.observe_address(tip_h160);
+        } else if offset == KERNEL.global_labels["observe_new_contract"] {
+            let tip_u256 = stack_peek(&self.generation_state, 0)?;
+            let tip_h256 = H256::from_uint(&tip_u256);
+            self.generation_state.observe_contract(tip_h256)?;
+        }
 
         if self.halt_offsets.contains(&offset) {
             self.running = false;
