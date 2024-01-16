@@ -412,7 +412,7 @@
 %macro mstore_kernel_code
     // stack: offset, value
     // ctx == SEGMENT_CODE == 0
-    MLOAD_GENERAL
+    MSTORE_GENERAL
     // stack: (empty)
 %endmacro
 
