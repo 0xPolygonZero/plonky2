@@ -76,8 +76,7 @@ remove_touched_addresses_found:
     // stack: len-1, i, retdest
     MLOAD_GENERAL // Load the last address in the list.
     // stack: last_addr, i, retdest
-    SWAP1
-    MLOAD_GENERAL // Store the last address at the position of the removed address.
+    MSTORE_GENERAL // Store the last address at the position of the removed address.
     JUMP
 
 
