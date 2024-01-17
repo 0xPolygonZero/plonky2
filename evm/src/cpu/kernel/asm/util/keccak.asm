@@ -38,11 +38,10 @@ sys_keccak256_empty:
 %macro keccak256_word(num_bytes)
     // Since KECCAK_GENERAL takes its input from memory, we will first write
     // input_word's bytes to @SEGMENT_KERNEL_GENERAL[0..$num_bytes].
-    %stack (word) -> (@SEGMENT_KERNEL_GENERAL, word, $num_bytes, %%after_mstore)
+    %stack (word) -> (@SEGMENT_KERNEL_GENERAL, word, $num_bytes, %%after_mstore, $num_bytes, $num_bytes)
     %jump(mstore_unpacking)
 %%after_mstore:
-    // stack: addr
-    %stack(addr) -> (addr, $num_bytes, $num_bytes)
+    // stack: addr, $num_bytes, $num_bytes
     SUB
     KECCAK_GENERAL
 %endmacro

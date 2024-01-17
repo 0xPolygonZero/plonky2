@@ -37,17 +37,17 @@ global get_create_address:
 // Post stack: address
 global get_create2_address:
     // stack: sender, code_hash, salt, retdest
-    PUSH 0xff PUSH 0 %mstore_kernel_general
-    %stack (sender, code_hash, salt, retdest) -> (@SEGMENT_KERNEL_GENERAL, 1, sender, salt, code_hash, retdest)
-    ADD
+    PUSH @SEGMENT_KERNEL_GENERAL
+    DUP1
+    PUSH 0xff
+    MSTORE_GENERAL
+    // stack: addr, sender, code_hash, salt, retdest
+    %increment
+    %stack (addr, sender, code_hash, salt, retdest) -> (addr, sender, salt, code_hash, retdest)
     MSTORE_32BYTES_20
-    POP
-    %stack (salt, code_hash, retdest) -> (@SEGMENT_KERNEL_GENERAL, 21, salt, code_hash, retdest)
-    ADD
+    // stack: addr, salt, code_hash, retdest
     MSTORE_32BYTES_32
-    POP
-    %stack (code_hash, retdest) -> (@SEGMENT_KERNEL_GENERAL, 53, code_hash, retdest)
-    ADD
+    // stack: addr, code_hash, retdest
     MSTORE_32BYTES_32
     POP
     %stack (retdest) -> (@SEGMENT_KERNEL_GENERAL, 85, retdest) // offset == context == 0
