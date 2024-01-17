@@ -568,6 +568,14 @@ impl<'a> Interpreter<'a> {
                 .contexts
                 .push(MemoryContextState::default());
         }
+        self.generation_state.memory.set(
+            MemoryAddress::new(
+                context,
+                Segment::ContextMetadata,
+                ContextMetadata::CodeSize.unscale(),
+            ),
+            code.len().into(),
+        );
         self.generation_state.memory.contexts[context].segments[Segment::Code.unscale()].content =
             code.into_iter().map(U256::from).collect();
     }
@@ -586,20 +594,8 @@ impl<'a> Interpreter<'a> {
             .collect()
     }
 
-    pub(crate) fn set_jumpdest_bits(&mut self, context: usize, jumpdest_bits: Vec<bool>) {
-        self.generation_state.memory.contexts[context].segments[Segment::JumpdestBits.unscale()]
-            .content = jumpdest_bits.iter().map(|&x| u256_from_bool(x)).collect();
-        self.generation_state
-            .set_proofs_and_jumpdests(HashMap::from([(
-                context,
-                BTreeSet::from_iter(
-                    jumpdest_bits
-                        .into_iter()
-                        .enumerate()
-                        .filter(|&(_, x)| x)
-                        .map(|(i, _)| i),
-                ),
-            )]));
+    pub(crate) fn set_jumpdest_analysis_inputs(&mut self, jumps: HashMap<usize, BTreeSet<usize>>) {
+        self.generation_state.set_jumpdest_analysis_inputs(jumps);
     }
 
     pub(crate) fn incr(&mut self, n: usize) {
