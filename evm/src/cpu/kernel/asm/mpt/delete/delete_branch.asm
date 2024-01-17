@@ -65,7 +65,9 @@ loop_eq_first_nibble:
 loop_non_empty:
     // stack: i, updated_child_ptr, first_nibble, node_payload_ptr, retdest
     %mload_kernel_no_offset(@SEGMENT_KERNEL_GENERAL) %increment %mstore_kernel_no_offset(@SEGMENT_KERNEL_GENERAL)
-    DUP1 %mstore_kernel_general(1)
+    PUSH 1 PUSH @SEGMENT_KERNEL_GENERAL %build_kernel_address
+    DUP2
+    MSTORE_GENERAL
     %increment %jump(loop)
 loop_end:
     // stack: i, updated_child_ptr, first_nibble, node_payload_ptr, retdest
