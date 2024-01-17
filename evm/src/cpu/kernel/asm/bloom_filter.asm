@@ -58,18 +58,18 @@ logs_bloom_loop:
     PUSH @SEGMENT_LOGS_DATA %build_kernel_address
     DUP1
     MLOAD_GENERAL
-    // stack: addr, addr_ptr, i, logs_len, retdest
+    // stack: addr, full_addr_ptr, i, logs_len, retdest
     PUSH 0
-    // stack: is_topic, addr, addr_ptr, i, logs_len, retdest
+    // stack: is_topic, addr, full_addr_ptr, i, logs_len, retdest
     %add_to_bloom
-    // stack: addr_ptr, i, logs_len, retdest
+    // stack: full_addr_ptr, i, logs_len, retdest
     %increment
-    // stack: num_topics_ptr, i, logs_len, retdest
+    // stack: full_num_topics_ptr, i, logs_len, retdest
     DUP1
     MLOAD_GENERAL
-    // stack: num_topics, num_topics_ptr, i, logs_len, retdest
+    // stack: num_topics, full_num_topics_ptr, i, logs_len, retdest
     SWAP1 %increment
-    // stack: topics_ptr, num_topics, i, logs_len, retdest
+    // stack: full_topics_ptr, num_topics, i, logs_len, retdest
     PUSH 0
 
 logs_bloom_topic_loop:
