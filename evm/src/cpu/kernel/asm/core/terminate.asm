@@ -203,9 +203,11 @@ global terminate_common:
 
     // Similarly, we write the parent PC to SEGMENT_KERNEL_GENERAL[2] so that
     // we can later read it after switching to the parent context.
-    %mload_context_metadata(@CTX_METADATA_PARENT_PC)
     PUSH 2
-    %mstore_kernel(@SEGMENT_KERNEL_GENERAL)
+    PUSH @SEGMENT_KERNEL_GENERAL
+    %build_kernel_address
+    %mload_context_metadata(@CTX_METADATA_PARENT_PC)
+    MSTORE_GENERAL
     // stack: (empty)
 
     // Go back to the parent context.

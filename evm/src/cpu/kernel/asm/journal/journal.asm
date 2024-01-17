@@ -182,9 +182,12 @@
     // stack: (empty)
     %current_checkpoint
     // stack: current_checkpoint
+    DUP1
+    PUSH @SEGMENT_JOURNAL_CHECKPOINTS
+    %build_kernel_address
     %journal_size
-    // stack: journal_size, current_checkpoint
-    DUP2 %mstore_kernel(@SEGMENT_JOURNAL_CHECKPOINTS)
+    // stack: journal_size, addr, current_checkpoint
+    MSTORE_GENERAL
     // stack: current_checkpoint
     %mload_context_metadata(@CTX_METADATA_CHECKPOINTS_LEN)
     // stack: i, current_checkpoint

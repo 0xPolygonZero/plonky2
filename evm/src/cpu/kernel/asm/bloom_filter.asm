@@ -55,20 +55,21 @@ logs_bloom_loop:
     // Add address to bloom filter.
     %increment
     // stack: addr_ptr, i, logs_len, retdest
+    PUSH @SEGMENT_LOGS_DATA %build_kernel_address
     DUP1
-    %mload_kernel(@SEGMENT_LOGS_DATA)
-    // stack: addr, addr_ptr, i, logs_len, retdest
+    MLOAD_GENERAL
+    // stack: addr, full_addr_ptr, i, logs_len, retdest
     PUSH 0
-    // stack: is_topic, addr, addr_ptr, i, logs_len, retdest
+    // stack: is_topic, addr, full_addr_ptr, i, logs_len, retdest
     %add_to_bloom
-    // stack: addr_ptr, i, logs_len, retdest
+    // stack: full_addr_ptr, i, logs_len, retdest
     %increment
-    // stack: num_topics_ptr, i, logs_len, retdest
+    // stack: full_num_topics_ptr, i, logs_len, retdest
     DUP1
-    %mload_kernel(@SEGMENT_LOGS_DATA)
-    // stack: num_topics, num_topics_ptr, i, logs_len, retdest
+    MLOAD_GENERAL
+    // stack: num_topics, full_num_topics_ptr, i, logs_len, retdest
     SWAP1 %increment
-    // stack: topics_ptr, num_topics, i, logs_len, retdest
+    // stack: full_topics_ptr, num_topics, i, logs_len, retdest
     PUSH 0
 
 logs_bloom_topic_loop:
@@ -78,7 +79,7 @@ logs_bloom_topic_loop:
     %jumpi(logs_bloom_topic_end)
     DUP2 DUP2 ADD
     // stack: curr_topic_ptr, j, topics_ptr, num_topics, i, logs_len, retdest
-    %mload_kernel(@SEGMENT_LOGS_DATA)
+    MLOAD_GENERAL
     // stack: topic, j, topics_ptr, num_topics, i, logs_len, retdest
     PUSH 1
     // stack: is_topic, topic, j, topics_ptr, num_topics, i, logs_len, retdest
@@ -142,19 +143,20 @@ logs_bloom_end:
 // Also updates the block bloom filter.
 %macro bloom_write_bit
     // stack: byte_index, byte_bit_index
+    PUSH @SEGMENT_TXN_BLOOM
+    %build_kernel_address
     PUSH 1
     DUP3
-    // stack: byte_bit_index, 1, byte_index, byte_bit_index
+    // stack: byte_bit_index, 1, byte_addr, byte_bit_index
     PUSH 7 SUB
     SHL
     // Updates the current txn bloom filter.
     SWAP2 POP DUP1
-    %mload_kernel(@SEGMENT_TXN_BLOOM)
-    // stack: old_bloom_byte, byte_index, one_shifted_by_index
+    MLOAD_GENERAL
+    // stack: old_bloom_byte, byte_addr, one_shifted_by_index
     DUP3 OR
-    // stack: new_bloom_byte, byte_index, one_shifted_by_index
-    SWAP1
-    %mstore_kernel(@SEGMENT_TXN_BLOOM)
+    // stack: new_bloom_byte, byte_addr, one_shifted_by_index
+    MSTORE_GENERAL
     // stack: one_shifted_by_index
     POP
     // stack: empty

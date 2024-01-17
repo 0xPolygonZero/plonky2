@@ -45,13 +45,13 @@ fn test_encode_rlp_scalar_medium() -> Result<()> {
 
 #[test]
 fn test_encode_rlp_160() -> Result<()> {
-    let encode_rlp_160 = KERNEL.global_labels["encode_rlp_160"];
+    let encode_rlp_fixed = KERNEL.global_labels["encode_rlp_fixed"];
 
     let retdest = 0xDEADBEEFu32.into();
     let string = 0x12345.into();
     let pos = U256::from(Segment::RlpRaw as usize);
-    let initial_stack = vec![retdest, string, pos];
-    let mut interpreter = Interpreter::new_with_kernel(encode_rlp_160, initial_stack);
+    let initial_stack = vec![retdest, string, pos, U256::from(20)];
+    let mut interpreter = Interpreter::new_with_kernel(encode_rlp_fixed, initial_stack);
 
     interpreter.run()?;
     let expected_stack = vec![pos + U256::from(1 + 20)]; // pos'
@@ -65,13 +65,13 @@ fn test_encode_rlp_160() -> Result<()> {
 
 #[test]
 fn test_encode_rlp_256() -> Result<()> {
-    let encode_rlp_256 = KERNEL.global_labels["encode_rlp_256"];
+    let encode_rlp_fixed = KERNEL.global_labels["encode_rlp_fixed"];
 
     let retdest = 0xDEADBEEFu32.into();
     let string = 0x12345.into();
     let pos = U256::from(Segment::RlpRaw as usize);
-    let initial_stack = vec![retdest, string, pos];
-    let mut interpreter = Interpreter::new_with_kernel(encode_rlp_256, initial_stack);
+    let initial_stack = vec![retdest, string, pos, U256::from(32)];
+    let mut interpreter = Interpreter::new_with_kernel(encode_rlp_fixed, initial_stack);
 
     interpreter.run()?;
     let expected_stack = vec![pos + U256::from(1 + 32)]; // pos'

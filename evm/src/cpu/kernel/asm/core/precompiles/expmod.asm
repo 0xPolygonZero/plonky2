@@ -18,7 +18,7 @@ mload_bytes_as_limbs:
     // stack: min(16, num_bytes), addr, num_bytes, retdest, total_num_limbs, len, ..limbs
     DUP2
     // stack: addr, min(16, num_bytes), addr, num_bytes, retdest, total_num_limbs, len, ..limbs
-    %mload_packing
+    MLOAD_32BYTES
     // stack: new_limb, addr, num_bytes, retdest, total_num_limbs, len, ..limbs
     %stack (new, addr, numb, ret, tot, len) -> (numb, addr, ret, tot, len, new)
     // stack: num_bytes, addr, retdest, total_num_limbs, len, new_limb, ..limbs
@@ -113,7 +113,7 @@ calculate_l_E_prime:
     PUSH @SEGMENT_CALLDATA
     GET_CONTEXT
     %build_address
-    %mload_packing
+    MLOAD_32BYTES
     // stack: i[96 + l_B..128 + l_B], l_E, l_B, retdest
     %log2_floor
     // stack: log2(i[96 + l_B..128 + l_B]), l_E, l_B, retdest
@@ -144,7 +144,7 @@ case_le_32:
     PUSH @SEGMENT_CALLDATA
     GET_CONTEXT
     %build_address
-    %mload_packing
+    MLOAD_32BYTES
     // stack: E, retdest
     %log2_floor
     // stack: log2(E), retdest
@@ -172,21 +172,21 @@ global precompile_expmod:
     GET_CONTEXT
     // stack: ctx, @SEGMENT_CALLDATA, 32, kexit_info
     %build_address_no_offset
-    %mload_packing
+    MLOAD_32BYTES
     // stack: l_B, kexit_info
 
     // Load l_E from i[32..64].
     %stack () -> (@SEGMENT_CALLDATA, 32, 32)
     GET_CONTEXT
     %build_address
-    %mload_packing
+    MLOAD_32BYTES
     // stack: l_E, l_B, kexit_info
 
     // Load l_M from i[64..96].
     %stack () -> (@SEGMENT_CALLDATA, 64, 32)
     GET_CONTEXT
     %build_address
-    %mload_packing
+    MLOAD_32BYTES
     // stack: l_M, l_E, l_B, kexit_info
     DUP3 ISZERO DUP2 ISZERO
     MUL // AND

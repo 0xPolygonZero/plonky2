@@ -116,22 +116,23 @@ process_receipt_logs_loop:
     %mload_kernel(@SEGMENT_LOGS)
     // stack: log_ptr, i, num_logs, receipt_ptr, txn_nb, new_cum_gas, txn_nb, num_nibbles, retdest
     // Write payload_len.
+    PUSH @SEGMENT_LOGS_DATA %build_kernel_address
     DUP1
-    %mload_kernel(@SEGMENT_LOGS_DATA)
+    MLOAD_GENERAL
     %append_to_trie_data
     // stack: log_ptr, i, num_logs, receipt_ptr, txn_nb, new_cum_gas, txn_nb, num_nibbles, retdest
     // Write address.
     %increment
     // stack: addr_ptr, i, num_logs, receipt_ptr, txn_nb, new_cum_gas, txn_nb, num_nibbles, retdest
     DUP1
-    %mload_kernel(@SEGMENT_LOGS_DATA)
+    MLOAD_GENERAL
     %append_to_trie_data
     // stack: addr_ptr, i, num_logs, receipt_ptr, txn_nb, new_cum_gas, txn_nb, num_nibbles, retdest
     //Write num_topics.
     %increment
     // stack: num_topics_ptr, i, num_logs, receipt_ptr, txn_nb, new_cum_gas, txn_nb, num_nibbles, retdest
     DUP1
-    %mload_kernel(@SEGMENT_LOGS_DATA)
+    MLOAD_GENERAL
     // stack: num_topics, num_topics_ptr, i, num_logs, receipt_ptr, txn_nb, new_cum_gas, txn_nb, num_nibbles, retdest
     DUP1
     %append_to_trie_data
@@ -151,7 +152,7 @@ process_receipt_topics_loop:
     DUP3 DUP2
     ADD
     // stack: cur_topic_ptr, j, num_topics, topics_ptr, i, num_logs, receipt_ptr, txn_nb, new_cum_gas, txn_nb, num_nibbles, retdest
-    %mload_kernel(@SEGMENT_LOGS_DATA)
+    MLOAD_GENERAL
     %append_to_trie_data
     // stack: j, num_topics, topics_ptr, i, num_logs, receipt_ptr, txn_nb, new_cum_gas, txn_nb, num_nibbles, retdest
     %increment
@@ -164,7 +165,7 @@ process_receipt_topics_end:
     // stack: data_len_ptr, i, num_logs, receipt_ptr, txn_nb, new_cum_gas, txn_nb, num_nibbles, retdest
     // Write data_len
     DUP1
-    %mload_kernel(@SEGMENT_LOGS_DATA)
+    MLOAD_GENERAL
     // stack: data_len, data_len_ptr, i, num_logs, receipt_ptr, txn_nb, new_cum_gas, txn_nb, num_nibbles, retdest
     DUP1
     %append_to_trie_data
@@ -184,7 +185,7 @@ process_receipt_data_loop:
     DUP3 DUP2
     ADD
     // stack: cur_data_ptr, j, data_len, data_ptr, i, num_logs, receipt_ptr, txn_nb, new_cum_gas, txn_nb, num_nibbles, retdest
-    %mload_kernel(@SEGMENT_LOGS_DATA)
+    MLOAD_GENERAL
     %append_to_trie_data
     // stack: j, data_len, data_ptr, i, num_logs, receipt_ptr, txn_nb, new_cum_gas, txn_nb, num_nibbles, retdest
     %increment
@@ -205,19 +206,10 @@ process_receipt_after_write:
     DUP5
     %mpt_insert_receipt_trie
     // stack: new_cum_gas, txn_nb, num_nibbles, retdest
-    // Now, we set the Bloom filter back to 0. We proceed by chunks of 32 bytes.
-    PUSH @SEGMENT_TXN_BLOOM // ctx == offset == 0
-    %rep 8
-        // stack: addr, new_cum_gas, txn_nb, num_nibbles, retdest
-        PUSH 0 // we will fill the memory segment with zeroes
-        DUP2
-        // stack: addr, 0, addr, new_cum_gas, txn_nb, num_nibbles, retdest
-        MSTORE_32BYTES_32
-        // stack: new_addr, addr, new_cum_gas, txn_nb, num_nibbles, retdest
-        SWAP1 POP
-    %endrep
-    POP
-    // stack: new_cum_gas, txn_nb, num_nibbles, retdest
+
+    // We don't need to reset the bloom filter segment as we only process a single transaction.
+    // TODO: Revert in case we add back support for multi-txn proofs.
+
     %stack (new_cum_gas, txn_nb, num_nibbles, retdest) -> (retdest, new_cum_gas)
     JUMP
     

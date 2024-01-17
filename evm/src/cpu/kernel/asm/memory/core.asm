@@ -1,9 +1,8 @@
 // Load a big-endian u32, consisting of 4 bytes (c_3, c_2, c_1, c_0).
 %macro mload_u32
     // stack: addr
-    %stack (addr) -> (addr, 4, %%after)
-    %jump(mload_packing)
-%%after:
+    %stack (addr) -> (addr, 4)
+    MLOAD_32BYTES
 %endmacro
 
 // Load a little-endian u32, consisting of 4 bytes (c_0, c_1, c_2, c_3).
@@ -51,17 +50,14 @@
 // Load a big-endian u256.
 %macro mload_u256
     // stack: addr
-    %stack (addr) -> (addr, 32, %%after)
-    %jump(mload_packing)
-%%after:
+    %stack (addr) -> (addr, 32)
+    MLOAD_32BYTES
 %endmacro
 
 // Store a big-endian u32, consisting of 4 bytes (c_3, c_2, c_1, c_0).
 %macro mstore_u32
     // stack: addr, value
-    %stack (addr, value) -> (addr, value, 4, %%after)
-    %jump(mstore_unpacking)
-%%after:
+    MSTORE_32BYTES_4
     // stack: offset
     POP
 %endmacro
@@ -229,12 +225,31 @@
     // stack: value
 %endmacro
 
+// Load a single value from the given segment of kernel (context 0) memory.
+%macro mload_kernel_no_offset(segment)
+    // stack: empty
+    PUSH $segment
+    // stack: addr
+    MLOAD_GENERAL
+    // stack: value
+%endmacro
+
 // Store a single value from the given segment of kernel (context 0) memory.
 %macro mstore_kernel(segment)
     // stack: offset, value
     PUSH $segment
     // stack: segment, offset, value
     %build_kernel_address
+    // stack: addr, value
+    SWAP1
+    MSTORE_GENERAL
+    // stack: (empty)
+%endmacro
+
+// Store a single value from the given segment of kernel (context 0) memory.
+%macro mstore_kernel_no_offset(segment)
+    // stack: value
+    PUSH $segment
     // stack: addr, value
     SWAP1
     MSTORE_GENERAL
@@ -397,7 +412,7 @@
 %macro mstore_kernel_code
     // stack: offset, value
     // ctx == SEGMENT_CODE == 0
-    MLOAD_GENERAL
+    MSTORE_GENERAL
     // stack: (empty)
 %endmacro
 

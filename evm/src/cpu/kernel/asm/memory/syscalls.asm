@@ -60,11 +60,11 @@ global sys_calldataload:
     %mload_context_metadata(@CTX_METADATA_CALLDATA_SIZE)
     %stack (calldata_size, kexit_info, i) -> (calldata_size, i, kexit_info, i)
     LT %jumpi(calldataload_large_offset)
-    %stack (kexit_info, i) -> (@SEGMENT_CALLDATA, i, 32, sys_calldataload_after_mload_packing, kexit_info)
+    %stack (kexit_info, i) -> (@SEGMENT_CALLDATA, i, 32, kexit_info)
     GET_CONTEXT
     %build_address
-    // stack: addr, 32, sys_calldataload_after_mload_packing, kexit_info
-    %jump(mload_packing)
+    // stack: addr, 32, kexit_info
+    MLOAD_32BYTES
 sys_calldataload_after_mload_packing:
     // stack: value, kexit_info
     SWAP1

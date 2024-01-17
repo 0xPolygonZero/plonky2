@@ -3,52 +3,57 @@
 // Pre stack: init_pos, ctx, final_pos, retdest
 // Post stack: (empty)
 global verify_path_and_write_jumpdest_table:
+    SWAP2
+    DUP2
+    ADD // final_addr
+    // stack: final_addr, ctx, i, retdest
+    SWAP2
+    ADD // init_addr
 loop:
-    // stack: i, ctx, final_pos, retdest
-    DUP3 DUP2 EQ // i == final_pos
+    // stack: i, final_pos, retdest
+    DUP2 DUP2 EQ // i == final_pos
     %jumpi(proof_ok)
-    DUP3 DUP2 GT // i > final_pos
+    DUP2 DUP2 GT // i > final_pos
     %jumpi(proof_not_ok)
 
-     // stack: i, ctx, final_pos, retdest
-    %stack (i, ctx) -> (ctx, i, i, ctx)
-    ADD // combine context and offset to make an address (SEGMENT_CODE == 0)
-    MLOAD_GENERAL
-    // stack: opcode, i, ctx, final_pos, retdest
+     // stack: i, final_pos, retdest
+    DUP1
+    MLOAD_GENERAL // SEGMENT_CODE == 0
+    // stack: opcode, i, final_pos, retdest
 
     DUP1 
     // Slightly more efficient than `%eq_const(0x5b) ISZERO`
     PUSH 0x5b
     SUB
-    // stack: opcode != JUMPDEST, opcode, i, ctx, final_pos, retdest
+    // stack: opcode != JUMPDEST, opcode, i, final_pos, retdest
     %jumpi(continue)
 
-    // stack: JUMPDEST, i, ctx, code_len, retdest
-    %stack (JUMPDEST, i, ctx) -> (ctx, @SEGMENT_JUMPDEST_BITS, i, JUMPDEST, i, ctx)
-    %build_address
+    // stack: JUMPDEST, i, code_len, retdest
+    %stack (JUMPDEST, i) -> (@SEGMENT_JUMPDEST_BITS, i, JUMPDEST, i)
+    ADD // address to write jumpdest bit, i already contains the context
     PUSH 1
-    // stack: 1, addr, JUMPDEST, i, ctx
+    // stack: 1, addr, JUMPDEST, i
     MSTORE_GENERAL
 
 continue:
-    // stack: opcode, i, ctx, final_pos, retdest
+    // stack: opcode, i, final_pos, retdest
     %add_const(code_bytes_to_skip)
     %mload_kernel_code
-    // stack: bytes_to_skip, i, ctx, final_pos, retdest
+    // stack: bytes_to_skip, i, final_pos, retdest
     ADD
-    // stack: i, ctx, final_pos, retdest
+    // stack: i, final_pos, retdest
     %jump(loop)
 
 proof_ok:
-    // stack: i, ctx, final_pos, retdest
+    // stack: i, final_pos, retdest
     // We already know final_pos is a jumpdest
-    %stack (i, ctx, final_pos) -> (ctx, @SEGMENT_JUMPDEST_BITS, i)
-    %build_address
+    %stack (i, final_pos) -> (@SEGMENT_JUMPDEST_BITS, final_pos)
+    ADD // final_pos already contains the context
     PUSH 1
     MSTORE_GENERAL
     JUMP
 proof_not_ok:
-    %pop3
+    %pop2
     JUMP
 
 // Determines how many bytes away is the next opcode, based on the opcode we read.
@@ -145,7 +150,7 @@ global write_table_if_jumpdest:
         (proof_prefix_addr, ctx) ->
         (ctx, proof_prefix_addr, 32, proof_prefix_addr, ctx)
     ADD // combine context and offset to make an address (SEGMENT_CODE == 0)
-    %mload_packing
+    MLOAD_32BYTES
     // packed_opcodes, proof_prefix_addr, ctx, jumpdest, retdest
     DUP1 %shl_const(1)
     DUP2 %shl_const(2)
