@@ -310,18 +310,16 @@ after_add:
 
 
 %macro write_fp254_12_unit
+    // Write 0x10000000000000000000000 with MSTORE_32BYTES_12,
+    // effectively storing 1 at the initial offset, and 11 0s afterwards.
+
     // stack: out
     %create_bn254_pairing_address
     // stack: addr
-    PUSH 0
-    DUP2
-    // stack: addr, 0, addr
+    PUSH 0x10000000000000000000000
+    SWAP1
+    // stack: addr, 0x10000000000000000000000
     MSTORE_32BYTES_12
     POP
-    
-    // overwrite first position with 1
-    // stack: addr
-    PUSH 1
-    MSTORE_GENERAL
     // stack:
 %endmacro
