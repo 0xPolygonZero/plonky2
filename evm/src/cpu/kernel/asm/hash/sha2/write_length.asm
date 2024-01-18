@@ -1,5 +1,8 @@
 %macro sha2_write_length
-    // stack: last_addr, length
+    // stack: last_addr_offset, length
+    PUSH @SEGMENT_KERNEL_GENERAL
+    GET_CONTEXT
+    %build_address
     SWAP1
     // stack: length, last_addr
     DUP1
@@ -8,7 +11,7 @@
     // stack: length % (1 << 8), length, last_addr
     DUP3
     // stack: last_addr, length % (1 << 8), length, last_addr
-    %mstore_current_general
+    %swap_mstore
     
     %rep 7
         // For i = 0 to 6
@@ -26,7 +29,7 @@
         // stack: (length >> (8 * (i + 1))) % (1 << 8), length >> (8 * (i + 1)), last_addr - i - 2
         DUP3
         // stack: last_addr - i - 2, (length >> (8 * (i + 1))) % (1 << 8), length >> (8 * (i + 1)), last_addr - i - 2
-        %mstore_current_general
+        %swap_mstore
     %endrep
 
     %pop2
