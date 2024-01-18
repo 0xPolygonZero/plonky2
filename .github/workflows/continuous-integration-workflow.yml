@@ -70,7 +70,7 @@ jobs:
       - name: Install nightly toolchain
         uses: dtolnay/rust-toolchain@nightly
         with:
-          target: wasm32-unknown-unknown
+          targets: wasm32-unknown-unknown
 
       - name: Set up rust cache
         uses: Swatinem/rust-cache@v2
