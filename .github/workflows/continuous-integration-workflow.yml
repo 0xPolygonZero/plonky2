@@ -21,6 +21,7 @@ jobs:
   test:
     name: Test Suite
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     if: "! contains(toJSON(github.event.commits.*.message), '[skip-ci]')"
     steps:
       - name: Checkout sources
@@ -69,6 +70,7 @@ jobs:
   wasm32:
     name: wasm32 compatibility
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     if: "! contains(toJSON(github.event.commits.*.message), '[skip-ci]')"
     steps:
       - name: Checkout sources
@@ -103,6 +105,7 @@ jobs:
   lints:
     name: Formatting and Clippy
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     if: "! contains(toJSON(github.event.commits.*.message), '[skip-ci]')"
     steps:
       - name: Checkout sources
