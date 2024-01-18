@@ -8,7 +8,7 @@ global blake2_f:
         // stack: addr, rounds, h_i, ...
         %stack (addr, rounds, h_i) -> (addr, h_i, addr, rounds)
         // stack: addr, h_i, addr, rounds, ...
-        %mstore_current_general
+        %swap_mstore
         %increment
     %endrep
 
@@ -23,7 +23,7 @@ global blake2_f:
         // stack: message_addr, rounds, m_i, ...
         %stack (message_addr, rounds, m_i) -> (message_addr, m_i, message_addr, rounds)
         // stack: message_addr, m_i, message_addr, rounds, ...
-        %mstore_current_general
+        %swap_mstore
         %increment
     %endrep
 
@@ -37,7 +37,7 @@ global blake2_f:
         // stack: addr, ...
         DUP1
         // stack: addr, addr, ...
-        %mload_current_general
+        MLOAD_GENERAL
         // stack: val, addr, ...
         SWAP1
         // stack: addr, val, ...
@@ -55,14 +55,22 @@ global blake2_f:
     %rep 8
         SWAP1
         DUP2
-        %mstore_current_general
+        %swap_mstore
         %increment
     %endrep
     // stack: start + 8, rounds, t0, t1, flag, retdest
 
+    // Retrieve the offset in `start + 8`
+    PUSH @SEGMENT_KERNEL_GENERAL
+    GET_CONTEXT
+    %build_address_no_offset
+    // stack: base_addr, start + 8, rounds, t0, t1, flag, retdest
+    SWAP1 SUB
+    // stack: loc, rounds, t0, t1, flag, retdest
+
     // Next four values of the internal state: first four IV values.
     PUSH 0
-    // stack: 0, start + 8, rounds, t0, t1, flag, retdest
+    // stack: 0, loc, rounds, t0, t1, flag, retdest
     %rep 4
         // stack: i, loc, ...
         DUP1
