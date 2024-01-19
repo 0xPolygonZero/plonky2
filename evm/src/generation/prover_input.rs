@@ -169,10 +169,10 @@ impl<F: Field> GenerationState<F> {
     // Subsequent calls return one limb at a time, in order (first remainder and then quotient).
     fn run_bignum_modmul(&mut self) -> Result<U256, ProgramError> {
         if self.bignum_modmul_result_limbs.is_empty() {
-            let len = stack_peek(self, 1).map(u256_to_usize)??;
-            let a_start_loc = stack_peek(self, 2).map(u256_to_usize)??;
-            let b_start_loc = stack_peek(self, 3).map(u256_to_usize)??;
-            let m_start_loc = stack_peek(self, 4).map(u256_to_usize)??;
+            let len = stack_peek(self, 2).map(u256_to_usize)??;
+            let a_start_loc = stack_peek(self, 3).map(u256_to_usize)??;
+            let b_start_loc = stack_peek(self, 4).map(u256_to_usize)??;
+            let m_start_loc = stack_peek(self, 5).map(u256_to_usize)??;
 
             let (remainder, quotient) =
                 self.bignum_modmul(len, a_start_loc, b_start_loc, m_start_loc);
