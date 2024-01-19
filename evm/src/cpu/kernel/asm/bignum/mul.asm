@@ -12,49 +12,56 @@ global mul_bignum:
     // stack: len, len, a_start_loc, b_start_loc, output_loc, retdest
     ISZERO
     %jumpi(len_zero)
-    DUP1
-    // stack: n=len, len, a_start_loc, bi=b_start_loc, output_cur=output_loc, retdest
+    
+    PUSH @SEGMENT_KERNEL_GENERAL
+    GET_CONTEXT
+    %build_address_no_offset
+
+    DUP2
+    // stack: n=len, base_addr, len, a_start_loc, bi=b_start_loc, output_cur=output_loc, retdest
 mul_loop:
-    // stack: n, len, a_start_loc, bi, output_cur, retdest
+    // stack: n, base_addr, len, a_start_loc, bi, output_cur, retdest
     PUSH mul_addmul_return
-    // stack: mul_addmul_return, n, len, a_start_loc, bi, output_cur, retdest
-    DUP5
-    // stack: bi, mul_addmul_return, n, len, a_start_loc, bi, output_cur, retdest
-    %mload_current_general
-    // stack: b[i], mul_addmul_return, n, len, a_start_loc, bi, output_cur, retdest, b
-    DUP5
-    // stack: a_start_loc, b[i], mul_addmul_return, n, len, a_start_loc, bi, output_cur, retdest, b
-    DUP8
-    // stack: output_loc, a_start_loc, b[i], mul_addmul_return, n, len, a_start_loc, bi, output_cur, retdest, b
+    // stack: mul_addmul_return, n, base_addr, len, a_start_loc, bi, output_cur, retdest
     DUP6
-    // stack: len, output_loc, a_start_loc, b[i], mul_addmul_return, n, len, a_start_loc, bi, output_cur, retdest, b
+    // stack: bi, mul_addmul_return, n, base_addr, len, a_start_loc, bi, output_cur, retdest
+    DUP4 ADD // bi_addr
+    MLOAD_GENERAL
+    // stack: b[i], mul_addmul_return, n, base_addr, len, a_start_loc, bi, output_cur, retdest, b
+    DUP6
+    // stack: a_start_loc, b[i], mul_addmul_return, n, base_addr, len, a_start_loc, bi, output_cur, retdest, b
+    DUP9
+    // stack: output_loc, a_start_loc, b[i], mul_addmul_return, n, base_addr, len, a_start_loc, bi, output_cur, retdest, b
+    DUP7
+    // stack: len, output_loc, a_start_loc, b[i], mul_addmul_return, n, base_addr, len, a_start_loc, bi, output_cur, retdest, b
     %jump(addmul_bignum)
 mul_addmul_return:
-    // stack: carry_limb, n, len, a_start_loc, bi, output_cur, retdest
-    DUP6
-    // stack: output_cur, carry_limb, n, len, a_start_loc, bi, output_cur, retdest
-    DUP4
-    // stack: len, output_cur, carry_limb, n, len, a_start_loc, bi, output_cur, retdest
+    // stack: carry_limb, n, base_addr, len, a_start_loc, bi, output_cur, retdest
+    DUP7
+    // stack: output_cur, carry_limb, n, base_addr, len, a_start_loc, bi, output_cur, retdest
+    DUP5
+    // stack: len, output_cur, carry_limb, n, base_addr, len, a_start_loc, bi, output_cur, retdest
     ADD
-    // stack: output_cur + len, carry_limb, n, len, a_start_loc, bi, output_cur, retdest
-    %mstore_current_general
-    // stack: n, len, a_start_loc, bi, output_cur, retdest
+    // stack: output_cur + len, carry_limb, n, base_addr, len, a_start_loc, bi, output_cur, retdest
+    DUP4 ADD
+    %swap_mstore
+    // stack: n, base_addr, len, a_start_loc, bi, output_cur, retdest
     %decrement
-    // stack: n-1, len, a_start_loc, bi, output_cur, retdest
-    SWAP3
-    %increment
-    SWAP3
-    // stack: n-1, len, a_start_loc, bi+1, output_cur, retdest
+    // stack: n-1, base_addr, len, a_start_loc, bi, output_cur, retdest
     SWAP4
     %increment
     SWAP4
-    // stack: n-1, len, a_start_loc, bi+1, output_cur+1, retdest
+    // stack: n-1, base_addr, len, a_start_loc, bi+1, output_cur, retdest
+    SWAP5
+    %increment
+    SWAP5
+    // stack: n-1, base_addr, len, a_start_loc, bi+1, output_cur+1, retdest
     DUP1
-    // stack: n-1, n-1, len, a_start_loc, bi+1, output_cur+1, retdest
+    // stack: n-1, n-1, base_addr, len, a_start_loc, bi+1, output_cur+1, retdest
     %jumpi(mul_loop)
 mul_end:
-    // stack: n-1, len, a_start_loc, bi+1, output_cur+1, retdest
-    %pop5
+    // stack: n-1, base_addr, len, a_start_loc, bi+1, output_cur+1, retdest
+    %pop6
     // stack: retdest
     JUMP
 
