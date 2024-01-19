@@ -1,3 +1,6 @@
+//! plonky2 hashing logic for in-circuit hashing and Merkle proof verification
+//! as well as specific hash functions implementation.
+
 mod arch;
 pub mod hash_types;
 pub mod hashing;

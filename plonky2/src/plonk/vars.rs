@@ -1,3 +1,5 @@
+//! Logic for evaluating constraints.
+
 use core::ops::Range;
 
 use crate::field::extension::algebra::ExtensionAlgebra;
