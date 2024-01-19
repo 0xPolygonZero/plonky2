@@ -29,6 +29,7 @@ use crate::proof::{StarkOpeningSet, StarkProof, StarkProofWithPublicInputs};
 use crate::stark::Stark;
 use crate::vanishing_poly::eval_vanishing_poly;
 
+#[allow(clippy::useless_asref)]
 pub fn prove<F, C, S, const D: usize>(
     stark: S,
     config: &StarkConfig,

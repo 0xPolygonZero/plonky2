@@ -4,6 +4,7 @@
 
 pub extern crate alloc;
 
+/// Re-export of `plonky2_field`.
 #[doc(inline)]
 pub use plonky2_field as field;
 

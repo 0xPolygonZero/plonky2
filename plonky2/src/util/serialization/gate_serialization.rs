@@ -59,7 +59,7 @@ macro_rules! get_gate_tag_impl {
 }
 
 #[macro_export]
-/// Macro implementing the `GateSerializer` trait.
+/// Macro implementing the [`GateSerializer`] trait.
 /// To serialize a list of gates used for a circuit,
 /// this macro should be called with a struct on which to implement
 /// this as first argument, followed by all the targeted gates.
