@@ -1,7 +1,9 @@
 // struct AccountLoaded { address }
 
 %macro journal_add_account_loaded
+    // stack: address
     %journal_add_1(@JOURNAL_ENTRY_ACCOUNT_LOADED)
+    // stack: (empty)
 %endmacro
 
 global revert_account_loaded:

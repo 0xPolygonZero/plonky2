@@ -57,6 +57,7 @@ impl<F: Field> GenerationState<F> {
             "withdrawal" => self.run_withdrawal(),
             "num_bits" => self.run_num_bits(),
             "jumpdest_table" => self.run_jumpdest_table(input_fn),
+            "accessed_addresses" => self.run_access_addresses(input_fn),
             _ => Err(ProgramError::ProverInputError(InvalidFunction)),
         }
     }
@@ -249,6 +250,14 @@ impl<F: Field> GenerationState<F> {
         }
     }
 
+    /// Generate either the next used jump address or the proof for the last jump address.
+    fn run_access_addresses(&mut self, input_fn: &ProverInputFn) -> Result<U256, ProgramError> {
+        match input_fn.0[1].as_str() {
+            "predecessor" => self.run_next_access_addresses_predecessor(),
+            _ => Err(ProgramError::ProverInputError(InvalidInput)),
+        }
+    }
+
     /// Returns the next used jump address.
     fn run_next_jumpdest_table_address(&mut self) -> Result<U256, ProgramError> {
         let context = self.registers.context;
@@ -289,6 +298,22 @@ impl<F: Field> GenerationState<F> {
             Err(ProgramError::ProverInputError(
                 ProverInputError::InvalidJumpdestSimulation,
             ))
+        }
+    }
+
+    /// Returns the a pointer to the predecessor of the top of the stack in the access addresses list.
+    fn run_next_access_addresses_predecessor(&mut self) -> Result<U256, ProgramError> {
+        let addr = stack_peek(&self, 0)?;
+        let mut access_addresses_list = self.get_access_addresses_list()?;
+        while let Some((curr_ptr, next_addr)) = access_addresses_list.next()
+            && addr < next_addr
+        {
+            let _ = "";
+        }
+        if let Some((pred_ptr, _)) = access_addresses_list.next() {
+            Ok((Segment::AccessedAddresses as usize + pred_ptr).into())
+        } else {
+            Ok((Segment::AccessedAddresses as usize).into())
         }
     }
 }
@@ -380,6 +405,29 @@ impl<F: Field> GenerationState<F> {
             }
         }
     }
+
+    fn get_access_addresses_list(&self) -> Result<AccAddrList, ProgramError> {
+        let acc_addr_len = u256_to_usize(
+            self.memory.get(MemoryAddress::new(
+                self.registers.context,
+                Segment::GlobalMetadata,
+                GlobalMetadata::AccessedAddressesLen.unscale(),
+            )) - Segment::AccessedAddresses as usize,
+        )?;
+        let access_address_mem: Vec<_> = (0..acc_addr_len)
+            .map(|virt| {
+                self.memory.get(MemoryAddress::new(
+                    self.registers.context,
+                    Segment::GlobalMetadata,
+                    virt,
+                ))
+            })
+            .collect();
+        Ok(AccAddrList {
+            access_address_mem,
+            pos: 0,
+        })
+    }
 }
 
 /// For all address in `jumpdest_table`, each bounded by `largest_address`,
@@ -468,6 +516,28 @@ impl<'a> Iterator for CodeIterator<'a> {
             1
         };
         Some((old_pos, opcode))
+    }
+}
+
+struct AccAddrList {
+    access_address_mem: Vec<U256>,
+    pos: usize,
+}
+
+impl Iterator for AccAddrList {
+    type Item = (usize, U256);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let addr = self.access_address_mem[self.pos];
+        if let Ok(new_pos) = u256_to_usize(self.access_address_mem[self.pos + 1])
+            && addr != U256::zero()
+        {
+            let old_pos = self.pos;
+            self.pos = new_pos;
+            Some((old_pos, self.access_address_mem[new_pos]))
+        } else {
+            None
+        }
     }
 }
 

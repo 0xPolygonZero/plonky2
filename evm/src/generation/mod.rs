@@ -307,7 +307,7 @@ pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
     Ok((tables, public_values))
 }
 
-fn simulate_cpu<F: Field>(state: &mut GenerationState<F>) -> anyhow::Result<()> {
+fn _simulate_cpu<F: Field>(state: &mut GenerationState<F>) -> anyhow::Result<()> {
     let halt_pc = KERNEL.global_labels["halt"];
 
     loop {
@@ -335,6 +335,68 @@ fn simulate_cpu<F: Field>(state: &mut GenerationState<F>) -> anyhow::Result<()> 
             }
 
             log::info!("CPU trace padded to {} cycles", state.traces.clock());
+
+            return Ok(());
+        }
+
+        transition(state)?;
+    }
+}
+
+fn simulate_cpu<F: RichField + Extendable<D>, const D: usize>(
+    state: &mut GenerationState<F>,
+) -> anyhow::Result<()> {
+    let mut profiling_map = HashMap::<String, (usize, usize, usize)>::new();
+
+    let halt_pc = KERNEL.global_labels["halt"];
+
+    loop {
+        // If we've reached the kernel's halt routine, and our trace length is a power of 2, stop.
+        let pc = state.registers.program_counter;
+        let (ctr, idx) = match KERNEL
+            .ordered_labels
+            .binary_search_by_key(&pc, |label| KERNEL.global_labels[label])
+        {
+            Ok(idx) => (1, Some(idx)),
+            Err(0) => (0, None),
+            Err(idx) => (0, Some(idx - 1)),
+        };
+        if let Some(idx) = idx {
+            profiling_map
+                .entry(KERNEL.ordered_labels[idx].clone())
+                .and_modify(|(ratio, entries, counter)| {
+                    *counter += 1;
+                    *entries += ctr;
+                    *ratio = *counter / *entries;
+                })
+                .or_insert((1, 1, 1));
+        }
+        let halt = state.registers.is_kernel && pc == halt_pc;
+        if halt {
+            log::info!("CPU halted after {} cycles", state.traces.clock());
+
+            // Padding
+            let mut row = CpuColumnsView::<F>::default();
+            row.clock = F::from_canonical_usize(state.traces.clock());
+            row.context = F::from_canonical_usize(state.registers.context);
+            row.program_counter = F::from_canonical_usize(pc);
+            row.is_kernel_mode = F::ONE;
+            row.gas = F::from_canonical_u32(state.registers.gas_used as u32);
+            row.stack_len = F::from_canonical_usize(state.registers.stack_len);
+
+            loop {
+                state.traces.push_cpu(row);
+                row.clock += F::ONE;
+                if state.traces.clock().is_power_of_two() {
+                    break;
+                }
+            }
+            log::info!("CPU trace padded to {} cycles", state.traces.clock());
+
+            let mut sorted_labels: Vec<_> = profiling_map.iter().collect();
+            sorted_labels.sort_unstable_by_key(|item| item.1);
+            sorted_labels.reverse();
+            log::info!("Offsets: {:?}", sorted_labels);
 
             return Ok(());
         }

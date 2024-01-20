@@ -24,6 +24,7 @@
     // stack: journal_size
     %increment
     %mstore_global_metadata(@GLOBAL_METADATA_JOURNAL_LEN)
+    // stack: (empty)
 %endmacro
 
 %macro journal_data_size
@@ -65,6 +66,7 @@
     %append_journal_data
     // stack: ptr
     %append_journal
+    // stack: (empty)
 %endmacro
 
 %macro journal_add_2(type)
@@ -78,6 +80,7 @@
     SWAP1 %append_journal_data
     // stack: ptr
     %append_journal
+    // stack: (empty)
 %endmacro
 
 %macro journal_add_3(type)
@@ -93,6 +96,7 @@
     SWAP1 %append_journal_data
     // stack: ptr
     %append_journal
+    // stack: (empty)
 %endmacro
 
 %macro journal_add_4(type)
@@ -110,6 +114,7 @@
     SWAP1 %append_journal_data
     // stack: ptr
     %append_journal
+    // stack: (empty)
 %endmacro
 
 %macro journal_load_1

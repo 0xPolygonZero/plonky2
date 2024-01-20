@@ -12,6 +12,9 @@ global main:
     // Initialise the shift table
     %shift_table_init
 
+    // Initialize accessed addresses list
+    %init_accessed_addresses
+
     // Initialize the RLP DATA pointer to its initial position (ctx == virt == 0, segment = RLP)
     PUSH @SEGMENT_RLP_RAW
     %mstore_global_metadata(@GLOBAL_METADATA_RLP_DATA_SIZE)

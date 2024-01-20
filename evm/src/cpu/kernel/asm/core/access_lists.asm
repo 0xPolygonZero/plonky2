@@ -7,6 +7,39 @@
 /// If the address/storage key isn't found in the array, it is inserted at the end.
 /// TODO: Look into using a more efficient data structure for the access lists.
 
+// Initialize the set of accessed addresses with an empty list of the form (0)->(MAX)->(0)
+// wich is written as [0, 2, MAX, 0] in SEGMENT_ACCESSED_ADDRESSES
+%macro init_accessed_addresses
+    // stack: (empty)
+    PUSH @SEGMENT_ACCESSED_ADDRESSES
+    // Store 0 at address 0
+    DUP1
+    PUSH 0
+    // Store 0 at the beggning of the segment
+    MSTORE_GENERAL
+    // Store 2 at address 1
+    %increment
+    DUP1
+    PUSH 2
+global debug_saving_0_next:
+    MSTORE_GENERAL
+    // Store U256_MAX at address 2
+    %increment
+    DUP1
+    PUSH @U256_MAX
+    MSTORE_GENERAL
+    // Store 0 at address 3
+    %increment
+    DUP1
+    PUSH 0
+    MSTORE_GENERAL
+
+    //Store the segment scaled length
+    %increment
+    %mstore_global_metadata(@GLOBAL_METADATA_ACCESSED_ADDRESSES_LEN)
+    // stack: (empty)
+%endmacro
+
 %macro insert_accessed_addresses
     %stack (addr) -> (addr, %%after)
     %jump(insert_accessed_addresses)
@@ -23,74 +56,78 @@
 /// Return 1 if the address was inserted, 0 if it was already present.
 global insert_accessed_addresses:
     // stack: addr, retdest
-    %mload_global_metadata(@GLOBAL_METADATA_ACCESSED_ADDRESSES_LEN)
-    // stack: len, addr, retdest
-    PUSH @SEGMENT_ACCESSED_ADDRESSES ADD
-    PUSH @SEGMENT_ACCESSED_ADDRESSES
-insert_accessed_addresses_loop:
-    // `i` and `len` are both scaled by SEGMENT_ACCESSED_ADDRESSES
-    %stack (i, len, addr, retdest) -> (i, len, i, len, addr, retdest)
-    EQ %jumpi(insert_address)
-    // stack: i, len, addr, retdest
+    PROVER_INPUT(accessed_addresses::predecessor)
+    // stack: pred_ptr, addr, retdest
     DUP1
     MLOAD_GENERAL
-    // stack: loaded_addr, i, len, addr, retdest
+    // stack: pred_val, pred_ptr, addr, retdest
+    DUP3 SUB
+    %jumpi(insert_new_address)
+    // The address was already on the list
+    %stack (pred_ptr, addr, retdest) -> (retdest, 0) // Return 0 to indicate that the address was already present.
+    JUMP
+
+insert_new_address:
+    // stack: pred_ptr, addr, retdest
+    // get the value of the next address
+    %increment
+    // stack: next_ptr_ptr, 
+    %mload_global_metadata(@GLOBAL_METADATA_ACCESSED_ADDRESSES_LEN)
+    DUP2
+    MLOAD_GENERAL
+    // stack: next_ptr, new_ptr, next_ptr_ptr, addr, retdest
+    DUP1
+    MLOAD_GENERAL
+    // stack: next_val, next_ptr, new_ptr, next_ptr_ptr, addr, retdest
+    DUP5
+    // Since the list is correctly ordered, addr != pred_val and addr < next_val implies that
+    // pred_val < addr < next_val and hence the new value can be inserted between pred and next
+    %assert_lt
+    // stack: next_ptr, new_ptr, next_ptr_ptr, addr, retdest
+    SWAP2
+    DUP2
+    MSTORE_GENERAL
+    // stack: new_ptr, next_ptr, addr, retdest
+    DUP1
     DUP4
-    // stack: addr, loaded_addr, i, len, addr, retdest
-    EQ %jumpi(insert_accessed_addresses_found)
-    // stack: i, len, addr, retdest
+    MSTORE_GENERAL
+    // stack: new_ptr, next_ptr, addr, retdest
     %increment
-    %jump(insert_accessed_addresses_loop)
-
-insert_address:
-    %stack (i, len, addr, retdest) -> (i, addr, len, retdest)
-    DUP2 %journal_add_account_loaded // Add a journal entry for the loaded account.
-    %swap_mstore // Store new address at the end of the array.
-    // stack: len, retdest
+    DUP1
+    // stack: new_next_ptr, new_next_ptr, next_ptr, addr, retdest
+    SWAP2
+    MSTORE_GENERAL
+    // stack: new_next_ptr, addr, retdest
     %increment
-    %sub_const(@SEGMENT_ACCESSED_ADDRESSES) // unscale `len`
-    %mstore_global_metadata(@GLOBAL_METADATA_ACCESSED_ADDRESSES_LEN) // Store new length.
-    PUSH 1 // Return 1 to indicate that the address was inserted.
-    SWAP1 JUMP
-
-insert_accessed_addresses_found:
-    %stack (i, len, addr, retdest) -> (retdest, 0) // Return 0 to indicate that the address was already present.
+    %mstore_global_metadata(@GLOBAL_METADATA_ACCESSED_ADDRESSES_LEN)
+    // stack: addr, retdest
+    %journal_add_account_loaded
+    PUSH 1
+    SWAP1
     JUMP
 
 /// Remove the address from the access list.
 /// Panics if the address is not in the access list.
 global remove_accessed_addresses:
     // stack: addr, retdest
-    %mload_global_metadata(@GLOBAL_METADATA_ACCESSED_ADDRESSES_LEN)
-    // stack: len, addr, retdest
-    PUSH @SEGMENT_ACCESSED_ADDRESSES ADD
-    PUSH @SEGMENT_ACCESSED_ADDRESSES
-remove_accessed_addresses_loop:
-    // `i` and `len` are both scaled by SEGMENT_ACCESSED_ADDRESSES
-    %stack (i, len, addr, retdest) -> (i, len, i, len, addr, retdest)
-    EQ %jumpi(panic)
-    // stack: i, len, addr, retdest
-    DUP1 MLOAD_GENERAL
-    // stack: loaded_addr, i, len, addr, retdest
-    DUP4
-    // stack: addr, loaded_addr, i, len, addr, retdest
-    EQ %jumpi(remove_accessed_addresses_found)
-    // stack: i, len, addr, retdest
+    PROVER_INPUT(accessed_addresses::predecessor)
+    // stack: pred_ptr, addr, retdest
     %increment
-    %jump(remove_accessed_addresses_loop)
-remove_accessed_addresses_found:
-    %stack (i, len, addr, retdest) -> (len, 1, i, retdest)
-    SUB  // len -= 1
-    PUSH @SEGMENT_ACCESSED_ADDRESSES
-    DUP2 SUB // unscale `len`
-    %mstore_global_metadata(@GLOBAL_METADATA_ACCESSED_ADDRESSES_LEN) // Decrement the access list length.
-    // stack: len-1, i, retdest
-    MLOAD_GENERAL // Load the last address in the access list.
-    // stack: last_addr, i, retdest
+    DUP1
+    MLOAD_GENERAL
+    // stack: next_ptr, pred_next_ptr, addr, retdest
+    DUP1
+    MLOAD_GENERAL
+    // stack: next_val, next_ptr, pred_next_ptr, addr, retdest
+    DUP4
+    %assert_eq
+    // stack: next_ptr, pred_next_ptr, addr, retdest
+    %increment
+    MLOAD_GENERAL
+    // stack: next_next_ptr, pred_next_ptr, addr, retdest
     MSTORE_GENERAL
-    // Store the last address at the position of the removed address.
+    POP
     JUMP
-
 
 %macro insert_accessed_storage_keys
     %stack (addr, key, value) -> (addr, key, value, %%after)
