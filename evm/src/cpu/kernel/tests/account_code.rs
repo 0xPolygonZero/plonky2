@@ -193,6 +193,13 @@ fn test_extcodecopy() -> Result<()> {
         [Segment::ContextMetadata.unscale()]
     .set(GasLimit.unscale(), U256::from(1000000000000u64));
 
+    let init_accessed_addresses = KERNEL.global_labels["init_accessed_addresses"];
+
+    // Pre-initialize the accessed addresses list.
+    interpreter.generation_state.registers.program_counter = init_accessed_addresses;
+    interpreter.push(0xdeadbeefu32.into());
+    interpreter.run()?;
+
     let extcodecopy = KERNEL.global_labels["sys_extcodecopy"];
 
     // Put random data in main memory and the `KernelAccountCode` segment for realism.

@@ -9,7 +9,7 @@
 
 // Initialize the set of accessed addresses with an empty list of the form (0)->(MAX)->(0)
 // wich is written as [0, 2, MAX, 0] in SEGMENT_ACCESSED_ADDRESSES
-%macro init_accessed_addresses
+global init_accessed_addresses:
     // stack: (empty)
     PUSH @SEGMENT_ACCESSED_ADDRESSES
     // Store 0 at address 0
@@ -17,27 +17,34 @@
     PUSH 0
     // Store 0 at the beggning of the segment
     MSTORE_GENERAL
-    // Store 2 at address 1
+    // Store @SEGMENT_ACCESSED_ADDRESSES + 2 at address 1
     %increment
     DUP1
-    PUSH 2
-global debug_saving_0_next:
+    PUSH @SEGMENT_ACCESSED_ADDRESSES
+    %add_const(2)
     MSTORE_GENERAL
     // Store U256_MAX at address 2
     %increment
     DUP1
     PUSH @U256_MAX
     MSTORE_GENERAL
-    // Store 0 at address 3
+
+    // Store @SEGMENT_ACCESSED_ADDRESSES at address 3
     %increment
     DUP1
-    PUSH 0
+    PUSH @SEGMENT_ACCESSED_ADDRESSES
     MSTORE_GENERAL
 
     //Store the segment scaled length
     %increment
     %mstore_global_metadata(@GLOBAL_METADATA_ACCESSED_ADDRESSES_LEN)
     // stack: (empty)
+    JUMP
+
+%macro init_accessed_addresses
+    PUSH %%after
+    %jump(init_accessed_addresses)
+%%after:
 %endmacro
 
 %macro insert_accessed_addresses
