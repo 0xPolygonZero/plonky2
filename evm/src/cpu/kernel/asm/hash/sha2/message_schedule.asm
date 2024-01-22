@@ -180,7 +180,7 @@ gen_message_schedule_remaining_end:
 //              stack contains output_addr
 // Postcondition: starting at output_addr, set of 256 bytes per block
 //                each contains the 64 32-bit chunks of the message schedule for that block (in four-byte increments)
-sha2_gen_all_message_schedules: 
+global sha2_gen_all_message_schedules: 
     // stack: output_addr, retdest
     DUP1
     // stack: output_addr, output_addr, retdest
