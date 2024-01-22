@@ -57,7 +57,6 @@ impl MemoryState {
 }
 
 pub(crate) struct Interpreter<'a> {
-    jumpdests: Vec<usize>,
     pub(crate) generation_state: GenerationState<F>,
     prover_inputs_map: &'a HashMap<usize, ProverInputFn>,
     pub(crate) halt_offsets: Vec<usize>,
@@ -173,7 +172,6 @@ impl<'a> Interpreter<'a> {
         prover_inputs: &'a HashMap<usize, ProverInputFn>,
     ) -> Self {
         let mut result = Self {
-            jumpdests: find_jumpdests(code),
             generation_state: GenerationState::new(GenerationInputs::default(), code)
                 .expect("Default inputs are known-good"),
             prover_inputs_map: prover_inputs,
@@ -1020,8 +1018,6 @@ impl<'a> Interpreter<'a> {
         let addr = self.pop()?;
         let (context, segment, offset) = unpack_address!(addr);
 
-        // Not strictly needed but here to avoid surprises with MSIZE.
-        assert_ne!(segment, Segment::MainMemory, "Call KECCAK256 instead.");
         let size = self.pop()?.as_usize();
         let bytes = (offset..offset + size)
             .map(|i| {
@@ -1091,13 +1087,37 @@ impl<'a> Interpreter<'a> {
         self.push(syscall_info)
     }
 
+    fn set_jumpdest_bit(&mut self, x: U256) -> U256 {
+        if self.generation_state.memory.contexts[self.context()].segments
+            [Segment::JumpdestBits.unscale()]
+        .content
+        .len()
+            > x.low_u32() as usize
+        {
+            self.generation_state.memory.get(MemoryAddress {
+                context: self.context(),
+                segment: Segment::JumpdestBits.unscale(),
+                virt: x.low_u32() as usize,
+            })
+        } else {
+            0.into()
+        }
+    }
     fn run_jump(&mut self) -> anyhow::Result<(), ProgramError> {
         let x = self.pop()?;
+
+        let jumpdest_bit = self.set_jumpdest_bit(x);
+
         // Check that the destination is valid.
         let x: u32 = x
             .try_into()
             .map_err(|_| ProgramError::InvalidJumpDestination)?;
-        self.jump_to(x as usize)
+
+        if !self.is_kernel() && jumpdest_bit != U256::one() {
+            return Err(ProgramError::InvalidJumpDestination);
+        }
+
+        self.jump_to(x as usize, false)
     }
 
     fn run_jumpi(&mut self) -> anyhow::Result<(), ProgramError> {
@@ -1107,9 +1127,13 @@ impl<'a> Interpreter<'a> {
             let x: u32 = x
                 .try_into()
                 .map_err(|_| ProgramError::InvalidJumpiDestination)?;
-            self.jump_to(x as usize)?;
+            self.jump_to(x as usize, true)?;
         }
+        let jumpdest_bit = self.set_jumpdest_bit(x);
 
+        if !b.is_zero() && !self.is_kernel() && jumpdest_bit != U256::one() {
+            return Err(ProgramError::InvalidJumpiDestination);
+        }
         Ok(())
     }
 
@@ -1129,13 +1153,19 @@ impl<'a> Interpreter<'a> {
         Ok(())
     }
 
-    fn jump_to(&mut self, offset: usize) -> anyhow::Result<(), ProgramError> {
-        // The JUMPDEST rule is not enforced in kernel mode.
-        if !self.is_kernel() && self.jumpdests.binary_search(&offset).is_err() {
-            return Err(ProgramError::InvalidJumpDestination);
-        }
-
+    fn jump_to(&mut self, offset: usize, is_jumpi: bool) -> anyhow::Result<(), ProgramError> {
         self.generation_state.registers.program_counter = offset;
+
+        if offset == KERNEL.global_labels["observe_new_address"] {
+            let tip_u256 = stack_peek(&self.generation_state, 0)?;
+            let tip_h256 = H256::from_uint(&tip_u256);
+            let tip_h160 = H160::from(tip_h256);
+            self.generation_state.observe_address(tip_h160);
+        } else if offset == KERNEL.global_labels["observe_new_contract"] {
+            let tip_u256 = stack_peek(&self.generation_state, 0)?;
+            let tip_h256 = H256::from_uint(&tip_u256);
+            self.generation_state.observe_contract(tip_h256)?;
+        }
 
         if self.halt_offsets.contains(&offset) {
             self.running = false;
@@ -1430,22 +1460,6 @@ const SIGN_MASK: U256 = U256([
     0xffffffffffffffff,
     0x7fffffffffffffff,
 ]);
-
-/// Return the (ordered) JUMPDEST offsets in the code.
-fn find_jumpdests(code: &[u8]) -> Vec<usize> {
-    let mut offset = 0;
-    let mut res = Vec::new();
-    while offset < code.len() {
-        let opcode = code[offset];
-        match opcode {
-            0x5b => res.push(offset),
-            x if (0x60..0x80).contains(&x) => offset += x as usize - 0x5f, // PUSH instruction, disregard data.
-            _ => (),
-        }
-        offset += 1;
-    }
-    res
-}
 
 fn get_mnemonic(opcode: u8) -> &'static str {
     match opcode {
