@@ -3,9 +3,12 @@
     // stack: num_blocks
     %mul_const(64)
     %add_const(2)
+    PUSH @SEGMENT_KERNEL_GENERAL
+    GET_CONTEXT
+    %build_address
 %endmacro
 
-// Precodition: stack contains address of one message block, followed by output address
+// Precondition: stack contains address of one message block, followed by output address
 // Postcondition: 256 bytes starting at given output address contain the 64 32-bit chunks
 //                of message schedule (in four-byte increments)
 gen_message_schedule_from_block:
@@ -16,18 +19,17 @@ gen_message_schedule_from_block:
     // stack: block_addr + 32, block_addr, output_addr, retdest
     SWAP1
     // stack: block_addr, block_addr + 32, output_addr, retdest
-    %mload_current_general_u256
+    %mload_u256
     // stack: block[0], block_addr + 32, output_addr, retdest
     SWAP1
     // stack: block_addr + 32, block[0], output_addr, retdest
-    %mload_current_general_u256
+    %mload_u256
     // stack: block[1], block[0], output_addr, retdest
     SWAP2
     // stack: output_addr, block[0], block[1], retdest
     %add_const(28)
     PUSH 8
     // stack: counter=8, output_addr + 28, block[0], block[1], retdest
-    %jump(gen_message_schedule_from_block_0_loop)
 gen_message_schedule_from_block_0_loop:
     // Split the first half (256 bits) of the block into the first eight (32-bit) chunks of the message sdchedule.
     // stack: counter, output_addr, block[0], block[1], retdest
@@ -43,7 +45,7 @@ gen_message_schedule_from_block_0_loop:
     // stack: block[0] % (1 << 32), block[0] >> 32, output_addr, counter, block[1], retdest
     DUP3
     // stack: output_addr, block[0] % (1 << 32), block[0] >> 32, output_addr, counter, block[1], retdest
-    %mstore_current_general_u32
+    %mstore_u32
     // stack: block[0] >> 32, output_addr, counter, block[1], retdest
     SWAP1
     // stack: output_addr, block[0] >> 32, counter, block[1], retdest
@@ -81,7 +83,7 @@ gen_message_schedule_from_block_1_loop:
     // stack: block[1] % (1 << 32), block[1] >> 32, output_addr, counter, block[0], retdest
     DUP3
     // stack: output_addr, block[1] % (1 << 32), block[1] >> 32, output_addr, counter, block[0], retdest
-    %mstore_current_general_u32
+    %mstore_u32
     // stack: block[1] >> 32, output_addr, counter, block[0], retdest
     SWAP1
     // stack: output_addr, block[1] >> 32, counter, block[0], retdest
@@ -111,39 +113,43 @@ gen_message_schedule_remaining_loop:
     // stack: counter, output_addr, block[0], block[1], retdest
     SWAP1
     // stack: output_addr, counter, block[0], block[1], retdest
-    DUP1
-    // stack: output_addr, output_addr, counter, block[0], block[1], retdest
-    %sub_const(8)
+    PUSH 8
+    DUP2
+    // stack: output_addr, 2*4, output_addr, counter, block[0], block[1], retdest
+    SUB
     // stack: output_addr - 2*4, output_addr, counter, block[0], block[1], retdest
-    %mload_current_general_u32
+    %mload_u32
     // stack: x[output_addr - 2*4], output_addr, counter, block[0], block[1], retdest
     %sha2_sigma_1
     // stack: sigma_1(x[output_addr - 2*4]), output_addr, counter, block[0], block[1], retdest
     SWAP1
     // stack: output_addr, sigma_1(x[output_addr - 2*4]), counter, block[0], block[1], retdest
-    DUP1
-    // stack: output_addr, output_addr, sigma_1(x[output_addr - 2*4]), counter, block[0], block[1], retdest
-    %sub_const(28)
+    PUSH 28
+    DUP2
+    // stack: output_addr, 7*4, output_addr, sigma_1(x[output_addr - 2*4]), counter, block[0], block[1], retdest
+    SUB
     // stack: output_addr - 7*4, output_addr, sigma_1(x[output_addr - 2*4]), counter, block[0], block[1], retdest
-    %mload_current_general_u32
+    %mload_u32
     // stack: x[output_addr - 7*4], output_addr, sigma_1(x[output_addr - 2*4]), counter, block[0], block[1], retdest
     SWAP1
     // stack: output_addr, x[output_addr - 7*4], sigma_1(x[output_addr - 2*4]), counter, block[0], block[1], retdest
-    DUP1
-    // stack: output_addr, output_addr, x[output_addr - 7*4], sigma_1(x[output_addr - 2*4]), counter, block[0], block[1], retdest
-    %sub_const(60)
+    PUSH 60
+    DUP2
+    // stack: output_addr, 15*4, output_addr, x[output_addr - 7*4], sigma_1(x[output_addr - 2*4]), counter, block[0], block[1], retdest
+    SUB
     // stack: output_addr - 15*4, output_addr, x[output_addr - 7*4], sigma_1(x[output_addr - 2*4]), counter, block[0], block[1], retdest
-    %mload_current_general_u32
+    %mload_u32
     // stack: x[output_addr - 15*4], output_addr, x[output_addr - 7*4], sigma_1(x[output_addr - 2*4]), counter, block[0], block[1], retdest
     %sha2_sigma_0
     // stack: sigma_0(x[output_addr - 15*4]), output_addr, x[output_addr - 7*4], sigma_1(x[output_addr - 2*4]), counter, block[0], block[1], retdest
     SWAP1
     // stack: output_addr, sigma_0(x[output_addr - 15*4]), x[output_addr - 7*4], sigma_1(x[output_addr - 2*4]), counter, block[0], block[1], retdest
-    DUP1
-    // stack: output_addr, output_addr, sigma_0(x[output_addr - 15*4]), x[output_addr - 7*4], sigma_1(x[output_addr - 2*4]), counter, block[0], block[1], retdest
-    %sub_const(64)
+    PUSH 64
+    DUP2
+    // stack: output_addr, 16*4, output_addr, sigma_0(x[output_addr - 15*4]), x[output_addr - 7*4], sigma_1(x[output_addr - 2*4]), counter, block[0], block[1], retdest
+    SUB
     // stack: output_addr - 16*4, output_addr, sigma_0(x[output_addr - 15*4]), x[output_addr - 7*4], sigma_1(x[output_addr - 2*4]), counter, block[0], block[1], retdest
-    %mload_current_general_u32
+    %mload_u32
     // stack: x[output_addr - 16*4], output_addr, sigma_0(x[output_addr - 15*4]), x[output_addr - 7*4], sigma_1(x[output_addr - 2*4]), counter, block[0], block[1], retdest
     SWAP1
     // stack: output_addr, x[output_addr - 16*4], sigma_0(x[output_addr - 15*4]), x[output_addr - 7*4], sigma_1(x[output_addr - 2*4]), counter, block[0], block[1], retdest
@@ -155,7 +161,7 @@ gen_message_schedule_remaining_loop:
     // stack: sigma_1(x[output_addr - 2*4]) + x[output_addr - 16*4] + sigma_0(x[output_addr - 15*4]) + x[output_addr - 7*4], output_addr, counter, block[0], block[1], retdest
     DUP2
     // stack: output_addr, sigma_1(x[output_addr - 2*4]) + x[output_addr - 16*4] + sigma_0(x[output_addr - 15*4]) + x[output_addr - 7*4], output_addr, counter, block[0], block[1], retdest
-    %mstore_current_general_u32
+    %mstore_u32
     // stack: output_addr, counter, block[0], block[1], retdest
     %add_const(4)
     // stack: output_addr + 4, counter, block[0], block[1], retdest
@@ -178,12 +184,14 @@ global sha2_gen_all_message_schedules:
     // stack: output_addr, retdest
     DUP1
     // stack: output_addr, output_addr, retdest
-    PUSH 0
-    // stack: 0, output_addr, output_addr, retdest
-    %mload_current_general
+    %mload_current_general_no_offset
     // stack: num_blocks, output_addr, output_addr, retdest
     PUSH 1
-    // stack: cur_addr = 1, counter = num_blocks, output_addr, output_addr, retdest
+    // stack: cur_offset = 1, counter = num_blocks, output_addr, output_addr, retdest
+    PUSH @SEGMENT_KERNEL_GENERAL
+    GET_CONTEXT
+    %build_address
+    // stack: cur_addr, counter, output_addr, output_addr, retdest
 gen_all_message_schedules_loop:
     // stack: cur_addr, counter, cur_output_addr, output_addr, retdest
     PUSH gen_all_message_schedules_loop_end
