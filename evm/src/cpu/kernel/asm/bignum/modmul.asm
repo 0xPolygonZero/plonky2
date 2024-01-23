@@ -21,9 +21,7 @@ global modmul_bignum:
     // STEP 1:
     // The prover provides x := (a * b) % m, which we store in output_loc.
     
-    PUSH @SEGMENT_KERNEL_GENERAL
-    GET_CONTEXT
-    %build_address_no_offset
+    %build_current_general_address_no_offset
 
     PUSH 0
     // stack: i=0, base_addr, len, a_loc, b_loc, m_loc, out_loc, s1, s2, s3, retdest
@@ -76,9 +74,7 @@ modmul_return_1:
     %mul_const(2)
     // stack: 2*len, len, a_loc, b_loc, m_loc, out_loc, s1, s2, s3, retdest
 
-    PUSH @SEGMENT_KERNEL_GENERAL
-    GET_CONTEXT
-    %build_address_no_offset
+    %build_current_general_address_no_offset
 
     PUSH 0
     // stack: i=0, base_addr, 2*len, len, a_loc, b_loc, m_loc, out_loc, s1, s2, s3, retdest
@@ -142,9 +138,7 @@ modmul_return_4:
     // STEP 6:
     // Check that x + k * m = a * b.
 
-    PUSH @SEGMENT_KERNEL_GENERAL
-    GET_CONTEXT
-    %build_address_no_offset
+    %build_current_general_address_no_offset
     // stack: base_addr, n=len, i=s2, j=s3, retdest
 modmul_check_loop:
     // stack: base_addr, n, i, j, retdest

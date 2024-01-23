@@ -9,9 +9,7 @@ global add_bignum:
     ISZERO
     %jumpi(len_zero)
     // stack: len, a_start_loc, b_start_loc, retdest
-    PUSH @SEGMENT_KERNEL_GENERAL
-    GET_CONTEXT
-    %build_address_no_offset
+    %build_current_general_address_no_offset
     PUSH 0
     // stack: carry=0, base_addr, i=len, a_cur_loc=a_start_loc, b_cur_loc=b_start_loc, retdest
 add_loop:

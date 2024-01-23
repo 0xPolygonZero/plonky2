@@ -13,9 +13,7 @@ global mul_bignum:
     ISZERO
     %jumpi(len_zero)
     
-    PUSH @SEGMENT_KERNEL_GENERAL
-    GET_CONTEXT
-    %build_address_no_offset
+    %build_current_general_address_no_offset
 
     DUP2
     // stack: n=len, base_addr, len, a_start_loc, bi=b_start_loc, output_cur=output_loc, retdest

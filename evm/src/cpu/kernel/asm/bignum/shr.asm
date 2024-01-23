@@ -17,9 +17,7 @@ global shr_bignum:
     %decrement
     // stack: end_loc, start_loc, retdest
     
-    PUSH @SEGMENT_KERNEL_GENERAL
-    GET_CONTEXT
-    %build_address_no_offset
+    %build_current_general_address_no_offset
 
     // stack: base_addr, end_loc, start_loc, retdest
     %stack (addr, e) -> (e, addr, 0)
