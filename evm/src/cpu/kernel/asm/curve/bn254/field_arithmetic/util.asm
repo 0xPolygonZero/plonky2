@@ -320,7 +320,7 @@
 %endmacro
 
 %macro store_fp254_6(ptr)
-    // stack:       x0, x1, x2, x3, x4, x5
+    // stack: x0, x1, x2, x3, x4, x5
     PUSH $ptr
     %store_fp254_6
     // stack:
