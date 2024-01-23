@@ -222,43 +222,13 @@
     // stack:     x0, x1, x2, x3, x4, x5
 %endmacro
 
-// cost: 6 loads + 6 pushes + 5 adds = 6*4 + 6*1 + 5*2 = 40
 %macro load_fp254_6(ptr)
     // stack:
     PUSH $ptr
-    %create_bn254_pairing_address
-    DUP1
-    %add_const(5)
-    // stack:                 addr5, addr
-    MLOAD_GENERAL
-    // stack:                    x5, addr
-    SWAP1 DUP1
-    %add_const(4)
-    // stack:             addr4, addr, x5
-    MLOAD_GENERAL
-    // stack:                x4, addr, x5
-    SWAP1 DUP1
-    %add_const(3)
-    // stack:         addr3, addr, x4, x5
-    MLOAD_GENERAL
-    // stack:            x3, addr, x4, x5
-    SWAP1 DUP1
-    %add_const(2)
-    // stack:     addr2, addr, x3, x4, x5
-    MLOAD_GENERAL
-    // stack:        x2, addr, x3, x4, x5
-    SWAP1 DUP1
-    %add_const(1)
-    // stack: addr1, addr, x2, x3, x4, x5
-    MLOAD_GENERAL
-    // stack:    x1, addr, x2, x3, x4, x5
-    SWAP1
-    // stack: addr0, x1, x2, x3, x4, x5
-    MLOAD_GENERAL
-    // stack:   x0, x1, x2, x3, x4, x5
+    %load_fp254_6
+    // stack: x0, x1, x2, x3, x4, x5
 %endmacro
 
-// cost: 6 stores + 6 swaps/dups + 5 adds = 6*4 + 6*1 + 5*2 = 40
 %macro store_fp254_6
     // stack:      ptr, x0, x1, x2, x3, x4 , x5
     %create_bn254_pairing_address
@@ -294,7 +264,6 @@
     // stack:
 %endmacro
 
-// cost: 6 stores + 7 swaps/dups + 5 adds + 6 doubles = 6*4 + 7*1 + 5*2 + 6*2 = 53
 %macro store_fp254_6_double
     // stack:        ptr, x0, x1, x2, x3, x4, x5
     %create_bn254_pairing_address
@@ -350,38 +319,13 @@
     // stack:
 %endmacro
 
-// cost: 6 stores + 6 pushes + 5 adds = 6*4 + 6*1 + 5*2 = 40
 %macro store_fp254_6(ptr)
     // stack:       x0, x1, x2, x3, x4, x5
     PUSH $ptr
-    %create_bn254_pairing_address
-    // stack: addr, x0, x1, x2, x3, x4, x5
-    DUP1 DUP3
-    MSTORE_GENERAL
-    // stack: addr, x0, x1, x2, x3, x4, x5
-    %increment
-    DUP1 DUP4
-    MSTORE_GENERAL
-    // stack: addr, x0, x1, x2, x3, x4, x5
-    %increment
-    DUP1 DUP5
-    MSTORE_GENERAL
-    // stack: addr, x0, x1, x2, x3, x4, x5
-    %increment
-    DUP1 DUP6
-    MSTORE_GENERAL
-    // stack: addr, x0, x1, x2, x3, x4, x5
-    %increment
-    DUP1 DUP7
-    MSTORE_GENERAL
-    // stack: addr, x0, x1, x2, x3, x4, x5
-    %increment
-    %stack (addr, x0, x1, x2, x3, x4, x5) -> (x5, addr)
-    MSTORE_GENERAL
+    %store_fp254_6
     // stack:
 %endmacro
 
-// cost: store (40) + i9 (9) = 49
 %macro store_fp254_6_sh(ptr)
     // stack:       x0, x1, x2, x3, x4, x5
     PUSH $ptr
@@ -888,7 +832,7 @@
 %endmacro
 
 %macro load_fp254_12
-    // stack:                                                          addr
+    // stack:                                                          ptr
     %create_bn254_pairing_address
     DUP1
     %add_const(10)
