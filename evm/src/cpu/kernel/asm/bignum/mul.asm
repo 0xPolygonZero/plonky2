@@ -27,13 +27,13 @@ mul_loop:
     // stack: bi, mul_addmul_return, n, base_addr, len, a_start_loc, bi, output_cur, retdest
     DUP4 ADD // bi_addr
     MLOAD_GENERAL
-    // stack: b[i], mul_addmul_return, n, base_addr, len, a_start_loc, bi, output_cur, retdest, b
+    // stack: b[i], mul_addmul_return, n, base_addr, len, a_start_loc, bi, output_cur, retdest
     DUP6
-    // stack: a_start_loc, b[i], mul_addmul_return, n, base_addr, len, a_start_loc, bi, output_cur, retdest, b
+    // stack: a_start_loc, b[i], mul_addmul_return, n, base_addr, len, a_start_loc, bi, output_cur, retdest
     DUP9
-    // stack: output_loc, a_start_loc, b[i], mul_addmul_return, n, base_addr, len, a_start_loc, bi, output_cur, retdest, b
+    // stack: output_loc, a_start_loc, b[i], mul_addmul_return, n, base_addr, len, a_start_loc, bi, output_cur, retdest
     DUP7
-    // stack: len, output_loc, a_start_loc, b[i], mul_addmul_return, n, base_addr, len, a_start_loc, bi, output_cur, retdest, b
+    // stack: len, output_loc, a_start_loc, b[i], mul_addmul_return, n, base_addr, len, a_start_loc, bi, output_cur, retdest
     %jump(addmul_bignum)
 mul_addmul_return:
     // stack: carry_limb, n, base_addr, len, a_start_loc, bi, output_cur, retdest

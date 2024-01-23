@@ -27,7 +27,7 @@ global modmul_bignum:
 
     PUSH 0
     // stack: i=0, base_addr, len, a_loc, b_loc, m_loc, out_loc, s1, s2, s3, retdest
-global modmul_remainder_loop:
+modmul_remainder_loop:
     // stack: i, base_addr, len, a_loc, b_loc, m_loc, out_loc, s1, s2, s3, retdest
     PROVER_INPUT(bignum_modmul)
     // stack: PI, i, base_addr, len, a_loc, b_loc, m_loc, out_loc, s1, s2, s3, retdest
@@ -154,7 +154,7 @@ modmul_check_loop:
     MLOAD_GENERAL
     // stack: mem[j], i, base_addr, base_addr, n, i, j, retdest
     SWAP2
-    ADD // addr_j
+    ADD // addr_i
     MLOAD_GENERAL
     // stack: mem[i], mem[j], base_addr, n, i, j, retdest
     %assert_eq

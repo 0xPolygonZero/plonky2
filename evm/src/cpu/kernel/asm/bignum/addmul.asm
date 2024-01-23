@@ -80,7 +80,7 @@ addmul_loop:
     // stack: to_write, carry_limb, addr, i, a_cur_loc, b_cur_loc, val, retdest
     DUP3
     DUP6 ADD // base_addr + a_cur_loc
-    // stack: a_cur_addr, to_write, carry_limb, i, a_cur_loc, b_cur_loc, val, retdest
+    // stack: a_cur_addr, to_write, carry_limb, addr, i, a_cur_loc, b_cur_loc, val, retdest
     %swap_mstore
     // stack: carry_limb, base_addr, i, a_cur_loc, b_cur_loc, val, retdest
     SWAP2
