@@ -1,35 +1,23 @@
 /// Access lists for addresses and storage keys.
-/// The access list is stored in an array. The length of the array is stored in the global metadata.
-/// For storage keys, the address and key are stored as two consecutive elements.
-/// The array is stored in the SEGMENT_ACCESSED_ADDRESSES segment for addresses and in the SEGMENT_ACCESSED_STORAGE_KEYS segment for storage keys.
+/// The access list is stored in a sorted linked list in SEGMENT_ACCESSED_ADDRESSES for addresses and
+/// SEGMENT_ACCESSED_STORAGE_KEYS segment for storage keys. The length of
+/// the segments is stored in the global metadata.
 /// Both arrays are stored in the kernel memory (context=0).
-/// Searching and inserting is done by doing a linear search through the array.
+/// Searching and inserting is done by guessing the predecessor in the list.
 /// If the address/storage key isn't found in the array, it is inserted at the end.
-/// TODO: Look into using a more efficient data structure for the access lists.
 
-// Initialize the set of accessed addresses with an empty list of the form (0)->(MAX)->(0)
-// wich is written as [0, 2, MAX, 0] in SEGMENT_ACCESSED_ADDRESSES
-global init_accessed_addresses:
+// Initialize the set of accessed addresses and storage keys with an empty list of the form (@U256_MAX)⮌
+// wich is written as [@U256_MAX, @SEGMENT_ACCESSED_ADDRESSES] in SEGMENT_ACCESSED_ADDRESSES
+// and as [@U256_MAX, _, _, @SEGMENT_ACCESSED_STORAGE_KEYS] in SEGMENT_ACCESSED_STORAGE_KEYS
+global init_access_lists:
     // stack: (empty)
+    // Initialize SEGMENT_ACCESSED_ADDRESSES
+    // Store @U256_MAX at the beggining of the segment
     PUSH @SEGMENT_ACCESSED_ADDRESSES
-    // Store 0 at address 0
-    DUP1
-    PUSH 0
-    // Store 0 at the beggning of the segment
-    MSTORE_GENERAL
-    // Store @SEGMENT_ACCESSED_ADDRESSES + 2 at address 1
-    %increment
-    DUP1
-    PUSH @SEGMENT_ACCESSED_ADDRESSES
-    %add_const(2)
-    MSTORE_GENERAL
-    // Store U256_MAX at address 2
-    %increment
     DUP1
     PUSH @U256_MAX
     MSTORE_GENERAL
-
-    // Store @SEGMENT_ACCESSED_ADDRESSES at address 3
+    // Store @SEGMENT_ACCESSED_ADDRESSES at address 1
     %increment
     DUP1
     PUSH @SEGMENT_ACCESSED_ADDRESSES
@@ -39,11 +27,27 @@ global init_accessed_addresses:
     %increment
     %mstore_global_metadata(@GLOBAL_METADATA_ACCESSED_ADDRESSES_LEN)
     // stack: (empty)
+
+    // Initialize SEGMENT_ACCESSED_STORAGE_KEYS
+    // Store @U256_MAX at the beggining of the segment
+    PUSH @SEGMENT_ACCESSED_STORAGE_KEYS
+    DUP1
+    PUSH @U256_MAX
+    MSTORE_GENERAL
+    // Store @SEGMENT_ACCESSED_STORAGE_KEYS at address 3
+    %add_const(3)
+    DUP1
+    PUSH @SEGMENT_ACCESSED_STORAGE_KEYS
+    MSTORE_GENERAL
+    
+    //Store the segment scaled length
+    %increment
+    %mstore_global_metadata(@GLOBAL_METADATA_ACCESSED_STORAGE_KEYS_LEN)
     JUMP
 
-%macro init_accessed_addresses
+%macro init_access_lists
     PUSH %%after
-    %jump(init_accessed_addresses)
+    %jump(init_access_lists)
 %%after:
 %endmacro
 
@@ -63,15 +67,23 @@ global init_accessed_addresses:
 /// Return 1 if the address was inserted, 0 if it was already present.
 global insert_accessed_addresses:
     // stack: addr, retdest
-    PROVER_INPUT(accessed_addresses::predecessor)
+    PROVER_INPUT(access_lists::address_pred)
     // stack: pred_ptr, addr, retdest
     DUP1
     MLOAD_GENERAL
-    // stack: pred_val, pred_ptr, addr, retdest
+    // stack: pred_addr, pred_ptr, addr, retdest
     DUP3 SUB
     %jumpi(insert_new_address)
-    // The address was already on the list
-    %stack (pred_ptr, addr, retdest) -> (retdest, 0) // Return 0 to indicate that the address was already present.
+    // Check that this is not a deleted node
+    %increment
+    MLOAD_GENERAL
+    PUSH @U256_MAX
+    SUB
+    %jumpi(address_found)
+    %jump(panic)
+address_found:
+    // The address was already in the list
+    %stack (addr, retdest) -> (retdest, 0) // Return 0 to indicate that the address was already present.
     JUMP
 
 insert_new_address:
@@ -83,12 +95,17 @@ insert_new_address:
     DUP2
     MLOAD_GENERAL
     // stack: next_ptr, new_ptr, next_ptr_ptr, addr, retdest
+    // Check that this is not a deleted node
+    DUP1
+    PUSH @U256_MAX
+    SUB
+    %assert_nonzero
     DUP1
     MLOAD_GENERAL
     // stack: next_val, next_ptr, new_ptr, next_ptr_ptr, addr, retdest
     DUP5
-    // Since the list is correctly ordered, addr != pred_val and addr < next_val implies that
-    // pred_val < addr < next_val and hence the new value can be inserted between pred and next
+    // Since the list is correctly ordered, addr != pred_addr and addr < next_val implies that
+    // pred_addr < addr < next_val and hence the new value can be inserted between pred and next
     %assert_lt
     // stack: next_ptr, new_ptr, next_ptr_ptr, addr, retdest
     SWAP2
@@ -117,7 +134,7 @@ insert_new_address:
 /// Panics if the address is not in the access list.
 global remove_accessed_addresses:
     // stack: addr, retdest
-    PROVER_INPUT(accessed_addresses::predecessor)
+    PROVER_INPUT(access_lists::address_pred)
     // stack: pred_ptr, addr, retdest
     %increment
     DUP1
@@ -130,11 +147,17 @@ global remove_accessed_addresses:
     %assert_eq
     // stack: next_ptr, pred_next_ptr, addr, retdest
     %increment
+    DUP1
     MLOAD_GENERAL
+    // stack: next_next_ptr, next_ptr, pred_next_ptr, addr, retdest
+    SWAP1
+    PUSH @U256_MAX
+    MSTORE_GENERAL
     // stack: next_next_ptr, pred_next_ptr, addr, retdest
     MSTORE_GENERAL
     POP
     JUMP
+
 
 %macro insert_accessed_storage_keys
     %stack (addr, key, value) -> (addr, key, value, %%after)
@@ -147,6 +170,86 @@ global remove_accessed_addresses:
 /// `value` should be the current storage value at the slot `(addr, key)`.
 /// Return `1, original_value` if the storage key was inserted, `0, original_value` if it was already present.
 global insert_accessed_storage_keys:
+    // stack: addr, key, value, retdest
+    PROVER_INPUT(access_lists::storage_pred)
+    // stack: pred_ptr, addr, key, value, retdest
+    DUP1
+    MLOAD_GENERAL
+global debug_storage_pred_addr:
+    // stack: pred_addr, pred_ptr, addr, key, value, retdest
+    DUP3 SUB
+global debug_before_jump:
+    %jumpi(insert_new_storage_key)
+    // stack: pred_ptr, addr, key, value, retdest
+    // Check that this is not a deleted node
+    DUP1
+    %add_const(3)
+    MLOAD_GENERAL
+    PUSH @U256_MAX
+    SUB
+    %jumpi(storage_key_found)
+    %jump(panic)
+storage_key_found:
+    // The address was already in the list
+    %add_const(2)
+    MLOAD_GENERAL
+    %stack (original_value, addr, key, value, retdest) -> (retdest, 0, original_value) // Return 0 to indicate that the address was already present.
+    JUMP
+insert_new_storage_key:
+global debug_new_storage_key:
+    // stack: pred_ptr, addr, key, value, retdest
+    // get the value of the next address
+    %add_const(3)
+    // stack: next_ptr_ptr, addr, key, value, retdest
+    %mload_global_metadata(@GLOBAL_METADATA_ACCESSED_STORAGE_KEYS_LEN)
+    DUP2
+    MLOAD_GENERAL
+    // stack: next_ptr, new_ptr, next_ptr_ptr, addr, key, value, retdest
+    // Check that this is not a deleted node
+    DUP1
+    PUSH @U256_MAX
+    SUB
+    %assert_nonzero
+    DUP1
+    MLOAD_GENERAL
+    // stack: next_val, next_ptr, new_ptr, next_ptr_ptr, addr, key, value, retdest
+    DUP5
+    // Since the list is correctly ordered, addr != pred_addr and addr < next_val implies that
+    // pred_addr < addr < next_val and hence the new value can be inserted between pred and next
+    %assert_lt
+    // stack: next_ptr, new_ptr, next_ptr_ptr, addr, key, value, retdest
+    SWAP2
+    DUP2
+    MSTORE_GENERAL
+    // stack: new_ptr, next_ptr, addr, key, value, retdest
+    DUP1
+    DUP4
+    MSTORE_GENERAL // store addr
+    // stack: new_ptr, next_ptr, addr, key, value, retdest
+    %increment
+    DUP1
+    DUP5
+    MSTORE_GENERAL // store key
+    %increment
+    DUP1
+    DUP6
+    MSTORE_GENERAL // store value
+    // stack: new_ptr + 2, next_ptr, addr, key, value, retdest
+    %increment
+    DUP1
+    // stack: new_next_ptr, new_next_ptr, next_ptr, addr, key, value, retdest
+    SWAP2
+    MSTORE_GENERAL
+    // stack: new_next_ptr, addr, key, value, retdest
+    %increment
+    %mstore_global_metadata(@GLOBAL_METADATA_ACCESSED_STORAGE_KEYS_LEN)
+    // stack: addr, key, value, retdest
+    %stack (addr, key, value, retdest) -> (key, value, retdest, 1, value)
+    %journal_add_storage_loaded
+    JUMP
+
+
+global insert_accessed_storage_keys_old:
     // stack: addr, key, value, retdest
     %mload_global_metadata(@GLOBAL_METADATA_ACCESSED_STORAGE_KEYS_LEN)
     // stack: len, addr, key, value, retdest

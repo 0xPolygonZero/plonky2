@@ -818,7 +818,11 @@ impl<'a> Interpreter<'a> {
         {
             println!("At {}, stack={:?}", self.offset_name(), self.stack());
         } else if let Some(label) = self.offset_label() {
-            println!("At {label}");
+            println!("At {label}, stack = {:?}", {
+                let mut stack = self.stack();
+                stack.reverse();
+                stack
+            });
         }
 
         let op = decode(self.generation_state.registers, opcode)

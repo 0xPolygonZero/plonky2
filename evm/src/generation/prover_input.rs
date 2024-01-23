@@ -57,7 +57,7 @@ impl<F: Field> GenerationState<F> {
             "withdrawal" => self.run_withdrawal(),
             "num_bits" => self.run_num_bits(),
             "jumpdest_table" => self.run_jumpdest_table(input_fn),
-            "accessed_addresses" => self.run_access_addresses(input_fn),
+            "access_lists" => self.run_access_lists(input_fn),
             _ => Err(ProgramError::ProverInputError(InvalidFunction)),
         }
     }
@@ -251,9 +251,10 @@ impl<F: Field> GenerationState<F> {
     }
 
     /// Generate either the next used jump address or the proof for the last jump address.
-    fn run_access_addresses(&mut self, input_fn: &ProverInputFn) -> Result<U256, ProgramError> {
+    fn run_access_lists(&mut self, input_fn: &ProverInputFn) -> Result<U256, ProgramError> {
         match input_fn.0[1].as_str() {
-            "predecessor" => self.run_next_access_addresses_predecessor(),
+            "address_pred" => self.run_next_addresses_predecessor(),
+            "storage_pred" => self.run_next_storage_predecessor(),
             _ => Err(ProgramError::ProverInputError(InvalidInput)),
         }
     }
@@ -301,13 +302,24 @@ impl<F: Field> GenerationState<F> {
         }
     }
 
-    /// Returns the a pointer to the predecessor of the top of the stack in the access addresses list.
-    fn run_next_access_addresses_predecessor(&mut self) -> Result<U256, ProgramError> {
+    /// Returns the a pointer to the predecessor of the top of the stack in the accessed addresses list.
+    fn run_next_addresses_predecessor(&mut self) -> Result<U256, ProgramError> {
         let addr = stack_peek(self, 0)?;
-        for (curr_ptr, next_addr) in self.get_access_addresses_list()? {
+        for (curr_ptr, next_addr) in self.get_addresses_access_list()? {
             log::debug!("curr_ptr = {curr_ptr}, next_addr = {:?}", next_addr);
             if next_addr > addr {
                 return Ok((Segment::AccessedAddresses as usize + curr_ptr).into());
+            }
+        }
+        Ok((Segment::AccessedAddresses as usize).into())
+    }
+
+    /// Returns the a pointer to the predecessor of the top of the stack in the accessed storage keys list.
+    fn run_next_storage_predecessor(&mut self) -> Result<U256, ProgramError> {
+        let addr = stack_peek(self, 0)?;
+        for (curr_ptr, next_addr) in self.get_storage_keys_access_list()? {
+            if next_addr > addr {
+                return Ok((Segment::AccessedStorageKeys as usize + curr_ptr).into());
             }
         }
         Ok((Segment::AccessedAddresses as usize).into())
@@ -402,7 +414,7 @@ impl<F: Field> GenerationState<F> {
         }
     }
 
-    pub(crate) fn get_access_addresses_list(&self) -> Result<AccAddrList, ProgramError> {
+    pub(crate) fn get_addresses_access_list(&self) -> Result<AccList, ProgramError> {
         let addr_1 = self.memory.get(MemoryAddress::new(
             0,
             Segment::GlobalMetadata,
@@ -428,9 +440,32 @@ impl<F: Field> GenerationState<F> {
                     .get(MemoryAddress::new(0, Segment::AccessedAddresses, virt))
             })
             .collect();
-        Ok(AccAddrList {
-            access_address_mem,
+        Ok(AccList {
+            access_list_mem: access_address_mem,
+            node_size: 2,
             offset: Segment::AccessedAddresses as usize,
+            pos: 0,
+        })
+    }
+
+    pub(crate) fn get_storage_keys_access_list(&self) -> Result<AccList, ProgramError> {
+        let acc_storage_len = u256_to_usize(
+            self.memory.get(MemoryAddress::new(
+                0,
+                Segment::GlobalMetadata,
+                GlobalMetadata::AccessedStorageKeysLen.unscale(),
+            )) - Segment::AccessedStorageKeys as usize,
+        )?;
+        let access_storage_mem: Vec<_> = (0..acc_storage_len)
+            .map(|virt| {
+                self.memory
+                    .get(MemoryAddress::new(0, Segment::AccessedStorageKeys, virt))
+            })
+            .collect();
+        Ok(AccList {
+            access_list_mem: access_storage_mem,
+            node_size: 4,
+            offset: Segment::AccessedStorageKeys as usize,
             pos: 0,
         })
     }
@@ -525,23 +560,22 @@ impl<'a> Iterator for CodeIterator<'a> {
     }
 }
 
-pub(crate) struct AccAddrList {
-    access_address_mem: Vec<U256>,
+pub(crate) struct AccList {
+    access_list_mem: Vec<U256>,
+    node_size: usize,
     offset: usize,
     pos: usize,
 }
 
-impl Iterator for AccAddrList {
+impl Iterator for AccList {
     type Item = (usize, U256);
 
     fn next(&mut self) -> Option<Self::Item> {
-        let addr = self.access_address_mem[self.pos];
-        if let Ok(new_pos) = u256_to_usize(self.access_address_mem[self.pos + 1])
-            && new_pos != self.offset
-        {
+        let addr = self.access_list_mem[self.pos];
+        if let Ok(new_pos) = u256_to_usize(self.access_list_mem[self.pos + self.node_size - 1]) {
             let old_pos = self.pos;
             self.pos = new_pos - self.offset;
-            Some((old_pos, self.access_address_mem[self.pos]))
+            Some((old_pos, self.access_list_mem[self.pos]))
         } else {
             None
         }

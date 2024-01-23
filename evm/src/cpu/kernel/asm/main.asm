@@ -12,8 +12,8 @@ global main:
     // Initialise the shift table
     %shift_table_init
 
-    // Initialize accessed addresses list
-    %init_accessed_addresses
+    // Initialize accessed addresses and storage keys lists
+    %init_access_lists
 
     // Initialize the RLP DATA pointer to its initial position (ctx == virt == 0, segment = RLP)
     PUSH @SEGMENT_RLP_RAW
