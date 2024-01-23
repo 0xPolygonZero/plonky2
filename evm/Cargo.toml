@@ -2,6 +2,7 @@
 name = "plonky2_evm"
 description = "Implementation of STARKs for the Ethereum Virtual Machine"
 version = "0.1.1"
+license = "MIT or Apache-2.0"
 authors = ["Daniel Lubarov <daniel@lubarov.com>", "William Borgeaud <williamborgeaud@gmail.com>"]
 readme = "README.md"
 repository = "https://github.com/0xPolygonZero/plonky2"
