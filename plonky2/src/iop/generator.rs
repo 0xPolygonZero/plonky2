@@ -231,8 +231,8 @@ pub struct SimpleGeneratorAdapter<
     SG: SimpleGenerator<F, D> + ?Sized,
     const D: usize,
 > {
-    _phantom: PhantomData<F>,
-    inner: SG,
+    pub _phantom: PhantomData<F>,
+    pub inner: SG,
 }
 
 impl<F: RichField + Extendable<D>, SG: SimpleGenerator<F, D>, const D: usize> WitnessGenerator<F, D>
