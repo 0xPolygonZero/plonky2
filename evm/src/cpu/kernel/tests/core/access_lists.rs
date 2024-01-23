@@ -292,7 +292,6 @@ fn test_insert_accessed_storage_keys() -> Result<()> {
         interpreter.push(U256::from(addr.0.as_slice()));
         interpreter.generation_state.registers.program_counter = insert_accessed_storage_keys;
         interpreter.run()?;
-        println!("i = {i}");
         assert_eq!(interpreter.stack(), &[value, U256::zero()]);
         assert_eq!(
             interpreter.generation_state.memory.get(

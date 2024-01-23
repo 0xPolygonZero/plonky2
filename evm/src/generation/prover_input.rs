@@ -253,8 +253,10 @@ impl<F: Field> GenerationState<F> {
     /// Generate either the next used jump address or the proof for the last jump address.
     fn run_access_lists(&mut self, input_fn: &ProverInputFn) -> Result<U256, ProgramError> {
         match input_fn.0[1].as_str() {
-            "address_pred" => self.run_next_addresses_predecessor(),
-            "storage_pred" => self.run_next_storage_predecessor(),
+            "address_insert" => self.run_next_addresses_insert(),
+            "storage_insert" => self.run_next_storage_insert(),
+            "address_remove" => self.run_next_addresses_remove(),
+            "storage_remove" => self.run_next_storage_remove(),
             _ => Err(ProgramError::ProverInputError(InvalidInput)),
         }
     }
@@ -302,8 +304,9 @@ impl<F: Field> GenerationState<F> {
         }
     }
 
-    /// Returns the a pointer to the predecessor of the top of the stack in the accessed addresses list.
-    fn run_next_addresses_predecessor(&mut self) -> Result<U256, ProgramError> {
+    /// Returns the a pointer to an element in the list whose value val is such that
+    /// val <= addr < next_val and addr is the top of the stack.
+    fn run_next_addresses_insert(&mut self) -> Result<U256, ProgramError> {
         let addr = stack_peek(self, 0)?;
         for (curr_ptr, next_addr) in self.get_addresses_access_list()? {
             log::debug!("curr_ptr = {curr_ptr}, next_addr = {:?}", next_addr);
@@ -314,11 +317,36 @@ impl<F: Field> GenerationState<F> {
         Ok((Segment::AccessedAddresses as usize).into())
     }
 
+    /// Returns the a pointer to an element in the list whose value val is such that
+    /// val < addr == next_val and addr is the top of the stack. If the element is not
+    /// in the list returns loops forever
+    fn run_next_addresses_remove(&mut self) -> Result<U256, ProgramError> {
+        let addr = stack_peek(self, 0)?;
+        for (curr_ptr, next_addr) in self.get_addresses_access_list()? {
+            log::debug!("curr_ptr = {curr_ptr}, next_addr = {:?}", next_addr);
+            if next_addr == addr {
+                return Ok((Segment::AccessedAddresses as usize + curr_ptr).into());
+            }
+        }
+        Ok((Segment::AccessedAddresses as usize).into())
+    }
+
     /// Returns the a pointer to the predecessor of the top of the stack in the accessed storage keys list.
-    fn run_next_storage_predecessor(&mut self) -> Result<U256, ProgramError> {
+    fn run_next_storage_insert(&mut self) -> Result<U256, ProgramError> {
         let addr = stack_peek(self, 0)?;
         for (curr_ptr, next_addr) in self.get_storage_keys_access_list()? {
             if next_addr > addr {
+                return Ok((Segment::AccessedStorageKeys as usize + curr_ptr).into());
+            }
+        }
+        Ok((Segment::AccessedAddresses as usize).into())
+    }
+
+    /// Returns the a pointer to the predecessor of the top of the stack in the accessed storage keys list.
+    fn run_next_storage_remove(&mut self) -> Result<U256, ProgramError> {
+        let addr = stack_peek(self, 0)?;
+        for (curr_ptr, next_addr) in self.get_storage_keys_access_list()? {
+            if next_addr == addr {
                 return Ok((Segment::AccessedStorageKeys as usize + curr_ptr).into());
             }
         }
