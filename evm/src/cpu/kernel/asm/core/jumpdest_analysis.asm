@@ -259,7 +259,7 @@ global write_table_if_jumpdest:
 
     // Compute in_range' as
     //   - in_range' = in_range,                                    for odd positions
-    //   - in_rage' = in_range AND (has_prefix => is_0_at_8 |X⁷)³², for the rest
+    //   - in_range' = in_range AND (has_prefix => is_0_at_8 |X⁷)³², for the rest
 
     SWAP1
     // stack: (~has_prefix|X⁷)³², (in_range|X⁷)³², packed_opcodes, proof_prefix_addr, ctx, jumpdest, retdest
