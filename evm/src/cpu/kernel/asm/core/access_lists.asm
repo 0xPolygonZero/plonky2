@@ -72,8 +72,18 @@ global insert_accessed_addresses:
     DUP1
     MLOAD_GENERAL
     // stack: pred_addr, pred_ptr, addr, retdest
-    DUP3 SUB
+    // If pred_add < addr OR pred_ptr == @SEGMENT_ACCESSED_ADDRESSES
+    DUP2
+    %eq_const(@SEGMENT_ACCESSED_ADDRESSES)
+    DUP2 DUP5 GT
+    OR 
     %jumpi(insert_new_address)
+    // addr shouldn't be > pred_addr
+    // stack: pred_addr, pred_ptr, addr, retdest
+    DUP3
+    // If addr >= pred_addr then addr == pred_addr
+    %assert_eq
+    
     // Check that this is not a deleted node
     %increment
     MLOAD_GENERAL
@@ -87,7 +97,8 @@ address_found:
     JUMP
 
 insert_new_address:
-    // stack: pred_ptr, addr, retdest
+    // stack: pred_addr, red_ptr, addr, retdest
+    POP
     // get the value of the next address
     %increment
     // stack: next_ptr_ptr, 
@@ -104,8 +115,8 @@ insert_new_address:
     MLOAD_GENERAL
     // stack: next_val, next_ptr, new_ptr, next_ptr_ptr, addr, retdest
     DUP5
-    // Since the list is correctly ordered, addr != pred_addr and addr < next_val implies that
-    // pred_addr < addr < next_val and hence the new value can be inserted between pred and next
+    // Since the pred_addr < addr or pred == @SEGMENT_ACCESSED_STORAGE_KEYS and addr < next_val, the new value
+    // can be inserted between pred and next
     %assert_lt
     // stack: next_ptr, new_ptr, next_ptr_ptr, addr, retdest
     SWAP2
@@ -181,18 +192,50 @@ global insert_accessed_storage_keys:
     PROVER_INPUT(access_lists::storage_insert)
     // stack: pred_ptr, addr, key, value, retdest
     DUP1
+    MLOAD_GENERAL
+    DUP1
+    // stack: pred_addr, pred_addr, pred_ptr, addr, key, value, retdest
+    DUP4 GT
+    DUP3 %eq_const(@SEGMENT_ACCESSED_STORAGE_KEYS)
+    ADD
+    %jumpi(insert_storage_key)
+    // stack: pred_addr, pred_ptr, addr, key, value, retdest
+    // It must hold that pred_addr == addr
+    DUP3
+    %assert_eq
+    // stack: pred_ptr, addr, key, value, retdest
+    DUP1
     %increment
     MLOAD_GENERAL
     // stack: pred_key, pred_ptr, addr, key, value, retdest
-    DUP4 EQ
-    DUP2
+    DUP1 DUP5
+    GT
+    %jumpi(insert_storage_key)
+    // stack: pred_key, pred_ptr, addr, key, value, retdest
+    DUP4
+    // It  must hold that pred_key == key
+    %assert_eq
+    // stack: pred_ptr, addr, key, value, retdest
+    // Check that this is not a deleted node
+    DUP1
+    %add_const(3)
     MLOAD_GENERAL
-    // stack: pred_addr, pred_key == key, pred_ptr, addr, key, value, retdest
-    DUP4 EQ
-    MUL
-    // stack: pred_key == key AND pred_addr == addr, pred_ptr, addr, key, value, retdest
-    %jumpi(maybe_storage_key_found)
-    // Insert a new storage key:
+    PUSH @U256_MAX
+    SUB
+    %jumpi(storage_key_found)
+    %jump(panic)
+storage_key_found:
+    // The address was already in the list
+    // stack: pred_ptr, addr, key, value, retdest
+    %add_const(2)
+    MLOAD_GENERAL
+    %stack (original_value, addr, key, value, retdest) -> (retdest, 0, original_value) // Return 0 to indicate that the address was already present.
+    JUMP
+
+insert_storage_key:
+    // stack: pred_addr or pred_key, pred_ptr, addr, key, value, retdest
+    POP
+    // Insert a new storage key
     // stack: pred_ptr, addr, key, value, retdest
     // get the value of the next address
     %add_const(3)
@@ -210,9 +253,20 @@ global insert_accessed_storage_keys:
     MLOAD_GENERAL
     // stack: next_val, next_ptr, new_ptr, next_ptr_ptr, addr, key, value, retdest
     DUP5
-    // Since the list is correctly ordered, addr != pred_addr and addr < next_val implies that
-    // pred_addr < addr < next_val and hence the new value can be inserted between pred and next
-    %assert_lt
+    // Check that next_val > addr OR (next_val == addr AND next_key > key)
+    DUP2 DUP2
+    LT
+    // stack: addr < next_val, addr, next_val, next_ptr, new_ptr, next_ptr_ptr, addr, key, value, retdest
+    SWAP2
+    EQ
+    // stack: next_val == addr, addr < next_val, next_ptr, new_ptr, next_ptr_ptr, addr, key, value, retdest
+    DUP3 %increment
+    MLOAD_GENERAL
+    DUP8
+    LT
+    AND
+    OR
+    %assert_nonzero
     // stack: next_ptr, new_ptr, next_ptr_ptr, addr, key, value, retdest
     SWAP2
     DUP2
@@ -242,22 +296,6 @@ global insert_accessed_storage_keys:
     // stack: addr, key, value, retdest
     %stack (addr, key, value, retdest) -> (key, value, retdest, 1, value)
     %journal_add_storage_loaded
-    JUMP
-maybe_storage_key_found:    
-    // Check that this is not a deleted node
-    DUP1
-    %add_const(3)
-    MLOAD_GENERAL
-    PUSH @U256_MAX
-    SUB
-    %jumpi(storage_key_found)
-    %jump(panic)
-storage_key_found:
-    // The address was already in the list
-    // stack: pred_ptr, addr, key, value, retdest
-    %add_const(2)
-    MLOAD_GENERAL
-    %stack (original_value, addr, key, value, retdest) -> (retdest, 0, original_value) // Return 0 to indicate that the address was already present.
     JUMP
 
 

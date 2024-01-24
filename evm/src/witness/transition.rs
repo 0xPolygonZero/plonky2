@@ -438,11 +438,12 @@ fn log_kernel_instruction<F: Field>(state: &GenerationState<F>, op: Operation) {
     };
     log::log!(
         level,
-        "Cycle {}, ctx={}, pc={}, instruction={:?}, stack={:?}",
+        "Cycle {}, ctx={}, pc={}, instruction={:?}, gas = {:?}, stack={:?}",
         state.traces.clock(),
         state.registers.context,
         KERNEL.offset_name(pc),
         op,
+        state.registers.gas_used,
         state.stack(),
     );
 

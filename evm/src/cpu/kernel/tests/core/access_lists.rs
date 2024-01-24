@@ -59,18 +59,18 @@ fn test_init_access_lists() -> Result<()> {
         acc_storage_keys
     );
 
-    // test the list iteratior
+    // test the list iterator
     let mut list = interpreter
         .generation_state
         .get_addresses_access_list()
         .expect("Couldn't retrieve access list");
 
-    let Some((pos_0, next_val_0)) = list.next() else {
+    let Some((pos_0, next_val_0, _)) = list.next() else {
         return Err(anyhow::Error::msg("Couldn't get value"));
     };
     assert_eq!(pos_0, 0);
     assert_eq!(next_val_0, U256::MAX);
-    let Some((pos_0, next_val_0)) = list.next() else {
+    let Some((pos_0, next_val_0, _)) = list.next() else {
         return Err(anyhow::Error::msg("Couldn't get value"));
     };
     assert_eq!(pos_0, 0);

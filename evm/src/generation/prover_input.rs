@@ -308,8 +308,7 @@ impl<F: Field> GenerationState<F> {
     /// val <= addr < next_val and addr is the top of the stack.
     fn run_next_addresses_insert(&mut self) -> Result<U256, ProgramError> {
         let addr = stack_peek(self, 0)?;
-        for (curr_ptr, next_addr) in self.get_addresses_access_list()? {
-            log::debug!("curr_ptr = {curr_ptr}, next_addr = {:?}", next_addr);
+        for (curr_ptr, next_addr, _) in self.get_addresses_access_list()? {
             if next_addr > addr {
                 return Ok((Segment::AccessedAddresses as usize + curr_ptr).into());
             }
@@ -322,8 +321,7 @@ impl<F: Field> GenerationState<F> {
     /// in the list returns loops forever
     fn run_next_addresses_remove(&mut self) -> Result<U256, ProgramError> {
         let addr = stack_peek(self, 0)?;
-        for (curr_ptr, next_addr) in self.get_addresses_access_list()? {
-            log::debug!("curr_ptr = {curr_ptr}, next_addr = {:?}", next_addr);
+        for (curr_ptr, next_addr, _) in self.get_addresses_access_list()? {
             if next_addr == addr {
                 return Ok((Segment::AccessedAddresses as usize + curr_ptr).into());
             }
@@ -334,8 +332,10 @@ impl<F: Field> GenerationState<F> {
     /// Returns the a pointer to the predecessor of the top of the stack in the accessed storage keys list.
     fn run_next_storage_insert(&mut self) -> Result<U256, ProgramError> {
         let addr = stack_peek(self, 0)?;
-        for (curr_ptr, next_addr) in self.get_storage_keys_access_list()? {
-            if next_addr > addr {
+        let key = stack_peek(self, 1)?;
+        log::debug!("addr = {:?}", addr);
+        for (curr_ptr, next_addr, next_key) in self.get_storage_keys_access_list()? {
+            if next_addr > addr || (next_addr == addr && next_key > key) {
                 return Ok((Segment::AccessedStorageKeys as usize + curr_ptr).into());
             }
         }
@@ -345,8 +345,9 @@ impl<F: Field> GenerationState<F> {
     /// Returns the a pointer to the predecessor of the top of the stack in the accessed storage keys list.
     fn run_next_storage_remove(&mut self) -> Result<U256, ProgramError> {
         let addr = stack_peek(self, 0)?;
-        for (curr_ptr, next_addr) in self.get_storage_keys_access_list()? {
-            if next_addr == addr {
+        let key = stack_peek(self, 1)?;
+        for (curr_ptr, next_addr, next_key) in self.get_storage_keys_access_list()? {
+            if next_addr == addr && next_key == key {
                 return Ok((Segment::AccessedStorageKeys as usize + curr_ptr).into());
             }
         }
@@ -448,12 +449,6 @@ impl<F: Field> GenerationState<F> {
             Segment::GlobalMetadata,
             GlobalMetadata::AccessedAddressesLen.unscale(),
         ));
-        log::debug!(
-            "AccAddr = {:?}, addr_1 = {:?}, context = {:?}",
-            Segment::AccessedAddresses as usize,
-            addr_1,
-            self.registers.context
-        );
         let acc_addr_len = u256_to_usize(
             self.memory.get(MemoryAddress::new(
                 0,
@@ -461,7 +456,6 @@ impl<F: Field> GenerationState<F> {
                 GlobalMetadata::AccessedAddressesLen.unscale(),
             )) - Segment::AccessedAddresses as usize,
         )?;
-        log::debug!("acc_add_len = {acc_addr_len}");
         let access_address_mem: Vec<_> = (0..acc_addr_len)
             .map(|virt| {
                 self.memory
@@ -490,6 +484,7 @@ impl<F: Field> GenerationState<F> {
                     .get(MemoryAddress::new(0, Segment::AccessedStorageKeys, virt))
             })
             .collect();
+        log::debug!("access_storage_mem = {:?}", access_storage_mem);
         Ok(AccList {
             access_list_mem: access_storage_mem,
             node_size: 4,
@@ -596,14 +591,22 @@ pub(crate) struct AccList {
 }
 
 impl Iterator for AccList {
-    type Item = (usize, U256);
+    type Item = (usize, U256, U256);
 
     fn next(&mut self) -> Option<Self::Item> {
         let addr = self.access_list_mem[self.pos];
         if let Ok(new_pos) = u256_to_usize(self.access_list_mem[self.pos + self.node_size - 1]) {
             let old_pos = self.pos;
             self.pos = new_pos - self.offset;
-            Some((old_pos, self.access_list_mem[self.pos]))
+            if self.node_size < 3 {
+                Some((old_pos, self.access_list_mem[self.pos], U256::zero()))
+            } else {
+                Some((
+                    old_pos,
+                    self.access_list_mem[self.pos],
+                    self.access_list_mem[self.pos + 1],
+                ))
+            }
         } else {
             None
         }
