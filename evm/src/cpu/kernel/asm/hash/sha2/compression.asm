@@ -4,9 +4,7 @@
     // stack: num_blocks
     %mul_const(320)
     %add_const(2)
-    PUSH @SEGMENT_KERNEL_GENERAL
-    GET_CONTEXT
-    %build_address
+    %build_current_general_address
 %endmacro
 
 global sha2_compression:

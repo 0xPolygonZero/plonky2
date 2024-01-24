@@ -1,8 +1,6 @@
 %macro sha2_write_length
     // stack: last_addr_offset, length
-    PUSH @SEGMENT_KERNEL_GENERAL
-    GET_CONTEXT
-    %build_address
+    %build_current_general_address
     SWAP1
     // stack: length, last_addr
     DUP1

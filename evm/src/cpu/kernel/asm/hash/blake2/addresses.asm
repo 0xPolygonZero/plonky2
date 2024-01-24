@@ -2,11 +2,7 @@
 // It is ready to be used, i.e. already containing the current context
 // and SEGMENT_KERNEL_GENERAL.
 %macro blake2_hash_value_addr
-    PUSH @SEGMENT_KERNEL_GENERAL
-    // stack: segment
-    GET_CONTEXT
-    // stack: context, segment
-    %build_address_no_offset
+    %build_current_general_address_no_offset
     DUP1
     MLOAD_GENERAL
     // stack: num_blocks, addr

@@ -1,8 +1,6 @@
 global sha2:
     // stack: virt, num_bytes, retdest
-    PUSH @SEGMENT_KERNEL_GENERAL
-    GET_CONTEXT
-    %build_address
+    %build_current_general_address
     // stack: addr, num_bytes, retdest
     DUP1 SWAP2
     // stack: num_bytes, addr, addr, retdest
