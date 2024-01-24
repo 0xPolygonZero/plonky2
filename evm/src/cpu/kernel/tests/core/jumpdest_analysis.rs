@@ -52,6 +52,8 @@ fn test_jumpdest_analysis() -> Result<()> {
 
     assert_eq!(
         interpreter.generation_state.jumpdest_table,
+        // Context 3 has jumpdest 1, 5, 7. All have proof 0 and hence
+        // the list [proof_0, jumpdest_0, ... ] is [0, 1, 0, 5, 0, 7]
         Some(HashMap::from([(3, vec![0, 1, 0, 5, 0, 7])]))
     );
 

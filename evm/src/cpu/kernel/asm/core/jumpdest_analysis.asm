@@ -277,15 +277,19 @@ global write_table_if_jumpdest:
     // pos 0102030405060708091011121314151617181920212223242526272829303132
     PUSH 0x8080808080808080808080808080808080808080808080808080808080808080
     AND
-    %jump_neq_const(0x8080808080808080808080808080808080808080808080808080808080808080, return)
+    %jump_neq_const(0x8080808080808080808080808080808080808080808080808080808080808080, return_pop_opcode)
     POP
     %add_const(32)
 
     // check the remaining path
     %jump(verify_path_and_write_jumpdest_table)
+return_pop_opcode:
+    POP
 return:
-    // stack: packed_opcodes, proof_prefix_addr, ctx, jumpdest, retdest
-    %pop4
+    // stack: proof_prefix_addr, ctx, jumpdest, retdest
+    // or
+    // stack: jumpdest, ctx, proof_prefix_addr, retdest
+    %pop3
     JUMP
 
 %macro write_table_if_jumpdest
