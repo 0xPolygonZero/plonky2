@@ -1,20 +1,20 @@
 global sha2:
     // stack: virt, num_bytes, retdest
-    SWAP1
-    // stack: num_bytes, virt, retdest
-    DUP2
-    // stack: virt, num_bytes, virt, retdest
-    %mstore_current_general
-    // stack: virt, retdest
+    %build_current_general_address
+    // stack: addr, num_bytes, retdest
+    DUP1 SWAP2
+    // stack: num_bytes, addr, addr, retdest
+    MSTORE_GENERAL
+    // stack: addr, retdest
 
 
-// Precodition: input is in memory, starting at virt of kernel general segment, of the form
+// Precondition: input is in memory, starting at addr of kernel general segment, of the form
 //              num_bytes, x[0], x[1], ..., x[num_bytes - 1]
 // Postcodition: output is in memory, starting at 0, of the form
 //               num_blocks, block0[0], ..., block0[63], block1[0], ..., blocklast[63]
 global sha2_pad:
-    // stack: virt, retdest
-    %mload_current_general
+    // stack: addr, retdest
+    MLOAD_GENERAL
     // stack: num_bytes, retdest
     // STEP 1: append 1
     // insert 128 (= 1 << 7) at x[num_bytes+1]
@@ -50,8 +50,7 @@ global sha2_pad:
     DUP1
     // stack: num_blocks, num_blocks, retdest
     // STEP 5: write num_blocks to x[0]
-    PUSH 0
-    %mstore_current_general
+    %mstore_current_general_no_offset
     // stack: num_blocks, retdest
     %message_schedule_addr_from_num_blocks
     %jump(sha2_gen_all_message_schedules)
