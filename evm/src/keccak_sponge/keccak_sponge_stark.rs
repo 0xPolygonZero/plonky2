@@ -123,7 +123,7 @@ pub(crate) fn ctl_looking_memory<F: Field>(i: usize) -> Vec<Column<F>> {
     // The i'th input byte being read.
     res.push(Column::single(cols.block_bytes[i]));
 
-        // Since we're reading a single byte, the higher limbs must be zero.
+    // Since we're reading a single byte, the higher limbs must be zero.
     res.extend((1..8).map(|_| Column::zero()));
 
     res.push(Column::single(cols.timestamp));
