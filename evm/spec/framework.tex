@@ -1,0 +1,159 @@
+\section{STARK framework}
+\label{framework}
+
+
+\subsection{Cost model}
+
+Our zkEVM is designed for efficient verification by STARKs \cite{stark}, particularly by an AIR with degree 3 constraints. In this model, the prover bottleneck is typically constructing Merkle trees, particularly constructing the tree containing low-degree extensions of witness polynomials.
+
+
+\subsection{Field selection}
+\label{field}
+Our zkEVM is designed to have its execution traces encoded in a particular prime field $\mathbb{F}_p$, with $p = 2^{64} - 2^{32} + 1$. A nice property of this field is that it can represent the results of many common \texttt{u32} operations. For example, (widening) \texttt{u32} multiplication has a maximum value of $(2^{32} - 1)^2$, which is less than $p$. In fact a \texttt{u32} multiply-add has a maximum value of $p - 1$, so the result can be represented with a single field element, although if we were to add a carry in bit, this no longer holds.
+
+This field also enables a very efficient reduction method. Observe that
+$$
+2^{64} \equiv 2^{32} - 1 \pmod p
+$$
+and consequently
+\begin{align*}
+  2^{96} &\equiv 2^{32} (2^{32} - 1) \pmod p \\
+         &\equiv 2^{64} - 2^{32} \pmod p \\
+         &\equiv -1 \pmod p.
+\end{align*}
+To reduce a 128-bit number $n$, we first rewrite $n$ as $n_0 + 2^{64} n_1 + 2^{96} n_2$, where $n_0$ is 64 bits and $n_1, n_2$ are 32 bits each. Then
+\begin{align*}
+  n &\equiv n_0 + 2^{64} n_1 + 2^{96} n_2 \pmod p \\
+  &\equiv n_0 + (2^{32} - 1) n_1 - n_2 \pmod p
+\end{align*}
+After computing $(2^{32} - 1) n_1$, which can be done with a shift and subtraction, we add the first two terms, subtracting $p$ if overflow occurs. We then subtract $n_2$, adding $p$ if underflow occurs.
+
+At this point we have reduced $n$ to a \texttt{u64}. This partial reduction is adequate for most purposes, but if we needed the result in canonical form, we would perform a final conditional subtraction.
+
+\subsection{Cross-table lookups}
+\label{ctl}
+The various STARK tables carry out independent operations, but on shared values. We need to check that the shared values are identical in all the STARKs that require them. This is where cross-table lookups (CTLs) come in handy. 
+
+Suppose STARK $S_1$ requires an operation -- say $Op$ -- that is carried out by another STARK $S_2$. Then $S_1$ writes the input and output of $Op$ in its own table, and provides the inputs to $S_2$. $S_2$ also writes the inputs and outputs in its rows, and the table's constraints check that $Op$ is carried out correctly. We then need to ensure that the inputs and outputs are the same in $S_1$ and $S_2$.
+
+In other words, we need to ensure that the rows -- reduced to the input and output columns -- of $S_1$ calling $Op$ are permutations of the rows of $S_2$ that carry out $Op$. Our CTL protocol is based on logUp and is similar to our range-checks.
+
+To prove this, the first step is to only select the rows of interest in $S_1$ and $S_2$, and filter out the rest. Let $f^1$ be the filter for $S_1$ and $f^2$ the filter for $S_2$. $f^1$ and $f^2$ are constrained to be in $\{0, 1\}$. $f^1 = 1$ (resp. $f^2 = 1$) whenever the row at hand carries out $Op$ in $S_1$ (resp. in $S_2$), and 0 otherwise. Let also $(\alpha, \beta)$ be two random challenges.
+
+The idea is to create subtables $S_1'$ and $S_2'$ of $S_1$ and $S_2$ respectively, such that $f^1 = 1$ and $f^2 = 1$ for all their rows. The columns in the subtables are limited to the ones whose values must be identical (the inputs and outputs of $Op$ in our example).
+
+Note that for design and constraint reasons, filters are limited to (at most) degree 2 combinations of columns.
+
+Let $\{c^{1, i}\}_{i=1}^m$ be the columns in $S_1'$ an $\{c^{2,i}\}_{i=1}^m$ be the columns in $S_2'$.
+
+The prover defines a ``running sum'' $Z$ for $S_1'$ such that:
+\begin{gather*}
+  Z^{S_1}_{n-1} = \frac{1}{\sum_{j=0}^{m-1} \alpha^j \cdot c^{1, j}_{n-1} + \beta} \\
+  Z^{S_1}_{i+1} = Z^{S_1}_i + f^1_i \cdot \frac{1}{\sum_{j=0}^{m-1} \alpha^j \cdot c^{1, j}_i + \beta}
+\end{gather*}
+The second equation ``selects'' the terms of interest thanks to $f^1$ and filters out the rest.
+
+Similarly, the prover constructs a running sum $Z^{S_2}$for $S_2$. Note that $Z$ is computed ``upside down'': we start with $Z_{n-1}$ and the final sum is in $Z_0$. 
+
+On top of the constraints to check that the running sums were correctly constructed, the verifier checks that $Z^{S_1}_0 = Z^{S_2}_0$.
+This ensures that the columns in $S_1'$ and the columns in $S_2'$ are permutations of each other.
+
+In other words, the CTL argument is a logUp lookup argument where $S_1'$ is the looking table, $S_2'$ is the looked table, and $S_1' = S_2'$ (all the multiplicities are 1).
+For more details about logUp, see the next section.
+
+To sum up, for each STARK $S$, the prover:
+\begin{enumerate}
+  \item constructs a running sum $Z_i^l$ for each table looking into $S$ (called looking sums here),
+  \item constructs a running sum $Z^S$ for $S$ (called looked sum here),
+  \item sends the final value for each running sum $Z_{i, 0}^l$ and $Z^S_0$ to the verifier,
+  \item sends a commitment to $Z_i^l$  and $Z^S$ to the verifier.
+\end{enumerate}
+Then, for each STARK $S$, the verifier:
+\begin{enumerate}
+  \item computes the sum $Z = \sum_i Z_{i, 0}^l$,
+  \item checks that $Z = Z^S_0$,
+  \item checks that each $Z_i^l$  and $Z^S$ was correctly constructed.
+\end{enumerate}
+
+
+\subsection{Range-checks}
+\label{rc}
+In most cases, tables deal with U256 words, split into 32-bit limbs (to avoid overflowing the field). To prevent a malicious prover from cheating, it is crucial to range-check those limbs. 
+\subsubsection{What to range-check?}
+One can note that every element that ever appears on the stack has been pushed. Therefore, enforcing a range-check on pushed elements is enough to range-check all elements on the stack. Similarly, all elements in memory must have been written prior, and therefore it is enough to range-check memory writes. However, range-checking the PUSH and MSTORE opcodes is not sufficient.
+\begin{enumerate}
+  \item Pushes and memory writes for ``MSTORE\_32BYTES'' are range-checked in ``BytePackingStark''.
+  \item Syscalls, exceptions and prover inputs are range-checked in ``ArithmeticStark''.
+  \item The inputs and outputs of binary and ternary arithmetic operations are range-checked in ``ArithmeticStark''.
+  \item The inputs' bits of logic operations are checked to be either 1 or 0 in ``LogicStark''. Since ``LogicStark'' only deals with bitwise operations, this is enough to have range-checked outputs as well.
+  \item The inputs of Keccak operations are range-checked in ``KeccakStark''. The output digest is written as bytes in ``KeccakStark''. Those bytes are used to reconstruct the associated 32-bit limbs checked against the limbs in ``CpuStark''. This implicitly ensures that the output is range-checked.
+\end{enumerate}
+Note that some operations do not require a range-check:
+\begin{enumerate}
+  \item ``MSTORE\_GENERAL'' read the value to write from the stack. Thus, the written value was already range-checked by a previous push.
+  \item ``EQ'' reads two -- already range-checked -- elements on the stack, and checks they are equal. The output is either 0 or 1, and does therefore not need to be checked.
+  \item ``NOT'' reads one -- already range-checked -- element. The result is constrained to be equal to $\texttt{0xFFFFFFFF} - \texttt{input}$, which implicitly enforces the range check.
+  \item ``PC'': the program counter cannot be greater than $2^{32}$ in user mode. Indeed, the user code cannot be longer than $2^{32}$, and jumps are constrained to be JUMPDESTs. Moreover, in kernel mode, every jump is towards a location within the kernel, and the kernel code is smaller than $2^{32}$. These two points implicitly enforce $PC$'s range check.
+  \item ``GET\_CONTEXT'', ``DUP'' and ``SWAP'' all read and push values that were already written in memory. The pushed values were therefore already range-checked.
+\end{enumerate}
+Range-checks are performed on the range $[0, 2^{16} - 1]$, to limit the trace length.
+
+\subsubsection{Lookup Argument}
+To enforce the range-checks, we leverage \href{https://eprint.iacr.org/2022/1530.pdf}{logUp}, a lookup argument by Ulrich Häbock. Given a looking table $s = (s_1, ..., s_n)$ and a looked table $t = (t_1, ..., t_m)$, the goal is to prove that 
+$$\forall 1 \leq i \leq n, \exists 1 \leq j \leq r \texttt{ such that } s_i = t_j$$
+In our case, $t = (0, .., 2^{16} - 1)$ and $s$ is composed of all the columns in each STARK that must be range-checked. 
+
+The logUp paper explains that proving the previous assertion is actually equivalent to proving that there exists a sequence $l$ such that:
+$$ \sum_{i=1}^n \frac{1}{X - s_i} = \sum_{j=1}^r \frac{l_j}{X-t_j}$$
+
+The values of $s$ can be stored in $c$ different columns of length $n$ each. In that case, the equality becomes:
+$$\sum_{k=1}^c \sum_{i=1}^n \frac{1}{X - s_i^k} = \sum_{j=1}^r \frac{l_j}{X-t_j}$$
+
+The `multiplicity' $m_i$ of value $t_i$ is defined as the number of times $t_i$ appears in $s$. In other words:
+$$m_i = |s_j \in s; s_j = t_i|$$
+
+Multiplicities provide a valid sequence of values in the previously stated equation. Thus, if we store the multiplicities, and are provided with a challenge $\alpha$, we can prove the lookup argument by ensuring:
+$$\sum_{k=1}^c \sum_{i=1}^n \frac{1}{\alpha - s_i^k} = \sum_{j=1}^r \frac{m_j}{\alpha-t_j}$$
+However, the equation is too high degree. To circumvent this issue, Häbock suggests providing helper columns $h_i$ and $d$ such that at a given row $i$:
+\begin{gather*}
+  h_i^k = \frac{1}{\alpha + s_i^k } \forall 1 \leq k \leq c \\
+  d_i = \frac{1}{\alpha + t_i}
+\end{gather*}
+
+The $h$ helper columns can be batched together to save columns. We can batch at most $\texttt{constraint\_degree} - 1$ helper functions together. In our case, we batch them 2 by 2. At row $i$, we now have:
+\begin{align*}
+  h_i^k = \frac{1}{\alpha + s_i^{2k}} + \frac{1}{\alpha + s_i^{2k+1}} \forall 1 \leq k \leq c/2 \\
+\end{align*}
+If $c$ is odd, then we have one extra helper column:
+$$h_i^{c/2+1} = \frac{1}{\alpha + s_i^{c}}$$
+
+For clarity, we will assume that $c$ is even in what follows.
+
+Let $g$ be a generator of a subgroup of order $n$. We extrapolate $h, m$ and $d$ to get polynomials such that, for $f \in \{h^k, m, g\}$: $f(g^i) = f_i$.
+We can define the following polynomial:
+$$ Z(x) :=  \sum_{i=1}^n \big[\sum_{k=1}^{c/2} h^k(x) - m(x) * d(x)\big]$$
+
+
+\subsubsection{Constraints}
+With these definitions and a challenge $\alpha$, we can finally check that the assertion holds with the following constraints:
+\begin{gather*}
+  Z(1) = 0 \\
+  Z(g \alpha) = Z(\alpha) + \sum_{k=1}^{c/2} h^k(\alpha) - m(\alpha) d(\alpha)
+\end{gather*}
+These ensure that 
+We also need to ensure that $h^k$ is well constructed for all $1 \leq k \leq c/2$:
+$$
+  h(\alpha)^k \cdot (\alpha + s_{2k}) \cdot (\alpha + s_{2k+1}) = (\alpha + s_{2k}) + (\alpha + s_{2k+1})
+$$
+
+Note: if $c$ is odd, we have one unbatched helper column $h^{c/2+1}$ for which we need a last constraint:
+$$
+  h(\alpha)^{c/2+1} \cdot (\alpha + s_{c}) = 1
+$$
+
+Finally, the verifier needs to ensure that the table $t$ was also correctly computed. In each STARK, $t$ is computed starting from 0 and adding at most 1 at each row. This construction is constrained as follows:
+\begin{enumerate}
+  \item $t(1) = 0$
+  \item $(t(g^{i+1}) - t(g^{i})) \cdot ((t(g^{i+1}) - t(g^{i})) - 1) = 0$
+  \item $t(g^{n-1}) = 2^{16} - 1$
+\end{enumerate}

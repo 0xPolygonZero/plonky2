@@ -219,7 +219,7 @@ pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + S
     /// The number of wires used by this gate.
     ///
     /// While vanilla Plonk can only evaluate one addition/multiplication at a time, a wider
-    /// configuration may be able to accomodate several identical gates at once. This is
+    /// configuration may be able to accommodate several identical gates at once. This is
     /// particularly helpful for tiny custom gates that are being used extensively in circuits.
     ///
     /// For instance, the [crate::gates::multiplication_extension::MulExtensionGate] takes `3*D`
