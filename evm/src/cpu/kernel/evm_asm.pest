@@ -1,0 +1,47 @@
+// Grammar for our EVM assembly code.
+// Loosely based on https://gist.github.com/axic/17ddbbce4738ccf4040d30cbb5de484e
+
+WHITESPACE = _{ " " | "\t" | NEWLINE }
+COMMENT = _{ "/*" ~ (!"*/" ~ ANY)* ~ "*/" | "//" ~ (!NEWLINE ~ ANY)* ~ NEWLINE }
+
+identifier_first_char = _{ ASCII_ALPHA | "_" }
+identifier_char = _{ ASCII_ALPHANUMERIC | "_" }
+identifier = @{ identifier_first_char ~ identifier_char* }
+
+literal_decimal = @{ ASCII_DIGIT+ }
+literal_hex = @{ ^"0x" ~ ASCII_HEX_DIGIT+ }
+literal = { literal_hex | literal_decimal }
+
+variable = ${ "$" ~ identifier }
+constant = ${ "@" ~ identifier }
+
+item = { macro_def | macro_call | repeat | stack | global_label_decl | local_label_decl | macro_label_decl | bytes_item | jumptable_item | push_instruction | prover_input_instruction | nullary_instruction }
+macro_def = { ^"%macro" ~ identifier ~ paramlist? ~ item* ~ ^"%endmacro" }
+macro_call = ${ "%" ~ !((^"macro" | ^"endmacro" | ^"rep" | ^"endrep" | ^"stack") ~ !identifier_char) ~ identifier ~ macro_arglist? }
+repeat = { ^"%rep" ~ literal ~ item* ~ ^"%endrep" }
+paramlist = { "(" ~ identifier ~ ("," ~ identifier)* ~ ")" }
+macro_arglist = !{ "(" ~ push_target ~ ("," ~ push_target)* ~ ")" }
+
+stack = { ^"%stack" ~ stack_placeholders ~ "->" ~ stack_replacements }
+stack_placeholders = { "(" ~ (stack_placeholder ~ ("," ~ stack_placeholder)*)? ~ ")" }
+stack_placeholder = { stack_block | identifier }
+stack_block = { identifier ~ ":" ~ literal_decimal }
+stack_replacements = { "(" ~ (stack_replacement ~ ("," ~ stack_replacement)*)? ~ ")" }
+stack_replacement = { literal | identifier | constant | macro_label | variable }
+
+global_label_decl = ${ ^"GLOBAL " ~ identifier ~ ":" }
+local_label_decl = ${ identifier ~ ":" }
+macro_label_decl = ${ "%%" ~ identifier ~ ":" }
+macro_label = ${ "%%" ~ identifier }
+
+bytes_item = { ^"BYTES " ~ bytes_target ~ ("," ~ bytes_target)* }
+bytes_target = { literal | constant }
+jumptable_item = { ^"JUMPTABLE " ~ identifier ~ ("," ~ identifier)* }
+push_instruction = { ^"PUSH " ~ push_target }
+push_target = { literal | identifier | macro_label | variable | constant }
+prover_input_instruction = { ^"PROVER_INPUT" ~ "(" ~ prover_input_fn ~ ")" }
+prover_input_fn = { identifier ~ ("::" ~ identifier)*}
+nullary_instruction = { identifier }
+
+file = { SOI ~ item* ~ silent_eoi }
+silent_eoi = _{ !ANY }

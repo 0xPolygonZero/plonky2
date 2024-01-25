@@ -1,0 +1,2 @@
+global halt:
+    PANIC

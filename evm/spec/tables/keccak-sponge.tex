@@ -1,0 +1,66 @@
+\subsection{KeccakSponge}
+\label{keccak-sponge}
+
+This table computes the Keccak256 hash, a sponge-based hash built on top of the Keccak-f[1600] permutation. An instance of KeccakSponge takes as input a Memory address $a$,
+a length $l$, and computes the Keccak256 digest of the memory segment starting at $a$ and of size $l$. An instance can span many rows, each individual row being a single call to
+the Keccak table. Note that all the read elements must be bytes; the proof will be unverifiable if this is not the case. Following the Keccak specifications, the input string is padded to the next multiple of 136 bytes. 
+Each row contains the following columns:
+\begin{itemize}
+    \item Read bytes:
+        \begin{itemize}
+            \item 3 address columns: \texttt{context}, \texttt{segment} and the offset \texttt{virt} of $a$.
+            \item \texttt{timestamp}: the timestamp which will be used for all memory reads of this instance.
+            \item \texttt{already\_absorbed\_bytes}: keeps track of how many bytes have been hashed in the current instance. At the end of an instance, we should have absorbed $l$ bytes in total.
+            \item \texttt{KECCAK\_RATE\_BYTES} \texttt{block\_bytes} columns: the bytes being absorbed at this row. They are read from memory and will be XORed to the rate part of the current state.
+        \end{itemize}
+    \item Input columns:
+    \begin{itemize}
+        \item \texttt{KECCAK\_RATE\_U32S} \texttt{original\_rate\_u32s} columns: hold the rate part of the state before XORing it with \texttt{block\_bytes}. At the beginning of an instance, they are initialized with 0.
+        \item \texttt{KECCAK\_RATE\_U32s} \texttt{xored\_rate\_u32s} columns: hold the original rate XORed with \texttt{block\_bytes}.
+        \item \texttt{KECCAK\_CAPACITY\_U32S} \texttt{original\_capacity\_u32s} columns: hold the capacity part of the state before applying the Keccak permutation.
+    \end{itemize}
+    \item Output columns:
+    \begin{itemize}
+        \item \texttt{KECCAK\_DIGEST\_BYTES} \texttt{updated\_digest\_state\_bytes columns}: the beginning of the output state after applying the Keccak permutation. At the last row of an instance, they hold the computed hash.
+They are decomposed in bytes for endianness reasons.
+        \item \texttt{KECCAK\_WIDTH\_MINUS\_DIGEST\_U32S} \texttt{partial\_updated\_state\_u32s} columns: the rest of the output state. They are discarded for the final digest, but are used between instance rows.
+    \end{itemize}
+    \item Helper columns:
+    \begin{itemize}
+        \item \texttt{is\_full\_input\_block}: indicates if the current row has a full input block, i.e. \texttt{block\_bytes} contains only bytes read from memory and no padding bytes.
+        \item \texttt{KECCAK\_RATE\_BYTES} \texttt{is\_final\_input\_len} columns: in the final row of an instance, indicate where the final read byte is. If the $i$-th column is set to 1, it means that
+all bytes after the $i$-th are padding bytes. In a full input block, all columns are set to 0. 
+    \end{itemize}
+\end{itemize}
+
+For each instance, constraints ensure that:
+\begin{itemize}
+    \item at each row:
+    \begin{itemize}
+        \item \texttt{is\_full\_input\_block} and \texttt{is\_final\_input\_len} columns are all binary.
+        \item Only one column in \texttt{is\_full\_input\_block} and \texttt{is\_final\_input\_len} is set to 1.
+        \item \texttt{xored\_rate\_u32s} is \texttt{original\_rate\_u32s} XOR \texttt{block\_bytes}.
+        \item The CTL with Keccak ensures that (\texttt{updated\_digest\_state\_bytes columns}, \texttt{partial\_updated\_state\_u32s}) is the Keccak permutation output of (\texttt{xored\_rate\_u32s}, \texttt{original\_capacity\_u32s}).
+    \end{itemize}
+    \item at the first row:
+    \begin{itemize}
+        \item \texttt{original\_rate\_u32s} is all 0.
+        \item \texttt{already\_absorbed\_bytes} is 0.
+    \end{itemize}
+    \item at each full input row (i.e. \texttt{is\_full\_input\_block} is 1, all \texttt{is\_final\_input\_len} columns are 0):
+    \begin{itemize}
+        \item \texttt{context}, \texttt{segment}, \texttt{virt} and \texttt{timestamp} are unchanged in the next row.
+        \item Next \texttt{already\_absorbed\_bytes} is current \texttt{already\_absorbed\_bytes} + \texttt{KECCAK\_RATE\_BYTES}.
+        \item Next (\texttt{original\_rate\_u32s}, \texttt{original\_capacity\_u32s}) is current (\texttt{updated\_digest\_state\_bytes columns}, \texttt{partial\_updated\_state\_u32s}).
+        \item The CTL with Memory ensures that \texttt{block\_bytes} is filled with contiguous memory elements [$a$ + \texttt{already\_absorbed\_bytes}, $a$ + \texttt{already\_absorbed\_bytes} + \texttt{KECCAK\_RATE\_BYTES} - 1]
+    \end{itemize}
+    \item at the final row (i.e. \texttt{is\_full\_input\_block} is 0, \texttt{is\_final\_input\_len}'s $i$-th column is 1 for a certain $i$, the rest are 0):
+    \begin{itemize}
+        \item The CTL with Memory ensures that \texttt{block\_bytes} is filled with contiguous memory elements [$a$ + \texttt{already\_absorbed\_bytes}, $a$ + \texttt{already\_absorbed\_bytes} + $i$ - 1]. The rest are padding bytes.
+        \item The CTL with CPU ensures that \texttt{context}, \texttt{segment}, \texttt{virt} and \texttt{timestamp} match the \texttt{KECCAK\_GENERAL} call.
+        \item The CTL with CPU ensures that $l$ = \texttt{already\_absorbed\_bytes} + $i$.
+        \item The CTL with CPU ensures that \texttt{updated\_digest\_state\_bytes} is the output of the \texttt{KECCAK\_GENERAL} call.
+    \end{itemize}
+\end{itemize}
+
+The trace is padded to the next power of two with dummy rows, whose \texttt{is\_full\_input\_block} and \texttt{is\_final\_input\_len} columns are all 0.
