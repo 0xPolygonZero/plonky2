@@ -55,7 +55,7 @@ pub(crate) struct GenerationState<F: Field> {
     /// jump destinations with its corresponding "proof". A "proof" for a jump destination is
     /// either 0 or an address i > 32 in the code (not necessarily pointing to an opcode) such that
     /// for every j in [i, i+32] it holds that code[j] < 0x7f - j + i.
-    pub(crate) jumpdest_proofs: Option<HashMap<usize, Vec<usize>>>,
+    pub(crate) jumpdest_table: Option<HashMap<usize, Vec<usize>>>,
 }
 
 impl<F: Field> GenerationState<F> {
@@ -97,7 +97,7 @@ impl<F: Field> GenerationState<F> {
                 txn_root_ptr: 0,
                 receipt_root_ptr: 0,
             },
-            jumpdest_proofs: None,
+            jumpdest_table: None,
         };
         let trie_root_ptrs = state.preinitialize_mpts(&inputs.tries);
 
@@ -189,7 +189,7 @@ impl<F: Field> GenerationState<F> {
                 txn_root_ptr: 0,
                 receipt_root_ptr: 0,
             },
-            jumpdest_proofs: None,
+            jumpdest_table: None,
         }
     }
 }

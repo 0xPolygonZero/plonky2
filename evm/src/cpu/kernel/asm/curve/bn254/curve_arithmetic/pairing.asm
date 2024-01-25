@@ -83,9 +83,9 @@ bn_pairing_invalid_input:
 
 bn254_pairing_start:
     // stack:      0, k, inp, out,                   retdest
-    %stack (j, k, inp, out) -> (out, 1, k, inp, out, bn254_pairing_output_validation, out)
-    // stack: out, 1, k, inp, out, bn254_pairing_output_validation, out, retdest
-    %mstore_bn254_pairing
+    %stack (j, k, inp, out) -> (out, k, inp, out, bn254_pairing_output_validation, out)
+    // stack: out, k, inp, out, bn254_pairing_output_validation, out, retdest
+    %mstore_bn254_pairing_value(1)
     // stack:         k, inp, out, bn254_pairing_output_validation, out, retdest
 
 bn254_pairing_loop:
@@ -125,8 +125,9 @@ bn_skip_input:
 
 bn254_pairing_output_validation:
     // stack:        out, retdest
+    %create_bn254_pairing_address
     PUSH 1
-    // stack: check, out, retdest
+    // stack: check, out_addr, retdest
     %check_output_term
     %check_output_term(1)
     %check_output_term(2)
@@ -139,15 +140,15 @@ bn254_pairing_output_validation:
     %check_output_term(9)
     %check_output_term(10)
     %check_output_term(11)
-    // stack: check, out, retdest
-    %stack (check, out, retdest) -> (retdest, check)
+    // stack: check, out_addr, retdest
+    %stack (check, out_addr, retdest) -> (retdest, check)
     JUMP
 
 %macro check_output_term
     // stack:          check, out
     DUP2
     // stack:    out0, check, out
-    %mload_bn254_pairing
+    MLOAD_GENERAL
     // stack:      f0, check, out
     %eq_const(1)
     // stack:  check0, check, out
@@ -160,7 +161,7 @@ bn254_pairing_output_validation:
     DUP2
     %add_const($j)
     // stack:    outj, check, out
-    %mload_bn254_pairing
+    MLOAD_GENERAL
     // stack:      fj, check, out
     ISZERO
     // stack:  checkj, check, out

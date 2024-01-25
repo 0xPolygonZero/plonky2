@@ -20,5 +20,17 @@ Audits for the ZK-EVM will begin on November 27th, 2023. See the [Audit RC1 Mile
 
 The current specification is located in the [/spec](/spec) directory, with the most currently up-to-date PDF [available here](https://github.com/0xPolygonZero/plonky2/blob/main/evm/spec/zkevm.pdf). Further documentation will be made over the coming months.
 
----
-Copyright (C) 2023 PT Services DMCC
+## License
+Copyright (c) 2023 PT Services DMCC
+
+Licensed under either of:
+* Apache License, Version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
+* MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
+
+at your option. 
+
+The SPDX license identifier for this project is `MIT OR Apache-2.0`.
+
+### Contribution
+
+Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in the work by you, as defined in the Apache-2.0 license, shall be dual licensed as above, without any additional terms or conditions.

@@ -3,9 +3,7 @@
     // stack: num_blocks
     %mul_const(64)
     %add_const(2)
-    PUSH @SEGMENT_KERNEL_GENERAL
-    GET_CONTEXT
-    %build_address
+    %build_current_general_address
 %endmacro
 
 // Precondition: stack contains address of one message block, followed by output address
@@ -188,9 +186,7 @@ global sha2_gen_all_message_schedules:
     // stack: num_blocks, output_addr, output_addr, retdest
     PUSH 1
     // stack: cur_offset = 1, counter = num_blocks, output_addr, output_addr, retdest
-    PUSH @SEGMENT_KERNEL_GENERAL
-    GET_CONTEXT
-    %build_address
+    %build_current_general_address
     // stack: cur_addr, counter, output_addr, output_addr, retdest
 gen_all_message_schedules_loop:
     // stack: cur_addr, counter, cur_output_addr, output_addr, retdest

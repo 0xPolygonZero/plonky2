@@ -56,14 +56,21 @@ final_exp:
     %stack (val) -> (val, 0, val)
     // stack:        val, 0, val, retdest
     %move_fp254_12
-    // stack:             0, val, retdest  {0: sqr}
-    %stack () -> (1, 1, 1)
-    // stack:    1, 1, 1, 0, val, retdest
-    %mstore_bn254_pairing(12)
-    %mstore_bn254_pairing(24)
-    %mstore_bn254_pairing(36)
-    // stack:             0, val, retdest  {0: sqr, 12: y0, 24: y2, 36: y4}
-    %stack () -> (64, 62, 65)
+    // dest addr returned by %move_fp254_12 is already scaled
+    // stack:          addr, val, retdest  {0: sqr}
+
+    // Write 1s at offset 12, 24 and 36
+    PUSH 12
+    ADD
+    DUP1 %add_const(12)
+    DUP1 %add_const(12)
+    // stack: addr_1, addr_2, addr_3
+    %rep 3
+        PUSH 1 MSTORE_GENERAL
+    %endrep
+
+    // stack:             val, retdest  {0: sqr, 12: y0, 24: y2, 36: y4}
+    %stack () -> (64, 62, 65, 0)
     // stack: 64, 62, 65, 0, val, retdest  {0: sqr, 12: y0, 24: y2, 36: y4}
     %jump(power_loop_4)
 

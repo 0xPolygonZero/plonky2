@@ -127,9 +127,7 @@
 // Load a single value from the kernel general memory, in the current context (not the kernel's context).
 %macro mload_current_general_no_offset
     // stack:
-    PUSH @SEGMENT_KERNEL_GENERAL
-    GET_CONTEXT
-    %build_address_no_offset
+    %build_current_general_address_no_offset
     MLOAD_GENERAL
     // stack: value
 %endmacro
@@ -137,11 +135,7 @@
 // Load a big-endian u32 from kernel general memory in the current context.
 %macro mload_current_general_u32
     // stack: offset
-    PUSH @SEGMENT_KERNEL_GENERAL
-    // stack: segment, offset
-    GET_CONTEXT
-    // stack: context, segment, offset
-    %build_address
+    %build_current_general_address
     %mload_u32
     // stack: value
 %endmacro
@@ -149,11 +143,7 @@
 // Load a little-endian u32 from kernel general memory in the current context.
 %macro mload_current_general_u32_LE
     // stack: offset
-    PUSH @SEGMENT_KERNEL_GENERAL
-    // stack: segment, offset
-    GET_CONTEXT
-    // stack: context, segment, offset
-    %build_address
+    %build_current_general_address
     %mload_u32_LE
     // stack: value
 %endmacro
@@ -161,11 +151,7 @@
 // Load a little-endian u64 from kernel general memory in the current context.
 %macro mload_current_general_u64_LE
     // stack: offset
-    PUSH @SEGMENT_KERNEL_GENERAL
-    // stack: segment, offset
-    GET_CONTEXT
-    // stack: context, segment, offset
-    %build_address
+    %build_current_general_address
     %mload_u64_LE
     // stack: value
 %endmacro
@@ -173,11 +159,7 @@
 // Load a u256 from kernel general memory in the current context.
 %macro mload_current_general_u256
     // stack: offset
-    PUSH @SEGMENT_KERNEL_GENERAL
-    // stack: segment, offset
-    GET_CONTEXT
-    // stack: context, segment, offset
-    %build_address
+    %build_current_general_address
     %mload_u256
     // stack: value
 %endmacro
@@ -185,11 +167,7 @@
 // Store a single value to kernel general memory in the current context.
 %macro mstore_current_general
     // stack: offset, value
-    PUSH @SEGMENT_KERNEL_GENERAL
-    // stack: segment, offset, value
-    GET_CONTEXT
-    // stack: context, segment, offset, value
-    %build_address
+    %build_current_general_address
     SWAP1
     MSTORE_GENERAL
     // stack: (empty)
@@ -198,11 +176,7 @@
 // Store a single value to kernel general memory in the current context.
 %macro mstore_current_general_no_offset
     // stack: value
-    PUSH @SEGMENT_KERNEL_GENERAL
-    // stack: segment, value
-    GET_CONTEXT
-    // stack: context, segment, value
-    %build_address_no_offset
+    %build_current_general_address_no_offset
     SWAP1
     MSTORE_GENERAL
     // stack: (empty)
@@ -219,11 +193,7 @@
 // Store a big-endian u32 to kernel general memory in the current context.
 %macro mstore_current_general_u32
     // stack: offset, value
-    PUSH @SEGMENT_KERNEL_GENERAL
-    // stack: segment, offset, value
-    GET_CONTEXT
-    // stack: context, segment, offset, value
-    %build_address
+    %build_current_general_address
     %mstore_u32
     // stack: (empty)
 %endmacro

@@ -348,7 +348,7 @@ fn simulate_cpu_between_labels_and_get_user_jumps<F: Field>(
     final_label: &str,
     state: &mut GenerationState<F>,
 ) -> Option<HashMap<usize, BTreeSet<usize>>> {
-    if state.jumpdest_proofs.is_some() {
+    if state.jumpdest_table.is_some() {
         None
     } else {
         const JUMP_OPCODE: u8 = 0x56;
