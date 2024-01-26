@@ -314,6 +314,7 @@ global remove_accessed_storage_keys:
     %increment
     MLOAD_GENERAL
     // stack: next_key, next_ptr, next_ptr_ptr, addr, key, retdest
+    DUP5
     EQ
     DUP2
     MLOAD_GENERAL
