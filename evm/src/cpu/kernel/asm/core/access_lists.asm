@@ -294,7 +294,7 @@ insert_storage_key:
     %increment
     %mstore_global_metadata(@GLOBAL_METADATA_ACCESSED_STORAGE_KEYS_LEN)
     // stack: addr, key, value, retdest
-    %stack (addr, key, value, retdest) -> (key, value, retdest, 1, value)
+    %stack (addr, key, value, retdest) -> (addr, key, retdest, 1, value)
     %journal_add_storage_loaded
     JUMP
 
@@ -314,16 +314,17 @@ global remove_accessed_storage_keys:
     %increment
     MLOAD_GENERAL
     // stack: next_key, next_ptr, next_ptr_ptr, addr, key, retdest
-    DUP5 EQ
+    EQ
     DUP2
     MLOAD_GENERAL
     // stack: next_addr, next_key == key, next_ptr, next_ptr_ptr, addr, key, retdest
-    DUP4 EQ
+    DUP5
+    EQ
     MUL
     // stack: next_addr  == addr AND next_key == key, next_ptr, next_ptr_ptr, addr, key, retdest
     %assert_nonzero
     // stack: next_ptr, next_ptr_ptr, addr, key, retdest
-    %increment
+    %add_const(3)
     // stack: next_next_ptr_ptr, next_ptr_ptr, addr, key, retdest
     DUP1
     MLOAD_GENERAL

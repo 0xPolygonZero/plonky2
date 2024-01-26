@@ -334,7 +334,6 @@ impl<F: Field> GenerationState<F> {
     fn run_next_storage_insert(&mut self) -> Result<U256, ProgramError> {
         let addr = stack_peek(self, 0)?;
         let key = stack_peek(self, 1)?;
-        log::debug!("addr = {:?}", addr);
         for (curr_ptr, next_addr, next_key) in self.get_storage_keys_access_list()? {
             if next_addr > addr || (next_addr == addr && next_key > key) {
                 return Ok((Segment::AccessedStorageKeys as usize + curr_ptr).into());
@@ -348,11 +347,11 @@ impl<F: Field> GenerationState<F> {
         let addr = stack_peek(self, 0)?;
         let key = stack_peek(self, 1)?;
         for (curr_ptr, next_addr, next_key) in self.get_storage_keys_access_list()? {
-            if next_addr == addr && next_key == key {
+            if (next_addr == addr && next_key == key) || next_addr == U256::MAX {
                 return Ok((Segment::AccessedStorageKeys as usize + curr_ptr).into());
             }
         }
-        Ok((Segment::AccessedAddresses as usize).into())
+        Ok((Segment::AccessedStorageKeys as usize).into())
     }
 }
 
@@ -499,7 +498,6 @@ impl<F: Field> GenerationState<F> {
                     .get(MemoryAddress::new(0, Segment::AccessedStorageKeys, virt))
             })
             .collect();
-        log::debug!("access_storage_mem = {:?}", access_storage_mem);
         Ok(AccList {
             access_list_mem: access_storage_mem,
             node_size: 4,
