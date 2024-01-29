@@ -585,7 +585,7 @@ where
             .collect_vec();
 
         // Verify the CTL checks.
-        verify_cross_table_lookups_circuit::<F, D>(
+        verify_cross_table_lookups_circuit::<F, D, NUM_TABLES>(
             &mut builder,
             all_cross_table_lookups(),
             pis.map(|p| p.ctl_zs_first),

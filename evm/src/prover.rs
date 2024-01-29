@@ -131,7 +131,7 @@ where
     let ctl_data_per_table = timed!(
         timing,
         "compute CTL data",
-        cross_table_lookup_data::<F, D>(
+        cross_table_lookup_data::<F, D, NUM_TABLES>(
             &trace_poly_values,
             &all_stark.cross_table_lookups,
             &ctl_challenges,
