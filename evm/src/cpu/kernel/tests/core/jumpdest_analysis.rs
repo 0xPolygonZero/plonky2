@@ -2,6 +2,7 @@ use std::collections::{BTreeSet, HashMap};
 
 use anyhow::Result;
 use ethereum_types::U256;
+use plonky2::field::goldilocks_field::GoldilocksField;
 
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::interpreter::Interpreter;
@@ -37,7 +38,8 @@ fn test_jumpdest_analysis() -> Result<()> {
         code.len().into(),
         U256::from(CONTEXT) << CONTEXT_SCALING_FACTOR,
     ];
-    let mut interpreter = Interpreter::new_with_kernel(jumpdest_analysis, initial_stack);
+    let mut interpreter: Interpreter<GoldilocksField> =
+        Interpreter::new_with_kernel(jumpdest_analysis, initial_stack);
     interpreter.set_code(CONTEXT, code);
     interpreter.set_jumpdest_analysis_inputs(HashMap::from([(
         3,
@@ -95,7 +97,8 @@ fn test_packed_verification() -> Result<()> {
         code.len().into(),
         U256::from(CONTEXT) << CONTEXT_SCALING_FACTOR,
     ];
-    let mut interpreter = Interpreter::new_with_kernel(jumpdest_analysis, initial_stack.clone());
+    let mut interpreter: Interpreter<GoldilocksField> =
+        Interpreter::new_with_kernel(jumpdest_analysis, initial_stack.clone());
     interpreter.set_code(CONTEXT, code.clone());
     interpreter.generation_state.jumpdest_table = Some(HashMap::from([(3, vec![1, 33])]));
 
@@ -106,7 +109,7 @@ fn test_packed_verification() -> Result<()> {
     // If we add 1 to each opcode the jumpdest at position 32 is never a valid jumpdest
     for i in 1..=32 {
         code[i] += 1;
-        let mut interpreter =
+        let mut interpreter: Interpreter<GoldilocksField> =
             Interpreter::new_with_kernel(jumpdest_analysis, initial_stack.clone());
         interpreter.set_code(CONTEXT, code.clone());
         interpreter.generation_state.jumpdest_table = Some(HashMap::from([(3, vec![1, 33])]));

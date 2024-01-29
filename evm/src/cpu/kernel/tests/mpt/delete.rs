@@ -2,6 +2,7 @@ use anyhow::{anyhow, Result};
 use eth_trie_utils::nibbles::Nibbles;
 use eth_trie_utils::partial_trie::{HashedPartialTrie, PartialTrie};
 use ethereum_types::{BigEndianHash, H256, U512};
+use plonky2::field::goldilocks_field::GoldilocksField;
 use rand::random;
 
 use crate::cpu::kernel::aggregator::KERNEL;
@@ -98,7 +99,8 @@ fn test_state_trie(
     let mpt_hash_state_trie = KERNEL.global_labels["mpt_hash_state_trie"];
 
     let initial_stack = vec![];
-    let mut interpreter = Interpreter::new_with_kernel(0, initial_stack);
+    let mut interpreter: Interpreter<GoldilocksField> =
+        Interpreter::new_with_kernel(0, initial_stack);
 
     initialize_mpts(&mut interpreter, &trie_inputs);
     assert_eq!(interpreter.stack(), vec![]);

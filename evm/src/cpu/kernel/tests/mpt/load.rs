@@ -5,6 +5,7 @@ use eth_trie_utils::nibbles::Nibbles;
 use eth_trie_utils::partial_trie::HashedPartialTrie;
 use ethereum_types::{BigEndianHash, H256, U256};
 use hex_literal::hex;
+use plonky2::field::goldilocks_field::GoldilocksField;
 
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
@@ -25,7 +26,8 @@ fn load_all_mpts_empty() -> Result<()> {
     };
 
     let initial_stack = vec![];
-    let mut interpreter = Interpreter::new_with_kernel(0, initial_stack);
+    let mut interpreter: Interpreter<GoldilocksField> =
+        Interpreter::new_with_kernel(0, initial_stack);
     initialize_mpts(&mut interpreter, &trie_inputs);
     assert_eq!(interpreter.stack(), vec![]);
 
@@ -62,7 +64,8 @@ fn load_all_mpts_leaf() -> Result<()> {
     };
 
     let initial_stack = vec![];
-    let mut interpreter = Interpreter::new_with_kernel(0, initial_stack);
+    let mut interpreter: Interpreter<GoldilocksField> =
+        Interpreter::new_with_kernel(0, initial_stack);
     initialize_mpts(&mut interpreter, &trie_inputs);
     assert_eq!(interpreter.stack(), vec![]);
 
@@ -108,7 +111,8 @@ fn load_all_mpts_hash() -> Result<()> {
     };
 
     let initial_stack = vec![];
-    let mut interpreter = Interpreter::new_with_kernel(0, initial_stack);
+    let mut interpreter: Interpreter<GoldilocksField> =
+        Interpreter::new_with_kernel(0, initial_stack);
     initialize_mpts(&mut interpreter, &trie_inputs);
     assert_eq!(interpreter.stack(), vec![]);
 
@@ -146,7 +150,8 @@ fn load_all_mpts_empty_branch() -> Result<()> {
     };
 
     let initial_stack = vec![];
-    let mut interpreter = Interpreter::new_with_kernel(0, initial_stack);
+    let mut interpreter: Interpreter<GoldilocksField> =
+        Interpreter::new_with_kernel(0, initial_stack);
     initialize_mpts(&mut interpreter, &trie_inputs);
     assert_eq!(interpreter.stack(), vec![]);
 
@@ -198,7 +203,8 @@ fn load_all_mpts_ext_to_leaf() -> Result<()> {
     };
 
     let initial_stack = vec![];
-    let mut interpreter = Interpreter::new_with_kernel(0, initial_stack);
+    let mut interpreter: Interpreter<GoldilocksField> =
+        Interpreter::new_with_kernel(0, initial_stack);
     initialize_mpts(&mut interpreter, &trie_inputs);
     assert_eq!(interpreter.stack(), vec![]);
 
@@ -244,7 +250,8 @@ fn load_mpt_txn_trie() -> Result<()> {
     };
 
     let initial_stack = vec![];
-    let mut interpreter = Interpreter::new_with_kernel(0, initial_stack);
+    let mut interpreter: Interpreter<GoldilocksField> =
+        Interpreter::new_with_kernel(0, initial_stack);
     initialize_mpts(&mut interpreter, &trie_inputs);
     assert_eq!(interpreter.stack(), vec![]);
 

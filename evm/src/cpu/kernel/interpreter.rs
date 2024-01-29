@@ -9,6 +9,7 @@ use eth_trie_utils::partial_trie::PartialTrie;
 use ethereum_types::{BigEndianHash, H160, H256, U256, U512};
 use keccak_hash::keccak;
 use plonky2::field::goldilocks_field::GoldilocksField;
+use plonky2::field::types::Field;
 
 use super::assembler::BYTES_PER_OFFSET;
 use super::utils::u256_from_bool;
@@ -24,7 +25,7 @@ use crate::generation::rlp::all_rlp_prover_inputs_reversed;
 use crate::generation::state::{all_withdrawals_prover_inputs_reversed, GenerationState};
 use crate::generation::GenerationInputs;
 use crate::memory::segments::{Segment, SEGMENT_SCALING_FACTOR};
-use crate::util::{h2u, u256_to_usize};
+use crate::util::{h2u, u256_to_u8, u256_to_usize};
 use crate::witness::errors::{ProgramError, ProverInputError};
 use crate::witness::gas::gas_to_charge;
 use crate::witness::memory::{MemoryAddress, MemoryContextState, MemorySegmentState, MemoryState};
@@ -32,8 +33,6 @@ use crate::witness::operation::{Operation, CONTEXT_SCALING_FACTOR};
 use crate::witness::state::RegistersState;
 use crate::witness::transition::decode;
 use crate::witness::util::stack_peek;
-
-type F = GoldilocksField;
 
 /// Halt interpreter execution whenever a jump to this offset is done.
 const DEFAULT_HALT_OFFSET: usize = 0xdeadbeef;
@@ -56,7 +55,7 @@ impl MemoryState {
     }
 }
 
-pub(crate) struct Interpreter<'a> {
+pub(crate) struct Interpreter<'a, F: Field> {
     pub(crate) generation_state: GenerationState<F>,
     prover_inputs_map: &'a HashMap<usize, ProverInputFn>,
     pub(crate) halt_offsets: Vec<usize>,
@@ -81,10 +80,10 @@ struct InterpreterCheckpoint {
     mem_len: usize,
 }
 
-pub(crate) fn run_interpreter(
+pub(crate) fn run_interpreter<F: Field>(
     initial_offset: usize,
     initial_stack: Vec<U256>,
-) -> anyhow::Result<Interpreter<'static>> {
+) -> anyhow::Result<Interpreter<'static, F>> {
     run(
         &KERNEL.code,
         initial_offset,
@@ -101,9 +100,9 @@ pub(crate) struct InterpreterMemoryInitialization {
     pub memory: Vec<(usize, Vec<U256>)>,
 }
 
-pub(crate) fn run_interpreter_with_memory(
+pub(crate) fn run_interpreter_with_memory<F: Field>(
     memory_init: InterpreterMemoryInitialization,
-) -> anyhow::Result<Interpreter<'static>> {
+) -> anyhow::Result<Interpreter<'static, F>> {
     let label = KERNEL.global_labels[&memory_init.label];
     let mut stack = memory_init.stack;
     stack.reverse();
@@ -120,15 +119,98 @@ pub(crate) fn run_interpreter_with_memory(
     Ok(interpreter)
 }
 
-pub(crate) fn run<'a>(
+pub(crate) fn run<'a, F: Field>(
     code: &'a [u8],
     initial_offset: usize,
     initial_stack: Vec<U256>,
     prover_inputs: &'a HashMap<usize, ProverInputFn>,
-) -> anyhow::Result<Interpreter<'a>> {
+) -> anyhow::Result<Interpreter<'a, F>> {
     let mut interpreter = Interpreter::new(code, initial_offset, initial_stack, prover_inputs);
     interpreter.run()?;
     Ok(interpreter)
+}
+
+pub(crate) fn simulate_cpu_between_labels_and_get_user_jumps<F: Field>(
+    initial_label: &str,
+    final_label: &str,
+    state: &GenerationState<F>,
+) -> Option<HashMap<usize, BTreeSet<usize>>> {
+    if state.jumpdest_table.is_some() {
+        None
+    } else {
+        const JUMP_OPCODE: u8 = 0x56;
+        const JUMPI_OPCODE: u8 = 0x57;
+
+        let halt_pc = KERNEL.global_labels[final_label];
+
+        let mut interpreter = Interpreter::new_with_state(state);
+
+        let mut jumpdest_addresses: HashMap<_, BTreeSet<usize>> = HashMap::new();
+
+        interpreter.generation_state.registers.program_counter =
+            KERNEL.global_labels[initial_label];
+        let initial_context = state.registers.context;
+
+        log::debug!("Simulating CPU for jumpdest analysis.");
+
+        loop {
+            // skip jumpdest table validations in simulations
+            if interpreter.generation_state.registers.is_kernel
+                && interpreter.generation_state.registers.program_counter
+                    == KERNEL.global_labels["jumpdest_analysis"]
+            {
+                interpreter.generation_state.registers.program_counter =
+                    KERNEL.global_labels["jumpdest_analysis_end"]
+            }
+            let pc = interpreter.generation_state.registers.program_counter;
+            let context = interpreter.generation_state.registers.context;
+            let mut halt = interpreter.generation_state.registers.is_kernel
+                && pc == halt_pc
+                && interpreter.generation_state.registers.context == initial_context;
+            let Ok(opcode) =
+                u256_to_u8(interpreter.generation_state.memory.get(MemoryAddress::new(
+                    context,
+                    Segment::Code,
+                    interpreter.generation_state.registers.program_counter,
+                )))
+            else {
+                log::debug!("Simulated CPU for jumpdest analysis halted",);
+                return Some(jumpdest_addresses);
+            };
+            let cond = if let Ok(cond) = stack_peek(&interpreter.generation_state, 1) {
+                cond != U256::zero()
+            } else {
+                false
+            };
+            if !interpreter.generation_state.registers.is_kernel
+                && (opcode == JUMP_OPCODE || (opcode == JUMPI_OPCODE && cond))
+            {
+                // Avoid deeper calls to abort
+                let Ok(jumpdest) = u256_to_usize(interpreter.generation_state.registers.stack_top)
+                else {
+                    log::debug!("Simulated CPU for jumpdest analysis halted",);
+                    return Some(jumpdest_addresses);
+                };
+                interpreter.generation_state.memory.set(
+                    MemoryAddress::new(context, Segment::JumpdestBits, jumpdest),
+                    U256::one(),
+                );
+                let jumpdest_opcode =
+                    state
+                        .memory
+                        .get(MemoryAddress::new(context, Segment::Code, jumpdest));
+                if let Some(ctx_addresses) = jumpdest_addresses.get_mut(&context) {
+                    ctx_addresses.insert(jumpdest);
+                } else {
+                    jumpdest_addresses.insert(context, BTreeSet::from([jumpdest]));
+                }
+            }
+            if halt || interpreter.run_opcode().is_err() {
+                log::debug!("Simulated CPU for jumpdest analysis halted");
+                return Some(jumpdest_addresses);
+            }
+        }
+    }
 }
 
 /// Different types of Memory operations in the interpreter, and the data required to revert them.
@@ -141,7 +223,7 @@ enum InterpreterMemOpKind {
     Write(U256, usize, usize, usize),
 }
 
-impl<'a> Interpreter<'a> {
+impl<'a, F: Field> Interpreter<'a, F> {
     pub(crate) fn new_with_kernel(initial_offset: usize, initial_stack: Vec<U256>) -> Self {
         let mut result = Self::new(
             &KERNEL.code,
@@ -193,6 +275,20 @@ impl<'a> Interpreter<'a> {
         }
 
         result
+    }
+
+    pub(crate) fn new_with_state(state: &GenerationState<F>) -> Self {
+        Self {
+            generation_state: state.soft_clone(),
+            prover_inputs_map: &KERNEL.prover_inputs,
+            // `DEFAULT_HALT_OFFSET` is used as a halting point for the interpreter,
+            // while the label `halt` is the halting label in the kernel.
+            halt_offsets: vec![],
+            debug_offsets: vec![],
+            running: false,
+            opcode_count: [0; 256],
+            memops: vec![],
+        }
     }
 
     /// Initializes the interpreter state given `GenerationInputs`, using the KERNEL code.
@@ -1667,6 +1763,7 @@ mod tests {
     use std::collections::HashMap;
 
     use ethereum_types::U256;
+    use plonky2::field::goldilocks_field::GoldilocksField;
 
     use crate::cpu::kernel::constants::context_metadata::ContextMetadata;
     use crate::cpu::kernel::interpreter::{run, Interpreter};
@@ -1680,7 +1777,7 @@ mod tests {
             0x60, 0x1, 0x60, 0x2, 0x1, 0x63, 0xde, 0xad, 0xbe, 0xef, 0x56,
         ]; // PUSH1, 1, PUSH1, 2, ADD, PUSH4 deadbeef, JUMP
         assert_eq!(
-            run(&code, 0, vec![], &HashMap::new())?.stack(),
+            run::<GoldilocksField>(&code, 0, vec![], &HashMap::new())?.stack(),
             &[0x3.into()],
         );
         Ok(())
@@ -1705,7 +1802,7 @@ mod tests {
             0x60, 0xff, 0x60, 0x0, 0x52, 0x60, 0, 0x51, 0x60, 0x1, 0x51, 0x60, 0x42, 0x60, 0x27,
             0x53,
         ];
-        let mut interpreter = Interpreter::new_with_kernel(0, vec![]);
+        let mut interpreter: Interpreter<GoldilocksField> = Interpreter::new_with_kernel(0, vec![]);
 
         interpreter.set_code(1, code.to_vec());
 

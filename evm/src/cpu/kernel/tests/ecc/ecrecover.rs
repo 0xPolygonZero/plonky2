@@ -2,6 +2,7 @@ use std::str::FromStr;
 
 use anyhow::Result;
 use ethereum_types::U256;
+use plonky2::field::goldilocks_field::GoldilocksField as F;
 
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::interpreter::run_interpreter;
@@ -10,7 +11,9 @@ use crate::cpu::kernel::tests::u256ify;
 fn test_valid_ecrecover(hash: &str, v: &str, r: &str, s: &str, expected: &str) -> Result<()> {
     let ecrecover = KERNEL.global_labels["ecrecover"];
     let initial_stack = u256ify(["0xdeadbeef", s, r, v, hash])?;
-    let stack = run_interpreter(ecrecover, initial_stack)?.stack().to_vec();
+    let stack = run_interpreter::<F>(ecrecover, initial_stack)?
+        .stack()
+        .to_vec();
     assert_eq!(stack[0], U256::from_str(expected).unwrap());
 
     Ok(())
@@ -19,7 +22,9 @@ fn test_valid_ecrecover(hash: &str, v: &str, r: &str, s: &str, expected: &str) -
 fn test_invalid_ecrecover(hash: &str, v: &str, r: &str, s: &str) -> Result<()> {
     let ecrecover = KERNEL.global_labels["ecrecover"];
     let initial_stack = u256ify(["0xdeadbeef", s, r, v, hash])?;
-    let stack = run_interpreter(ecrecover, initial_stack)?.stack().to_vec();
+    let stack = run_interpreter::<F>(ecrecover, initial_stack)?
+        .stack()
+        .to_vec();
     assert_eq!(stack, vec![U256::MAX]);
 
     Ok(())

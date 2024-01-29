@@ -1,5 +1,6 @@
 use anyhow::Result;
 use ethereum_types::U256;
+use plonky2::field::goldilocks_field::GoldilocksField;
 use rand::{thread_rng, Rng};
 
 use crate::cpu::kernel::aggregator::KERNEL;
@@ -15,7 +16,8 @@ fn test_exp() -> Result<()> {
 
     // Random input
     let initial_stack = vec![0xDEADBEEFu32.into(), b, a];
-    let mut interpreter = Interpreter::new_with_kernel(0, initial_stack.clone());
+    let mut interpreter: Interpreter<GoldilocksField> =
+        Interpreter::new_with_kernel(0, initial_stack.clone());
 
     let stack_with_kernel = run_interpreter(exp, initial_stack)?.stack();
 

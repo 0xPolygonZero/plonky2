@@ -15,12 +15,12 @@ use serde::{Deserialize, Serialize};
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::constants::context_metadata::ContextMetadata;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
+use crate::cpu::kernel::interpreter::simulate_cpu_between_labels_and_get_user_jumps;
 use crate::extension_tower::{FieldExt, Fp12, BLS381, BN254};
 use crate::generation::prover_input::EvmField::{
     Bls381Base, Bls381Scalar, Bn254Base, Bn254Scalar, Secp256k1Base, Secp256k1Scalar,
 };
 use crate::generation::prover_input::FieldOp::{Inverse, Sqrt};
-use crate::generation::simulate_cpu_between_labels_and_get_user_jumps;
 use crate::generation::state::GenerationState;
 use crate::memory::segments::Segment;
 use crate::memory::segments::Segment::BnPairing;

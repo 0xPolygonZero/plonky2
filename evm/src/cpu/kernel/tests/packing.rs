@@ -1,5 +1,6 @@
 use anyhow::Result;
 use ethereum_types::U256;
+use plonky2::field::goldilocks_field::GoldilocksField;
 
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::interpreter::Interpreter;
@@ -15,7 +16,8 @@ fn test_mstore_unpacking() -> Result<()> {
     let addr = (Segment::TxnData as u64).into();
     let initial_stack = vec![retdest, len, value, addr];
 
-    let mut interpreter = Interpreter::new_with_kernel(mstore_unpacking, initial_stack);
+    let mut interpreter: Interpreter<GoldilocksField> =
+        Interpreter::new_with_kernel(mstore_unpacking, initial_stack);
 
     interpreter.run()?;
     assert_eq!(interpreter.stack(), vec![addr + U256::from(4)]);

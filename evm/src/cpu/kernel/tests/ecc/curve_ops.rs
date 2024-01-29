@@ -2,6 +2,7 @@
 mod bn {
     use anyhow::Result;
     use ethereum_types::U256;
+    use plonky2::field::goldilocks_field::GoldilocksField;
 
     use crate::cpu::kernel::aggregator::KERNEL;
     use crate::cpu::kernel::interpreter::{run_interpreter, Interpreter};
@@ -43,76 +44,112 @@ mod bn {
 
         // Standard addition #1
         let initial_stack = u256ify(["0xdeadbeef", point0.1, point0.0, point1.1, point1.0])?;
-        let stack = run_interpreter(ec_add, initial_stack)?.stack().to_vec();
+        let stack = run_interpreter::<GoldilocksField>(ec_add, initial_stack)?
+            .stack()
+            .to_vec();
         assert_eq!(stack, u256ify([point2.1, point2.0])?);
         // Standard addition #2
         let initial_stack = u256ify(["0xdeadbeef", point1.1, point1.0, point0.1, point0.0])?;
-        let stack = run_interpreter(ec_add, initial_stack)?.stack().to_vec();
+        let stack = run_interpreter::<GoldilocksField>(ec_add, initial_stack)?
+            .stack()
+            .to_vec();
         assert_eq!(stack, u256ify([point2.1, point2.0])?);
+
+        type F = GoldilocksField;
 
         // Standard doubling #1
         let initial_stack = u256ify(["0xdeadbeef", point0.1, point0.0, point0.1, point0.0])?;
-        let stack = run_interpreter(ec_add, initial_stack)?.stack().to_vec();
+        let stack = run_interpreter::<F>(ec_add, initial_stack)?
+            .stack()
+            .to_vec();
         assert_eq!(stack, u256ify([point3.1, point3.0])?);
         // Standard doubling #2
         let initial_stack = u256ify(["0xdeadbeef", point0.1, point0.0])?;
-        let stack = run_interpreter(ec_double, initial_stack)?.stack().to_vec();
+        let stack = run_interpreter::<F>(ec_double, initial_stack)?
+            .stack()
+            .to_vec();
         assert_eq!(stack, u256ify([point3.1, point3.0])?);
         // Standard doubling #3
         let initial_stack = u256ify(["0xdeadbeef", "0x2", point0.1, point0.0])?;
-        let stack = run_interpreter(ec_mul, initial_stack)?.stack().to_vec();
+        let stack = run_interpreter::<F>(ec_mul, initial_stack)?
+            .stack()
+            .to_vec();
         assert_eq!(stack, u256ify([point3.1, point3.0])?);
 
         // Addition with identity #1
         let initial_stack = u256ify(["0xdeadbeef", identity.1, identity.0, point1.1, point1.0])?;
-        let stack = run_interpreter(ec_add, initial_stack)?.stack().to_vec();
+        let stack = run_interpreter::<F>(ec_add, initial_stack)?
+            .stack()
+            .to_vec();
         assert_eq!(stack, u256ify([point1.1, point1.0])?);
         // Addition with identity #2
         let initial_stack = u256ify(["0xdeadbeef", point1.1, point1.0, identity.1, identity.0])?;
-        let stack = run_interpreter(ec_add, initial_stack)?.stack().to_vec();
+        let stack = run_interpreter::<F>(ec_add, initial_stack)?
+            .stack()
+            .to_vec();
         assert_eq!(stack, u256ify([point1.1, point1.0])?);
         // Addition with identity #3
         let initial_stack =
             u256ify(["0xdeadbeef", identity.1, identity.0, identity.1, identity.0])?;
-        let stack = run_interpreter(ec_add, initial_stack)?.stack().to_vec();
+        let stack = run_interpreter::<F>(ec_add, initial_stack)?
+            .stack()
+            .to_vec();
         assert_eq!(stack, u256ify([identity.1, identity.0])?);
 
         // Addition with invalid point(s) #1
         let initial_stack = u256ify(["0xdeadbeef", point0.1, point0.0, invalid.1, invalid.0])?;
-        let stack = run_interpreter(ec_add, initial_stack)?.stack().to_vec();
+        let stack = run_interpreter::<F>(ec_add, initial_stack)?
+            .stack()
+            .to_vec();
         assert_eq!(stack, vec![U256::MAX, U256::MAX]);
         // Addition with invalid point(s) #2
         let initial_stack = u256ify(["0xdeadbeef", invalid.1, invalid.0, point0.1, point0.0])?;
-        let stack = run_interpreter(ec_add, initial_stack)?.stack().to_vec();
+        let stack = run_interpreter::<F>(ec_add, initial_stack)?
+            .stack()
+            .to_vec();
         assert_eq!(stack, vec![U256::MAX, U256::MAX]);
         // Addition with invalid point(s) #3
         let initial_stack = u256ify(["0xdeadbeef", invalid.1, invalid.0, identity.1, identity.0])?;
-        let stack = run_interpreter(ec_add, initial_stack)?.stack().to_vec();
+        let stack = run_interpreter::<F>(ec_add, initial_stack)?
+            .stack()
+            .to_vec();
         assert_eq!(stack, vec![U256::MAX, U256::MAX]);
         // Addition with invalid point(s) #4
         let initial_stack = u256ify(["0xdeadbeef", invalid.1, invalid.0, invalid.1, invalid.0])?;
-        let stack = run_interpreter(ec_add, initial_stack)?.stack().to_vec();
+        let stack = run_interpreter::<F>(ec_add, initial_stack)?
+            .stack()
+            .to_vec();
         assert_eq!(stack, vec![U256::MAX, U256::MAX]);
 
         // Scalar multiplication #1
         let initial_stack = u256ify(["0xdeadbeef", s, point0.1, point0.0])?;
-        let stack = run_interpreter(ec_mul, initial_stack)?.stack().to_vec();
+        let stack = run_interpreter::<F>(ec_mul, initial_stack)?
+            .stack()
+            .to_vec();
         assert_eq!(stack, u256ify([point4.1, point4.0])?);
         // Scalar multiplication #2
         let initial_stack = u256ify(["0xdeadbeef", "0x0", point0.1, point0.0])?;
-        let stack = run_interpreter(ec_mul, initial_stack)?.stack().to_vec();
+        let stack = run_interpreter::<F>(ec_mul, initial_stack)?
+            .stack()
+            .to_vec();
         assert_eq!(stack, u256ify([identity.1, identity.0])?);
         // Scalar multiplication #3
         let initial_stack = u256ify(["0xdeadbeef", "0x1", point0.1, point0.0])?;
-        let stack = run_interpreter(ec_mul, initial_stack)?.stack().to_vec();
+        let stack = run_interpreter::<F>(ec_mul, initial_stack)?
+            .stack()
+            .to_vec();
         assert_eq!(stack, u256ify([point0.1, point0.0])?);
         // Scalar multiplication #4
         let initial_stack = u256ify(["0xdeadbeef", s, identity.1, identity.0])?;
-        let stack = run_interpreter(ec_mul, initial_stack)?.stack().to_vec();
+        let stack = run_interpreter::<F>(ec_mul, initial_stack)?
+            .stack()
+            .to_vec();
         assert_eq!(stack, u256ify([identity.1, identity.0])?);
         // Scalar multiplication #5
         let initial_stack = u256ify(["0xdeadbeef", s, invalid.1, invalid.0])?;
-        let stack = run_interpreter(ec_mul, initial_stack)?.stack().to_vec();
+        let stack = run_interpreter::<F>(ec_mul, initial_stack)?
+            .stack()
+            .to_vec();
         assert_eq!(stack, vec![U256::MAX, U256::MAX]);
 
         // Multiple calls
@@ -126,7 +163,9 @@ mod bn {
             point0.1,
             point0.0,
         ])?;
-        let stack = run_interpreter(ec_add, initial_stack)?.stack().to_vec();
+        let stack = run_interpreter::<F>(ec_add, initial_stack)?
+            .stack()
+            .to_vec();
         assert_eq!(stack, u256ify([point4.1, point4.0])?);
 
         Ok(())
@@ -147,7 +186,8 @@ mod bn {
 
             let mut initial_stack = u256ify(["0xdeadbeef"])?;
             initial_stack.push(k);
-            let mut int = Interpreter::new(&KERNEL.code, glv, initial_stack, &KERNEL.prover_inputs);
+            let mut int: Interpreter<GoldilocksField> =
+                Interpreter::new(&KERNEL.code, glv, initial_stack, &KERNEL.prover_inputs);
             int.run()?;
 
             assert_eq!(line, int.stack());
@@ -165,7 +205,7 @@ mod bn {
             "0x10d7cf0621b6e42c1dbb421f5ef5e1936ca6a87b38198d1935be31e28821d171",
             "0x11b7d55f16aaac07de9a0ed8ac2e8023570dbaa78571fc95e553c4b3ba627689",
         ])?;
-        let mut int = Interpreter::new(
+        let mut int: Interpreter<GoldilocksField> = Interpreter::new(
             &KERNEL.code,
             precompute,
             initial_stack,
@@ -227,6 +267,7 @@ mod bn {
 mod secp {
     use anyhow::Result;
     use ethereum_types::U256;
+    use plonky2::field::goldilocks_field::GoldilocksField;
 
     use crate::cpu::kernel::aggregator::{combined_kernel, KERNEL};
     use crate::cpu::kernel::interpreter::{run, run_interpreter, Interpreter};
@@ -258,38 +299,52 @@ mod secp {
             "0x294e15025d935438023a0e4056892abd6405fade13cf2b3131d8755be7cebad",
         );
 
+        type F = GoldilocksField;
+
         // Standard addition #1
         let initial_stack = u256ify(["0xdeadbeef", point0.1, point0.0, point1.1, point1.0])?;
-        let stack = run_interpreter(ec_add, initial_stack)?.stack().to_vec();
+        let stack = run_interpreter::<F>(ec_add, initial_stack)?
+            .stack()
+            .to_vec();
         assert_eq!(stack, u256ify([point2.1, point2.0])?);
         // Standard addition #2
         let initial_stack = u256ify(["0xdeadbeef", point1.1, point1.0, point0.1, point0.0])?;
-        let stack = run(&kernel.code, ec_add, initial_stack, &kernel.prover_inputs)?
+        let stack = run::<F>(&kernel.code, ec_add, initial_stack, &kernel.prover_inputs)?
             .stack()
             .to_vec();
         assert_eq!(stack, u256ify([point2.1, point2.0])?);
 
         // Standard doubling #1
         let initial_stack = u256ify(["0xdeadbeef", point0.1, point0.0, point0.1, point0.0])?;
-        let stack = run_interpreter(ec_add, initial_stack)?.stack().to_vec();
+        let stack = run_interpreter::<F>(ec_add, initial_stack)?
+            .stack()
+            .to_vec();
         assert_eq!(stack, u256ify([point3.1, point3.0])?);
         // Standard doubling #2
         let initial_stack = u256ify(["0xdeadbeef", point0.1, point0.0])?;
-        let stack = run_interpreter(ec_double, initial_stack)?.stack().to_vec();
+        let stack = run_interpreter::<F>(ec_double, initial_stack)?
+            .stack()
+            .to_vec();
         assert_eq!(stack, u256ify([point3.1, point3.0])?);
 
         // Addition with identity #1
         let initial_stack = u256ify(["0xdeadbeef", identity.1, identity.0, point1.1, point1.0])?;
-        let stack = run_interpreter(ec_add, initial_stack)?.stack().to_vec();
+        let stack = run_interpreter::<F>(ec_add, initial_stack)?
+            .stack()
+            .to_vec();
         assert_eq!(stack, u256ify([point1.1, point1.0])?);
         // Addition with identity #2
         let initial_stack = u256ify(["0xdeadbeef", point1.1, point1.0, identity.1, identity.0])?;
-        let stack = run_interpreter(ec_add, initial_stack)?.stack().to_vec();
+        let stack = run_interpreter::<F>(ec_add, initial_stack)?
+            .stack()
+            .to_vec();
         assert_eq!(stack, u256ify([point1.1, point1.0])?);
         // Addition with identity #3
         let initial_stack =
             u256ify(["0xdeadbeef", identity.1, identity.0, identity.1, identity.0])?;
-        let stack = run_interpreter(ec_add, initial_stack)?.stack().to_vec();
+        let stack = run_interpreter::<F>(ec_add, initial_stack)?
+            .stack()
+            .to_vec();
         assert_eq!(stack, u256ify([identity.1, identity.0])?);
 
         Ok(())
@@ -310,7 +365,8 @@ mod secp {
 
             let mut initial_stack = u256ify(["0xdeadbeef"])?;
             initial_stack.push(k);
-            let mut int = Interpreter::new(&KERNEL.code, glv, initial_stack, &KERNEL.prover_inputs);
+            let mut int: Interpreter<GoldilocksField> =
+                Interpreter::new(&KERNEL.code, glv, initial_stack, &KERNEL.prover_inputs);
             int.run()?;
 
             assert_eq!(line, int.stack());
