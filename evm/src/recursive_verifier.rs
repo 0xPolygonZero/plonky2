@@ -232,7 +232,7 @@ where
     let (total_num_helpers, num_ctl_zs, num_helpers_by_ctl) =
         CrossTableLookup::num_ctl_helpers_zs_all(
             cross_table_lookups,
-            table,
+            table as usize,
             inner_config.num_challenges,
             stark.constraint_degree(),
         );
@@ -266,7 +266,7 @@ where
     };
 
     let ctl_vars = CtlCheckVarsTarget::from_proof(
-        table,
+        table as usize,
         &proof_target,
         cross_table_lookups,
         &ctl_challenges_target,

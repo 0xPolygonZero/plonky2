@@ -423,19 +423,22 @@ impl<F: Field> Filter<F> {
     }
 }
 
-/// A `Table` with a linear combination of columns and a filter.
-/// `filter` is used to determine the rows to select in `Table`.
-/// `columns` represents linear combinations of the columns of `Table`.
+/// An alias for `usize`, to represent the index of a STARK table in a multi-STARK setting.
+pub(crate) type TableIdx = usize;
+
+/// A `table` index with a linear combination of columns and a filter.
+/// `filter` is used to determine the rows to select in `table`.
+/// `columns` represents linear combinations of the columns of `table`.
 #[derive(Clone, Debug)]
 pub(crate) struct TableWithColumns<F: Field> {
-    table: Table,
+    table: TableIdx,
     columns: Vec<Column<F>>,
     pub(crate) filter: Option<Filter<F>>,
 }
 
 impl<F: Field> TableWithColumns<F> {
-    /// Generates a new `TableWithColumns` given a `Table`, a linear combination of columns `columns` and a `filter`.
-    pub(crate) fn new(table: Table, columns: Vec<Column<F>>, filter: Option<Filter<F>>) -> Self {
+    /// Generates a new `TableWithColumns` given a `table` index, a linear combination of columns `columns` and a `filter`.
+    pub(crate) fn new(table: TableIdx, columns: Vec<Column<F>>, filter: Option<Filter<F>>) -> Self {
         Self {
             table,
             columns,
@@ -447,7 +450,7 @@ impl<F: Field> TableWithColumns<F> {
 /// Cross-table lookup data consisting in the lookup table (`looked_table`) and all the tables that look into `looked_table` (`looking_tables`).
 /// Each `looking_table` corresponds to a STARK's table whose rows have been filtered out and whose columns have been through a linear combination (see `eval_table`). The concatenation of those smaller tables should result in the `looked_table`.
 #[derive(Clone)]
-pub(crate) struct CrossTableLookup<F: Field> {
+pub struct CrossTableLookup<F: Field> {
     /// Column linear combinations for all tables that are looking into the current table.
     pub(crate) looking_tables: Vec<TableWithColumns<F>>,
     /// Column linear combination for the current table.
@@ -476,7 +479,7 @@ impl<F: Field> CrossTableLookup<F> {
     /// - the number of helper columns for this table, for each Cross-table lookup.
     pub(crate) fn num_ctl_helpers_zs_all(
         ctls: &[Self],
-        table: Table,
+        table: TableIdx,
         num_challenges: usize,
         constraint_degree: usize,
     ) -> (usize, usize, Vec<usize>) {
@@ -1280,7 +1283,7 @@ pub(crate) struct CtlCheckVarsTarget<F: Field, const D: usize> {
 impl<'a, F: Field, const D: usize> CtlCheckVarsTarget<F, D> {
     /// Circuit version of `from_proofs`. Extracts the `CtlCheckVarsTarget` for each STARK.
     pub(crate) fn from_proof(
-        table: Table,
+        table: TableIdx,
         proof: &StarkProofTarget<D>,
         cross_table_lookups: &'a [CrossTableLookup<F>],
         ctl_challenges: &'a GrandProductChallengeSet<Target>,
@@ -1728,7 +1731,10 @@ pub(crate) mod testutils {
                     .iter()
                     .map(|c| c.eval_table(trace, i))
                     .collect::<Vec<_>>();
-                multiset.entry(row).or_default().push((table.table, i));
+                multiset
+                    .entry(row)
+                    .or_default()
+                    .push((Table::all()[table.table], i));
             } else {
                 assert_eq!(filter, F::ZERO, "Non-binary filter?")
             }

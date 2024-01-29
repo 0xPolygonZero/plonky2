@@ -110,7 +110,7 @@ pub(crate) fn ctl_arithmetic_rows<F: Field>() -> TableWithColumns<F> {
     // corresponding to a 256-bit input or output register (also `ops`
     // is used as the operation filter).
     TableWithColumns::new(
-        Table::Arithmetic,
+        *Table::Arithmetic,
         cpu_arith_data_link(&all_combined_cols, &REGISTER_MAP),
         filter,
     )
