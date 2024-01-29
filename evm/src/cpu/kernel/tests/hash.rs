@@ -1,12 +1,13 @@
 use anyhow::Result;
 // use blake2::Blake2b512;
 use ethereum_types::U256;
+use plonky2::field::goldilocks_field::GoldilocksField as F;
 use rand::{thread_rng, Rng};
 use ripemd::{Digest, Ripemd160};
 use sha2::Sha256;
 
 use crate::cpu::kernel::interpreter::{
-    run_interpreter_with_memory, InterpreterMemoryInitialization,
+    run_interpreter_with_memory, Interpreter, InterpreterMemoryInitialization,
 };
 use crate::memory::segments::Segment::KernelGeneral;
 
@@ -66,7 +67,7 @@ fn prepare_test<T>(
     let interpreter_setup = make_interpreter_setup(message, hash_fn_label, hash_input_virt);
 
     // Run the interpreter
-    let result = run_interpreter_with_memory(interpreter_setup).unwrap();
+    let result: Interpreter<F> = run_interpreter_with_memory(interpreter_setup).unwrap();
 
     Ok((expected, result.stack().to_vec()))
 }

@@ -1,4 +1,5 @@
 use anyhow::Result;
+use plonky2::field::goldilocks_field::GoldilocksField as F;
 
 use crate::cpu::kernel::interpreter::{
     run_interpreter_with_memory, InterpreterMemoryInitialization,
@@ -71,7 +72,7 @@ fn run_blake2_f(
         memory: vec![],
     };
 
-    let result = run_interpreter_with_memory(interpreter_setup).unwrap();
+    let result = run_interpreter_with_memory::<F>(interpreter_setup).unwrap();
     let mut hash = result.stack().to_vec();
     hash.reverse();
 

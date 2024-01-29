@@ -1,5 +1,6 @@
 use anyhow::Result;
 use ethereum_types::U256;
+use plonky2::field::goldilocks_field::GoldilocksField as F;
 use rand::Rng;
 
 use crate::cpu::kernel::interpreter::{
@@ -23,7 +24,7 @@ fn test_bls_fp2_mul() -> Result<()> {
         segment: KernelGeneral,
         memory: vec![],
     };
-    let interpreter = run_interpreter_with_memory(setup).unwrap();
+    let interpreter = run_interpreter_with_memory::<F>(setup).unwrap();
     let stack: Vec<U256> = interpreter.stack().iter().rev().cloned().collect();
     let output = Fp2::<BLS381>::from_stack(&stack);
 

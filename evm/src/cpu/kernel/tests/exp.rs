@@ -1,6 +1,6 @@
 use anyhow::Result;
 use ethereum_types::U256;
-use plonky2::field::goldilocks_field::GoldilocksField;
+use plonky2::field::goldilocks_field::GoldilocksField as F;
 use rand::{thread_rng, Rng};
 
 use crate::cpu::kernel::aggregator::KERNEL;
@@ -16,17 +16,16 @@ fn test_exp() -> Result<()> {
 
     // Random input
     let initial_stack = vec![0xDEADBEEFu32.into(), b, a];
-    let mut interpreter: Interpreter<GoldilocksField> =
-        Interpreter::new_with_kernel(0, initial_stack.clone());
+    let mut interpreter: Interpreter<F> = Interpreter::new_with_kernel(0, initial_stack.clone());
 
-    let stack_with_kernel = run_interpreter(exp, initial_stack)?.stack();
+    let stack_with_kernel = run_interpreter::<F>(exp, initial_stack)?.stack();
 
     let expected_exp = a.overflowing_pow(b).0;
     assert_eq!(stack_with_kernel, vec![expected_exp]);
 
     // 0 base
     let initial_stack = vec![0xDEADBEEFu32.into(), b, U256::zero()];
-    let stack_with_kernel = run_interpreter(exp, initial_stack)?.stack();
+    let stack_with_kernel = run_interpreter::<F>(exp, initial_stack)?.stack();
 
     let expected_exp = U256::zero().overflowing_pow(b).0;
     assert_eq!(stack_with_kernel, vec![expected_exp]);
@@ -35,7 +34,7 @@ fn test_exp() -> Result<()> {
     let initial_stack = vec![0xDEADBEEFu32.into(), U256::zero(), a];
     interpreter.set_is_kernel(true);
     interpreter.set_context(0);
-    let stack_with_kernel = run_interpreter(exp, initial_stack)?.stack();
+    let stack_with_kernel = run_interpreter::<F>(exp, initial_stack)?.stack();
 
     let expected_exp = 1.into();
     assert_eq!(stack_with_kernel, vec![expected_exp]);
