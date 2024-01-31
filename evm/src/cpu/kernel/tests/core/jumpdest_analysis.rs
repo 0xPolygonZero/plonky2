@@ -29,17 +29,12 @@ fn test_jumpdest_analysis() -> Result<()> {
         add,
         jumpdest,
     ];
+    let code_len = code.len();
 
     let jumpdest_bits = vec![false, true, false, false, false, true, false, true];
 
-    // Contract creation transaction.
-    let initial_stack = vec![
-        0xDEADBEEFu32.into(),
-        code.len().into(),
-        U256::from(CONTEXT) << CONTEXT_SCALING_FACTOR,
-    ];
     let mut interpreter: Interpreter<GoldilocksField> =
-        Interpreter::new_with_kernel(jumpdest_analysis, initial_stack);
+        Interpreter::new_with_kernel(jumpdest_analysis, vec![]);
     interpreter.set_code(CONTEXT, code);
     interpreter.set_jumpdest_analysis_inputs(HashMap::from([(
         3,
@@ -52,6 +47,7 @@ fn test_jumpdest_analysis() -> Result<()> {
         ),
     )]));
 
+    // The set_jumpdest_analysis_inputs method is never used
     assert_eq!(
         interpreter.generation_state.jumpdest_table,
         // Context 3 has jumpdest 1, 5, 7. All have proof 0 and hence
@@ -59,17 +55,22 @@ fn test_jumpdest_analysis() -> Result<()> {
         Some(HashMap::from([(3, vec![0, 1, 0, 5, 0, 7])]))
     );
 
+    // Run jumpdest analysis with context = 3
+    interpreter.generation_state.registers.context = CONTEXT;
+    interpreter.push(0xDEADBEEFu32.into());
+    interpreter.push(code_len.into());
+    interpreter.push(U256::from(CONTEXT) << CONTEXT_SCALING_FACTOR);
     interpreter.run()?;
     assert_eq!(interpreter.stack(), vec![]);
 
-    assert_eq!(jumpdest_bits, interpreter.get_jumpdest_bits(3));
+    assert_eq!(jumpdest_bits, interpreter.get_jumpdest_bits(CONTEXT));
 
     Ok(())
 }
 
 #[test]
 fn test_packed_verification() -> Result<()> {
-    let jumpdest_analysis = KERNEL.global_labels["jumpdest_analysis"];
+    let write_table_if_jumpdest = KERNEL.global_labels["write_table_if_jumpdest"];
     const CONTEXT: usize = 3; // arbitrary
 
     let add = get_opcode("ADD");
@@ -94,11 +95,12 @@ fn test_packed_verification() -> Result<()> {
     // Contract creation transaction.
     let initial_stack = vec![
         0xDEADBEEFu32.into(),
-        code.len().into(),
         U256::from(CONTEXT) << CONTEXT_SCALING_FACTOR,
+        33.into(),
+        U256::one(),
     ];
     let mut interpreter: Interpreter<GoldilocksField> =
-        Interpreter::new_with_kernel(jumpdest_analysis, initial_stack.clone());
+        Interpreter::new_with_kernel(write_table_if_jumpdest, initial_stack.clone());
     interpreter.set_code(CONTEXT, code.clone());
     interpreter.generation_state.jumpdest_table = Some(HashMap::from([(3, vec![1, 33])]));
 
@@ -110,7 +112,7 @@ fn test_packed_verification() -> Result<()> {
     for i in 1..=32 {
         code[i] += 1;
         let mut interpreter: Interpreter<GoldilocksField> =
-            Interpreter::new_with_kernel(jumpdest_analysis, initial_stack.clone());
+            Interpreter::new_with_kernel(write_table_if_jumpdest, initial_stack.clone());
         interpreter.set_code(CONTEXT, code.clone());
         interpreter.generation_state.jumpdest_table = Some(HashMap::from([(3, vec![1, 33])]));
 

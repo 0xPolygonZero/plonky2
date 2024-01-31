@@ -13,6 +13,7 @@ use plonky2::field::types::Field;
 
 use super::assembler::BYTES_PER_OFFSET;
 use super::utils::u256_from_bool;
+use crate::cpu::halt;
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::constants::context_metadata::ContextMetadata;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
@@ -59,6 +60,8 @@ pub(crate) struct Interpreter<'a, F: Field> {
     pub(crate) generation_state: GenerationState<F>,
     prover_inputs_map: &'a HashMap<usize, ProverInputFn>,
     pub(crate) halt_offsets: Vec<usize>,
+    // The interpreter will halt only if the current context matches halt_context
+    halt_context: Option<usize>,
     pub(crate) debug_offsets: Vec<usize>,
     running: bool,
     opcode_count: [usize; 0x100],
@@ -130,86 +133,24 @@ pub(crate) fn run<'a, F: Field>(
     Ok(interpreter)
 }
 
-pub(crate) fn simulate_cpu_between_labels_and_get_user_jumps<F: Field>(
-    initial_label: &str,
+pub(crate) fn simulate_cpu_until_label_and_get_user_jumps<F: Field>(
     final_label: &str,
     state: &GenerationState<F>,
 ) -> Option<HashMap<usize, BTreeSet<usize>>> {
     if state.jumpdest_table.is_some() {
         None
     } else {
-        const JUMP_OPCODE: u8 = 0x56;
-        const JUMPI_OPCODE: u8 = 0x57;
-
         let halt_pc = KERNEL.global_labels[final_label];
-
-        let mut interpreter = Interpreter::new_with_state(state);
-
-        let mut jumpdest_addresses: HashMap<_, BTreeSet<usize>> = HashMap::new();
-
-        interpreter.generation_state.registers.program_counter =
-            KERNEL.global_labels[initial_label];
         let initial_context = state.registers.context;
+        let mut interpreter =
+            Interpreter::new_with_state_and_halt_condition(state, halt_pc, initial_context);
 
         log::debug!("Simulating CPU for jumpdest analysis.");
 
-        loop {
-            // skip jumpdest table validations in simulations
-            if interpreter.generation_state.registers.is_kernel
-                && interpreter.generation_state.registers.program_counter
-                    == KERNEL.global_labels["jumpdest_analysis"]
-            {
-                interpreter.generation_state.registers.program_counter =
-                    KERNEL.global_labels["jumpdest_analysis_end"]
-            }
-            let pc = interpreter.generation_state.registers.program_counter;
-            let context = interpreter.generation_state.registers.context;
-            let mut halt = interpreter.generation_state.registers.is_kernel
-                && pc == halt_pc
-                && interpreter.generation_state.registers.context == initial_context;
-            let Ok(opcode) =
-                u256_to_u8(interpreter.generation_state.memory.get(MemoryAddress::new(
-                    context,
-                    Segment::Code,
-                    interpreter.generation_state.registers.program_counter,
-                )))
-            else {
-                log::debug!("Simulated CPU for jumpdest analysis halted",);
-                return Some(jumpdest_addresses);
-            };
-            let cond = if let Ok(cond) = stack_peek(&interpreter.generation_state, 1) {
-                cond != U256::zero()
-            } else {
-                false
-            };
-            if !interpreter.generation_state.registers.is_kernel
-                && (opcode == JUMP_OPCODE || (opcode == JUMPI_OPCODE && cond))
-            {
-                // Avoid deeper calls to abort
-                let Ok(jumpdest) = u256_to_usize(interpreter.generation_state.registers.stack_top)
-                else {
-                    log::debug!("Simulated CPU for jumpdest analysis halted",);
-                    return Some(jumpdest_addresses);
-                };
-                interpreter.generation_state.memory.set(
-                    MemoryAddress::new(context, Segment::JumpdestBits, jumpdest),
-                    U256::one(),
-                );
-                let jumpdest_opcode =
-                    state
-                        .memory
-                        .get(MemoryAddress::new(context, Segment::Code, jumpdest));
-                if let Some(ctx_addresses) = jumpdest_addresses.get_mut(&context) {
-                    ctx_addresses.insert(jumpdest);
-                } else {
-                    jumpdest_addresses.insert(context, BTreeSet::from([jumpdest]));
-                }
-            }
-            if halt || interpreter.run_opcode().is_err() {
-                log::debug!("Simulated CPU for jumpdest analysis halted");
-                return Some(jumpdest_addresses);
-            }
-        }
+        interpreter.run();
+        log::debug!("Simulated CPU for jumpdest analysis halted");
+        let jumpdest_table = interpreter.get_jumpdest_table(initial_context);
+        Some(jumpdest_table)
     }
 }
 
@@ -260,6 +201,7 @@ impl<'a, F: Field> Interpreter<'a, F> {
             // `DEFAULT_HALT_OFFSET` is used as a halting point for the interpreter,
             // while the label `halt` is the halting label in the kernel.
             halt_offsets: vec![DEFAULT_HALT_OFFSET, KERNEL.global_labels["halt"]],
+            halt_context: None,
             debug_offsets: vec![],
             running: false,
             opcode_count: [0; 256],
@@ -277,13 +219,18 @@ impl<'a, F: Field> Interpreter<'a, F> {
         result
     }
 
-    pub(crate) fn new_with_state(state: &GenerationState<F>) -> Self {
+    pub(crate) fn new_with_state_and_halt_condition(
+        state: &GenerationState<F>,
+        halt_offset: usize,
+        halt_context: usize,
+    ) -> Self {
         Self {
             generation_state: state.soft_clone(),
             prover_inputs_map: &KERNEL.prover_inputs,
             // `DEFAULT_HALT_OFFSET` is used as a halting point for the interpreter,
             // while the label `halt` is the halting label in the kernel.
-            halt_offsets: vec![],
+            halt_offsets: vec![halt_offset],
+            halt_context: Some(halt_context),
             debug_offsets: vec![],
             running: false,
             opcode_count: [0; 256],
@@ -519,12 +466,15 @@ impl<'a, F: Field> Interpreter<'a, F> {
                 }
             }?;
         }
+        #[cfg(test)]
         println!("Opcode count:");
+        #[cfg(test)]
         for i in 0..0x100 {
             if self.opcode_count[i] > 0 {
                 println!("{}: {}", get_mnemonic(i as u8), self.opcode_count[i])
             }
         }
+        #[cfg(test)]
         println!("Total: {}", self.opcode_count.into_iter().sum::<usize>());
         Ok(())
     }
@@ -688,6 +638,28 @@ impl<'a, F: Field> Interpreter<'a, F> {
             .collect()
     }
 
+    // Returns a map between contexts and jumpdests
+    pub(crate) fn get_jumpdest_table(&self, context: usize) -> HashMap<usize, BTreeSet<usize>> {
+        HashMap::from_iter(
+            self.generation_state
+                .memory
+                .contexts
+                .iter()
+                .enumerate()
+                .filter(|&(ctx, _)| ctx >= context)
+                .map(|(ctx, mem_ctx_st)| {
+                    let jumpdests = mem_ctx_st.segments[Segment::JumpdestBits.unscale()]
+                        .content
+                        .iter()
+                        .enumerate()
+                        .filter(|(_, x)| x.bit(0))
+                        .map(|(i, _)| i)
+                        .collect();
+                    (ctx, jumpdests)
+                }),
+        )
+    }
+
     pub(crate) fn set_jumpdest_analysis_inputs(&mut self, jumps: HashMap<usize, BTreeSet<usize>>) {
         self.generation_state.set_jumpdest_analysis_inputs(jumps);
     }
@@ -778,6 +750,18 @@ impl<'a, F: Field> Interpreter<'a, F> {
     }
 
     fn run_opcode(&mut self) -> Result<(), ProgramError> {
+        // Jumpdest analysis is performed natively by the interpreter and not
+        // using the non-deterministic assemly code
+        if self.is_kernel()
+            && self.generation_state.registers.program_counter
+                == KERNEL.global_labels["jumpdest_analysis"]
+        {
+            self.generation_state.registers.program_counter =
+                KERNEL.global_labels["jumpdest_analysis_end"];
+            self.generation_state
+                .set_jumpdest_bits(&self.generation_state.get_current_code()?);
+        }
+
         let opcode = self
             .code()
             .get(self.generation_state.registers.program_counter)
@@ -904,6 +888,7 @@ impl<'a, F: Field> Interpreter<'a, F> {
             }
         }?;
 
+        #[cfg(test)]
         if self
             .debug_offsets
             .contains(&self.generation_state.registers.program_counter)
@@ -1119,6 +1104,7 @@ impl<'a, F: Field> Interpreter<'a, F> {
                     .byte(0)
             })
             .collect::<Vec<_>>();
+        #[cfg(test)]
         println!("Hashing {:?}", &bytes);
         let hash = keccak(bytes);
         self.push(U256::from_big_endian(hash.as_bytes()))
@@ -1179,7 +1165,7 @@ impl<'a, F: Field> Interpreter<'a, F> {
         self.push(syscall_info)
     }
 
-    fn set_jumpdest_bit(&mut self, x: U256) -> U256 {
+    fn get_jumpdest_bit(&self, x: U256) -> U256 {
         if self.generation_state.memory.contexts[self.context()].segments
             [Segment::JumpdestBits.unscale()]
         .content
@@ -1198,7 +1184,7 @@ impl<'a, F: Field> Interpreter<'a, F> {
     fn run_jump(&mut self) -> anyhow::Result<(), ProgramError> {
         let x = self.pop()?;
 
-        let jumpdest_bit = self.set_jumpdest_bit(x);
+        let jumpdest_bit = self.get_jumpdest_bit(x);
 
         // Check that the destination is valid.
         let x: u32 = x
@@ -1221,7 +1207,7 @@ impl<'a, F: Field> Interpreter<'a, F> {
                 .map_err(|_| ProgramError::InvalidJumpiDestination)?;
             self.jump_to(x as usize, true)?;
         }
-        let jumpdest_bit = self.set_jumpdest_bit(x);
+        let jumpdest_bit = self.get_jumpdest_bit(x);
 
         if !b.is_zero() && !self.is_kernel() && jumpdest_bit != U256::one() {
             return Err(ProgramError::InvalidJumpiDestination);
@@ -1259,9 +1245,13 @@ impl<'a, F: Field> Interpreter<'a, F> {
             self.generation_state.observe_contract(tip_h256)?;
         }
 
-        if self.halt_offsets.contains(&offset) {
-            self.running = false;
-        }
+        self.running = if let Some(halt_context) = self.halt_context {
+            !(halt_context == self.generation_state.registers.context
+                && self.is_kernel()
+                && self.halt_offsets.contains(&offset))
+        } else {
+            !self.halt_offsets.contains(&offset)
+        };
         Ok(())
     }
 
@@ -1329,6 +1319,7 @@ impl<'a, F: Field> Interpreter<'a, F> {
         }
         self.set_context(new_ctx);
         self.generation_state.registers.stack_len = new_sp;
+
         Ok(())
     }
 

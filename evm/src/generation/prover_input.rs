@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::constants::context_metadata::ContextMetadata;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
-use crate::cpu::kernel::interpreter::simulate_cpu_between_labels_and_get_user_jumps;
+use crate::cpu::kernel::interpreter::simulate_cpu_until_label_and_get_user_jumps;
 use crate::extension_tower::{FieldExt, Fp12, BLS381, BN254};
 use crate::generation::prover_input::EvmField::{
     Bls381Base, Bls381Scalar, Bn254Base, Bn254Scalar, Secp256k1Base, Secp256k1Scalar,
@@ -305,11 +305,9 @@ impl<F: Field> GenerationState<F> {
         // the simulation will fail.
 
         // Simulate the user's code and (unnecessarily) part of the kernel code, skipping the validate table call
-        let Some(jumpdest_table) = simulate_cpu_between_labels_and_get_user_jumps(
-            "jumpdest_analysis_end",
-            "terminate_common",
-            self,
-        ) else {
+        let Some(jumpdest_table) =
+            simulate_cpu_until_label_and_get_user_jumps("terminate_common", self)
+        else {
             self.jumpdest_table = Some(HashMap::new());
             return Ok(());
         };
@@ -319,6 +317,7 @@ impl<F: Field> GenerationState<F> {
         self.memory = memory;
 
         // Find proofs for all contexts
+        log::debug!("jumpdest_table = {:?}", jumpdest_table);
         self.set_jumpdest_analysis_inputs(jumpdest_table);
 
         Ok(())
@@ -343,7 +342,7 @@ impl<F: Field> GenerationState<F> {
         )));
     }
 
-    fn get_current_code(&self) -> Result<Vec<u8>, ProgramError> {
+    pub(crate) fn get_current_code(&self) -> Result<Vec<u8>, ProgramError> {
         self.get_code(self.registers.context)
     }
 
@@ -384,7 +383,7 @@ impl<F: Field> GenerationState<F> {
         self.get_code_len(self.registers.context)
     }
 
-    fn set_jumpdest_bits(&mut self, code: &[u8]) {
+    pub(crate) fn set_jumpdest_bits(&mut self, code: &[u8]) {
         const JUMPDEST_OPCODE: u8 = 0x5b;
         for (pos, opcode) in CodeIterator::new(code) {
             if opcode == JUMPDEST_OPCODE {
@@ -397,10 +396,10 @@ impl<F: Field> GenerationState<F> {
     }
 }
 
-/// For all address in `jumpdest_table`, each bounded by `largest_address`,
+/// For all address in `jumpdest_table` smaller than `largest_address`,
 /// this function searches for a proof. A proof is the closest address
 /// for which none of the previous 32 bytes in the code (including opcodes
-/// and pushed bytes) are PUSHXX and the address is in its range. It returns
+/// and pushed bytes) is a PUSHXX and the address is in its range. It returns
 /// a vector of even size containing proofs followed by their addresses.
 fn get_proofs_and_jumpdests(
     code: &[u8],
@@ -411,30 +410,30 @@ fn get_proofs_and_jumpdests(
     const PUSH32_OPCODE: u8 = 0x7f;
     let (proofs, _) = CodeIterator::until(code, largest_address + 1).fold(
         (vec![], 0),
-        |(mut proofs, acc), (pos, opcode)| {
-            let has_prefix = if let Some(prefix_start) = pos.checked_sub(32) {
-                code[prefix_start..pos]
-                    .iter()
-                    .enumerate()
-                    .fold(true, |acc, (prefix_pos, &byte)| {
+        |(mut proofs, last_proof), (addr, opcode)| {
+            let has_prefix = if let Some(prefix_start) = addr.checked_sub(32) {
+                code[prefix_start..addr].iter().enumerate().fold(
+                    true,
+                    |acc, (prefix_pos, &byte)| {
                         let cond1 = byte > PUSH32_OPCODE;
                         let cond2 = (prefix_start + prefix_pos) as i32
                             + (byte as i32 - PUSH1_OPCODE as i32)
                             + 1
-                            < pos as i32;
+                            < addr as i32;
                         acc && (cond1 || cond2)
-                    })
+                    },
+                )
             } else {
                 false
             };
-            let acc = if has_prefix { pos - 32 } else { acc };
-            if jumpdest_table.contains(&pos) {
+            let last_proof = if has_prefix { addr - 32 } else { last_proof };
+            if jumpdest_table.contains(&addr) {
                 // Push the proof
-                proofs.push(acc);
+                proofs.push(last_proof);
                 // Push the address
-                proofs.push(pos);
+                proofs.push(addr);
             }
-            (proofs, acc)
+            (proofs, last_proof)
         },
     );
     proofs
