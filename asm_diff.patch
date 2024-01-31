@@ -1,0 +1,225 @@
+diff --git a/evm/src/cpu/kernel/asm/mpt/delete/delete_branch.asm b/evm/src/cpu/kernel/asm/mpt/delete/delete_branch.asm
+index 69c97943..1befde53 100644
+--- a/evm/src/cpu/kernel/asm/mpt/delete/delete_branch.asm
++++ b/evm/src/cpu/kernel/asm/mpt/delete/delete_branch.asm
+@@ -22,13 +22,13 @@ global mpt_delete_branch:
+     %mload_trie_data
+     %jump(mpt_delete)
+ 
+-after_mpt_delete_branch:
++global after_mpt_delete_branch:
+     // stack: updated_child_ptr, first_nibble, node_payload_ptr, retdest
+     // If the updated child is empty, check if we need to normalize the branch node.
+     DUP1 %mload_trie_data ISZERO %jumpi(maybe_normalize_branch)
+ 
+ // Set `branch[first_nibble] = updated_child_ptr`.
+-update_branch:
++global update_branch_cheese:
+     // stack: updated_child_ptr, first_nibble, node_payload_ptr, retdest
+     DUP3 DUP3 ADD
+     // stack: node_payload_ptr+first_nibble, updated_child_ptr, first_nibble, node_payload_ptr, retdest
+@@ -41,7 +41,7 @@ update_branch:
+ 
+ // The updated child is empty. Count how many non-empty children the branch node has.
+ // If it's one, transform the branch node into an leaf/extension node and return it.
+-maybe_normalize_branch:
++global maybe_normalize_branch:
+     // stack: updated_child_ptr, first_nibble, node_payload_ptr, retdest
+     PUSH 0 %mstore_kernel_general(0) PUSH 0 %mstore_kernel_general(1)
+     // stack: updated_child_ptr, first_nibble, node_payload_ptr, retdest
+@@ -50,26 +50,26 @@ maybe_normalize_branch:
+ // KernelGeneral[0]. Also store the last non-empty child in KernelGeneral[1].
+ loop:
+     // stack: i, updated_child_ptr, first_nibble, node_payload_ptr, retdest
+-    DUP1 DUP4 EQ %jumpi(loop_eq_first_nibble)
++    DUP1 DUP4 EQ %jumpi(loop_eq_first_nibble_cheese)
+     // stack: i, updated_child_ptr, first_nibble, node_payload_ptr, retdest
+-    DUP1 %eq_const(16) %jumpi(loop_end)
+-    DUP1 DUP5 ADD %mload_trie_data %mload_trie_data ISZERO ISZERO %jumpi(loop_non_empty)
++    DUP1 %eq_const(16) %jumpi(loop_end_cheese)
++    DUP1 DUP5 ADD %mload_trie_data %mload_trie_data ISZERO ISZERO %jumpi(loop_non_empty_cheese)
+     // stack: i, updated_child_ptr, first_nibble, node_payload_ptr, retdest
+     %increment %jump(loop)
+-loop_eq_first_nibble:
++global loop_eq_first_nibble_cheese:
+     // stack: i, updated_child_ptr, first_nibble, node_payload_ptr, retdest
+     %increment %jump(loop)
+-loop_non_empty:
++global loop_non_empty_cheese:
+     // stack: i, updated_child_ptr, first_nibble, node_payload_ptr, retdest
+     %mload_kernel_general(0) %increment %mstore_kernel_general(0)
+     DUP1 %mstore_kernel_general(1)
+     %increment %jump(loop)
+-loop_end:
++global loop_end_cheese:
+     // stack: i, updated_child_ptr, first_nibble, node_payload_ptr, retdest
+     POP
+     // stack: updated_child_ptr, first_nibble, node_payload_ptr, retdest
+     // If there's more than one non-empty child, simply update the branch node.
+-    %mload_kernel_general(0) %gt_const(1) %jumpi(update_branch)
++    %mload_kernel_general(0) %gt_const(1) %jumpi(update_branch_cheese)
+     %mload_kernel_general(0) ISZERO %jumpi(panic) // This should never happen.
+     // Otherwise, transform the branch node into a leaf/extension node.
+     // stack: updated_child_ptr, first_nibble, node_payload_ptr, retdest
+@@ -77,14 +77,18 @@ loop_end:
+     // stack: i, updated_child_ptr, first_nibble, node_payload_ptr, retdest
+     DUP4 ADD %mload_trie_data
+     // stack: only_child_ptr, updated_child_ptr, first_nibble, node_payload_ptr, retdest
++global pre_normalize_branch_jump:
+     DUP1 %mload_trie_data %eq_const(@MPT_NODE_BRANCH)     %jumpi(maybe_normalize_branch_branch_cheese)
++global pre_normalize_ext_jump:
+     DUP1 %mload_trie_data %eq_const(@MPT_NODE_EXTENSION)  %jumpi(maybe_normalize_branch_leafext)
++global pre_normalize_leaf_jump:
+     DUP1 %mload_trie_data %eq_const(@MPT_NODE_LEAF)       %jumpi(maybe_normalize_branch_leafext)
++global pre_normalize_panic_jump:
+     PANIC // This should never happen.
+ 
+ // The only child of the branch node is a branch node.
+ // Transform the branch node into an extension node of length 1.
+-maybe_normalize_branch_branch_cheese:
++global maybe_normalize_branch_branch_cheese:
+     // stack: only_child_ptr, updated_child_ptr, first_nibble, node_payload_ptr, retdest
+     %get_trie_data_size // pointer to the extension node we're about to create
+     // stack: extension_ptr, only_child_ptr, updated_child_ptr, first_nibble, node_payload_ptr, retdest
+@@ -101,7 +105,7 @@ maybe_normalize_branch_branch_cheese:
+ // The only child of the branch node is a leaf/extension node.
+ // Transform the branch node into an leaf/extension node of length 1+len(child).
+ // For that, return the modified child as the new node.
+-maybe_normalize_branch_leafext:
++global maybe_normalize_branch_leafext:
+     // stack: only_child_ptr, updated_child_ptr, first_nibble, node_payload_ptr, retdest
+     DUP1 %increment %mload_trie_data
+     // stack: child_len, only_child_ptr, updated_child_ptr, first_nibble, node_payload_ptr, retdest
+diff --git a/evm/src/cpu/kernel/asm/mpt/storage/storage_write.asm b/evm/src/cpu/kernel/asm/mpt/storage/storage_write.asm
+index 08270dfa..e51ba908 100644
+--- a/evm/src/cpu/kernel/asm/mpt/storage/storage_write.asm
++++ b/evm/src/cpu/kernel/asm/mpt/storage/storage_write.asm
+@@ -5,7 +5,9 @@
+ 
+ global sys_sstore:
+     %check_static
++global pre_gas_fault:
+     DUP1 %leftover_gas %le_const(@GAS_CALLSTIPEND) %jumpi(fault_exception)
++global post_gas_fault:
+     %stack (kexit_info, slot, value) -> (slot, kexit_info, slot, value)
+     %sload_current
+     %address
+@@ -31,15 +33,15 @@ global sys_sstore:
+     DUP2 ISZERO ISZERO %mul_const(@GAS_SRESET) ADD
+     %jump(sstore_charge_gas)
+ 
+-sstore_warm:
++global sstore_warm:
+     // stack: gas, original_value, current_value, kexit_info, slot, value)
+     %add_const(@GAS_WARMACCESS)
+ 
+-sstore_charge_gas:
++global sstore_charge_gas:
+     %stack (gas, original_value, current_value, kexit_info, slot, value) -> (gas, kexit_info, current_value, value, original_value, slot)
+     %charge_gas
+ 
+-sstore_refund:
++global sstore_refund:
+     %stack (kexit_info, current_value, value, original_value, slot) -> (current_value, value, current_value, value, original_value, slot, kexit_info)
+     EQ %jumpi(sstore_no_refund)
+     %stack (current_value, value, original_value, slot, kexit_info) -> (current_value, original_value, current_value, value, original_value, slot, kexit_info)
+@@ -52,37 +54,37 @@ sstore_refund:
+     ISZERO %jumpi(sstore_dirty_clear2)
+     %jump(sstore_dirty_reset)
+ 
+-sstore_dirty_clear1:
++global sstore_dirty_clear1:
+     PUSH @REFUND_SCLEAR PUSH 0 SUB %refund_gas
+     %jump(sstore_dirty_reset)
+ 
+-sstore_dirty_clear2:
++global sstore_dirty_clear2:
+     PUSH @REFUND_SCLEAR %refund_gas
+ 
+-sstore_dirty_reset:
++global sstore_dirty_reset:
+     %stack (current_value, value, original_value, slot, kexit_info) -> (original_value, value, current_value, value, original_value, slot, kexit_info)
+     EQ %jumpi(sstore_dirty_reset2)
+     %jump(sstore_no_refund)
+-sstore_dirty_reset2:
++global sstore_dirty_reset2:
+     %stack (current_value, value, original_value, slot, kexit_info) -> (original_value, current_value, value, original_value, slot, kexit_info)
+     ISZERO %jumpi(sstore_dirty_reset_sset)
+     PUSH @GAS_WARMACCESS PUSH @GAS_SRESET SUB %refund_gas
+     %jump(sstore_no_refund)
+-sstore_dirty_reset_sset:
++global sstore_dirty_reset_sset:
+     PUSH @GAS_WARMACCESS PUSH @GAS_SSET SUB %refund_gas
+     %jump(sstore_no_refund)
+ 
+-sstore_refund_original:
++global sstore_refund_original:
+     %stack (current_value, value, original_value, slot, kexit_info) -> (value, current_value, value, original_value, slot, kexit_info)
+     ISZERO %jumpi(sstore_sclear)
+     %jump(sstore_no_refund)
+-sstore_sclear:
++global sstore_sclear:
+     PUSH @REFUND_SCLEAR %refund_gas
+     %jump(sstore_no_refund)
+ 
+-sstore_no_refund:
++global sstore_no_refund:
+     %stack (current_value, value, original_value, slot, kexit_info) -> (kexit_info, current_value, slot, value)
+-sstore_after_refund:
++global sstore_after_refund:
+     // stack: kexit_info, current_value, slot, value
+     // Check if `value` is equal to `current_value`, and if so exit the kernel early.
+     %stack (kexit_info, current_value, slot, value) -> (value, current_value, current_value, slot, value, kexit_info)
+@@ -113,7 +115,7 @@ sstore_after_refund:
+     // stack: storage_root_ptr, 64, storage_key, value_ptr, after_storage_insert, kexit_info
+     %jump(mpt_insert)
+ 
+-after_storage_insert:
++global after_storage_insert:
+     // stack: new_storage_root_ptr, kexit_info
+     %current_account_data
+     // stack: account_ptr, new_storage_root_ptr, kexit_info
+@@ -125,13 +127,13 @@ after_storage_insert:
+     // stack: kexit_info
+     EXIT_KERNEL
+ 
+-sstore_noop:
++global sstore_noop:
+     // stack: current_value, slot, value, kexit_info
+     %pop3
+     EXIT_KERNEL
+ 
+ // Delete the slot from the storage trie.
+-sstore_delete:
++global sstore_delete:
+     // stack: slot, value, kexit_info
+     SWAP1 POP
+     PUSH after_storage_insert SWAP1
+diff --git a/evm/src/cpu/kernel/asm/transactions/type_0.asm b/evm/src/cpu/kernel/asm/transactions/type_0.asm
+index edd01e51..c0ab4452 100644
+--- a/evm/src/cpu/kernel/asm/transactions/type_0.asm
++++ b/evm/src/cpu/kernel/asm/transactions/type_0.asm
+@@ -15,16 +15,23 @@ global process_type_0_txn:
+     // stack: retdest
+     PUSH 0 // initial pos
+     // stack: pos, retdest
++global push_zero:
+     %decode_rlp_list_len
+     // We don't actually need the length.
+     %stack (pos, len) -> (pos)
+ 
+     // stack: pos, retdest
++global nonce_zero:
+     %decode_and_store_nonce
++global gas_legacy_zero:
+     %decode_and_store_gas_price_legacy
++global limit_zero:
+     %decode_and_store_gas_limit
++global store_to_zero:
+     %decode_and_store_to
++global store_value_zero:
+     %decode_and_store_value
++global store_data_zero:
+     %decode_and_store_data
+     // stack: pos, retdest
+ 

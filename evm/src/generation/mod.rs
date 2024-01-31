@@ -207,13 +207,34 @@ pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
     config: &StarkConfig,
     timing: &mut TimingTree,
 ) -> anyhow::Result<([Vec<PolynomialValues<F>>; NUM_TABLES], PublicValues)> {
+    println!("IN GEN TRACES!!");
+
+
     let mut state = GenerationState::<F>::new(inputs.clone(), &KERNEL.code)
         .map_err(|err| anyhow!("Failed to parse all the initial prover inputs: {:?}", err))?;
 
+
+    println!("BEFORE APPLY META");
+
     apply_metadata_and_tries_memops(&mut state, &inputs);
+
+    println!("AFTER APPLY META");
+
+    let state_trie_ptr = u256_to_usize(
+        state
+            .memory
+            .read_global_metadata(GlobalMetadata::StateTrieRoot),
+    )
+    .map_err(|_| anyhow!("State trie pointer is too large to fit in a usize."))?;
+    log::debug!(
+        "Computed state trie: {:?}",
+        serde_json::to_string(&get_state_trie::<HashedPartialTrie>(&state.memory, state_trie_ptr).unwrap())
+    );
 
     let cpu_res = timed!(timing, "simulate CPU", simulate_cpu(&mut state));
     if cpu_res.is_err() {
+        println!("IN COND");
+
         // Retrieve previous PC (before jumping to KernelPanic), to see if we reached `hash_final_tries`.
         // We will output debugging information on the final tries only if we got a root mismatch.
         let previous_pc = state
@@ -224,7 +245,7 @@ pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
             .program_counter
             .to_canonical_u64() as usize;
 
-        if KERNEL.offset_name(previous_pc).contains("hash_final_tries") {
+        if KERNEL.offset_name(previous_pc).contains("hash_final") {
             let state_trie_ptr = u256_to_usize(
                 state
                     .memory
@@ -233,9 +254,9 @@ pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
             .map_err(|_| anyhow!("State trie pointer is too large to fit in a usize."))?;
             log::debug!(
                 "Computed state trie: {:?}",
-                get_state_trie::<HashedPartialTrie>(&state.memory, state_trie_ptr)
+                serde_json::to_string(&get_state_trie::<HashedPartialTrie>(&state.memory, state_trie_ptr).unwrap())
             );
-
+            
             let txn_trie_ptr = u256_to_usize(
                 state
                     .memory

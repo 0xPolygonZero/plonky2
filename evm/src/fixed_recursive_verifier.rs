@@ -510,7 +510,10 @@ where
         stark_config: &StarkConfig,
     ) -> RootCircuitData<F, C, D> {
         let inner_common_data: [_; NUM_TABLES] =
-            core::array::from_fn(|i| &by_table[i].final_circuits()[0].common);
+            core::array::from_fn(|i| {
+                println!("i: {}", i); 
+                &by_table[i].final_circuits()[0].common
+            });
 
         let mut builder = CircuitBuilder::new(CircuitConfig::standard_recursion_config());
 

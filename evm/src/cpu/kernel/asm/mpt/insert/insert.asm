@@ -20,7 +20,7 @@ global mpt_insert:
 global mpt_insert_hash_node:
     PANIC
 
-mpt_insert_empty:
+global mpt_insert_empty:
     // stack: node_type, node_payload_ptr, num_nibbles, key, value_ptr, retdest
     %pop2
     // stack: num_nibbles, key, value_ptr, retdest
@@ -38,7 +38,7 @@ mpt_insert_empty:
     SWAP1
     JUMP
 
-mpt_insert_branch:
+global mpt_insert_branch:
     // stack: node_type, node_payload_ptr, num_nibbles, key, value_ptr, retdest
     POP
 

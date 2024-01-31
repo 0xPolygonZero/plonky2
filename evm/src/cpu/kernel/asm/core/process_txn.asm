@@ -295,7 +295,7 @@ global process_message_txn_code_loaded:
     %build_address_no_offset // DST
     %jump(memcpy_bytes)
 
-process_message_txn_code_loaded_finish:
+global process_message_txn_code_loaded_finish:
     %enter_new_ctx
     // (Old context) stack: new_ctx, retdest
 
@@ -304,7 +304,7 @@ global process_message_txn_after_call:
     // We will return leftover_gas and success.
     %stack (success, leftover_gas, new_ctx, retdest) -> (success, leftover_gas, new_ctx, retdest, success, leftover_gas)
     ISZERO %jumpi(process_message_txn_fail)
-process_message_txn_after_call_contd:
+global process_message_txn_after_call_contd:
     // stack: leftover_gas, new_ctx, retdest, success, leftover_gas
     %pay_coinbase_and_refund_sender
     // stack: leftover_gas', new_ctx, retdest, success, leftover_gas
@@ -315,7 +315,7 @@ process_message_txn_after_call_contd:
     POP
     JUMP
 
-process_message_txn_fail:
+global process_message_txn_fail:
     // stack: leftover_gas, new_ctx, retdest, success, leftover_gas
     // Transfer value back to the caller.
     %mload_txn_field(@TXN_FIELD_VALUE) ISZERO %jumpi(process_message_txn_after_call_contd)
@@ -396,7 +396,7 @@ process_message_txn_fail:
     // stack: gas_limit - intrinsic_gas
 %endmacro
 
-create_contract_account_fault:
+global create_contract_account_fault:
     %revert_checkpoint
     // stack: address, retdest
     POP
@@ -412,7 +412,7 @@ create_contract_account_fault:
     SWAP1
     JUMP
 
-contract_creation_fault_3:
+global contract_creation_fault_3:
     %revert_checkpoint
     %stack (leftover_gas, new_ctx, address, retdest, success) -> (leftover_gas, retdest, success)
     %pay_coinbase_and_refund_sender
@@ -422,7 +422,7 @@ contract_creation_fault_3:
     %stack (leftover_gas, retdest, success) -> (retdest, 0, leftover_gas)
     JUMP
 
-contract_creation_fault_3_zero_leftover:
+global contract_creation_fault_3_zero_leftover:
     %revert_checkpoint
     // stack: leftover_gas, new_ctx, address, retdest, success
     %pop3
@@ -434,7 +434,7 @@ contract_creation_fault_3_zero_leftover:
     %stack (leftover_gas, retdest, success) -> (retdest, 0, leftover_gas)
     JUMP
 
-contract_creation_fault_4:
+global contract_creation_fault_4:
     %revert_checkpoint
     // stack: code_size/leftover_gas, leftover_gas/codedeposit_cost, new_ctx, address, retdest, success
     %pop4
