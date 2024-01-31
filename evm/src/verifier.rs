@@ -17,10 +17,10 @@ use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
 use crate::cross_table_lookup::{
     num_ctl_helper_columns_by_table, verify_cross_table_lookups, CtlCheckVars,
-    GrandProductChallenge, GrandProductChallengeSet,
+    GrandProductChallengeSet,
 };
 use crate::evaluation_frame::StarkEvaluationFrame;
-use crate::lookup::LookupCheckVars;
+use crate::lookup::{GrandProductChallenge, LookupCheckVars};
 use crate::memory::segments::Segment;
 use crate::memory::VALUE_LIMBS;
 use crate::proof::{

@@ -1,7 +1,7 @@
 use plonky2::field::types::Field;
 
-use crate::cross_table_lookup::Column;
 use crate::keccak::keccak_stark::{NUM_INPUTS, NUM_ROUNDS};
+use crate::lookup::Column;
 
 /// A register which is set to 1 if we are in the `i`th round, otherwise 0.
 pub(crate) const fn reg_step(i: usize) -> usize {

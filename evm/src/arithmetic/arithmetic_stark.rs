@@ -17,9 +17,9 @@ use crate::all_stark::Table;
 use crate::arithmetic::columns::{NUM_SHARED_COLS, RANGE_COUNTER, RC_FREQUENCIES, SHARED_COLS};
 use crate::arithmetic::{addcy, byte, columns, divmod, modular, mul, Operation};
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
-use crate::cross_table_lookup::{Column, Filter, TableWithColumns};
+use crate::cross_table_lookup::TableWithColumns;
 use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
-use crate::lookup::Lookup;
+use crate::lookup::{Column, Filter, Lookup};
 use crate::stark::Stark;
 
 /// Creates a vector of `Columns` to link the 16-bit columns of the arithmetic table,

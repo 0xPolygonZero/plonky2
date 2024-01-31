@@ -31,11 +31,9 @@ use crate::config::StarkConfig;
 use crate::constraint_consumer::RecursiveConstraintConsumer;
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
-use crate::cross_table_lookup::{
-    CrossTableLookup, CtlCheckVarsTarget, GrandProductChallenge, GrandProductChallengeSet,
-};
+use crate::cross_table_lookup::{CrossTableLookup, CtlCheckVarsTarget, GrandProductChallengeSet};
 use crate::evaluation_frame::StarkEvaluationFrame;
-use crate::lookup::LookupCheckVarsTarget;
+use crate::lookup::{GrandProductChallenge, LookupCheckVarsTarget};
 use crate::memory::segments::Segment;
 use crate::memory::VALUE_LIMBS;
 use crate::proof::{

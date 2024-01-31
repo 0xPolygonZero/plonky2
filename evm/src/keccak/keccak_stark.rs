@@ -13,7 +13,6 @@ use plonky2::util::timing::TimingTree;
 
 use super::columns::reg_input_limb;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
-use crate::cross_table_lookup::{Column, Filter};
 use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
 use crate::keccak::columns::{
     reg_a, reg_a_prime, reg_a_prime_prime, reg_a_prime_prime_0_0_bit, reg_a_prime_prime_prime,
@@ -24,6 +23,7 @@ use crate::keccak::logic::{
     andn, andn_gen, andn_gen_circuit, xor, xor3_gen, xor3_gen_circuit, xor_gen, xor_gen_circuit,
 };
 use crate::keccak::round_flags::{eval_round_flags, eval_round_flags_recursively};
+use crate::lookup::{Column, Filter};
 use crate::stark::Stark;
 use crate::util::trace_rows_to_poly_values;
 
@@ -630,9 +630,8 @@ mod tests {
 
     use super::*;
     use crate::config::StarkConfig;
-    use crate::cross_table_lookup::{
-        CtlData, CtlZData, GrandProductChallenge, GrandProductChallengeSet,
-    };
+    use crate::cross_table_lookup::{CtlData, CtlZData, GrandProductChallengeSet};
+    use crate::lookup::GrandProductChallenge;
     use crate::prover::prove_single_table;
     use crate::stark_testing::{test_stark_circuit_constraints, test_stark_low_degree};
 

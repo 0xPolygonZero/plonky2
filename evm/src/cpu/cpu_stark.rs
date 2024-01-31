@@ -20,8 +20,9 @@ use crate::cpu::{
     byte_unpacking, clock, contextops, control_flow, decode, dup_swap, gas, jumps, membus, memio,
     modfp254, pc, push0, shift, simple_logic, stack, syscalls_exceptions,
 };
-use crate::cross_table_lookup::{Column, Filter, TableWithColumns};
+use crate::cross_table_lookup::TableWithColumns;
 use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
+use crate::lookup::{Column, Filter, Lookup};
 use crate::memory::segments::Segment;
 use crate::memory::{NUM_CHANNELS, VALUE_LIMBS};
 use crate::stark::Stark;
