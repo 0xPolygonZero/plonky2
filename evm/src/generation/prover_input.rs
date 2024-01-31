@@ -1,6 +1,6 @@
-use std::cmp::min;
+use core::cmp::min;
+use core::mem::transmute;
 use std::collections::{BTreeSet, HashMap};
-use std::mem::transmute;
 use std::str::FromStr;
 
 use anyhow::{bail, Error};

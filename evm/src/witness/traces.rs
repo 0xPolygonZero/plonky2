@@ -1,4 +1,4 @@
-use std::mem::size_of;
+use core::mem::size_of;
 
 use itertools::Itertools;
 use plonky2::field::extension::Extendable;

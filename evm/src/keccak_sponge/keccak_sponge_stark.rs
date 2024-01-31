@@ -1,7 +1,7 @@
-use std::borrow::Borrow;
-use std::iter::{self, once, repeat};
-use std::marker::PhantomData;
-use std::mem::size_of;
+use core::borrow::Borrow;
+use core::iter::{self, once, repeat};
+use core::marker::PhantomData;
+use core::mem::size_of;
 
 use itertools::Itertools;
 use plonky2::field::extension::{Extendable, FieldExtension};

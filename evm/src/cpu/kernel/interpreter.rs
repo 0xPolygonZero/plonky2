@@ -1,8 +1,8 @@
 //! An EVM interpreter for testing and debugging purposes.
 
 use core::cmp::Ordering;
+use core::ops::Range;
 use std::collections::{BTreeSet, HashMap, HashSet};
-use std::ops::Range;
 
 use anyhow::bail;
 use eth_trie_utils::partial_trie::PartialTrie;

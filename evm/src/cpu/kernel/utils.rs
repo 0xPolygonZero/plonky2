@@ -1,4 +1,4 @@
-use std::fmt::Debug;
+use core::fmt::Debug;
 
 use ethereum_types::U256;
 use plonky2_util::ceil_div_usize;

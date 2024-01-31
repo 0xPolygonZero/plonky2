@@ -25,7 +25,7 @@
 //! This means that the higher-order bytes will be thrown away during the process, if the value
 //! is greater than 256^length, and as a result a different value will be stored in memory.
 
-use std::marker::PhantomData;
+use core::marker::PhantomData;
 
 use itertools::Itertools;
 use plonky2::field::extension::{Extendable, FieldExtension};
