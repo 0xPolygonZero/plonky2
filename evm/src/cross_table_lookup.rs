@@ -719,7 +719,7 @@ pub(crate) fn num_ctl_helper_columns_by_table<F: Field, const N: usize>(
             let sum = group.count();
             if sum > 2 {
                 // We only need helper columns if there are more than 2 columns.
-                num_by_table[table as usize] = ceil_div_usize(sum, constraint_degree - 1);
+                num_by_table[table] = ceil_div_usize(sum, constraint_degree - 1);
             }
         }
 
@@ -756,7 +756,7 @@ pub(crate) fn cross_table_lookup_data<'a, F: RichField, const D: usize, const N:
             );
 
             let mut z_looked = partial_sums(
-                &trace_poly_values[looked_table.table as usize],
+                &trace_poly_values[looked_table.table],
                 &[(&looked_table.columns, &looked_table.filter)],
                 challenge,
                 constraint_degree,
@@ -766,10 +766,10 @@ pub(crate) fn cross_table_lookup_data<'a, F: RichField, const D: usize, const N:
                 let num_helpers = helpers_zs.len() - 1;
                 let count = looking_tables
                     .iter()
-                    .filter(|looking_table| looking_table.table as usize == table)
+                    .filter(|looking_table| looking_table.table == table)
                     .count();
                 let cols_filts = looking_tables.iter().filter_map(|looking_table| {
-                    if looking_table.table as usize == table {
+                    if looking_table.table == table {
                         Some((&looking_table.columns, &looking_table.filter))
                     } else {
                         None
@@ -791,7 +791,7 @@ pub(crate) fn cross_table_lookup_data<'a, F: RichField, const D: usize, const N:
             }
             // There is no helper column for the looking table.
             let looked_poly = z_looked[0].clone();
-            ctl_data_per_table[looked_table.table as usize]
+            ctl_data_per_table[looked_table.table]
                 .zs_columns
                 .push(CtlZData {
                     helper_columns: vec![],
@@ -913,14 +913,14 @@ fn ctl_helper_zs_cols<F: Field, const N: usize>(
     grouped_lookups
         .into_iter()
         .map(|(table, group)| {
-            let degree = all_stark_traces[table as usize][0].len();
+            let degree = all_stark_traces[table][0].len();
             let columns_filters = group
                 .map(|table| (&table.columns[..], &table.filter))
                 .collect::<Vec<(&[Column<F>], &Option<Filter<F>>)>>();
             (
-                table as usize,
+                table,
                 partial_sums(
-                    &all_stark_traces[table as usize],
+                    &all_stark_traces[table],
                     &columns_filters,
                     challenge,
                     constraint_degree,
@@ -1047,8 +1047,8 @@ impl<'a, F: RichField + Extendable<D>, const D: usize>
                 // We want to only iterate on each `Table` once.
                 let mut filtered_looking_tables = Vec::with_capacity(min(looking_tables.len(), N));
                 for table in looking_tables {
-                    if !filtered_looking_tables.contains(&(table.table as usize)) {
-                        filtered_looking_tables.push(table.table as usize);
+                    if !filtered_looking_tables.contains(&(table.table)) {
+                        filtered_looking_tables.push(table.table);
                     }
                 }
 
@@ -1059,10 +1059,10 @@ impl<'a, F: RichField + Extendable<D>, const D: usize>
 
                     let count = looking_tables
                         .iter()
-                        .filter(|looking_table| looking_table.table as usize == table)
+                        .filter(|looking_table| looking_table.table == table)
                         .count();
                     let cols_filts = looking_tables.iter().filter_map(|looking_table| {
-                        if looking_table.table as usize == table {
+                        if looking_table.table == table {
                             Some((&looking_table.columns, &looking_table.filter))
                         } else {
                             None
@@ -1093,15 +1093,15 @@ impl<'a, F: RichField + Extendable<D>, const D: usize>
                     });
                 }
 
-                let (looked_z, looked_z_next) = ctl_zs[looked_table.table as usize]
-                    [total_num_helper_cols_by_table[looked_table.table as usize]
-                        + z_indices[looked_table.table as usize]];
+                let (looked_z, looked_z_next) = ctl_zs[looked_table.table]
+                    [total_num_helper_cols_by_table[looked_table.table]
+                        + z_indices[looked_table.table]];
 
-                z_indices[looked_table.table as usize] += 1;
+                z_indices[looked_table.table] += 1;
 
                 let columns = vec![&looked_table.columns[..]];
                 let filter = vec![looked_table.filter.clone()];
-                ctl_vars_per_table[looked_table.table as usize].push(Self {
+                ctl_vars_per_table[looked_table.table].push(Self {
                     helper_columns: vec![],
                     local_z: *looked_z,
                     next_z: *looked_z_next,
@@ -1566,12 +1566,12 @@ pub(crate) fn verify_cross_table_lookups<
     ) in cross_table_lookups.iter().enumerate()
     {
         // Get elements looking into `looked_table` that are not associated to any STARK.
-        let extra_sum_vec = &ctl_extra_looking_sums[looked_table.table as usize];
+        let extra_sum_vec = &ctl_extra_looking_sums[looked_table.table];
         // We want to iterate on each looking table only once.
         let mut filtered_looking_tables = vec![];
         for table in looking_tables {
-            if !filtered_looking_tables.contains(&(table.table as usize)) {
-                filtered_looking_tables.push(table.table as usize);
+            if !filtered_looking_tables.contains(&(table.table)) {
+                filtered_looking_tables.push(table.table);
             }
         }
         for c in 0..config.num_challenges {
@@ -1584,7 +1584,7 @@ pub(crate) fn verify_cross_table_lookups<
                 + extra_sum_vec[c];
 
             // Get the looked table CTL polynomial opening.
-            let looked_z = *ctl_zs_openings[looked_table.table as usize].next().unwrap();
+            let looked_z = *ctl_zs_openings[looked_table.table].next().unwrap();
             // Ensure that the combination of looking table openings is equal to the looked table opening.
             ensure!(
                 looking_zs_sum == looked_z,
@@ -1617,12 +1617,12 @@ pub(crate) fn verify_cross_table_lookups_circuit<
     } in cross_table_lookups.into_iter()
     {
         // Get elements looking into `looked_table` that are not associated to any STARK.
-        let extra_sum_vec = &ctl_extra_looking_sums[looked_table.table as usize];
+        let extra_sum_vec = &ctl_extra_looking_sums[looked_table.table];
         // We want to iterate on each looking table only once.
         let mut filtered_looking_tables = vec![];
         for table in looking_tables {
-            if !filtered_looking_tables.contains(&(table.table as usize)) {
-                filtered_looking_tables.push(table.table as usize);
+            if !filtered_looking_tables.contains(&(table.table)) {
+                filtered_looking_tables.push(table.table);
             }
         }
         for c in 0..inner_config.num_challenges {
@@ -1636,7 +1636,7 @@ pub(crate) fn verify_cross_table_lookups_circuit<
             looking_zs_sum = builder.add(looking_zs_sum, extra_sum_vec[c]);
 
             // Get the looked table CTL polynomial opening.
-            let looked_z = *ctl_zs_openings[looked_table.table as usize].next().unwrap();
+            let looked_z = *ctl_zs_openings[looked_table.table].next().unwrap();
             // Verify that the combination of looking table openings is equal to the looked table opening.
             builder.connect(looked_z, looking_zs_sum);
         }
@@ -1718,7 +1718,7 @@ pub(crate) mod testutils {
         table: &TableWithColumns<F>,
         multiset: &mut MultiSet<F>,
     ) {
-        let trace = &trace_poly_values[table.table as usize];
+        let trace = &trace_poly_values[table.table];
         for i in 0..trace[0].len() {
             let filter = if let Some(combin) = &table.filter {
                 combin.eval_table(trace, i)
