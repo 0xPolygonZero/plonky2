@@ -138,7 +138,7 @@ where
         .map(|i| get_memory_extra_looking_sum(&public_values, ctl_challenges.challenges[i]))
         .collect_vec();
 
-    verify_cross_table_lookups::<F, D>(
+    verify_cross_table_lookups::<F, D, NUM_TABLES>(
         cross_table_lookups,
         all_proof
             .stark_proofs

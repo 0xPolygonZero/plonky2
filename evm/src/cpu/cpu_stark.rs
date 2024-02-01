@@ -108,7 +108,7 @@ pub(crate) fn ctl_arithmetic_base_rows<F: Field>() -> TableWithColumns<F> {
         F::ONE,
     );
     TableWithColumns::new(
-        Table::Cpu,
+        *Table::Cpu,
         columns,
         Some(Filter::new(
             vec![(Column::single(COL_MAP.op.push_prover_input), col_bit)],
