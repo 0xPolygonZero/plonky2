@@ -574,7 +574,7 @@ where
             vec![vec![builder.zero(); stark_config.num_challenges]; NUM_TABLES];
 
         // Memory
-        extra_looking_sums[*Table::Memory as usize] = (0..stark_config.num_challenges)
+        extra_looking_sums[*Table::Memory] = (0..stark_config.num_challenges)
             .map(|c| {
                 get_memory_extra_looking_sum_circuit(
                     &mut builder,
