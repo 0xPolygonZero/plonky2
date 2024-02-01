@@ -47,7 +47,7 @@ fn test_jumpdest_analysis() -> Result<()> {
         ),
     )]));
 
-    // The set_jumpdest_analysis_inputs method is never used
+    // The `set_jumpdest_analysis_inputs` method is never used.
     assert_eq!(
         interpreter.generation_state.jumpdest_table,
         // Context 3 has jumpdest 1, 5, 7. All have proof 0 and hence
