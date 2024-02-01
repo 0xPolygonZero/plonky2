@@ -17,10 +17,9 @@ use plonky2_util::ceil_div_usize;
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::kernel::keccak_util::keccakf_u32s;
-use crate::cross_table_lookup::{Column, Filter};
 use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
 use crate::keccak_sponge::columns::*;
-use crate::lookup::Lookup;
+use crate::lookup::{Column, Filter, Lookup};
 use crate::stark::Stark;
 use crate::witness::memory::MemoryAddress;
 
