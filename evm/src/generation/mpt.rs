@@ -1,5 +1,5 @@
+use core::ops::Deref;
 use std::collections::HashMap;
-use std::ops::Deref;
 
 use bytes::Bytes;
 use eth_trie_utils::nibbles::Nibbles;

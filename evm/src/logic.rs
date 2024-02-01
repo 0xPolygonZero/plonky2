@@ -1,4 +1,4 @@
-use std::marker::PhantomData;
+use core::marker::PhantomData;
 
 use ethereum_types::U256;
 use itertools::izip;
@@ -28,8 +28,8 @@ const PACKED_LEN: usize = ceil_div_usize(VAL_BITS, PACKED_LIMB_BITS);
 
 /// `LogicStark` columns.
 pub(crate) mod columns {
-    use std::cmp::min;
-    use std::ops::Range;
+    use core::cmp::min;
+    use core::ops::Range;
 
     use super::{PACKED_LEN, PACKED_LIMB_BITS, VAL_BITS};
 

@@ -1,4 +1,4 @@
-use std::ops::{Add, AddAssign, Mul, Neg, Range, Shr, Sub, SubAssign};
+use core::ops::{Add, AddAssign, Mul, Neg, Range, Shr, Sub, SubAssign};
 
 use ethereum_types::U256;
 use plonky2::field::extension::Extendable;

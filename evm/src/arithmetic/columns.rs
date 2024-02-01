@@ -1,6 +1,6 @@
 //! Arithmetic unit
 
-use std::ops::Range;
+use core::ops::Range;
 
 pub(crate) const LIMB_BITS: usize = 16;
 const EVM_REGISTER_BITS: usize = 256;

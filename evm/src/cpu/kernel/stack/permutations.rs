@@ -19,8 +19,8 @@
 //!
 //! We typically represent a `(0 i)` transposition as a single scalar `i`.
 
+use core::hash::Hash;
 use std::collections::{HashMap, HashSet};
-use std::hash::Hash;
 
 use crate::cpu::kernel::stack::stack_manipulation::{StackItem, StackOp};
 

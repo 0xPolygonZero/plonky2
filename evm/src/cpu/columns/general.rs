@@ -1,6 +1,6 @@
-use std::borrow::{Borrow, BorrowMut};
-use std::fmt::{Debug, Formatter};
-use std::mem::{size_of, transmute};
+use core::borrow::{Borrow, BorrowMut};
+use core::fmt::{Debug, Formatter};
+use core::mem::{size_of, transmute};
 
 /// General purpose columns, which can have different meanings depending on what CTL or other
 /// operation is occurring at this row.

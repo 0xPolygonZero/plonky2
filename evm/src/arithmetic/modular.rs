@@ -108,7 +108,7 @@
 //!   only require 96 columns, or 80 if the output doesn't need to be
 //!   reduced.
 
-use std::ops::Range;
+use core::ops::Range;
 
 use ethereum_types::U256;
 use num::bigint::Sign;

@@ -1,7 +1,7 @@
-use std::cmp::Ordering;
+use core::cmp::Ordering;
+use core::hash::Hash;
 use std::collections::hash_map::Entry::{Occupied, Vacant};
 use std::collections::{BinaryHeap, HashMap};
-use std::hash::Hash;
 
 use itertools::Itertools;
 
