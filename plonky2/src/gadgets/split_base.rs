@@ -1,7 +1,6 @@
 use alloc::string::String;
-use alloc::format;
-use alloc::vec;
 use alloc::vec::Vec;
+use alloc::{format, vec};
 use core::borrow::Borrow;
 
 use itertools::Itertools;
