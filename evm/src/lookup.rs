@@ -310,7 +310,7 @@ impl<F: Field> Column<F> {
             + self.constant;
 
         // If we access the next row at the last row, for sanity, we consider the next row's values to be 0.
-        // If CTLs are correctly written, the filter should be 0 in that case anyway.
+        // If the lookups are correctly written, the filter should be 0 in that case anyway.
         if !self.next_row_linear_combination.is_empty() && row < table[0].values.len() - 1 {
             res += self
                 .next_row_linear_combination
