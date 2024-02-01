@@ -2,7 +2,7 @@
 //!
 //! The logic for verifying them is detailed in the `modular` submodule.
 
-use std::ops::Range;
+use core::ops::Range;
 
 use ethereum_types::U256;
 use plonky2::field::extension::Extendable;

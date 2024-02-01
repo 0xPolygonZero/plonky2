@@ -1,7 +1,7 @@
-use std::borrow::Borrow;
-use std::iter::{self, once, repeat};
-use std::marker::PhantomData;
-use std::mem::size_of;
+use core::borrow::Borrow;
+use core::iter::{self, once, repeat};
+use core::marker::PhantomData;
+use core::mem::size_of;
 
 use itertools::Itertools;
 use plonky2::field::extension::{Extendable, FieldExtension};
@@ -812,20 +812,15 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakSpongeS
 
 #[cfg(test)]
 mod tests {
-    use std::borrow::Borrow;
-
     use anyhow::Result;
-    use itertools::Itertools;
     use keccak_hash::keccak;
     use plonky2::field::goldilocks_field::GoldilocksField;
     use plonky2::field::types::PrimeField64;
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
 
-    use crate::keccak_sponge::columns::KeccakSpongeColumnsView;
-    use crate::keccak_sponge::keccak_sponge_stark::{KeccakSpongeOp, KeccakSpongeStark};
+    use super::*;
     use crate::memory::segments::Segment;
     use crate::stark_testing::{test_stark_circuit_constraints, test_stark_low_degree};
-    use crate::witness::memory::MemoryAddress;
 
     #[test]
     fn test_stark_degree() -> Result<()> {

@@ -1,6 +1,6 @@
-use std::borrow::Borrow;
-use std::iter::repeat;
-use std::marker::PhantomData;
+use core::borrow::Borrow;
+use core::iter::repeat;
+use core::marker::PhantomData;
 
 use itertools::Itertools;
 use plonky2::field::extension::{Extendable, FieldExtension};

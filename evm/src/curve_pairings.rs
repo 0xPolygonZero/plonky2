@@ -1,4 +1,4 @@
-use std::ops::{Add, Mul, Neg};
+use core::ops::{Add, Mul, Neg};
 
 use ethereum_types::U256;
 use rand::distributions::Standard;

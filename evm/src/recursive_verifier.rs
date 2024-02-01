@@ -1,5 +1,5 @@
-use std::array::from_fn;
-use std::fmt::Debug;
+use core::array::from_fn;
+use core::fmt::Debug;
 
 use anyhow::Result;
 use ethereum_types::{BigEndianHash, H256, U256};

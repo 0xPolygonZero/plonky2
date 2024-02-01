@@ -1,4 +1,4 @@
-use std::cmp::max;
+use core::cmp::max;
 
 use itertools::izip;
 use plonky2::field::extension::Extendable;

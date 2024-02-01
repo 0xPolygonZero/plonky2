@@ -27,10 +27,10 @@
 //! is similar, but we provide not only `local_values` but also `next_values` -- corresponding to
 //! the current and next row values -- when computing the linear combinations.
 
-use std::borrow::Borrow;
-use std::cmp::min;
-use std::fmt::Debug;
-use std::iter::repeat;
+use core::borrow::Borrow;
+use core::cmp::min;
+use core::fmt::Debug;
+use core::iter::repeat;
 
 use anyhow::{ensure, Result};
 use hashbrown::HashMap;

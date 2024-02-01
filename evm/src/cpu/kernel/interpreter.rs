@@ -1,8 +1,8 @@
 //! An EVM interpreter for testing and debugging purposes.
 
 use core::cmp::Ordering;
+use core::ops::Range;
 use std::collections::{BTreeSet, HashMap, HashSet};
-use std::ops::Range;
 
 use anyhow::bail;
 use eth_trie_utils::partial_trie::PartialTrie;
@@ -1664,15 +1664,8 @@ pub(crate) use unpack_address;
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
-
-    use ethereum_types::U256;
-
-    use crate::cpu::kernel::constants::context_metadata::ContextMetadata;
-    use crate::cpu::kernel::interpreter::{run, Interpreter};
+    use super::*;
     use crate::memory::segments::Segment;
-    use crate::witness::memory::MemoryAddress;
-    use crate::witness::operation::CONTEXT_SCALING_FACTOR;
 
     #[test]
     fn test_run() -> anyhow::Result<()> {

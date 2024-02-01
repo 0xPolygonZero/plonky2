@@ -430,12 +430,8 @@ fn push_target_size(target: &PushTarget) -> u8 {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
-
-    use itertools::Itertools;
-
+    use super::*;
     use crate::cpu::kernel::assembler::*;
-    use crate::cpu::kernel::ast::*;
     use crate::cpu::kernel::parser::parse;
 
     #[test]

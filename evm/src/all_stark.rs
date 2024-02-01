@@ -1,5 +1,5 @@
-use std::iter;
-use std::ops::Deref;
+use core::iter;
+use core::ops::Deref;
 
 use itertools::Itertools;
 use plonky2::field::extension::Extendable;
