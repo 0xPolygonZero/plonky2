@@ -1,5 +1,4 @@
 use ethereum_types::U256;
-// use num::traits::AsPrimitive;
 
 pub(crate) const SEGMENT_SCALING_FACTOR: usize = 32;
 

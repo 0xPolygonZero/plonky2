@@ -465,15 +465,15 @@ impl<'a, F: Field> Interpreter<'a, F> {
             }?;
         }
         #[cfg(test)]
-        println!("Opcode count:");
-        #[cfg(test)]
-        for i in 0..0x100 {
-            if self.opcode_count[i] > 0 {
-                println!("{}: {}", get_mnemonic(i as u8), self.opcode_count[i])
+        {
+            println!("Opcode count:");
+            for i in 0..0x100 {
+                if self.opcode_count[i] > 0 {
+                    println!("{}: {}", get_mnemonic(i as u8), self.opcode_count[i])
+                }
             }
+            println!("Total: {}", self.opcode_count.into_iter().sum::<usize>());
         }
-        #[cfg(test)]
-        println!("Total: {}", self.opcode_count.into_iter().sum::<usize>());
         Ok(())
     }
 
@@ -636,7 +636,7 @@ impl<'a, F: Field> Interpreter<'a, F> {
             .collect()
     }
 
-    // Returns a map between contexts and jumpdests
+    /// Returns a map between contexts and jumpdests.
     pub(crate) fn get_jumpdest_table(&self, context: usize) -> HashMap<usize, BTreeSet<usize>> {
         HashMap::from_iter(
             self.generation_state
@@ -749,7 +749,7 @@ impl<'a, F: Field> Interpreter<'a, F> {
 
     fn run_opcode(&mut self) -> Result<(), ProgramError> {
         // Jumpdest analysis is performed natively by the interpreter and not
-        // using the non-deterministic assemly code
+        // using the non-deterministic Kernel assembly code.
         if self.is_kernel()
             && self.generation_state.registers.program_counter
                 == KERNEL.global_labels["jumpdest_analysis"]
