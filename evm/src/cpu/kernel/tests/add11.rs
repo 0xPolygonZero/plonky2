@@ -7,7 +7,7 @@ use eth_trie_utils::partial_trie::{HashedPartialTrie, Node, PartialTrie};
 use ethereum_types::{Address, BigEndianHash, H256, U256};
 use hex_literal::hex;
 use keccak_hash::keccak;
-use plonky2::field::goldilocks_field::GoldilocksField;
+use plonky2::field::goldilocks_field::GoldilocksField as F;
 
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::constants::context_metadata::ContextMetadata;
@@ -162,7 +162,7 @@ fn test_add11_yml() {
     };
 
     let initial_stack = vec![];
-    let mut interpreter: Interpreter<GoldilocksField> =
+    let mut interpreter: Interpreter<F> =
         Interpreter::new_with_generation_inputs_and_kernel(0, initial_stack, tries_inputs);
 
     let route_txn_label = KERNEL.global_labels["main"];
@@ -304,7 +304,7 @@ fn test_add11_yml_with_exception() {
     };
 
     let initial_stack = vec![];
-    let mut interpreter: Interpreter<GoldilocksField> =
+    let mut interpreter: Interpreter<F> =
         Interpreter::new_with_generation_inputs_and_kernel(0, initial_stack, tries_inputs);
 
     let route_txn_label = KERNEL.global_labels["main"];

@@ -1,5 +1,5 @@
 use ethereum_types::U256;
-use plonky2::field::goldilocks_field::GoldilocksField;
+use plonky2::field::goldilocks_field::GoldilocksField as F;
 
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::interpreter::Interpreter;
@@ -118,8 +118,7 @@ fn run_test(fn_label: &str, expected_fn: fn(U256, U256) -> U256, opname: &str) {
     for &x in &inputs {
         for &y in &inputs {
             let stack = vec![retdest, y, x];
-            let mut interpreter: Interpreter<GoldilocksField> =
-                Interpreter::new_with_kernel(fn_label, stack);
+            let mut interpreter: Interpreter<F> = Interpreter::new_with_kernel(fn_label, stack);
             interpreter.run().unwrap();
             assert_eq!(interpreter.stack_len(), 1usize, "unexpected stack size");
             let output = interpreter

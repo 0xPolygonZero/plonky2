@@ -2,7 +2,7 @@
 mod bn {
     use anyhow::Result;
     use ethereum_types::U256;
-    use plonky2::field::goldilocks_field::GoldilocksField;
+    use plonky2::field::goldilocks_field::GoldilocksField as F;
 
     use crate::cpu::kernel::aggregator::KERNEL;
     use crate::cpu::kernel::interpreter::{run_interpreter, Interpreter};
@@ -44,18 +44,16 @@ mod bn {
 
         // Standard addition #1
         let initial_stack = u256ify(["0xdeadbeef", point0.1, point0.0, point1.1, point1.0])?;
-        let stack = run_interpreter::<GoldilocksField>(ec_add, initial_stack)?
+        let stack = run_interpreter::<F>(ec_add, initial_stack)?
             .stack()
             .to_vec();
         assert_eq!(stack, u256ify([point2.1, point2.0])?);
         // Standard addition #2
         let initial_stack = u256ify(["0xdeadbeef", point1.1, point1.0, point0.1, point0.0])?;
-        let stack = run_interpreter::<GoldilocksField>(ec_add, initial_stack)?
+        let stack = run_interpreter::<F>(ec_add, initial_stack)?
             .stack()
             .to_vec();
         assert_eq!(stack, u256ify([point2.1, point2.0])?);
-
-        type F = GoldilocksField;
 
         // Standard doubling #1
         let initial_stack = u256ify(["0xdeadbeef", point0.1, point0.0, point0.1, point0.0])?;
@@ -186,7 +184,7 @@ mod bn {
 
             let mut initial_stack = u256ify(["0xdeadbeef"])?;
             initial_stack.push(k);
-            let mut int: Interpreter<GoldilocksField> =
+            let mut int: Interpreter<F> =
                 Interpreter::new(&KERNEL.code, glv, initial_stack, &KERNEL.prover_inputs);
             int.run()?;
 
@@ -205,7 +203,7 @@ mod bn {
             "0x10d7cf0621b6e42c1dbb421f5ef5e1936ca6a87b38198d1935be31e28821d171",
             "0x11b7d55f16aaac07de9a0ed8ac2e8023570dbaa78571fc95e553c4b3ba627689",
         ])?;
-        let mut int: Interpreter<GoldilocksField> = Interpreter::new(
+        let mut int: Interpreter<F> = Interpreter::new(
             &KERNEL.code,
             precompute,
             initial_stack,
@@ -267,7 +265,7 @@ mod bn {
 mod secp {
     use anyhow::Result;
     use ethereum_types::U256;
-    use plonky2::field::goldilocks_field::GoldilocksField;
+    use plonky2::field::goldilocks_field::GoldilocksField as F;
 
     use crate::cpu::kernel::aggregator::{combined_kernel, KERNEL};
     use crate::cpu::kernel::interpreter::{run, run_interpreter, Interpreter};
@@ -298,8 +296,6 @@ mod secp {
             "0x7872498939b02197c2b6f0a0f5767f36551e43f910de472fbbff0538b21f5f45",
             "0x294e15025d935438023a0e4056892abd6405fade13cf2b3131d8755be7cebad",
         );
-
-        type F = GoldilocksField;
 
         // Standard addition #1
         let initial_stack = u256ify(["0xdeadbeef", point0.1, point0.0, point1.1, point1.0])?;
@@ -365,7 +361,7 @@ mod secp {
 
             let mut initial_stack = u256ify(["0xdeadbeef"])?;
             initial_stack.push(k);
-            let mut int: Interpreter<GoldilocksField> =
+            let mut int: Interpreter<F> =
                 Interpreter::new(&KERNEL.code, glv, initial_stack, &KERNEL.prover_inputs);
             int.run()?;
 

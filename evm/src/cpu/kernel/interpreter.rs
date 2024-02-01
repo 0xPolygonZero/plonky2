@@ -133,7 +133,9 @@ pub(crate) fn run<'a, F: Field>(
     Ok(interpreter)
 }
 
-pub(crate) fn simulate_cpu_until_label_and_get_user_jumps<F: Field>(
+/// Simulates the CPU execution from `state` until the program counter reaches `final_label`  
+/// in the current context.
+pub(crate) fn simulate_cpu_and_get_user_jumps<F: Field>(
     final_label: &str,
     state: &GenerationState<F>,
 ) -> Option<HashMap<usize, BTreeSet<usize>>> {
@@ -146,9 +148,15 @@ pub(crate) fn simulate_cpu_until_label_and_get_user_jumps<F: Field>(
             Interpreter::new_with_state_and_halt_condition(state, halt_pc, initial_context);
 
         log::debug!("Simulating CPU for jumpdest analysis.");
+        let initial_clock = interpreter.generation_state.traces.clock();
 
         interpreter.run();
-        log::debug!("Simulated CPU for jumpdest analysis halted");
+
+        let final_clock = interpreter.generation_state.traces.clock();
+        log::debug!(
+            "Simulated CPU for jumpdest analysis halted after {} cycles",
+            final_clock - initial_clock
+        );
         let jumpdest_table = interpreter.get_jumpdest_table(initial_context);
         Some(jumpdest_table)
     }
@@ -1765,7 +1773,7 @@ mod tests {
     use std::collections::HashMap;
 
     use ethereum_types::U256;
-    use plonky2::field::goldilocks_field::GoldilocksField;
+    use plonky2::field::goldilocks_field::GoldilocksField as F;
 
     use crate::cpu::kernel::constants::context_metadata::ContextMetadata;
     use crate::cpu::kernel::interpreter::{run, Interpreter};
@@ -1779,7 +1787,7 @@ mod tests {
             0x60, 0x1, 0x60, 0x2, 0x1, 0x63, 0xde, 0xad, 0xbe, 0xef, 0x56,
         ]; // PUSH1, 1, PUSH1, 2, ADD, PUSH4 deadbeef, JUMP
         assert_eq!(
-            run::<GoldilocksField>(&code, 0, vec![], &HashMap::new())?.stack(),
+            run::<F>(&code, 0, vec![], &HashMap::new())?.stack(),
             &[0x3.into()],
         );
         Ok(())
@@ -1804,7 +1812,7 @@ mod tests {
             0x60, 0xff, 0x60, 0x0, 0x52, 0x60, 0, 0x51, 0x60, 0x1, 0x51, 0x60, 0x42, 0x60, 0x27,
             0x53,
         ];
-        let mut interpreter: Interpreter<GoldilocksField> = Interpreter::new_with_kernel(0, vec![]);
+        let mut interpreter: Interpreter<F> = Interpreter::new_with_kernel(0, vec![]);
 
         interpreter.set_code(1, code.to_vec());
 

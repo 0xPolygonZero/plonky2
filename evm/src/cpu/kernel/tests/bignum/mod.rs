@@ -8,7 +8,7 @@ use ethereum_types::U256;
 use itertools::Itertools;
 use num::{BigUint, One, Zero};
 use num_bigint::RandBigInt;
-use plonky2::field::goldilocks_field::GoldilocksField;
+use plonky2::field::goldilocks_field::GoldilocksField as F;
 use plonky2_util::ceil_div_usize;
 use rand::Rng;
 
@@ -100,8 +100,7 @@ fn run_test(fn_label: &str, memory: Vec<U256>, stack: Vec<U256>) -> Result<(Vec<
     initial_stack.push(retdest);
     initial_stack.reverse();
 
-    let mut interpreter: Interpreter<GoldilocksField> =
-        Interpreter::new_with_kernel(fn_label, initial_stack);
+    let mut interpreter: Interpreter<F> = Interpreter::new_with_kernel(fn_label, initial_stack);
     interpreter.set_current_general_memory(memory);
     interpreter.run()?;
 

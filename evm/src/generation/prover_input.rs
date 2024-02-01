@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::constants::context_metadata::ContextMetadata;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
-use crate::cpu::kernel::interpreter::simulate_cpu_until_label_and_get_user_jumps;
+use crate::cpu::kernel::interpreter::simulate_cpu_and_get_user_jumps;
 use crate::extension_tower::{FieldExt, Fp12, BLS381, BN254};
 use crate::generation::prover_input::EvmField::{
     Bls381Base, Bls381Scalar, Bn254Base, Bn254Scalar, Secp256k1Base, Secp256k1Scalar,
@@ -305,9 +305,7 @@ impl<F: Field> GenerationState<F> {
         // the simulation will fail.
 
         // Simulate the user's code and (unnecessarily) part of the kernel code, skipping the validate table call
-        let Some(jumpdest_table) =
-            simulate_cpu_until_label_and_get_user_jumps("terminate_common", self)
-        else {
+        let Some(jumpdest_table) = simulate_cpu_and_get_user_jumps("terminate_common", self) else {
             self.jumpdest_table = Some(HashMap::new());
             return Ok(());
         };
