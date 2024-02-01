@@ -227,8 +227,6 @@ impl<'a, F: Field> Interpreter<'a, F> {
         Self {
             generation_state: state.soft_clone(),
             prover_inputs_map: &KERNEL.prover_inputs,
-            // `DEFAULT_HALT_OFFSET` is used as a halting point for the interpreter,
-            // while the label `halt` is the halting label in the kernel.
             halt_offsets: vec![halt_offset],
             halt_context: Some(halt_context),
             debug_offsets: vec![],
@@ -768,6 +766,10 @@ impl<'a, F: Field> Interpreter<'a, F> {
             .byte(0);
         self.opcode_count[opcode as usize] += 1;
         self.incr(1);
+
+        let op = decode(self.generation_state.registers, opcode)?;
+        self.generation_state.registers.gas_used += gas_to_charge(op);
+
         match opcode {
             0x00 => self.run_syscall(opcode, 0, false), // "STOP",
             0x01 => self.run_add(),                     // "ADD",
@@ -893,15 +895,24 @@ impl<'a, F: Field> Interpreter<'a, F> {
             .debug_offsets
             .contains(&self.generation_state.registers.program_counter)
         {
-            println!("At {}, stack={:?}", self.offset_name(), self.stack());
+            println!("At {}, stack={:?},", self.offset_name(), self.stack());
         } else if let Some(label) = self.offset_label() {
-            println!("At {label}");
+            println!(
+                "At {label} stack = {:?} is kernel = {:?}",
+                {
+                    let mut stack = self.stack();
+                    stack.reverse();
+                    stack
+                },
+                self.is_kernel()
+            );
+        } else if !self.is_kernel() {
+            println!("User instruction {:?}, stack = {:?}", op, {
+                let mut stack = self.stack();
+                stack.reverse();
+                stack
+            });
         }
-
-        let op = decode(self.generation_state.registers, opcode)
-            // We default to prover inputs, as those are kernel-only instructions that charge nothing.
-            .unwrap_or(Operation::ProverInput);
-        self.generation_state.registers.gas_used += gas_to_charge(op);
 
         if !self.is_kernel() {
             let gas_limit_address = MemoryAddress {

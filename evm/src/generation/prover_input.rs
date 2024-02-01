@@ -317,7 +317,6 @@ impl<F: Field> GenerationState<F> {
         self.memory = memory;
 
         // Find proofs for all contexts
-        log::debug!("jumpdest_table = {:?}", jumpdest_table);
         self.set_jumpdest_analysis_inputs(jumpdest_table);
 
         Ok(())

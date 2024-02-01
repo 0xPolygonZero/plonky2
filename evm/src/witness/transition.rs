@@ -145,7 +145,7 @@ pub(crate) fn decode(registers: RegistersState, opcode: u8) -> Result<Operation,
         (0xf6, true) => Ok(Operation::GetContext),
         (0xf7, true) => Ok(Operation::SetContext),
         (0xf8, true) => Ok(Operation::Mload32Bytes),
-        (0xf9, _) => Ok(Operation::ExitKernel),
+        (0xf9, true) => Ok(Operation::ExitKernel),
         (0xfa, _) => Ok(Operation::Syscall(opcode, 6, false)), // STATICCALL
         (0xfb, true) => Ok(Operation::MloadGeneral),
         (0xfc, true) => Ok(Operation::MstoreGeneral),
@@ -153,6 +153,7 @@ pub(crate) fn decode(registers: RegistersState, opcode: u8) -> Result<Operation,
         (0xff, _) => Ok(Operation::Syscall(opcode, 1, false)), // SELFDESTRUCT
         _ => {
             log::warn!("Invalid opcode: {}", opcode);
+            println!("Invalid opcode: {}", opcode);
             Err(ProgramError::InvalidOpcode)
         }
     }
