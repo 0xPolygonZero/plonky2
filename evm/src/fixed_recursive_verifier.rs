@@ -419,49 +419,49 @@ where
         let arithmetic = RecursiveCircuitsForTable::new(
             Table::Arithmetic,
             &all_stark.arithmetic_stark,
-            degree_bits_ranges[Table::Arithmetic as usize].clone(),
+            degree_bits_ranges[*Table::Arithmetic].clone(),
             &all_stark.cross_table_lookups,
             stark_config,
         );
         let byte_packing = RecursiveCircuitsForTable::new(
             Table::BytePacking,
             &all_stark.byte_packing_stark,
-            degree_bits_ranges[Table::BytePacking as usize].clone(),
+            degree_bits_ranges[*Table::BytePacking].clone(),
             &all_stark.cross_table_lookups,
             stark_config,
         );
         let cpu = RecursiveCircuitsForTable::new(
             Table::Cpu,
             &all_stark.cpu_stark,
-            degree_bits_ranges[Table::Cpu as usize].clone(),
+            degree_bits_ranges[*Table::Cpu].clone(),
             &all_stark.cross_table_lookups,
             stark_config,
         );
         let keccak = RecursiveCircuitsForTable::new(
             Table::Keccak,
             &all_stark.keccak_stark,
-            degree_bits_ranges[Table::Keccak as usize].clone(),
+            degree_bits_ranges[*Table::Keccak].clone(),
             &all_stark.cross_table_lookups,
             stark_config,
         );
         let keccak_sponge = RecursiveCircuitsForTable::new(
             Table::KeccakSponge,
             &all_stark.keccak_sponge_stark,
-            degree_bits_ranges[Table::KeccakSponge as usize].clone(),
+            degree_bits_ranges[*Table::KeccakSponge].clone(),
             &all_stark.cross_table_lookups,
             stark_config,
         );
         let logic = RecursiveCircuitsForTable::new(
             Table::Logic,
             &all_stark.logic_stark,
-            degree_bits_ranges[Table::Logic as usize].clone(),
+            degree_bits_ranges[*Table::Logic].clone(),
             &all_stark.cross_table_lookups,
             stark_config,
         );
         let memory = RecursiveCircuitsForTable::new(
             Table::Memory,
             &all_stark.memory_stark,
-            degree_bits_ranges[Table::Memory as usize].clone(),
+            degree_bits_ranges[*Table::Memory].clone(),
             &all_stark.cross_table_lookups,
             stark_config,
         );
@@ -574,7 +574,7 @@ where
             vec![vec![builder.zero(); stark_config.num_challenges]; NUM_TABLES];
 
         // Memory
-        extra_looking_sums[Table::Memory as usize] = (0..stark_config.num_challenges)
+        extra_looking_sums[*Table::Memory as usize] = (0..stark_config.num_challenges)
             .map(|c| {
                 get_memory_extra_looking_sum_circuit(
                     &mut builder,
