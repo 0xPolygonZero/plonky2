@@ -87,8 +87,7 @@ execute_withdrawals_post_stack_op:
 global hash_final_tries:
     // stack: cum_gas, txn_counter, num_nibbles, txn_nb
     // Check that we end up with the correct `cum_gas`, `txn_nb` and bloom filter.
-    %mload_global_metadata(@GLOBAL_METADATA_BLOCK_GAS_USED_AFTER) 
-    %assert_eq
+    %mload_global_metadata(@GLOBAL_METADATA_BLOCK_GAS_USED_AFTER) %assert_eq
     DUP3 %mload_global_metadata(@GLOBAL_METADATA_TXN_NUMBER_AFTER) %assert_eq
     %pop3
     PUSH 1 // initial trie data length 
