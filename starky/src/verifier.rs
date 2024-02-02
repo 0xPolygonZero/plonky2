@@ -13,7 +13,7 @@ use plonky2::plonk::plonk_common::reduce_with_powers;
 use crate::config::StarkConfig;
 use crate::constraint_consumer::ConstraintConsumer;
 use crate::evaluation_frame::StarkEvaluationFrame;
-use crate::permutation::PermutationCheckVars;
+use crate::lookup::LookupCheckVars;
 use crate::proof::{StarkOpeningSet, StarkProof, StarkProofChallenges, StarkProofWithPublicInputs};
 use crate::stark::Stark;
 use crate::vanishing_poly::eval_vanishing_poly;
@@ -30,7 +30,7 @@ pub fn verify_stark_proof<
 ) -> Result<()> {
     ensure!(proof_with_pis.public_inputs.len() == S::PUBLIC_INPUTS);
     let degree_bits = proof_with_pis.proof.recover_degree_bits(config);
-    let challenges = proof_with_pis.get_challenges(&stark, config, degree_bits);
+    let challenges = proof_with_pis.get_challenges(config, degree_bits);
     verify_stark_proof_with_challenges(stark, proof_with_pis, challenges, degree_bits, config)
 }
 
@@ -47,7 +47,7 @@ pub(crate) fn verify_stark_proof_with_challenges<
     config: &StarkConfig,
 ) -> Result<()> {
     validate_proof_shape(&stark, &proof_with_pis, config)?;
-    check_permutation_options(&stark, &proof_with_pis, &challenges)?;
+    check_lookup_options(&stark, &proof_with_pis, &challenges)?;
     let StarkProofWithPublicInputs {
         proof,
         public_inputs,
@@ -55,8 +55,8 @@ pub(crate) fn verify_stark_proof_with_challenges<
     let StarkOpeningSet {
         local_values,
         next_values,
-        permutation_zs,
-        permutation_zs_next,
+        auxiliary_polys,
+        auxiliary_polys_next,
         quotient_polys,
     } = &proof.openings;
     let vars = S::EvaluationFrame::from_values(
@@ -81,16 +81,30 @@ pub(crate) fn verify_stark_proof_with_challenges<
         l_0,
         l_last,
     );
-    let permutation_data = stark.uses_permutation_args().then(|| PermutationCheckVars {
-        local_zs: permutation_zs.as_ref().unwrap().clone(),
-        next_zs: permutation_zs_next.as_ref().unwrap().clone(),
-        permutation_challenge_sets: challenges.permutation_challenge_sets.unwrap(),
+
+    let num_lookup_columns = stark.num_lookup_helper_columns(config);
+    let lookup_challenges = (num_lookup_columns > 0).then(|| {
+        challenges
+            .lookup_challenge_set
+            .unwrap()
+            .challenges
+            .iter()
+            .map(|ch| ch.beta)
+            .collect::<Vec<_>>()
     });
+
+    let lookup_vars = stark.uses_lookups().then(|| LookupCheckVars {
+        local_values: auxiliary_polys.as_ref().unwrap().clone(),
+        next_values: auxiliary_polys_next.as_ref().unwrap().clone(),
+        challenges: lookup_challenges.unwrap(),
+    });
+    let lookups = stark.lookups();
+
     eval_vanishing_poly::<F, F::Extension, F::Extension, S, D, D>(
         &stark,
-        config,
         &vars,
-        permutation_data,
+        &lookups,
+        lookup_vars,
         &mut consumer,
     );
     let vanishing_polys_zeta = consumer.accumulators();
@@ -114,7 +128,7 @@ pub(crate) fn verify_stark_proof_with_challenges<
     }
 
     let merkle_caps = once(proof.trace_cap)
-        .chain(proof.permutation_zs_cap)
+        .chain(proof.auxiliary_polys_cap)
         .chain(once(proof.quotient_polys_cap))
         .collect_vec();
 
@@ -152,7 +166,7 @@ where
 
     let StarkProof {
         trace_cap,
-        permutation_zs_cap,
+        auxiliary_polys_cap,
         quotient_polys_cap,
         openings,
         // The shape of the opening proof will be checked in the FRI verifier (see
@@ -163,8 +177,8 @@ where
     let StarkOpeningSet {
         local_values,
         next_values,
-        permutation_zs,
-        permutation_zs_next,
+        auxiliary_polys,
+        auxiliary_polys_next,
         quotient_polys,
     } = openings;
 
@@ -172,7 +186,8 @@ where
 
     let fri_params = config.fri_params(degree_bits);
     let cap_height = fri_params.config.cap_height;
-    let num_zs = stark.num_permutation_batches(config);
+
+    let num_auxiliary = stark.num_lookup_helper_columns(config);
 
     ensure!(trace_cap.height() == cap_height);
     ensure!(quotient_polys_cap.height() == cap_height);
@@ -181,24 +196,24 @@ where
     ensure!(next_values.len() == S::COLUMNS);
     ensure!(quotient_polys.len() == stark.num_quotient_polys(config));
 
-    if stark.uses_permutation_args() {
-        let permutation_zs_cap = permutation_zs_cap
+    if stark.uses_lookups() {
+        let auxiliary_polys_cap = auxiliary_polys_cap
             .as_ref()
-            .ok_or_else(|| anyhow!("Missing Zs cap"))?;
-        let permutation_zs = permutation_zs
+            .ok_or_else(|| anyhow!("Missing auxiliary_polys_cap"))?;
+        let auxiliary_polys = auxiliary_polys
             .as_ref()
-            .ok_or_else(|| anyhow!("Missing permutation_zs"))?;
-        let permutation_zs_next = permutation_zs_next
+            .ok_or_else(|| anyhow!("Missing auxiliary_polys"))?;
+        let auxiliary_polys_next = auxiliary_polys_next
             .as_ref()
-            .ok_or_else(|| anyhow!("Missing permutation_zs_next"))?;
+            .ok_or_else(|| anyhow!("Missing auxiliary_polys_next"))?;
 
-        ensure!(permutation_zs_cap.height() == cap_height);
-        ensure!(permutation_zs.len() == num_zs);
-        ensure!(permutation_zs_next.len() == num_zs);
+        ensure!(auxiliary_polys_cap.height() == cap_height);
+        ensure!(auxiliary_polys.len() == num_auxiliary);
+        ensure!(auxiliary_polys_next.len() == num_auxiliary);
     } else {
-        ensure!(permutation_zs_cap.is_none());
-        ensure!(permutation_zs.is_none());
-        ensure!(permutation_zs_next.is_none());
+        ensure!(auxiliary_polys_cap.is_none());
+        ensure!(auxiliary_polys.is_none());
+        ensure!(auxiliary_polys_next.is_none());
     }
 
     Ok(())
@@ -216,9 +231,9 @@ fn eval_l_0_and_l_last<F: Field>(log_n: usize, x: F) -> (F, F) {
     (z_x * invs[0], z_x * invs[1])
 }
 
-/// Utility function to check that all permutation data wrapped in `Option`s are `Some` iff
+/// Utility function to check that all lookups data wrapped in `Option`s are `Some` iff
 /// the Stark uses a permutation argument.
-fn check_permutation_options<
+fn check_lookup_options<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
     S: Stark<F, D>,
@@ -229,16 +244,16 @@ fn check_permutation_options<
     challenges: &StarkProofChallenges<F, D>,
 ) -> Result<()> {
     let options_is_some = [
-        proof_with_pis.proof.permutation_zs_cap.is_some(),
-        proof_with_pis.proof.openings.permutation_zs.is_some(),
-        proof_with_pis.proof.openings.permutation_zs_next.is_some(),
-        challenges.permutation_challenge_sets.is_some(),
+        proof_with_pis.proof.auxiliary_polys_cap.is_some(),
+        proof_with_pis.proof.openings.auxiliary_polys.is_some(),
+        proof_with_pis.proof.openings.auxiliary_polys_next.is_some(),
+        challenges.lookup_challenge_set.is_some(),
     ];
     ensure!(
         options_is_some
             .into_iter()
-            .all(|b| b == stark.uses_permutation_args()),
-        "Permutation data doesn't match with Stark configuration."
+            .all(|b| b == stark.uses_lookups()),
+        "Lookups data doesn't match with Stark configuration."
     );
     Ok(())
 }

@@ -1,3 +1,4 @@
+use alloc::vec;
 use alloc::vec::Vec;
 use core::iter::once;
 
@@ -17,7 +18,7 @@ use plonky2::with_context;
 use crate::config::StarkConfig;
 use crate::constraint_consumer::RecursiveConstraintConsumer;
 use crate::evaluation_frame::StarkEvaluationFrame;
-use crate::permutation::PermutationCheckDataTarget;
+use crate::lookup::LookupCheckVarsTarget;
 use crate::proof::{
     StarkOpeningSetTarget, StarkProof, StarkProofChallengesTarget, StarkProofTarget,
     StarkProofWithPublicInputs, StarkProofWithPublicInputsTarget,
@@ -43,7 +44,7 @@ pub fn verify_stark_proof_circuit<
     let challenges = with_context!(
         builder,
         "compute challenges",
-        proof_with_pis.get_challenges::<F, C, S>(builder, &stark, inner_config)
+        proof_with_pis.get_challenges::<F, C>(builder, inner_config)
     );
 
     verify_stark_proof_with_challenges_circuit::<F, C, S, D>(
@@ -72,7 +73,7 @@ fn verify_stark_proof_with_challenges_circuit<
 ) where
     C::Hasher: AlgebraicHasher<F>,
 {
-    check_permutation_options(&stark, &proof_with_pis, &challenges).unwrap();
+    check_lookup_options(&stark, &proof_with_pis, &challenges).unwrap();
     let one = builder.one_extension();
 
     let StarkProofWithPublicInputsTarget {
@@ -82,8 +83,8 @@ fn verify_stark_proof_with_challenges_circuit<
     let StarkOpeningSetTarget {
         local_values,
         next_values,
-        permutation_zs,
-        permutation_zs_next,
+        auxiliary_polys,
+        auxiliary_polys_next,
         quotient_polys,
     } = &proof.openings;
 
@@ -112,25 +113,27 @@ fn verify_stark_proof_with_challenges_circuit<
         l_last,
     );
 
-    let permutation_data = stark
-        .uses_permutation_args()
-        .then(|| PermutationCheckDataTarget {
-            local_zs: permutation_zs.as_ref().unwrap().clone(),
-            next_zs: permutation_zs_next.as_ref().unwrap().clone(),
-            permutation_challenge_sets: challenges.permutation_challenge_sets.unwrap(),
-        });
+    let num_lookup_columns = stark.num_lookup_helper_columns(inner_config);
+    let lookup_challenges = stark.uses_lookups().then(|| {
+        challenges
+            .lookup_challenge_set
+            .unwrap()
+            .challenges
+            .iter()
+            .map(|ch| ch.beta)
+            .collect::<Vec<_>>()
+    });
+
+    let lookup_vars = stark.uses_lookups().then(|| LookupCheckVarsTarget {
+        local_values: auxiliary_polys.as_ref().unwrap()[..num_lookup_columns].to_vec(),
+        next_values: auxiliary_polys_next.as_ref().unwrap()[..num_lookup_columns].to_vec(),
+        challenges: lookup_challenges.unwrap(),
+    });
 
     with_context!(
         builder,
         "evaluate vanishing polynomial",
-        eval_vanishing_poly_circuit::<F, S, D>(
-            builder,
-            &stark,
-            inner_config,
-            &vars,
-            permutation_data,
-            &mut consumer,
-        )
+        eval_vanishing_poly_circuit::<F, S, D>(builder, &stark, &vars, lookup_vars, &mut consumer,)
     );
     let vanishing_polys_zeta = consumer.accumulators();
 
@@ -146,7 +149,7 @@ fn verify_stark_proof_with_challenges_circuit<
     }
 
     let merkle_caps = once(proof.trace_cap)
-        .chain(proof.permutation_zs_cap)
+        .chain(proof.auxiliary_polys_cap)
         .chain(once(proof.quotient_polys_cap))
         .collect_vec();
 
@@ -212,22 +215,19 @@ pub fn add_virtual_stark_proof<F: RichField + Extendable<D>, S: Stark<F, D>, con
     let fri_params = config.fri_params(degree_bits);
     let cap_height = fri_params.config.cap_height;
 
-    let num_leaves_per_oracle = once(S::COLUMNS)
-        .chain(
-            stark
-                .uses_permutation_args()
-                .then(|| stark.num_permutation_batches(config)),
-        )
-        .chain(once(stark.quotient_degree_factor() * config.num_challenges))
-        .collect_vec();
+    let num_leaves_per_oracle = vec![
+        S::COLUMNS,
+        stark.num_lookup_helper_columns(config),
+        stark.quotient_degree_factor() * config.num_challenges,
+    ];
 
-    let permutation_zs_cap = stark
-        .uses_permutation_args()
+    let auxiliary_polys_cap = stark
+        .uses_lookups()
         .then(|| builder.add_virtual_cap(cap_height));
 
     StarkProofTarget {
         trace_cap: builder.add_virtual_cap(cap_height),
-        permutation_zs_cap,
+        auxiliary_polys_cap,
         quotient_polys_cap: builder.add_virtual_cap(cap_height),
         openings: add_stark_opening_set_target::<F, S, D>(builder, stark, config),
         opening_proof: builder.add_virtual_fri_proof(&num_leaves_per_oracle, &fri_params),
@@ -243,12 +243,12 @@ fn add_stark_opening_set_target<F: RichField + Extendable<D>, S: Stark<F, D>, co
     StarkOpeningSetTarget {
         local_values: builder.add_virtual_extension_targets(S::COLUMNS),
         next_values: builder.add_virtual_extension_targets(S::COLUMNS),
-        permutation_zs: stark
-            .uses_permutation_args()
-            .then(|| builder.add_virtual_extension_targets(stark.num_permutation_batches(config))),
-        permutation_zs_next: stark
-            .uses_permutation_args()
-            .then(|| builder.add_virtual_extension_targets(stark.num_permutation_batches(config))),
+        auxiliary_polys: stark.uses_lookups().then(|| {
+            builder.add_virtual_extension_targets(stark.num_lookup_helper_columns(config))
+        }),
+        auxiliary_polys_next: stark.uses_lookups().then(|| {
+            builder.add_virtual_extension_targets(stark.num_lookup_helper_columns(config))
+        }),
         quotient_polys: builder
             .add_virtual_extension_targets(stark.quotient_degree_factor() * num_challenges),
     }
@@ -297,33 +297,34 @@ pub fn set_stark_proof_target<F, C: GenericConfig<D, F = F>, W, const D: usize>(
         &proof.openings.to_fri_openings(),
     );
 
-    if let (Some(permutation_zs_cap_target), Some(permutation_zs_cap)) =
-        (&proof_target.permutation_zs_cap, &proof.permutation_zs_cap)
-    {
-        witness.set_cap_target(permutation_zs_cap_target, permutation_zs_cap);
+    if let (Some(auxiliary_polys_cap_target), Some(auxiliary_polys_cap)) = (
+        &proof_target.auxiliary_polys_cap,
+        &proof.auxiliary_polys_cap,
+    ) {
+        witness.set_cap_target(auxiliary_polys_cap_target, auxiliary_polys_cap);
     }
 
     set_fri_proof_target(witness, &proof_target.opening_proof, &proof.opening_proof);
 }
 
-/// Utility function to check that all permutation data wrapped in `Option`s are `Some` iff
+/// Utility function to check that all lookups data wrapped in `Option`s are `Some` iff
 /// the Stark uses a permutation argument.
-fn check_permutation_options<F: RichField + Extendable<D>, S: Stark<F, D>, const D: usize>(
+fn check_lookup_options<F: RichField + Extendable<D>, S: Stark<F, D>, const D: usize>(
     stark: &S,
     proof_with_pis: &StarkProofWithPublicInputsTarget<D>,
     challenges: &StarkProofChallengesTarget<D>,
 ) -> Result<()> {
     let options_is_some = [
-        proof_with_pis.proof.permutation_zs_cap.is_some(),
-        proof_with_pis.proof.openings.permutation_zs.is_some(),
-        proof_with_pis.proof.openings.permutation_zs_next.is_some(),
-        challenges.permutation_challenge_sets.is_some(),
+        proof_with_pis.proof.auxiliary_polys_cap.is_some(),
+        proof_with_pis.proof.openings.auxiliary_polys.is_some(),
+        proof_with_pis.proof.openings.auxiliary_polys_next.is_some(),
+        challenges.lookup_challenge_set.is_some(),
     ];
     ensure!(
         options_is_some
             .into_iter()
-            .all(|b| b == stark.uses_permutation_args()),
-        "Permutation data doesn't match with Stark configuration."
+            .all(|b| b == stark.uses_lookups()),
+        "Lookups data doesn't match with Stark configuration."
     );
     Ok(())
 }

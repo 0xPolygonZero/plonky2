@@ -21,9 +21,8 @@ use plonky2_maybe_rayon::*;
 use crate::config::StarkConfig;
 use crate::constraint_consumer::ConstraintConsumer;
 use crate::evaluation_frame::StarkEvaluationFrame;
-use crate::permutation::{
-    compute_permutation_z_polys, get_n_permutation_challenge_sets, PermutationChallengeSet,
-    PermutationCheckVars,
+use crate::lookup::{
+    get_grand_product_challenge_set, lookup_helper_columns, Lookup, LookupCheckVars,
 };
 use crate::proof::{StarkOpeningSet, StarkProof, StarkProofWithPublicInputs};
 use crate::stark::Stark;
@@ -70,24 +69,44 @@ where
     challenger.observe_cap(&trace_cap);
 
     // Permutation arguments.
-    let permutation_zs_commitment_challenges = stark.uses_permutation_args().then(|| {
-        let permutation_challenge_sets = get_n_permutation_challenge_sets(
-            &mut challenger,
-            config.num_challenges,
-            stark.permutation_batch_size(),
-        );
-        let permutation_z_polys = compute_permutation_z_polys::<F, S, D>(
-            &stark,
-            config,
-            &trace_poly_values,
-            &permutation_challenge_sets,
-        );
+    let constraint_degree = stark.constraint_degree();
+    let lookups = stark.lookups();
+    let lookup_challenges = stark.uses_lookups().then(|| {
+        get_grand_product_challenge_set(&mut challenger, config.num_challenges)
+            .challenges
+            .iter()
+            .map(|ch| ch.beta)
+            .collect::<Vec<_>>()
+    });
 
-        let permutation_zs_commitment = timed!(
+    let num_lookup_columns = lookups
+        .iter()
+        .map(|l| l.num_helper_columns(constraint_degree))
+        .sum();
+
+    let auxiliary_polys_commitment = stark.uses_lookups().then(|| {
+        let lookup_helper_columns = timed!(timing, "compute lookup helper columns", {
+            let challenges = lookup_challenges.as_ref().expect("We do have challenges.");
+            let mut columns = Vec::with_capacity(num_lookup_columns);
+            for lookup in &lookups {
+                for &challenge in challenges {
+                    columns.extend(lookup_helper_columns(
+                        lookup,
+                        &trace_poly_values,
+                        challenge,
+                        constraint_degree,
+                    ));
+                }
+            }
+            columns
+        });
+
+        // Get the polynomial commitments for all auxiliary polynomials.
+        let auxiliary_polys_commitment = timed!(
             timing,
             "compute permutation Z commitments",
             PolynomialBatch::from_values(
-                permutation_z_polys,
+                lookup_helper_columns,
                 rate_bits,
                 false,
                 config.fri_config.cap_height,
@@ -95,38 +114,68 @@ where
                 None,
             )
         );
-        (permutation_zs_commitment, permutation_challenge_sets)
+
+        auxiliary_polys_commitment
     });
-    let permutation_zs_commitment = permutation_zs_commitment_challenges
-        .as_ref()
-        .map(|(comm, _)| comm);
-    let permutation_zs_cap = permutation_zs_commitment
+
+    let auxiliary_polys_cap = auxiliary_polys_commitment
         .as_ref()
         .map(|commit| commit.merkle_tree.cap.clone());
-    if let Some(cap) = &permutation_zs_cap {
+    if let Some(cap) = &auxiliary_polys_cap {
         challenger.observe_cap(cap);
     }
 
     let alphas = challenger.get_n_challenges(config.num_challenges);
-    let quotient_polys = compute_quotient_polys::<F, <F as Packable>::Packing, C, S, D>(
-        &stark,
-        &trace_commitment,
-        &permutation_zs_commitment_challenges,
-        public_inputs,
-        alphas,
-        degree_bits,
-        config,
+
+    #[cfg(test)]
+    {
+        check_constraints(
+            &stark,
+            &trace_commitment,
+            public_inputs,
+            &auxiliary_polys_commitment,
+            lookup_challenges.as_ref(),
+            &lookups,
+            alphas.clone(),
+            degree_bits,
+            num_lookup_columns,
+        );
+    }
+
+    let quotient_polys = timed!(
+        timing,
+        "compute quotient polys",
+        compute_quotient_polys::<F, <F as Packable>::Packing, C, S, D>(
+            &stark,
+            &trace_commitment,
+            &auxiliary_polys_commitment,
+            lookup_challenges.as_ref(),
+            &lookups,
+            public_inputs,
+            alphas,
+            degree_bits,
+            num_lookup_columns,
+            config,
+        )
     );
-    let all_quotient_chunks = quotient_polys
-        .into_par_iter()
-        .flat_map(|mut quotient_poly| {
-            quotient_poly
-                .trim_to_len(degree * stark.quotient_degree_factor())
-                .expect("Quotient has failed, the vanishing polynomial is not divisible by Z_H");
-            // Split quotient into degree-n chunks.
-            quotient_poly.chunks(degree)
-        })
-        .collect();
+
+    let all_quotient_chunks = timed!(
+        timing,
+        "split quotient polys",
+        quotient_polys
+            .into_par_iter()
+            .flat_map(|mut quotient_poly| {
+                quotient_poly
+                    .trim_to_len(degree * stark.quotient_degree_factor())
+                    .expect(
+                        "Quotient has failed, the vanishing polynomial is not divisible by Z_H",
+                    );
+                // Split quotient into degree-n chunks.
+                quotient_poly.chunks(degree)
+            })
+            .collect()
+    );
+
     let quotient_commitment = timed!(
         timing,
         "compute quotient commitment",
@@ -139,6 +188,8 @@ where
             None,
         )
     );
+
+    // Observe the quotient polynomials Merkle cap.
     let quotient_polys_cap = quotient_commitment.merkle_tree.cap.clone();
     challenger.observe_cap(&quotient_polys_cap);
 
@@ -151,17 +202,21 @@ where
         zeta.exp_power_of_2(degree_bits) != F::Extension::ONE,
         "Opening point is in the subgroup."
     );
+
+    // Compute all openings: evaluate all committed polynomials at `zeta` and, when necessary, at `g * zeta`.
     let openings = StarkOpeningSet::new(
         zeta,
         g,
         &trace_commitment,
-        permutation_zs_commitment,
+        auxiliary_polys_commitment.as_ref(),
         &quotient_commitment,
     );
+
+    // Get the FRI openings and observe them.
     challenger.observe_openings(&openings.to_fri_openings());
 
     let initial_merkle_trees = once(&trace_commitment)
-        .chain(permutation_zs_commitment)
+        .chain(&auxiliary_polys_commitment)
         .chain(once(&quotient_commitment))
         .collect_vec();
 
@@ -178,7 +233,7 @@ where
     );
     let proof = StarkProof {
         trace_cap,
-        permutation_zs_cap,
+        auxiliary_polys_cap,
         quotient_polys_cap,
         openings,
         opening_proof,
@@ -195,13 +250,13 @@ where
 fn compute_quotient_polys<'a, F, P, C, S, const D: usize>(
     stark: &S,
     trace_commitment: &'a PolynomialBatch<F, C, D>,
-    permutation_zs_commitment_challenges: &'a Option<(
-        PolynomialBatch<F, C, D>,
-        Vec<PermutationChallengeSet<F>>,
-    )>,
+    auxiliary_polys_commitment: &'a Option<PolynomialBatch<F, C, D>>,
+    lookup_challenges: Option<&'a Vec<F>>,
+    lookups: &[Lookup<F>],
     public_inputs: &[F],
     alphas: Vec<F>,
     degree_bits: usize,
+    num_lookup_columns: usize,
     config: &StarkConfig,
 ) -> Vec<PolynomialCoeffs<F>>
 where
@@ -263,23 +318,35 @@ where
                 lagrange_basis_first,
                 lagrange_basis_last,
             );
+            // Get the local and next row evaluations for the current STARK,
+            // as well as the public inputs.
             let vars = S::EvaluationFrame::from_values(
                 &get_trace_values_packed(i_start),
                 &get_trace_values_packed(i_next_start),
                 public_inputs,
             );
-            let permutation_check_data = permutation_zs_commitment_challenges.as_ref().map(
-                |(permutation_zs_commitment, permutation_challenge_sets)| PermutationCheckVars {
-                    local_zs: permutation_zs_commitment.get_lde_values_packed(i_start, step),
-                    next_zs: permutation_zs_commitment.get_lde_values_packed(i_next_start, step),
-                    permutation_challenge_sets: permutation_challenge_sets.to_vec(),
-                },
-            );
+            // Get the local and next row evaluations for the permutation argument,
+            // as well as the associated challenges.
+            let lookup_vars = lookup_challenges.map(|challenges| LookupCheckVars {
+                local_values: auxiliary_polys_commitment
+                    .as_ref()
+                    .unwrap()
+                    .get_lde_values_packed(i_start, step)
+                    .to_vec(),
+                next_values: auxiliary_polys_commitment
+                    .as_ref()
+                    .unwrap()
+                    .get_lde_values_packed(i_next_start, step),
+                challenges: challenges.to_vec(),
+            });
+
+            // Evaluate the polynomial combining all constraints, including
+            // those associated to the permutation arguments.
             eval_vanishing_poly::<F, F, P, S, D, 1>(
                 stark,
-                config,
                 &vars,
-                permutation_check_data,
+                lookups,
+                lookup_vars,
                 &mut consumer,
             );
 
@@ -306,4 +373,103 @@ where
         .map(PolynomialValues::new)
         .map(|values| values.coset_ifft(F::coset_shift()))
         .collect()
+}
+
+#[cfg(test)]
+/// Check that all constraints evaluate to zero on `H`.
+/// Can also be used to check the degree of the constraints by evaluating on a larger subgroup.
+fn check_constraints<'a, F, C, S, const D: usize>(
+    stark: &S,
+    trace_commitment: &'a PolynomialBatch<F, C, D>,
+    public_inputs: &[F],
+    auxiliary_commitment: &'a Option<PolynomialBatch<F, C, D>>,
+    lookup_challenges: Option<&'a Vec<F>>,
+    lookups: &[Lookup<F>],
+    alphas: Vec<F>,
+    degree_bits: usize,
+    num_lookup_columns: usize,
+) where
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    S: Stark<F, D>,
+{
+    let degree = 1 << degree_bits;
+    let rate_bits = 0; // Set this to higher value to check constraint degree.
+
+    let size = degree << rate_bits;
+    let step = 1 << rate_bits;
+
+    // Evaluation of the first Lagrange polynomial.
+    let lagrange_first = PolynomialValues::selector(degree, 0).lde(rate_bits);
+    // Evaluation of the last Lagrange polynomial.
+    let lagrange_last = PolynomialValues::selector(degree, degree - 1).lde(rate_bits);
+
+    let subgroup = F::two_adic_subgroup(degree_bits + rate_bits);
+
+    // Get the evaluations of a batch of polynomials over our subgroup.
+    let get_subgroup_evals = |comm: &PolynomialBatch<F, C, D>| -> Vec<Vec<F>> {
+        let values = comm
+            .polynomials
+            .par_iter()
+            .map(|coeffs| coeffs.clone().fft().values)
+            .collect::<Vec<_>>();
+        transpose(&values)
+    };
+
+    // Get batch evaluations of the trace, permutation and CTL polynomials over our subgroup.
+    let trace_subgroup_evals = get_subgroup_evals(trace_commitment);
+    let auxiliary_subgroup_evals = auxiliary_commitment.as_ref().map(get_subgroup_evals);
+
+    // Last element of the subgroup.
+    let last = F::primitive_root_of_unity(degree_bits).inverse();
+
+    let constraint_values = (0..size)
+        .map(|i| {
+            let i_next = (i + step) % size;
+
+            let x = subgroup[i];
+            let z_last = x - last;
+            let lagrange_basis_first = lagrange_first.values[i];
+            let lagrange_basis_last = lagrange_last.values[i];
+
+            let mut consumer = ConstraintConsumer::new(
+                alphas.clone(),
+                z_last,
+                lagrange_basis_first,
+                lagrange_basis_last,
+            );
+            // Get the local and next row evaluations for the current STARK's trace.
+            let vars = S::EvaluationFrame::from_values(
+                &trace_subgroup_evals[i],
+                &trace_subgroup_evals[i_next],
+                public_inputs,
+            );
+            // Get the local and next row evaluations for the current STARK's permutation argument.
+            let lookup_vars = lookup_challenges.map(|challenges| LookupCheckVars {
+                local_values: auxiliary_subgroup_evals.as_ref().unwrap()[i].clone(),
+                next_values: auxiliary_subgroup_evals.as_ref().unwrap()[i_next].clone(),
+                challenges: challenges.to_vec(),
+            });
+
+            // Evaluate the polynomial combining all constraints, including those associated
+            // to the permutation and CTL arguments.
+            eval_vanishing_poly::<F, F, F, S, D, 1>(
+                stark,
+                &vars,
+                lookups,
+                lookup_vars,
+                &mut consumer,
+            );
+            consumer.accumulators()
+        })
+        .collect::<Vec<_>>();
+
+    // Assert that all constraints evaluate to 0 over our subgroup.
+    for v in constraint_values {
+        assert!(
+            v.iter().all(|x| x.is_zero()),
+            "Constraint failed in {}",
+            std::any::type_name::<S>()
+        );
+    }
 }
