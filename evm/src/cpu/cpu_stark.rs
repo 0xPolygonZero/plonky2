@@ -22,7 +22,7 @@ use crate::cpu::{
 };
 use crate::cross_table_lookup::TableWithColumns;
 use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
-use crate::lookup::{Column, Filter, Lookup};
+use crate::lookup::{Column, Filter};
 use crate::memory::segments::Segment;
 use crate::memory::{NUM_CHANNELS, VALUE_LIMBS};
 use crate::stark::Stark;

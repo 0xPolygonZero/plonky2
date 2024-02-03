@@ -1,7 +1,6 @@
 use core::mem::{self, MaybeUninit};
 use core::ops::Range;
 use std::collections::BTreeMap;
-use std::path::Path;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
@@ -25,7 +24,6 @@ use plonky2::plonk::config::{AlgebraicHasher, GenericConfig};
 use plonky2::plonk::proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget};
 use plonky2::recursion::cyclic_recursion::check_cyclic_proof_verifier_data;
 use plonky2::recursion::dummy_circuit::cyclic_base_proof;
-use plonky2::util::serialization::gate_serialization::default;
 use plonky2::util::serialization::{
     Buffer, GateSerializer, IoResult, Read, WitnessGeneratorSerializer, Write,
 };
@@ -1100,11 +1098,8 @@ where
     /// ```
     pub fn prove_root_after_initial_stark(
         &self,
-        all_stark: &AllStark<F, D>,
-        config: &StarkConfig,
         all_proof: AllProof<F, C, D>,
         table_circuits: &[(RecursiveCircuitsForTableSize<F, C, D>, u8); NUM_TABLES],
-        timing: &mut TimingTree,
         abort_signal: Option<Arc<AtomicBool>>,
     ) -> anyhow::Result<(ProofWithPublicInputs<F, C, D>, PublicValues)> {
         let mut root_inputs = PartialWitness::new();
@@ -1113,7 +1108,6 @@ where
             let (table_circuit, index_verifier_data) = &table_circuits[table];
 
             let stark_proof = &all_proof.stark_proofs[table];
-            let original_degree_bits = stark_proof.proof.recover_degree_bits(config);
 
             let shrunk_proof = table_circuit.shrink(stark_proof, &all_proof.ctl_challenges)?;
             root_inputs.set_target(

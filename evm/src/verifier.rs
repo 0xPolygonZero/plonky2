@@ -318,7 +318,7 @@ pub(crate) fn verify_stark_proof_with_challenges<
         next_values,
         auxiliary_polys,
         auxiliary_polys_next,
-        ctl_zs_first,
+        ctl_zs_first: _,
         quotient_polys,
     } = &proof.openings;
     let vars = S::EvaluationFrame::from_values(local_values, next_values);
