@@ -32,7 +32,7 @@ use crate::evaluation_frame::StarkEvaluationFrame;
 use crate::generation::{generate_traces, GenerationInputs};
 use crate::get_challenges::observe_public_values;
 use crate::lookup::{lookup_helper_columns, Lookup, LookupCheckVars};
-use crate::proof::{AllProof, PublicValues, StarkOpeningSet, StarkProof, StarkProofWithMetadata};
+use crate::proof::{AllProof, PublicValues, StarkOpeningSet, StarkProof};
 use crate::stark::Stark;
 use crate::vanishing_poly::eval_vanishing_poly;
 use crate::witness::errors::ProgramError;
@@ -188,7 +188,7 @@ fn prove_with_commitments<F, C, const D: usize>(
     ctl_challenges: &GrandProductChallengeSet<F>,
     timing: &mut TimingTree,
     abort_signal: Option<Arc<AtomicBool>>,
-) -> Result<[StarkProofWithMetadata<F, C, D>; NUM_TABLES]>
+) -> Result<[StarkProof<F, C, D>; NUM_TABLES]>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
@@ -324,7 +324,7 @@ pub(crate) fn prove_single_table<F, C, S, const D: usize>(
     challenger: &mut Challenger<F, C::Hasher>,
     timing: &mut TimingTree,
     abort_signal: Option<Arc<AtomicBool>>,
-) -> Result<StarkProofWithMetadata<F, C, D>>
+) -> Result<StarkProof<F, C, D>>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
@@ -341,8 +341,6 @@ where
         fri_params.total_arities() <= degree_bits + rate_bits - cap_height,
         "FRI total reduction arity is too large.",
     );
-
-    let init_challenger_state = challenger.compact();
 
     let constraint_degree = stark.constraint_degree();
     let lookup_challenges = stark.uses_lookups().then(|| {
@@ -521,16 +519,12 @@ where
         )
     );
 
-    let proof = StarkProof {
+    Ok(StarkProof {
         trace_cap: trace_commitment.merkle_tree.cap.clone(),
         auxiliary_polys_cap,
         quotient_polys_cap,
         openings,
         opening_proof,
-    };
-    Ok(StarkProofWithMetadata {
-        init_challenger_state,
-        proof,
     })
 }
 

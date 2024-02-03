@@ -199,7 +199,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> A
         let mut challenger = Challenger::<F, C::Hasher>::new();
 
         for proof in &self.stark_proofs {
-            challenger.observe_cap(&proof.proof.trace_cap);
+            challenger.observe_cap(&proof.trace_cap);
         }
 
         observe_public_values::<F, C, D>(&mut challenger, &self.public_values)?;
@@ -210,9 +210,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> A
         Ok(AllProofChallenges {
             stark_challenges: core::array::from_fn(|i| {
                 challenger.compact();
-                self.stark_proofs[i]
-                    .proof
-                    .get_challenges(&mut challenger, config)
+                self.stark_proofs[i].get_challenges(&mut challenger, config)
             }),
             ctl_challenges,
         })
