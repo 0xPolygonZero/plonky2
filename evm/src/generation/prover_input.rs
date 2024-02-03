@@ -1,20 +1,15 @@
-use core::cmp::min;
 use core::mem::transmute;
 use std::collections::{BTreeSet, HashMap};
 use std::str::FromStr;
 
 use anyhow::{bail, Error};
 use ethereum_types::{BigEndianHash, H256, U256, U512};
-use itertools::{enumerate, Itertools};
+use itertools::Itertools;
 use num_bigint::BigUint;
-use plonky2::field::extension::Extendable;
 use plonky2::field::types::Field;
-use plonky2::hash::hash_types::RichField;
 use serde::{Deserialize, Serialize};
 
-use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::constants::context_metadata::ContextMetadata;
-use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
 use crate::extension_tower::{FieldExt, Fp12, BLS381, BN254};
 use crate::generation::prover_input::EvmField::{
     Bls381Base, Bls381Scalar, Bn254Base, Bn254Scalar, Secp256k1Base, Secp256k1Scalar,
@@ -252,7 +247,6 @@ impl<F: Field> GenerationState<F> {
     /// Returns the next used jump address.
     fn run_next_jumpdest_table_address(&mut self) -> Result<U256, ProgramError> {
         let context = u256_to_usize(stack_peek(self, 0)? >> CONTEXT_SCALING_FACTOR)?;
-        let code_len = u256_to_usize(self.get_current_code_len()?.into());
 
         if self.jumpdest_table.is_none() {
             self.generate_jumpdest_table()?;
@@ -300,10 +294,6 @@ impl<F: Field> GenerationState<F> {
         let checkpoint = self.checkpoint();
         let memory = self.memory.clone();
 
-        let code = self.get_current_code()?;
-        // We need to set the simulated jumpdest bits to one as otherwise
-        // the simulation will fail.
-
         // Simulate the user's code and (unnecessarily) part of the kernel code, skipping the validate table call
         let Some(jumpdest_table) = simulate_cpu_between_labels_and_get_user_jumps(
             "jumpdest_analysis_end",
@@ -343,10 +333,6 @@ impl<F: Field> GenerationState<F> {
         )));
     }
 
-    fn get_current_code(&self) -> Result<Vec<u8>, ProgramError> {
-        self.get_code(self.registers.context)
-    }
-
     fn get_code(&self, context: usize) -> Result<Vec<u8>, ProgramError> {
         let code_len = self.get_code_len(context)?;
         let code = (0..code_len)
@@ -360,17 +346,6 @@ impl<F: Field> GenerationState<F> {
         Ok(code)
     }
 
-    fn set_code_len(&mut self, len: usize) {
-        self.memory.set(
-            MemoryAddress::new(
-                self.registers.context,
-                Segment::ContextMetadata,
-                ContextMetadata::CodeSize.unscale(),
-            ),
-            len.into(),
-        )
-    }
-
     fn get_code_len(&self, context: usize) -> Result<usize, ProgramError> {
         let code_len = u256_to_usize(self.memory.get(MemoryAddress::new(
             context,
@@ -378,22 +353,6 @@ impl<F: Field> GenerationState<F> {
             ContextMetadata::CodeSize.unscale(),
         )))?;
         Ok(code_len)
-    }
-
-    fn get_current_code_len(&self) -> Result<usize, ProgramError> {
-        self.get_code_len(self.registers.context)
-    }
-
-    fn set_jumpdest_bits(&mut self, code: &[u8]) {
-        const JUMPDEST_OPCODE: u8 = 0x5b;
-        for (pos, opcode) in CodeIterator::new(code) {
-            if opcode == JUMPDEST_OPCODE {
-                self.memory.set(
-                    MemoryAddress::new(self.registers.context, Segment::JumpdestBits, pos),
-                    U256::one(),
-                );
-            }
-        }
     }
 }
 
@@ -411,7 +370,7 @@ fn get_proofs_and_jumpdests(
     const PUSH32_OPCODE: u8 = 0x7f;
     let (proofs, _) = CodeIterator::until(code, largest_address + 1).fold(
         (vec![], 0),
-        |(mut proofs, acc), (pos, opcode)| {
+        |(mut proofs, acc), (pos, _opcode)| {
             let has_prefix = if let Some(prefix_start) = pos.checked_sub(32) {
                 code[prefix_start..pos]
                     .iter()

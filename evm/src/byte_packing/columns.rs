@@ -33,10 +33,6 @@ pub(crate) const fn value_bytes(i: usize) -> usize {
     BYTES_VALUES_START + i
 }
 
-/// Range of columns containing the bytes values.
-pub(crate) const BYTE_VALUES_RANGE: Range<usize> =
-    BYTES_VALUES_START..BYTES_VALUES_START + NUM_BYTES;
-
 /// The counter column (used for the range check) starts from 0 and increments.
 pub(crate) const RANGE_COUNTER: usize = BYTES_VALUES_START + NUM_BYTES;
 /// The frequencies column used in logUp.
