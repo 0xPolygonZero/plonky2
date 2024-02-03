@@ -35,7 +35,6 @@ use crate::lookup::{lookup_helper_columns, Lookup, LookupCheckVars};
 use crate::proof::{AllProof, PublicValues, StarkOpeningSet, StarkProof};
 use crate::stark::Stark;
 use crate::vanishing_poly::eval_vanishing_poly;
-use crate::witness::errors::ProgramError;
 #[cfg(test)]
 use crate::{
     cross_table_lookup::testutils::check_ctls, verifier::testutils::get_memory_extra_looking_values,

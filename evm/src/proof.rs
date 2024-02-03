@@ -1,4 +1,4 @@
-use ethereum_types::{Address, H160, H256, U256};
+use ethereum_types::{Address, H256, U256};
 use itertools::Itertools;
 use plonky2::field::extension::{Extendable, FieldExtension};
 use plonky2::fri::oracle::PolynomialBatch;
@@ -19,7 +19,6 @@ use serde::{Deserialize, Serialize};
 use crate::all_stark::NUM_TABLES;
 use crate::config::StarkConfig;
 use crate::cross_table_lookup::GrandProductChallengeSet;
-use crate::generation::mpt::TrieRootPtrs;
 use crate::util::{get_h160, get_h256, h2u};
 
 /// A STARK proof for each table, plus some metadata used to create recursive wrapper proofs.

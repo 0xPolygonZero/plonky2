@@ -38,7 +38,6 @@ use plonky2::timed;
 use plonky2::util::timing::TimingTree;
 use plonky2::util::transpose;
 
-use super::columns::BYTE_VALUES_RANGE;
 use super::NUM_BYTES;
 use crate::byte_packing::columns::{
     index_len, value_bytes, ADDR_CONTEXT, ADDR_SEGMENT, ADDR_VIRTUAL, IS_READ, LEN_INDICES_COLS,
@@ -62,7 +61,7 @@ pub(crate) fn ctl_looked_data<F: Field>() -> Vec<Column<F>> {
     // obtain the corresponding limb.
     let outputs: Vec<Column<F>> = (0..8)
         .map(|i| {
-            let range = (value_bytes(i * 4)..value_bytes(i * 4) + 4);
+            let range = value_bytes(i * 4)..value_bytes(i * 4) + 4;
             Column::linear_combination(
                 range
                     .enumerate()
