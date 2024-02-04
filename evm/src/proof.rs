@@ -25,7 +25,7 @@ use crate::util::{get_h160, get_h256, h2u};
 #[derive(Debug, Clone)]
 pub struct AllProof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> {
     /// Proofs for all the different STARK modules.
-    pub stark_proofs: [StarkProofWithMetadata<F, C, D>; NUM_TABLES],
+    pub stark_proofs: [StarkProof<F, C, D>; NUM_TABLES],
     /// Cross-table lookup challenges.
     pub(crate) ctl_challenges: GrandProductChallengeSet<F>,
     /// Public memory values used for the recursive proofs.
@@ -35,7 +35,7 @@ pub struct AllProof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, co
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> AllProof<F, C, D> {
     /// Returns the degree (i.e. the trace length) of each STARK.
     pub fn degree_bits(&self, config: &StarkConfig) -> [usize; NUM_TABLES] {
-        core::array::from_fn(|i| self.stark_proofs[i].proof.recover_degree_bits(config))
+        core::array::from_fn(|i| self.stark_proofs[i].recover_degree_bits(config))
     }
 }
 
@@ -835,20 +835,6 @@ pub struct StarkProof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, 
     pub openings: StarkOpeningSet<F, D>,
     /// A batch FRI argument for all openings.
     pub opening_proof: FriProof<F, C::Hasher, D>,
-}
-
-/// A `StarkProof` along with some metadata about the initial Fiat-Shamir state, which is used when
-/// creating a recursive wrapper proof around a STARK proof.
-#[derive(Debug, Clone)]
-pub struct StarkProofWithMetadata<F, C, const D: usize>
-where
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
-{
-    /// Initial Fiat-Shamir state.
-    pub(crate) init_challenger_state: <C::Hasher as Hasher<F>>::Permutation,
-    /// Proof for a single STARK.
-    pub(crate) proof: StarkProof<F, C, D>,
 }
 
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> StarkProof<F, C, D> {
