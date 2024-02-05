@@ -335,6 +335,11 @@ pub trait Read {
             leaves,
             digests,
             cap,
+            my_leaf_len: 0,
+            my_leaves: Arc::new(vec![]),
+            my_leaves_len: 0,
+            my_leaves_dev_offset: -1,
+            my_digests: Arc::new(vec![]),
         })
     }
 

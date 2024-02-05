@@ -1,0 +1,13 @@
+[package]
+name = "plonky2-cuda"
+version = "0.1.0"
+authors = ["Mozak"]
+description = "GPU acceleration for plonky2"
+edition = "2021"
+
+[build-dependencies.cc]
+version = "^1.0.70"
+
+[build-dependencies.which]
+version = "^4.0"
+

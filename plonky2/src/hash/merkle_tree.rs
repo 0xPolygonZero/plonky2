@@ -1,7 +1,8 @@
-#[cfg(not(feature = "std"))]
+extern crate alloc;
 use alloc::vec::Vec;
 use core::mem::MaybeUninit;
 use core::slice;
+use alloc::sync::Arc;
 
 use plonky2_maybe_rayon::*;
 use serde::{Deserialize, Serialize};
@@ -59,6 +60,12 @@ pub struct MerkleTree<F: RichField, H: Hasher<F>> {
 
     /// The Merkle cap.
     pub cap: MerkleCap<F, H>,
+
+    pub my_leaf_len: usize,
+    pub my_leaves: Arc<Vec<F>>,
+    pub my_leaves_len: usize,
+    pub my_leaves_dev_offset: isize,
+    pub my_digests: Arc<Vec<H::Hash>>,
 }
 
 impl<F: RichField, H: Hasher<F>> Default for MerkleTree<F, H> {
@@ -67,6 +74,11 @@ impl<F: RichField, H: Hasher<F>> Default for MerkleTree<F, H> {
             leaves: Vec::new(),
             digests: Vec::new(),
             cap: MerkleCap::default(),
+            my_leaf_len: 0,
+            my_leaves: Arc::new(vec![]),
+            my_leaves_len: 0,
+            my_leaves_dev_offset: -1,
+            my_digests: Arc::new(vec![]),
         }
     }
 }
@@ -150,6 +162,13 @@ fn fill_digests_buf<F: RichField, H: Hasher<F>>(
 
 impl<F: RichField, H: Hasher<F>> MerkleTree<F, H> {
     pub fn new(leaves: Vec<Vec<F>>, cap_height: usize) -> Self {
+        // for lea in &leaves {
+        //     print!("leaves: ");
+        //     for l in lea {
+        //         print!("{},", l.to_canonical_u64());
+        //     }
+        //     println!("");
+        // }
         let log2_leaves_len = log2_strict(leaves.len());
         assert!(
             cap_height <= log2_leaves_len,
@@ -179,28 +198,51 @@ impl<F: RichField, H: Hasher<F>> MerkleTree<F, H> {
             leaves,
             digests,
             cap: MerkleCap(cap),
+            my_leaf_len: 0,
+            my_leaves: Arc::new(vec![]),
+            my_leaves_len: 0,
+            my_leaves_dev_offset: -1,
+            my_digests: Arc::new(vec![]),
         }
     }
 
     pub fn get(&self, i: usize) -> &[F] {
-        &self.leaves[i]
+        if self.my_leaves.is_empty() {
+            &self.leaves[i]
+        } else {
+            &self.my_leaves[i * self.my_leaf_len.. (i+1) * self.my_leaf_len]
+        }
     }
 
     /// Create a Merkle proof from a leaf index.
     pub fn prove(&self, leaf_index: usize) -> MerkleProof<F, H> {
         let cap_height = log2_strict(self.cap.len());
-        let num_layers = log2_strict(self.leaves.len()) - cap_height;
+
+        let num_layers = {
+            if self.my_leaves_len == 0 {
+                log2_strict(self.leaves.len()) - cap_height
+            } else {
+                log2_strict(self.my_leaves_len/self.my_leaf_len) - cap_height
+            }
+
+        };
         debug_assert_eq!(leaf_index >> (cap_height + num_layers), 0);
 
         let digest_tree = {
             let tree_index = leaf_index >> num_layers;
-            let tree_len = self.digests.len() >> cap_height;
-            &self.digests[tree_len * tree_index..tree_len * (tree_index + 1)]
+            if self.my_digests.is_empty() {
+                let tree_len = self.digests.len() >> cap_height;
+                &self.digests[tree_len * tree_index..tree_len * (tree_index + 1)]
+            } else {
+                let tree_len = (self.my_digests.len()-self.cap.0.len()) >> cap_height;
+                &self.my_digests[tree_len * tree_index..tree_len * (tree_index + 1)]
+            }
         };
 
         // Mask out high bits to get the index within the sub-tree.
         let mut pair_index = leaf_index & ((1 << num_layers) - 1);
         let siblings = (0..num_layers)
+            .into_iter()
             .map(|i| {
                 let parity = pair_index & 1;
                 pair_index >>= 1;
@@ -218,7 +260,7 @@ impl<F: RichField, H: Hasher<F>> MerkleTree<F, H> {
                 let sibling_index = 2 * siblings_index + (1 - parity);
                 digest_tree[sibling_index]
             })
-            .collect();
+        .collect();
 
         MerkleProof { siblings }
     }

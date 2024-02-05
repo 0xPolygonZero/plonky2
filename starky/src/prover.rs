@@ -317,6 +317,7 @@ where
             challenger,
             &fri_params,
             timing,
+            &mut None,
         )
     );
 

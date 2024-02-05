@@ -339,6 +339,7 @@ where
             &mut challenger,
             &common_data.fri_params,
             timing,
+            &mut None,
         )
     );
 

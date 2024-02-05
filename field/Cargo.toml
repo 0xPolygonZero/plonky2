@@ -18,8 +18,8 @@ rand = { workspace = true, features = ["getrandom"] }
 serde = { workspace = true, features = ["alloc"] }
 static_assertions = { workspace = true }
 unroll = { workspace = true }
-
-# Local dependencies
+rustacuda = "0.1.3"
+rustacuda_core = "0.1.2"
 plonky2_util = { path = "../util", default-features = false }
 
 
