@@ -16,6 +16,7 @@ use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::constants::context_metadata::ContextMetadata;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
 use crate::cpu::kernel::interpreter::simulate_cpu_and_get_user_jumps;
+use crate::cpu::kernel::opcodes::get_push_opcode;
 use crate::extension_tower::{FieldExt, Fp12, BLS381, BN254};
 use crate::generation::prover_input::EvmField::{
     Bls381Base, Bls381Scalar, Bn254Base, Bn254Scalar, Secp256k1Base, Secp256k1Scalar,
@@ -264,12 +265,22 @@ impl<F: Field> GenerationState<F> {
             ));
         };
 
+        let jd_len = jumpdest_table.len();
+
         if let Some(ctx_jumpdest_table) = jumpdest_table.get_mut(&context)
             && let Some(next_jumpdest_address) = ctx_jumpdest_table.pop()
         {
+            log::debug!(
+                "jumpdest_table_len = {:?}, ctx_jumpdest_table.len = {:?}",
+                jd_len,
+                ctx_jumpdest_table.len()
+            );
             Ok((next_jumpdest_address + 1).into())
         } else {
-            self.jumpdest_table = None;
+            jumpdest_table.remove(&context);
+            if jumpdest_table.is_empty() {
+                self.jumpdest_table = None;
+            }
             Ok(U256::zero())
         }
     }
@@ -282,9 +293,17 @@ impl<F: Field> GenerationState<F> {
                 ProverInputError::InvalidJumpdestSimulation,
             ));
         };
+
+        let jd_len = jumpdest_table.len();
+
         if let Some(ctx_jumpdest_table) = jumpdest_table.get_mut(&context)
             && let Some(next_jumpdest_proof) = ctx_jumpdest_table.pop()
         {
+            log::debug!(
+                "jumpdest_table_len = {:?}, ctx_jumpdest_table.len = {:?}",
+                jd_len,
+                ctx_jumpdest_table.len()
+            );
             Ok(next_jumpdest_proof.into())
         } else {
             Err(ProgramError::ProverInputError(
@@ -298,7 +317,6 @@ impl<F: Field> GenerationState<F> {
     /// Simulate the user's code and store all the jump addresses with their respective contexts.
     fn generate_jumpdest_table(&mut self) -> Result<(), ProgramError> {
         let checkpoint = self.checkpoint();
-        let memory = self.memory.clone();
 
         let code = self.get_current_code()?;
         // We need to set the simulated jumpdest bits to one as otherwise
@@ -310,12 +328,7 @@ impl<F: Field> GenerationState<F> {
             return Ok(());
         };
 
-        // Return to the state before starting the simulation
-        self.rollback(checkpoint);
-        self.memory = memory;
-
-        // Find proofs for all contexts
-        self.set_jumpdest_analysis_inputs(jumpdest_table);
+        self.jumpdest_table = Some(jumpdest_table);
 
         Ok(())
     }
@@ -409,17 +422,11 @@ fn get_proofs_and_jumpdests(
         (vec![], 0),
         |(mut proofs, last_proof), (addr, opcode)| {
             let has_prefix = if let Some(prefix_start) = addr.checked_sub(32) {
-                code[prefix_start..addr].iter().enumerate().fold(
-                    true,
-                    |acc, (prefix_pos, &byte)| {
-                        let cond1 = byte > PUSH32_OPCODE;
-                        let cond2 = (prefix_start + prefix_pos) as i32
-                            + (byte as i32 - PUSH1_OPCODE as i32)
-                            + 1
-                            < addr as i32;
-                        acc && (cond1 || cond2)
-                    },
-                )
+                code[prefix_start..addr]
+                    .iter()
+                    .rev()
+                    .zip(0..32)
+                    .all(|(&byte, i)| byte > PUSH32_OPCODE || byte < PUSH1_OPCODE + i)
             } else {
                 false
             };

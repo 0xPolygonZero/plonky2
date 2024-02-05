@@ -138,7 +138,7 @@ pub(crate) fn run<'a, F: Field>(
 pub(crate) fn simulate_cpu_and_get_user_jumps<F: Field>(
     final_label: &str,
     state: &GenerationState<F>,
-) -> Option<HashMap<usize, BTreeSet<usize>>> {
+) -> Option<HashMap<usize, Vec<usize>>> {
     if state.jumpdest_table.is_some() {
         None
     } else {
@@ -148,17 +148,15 @@ pub(crate) fn simulate_cpu_and_get_user_jumps<F: Field>(
             Interpreter::new_with_state_and_halt_condition(state, halt_pc, initial_context);
 
         log::debug!("Simulating CPU for jumpdest analysis.");
-        let initial_clock = interpreter.generation_state.traces.clock();
 
         interpreter.run();
 
-        let final_clock = interpreter.generation_state.traces.clock();
-        log::debug!(
-            "Simulated CPU for jumpdest analysis halted after {} cycles",
-            final_clock - initial_clock
-        );
+        log::debug!("Simulated CPU for jumpdest analysis halted.");
         let jumpdest_table = interpreter.get_jumpdest_table(initial_context);
-        Some(jumpdest_table)
+        interpreter
+            .generation_state
+            .set_jumpdest_analysis_inputs(jumpdest_table);
+        interpreter.generation_state.jumpdest_table
     }
 }
 
@@ -898,7 +896,7 @@ impl<'a, F: Field> Interpreter<'a, F> {
             }
         }?;
 
-        #[cfg(test)]
+        // #[cfg(test)]
         if self
             .debug_offsets
             .contains(&self.generation_state.registers.program_counter)
