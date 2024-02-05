@@ -214,6 +214,10 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ArithmeticSta
             yield_constr.constraint(flag * (flag - P::ONES));
         }
 
+        // Only a single flag must be activated at once.
+        let all_flags = op_flags().map(|i| lv[i]).sum::<P>();
+        yield_constr.constraint(all_flags * (all_flags - P::ONES));
+
         // Check that `OPCODE_COL` holds 0 if the operation is not a range_check.
         let opcode_constraint = (P::ONES - lv[columns::IS_RANGE_CHECK]) * lv[columns::OPCODE_COL];
         yield_constr.constraint(opcode_constraint);
@@ -260,6 +264,11 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ArithmeticSta
             let constraint = builder.mul_sub_extension(flag, flag, flag);
             yield_constr.constraint(builder, constraint);
         }
+
+        // Only a single flag must be activated at once.
+        let all_flags = builder.add_many_extension(op_flags().map(|i| lv[i]));
+        let constraint = builder.mul_sub_extension(all_flags, all_flags, all_flags);
+        yield_constr.constraint(builder, constraint);
 
         // Check that `OPCODE_COL` holds 0 if the operation is not a range_check.
         let opcode_constraint = builder.arithmetic_extension(
