@@ -113,11 +113,6 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
         let auxiliary_polys_info =
             FriPolynomialInfo::from_range(AUXILIARY_ORACLE_INDEX, 0..num_auxiliary_polys);
 
-        let ctl_zs_info = FriPolynomialInfo::from_range(
-            AUXILIARY_ORACLE_INDEX,
-            num_lookup_columns..num_auxiliary_polys,
-        );
-
         let num_quotient_polys = self.num_quotient_polys(config);
         let quotient_oracle = FriOracleInfo {
             num_polys: num_quotient_polys,
@@ -139,13 +134,10 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
             point: zeta.scalar_mul(g),
             polynomials: [trace_info, auxiliary_polys_info].concat(),
         };
-        let ctl_first_batch = FriBatchInfo {
-            point: F::Extension::ONE,
-            polynomials: ctl_zs_info,
-        };
+
         FriInstanceInfo {
             oracles: vec![trace_oracle, auxiliary_oracle, quotient_oracle],
-            batches: vec![zeta_batch, zeta_next_batch, ctl_first_batch],
+            batches: vec![zeta_batch, zeta_next_batch],
         }
     }
 
@@ -172,11 +164,6 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
         let auxiliary_polys_info =
             FriPolynomialInfo::from_range(AUXILIARY_ORACLE_INDEX, 0..num_auxiliary_polys);
 
-        let ctl_zs_info = FriPolynomialInfo::from_range(
-            AUXILIARY_ORACLE_INDEX,
-            num_lookup_columns..num_lookup_columns,
-        );
-
         let num_quotient_polys = self.num_quotient_polys(config);
         let quotient_oracle = FriOracleInfo {
             num_polys: num_quotient_polys,
@@ -199,13 +186,10 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
             point: zeta_next,
             polynomials: [trace_info, auxiliary_polys_info].concat(),
         };
-        let ctl_first_batch = FriBatchInfoTarget {
-            point: builder.one_extension(),
-            polynomials: ctl_zs_info,
-        };
+
         FriInstanceInfoTarget {
             oracles: vec![trace_oracle, auxiliary_oracle, quotient_oracle],
-            batches: vec![zeta_batch, zeta_next_batch, ctl_first_batch],
+            batches: vec![zeta_batch, zeta_next_batch],
         }
     }
 

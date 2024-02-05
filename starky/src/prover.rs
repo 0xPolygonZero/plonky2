@@ -416,7 +416,7 @@ fn check_constraints<'a, F, C, S, const D: usize>(
         transpose(&values)
     };
 
-    // Get batch evaluations of the trace, permutation and CTL polynomials over our subgroup.
+    // Get batch evaluations of the trace and permutation polynomials over our subgroup.
     let trace_subgroup_evals = get_subgroup_evals(trace_commitment);
     let auxiliary_subgroup_evals = auxiliary_commitment.as_ref().map(get_subgroup_evals);
 
@@ -452,7 +452,7 @@ fn check_constraints<'a, F, C, S, const D: usize>(
             });
 
             // Evaluate the polynomial combining all constraints, including those associated
-            // to the permutation and CTL arguments.
+            // to the permutation arguments.
             eval_vanishing_poly::<F, F, F, S, D, 1>(
                 stark,
                 &vars,
