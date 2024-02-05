@@ -7,6 +7,7 @@ use plonky2::field::extension::{Extendable, FieldExtension};
 use plonky2::field::types::Field;
 use plonky2::fri::verifier::verify_fri_proof;
 use plonky2::hash::hash_types::RichField;
+use plonky2::hash::merkle_tree::MerkleCap;
 use plonky2::plonk::config::GenericConfig;
 use plonky2::plonk::plonk_common::reduce_with_powers;
 
@@ -47,7 +48,7 @@ pub(crate) fn verify_stark_proof_with_challenges<
     config: &StarkConfig,
 ) -> Result<()> {
     validate_proof_shape(&stark, &proof_with_pis, config)?;
-    check_lookup_options(&stark, &proof_with_pis, &challenges)?;
+
     let StarkProofWithPublicInputs {
         proof,
         public_inputs,
@@ -196,25 +197,13 @@ where
     ensure!(next_values.len() == S::COLUMNS);
     ensure!(quotient_polys.len() == stark.num_quotient_polys(config));
 
-    if stark.uses_lookups() {
-        let auxiliary_polys_cap = auxiliary_polys_cap
-            .as_ref()
-            .ok_or_else(|| anyhow!("Missing auxiliary_polys_cap"))?;
-        let auxiliary_polys = auxiliary_polys
-            .as_ref()
-            .ok_or_else(|| anyhow!("Missing auxiliary_polys"))?;
-        let auxiliary_polys_next = auxiliary_polys_next
-            .as_ref()
-            .ok_or_else(|| anyhow!("Missing auxiliary_polys_next"))?;
-
-        ensure!(auxiliary_polys_cap.height() == cap_height);
-        ensure!(auxiliary_polys.len() == num_auxiliary);
-        ensure!(auxiliary_polys_next.len() == num_auxiliary);
-    } else {
-        ensure!(auxiliary_polys_cap.is_none());
-        ensure!(auxiliary_polys.is_none());
-        ensure!(auxiliary_polys_next.is_none());
-    }
+    check_lookup_options::<F, C, S, D>(
+        stark,
+        auxiliary_polys_cap,
+        auxiliary_polys,
+        auxiliary_polys_next,
+        config,
+    )?;
 
     Ok(())
 }
@@ -240,21 +229,34 @@ fn check_lookup_options<
     const D: usize,
 >(
     stark: &S,
-    proof_with_pis: &StarkProofWithPublicInputs<F, C, D>,
-    challenges: &StarkProofChallenges<F, D>,
+    auxiliary_polys_cap: &Option<MerkleCap<F, <C as GenericConfig<D>>::Hasher>>,
+    auxiliary_polys: &Option<Vec<<F as Extendable<D>>::Extension>>,
+    auxiliary_polys_next: &Option<Vec<<F as Extendable<D>>::Extension>>,
+    config: &StarkConfig,
 ) -> Result<()> {
-    let options_is_some = [
-        proof_with_pis.proof.auxiliary_polys_cap.is_some(),
-        proof_with_pis.proof.openings.auxiliary_polys.is_some(),
-        proof_with_pis.proof.openings.auxiliary_polys_next.is_some(),
-        challenges.lookup_challenge_set.is_some(),
-    ];
-    ensure!(
-        options_is_some
-            .into_iter()
-            .all(|b| b == stark.uses_lookups()),
-        "Lookups data doesn't match with Stark configuration."
-    );
+    if stark.uses_lookups() {
+        let num_auxiliary = stark.num_lookup_helper_columns(config);
+        let cap_height = config.fri_config.cap_height;
+
+        let auxiliary_polys_cap = auxiliary_polys_cap
+            .as_ref()
+            .ok_or_else(|| anyhow!("Missing auxiliary_polys_cap"))?;
+        let auxiliary_polys = auxiliary_polys
+            .as_ref()
+            .ok_or_else(|| anyhow!("Missing auxiliary_polys"))?;
+        let auxiliary_polys_next = auxiliary_polys_next
+            .as_ref()
+            .ok_or_else(|| anyhow!("Missing auxiliary_polys_next"))?;
+
+        ensure!(auxiliary_polys_cap.height() == cap_height);
+        ensure!(auxiliary_polys.len() == num_auxiliary);
+        ensure!(auxiliary_polys_next.len() == num_auxiliary);
+    } else {
+        ensure!(auxiliary_polys_cap.is_none());
+        ensure!(auxiliary_polys.is_none());
+        ensure!(auxiliary_polys_next.is_none());
+    }
+
     Ok(())
 }
 
