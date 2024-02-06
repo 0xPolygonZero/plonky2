@@ -68,7 +68,7 @@ where
     let mut challenger = Challenger::new();
     challenger.observe_cap(&trace_cap);
 
-    // Permutation arguments.
+    // Lookup argument.
     let constraint_degree = stark.constraint_degree();
     let lookups = stark.lookups();
     let lookup_challenges = stark.uses_lookups().then(|| {

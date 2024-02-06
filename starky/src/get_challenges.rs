@@ -164,12 +164,14 @@ where
 }
 
 impl<const D: usize> StarkProofWithPublicInputsTarget<D> {
-    pub(crate) fn get_challenges<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>>(
+    pub(crate) fn get_challenges<F, C>(
         &self,
         builder: &mut CircuitBuilder<F, D>,
         config: &StarkConfig,
     ) -> StarkProofChallengesTarget<D>
     where
+        F: RichField + Extendable<D>,
+        C: GenericConfig<D, F = F>,
         C::Hasher: AlgebraicHasher<F>,
     {
         let StarkProofTarget {
