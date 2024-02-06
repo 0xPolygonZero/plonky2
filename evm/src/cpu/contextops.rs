@@ -8,12 +8,9 @@ use plonky2::plonk::circuit_builder::CircuitBuilder;
 
 use super::columns::ops::OpsColumnsView;
 use super::cpu_stark::{disable_unused_channels, disable_unused_channels_circuit};
-use super::membus::NUM_GP_CHANNELS;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::CpuColumnsView;
-use crate::cpu::kernel::constants::context_metadata::ContextMetadata;
 use crate::memory::segments::Segment;
-use crate::memory::VALUE_LIMBS;
 
 // If true, the instruction will keep the current context for the next row.
 // If false, next row's context is handled manually.
@@ -88,7 +85,7 @@ fn eval_packed_get<P: PackedField>(
     // Context is scaled by 2^64, hence stored in the 3rd limb.
     yield_constr.constraint(filter * (new_stack_top[2] - lv.context));
 
-    for (i, &limb) in new_stack_top.iter().enumerate().filter(|(i, _)| *i != 2) {
+    for (_, &limb) in new_stack_top.iter().enumerate().filter(|(i, _)| *i != 2) {
         yield_constr.constraint(filter * limb);
     }
 
@@ -119,7 +116,7 @@ fn eval_ext_circuit_get<F: RichField + Extendable<D>, const D: usize>(
         yield_constr.constraint(builder, constr);
     }
 
-    for (i, &limb) in new_stack_top.iter().enumerate().filter(|(i, _)| *i != 2) {
+    for (_, &limb) in new_stack_top.iter().enumerate().filter(|(i, _)| *i != 2) {
         let constr = builder.mul_extension(filter, limb);
         yield_constr.constraint(builder, constr);
     }
@@ -151,7 +148,7 @@ fn eval_packed_set<P: PackedField>(
 
     // The next row's context is read from stack_top.
     yield_constr.constraint(filter * (stack_top[2] - nv.context));
-    for (i, &limb) in stack_top.iter().enumerate().filter(|(i, _)| *i != 2) {
+    for (_, &limb) in stack_top.iter().enumerate().filter(|(i, _)| *i != 2) {
         yield_constr.constraint(filter * limb);
     }
 
@@ -199,7 +196,7 @@ fn eval_ext_circuit_set<F: RichField + Extendable<D>, const D: usize>(
         let constr = builder.mul_extension(filter, diff);
         yield_constr.constraint(builder, constr);
     }
-    for (i, &limb) in stack_top.iter().enumerate().filter(|(i, _)| *i != 2) {
+    for (_, &limb) in stack_top.iter().enumerate().filter(|(i, _)| *i != 2) {
         let constr = builder.mul_extension(filter, limb);
         yield_constr.constraint(builder, constr);
     }

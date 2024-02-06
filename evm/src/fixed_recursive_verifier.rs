@@ -1,7 +1,6 @@
 use core::mem::{self, MaybeUninit};
 use core::ops::Range;
 use std::collections::BTreeMap;
-use std::path::Path;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
@@ -25,7 +24,6 @@ use plonky2::plonk::config::{AlgebraicHasher, GenericConfig};
 use plonky2::plonk::proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget};
 use plonky2::recursion::cyclic_recursion::check_cyclic_proof_verifier_data;
 use plonky2::recursion::dummy_circuit::cyclic_base_proof;
-use plonky2::util::serialization::gate_serialization::default;
 use plonky2::util::serialization::{
     Buffer, GateSerializer, IoResult, Read, WitnessGeneratorSerializer, Write,
 };
@@ -42,7 +40,7 @@ use crate::generation::GenerationInputs;
 use crate::get_challenges::observe_public_values_target;
 use crate::proof::{
     AllProof, BlockHashesTarget, BlockMetadataTarget, ExtraBlockData, ExtraBlockDataTarget,
-    PublicValues, PublicValuesTarget, StarkProofWithMetadata, TrieRoots, TrieRootsTarget,
+    PublicValues, PublicValuesTarget, StarkProof, TrieRoots, TrieRootsTarget,
 };
 use crate::prover::{check_abort_signal, prove};
 use crate::recursive_verifier::{
@@ -1005,7 +1003,7 @@ where
 
         for table in 0..NUM_TABLES {
             let stark_proof = &all_proof.stark_proofs[table];
-            let original_degree_bits = stark_proof.proof.recover_degree_bits(config);
+            let original_degree_bits = stark_proof.recover_degree_bits(config);
             let table_circuits = &self.by_table[table];
             let shrunk_proof = table_circuits
                 .by_stark_size
@@ -1100,11 +1098,8 @@ where
     /// ```
     pub fn prove_root_after_initial_stark(
         &self,
-        all_stark: &AllStark<F, D>,
-        config: &StarkConfig,
         all_proof: AllProof<F, C, D>,
         table_circuits: &[(RecursiveCircuitsForTableSize<F, C, D>, u8); NUM_TABLES],
-        timing: &mut TimingTree,
         abort_signal: Option<Arc<AtomicBool>>,
     ) -> anyhow::Result<(ProofWithPublicInputs<F, C, D>, PublicValues)> {
         let mut root_inputs = PartialWitness::new();
@@ -1113,7 +1108,6 @@ where
             let (table_circuit, index_verifier_data) = &table_circuits[table];
 
             let stark_proof = &all_proof.stark_proofs[table];
-            let original_degree_bits = stark_proof.proof.recover_degree_bits(config);
 
             let shrunk_proof = table_circuit.shrink(stark_proof, &all_proof.ctl_challenges)?;
             root_inputs.set_target(
@@ -1635,12 +1629,10 @@ where
 
     pub fn shrink(
         &self,
-        stark_proof_with_metadata: &StarkProofWithMetadata<F, C, D>,
+        stark_proof: &StarkProof<F, C, D>,
         ctl_challenges: &GrandProductChallengeSet<F>,
     ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
-        let mut proof = self
-            .initial_wrapper
-            .prove(stark_proof_with_metadata, ctl_challenges)?;
+        let mut proof = self.initial_wrapper.prove(stark_proof, ctl_challenges)?;
         for wrapper_circuit in &self.shrinking_wrappers {
             proof = wrapper_circuit.prove(&proof)?;
         }

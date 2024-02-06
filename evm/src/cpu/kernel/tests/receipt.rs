@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use ethereum_types::{Address, U256};
 use hex_literal::hex;
 use keccak_hash::keccak;
@@ -407,9 +407,6 @@ fn test_mpt_insert_receipt() -> Result<()> {
     receipt.push(logs_payload_len.into()); // logs_payload_len
     receipt.push(num_logs.into()); // num_logs
     receipt.extend(logs_0.clone());
-
-    // First, we load all mpts.
-    let initial_stack: Vec<U256> = vec![retdest];
 
     let mut interpreter = Interpreter::new_with_kernel(0, vec![]);
     initialize_mpts(&mut interpreter, &trie_inputs);

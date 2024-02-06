@@ -4,7 +4,7 @@ use core::iter::repeat;
 
 use itertools::Itertools;
 use num_bigint::BigUint;
-use plonky2::field::batch_util::{batch_add_inplace, batch_multiply_inplace};
+use plonky2::field::batch_util::batch_add_inplace;
 use plonky2::field::extension::{Extendable, FieldExtension};
 use plonky2::field::packed::PackedField;
 use plonky2::field::polynomial::PolynomialValues;
@@ -107,14 +107,6 @@ impl<F: Field> Filter<F> {
                 .iter()
                 .map(|col| col.eval_table(table, row))
                 .sum()
-    }
-
-    pub(crate) fn eval_all_rows(&self, table: &[PolynomialValues<F>]) -> Vec<F> {
-        let length = table[0].len();
-
-        (0..length)
-            .map(|row| self.eval_table(table, row))
-            .collect::<Vec<F>>()
     }
 }
 
@@ -478,7 +470,6 @@ pub(crate) fn lookup_helper_columns<F: Field>(
     assert!(BigUint::from(num_total_logup_entries) < F::characteristic());
 
     let num_helper_columns = lookup.num_helper_columns(constraint_degree);
-    let mut helper_columns: Vec<PolynomialValues<F>> = Vec::with_capacity(num_helper_columns);
 
     let looking_cols = lookup
         .columns
@@ -670,7 +661,6 @@ pub(crate) fn get_helper_cols<F: Field>(
 
     let mut helper_columns = Vec::with_capacity(num_helper_columns);
 
-    let mut filter_index = 0;
     for mut cols_filts in &columns_filters.iter().chunks(constraint_degree - 1) {
         let (first_col, first_filter) = cols_filts.next().unwrap();
 
@@ -841,7 +831,6 @@ pub(crate) fn eval_ext_lookups_circuit<
     lookup_vars: LookupCheckVarsTarget<D>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
-    let one = builder.one_extension();
     let degree = stark.constraint_degree();
     let lookups = stark.lookups();
 

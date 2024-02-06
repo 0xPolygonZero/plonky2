@@ -7,7 +7,6 @@ use plonky2::field::packed::PackedField;
 use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
-use static_assertions::const_assert;
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::CpuColumnsView;
@@ -227,7 +226,7 @@ pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     {
         let diff_syscall =
             builder.sub_extension(jumpdest_channel.addr_virtual, opcode_handler_addr_start);
-        let constr = builder.mul_extension((filter_syscall), diff_syscall);
+        let constr = builder.mul_extension(filter_syscall, diff_syscall);
         yield_constr.constraint(builder, constr);
     }
     {

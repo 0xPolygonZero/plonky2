@@ -227,10 +227,18 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for LogicStark<F,
     {
         let lv = vars.get_local_values();
 
-        // IS_AND, IS_OR, and IS_XOR come from the CPU table, so we assume they're valid.
         let is_and = lv[columns::IS_AND];
         let is_or = lv[columns::IS_OR];
         let is_xor = lv[columns::IS_XOR];
+
+        // Flags must be boolean.
+        for &flag in &[is_and, is_or, is_xor] {
+            yield_constr.constraint(flag * (flag - P::ONES));
+        }
+
+        // Only a single flag must be activated at once.
+        let all_flags = is_and + is_or + is_xor;
+        yield_constr.constraint(all_flags * (all_flags - P::ONES));
 
         // The result will be `in0 OP in1 = sum_coeff * (in0 + in1) + and_coeff * (in0 AND in1)`.
         // `AND => sum_coeff = 0, and_coeff = 1`
@@ -276,10 +284,20 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for LogicStark<F,
     ) {
         let lv = vars.get_local_values();
 
-        // IS_AND, IS_OR, and IS_XOR come from the CPU table, so we assume they're valid.
         let is_and = lv[columns::IS_AND];
         let is_or = lv[columns::IS_OR];
         let is_xor = lv[columns::IS_XOR];
+
+        // Flags must be boolean.
+        for &flag in &[is_and, is_or, is_xor] {
+            let constraint = builder.mul_sub_extension(flag, flag, flag);
+            yield_constr.constraint(builder, constraint);
+        }
+
+        // Only a single flag must be activated at once.
+        let all_flags = builder.add_many_extension([is_and, is_or, is_xor]);
+        let constraint = builder.mul_sub_extension(all_flags, all_flags, all_flags);
+        yield_constr.constraint(builder, constraint);
 
         // The result will be `in0 OP in1 = sum_coeff * (in0 + in1) + and_coeff * (in0 AND in1)`.
         // `AND => sum_coeff = 0, and_coeff = 1`

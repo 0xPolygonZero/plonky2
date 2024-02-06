@@ -27,15 +27,11 @@
 //! is similar, but we provide not only `local_values` but also `next_values` -- corresponding to
 //! the current and next row values -- when computing the linear combinations.
 
-use core::borrow::Borrow;
 use core::cmp::min;
 use core::fmt::Debug;
-use core::iter::repeat;
 
 use anyhow::{ensure, Result};
-use hashbrown::HashMap;
 use itertools::Itertools;
-use plonky2::field::batch_util::{batch_add_inplace, batch_multiply_inplace};
 use plonky2::field::extension::{Extendable, FieldExtension};
 use plonky2::field::packed::PackedField;
 use plonky2::field::polynomial::PolynomialValues;
@@ -46,13 +42,9 @@ use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::iop::target::Target;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::config::{AlgebraicHasher, GenericConfig, Hasher};
-use plonky2::plonk::plonk_common::{
-    reduce_with_powers, reduce_with_powers_circuit, reduce_with_powers_ext_circuit,
-};
 use plonky2::util::ceil_div_usize;
 use plonky2::util::serialization::{Buffer, IoResult, Read, Write};
 
-use crate::all_stark::Table;
 use crate::config::StarkConfig;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::evaluation_frame::StarkEvaluationFrame;
@@ -60,7 +52,7 @@ use crate::lookup::{
     eval_helper_columns, eval_helper_columns_circuit, get_helper_cols, Column, ColumnFilter,
     Filter, GrandProductChallenge,
 };
-use crate::proof::{StarkProofTarget, StarkProofWithMetadata};
+use crate::proof::{StarkProof, StarkProofTarget};
 use crate::stark::Stark;
 
 /// An alias for `usize`, to represent the index of a STARK table in a multi-STARK setting.
@@ -303,7 +295,7 @@ pub(crate) fn num_ctl_helper_columns_by_table<F: Field, const N: usize>(
     for (i, ctl) in ctls.iter().enumerate() {
         let CrossTableLookup {
             looking_tables,
-            looked_table,
+            looked_table: _,
         } = ctl;
         let mut num_by_table = [0; N];
 
@@ -349,7 +341,7 @@ pub(crate) fn cross_table_lookup_data<'a, F: RichField, const D: usize, const N:
                 constraint_degree,
             );
 
-            let mut z_looked = partial_sums(
+            let z_looked = partial_sums(
                 &trace_poly_values[looked_table.table],
                 &[(&looked_table.columns, &looked_table.filter)],
                 challenge,
@@ -412,7 +404,6 @@ fn ctl_helper_zs_cols<F: Field, const N: usize>(
     grouped_lookups
         .into_iter()
         .map(|(table, group)| {
-            let degree = all_stark_traces[table][0].len();
             let columns_filters = group
                 .map(|table| (&table.columns[..], &table.filter))
                 .collect::<Vec<(&[Column<F>], &Option<Filter<F>>)>>();
@@ -503,7 +494,7 @@ impl<'a, F: RichField + Extendable<D>, const D: usize>
 {
     /// Extracts the `CtlCheckVars` for each STARK.
     pub(crate) fn from_proofs<C: GenericConfig<D, F = F>, const N: usize>(
-        proofs: &[StarkProofWithMetadata<F, C, D>; N],
+        proofs: &[StarkProof<F, C, D>; N],
         cross_table_lookups: &'a [CrossTableLookup<F>],
         ctl_challenges: &'a GrandProductChallengeSet<F>,
         num_lookup_columns: &[usize; N],
@@ -517,11 +508,11 @@ impl<'a, F: RichField + Extendable<D>, const D: usize>
         }
 
         // Get all cross-table lookup polynomial openings for each STARK proof.
-        let mut ctl_zs = proofs
+        let ctl_zs = proofs
             .iter()
             .zip(num_lookup_columns)
-            .map(|(p, &num_lookup)| {
-                let openings = &p.proof.openings;
+            .map(|(proof, &num_lookup)| {
+                let openings = &proof.openings;
 
                 let ctl_zs = &openings.auxiliary_polys[num_lookup..];
                 let ctl_zs_next = &openings.auxiliary_polys_next[num_lookup..];
@@ -551,7 +542,7 @@ impl<'a, F: RichField + Extendable<D>, const D: usize>
                     }
                 }
 
-                for (i, &table) in filtered_looking_tables.iter().enumerate() {
+                for &table in filtered_looking_tables.iter() {
                     // We have first all the helper polynomials, then all the z polynomials.
                     let (looking_z, looking_z_next) =
                         ctl_zs[table][total_num_helper_cols_by_table[table] + z_indices[table]];
@@ -736,7 +727,7 @@ impl<'a, F: Field, const D: usize> CtlCheckVarsTarget<F, D> {
         num_helper_ctl_columns: &[usize],
     ) -> Vec<Self> {
         // Get all cross-table lookup polynomial openings for each STARK proof.
-        let mut ctl_zs = {
+        let ctl_zs = {
             let openings = &proof.openings;
             let ctl_zs = openings.auxiliary_polys.iter().skip(num_lookup_columns);
             let ctl_zs_next = openings
