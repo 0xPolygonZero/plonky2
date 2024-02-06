@@ -469,7 +469,7 @@ fn check_constraints<'a, F, C, S, const D: usize>(
         assert!(
             v.iter().all(|x| x.is_zero()),
             "Constraint failed in {}",
-            std::any::type_name::<S>()
+            core::any::type_name::<S>()
         );
     }
 }

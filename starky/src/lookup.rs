@@ -879,8 +879,6 @@ pub(crate) fn eval_packed_lookups_generic<F, FE, P, S, const D: usize, const D2:
     for lookup in lookups {
         let num_helper_columns = lookup.num_helper_columns(degree);
         for &challenge in &lookup_vars.challenges {
-            #[cfg(feature = "std")]
-            println!("{:?} - {:?}", start, start + num_helper_columns - 1);
             let grand_challenge = GrandProductChallenge {
                 beta: F::ONE,
                 gamma: challenge,
