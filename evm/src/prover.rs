@@ -609,8 +609,12 @@ where
             );
             // Get the local and next row evaluations for the permutation argument, as well as the associated challenges.
             let lookup_vars = lookup_challenges.map(|challenges| LookupCheckVars {
-                local_values: auxiliary_polys_commitment.get_lde_values_packed(i_start, step),
-                next_values: auxiliary_polys_commitment.get_lde_values_packed(i_next_start, step),
+                local_values: auxiliary_polys_commitment.get_lde_values_packed(i_start, step)
+                    [..num_lookup_columns]
+                    .to_vec(),
+                next_values: auxiliary_polys_commitment.get_lde_values_packed(i_next_start, step)
+                    [..num_lookup_columns]
+                    .to_vec(),
                 challenges: challenges.to_vec(),
             });
 
