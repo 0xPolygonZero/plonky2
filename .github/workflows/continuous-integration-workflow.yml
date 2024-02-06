@@ -70,7 +70,7 @@ jobs:
           RUST_BACKTRACE: 1
 
   wasm:
-    name: wasm32 compatibility
+    name: Check wasm32 compatibility
     runs-on: ubuntu-latest
     timeout-minutes: 30
     if: "! contains(toJSON(github.event.commits.*.message), '[skip-ci]')"
@@ -106,7 +106,7 @@ jobs:
           RUST_BACKTRACE: 1
 
   no_std:
-    name: Run tests in no-std
+    name: Test Suite in no-std
     runs-on: ubuntu-latest
     timeout-minutes: 30
     if: "! contains(toJSON(github.event.commits.*.message), '[skip-ci]')"
