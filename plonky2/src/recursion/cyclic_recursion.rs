@@ -198,6 +198,9 @@ where
 
 #[cfg(test)]
 mod tests {
+    #[cfg(not(feature = "std"))]
+    use alloc::vec;
+
     use anyhow::Result;
 
     use crate::field::extension::Extendable;

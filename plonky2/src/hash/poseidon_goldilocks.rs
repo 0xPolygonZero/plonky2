@@ -444,6 +444,9 @@ mod poseidon12_mds {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(not(feature = "std"))]
+    use alloc::{vec, vec::Vec};
+
     use crate::field::goldilocks_field::GoldilocksField as F;
     use crate::field::types::{Field, PrimeField64};
     use crate::hash::poseidon::test_helpers::{check_consistency, check_test_vectors};

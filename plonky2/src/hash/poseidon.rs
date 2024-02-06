@@ -753,6 +753,9 @@ impl<F: RichField> AlgebraicHasher<F> for PoseidonHash {
 
 #[cfg(test)]
 pub(crate) mod test_helpers {
+    #[cfg(not(feature = "std"))]
+    use alloc::vec::Vec;
+
     use crate::field::types::Field;
     use crate::hash::poseidon::{Poseidon, SPONGE_WIDTH};
 

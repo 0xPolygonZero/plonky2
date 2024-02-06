@@ -451,7 +451,10 @@ impl<const D: usize> OpeningSetTarget<D> {
 
 #[cfg(test)]
 mod tests {
-    use alloc::sync::Arc;
+    #[cfg(not(feature = "std"))]
+    use alloc::{sync::Arc, vec};
+    #[cfg(feature = "std")]
+    use std::sync::Arc;
 
     use anyhow::Result;
     use itertools::Itertools;
