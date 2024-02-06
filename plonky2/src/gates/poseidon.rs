@@ -532,6 +532,9 @@ impl<F: RichField + Extendable<D> + Poseidon, const D: usize> SimpleGenerator<F,
 
 #[cfg(test)]
 mod tests {
+    #[cfg(not(feature = "std"))]
+    use alloc::{vec, vec::Vec};
+
     use anyhow::Result;
 
     use crate::field::goldilocks_field::GoldilocksField;
