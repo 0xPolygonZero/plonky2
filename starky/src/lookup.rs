@@ -31,13 +31,13 @@ use crate::stark::Stark;
 /// It's an arbitrary degree 2 combination of columns: `products` are the degree 2 terms, and `constants` are
 /// the degree 1 terms.
 #[derive(Clone, Debug)]
-pub(crate) struct Filter<F: Field> {
+pub struct Filter<F: Field> {
     products: Vec<(Column<F>, Column<F>)>,
     constants: Vec<Column<F>>,
 }
 
 impl<F: Field> Filter<F> {
-    pub(crate) fn new(products: Vec<(Column<F>, Column<F>)>, constants: Vec<Column<F>>) -> Self {
+    pub fn new(products: Vec<(Column<F>, Column<F>)>, constants: Vec<Column<F>>) -> Self {
         Self {
             products,
             constants,
@@ -45,7 +45,7 @@ impl<F: Field> Filter<F> {
     }
 
     /// Returns a filter made of a single column.
-    pub(crate) fn new_simple(col: Column<F>) -> Self {
+    pub fn new_simple(col: Column<F>) -> Self {
         Self {
             products: vec![],
             constants: vec![col],
@@ -128,7 +128,7 @@ impl<F: Field> Filter<F> {
 /// - a vector of `(usize, F)` corresponding to the column number and the associated multiplicand
 /// - the constant of the linear combination.
 #[derive(Clone, Debug)]
-pub(crate) struct Column<F: Field> {
+pub struct Column<F: Field> {
     linear_combination: Vec<(usize, F)>,
     next_row_linear_combination: Vec<(usize, F)>,
     constant: F,
@@ -136,7 +136,7 @@ pub(crate) struct Column<F: Field> {
 
 impl<F: Field> Column<F> {
     /// Returns the representation of a single column in the current row.
-    pub(crate) fn single(c: usize) -> Self {
+    pub fn single(c: usize) -> Self {
         Self {
             linear_combination: vec![(c, F::ONE)],
             next_row_linear_combination: vec![],
@@ -145,14 +145,14 @@ impl<F: Field> Column<F> {
     }
 
     /// Returns multiple single columns in the current row.
-    pub(crate) fn singles<I: IntoIterator<Item = impl Borrow<usize>>>(
+    pub fn singles<I: IntoIterator<Item = impl Borrow<usize>>>(
         cs: I,
     ) -> impl Iterator<Item = Self> {
         cs.into_iter().map(|c| Self::single(*c.borrow()))
     }
 
     /// Returns the representation of a single column in the next row.
-    pub(crate) fn single_next_row(c: usize) -> Self {
+    pub fn single_next_row(c: usize) -> Self {
         Self {
             linear_combination: vec![],
             next_row_linear_combination: vec![(c, F::ONE)],
@@ -161,14 +161,14 @@ impl<F: Field> Column<F> {
     }
 
     /// Returns multiple single columns for the next row.
-    pub(crate) fn singles_next_row<I: IntoIterator<Item = impl Borrow<usize>>>(
+    pub fn singles_next_row<I: IntoIterator<Item = impl Borrow<usize>>>(
         cs: I,
     ) -> impl Iterator<Item = Self> {
         cs.into_iter().map(|c| Self::single_next_row(*c.borrow()))
     }
 
     /// Returns a linear combination corresponding to a constant.
-    pub(crate) fn constant(constant: F) -> Self {
+    pub fn constant(constant: F) -> Self {
         Self {
             linear_combination: vec![],
             next_row_linear_combination: vec![],
@@ -177,17 +177,17 @@ impl<F: Field> Column<F> {
     }
 
     /// Returns a linear combination corresponding to 0.
-    pub(crate) fn zero() -> Self {
+    pub fn zero() -> Self {
         Self::constant(F::ZERO)
     }
 
     /// Returns a linear combination corresponding to 1.
-    pub(crate) fn one() -> Self {
+    pub fn one() -> Self {
         Self::constant(F::ONE)
     }
 
     /// Given an iterator of `(usize, F)` and a constant, returns the association linear combination of columns for the current row.
-    pub(crate) fn linear_combination_with_constant<I: IntoIterator<Item = (usize, F)>>(
+    pub fn linear_combination_with_constant<I: IntoIterator<Item = (usize, F)>>(
         iter: I,
         constant: F,
     ) -> Self {
@@ -211,9 +211,7 @@ impl<F: Field> Column<F> {
     }
 
     /// Given an iterator of `(usize, F)` and a constant, returns the associated linear combination of columns for the current and the next rows.
-    pub(crate) fn linear_combination_and_next_row_with_constant<
-        I: IntoIterator<Item = (usize, F)>,
-    >(
+    pub fn linear_combination_and_next_row_with_constant<I: IntoIterator<Item = (usize, F)>>(
         iter: I,
         next_row_iter: I,
         constant: F,
@@ -247,20 +245,20 @@ impl<F: Field> Column<F> {
     }
 
     /// Returns a linear combination of columns, with no additional constant.
-    pub(crate) fn linear_combination<I: IntoIterator<Item = (usize, F)>>(iter: I) -> Self {
+    pub fn linear_combination<I: IntoIterator<Item = (usize, F)>>(iter: I) -> Self {
         Self::linear_combination_with_constant(iter, F::ZERO)
     }
 
     /// Given an iterator of columns (c_0, ..., c_n) containing bits in little endian order:
     /// returns the representation of c_0 + 2 * c_1 + ... + 2^n * c_n.
-    pub(crate) fn le_bits<I: IntoIterator<Item = impl Borrow<usize>>>(cs: I) -> Self {
+    pub fn le_bits<I: IntoIterator<Item = impl Borrow<usize>>>(cs: I) -> Self {
         Self::linear_combination(cs.into_iter().map(|c| *c.borrow()).zip(F::TWO.powers()))
     }
 
     /// Given an iterator of columns (c_0, ..., c_n) containing bits in little endian order:
     /// returns the representation of c_0 + 2 * c_1 + ... + 2^n * c_n + k where `k` is an
     /// additional constant.
-    pub(crate) fn le_bits_with_constant<I: IntoIterator<Item = impl Borrow<usize>>>(
+    pub fn le_bits_with_constant<I: IntoIterator<Item = impl Borrow<usize>>>(
         cs: I,
         constant: F,
     ) -> Self {
@@ -272,7 +270,7 @@ impl<F: Field> Column<F> {
 
     /// Given an iterator of columns (c_0, ..., c_n) containing bytes in little endian order:
     /// returns the representation of c_0 + 256 * c_1 + ... + 256^n * c_n.
-    pub(crate) fn le_bytes<I: IntoIterator<Item = impl Borrow<usize>>>(cs: I) -> Self {
+    pub fn le_bytes<I: IntoIterator<Item = impl Borrow<usize>>>(cs: I) -> Self {
         Self::linear_combination(
             cs.into_iter()
                 .map(|c| *c.borrow())
@@ -281,7 +279,7 @@ impl<F: Field> Column<F> {
     }
 
     /// Given an iterator of columns, returns the representation of their sum.
-    pub(crate) fn sum<I: IntoIterator<Item = impl Borrow<usize>>>(cs: I) -> Self {
+    pub fn sum<I: IntoIterator<Item = impl Borrow<usize>>>(cs: I) -> Self {
         Self::linear_combination(cs.into_iter().map(|c| *c.borrow()).zip(repeat(F::ONE)))
     }
 
@@ -407,21 +405,21 @@ pub(crate) type ColumnFilter<'a, F> = (&'a [Column<F>], &'a Option<Filter<F>>);
 pub struct Lookup<F: Field> {
     /// Columns whose values should be contained in the lookup table.
     /// These are the f_i(x) polynomials in the logUp paper.
-    pub(crate) columns: Vec<Column<F>>,
+    pub columns: Vec<Column<F>>,
     /// Column containing the lookup table.
     /// This is the t(x) polynomial in the paper.
-    pub(crate) table_column: Column<F>,
+    pub table_column: Column<F>,
     /// Column containing the frequencies of `columns` in `table_column`.
     /// This is the m(x) polynomial in the paper.
-    pub(crate) frequencies_column: Column<F>,
+    pub frequencies_column: Column<F>,
 
     /// Columns to filter some elements. There is at most one filter
     /// column per column to lookup.
-    pub(crate) filter_columns: Vec<Option<Filter<F>>>,
+    pub filter_columns: Vec<Option<Filter<F>>>,
 }
 
 impl<F: Field> Lookup<F> {
-    pub(crate) fn num_helper_columns(&self, constraint_degree: usize) -> usize {
+    pub fn num_helper_columns(&self, constraint_degree: usize) -> usize {
         // One helper column for each column batch of size `constraint_degree-1`,
         // then one column for the inverse of `table + challenge` and one for the `Z` polynomial.
         ceil_div_usize(self.columns.len(), constraint_degree - 1) + 1
