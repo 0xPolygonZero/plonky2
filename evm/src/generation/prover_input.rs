@@ -257,6 +257,7 @@ impl<F: Field> GenerationState<F> {
 
         if self.jumpdest_table.is_none() {
             self.generate_jumpdest_table()?;
+            log::debug!("jdt  = {:?}", self.jumpdest_table);
         }
 
         let Some(jumpdest_table) = &mut self.jumpdest_table else {
@@ -278,9 +279,6 @@ impl<F: Field> GenerationState<F> {
             Ok((next_jumpdest_address + 1).into())
         } else {
             jumpdest_table.remove(&context);
-            if jumpdest_table.is_empty() {
-                self.jumpdest_table = None;
-            }
             Ok(U256::zero())
         }
     }
@@ -323,12 +321,7 @@ impl<F: Field> GenerationState<F> {
         // the simulation will fail.
 
         // Simulate the user's code and (unnecessarily) part of the kernel code, skipping the validate table call
-        let Some(jumpdest_table) = simulate_cpu_and_get_user_jumps("terminate_common", self) else {
-            self.jumpdest_table = Some(HashMap::new());
-            return Ok(());
-        };
-
-        self.jumpdest_table = Some(jumpdest_table);
+        self.jumpdest_table = simulate_cpu_and_get_user_jumps("terminate_common", self);
 
         Ok(())
     }

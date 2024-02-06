@@ -66,6 +66,7 @@ pub(crate) struct Interpreter<'a, F: Field> {
     running: bool,
     opcode_count: [usize; 0x100],
     memops: Vec<InterpreterMemOpKind>,
+    jumpdest_table: HashMap<usize, BTreeSet<usize>>,
 }
 
 /// Structure storing the state of the interpreter's registers.
@@ -149,13 +150,15 @@ pub(crate) fn simulate_cpu_and_get_user_jumps<F: Field>(
 
         log::debug!("Simulating CPU for jumpdest analysis.");
 
-        interpreter.run();
+        interpreter.run().unwrap();
 
-        log::debug!("Simulated CPU for jumpdest analysis halted.");
-        let jumpdest_table = interpreter.get_jumpdest_table(initial_context);
+        log::debug!("jdt = {:?}", interpreter.jumpdest_table);
+
         interpreter
             .generation_state
-            .set_jumpdest_analysis_inputs(jumpdest_table);
+            .set_jumpdest_analysis_inputs(interpreter.jumpdest_table);
+
+        log::debug!("Simulated CPU for jumpdest analysis halted.");
         interpreter.generation_state.jumpdest_table
     }
 }
@@ -212,6 +215,7 @@ impl<'a, F: Field> Interpreter<'a, F> {
             running: false,
             opcode_count: [0; 256],
             memops: vec![],
+            jumpdest_table: HashMap::new(),
         };
         result.generation_state.registers.program_counter = initial_offset;
         let initial_stack_len = initial_stack.len();
@@ -239,6 +243,7 @@ impl<'a, F: Field> Interpreter<'a, F> {
             running: false,
             opcode_count: [0; 256],
             memops: vec![],
+            jumpdest_table: HashMap::new(),
         }
     }
 
@@ -634,36 +639,6 @@ impl<'a, F: Field> Interpreter<'a, F> {
         }
     }
 
-    pub(crate) fn get_jumpdest_bits(&self, context: usize) -> Vec<bool> {
-        self.generation_state.memory.contexts[context].segments[Segment::JumpdestBits.unscale()]
-            .content
-            .iter()
-            .map(|x| x.bit(0))
-            .collect()
-    }
-
-    /// Returns a map between contexts and jumpdests.
-    pub(crate) fn get_jumpdest_table(&self, context: usize) -> HashMap<usize, BTreeSet<usize>> {
-        HashMap::from_iter(
-            self.generation_state
-                .memory
-                .contexts
-                .iter()
-                .enumerate()
-                .filter(|&(ctx, _)| ctx >= context)
-                .map(|(ctx, mem_ctx_st)| {
-                    let jumpdests = mem_ctx_st.segments[Segment::JumpdestBits.unscale()]
-                        .content
-                        .iter()
-                        .enumerate()
-                        .filter(|(_, x)| x.bit(0))
-                        .map(|(i, _)| i)
-                        .collect();
-                    (ctx, jumpdests)
-                }),
-        )
-    }
-
     pub(crate) fn set_jumpdest_analysis_inputs(&mut self, jumps: HashMap<usize, BTreeSet<usize>>) {
         self.generation_state.set_jumpdest_analysis_inputs(jumps);
     }
@@ -775,6 +750,35 @@ impl<'a, F: Field> Interpreter<'a, F> {
 
         let op = decode(self.generation_state.registers, opcode)?;
         self.generation_state.registers.gas_used += gas_to_charge(op);
+
+        // #[cfg(test)]
+        if self
+            .debug_offsets
+            .contains(&self.generation_state.registers.program_counter)
+        {
+            println!("At {}, stack={:?},", self.offset_name(), self.stack());
+        } else if let Some(label) = self.offset_label() {
+            println!(
+                "At {label} stack = {:?} is kernel = {:?}",
+                {
+                    let mut stack = self.stack();
+                    stack.reverse();
+                    stack
+                },
+                self.is_kernel()
+            );
+        } else if !self.is_kernel() {
+            println!(
+                "User instruction {:?}, stack = {:?}, ctx = {}",
+                op,
+                {
+                    let mut stack = self.stack();
+                    stack.reverse();
+                    stack
+                },
+                self.generation_state.registers.context
+            );
+        }
 
         match opcode {
             0x00 => self.run_syscall(opcode, 0, false), // "STOP",
@@ -895,30 +899,6 @@ impl<'a, F: Field> Interpreter<'a, F> {
                 Err(ProgramError::InvalidOpcode)
             }
         }?;
-
-        // #[cfg(test)]
-        if self
-            .debug_offsets
-            .contains(&self.generation_state.registers.program_counter)
-        {
-            println!("At {}, stack={:?},", self.offset_name(), self.stack());
-        } else if let Some(label) = self.offset_label() {
-            println!(
-                "At {label} stack = {:?} is kernel = {:?}",
-                {
-                    let mut stack = self.stack();
-                    stack.reverse();
-                    stack
-                },
-                self.is_kernel()
-            );
-        } else if !self.is_kernel() {
-            println!("User instruction {:?}, stack = {:?}", op, {
-                let mut stack = self.stack();
-                stack.reverse();
-                stack
-            });
-        }
 
         if !self.is_kernel() {
             let gas_limit_address = MemoryAddress {
@@ -1182,51 +1162,80 @@ impl<'a, F: Field> Interpreter<'a, F> {
         self.push(syscall_info)
     }
 
-    fn get_jumpdest_bit(&self, x: U256) -> U256 {
+    fn get_jumpdest_bit(&self, offset: usize) -> U256 {
         if self.generation_state.memory.contexts[self.context()].segments
             [Segment::JumpdestBits.unscale()]
         .content
         .len()
-            > x.low_u32() as usize
+            > offset
         {
             self.generation_state.memory.get(MemoryAddress {
                 context: self.context(),
                 segment: Segment::JumpdestBits.unscale(),
-                virt: x.low_u32() as usize,
+                virt: offset,
             })
         } else {
             0.into()
         }
     }
-    fn run_jump(&mut self) -> anyhow::Result<(), ProgramError> {
-        let x = self.pop()?;
 
-        let jumpdest_bit = self.get_jumpdest_bit(x);
+    pub(crate) fn get_jumpdest_bits(&self, context: usize) -> Vec<bool> {
+        self.generation_state.memory.contexts[context].segments[Segment::JumpdestBits.unscale()]
+            .content
+            .iter()
+            .map(|x| x.bit(0))
+            .collect()
+    }
+
+    fn add_jumpdest_offset(&mut self, offset: usize) {
+        if let Some(jumpdest_table) = self
+            .jumpdest_table
+            .get_mut(&self.generation_state.registers.context)
+        {
+            log::debug!("Addedded {offset}");
+            jumpdest_table.insert(offset);
+        } else {
+            self.jumpdest_table.insert(
+                self.generation_state.registers.context,
+                BTreeSet::from([offset]),
+            );
+            log::debug!("Addendum {offset}");
+            log::debug!("que linda taulita {:?}", self.jumpdest_table);
+        }
+    }
+
+    fn run_jump(&mut self) -> anyhow::Result<(), ProgramError> {
+        let offset = self.pop()?;
 
         // Check that the destination is valid.
-        let x: u32 = x
+        let offset: usize = offset
             .try_into()
             .map_err(|_| ProgramError::InvalidJumpDestination)?;
+
+        let jumpdest_bit = self.get_jumpdest_bit(offset);
 
         if !self.is_kernel() && jumpdest_bit != U256::one() {
             return Err(ProgramError::InvalidJumpDestination);
         }
 
-        self.jump_to(x as usize, false)
+        self.jump_to(offset, false)
     }
 
     fn run_jumpi(&mut self) -> anyhow::Result<(), ProgramError> {
-        let x = self.pop()?;
-        let b = self.pop()?;
-        if !b.is_zero() {
-            let x: u32 = x
-                .try_into()
-                .map_err(|_| ProgramError::InvalidJumpiDestination)?;
-            self.jump_to(x as usize, true)?;
-        }
-        let jumpdest_bit = self.get_jumpdest_bit(x);
+        let offset = self.pop()?;
+        let cond = self.pop()?;
 
-        if !b.is_zero() && !self.is_kernel() && jumpdest_bit != U256::one() {
+        let offset: usize = offset
+            .try_into()
+            .map_err(|_| ProgramError::InvalidJumpiDestination)?;
+
+        let jumpdest_bit = self.get_jumpdest_bit(offset);
+
+        if !cond.is_zero() && (self.is_kernel() || jumpdest_bit == U256::one()) {
+            self.jump_to(offset, true)?;
+        }
+
+        if !cond.is_zero() && !self.is_kernel() && jumpdest_bit != U256::one() {
             return Err(ProgramError::InvalidJumpiDestination);
         }
         Ok(())
@@ -1262,6 +1271,11 @@ impl<'a, F: Field> Interpreter<'a, F> {
             self.generation_state.observe_contract(tip_h256)?;
         }
 
+        if !self.is_kernel() {
+            self.add_jumpdest_offset(offset);
+            log::debug!("Added {offset} to jdt")
+        }
+
         self.running = if let Some(halt_context) = self.halt_context {
             !(halt_context == self.generation_state.registers.context
                 && self.is_kernel()
@@ -1269,6 +1283,14 @@ impl<'a, F: Field> Interpreter<'a, F> {
         } else {
             !self.halt_offsets.contains(&offset)
         };
+
+        if !self.running {
+            log::debug!(
+                "se pago con contepsto {:?}",
+                self.generation_state.registers.context
+            )
+        }
+
         Ok(())
     }
 
