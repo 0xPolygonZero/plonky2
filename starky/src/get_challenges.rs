@@ -10,11 +10,15 @@ use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::config::{AlgebraicHasher, GenericConfig};
 
 use crate::config::StarkConfig;
-use crate::lookup::{get_grand_product_challenge_set, get_grand_product_challenge_set_target};
+use crate::lookup::{
+    get_grand_product_challenge_set, get_grand_product_challenge_set_target,
+    GrandProductChallengeSet,
+};
 use crate::proof::*;
 
 fn get_challenges<F, C, const D: usize>(
     challenger: &mut Challenger<F, C::Hasher>,
+    challenges: Option<&GrandProductChallengeSet<F>>,
     trace_cap: &MerkleCap<F, C::Hasher>,
     auxiliary_polys_cap: Option<&MerkleCap<F, C::Hasher>>,
     quotient_polys_cap: &MerkleCap<F, C::Hasher>,
@@ -33,11 +37,15 @@ where
 
     challenger.observe_cap(trace_cap);
 
-    let lookup_challenge_set = auxiliary_polys_cap.map(|auxiliary_polys_cap| {
-        let tmp = get_grand_product_challenge_set(challenger, num_challenges);
-        challenger.observe_cap(auxiliary_polys_cap);
-        tmp
-    });
+    let lookup_challenge_set = if let Some(&challenges) = challenges.as_ref() {
+        Some(challenges.clone())
+    } else {
+        auxiliary_polys_cap.map(|auxiliary_polys_cap| {
+            let tmp = get_grand_product_challenge_set(challenger, num_challenges);
+            challenger.observe_cap(auxiliary_polys_cap);
+            tmp
+        })
+    };
 
     let stark_alphas = challenger.get_n_challenges(num_challenges);
 
@@ -69,6 +77,7 @@ where
     pub fn get_challenges(
         &self,
         challenger: &mut Challenger<F, C::Hasher>,
+        challenges: Option<&GrandProductChallengeSet<F>>,
         config: &StarkConfig,
     ) -> StarkProofChallenges<F, D> {
         let degree_bits = self.recover_degree_bits(config);
@@ -89,6 +98,7 @@ where
 
         get_challenges::<F, C, D>(
             challenger,
+            challenges,
             trace_cap,
             auxiliary_polys_cap.as_ref(),
             quotient_polys_cap,
@@ -111,9 +121,10 @@ where
     pub fn get_challenges(
         &self,
         challenger: &mut Challenger<F, C::Hasher>,
+        challenges: Option<&GrandProductChallengeSet<F>>,
         config: &StarkConfig,
     ) -> StarkProofChallenges<F, D> {
-        self.proof.get_challenges(challenger, config)
+        self.proof.get_challenges(challenger, challenges, config)
     }
 }
 
@@ -124,6 +135,7 @@ pub(crate) fn get_challenges_target<
 >(
     builder: &mut CircuitBuilder<F, D>,
     challenger: &mut RecursiveChallenger<F, C::Hasher, D>,
+    challenges: Option<&GrandProductChallengeSet<Target>>,
     trace_cap: &MerkleCapTarget,
     auxiliary_polys_cap: Option<&MerkleCapTarget>,
     quotient_polys_cap: &MerkleCapTarget,
@@ -140,11 +152,15 @@ where
 
     challenger.observe_cap(trace_cap);
 
-    let lookup_challenge_set = auxiliary_polys_cap.map(|permutation_zs_cap| {
-        let tmp = get_grand_product_challenge_set_target(builder, challenger, num_challenges);
-        challenger.observe_cap(permutation_zs_cap);
-        tmp
-    });
+    let lookup_challenge_set = if let Some(&challenges) = challenges.as_ref() {
+        Some(challenges.clone())
+    } else {
+        auxiliary_polys_cap.map(|auxiliary_polys_cap| {
+            let tmp = get_grand_product_challenge_set_target(builder, challenger, num_challenges);
+            challenger.observe_cap(auxiliary_polys_cap);
+            tmp
+        })
+    };
 
     let stark_alphas = challenger.get_n_challenges(builder, num_challenges);
 
@@ -172,6 +188,7 @@ impl<const D: usize> StarkProofTarget<D> {
         &self,
         builder: &mut CircuitBuilder<F, D>,
         challenger: &mut RecursiveChallenger<F, C::Hasher, D>,
+        challenges: Option<&GrandProductChallengeSet<Target>>,
         config: &StarkConfig,
     ) -> StarkProofChallengesTarget<D>
     where
@@ -196,6 +213,7 @@ impl<const D: usize> StarkProofTarget<D> {
         get_challenges_target::<F, C, D>(
             builder,
             challenger,
+            challenges,
             trace_cap,
             auxiliary_polys_cap.as_ref(),
             quotient_polys_cap,
@@ -214,6 +232,7 @@ impl<const D: usize> StarkProofWithPublicInputsTarget<D> {
         &self,
         builder: &mut CircuitBuilder<F, D>,
         challenger: &mut RecursiveChallenger<F, C::Hasher, D>,
+        challenges: Option<&GrandProductChallengeSet<Target>>,
         config: &StarkConfig,
     ) -> StarkProofChallengesTarget<D>
     where
@@ -222,7 +241,7 @@ impl<const D: usize> StarkProofWithPublicInputsTarget<D> {
         C::Hasher: AlgebraicHasher<F>,
     {
         self.proof
-            .get_challenges::<F, C>(builder, challenger, config)
+            .get_challenges::<F, C>(builder, challenger, challenges, config)
     }
 }
 

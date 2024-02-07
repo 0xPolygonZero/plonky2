@@ -33,7 +33,7 @@ pub fn verify_stark_proof<
     ensure!(proof_with_pis.public_inputs.len() == S::PUBLIC_INPUTS);
     let mut challenger = Challenger::<F, C::Hasher>::new();
 
-    let challenges = proof_with_pis.get_challenges(&mut challenger, config);
+    let challenges = proof_with_pis.get_challenges(&mut challenger, None, config);
 
     verify_stark_proof_with_challenges(
         &stark,
@@ -122,6 +122,12 @@ where
             .map(|ch| ch.beta)
             .collect::<Vec<_>>()
     });
+
+    println!(
+        "Lookup challenges for {:?} are {:?}",
+        type_name::<S>(),
+        lookup_challenges
+    );
 
     let lookup_vars = stark.uses_lookups().then(|| LookupCheckVars {
         local_values: auxiliary_polys.as_ref().unwrap()[..num_lookup_columns].to_vec(),

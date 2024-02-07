@@ -48,7 +48,7 @@ pub fn verify_stark_proof_circuit<
     let challenges = with_context!(
         builder,
         "compute challenges",
-        proof_with_pis.get_challenges::<F, C>(builder, &mut challenger, inner_config)
+        proof_with_pis.get_challenges::<F, C>(builder, &mut challenger, None, inner_config)
     );
 
     verify_stark_proof_with_pis_and_challenges_circuit::<F, C, S, D>(

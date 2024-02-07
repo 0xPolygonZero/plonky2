@@ -1,5 +1,6 @@
 #[cfg(not(feature = "std"))]
 use alloc::{sync::Arc, vec::Vec};
+use core::any::type_name;
 use core::iter::once;
 
 use anyhow::{ensure, Result};
@@ -118,6 +119,11 @@ where
     let constraint_degree = stark.constraint_degree();
     let lookup_challenges = stark.uses_lookups().then(|| {
         if let Some(c) = ctl_challenges {
+            println!(
+                "Lookup challenges for {:?} are {:?}",
+                type_name::<S>(),
+                c.challenges.iter().map(|ch| ch.beta).collect::<Vec<_>>()
+            );
             c.challenges.iter().map(|ch| ch.beta).collect::<Vec<_>>()
         } else {
             get_grand_product_challenge_set(challenger, config.num_challenges)
@@ -127,6 +133,7 @@ where
                 .collect::<Vec<_>>()
         }
     });
+
     let lookups = stark.lookups();
     let lookup_helper_columns = timed!(
         timing,
@@ -193,8 +200,8 @@ where
         .map(|data| data.num_ctl_helper_polys())
         .unwrap_or_default();
 
-    #[cfg(test)]
     {
+        log::info!("Testing constraints for {:?}\n", type_name::<S>());
         check_constraints(
             stark,
             trace_commitment,
@@ -496,7 +503,6 @@ where
         .collect()
 }
 
-#[cfg(test)]
 /// Check that all constraints evaluate to zero on `H`.
 /// Can also be used to check the degree of the constraints by evaluating on a larger subgroup.
 fn check_constraints<'a, F, C, S, const D: usize>(
