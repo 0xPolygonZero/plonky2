@@ -83,7 +83,10 @@ where
     )
 }
 
-/// Generates a proof for a STARK, given its trace polynomial commitment.
+/// Generates a proof for a single STARK table, including:
+/// - the initial state of the challenger,
+/// - all the requires Merkle caps,
+/// - all the required polynomial and FRI argument openings.
 fn prove_with_commitment<F, C, S, const D: usize>(
     stark: &S,
     config: &StarkConfig,

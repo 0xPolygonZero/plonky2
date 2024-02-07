@@ -42,8 +42,10 @@ use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::iop::target::Target;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::config::{AlgebraicHasher, GenericConfig, Hasher};
+use plonky2::timed;
 use plonky2::util::ceil_div_usize;
 use plonky2::util::serialization::{Buffer, IoResult, Read, Write};
+use plonky2::util::timing::TimingTree;
 
 use crate::config::StarkConfig;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
@@ -141,7 +143,7 @@ impl<F: Field> CrossTableLookup<F> {
 
 /// Cross-table lookup data for one table.
 #[derive(Clone, Default)]
-pub(crate) struct CtlData<'a, F: Field> {
+pub struct CtlData<'a, F: Field> {
     /// Data associated with all Z(x) polynomials for one table.
     pub(crate) zs_columns: Vec<CtlZData<'a, F>>,
 }
@@ -284,6 +286,36 @@ pub(crate) fn get_grand_product_challenge_set_target<
         .map(|_| get_grand_product_challenge_target(builder, challenger))
         .collect();
     GrandProductChallengeSet { challenges }
+}
+
+/// Outputs all the CTL data necessary to prove a multi-STARK system.
+pub fn get_ctl_data<'a, F, C, const D: usize, const N: usize>(
+    config: &StarkConfig,
+    trace_poly_values: &[Vec<PolynomialValues<F>>; N],
+    all_cross_table_lookups: &'a [CrossTableLookup<F>],
+    challenger: &mut Challenger<F, C::Hasher>,
+    max_constraint_degree: usize,
+    timing: &mut TimingTree,
+) -> [CtlData<'a, F>; N]
+where
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+{
+    // Get challenges for the cross-table lookups.
+    let ctl_challenges = get_grand_product_challenge_set(challenger, config.num_challenges);
+    // For each STARK, compute its cross-table lookup Z polynomials and get the associated `CtlData`.
+    let ctl_data_per_table = timed!(
+        timing,
+        "compute CTL data",
+        cross_table_lookup_data::<F, D, N>(
+            trace_poly_values,
+            all_cross_table_lookups,
+            &ctl_challenges,
+            max_constraint_degree
+        )
+    );
+
+    ctl_data_per_table
 }
 
 /// Returns the number of helper columns for each `Table`.
@@ -959,7 +991,7 @@ pub(crate) fn verify_cross_table_lookups<
 >(
     cross_table_lookups: &[CrossTableLookup<F>],
     ctl_zs_first: [Vec<F>; N],
-    ctl_extra_looking_sums: Vec<Vec<F>>,
+    ctl_extra_looking_sums: Option<&[Vec<F>]>,
     config: &StarkConfig,
 ) -> Result<()> {
     let mut ctl_zs_openings = ctl_zs_first.iter().map(|v| v.iter()).collect::<Vec<_>>();
@@ -972,7 +1004,9 @@ pub(crate) fn verify_cross_table_lookups<
     ) in cross_table_lookups.iter().enumerate()
     {
         // Get elements looking into `looked_table` that are not associated to any STARK.
-        let extra_sum_vec = &ctl_extra_looking_sums[looked_table.table];
+        let extra_sum_vec: &[F] = ctl_extra_looking_sums
+            .map(|v| v[looked_table.table].as_ref())
+            .unwrap_or_default();
         // We want to iterate on each looking table only once.
         let mut filtered_looking_tables = vec![];
         for table in looking_tables {
@@ -1013,7 +1047,7 @@ pub(crate) fn verify_cross_table_lookups_circuit<
     builder: &mut CircuitBuilder<F, D>,
     cross_table_lookups: Vec<CrossTableLookup<F>>,
     ctl_zs_first: [Vec<Target>; N],
-    ctl_extra_looking_sums: Vec<Vec<Target>>,
+    ctl_extra_looking_sums: Option<&[Vec<Target>]>,
     inner_config: &StarkConfig,
 ) {
     let mut ctl_zs_openings = ctl_zs_first.iter().map(|v| v.iter()).collect::<Vec<_>>();
@@ -1023,7 +1057,9 @@ pub(crate) fn verify_cross_table_lookups_circuit<
     } in cross_table_lookups.into_iter()
     {
         // Get elements looking into `looked_table` that are not associated to any STARK.
-        let extra_sum_vec = &ctl_extra_looking_sums[looked_table.table];
+        let extra_sum_vec: &[Target] = ctl_extra_looking_sums
+            .map(|v| v[looked_table.table].as_ref())
+            .unwrap_or_default();
         // We want to iterate on each looking table only once.
         let mut filtered_looking_tables = vec![];
         for table in looking_tables {
