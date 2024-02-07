@@ -3,6 +3,7 @@
 #![allow(clippy::type_complexity)]
 #![allow(clippy::len_without_is_empty)]
 #![allow(clippy::needless_range_loop)]
+#![feature(stdsimd)]
 #![feature(specialization)]
 #![cfg_attr(not(test), no_std)]
 
