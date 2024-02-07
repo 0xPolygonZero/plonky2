@@ -910,18 +910,9 @@ impl<'a, F: Field> Interpreter<'a, F> {
             .debug_offsets
             .contains(&self.generation_state.registers.program_counter)
         {
-            println!("At {}, stack={:?},", self.offset_name(), self.stack());
+            println!("At {},", self.offset_name());
         } else if let Some(label) = self.offset_label() {
-            println!(
-                "At {:?} stack = {:?} is kernel = {:?}",
-                label,
-                {
-                    let mut stack = self.stack();
-                    stack.reverse();
-                    stack
-                },
-                self.is_kernel()
-            );
+            println!("At {label}");
         }
 
         if !self.is_kernel() {

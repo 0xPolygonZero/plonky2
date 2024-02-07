@@ -7,7 +7,6 @@ global add_bignum:
     // stack: len, a_start_loc, b_start_loc, retdest
     DUP1
     ISZERO
-global debug_que_hago_aca:
     %jumpi(len_zero)
     // stack: len, a_start_loc, b_start_loc, retdest
     %build_current_general_address_no_offset
