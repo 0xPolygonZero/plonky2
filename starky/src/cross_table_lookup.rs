@@ -42,10 +42,8 @@ use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::iop::target::Target;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::config::{AlgebraicHasher, GenericConfig, Hasher};
-use plonky2::timed;
 use plonky2::util::ceil_div_usize;
 use plonky2::util::serialization::{Buffer, IoResult, Read, Write};
-use plonky2::util::timing::TimingTree;
 
 use crate::config::StarkConfig;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
@@ -54,7 +52,7 @@ use crate::lookup::{
     eval_helper_columns, eval_helper_columns_circuit, get_helper_cols, Column, ColumnFilter,
     Filter, GrandProductChallenge,
 };
-use crate::proof::{StarkProof, StarkProofTarget};
+use crate::proof::{MultiProof, StarkProof, StarkProofTarget};
 use crate::stark::Stark;
 
 /// An alias for `usize`, to represent the index of a STARK table in a multi-STARK setting.
@@ -64,15 +62,15 @@ pub(crate) type TableIdx = usize;
 /// `filter` is used to determine the rows to select in `table`.
 /// `columns` represents linear combinations of the columns of `table`.
 #[derive(Clone, Debug)]
-pub(crate) struct TableWithColumns<F: Field> {
+pub struct TableWithColumns<F: Field> {
     table: TableIdx,
     columns: Vec<Column<F>>,
-    pub(crate) filter: Option<Filter<F>>,
+    filter: Option<Filter<F>>,
 }
 
 impl<F: Field> TableWithColumns<F> {
     /// Generates a new `TableWithColumns` given a `table` index, a linear combination of columns `columns` and a `filter`.
-    pub(crate) fn new(table: TableIdx, columns: Vec<Column<F>>, filter: Option<Filter<F>>) -> Self {
+    pub fn new(table: TableIdx, columns: Vec<Column<F>>, filter: Option<Filter<F>>) -> Self {
         Self {
             table,
             columns,
@@ -94,7 +92,7 @@ pub struct CrossTableLookup<F: Field> {
 impl<F: Field> CrossTableLookup<F> {
     /// Creates a new `CrossTableLookup` given some looking tables and a looked table.
     /// All tables should have the same width.
-    pub(crate) fn new(
+    pub fn new(
         looking_tables: Vec<TableWithColumns<F>>,
         looked_table: TableWithColumns<F>,
     ) -> Self {
@@ -167,16 +165,6 @@ pub(crate) struct CtlZData<'a, F: Field> {
 }
 
 impl<'a, F: Field> CtlData<'a, F> {
-    /// Returns the number of cross-table lookup polynomials.
-    pub(crate) fn len(&self) -> usize {
-        self.zs_columns.len()
-    }
-
-    /// Returns whether there are no cross-table lookups.
-    pub(crate) fn is_empty(&self) -> bool {
-        self.zs_columns.is_empty()
-    }
-
     /// Returns all the cross-table lookup helper polynomials.
     pub(crate) fn ctl_helper_polys(&self) -> Vec<PolynomialValues<F>> {
         let num_polys = self
@@ -219,7 +207,7 @@ pub struct GrandProductChallengeSet<T: Copy + Eq + PartialEq + Debug> {
 }
 
 impl GrandProductChallengeSet<Target> {
-    pub(crate) fn to_buffer(&self, buffer: &mut Vec<u8>) -> IoResult<()> {
+    pub fn to_buffer(&self, buffer: &mut Vec<u8>) -> IoResult<()> {
         buffer.write_usize(self.challenges.len())?;
         for challenge in &self.challenges {
             buffer.write_target(challenge.beta)?;
@@ -228,7 +216,7 @@ impl GrandProductChallengeSet<Target> {
         Ok(())
     }
 
-    pub(crate) fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
+    pub fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
         let length = buffer.read_usize()?;
         let mut challenges = Vec::with_capacity(length);
         for _ in 0..length {
@@ -260,7 +248,7 @@ pub(crate) fn get_grand_product_challenge_set<F: RichField, H: Hasher<F>>(
     GrandProductChallengeSet { challenges }
 }
 
-fn get_grand_product_challenge_target<
+pub fn get_grand_product_challenge_target<
     F: RichField + Extendable<D>,
     H: AlgebraicHasher<F>,
     const D: usize,
@@ -273,7 +261,7 @@ fn get_grand_product_challenge_target<
     GrandProductChallenge { beta, gamma }
 }
 
-pub(crate) fn get_grand_product_challenge_set_target<
+pub fn get_grand_product_challenge_set_target<
     F: RichField + Extendable<D>,
     H: AlgebraicHasher<F>,
     const D: usize,
@@ -295,7 +283,6 @@ pub fn get_ctl_data<'a, F, C, const D: usize, const N: usize>(
     all_cross_table_lookups: &'a [CrossTableLookup<F>],
     challenger: &mut Challenger<F, C::Hasher>,
     max_constraint_degree: usize,
-    timing: &mut TimingTree,
 ) -> [CtlData<'a, F>; N]
 where
     F: RichField + Extendable<D>,
@@ -303,21 +290,41 @@ where
 {
     // Get challenges for the cross-table lookups.
     let ctl_challenges = get_grand_product_challenge_set(challenger, config.num_challenges);
-    // For each STARK, compute its cross-table lookup Z polynomials and get the associated `CtlData`.
-    let ctl_data_per_table = timed!(
-        timing,
-        "compute CTL data",
-        cross_table_lookup_data::<F, D, N>(
-            trace_poly_values,
-            all_cross_table_lookups,
-            &ctl_challenges,
-            max_constraint_degree
-        )
-    );
 
-    ctl_data_per_table
+    // For each STARK, compute its cross-table lookup Z polynomials
+    // and get the associated `CtlData`.
+    cross_table_lookup_data::<F, D, N>(
+        trace_poly_values,
+        all_cross_table_lookups,
+        &ctl_challenges,
+        max_constraint_degree,
+    )
 }
 
+/// Outputs all the CTL data necessary to prove a multi-STARK system.
+pub fn get_ctl_vars_from_proofs<'a, F, C, const D: usize, const N: usize>(
+    all_proofs: MultiProof<F, C, D, N>,
+    all_cross_table_lookups: &'a [CrossTableLookup<F>],
+    ctl_challenges: &'a GrandProductChallengeSet<F>,
+    num_lookup_columns: &'a [usize; N],
+    max_constraint_degree: usize,
+) -> [Vec<CtlCheckVars<'a, F, <F as Extendable<D>>::Extension, <F as Extendable<D>>::Extension, D>>;
+       N]
+where
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+{
+    let num_ctl_helper_cols =
+        num_ctl_helper_columns_by_table(all_cross_table_lookups, max_constraint_degree);
+
+    CtlCheckVars::from_proofs(
+        &all_proofs.stark_proofs,
+        all_cross_table_lookups,
+        &ctl_challenges,
+        num_lookup_columns,
+        &num_ctl_helper_cols,
+    )
+}
 /// Returns the number of helper columns for each `Table`.
 pub(crate) fn num_ctl_helper_columns_by_table<F: Field, const N: usize>(
     ctls: &[CrossTableLookup<F>],
@@ -513,7 +520,7 @@ fn partial_sums<F: Field>(
 
 /// Data necessary to check the cross-table lookups of a given table.
 #[derive(Clone)]
-pub(crate) struct CtlCheckVars<'a, F, FE, P, const D2: usize>
+pub struct CtlCheckVars<'a, F, FE, P, const D2: usize>
 where
     F: Field,
     FE: FieldExtension<D2, BaseField = F>,
@@ -772,8 +779,8 @@ pub(crate) struct CtlCheckVarsTarget<F: Field, const D: usize> {
 }
 
 impl<'a, F: Field, const D: usize> CtlCheckVarsTarget<F, D> {
-    /// Circuit version of `from_proofs`. Extracts the `CtlCheckVarsTarget` for each STARK.
-    pub(crate) fn from_proof(
+    /// Circuit version of `from_proofs`, for a single STARK.
+    pub fn from_proof(
         table: TableIdx,
         proof: &StarkProofTarget<D>,
         cross_table_lookups: &'a [CrossTableLookup<F>],
@@ -984,11 +991,7 @@ pub(crate) fn eval_cross_table_lookup_checks_circuit<
 }
 
 /// Verifies all cross-table lookups.
-pub(crate) fn verify_cross_table_lookups<
-    F: RichField + Extendable<D>,
-    const D: usize,
-    const N: usize,
->(
+pub fn verify_cross_table_lookups<F: RichField + Extendable<D>, const D: usize, const N: usize>(
     cross_table_lookups: &[CrossTableLookup<F>],
     ctl_zs_first: [Vec<F>; N],
     ctl_extra_looking_sums: Option<&[Vec<F>]>,
@@ -1039,7 +1042,7 @@ pub(crate) fn verify_cross_table_lookups<
 }
 
 /// Circuit version of `verify_cross_table_lookups`. Verifies all cross-table lookups.
-pub(crate) fn verify_cross_table_lookups_circuit<
+pub fn verify_cross_table_lookups_circuit<
     F: RichField + Extendable<D>,
     const D: usize,
     const N: usize,
@@ -1086,8 +1089,7 @@ pub(crate) fn verify_cross_table_lookups_circuit<
     debug_assert!(ctl_zs_openings.iter_mut().all(|iter| iter.next().is_none()));
 }
 
-#[cfg(test)]
-pub(crate) mod testutils {
+pub mod testutils {
     use std::collections::HashMap;
 
     use plonky2::field::polynomial::PolynomialValues;
@@ -1098,7 +1100,7 @@ pub(crate) mod testutils {
     type MultiSet<F> = HashMap<Vec<F>, Vec<(TableIdx, usize)>>;
 
     /// Check that the provided traces and cross-table lookups are consistent.
-    pub(crate) fn check_ctls<F: Field>(
+    pub fn check_ctls<F: Field>(
         trace_poly_values: &[Vec<PolynomialValues<F>>],
         cross_table_lookups: &[CrossTableLookup<F>],
     ) {

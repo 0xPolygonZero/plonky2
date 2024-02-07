@@ -1,7 +1,6 @@
 #![allow(clippy::too_many_arguments)]
 #![allow(clippy::needless_range_loop)]
 #![allow(clippy::type_complexity)]
-#![allow(unused)] // TODO: Remove post code migration
 #![cfg_attr(not(feature = "std"), no_std)]
 
 extern crate alloc;

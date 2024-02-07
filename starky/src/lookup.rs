@@ -113,14 +113,6 @@ impl<F: Field> Filter<F> {
                 .map(|col| col.eval_table(table, row))
                 .sum()
     }
-
-    pub(crate) fn eval_all_rows(&self, table: &[PolynomialValues<F>]) -> Vec<F> {
-        let length = table[0].len();
-
-        (0..length)
-            .map(|row| self.eval_table(table, row))
-            .collect::<Vec<F>>()
-    }
 }
 
 /// Represent two linear combination of columns, corresponding to the current and next row values.
@@ -428,7 +420,7 @@ impl<F: Field> Lookup<F> {
 
 /// Randomness for a single instance of a permutation check protocol.
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
-pub(crate) struct GrandProductChallenge<T: Copy + Eq + PartialEq + Debug> {
+pub struct GrandProductChallenge<T: Copy + Eq + PartialEq + Debug> {
     /// Randomness used to combine multiple columns into one.
     pub(crate) beta: T,
     /// Random offset that's added to the beta-reduced column values.
@@ -462,7 +454,7 @@ impl GrandProductChallenge<Target> {
 }
 
 impl GrandProductChallenge<Target> {
-    pub(crate) fn combine_base_circuit<F: RichField + Extendable<D>, const D: usize>(
+    pub fn combine_base_circuit<F: RichField + Extendable<D>, const D: usize>(
         &self,
         builder: &mut CircuitBuilder<F, D>,
         terms: &[Target],
@@ -479,7 +471,7 @@ pub struct GrandProductChallengeSet<T: Copy + Eq + PartialEq + Debug> {
 }
 
 impl GrandProductChallengeSet<Target> {
-    pub(crate) fn to_buffer(&self, buffer: &mut Vec<u8>) -> IoResult<()> {
+    pub fn to_buffer(&self, buffer: &mut Vec<u8>) -> IoResult<()> {
         buffer.write_usize(self.challenges.len())?;
         for challenge in &self.challenges {
             buffer.write_target(challenge.beta)?;
@@ -488,7 +480,7 @@ impl GrandProductChallengeSet<Target> {
         Ok(())
     }
 
-    pub(crate) fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
+    pub fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
         let length = buffer.read_usize()?;
         let mut challenges = Vec::with_capacity(length);
         for _ in 0..length {
@@ -570,7 +562,6 @@ pub(crate) fn lookup_helper_columns<F: Field>(
     assert!(BigUint::from(num_total_logup_entries) < F::characteristic());
 
     let num_helper_columns = lookup.num_helper_columns(constraint_degree);
-    let mut helper_columns: Vec<PolynomialValues<F>> = Vec::with_capacity(num_helper_columns);
 
     let looking_cols = lookup
         .columns
@@ -762,7 +753,6 @@ pub(crate) fn get_helper_cols<F: Field>(
 
     let mut helper_columns = Vec::with_capacity(num_helper_columns);
 
-    let mut filter_index = 0;
     for mut cols_filts in &columns_filters.iter().chunks(constraint_degree - 1) {
         let (first_col, first_filter) = cols_filts.next().unwrap();
 
@@ -936,7 +926,6 @@ pub(crate) fn eval_ext_lookups_circuit<
     lookup_vars: LookupCheckVarsTarget<D>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
-    let one = builder.one_extension();
     let degree = stark.constraint_degree();
     let lookups = stark.lookups();
 

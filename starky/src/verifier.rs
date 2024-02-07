@@ -14,7 +14,7 @@ use plonky2::plonk::plonk_common::reduce_with_powers;
 
 use crate::config::StarkConfig;
 use crate::constraint_consumer::ConstraintConsumer;
-use crate::cross_table_lookup::{CtlCheckVars, GrandProductChallengeSet};
+use crate::cross_table_lookup::CtlCheckVars;
 use crate::evaluation_frame::StarkEvaluationFrame;
 use crate::lookup::LookupCheckVars;
 use crate::proof::{StarkOpeningSet, StarkProof, StarkProofChallenges, StarkProofWithPublicInputs};
@@ -35,7 +35,7 @@ pub fn verify_stark_proof<
     let degree_bits = proof_with_pis.proof.recover_degree_bits(config);
     let challenges = proof_with_pis.get_challenges(config, degree_bits);
 
-    verify_stark_proof_with_challenges(stark, proof_with_pis, challenges, None, None, config)
+    verify_stark_proof_with_challenges(stark, proof_with_pis, challenges, None, config)
 }
 
 pub(crate) fn verify_stark_proof_with_challenges<
@@ -48,7 +48,6 @@ pub(crate) fn verify_stark_proof_with_challenges<
     proof_with_pis: StarkProofWithPublicInputs<F, C, D>,
     challenges: StarkProofChallenges<F, D>,
     ctl_vars: Option<&[CtlCheckVars<F, F::Extension, F::Extension, D>]>,
-    ctl_challenges: Option<&GrandProductChallengeSet<F>>,
     config: &StarkConfig,
 ) -> Result<()> {
     log::debug!("Checking proof: {}", type_name::<S>());

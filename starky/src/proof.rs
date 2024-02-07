@@ -116,7 +116,7 @@ pub struct MultiProof<
     /// Proofs for all the different STARK modules.
     pub stark_proofs: [StarkProof<F, C, D>; N],
     /// Cross-table lookup challenges.
-    pub(crate) ctl_challenges: GrandProductChallengeSet<F>,
+    pub ctl_challenges: GrandProductChallengeSet<F>,
 }
 
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize, const N: usize>
@@ -129,7 +129,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize, c
     }
 }
 
-pub(crate) struct StarkProofChallenges<F: RichField + Extendable<D>, const D: usize> {
+pub struct StarkProofChallenges<F: RichField + Extendable<D>, const D: usize> {
     /// Randomness used in any permutation arguments.
     pub lookup_challenge_set: Option<GrandProductChallengeSet<F>>,
 
@@ -150,8 +150,7 @@ pub(crate) struct StarkProofChallengesTarget<const D: usize> {
 }
 
 /// Randomness for all STARK proofs contained in a [`MultiProof`]`.
-pub(crate) struct MultiProofChallenges<F: RichField + Extendable<D>, const D: usize, const N: usize>
-{
+pub struct MultiProofChallenges<F: RichField + Extendable<D>, const D: usize, const N: usize> {
     /// Randomness used in each STARK proof.
     pub stark_challenges: [StarkProofChallenges<F, D>; N],
     /// Randomness used for cross-table lookups. It is shared by all STARKs.

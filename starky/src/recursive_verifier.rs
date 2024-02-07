@@ -18,7 +18,7 @@ use plonky2::with_context;
 
 use crate::config::StarkConfig;
 use crate::constraint_consumer::RecursiveConstraintConsumer;
-use crate::cross_table_lookup::{CtlCheckVarsTarget, GrandProductChallengeSet};
+use crate::cross_table_lookup::CtlCheckVarsTarget;
 use crate::evaluation_frame::StarkEvaluationFrame;
 use crate::lookup::LookupCheckVarsTarget;
 use crate::proof::{
@@ -42,7 +42,6 @@ pub fn verify_stark_proof_circuit<
     C::Hasher: AlgebraicHasher<F>,
 {
     assert_eq!(proof_with_pis.public_inputs.len(), S::PUBLIC_INPUTS);
-    let degree_bits = proof_with_pis.proof.recover_degree_bits(inner_config);
     let challenges = with_context!(
         builder,
         "compute challenges",
@@ -54,7 +53,6 @@ pub fn verify_stark_proof_circuit<
         stark,
         proof_with_pis,
         challenges,
-        None,
         None,
         inner_config,
     );
@@ -72,7 +70,6 @@ fn verify_stark_proof_with_challenges_circuit<
     proof_with_pis: StarkProofWithPublicInputsTarget<D>,
     challenges: StarkProofChallengesTarget<D>,
     ctl_vars: Option<&[CtlCheckVarsTarget<F, D>]>,
-    ctl_challenges: Option<&GrandProductChallengeSet<Target>>,
     inner_config: &StarkConfig,
 ) where
     C::Hasher: AlgebraicHasher<F>,

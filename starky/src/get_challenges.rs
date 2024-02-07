@@ -14,7 +14,6 @@ use plonky2::plonk::config::{AlgebraicHasher, GenericConfig};
 use crate::config::StarkConfig;
 use crate::lookup::{get_grand_product_challenge_set, get_grand_product_challenge_set_target};
 use crate::proof::*;
-use crate::stark::Stark;
 
 fn get_challenges<F, C, const D: usize>(
     trace_cap: &MerkleCap<F, C::Hasher>,
