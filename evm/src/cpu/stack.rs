@@ -28,6 +28,7 @@ pub(crate) const MIGHT_OVERFLOW: OpsColumnsView<bool> = OpsColumnsView {
     not_pop: false,
     shift: false,
     jumpdest_keccak_general: false,
+    poseidon: false,
     push_prover_input: true, // PROVER_INPUT doesn't require the check, but PUSH does.
     jumps: false,
     pc_push0: true,
@@ -118,6 +119,11 @@ pub(crate) const STACK_BEHAVIORS: OpsColumnsView<Option<StackBehavior>> = OpsCol
         disable_other_channels: false,
     }),
     jumpdest_keccak_general: None,
+    poseidon: Some(StackBehavior {
+        num_pops: 3,
+        pushes: true,
+        disable_other_channels: true,
+    }),
     push_prover_input: Some(StackBehavior {
         num_pops: 0,
         pushes: true,

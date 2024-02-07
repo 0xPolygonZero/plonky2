@@ -5,41 +5,27 @@
 %endmacro
 
 global sload_current:
-    %stack (slot) -> (slot, after_storage_read)
-    %slot_to_storage_key
-    // stack: storage_key, after_storage_read
-    PUSH 64 // storage_key has 64 nibbles
-    %current_storage_trie
-    // stack: storage_root_ptr, 64, storage_key, after_storage_read
-    %jump(mpt_read)
-
-global after_storage_read:
-    // stack: value_ptr, retdest
-    DUP1 %jumpi(storage_key_exists)
-
-    // Storage key not found. Return default value_ptr = 0,
-    // which derefs to 0 since @SEGMENT_TRIE_DATA[0] = 0.
-    %stack (value_ptr, retdest) -> (retdest, 0)
-    JUMP
-
-global storage_key_exists:
-    // stack: value_ptr, retdest
+    // stack: slot, retdest
+    %address
+    // stack: addr, slot, retdest
+    %key_storage %smt_read_state
+global watt3:
     %mload_trie_data
+global watt2:
     // stack: value, retdest
-    SWAP1
-    JUMP
+    SWAP1 JUMP
 
 // Read a word from the current account's storage trie.
 //
 // Pre stack: kexit_info, slot
 // Post stack: value
-
 global sys_sload:
     // stack: kexit_info, slot
     SWAP1
     DUP1
     // stack: slot, slot, kexit_info
     %sload_current
+global wattt:
 
     %stack (value, slot, kexit_info) -> (slot, value, kexit_info, value)
     %address

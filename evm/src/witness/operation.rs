@@ -2,6 +2,7 @@ use ethereum_types::{BigEndianHash, U256};
 use itertools::Itertools;
 use keccak_hash::keccak;
 use plonky2::field::types::Field;
+use plonky2::hash::hash_types::RichField;
 
 use super::util::{
     byte_packing_log, byte_unpacking_log, mem_read_with_log, mem_write_log,
@@ -40,6 +41,7 @@ pub(crate) enum Operation {
     BinaryArithmetic(arithmetic::BinaryOperator),
     TernaryArithmetic(arithmetic::TernaryOperator),
     KeccakGeneral,
+    Poseidon,
     ProverInput,
     Pop,
     Jump,
@@ -158,7 +160,29 @@ pub(crate) fn generate_keccak_general<F: Field>(
     Ok(())
 }
 
-pub(crate) fn generate_prover_input<F: Field>(
+pub(crate) fn generate_poseidon<F: RichField>(
+    state: &mut GenerationState<F>,
+    mut row: CpuColumnsView<F>,
+) -> Result<(), ProgramError> {
+    let [(x, _), (y, log_in1), (z, log_in2)] =
+        stack_pop_with_log_and_fill::<3, _>(state, &mut row)?;
+    let mut arr = [
+        x.0[0], x.0[1], x.0[2], x.0[3], y.0[0], y.0[1], y.0[2], y.0[3], z.0[0], z.0[1], z.0[2],
+        z.0[3],
+    ]
+    .map(F::from_canonical_u64);
+    log::debug!("Poseidon hashing {:?}", arr);
+    let hash = F::poseidon(arr);
+    let hash = U256(std::array::from_fn(|i| hash[i].to_canonical_u64()));
+    push_no_write(state, hash);
+
+    state.traces.push_memory(log_in1);
+    state.traces.push_memory(log_in2);
+    state.traces.push_cpu(row);
+    Ok(())
+}
+
+pub(crate) fn generate_prover_input<F: RichField>(
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {

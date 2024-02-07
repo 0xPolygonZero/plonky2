@@ -1,6 +1,7 @@
 use anyhow::bail;
 use log::log_enabled;
 use plonky2::field::types::Field;
+use plonky2::hash::hash_types::RichField;
 
 use super::memory::{MemoryOp, MemoryOpKind};
 use super::util::fill_channel_with_value;
@@ -82,6 +83,7 @@ pub(crate) fn decode(registers: RegistersState, opcode: u8) -> Result<Operation,
         (0x1d, _) => Ok(Operation::Syscall(opcode, 2, false)), // SAR
         (0x20, _) => Ok(Operation::Syscall(opcode, 2, false)), // KECCAK256
         (0x21, true) => Ok(Operation::KeccakGeneral),
+        (0x22, true) => Ok(Operation::Poseidon),
         (0x30, _) => Ok(Operation::Syscall(opcode, 0, true)), // ADDRESS
         (0x31, _) => Ok(Operation::Syscall(opcode, 1, false)), // BALANCE
         (0x32, _) => Ok(Operation::Syscall(opcode, 0, true)), // ORIGIN
@@ -174,6 +176,7 @@ fn fill_op_flag<F: Field>(op: Operation, row: &mut CpuColumnsView<F>) {
         Operation::BinaryArithmetic(_) => &mut flags.binary_op,
         Operation::TernaryArithmetic(_) => &mut flags.ternary_op,
         Operation::KeccakGeneral | Operation::Jumpdest => &mut flags.jumpdest_keccak_general,
+        Operation::Poseidon => &mut flags.poseidon,
         Operation::ProverInput | Operation::Push(1..) => &mut flags.push_prover_input,
         Operation::Jump | Operation::Jumpi => &mut flags.jumps,
         Operation::Pc | Operation::Push(0) => &mut flags.pc_push0,
@@ -205,6 +208,7 @@ const fn get_op_special_length(op: Operation) -> Option<usize> {
         Operation::BinaryArithmetic(_) => STACK_BEHAVIORS.binary_op,
         Operation::TernaryArithmetic(_) => STACK_BEHAVIORS.ternary_op,
         Operation::KeccakGeneral | Operation::Jumpdest => STACK_BEHAVIORS.jumpdest_keccak_general,
+        Operation::Poseidon => STACK_BEHAVIORS.poseidon,
         Operation::Jump => JUMP_OP,
         Operation::Jumpi => JUMPI_OP,
         Operation::GetContext | Operation::SetContext => None,
@@ -243,6 +247,7 @@ const fn might_overflow_op(op: Operation) -> bool {
         Operation::BinaryArithmetic(_) => MIGHT_OVERFLOW.binary_op,
         Operation::TernaryArithmetic(_) => MIGHT_OVERFLOW.ternary_op,
         Operation::KeccakGeneral | Operation::Jumpdest => MIGHT_OVERFLOW.jumpdest_keccak_general,
+        Operation::Poseidon => MIGHT_OVERFLOW.poseidon,
         Operation::Jump | Operation::Jumpi => MIGHT_OVERFLOW.jumps,
         Operation::Pc | Operation::Push(0) => MIGHT_OVERFLOW.pc_push0,
         Operation::GetContext | Operation::SetContext => MIGHT_OVERFLOW.context_op,
@@ -252,7 +257,7 @@ const fn might_overflow_op(op: Operation) -> bool {
     }
 }
 
-fn perform_op<F: Field>(
+fn perform_op<F: RichField>(
     state: &mut GenerationState<F>,
     op: Operation,
     row: CpuColumnsView<F>,
@@ -275,6 +280,7 @@ fn perform_op<F: Field>(
         Operation::BinaryArithmetic(op) => generate_binary_arithmetic_op(op, state, row)?,
         Operation::TernaryArithmetic(op) => generate_ternary_arithmetic_op(op, state, row)?,
         Operation::KeccakGeneral => generate_keccak_general(state, row)?,
+        Operation::Poseidon => generate_poseidon(state, row)?,
         Operation::ProverInput => generate_prover_input(state, row)?,
         Operation::Pop => generate_pop(state, row)?,
         Operation::Jump => generate_jump(state, row)?,
@@ -386,7 +392,7 @@ pub(crate) fn fill_stack_fields<F: Field>(
     Ok(())
 }
 
-fn try_perform_instruction<F: Field>(
+fn try_perform_instruction<F: RichField>(
     state: &mut GenerationState<F>,
 ) -> Result<Operation, ProgramError> {
     let (mut row, opcode) = base_row(state);
@@ -395,7 +401,7 @@ fn try_perform_instruction<F: Field>(
     if state.registers.is_kernel {
         log_kernel_instruction(state, op);
     } else {
-        log::debug!("User instruction: {:?}", op);
+        log::debug!("User instruction: {:?}, stack: {:?}", op, state.stack());
     }
 
     fill_op_flag(op, &mut row);
@@ -472,7 +478,7 @@ fn handle_error<F: Field>(state: &mut GenerationState<F>, err: ProgramError) -> 
     Ok(())
 }
 
-pub(crate) fn transition<F: Field>(state: &mut GenerationState<F>) -> anyhow::Result<()> {
+pub(crate) fn transition<F: RichField>(state: &mut GenerationState<F>) -> anyhow::Result<()> {
     let checkpoint = state.checkpoint();
     let result = try_perform_instruction(state);
 
@@ -494,7 +500,8 @@ pub(crate) fn transition<F: Field>(state: &mut GenerationState<F>) -> anyhow::Re
                     e,
                     offset_name,
                     state.stack(),
-                    state.memory.contexts[0].segments[Segment::KernelGeneral.unscale()].content,
+                    // state.memory.contexts[0].segments[Segment::KernelGeneral.unscale()].content,
+                    state.memory.contexts[0].segments[Segment::TrieData.unscale()].content,
                 );
             }
             state.rollback(checkpoint);

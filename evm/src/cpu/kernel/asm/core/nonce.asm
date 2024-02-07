@@ -3,12 +3,8 @@
 // Post stack: (empty)
 global nonce:
     // stack: address, retdest
-    %mpt_read_state_trie
-    // stack: account_ptr, retdest
-    // The nonce is the first account field, so we deref the account pointer itself.
-    // Note: We don't need to handle account_ptr=0, as trie_data[0] = 0,
-    // so the deref will give 0 (the default nonce) as desired.
-    %mload_trie_data
+    %key_nonce
+    %smt_read_state %mload_trie_data
     // stack: nonce, retdest
     SWAP1 JUMP
 
@@ -23,9 +19,9 @@ global nonce:
 global increment_nonce:
     // stack: address, retdest
     DUP1
-    %mpt_read_state_trie
-    // stack: account_ptr, address, retdest
-    DUP1 ISZERO %jumpi(increment_nonce_no_such_account)
+    %key_nonce %smt_read_state
+    // stack: nonce_ptr, address, retdest
+    DUP1 ISZERO %jumpi(create_nonce)
     // stack: nonce_ptr, address, retdest
     DUP1 %mload_trie_data
     // stack: nonce, nonce_ptr, address, retdest
@@ -38,8 +34,16 @@ global increment_nonce:
     // stack: address, retdest
     POP
     JUMP
-global increment_nonce_no_such_account:
-    PANIC
+
+create_nonce:
+    // stack: nonce_ptr, address, retdest
+    POP
+    // stack: address, retdest
+    PUSH 0 DUP2 %journal_add_nonce_change
+    // stack: address, retdest
+    %key_nonce
+    %stack (key_nonce) -> (key_nonce, 1)
+    %jump(smt_insert_state)
 
 // Convenience macro to call increment_nonce and return where we left off.
 %macro increment_nonce

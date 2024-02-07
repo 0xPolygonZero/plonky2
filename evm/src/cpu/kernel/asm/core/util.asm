@@ -40,23 +40,20 @@
 // Returns 1 if the account is empty, 0 otherwise.
 %macro is_empty
     // stack: addr
-    %mpt_read_state_trie
-    // stack: account_ptr
-    DUP1 ISZERO %jumpi(%%false)
-    // stack: account_ptr
-    DUP1 %mload_trie_data
-    // stack: nonce, account_ptr
+    DUP1 %key_nonce %smt_read_state %mload_trie_data
+    // stack: nonce, addr
     ISZERO %not_bit %jumpi(%%false)
-    %increment DUP1 %mload_trie_data
-    // stack: balance, balance_ptr
+    // stack: addr
+    DUP1 %key_balance %smt_read_state %mload_trie_data
+    // stack: balance, addr
     ISZERO %not_bit %jumpi(%%false)
-    %add_const(2) %mload_trie_data
-    // stack: code_hash
-    PUSH @EMPTY_STRING_HASH
-    EQ
+    // stack: addr
+    %key_code %smt_read_state %mload_trie_data
+    // stack: codehash
+    %eq_const(@EMPTY_STRING_POSEIDON_HASH)
     %jump(%%after)
 %%false:
-    // stack: account_ptr
+    // stack: addr
     POP
     PUSH 0
 %%after:

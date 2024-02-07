@@ -176,12 +176,13 @@ pub(crate) fn read_state_rlp_value(
     let storage_trie: HashedPartialTrie = get_trie(memory, slice[2].as_usize(), |_, x| {
         Ok(rlp::encode(&read_storage_trie_value(x)).to_vec())
     })?;
-    let account = AccountRlp {
-        nonce: slice[0],
-        balance: slice[1],
-        storage_root: storage_trie.hash(),
-        code_hash: H256::from_uint(&slice[3]),
-    };
+    // let account = AccountRlp {
+    //     nonce: slice[0],
+    //     balance: slice[1],
+    //     storage_root: storage_trie.hash(),
+    //     code_hash: H256::from_uint(&slice[3]),
+    // };
+    let account = AccountRlp::default(); // TODO: fix
     Ok(rlp::encode(&account).to_vec())
 }
 

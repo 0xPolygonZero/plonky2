@@ -24,6 +24,7 @@ pub(crate) struct OpsColumnsView<T: Copy> {
     pub shift: T,
     /// Combines JUMPDEST and KECCAK_GENERAL flags.
     pub jumpdest_keccak_general: T,
+    pub poseidon: T,
     /// Combines JUMP and JUMPI flags.
     pub jumps: T,
     /// Combines PUSH and PROVER_INPUT flags.

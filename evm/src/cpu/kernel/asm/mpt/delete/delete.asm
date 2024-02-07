@@ -23,6 +23,7 @@ mpt_delete_leaf:
     PUSH 0 // empty node ptr
     SWAP1 JUMP
 
+/*
 global delete_account:
     %stack (address, retdest) -> (address, delete_account_save, retdest)
     %addr_to_state_key
@@ -43,3 +44,4 @@ delete_account_save:
 %%after:
     // stack: (empty)
 %endmacro
+*/

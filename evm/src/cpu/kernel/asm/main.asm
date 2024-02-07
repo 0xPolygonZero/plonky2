@@ -32,8 +32,8 @@ global hash_initial_tries:
     // can check the value provided by the prover.
     // We initialize the segment length with 1 because the segment contains 
     // the null pointer `0` when the tries are empty.
-    PUSH 1
-    %mpt_hash_state_trie  %mload_global_metadata(@GLOBAL_METADATA_STATE_TRIE_DIGEST_BEFORE)    %assert_eq
+    PUSH 2
+    %smt_hash_state %mload_global_metadata(@GLOBAL_METADATA_STATE_TRIE_DIGEST_BEFORE) %assert_eq
     // stack: trie_data_len
     %mpt_hash_txn_trie     %mload_global_metadata(@GLOBAL_METADATA_TXN_TRIE_DIGEST_BEFORE)      %assert_eq
     // stack: trie_data_len
@@ -88,7 +88,9 @@ global hash_final_tries:
     DUP3 %mload_global_metadata(@GLOBAL_METADATA_TXN_NUMBER_AFTER) %assert_eq
     %pop3
     PUSH 1 // initial trie data length 
-    %mpt_hash_state_trie   %mload_global_metadata(@GLOBAL_METADATA_STATE_TRIE_DIGEST_AFTER)     %assert_eq
+    %smt_hash_state        %mload_global_metadata(@GLOBAL_METADATA_STATE_TRIE_DIGEST_AFTER)
+global yopp:
+    %assert_eq
     %mpt_hash_txn_trie     %mload_global_metadata(@GLOBAL_METADATA_TXN_TRIE_DIGEST_AFTER)       %assert_eq
     %mpt_hash_receipt_trie %mload_global_metadata(@GLOBAL_METADATA_RECEIPT_TRIE_DIGEST_AFTER)   %assert_eq
     // We don't need the trie data length here.

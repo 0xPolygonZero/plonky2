@@ -84,6 +84,7 @@ type_0_compute_signed_data:
     // otherwise, it is
     //     keccak256(rlp([nonce, gas_price, gas_limit, to, value, data]))
 
+    %alloc_rlp_block POP // Doesn't work otherwise
     %alloc_rlp_block
     // stack: rlp_addr_start, retdest
     %mload_txn_field(@TXN_FIELD_NONCE)

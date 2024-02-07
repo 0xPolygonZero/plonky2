@@ -29,28 +29,22 @@ global transfer_eth_failure:
 global deduct_eth:
     // stack: addr, amount, retdest
     DUP1 %insert_touched_addresses
-    %mpt_read_state_trie
-    // stack: account_ptr, amount, retdest
-    DUP1 ISZERO %jumpi(deduct_eth_no_such_account) // If the account pointer is null, return 1.
-    %add_const(1)
-    // stack: balance_ptr, amount, retdest
+    DUP1 %key_balance %smt_read_state
+    // stack: balance_ptr, addr, amount, retdest
     DUP1 %mload_trie_data
-    // stack: balance, balance_ptr, amount, retdest
-    DUP1 DUP4 GT
-    // stack: amount > balance, balance, balance_ptr, amount, retdest
+    // stack: balance, balance_ptr, addr, amount, retdest
+    DUP1 DUP5 GT
+    // stack: amount > balance, balance, balance_ptr, addr, amount, retdest
     %jumpi(deduct_eth_insufficient_balance)
-    %stack (balance, balance_ptr, amount, retdest) -> (balance, amount, balance_ptr, retdest, 0)
+    %stack (balance, balance_ptr, addr, amount, retdest) -> (balance, amount, balance_ptr, retdest, 0)
     SUB
     SWAP1
     // stack: balance_ptr, balance - amount, retdest, 0
     %mstore_trie_data
     // stack: retdest, 0
     JUMP
-global deduct_eth_no_such_account:
-    %stack (account_ptr, amount, retdest) -> (retdest, 1)
-    JUMP
 global deduct_eth_insufficient_balance:
-    %stack (balance, balance_ptr, amount, retdest) -> (retdest, 1)
+    %stack (balance, balance_ptr, addr, amount, retdest) -> (retdest, 1)
     JUMP
 
 // Convenience macro to call deduct_eth and return where we left off.
@@ -65,40 +59,39 @@ global deduct_eth_insufficient_balance:
 global add_eth:
     // stack: addr, amount, retdest
     DUP1 %insert_touched_addresses
-    DUP1 %mpt_read_state_trie
-    // stack: account_ptr, addr, amount, retdest
-    DUP1 ISZERO %jumpi(add_eth_new_account) // If the account pointer is null, we need to create the account.
-    %add_const(1)
-    // stack: balance_ptr, addr, amount, retdest
-    DUP1 %mload_trie_data
-    // stack: balance, balance_ptr, addr, amount, retdest
-    %stack (balance, balance_ptr, addr, amount) -> (amount, balance, balance_ptr)
-    ADD
-    // stack: new_balance, balance_ptr, retdest
-    SWAP1
-    // stack: balance_ptr, new_balance, retdest
-    %mstore_trie_data
-    // stack: retdest
+    // stack: addr, amount, retdest
+    DUP1 %key_code %smt_read_state %mload_trie_data
+    // stack: codehash, addr, amount, retdest
+    ISZERO %jumpi(add_eth_new_account) // If the account is empty, we need to create the account.
+    // stack: addr, amount, retdest
+    %key_balance %smt_read_state
+    %stack (balance_ptr, amount) -> (balance_ptr, amount, balance_ptr)
+    // stack: balance_ptr, amount, balance_ptr, retdest
+    %mload_trie_data ADD
+    // stack: balance-amount, balance_ptr, retdest
+    SWAP1 %mstore_trie_data
     JUMP
+
 global add_eth_new_account:
-    // stack: null_account_ptr, addr, amount, retdest
-    POP
     // stack: addr, amount, retdest
     DUP2 ISZERO %jumpi(add_eth_new_account_zero)
     DUP1 %journal_add_account_created
-    %get_trie_data_size // pointer to new account we're about to create
-    // stack: new_account_ptr, addr, amount, retdest
-    SWAP2
-    // stack: amount, addr, new_account_ptr, retdest
-    PUSH 0 %append_to_trie_data // nonce
-    %append_to_trie_data // balance
-    // stack: addr, new_account_ptr, retdest
-    PUSH 0 %append_to_trie_data // storage root pointer
-    PUSH @EMPTY_STRING_HASH %append_to_trie_data // code hash
-    // stack: addr, new_account_ptr, retdest
-    %addr_to_state_key
-    // stack: key, new_account_ptr, retdest
-    %jump(mpt_insert_state_trie)
+    DUP1 %key_nonce
+    %stack (key_nonce) -> (key_nonce, 0)
+    %smt_insert_state
+    // stack: addr, amount, retdest
+    DUP1 %key_code
+    %stack (key_code) -> (key_code, @EMPTY_STRING_POSEIDON_HASH)
+    %smt_insert_state
+    // stack: addr, amount, retdest
+    DUP1 %key_code_length
+    %stack (key_code_length) -> (key_code_length, 0)
+    %smt_insert_state
+    // stack: addr, amount, retdest
+    %key_balance
+    // stack: key_balance, amount, retdest
+    %smt_insert_state
+    JUMP
 
 add_eth_new_account_zero:
     // stack: addr, amount, retdest

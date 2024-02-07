@@ -24,17 +24,11 @@ extcodehash_dead:
 
 global extcodehash:
     // stack: address, retdest
-    %mpt_read_state_trie
-    // stack: account_ptr, retdest
-    DUP1 ISZERO %jumpi(retzero)
-    %add_const(3)
-    // stack: codehash_ptr, retdest
-    %mload_trie_data
+    %key_code
+    %smt_read_state %mload_trie_data
     // stack: codehash, retdest
+global yoot:
     SWAP1 JUMP
-retzero:
-    %stack (account_ptr, retdest) -> (retdest, 0)
-    JUMP
 
 %macro extcodehash
     %stack (address) -> (address, %%after)
@@ -44,7 +38,7 @@ retzero:
 
 %macro ext_code_empty
     %extcodehash
-    %eq_const(@EMPTY_STRING_HASH)
+    %eq_const(@EMPTY_STRING_POSEIDON_HASH)
 %endmacro
 
 %macro extcodesize
@@ -96,6 +90,9 @@ load_code_ctd:
     DUP1 ISZERO %jumpi(load_code_non_existent_account)
     // Load the code non-deterministically in memory and return the length.
     PROVER_INPUT(account_code)
+    %stack (code_size, codehash, ctx, retdest) -> (retdest, code_size)
+    JUMP
+    /* TODO: Hash the code with Poseidon and compare with codehash
     %stack (code_size, codehash, ctx, retdest) -> (ctx, code_size, codehash, retdest, code_size)
     // Check that the hash of the loaded code equals `codehash`.
     // ctx == DST, as SEGMENT_CODE == offset == 0.
@@ -104,6 +101,7 @@ load_code_ctd:
     %assert_eq
     // stack: retdest, code_size
     JUMP
+    */
 
 load_code_non_existent_account:
     // Write 0 at address 0 for soundness: SEGMENT_CODE == 0, hence ctx == addr.
