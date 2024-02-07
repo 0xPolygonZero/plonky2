@@ -3,6 +3,8 @@ use core::ops::Deref;
 use plonky2::field::extension::Extendable;
 use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
+use plonky2::iop::ext_target::ExtensionTarget;
+use starky::evaluation_frame::StarkFrame;
 
 use crate::arithmetic::arithmetic_stark;
 use crate::arithmetic::arithmetic_stark::ArithmeticStark;
@@ -65,6 +67,8 @@ impl<F: RichField + Extendable<D>, const D: usize> AllStark<F, D> {
         ]
     }
 }
+
+pub type EvmStarkFrame<T, U, const N: usize> = StarkFrame<T, U, N, 0>;
 
 /// Associates STARK tables with a unique index.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]

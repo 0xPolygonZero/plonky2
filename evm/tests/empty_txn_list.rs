@@ -11,12 +11,9 @@ use plonky2::field::goldilocks_field::GoldilocksField;
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
 use plonky2::util::serialization::{DefaultGateSerializer, DefaultGeneratorSerializer};
 use plonky2::util::timing::TimingTree;
-use plonky2_evm::all_stark::AllStark;
-use plonky2_evm::config::StarkConfig;
-use plonky2_evm::fixed_recursive_verifier::AllRecursiveCircuits;
 use plonky2_evm::generation::{GenerationInputs, TrieInputs};
 use plonky2_evm::proof::{BlockHashes, BlockMetadata, PublicValues, TrieRoots};
-use plonky2_evm::Node;
+use plonky2_evm::{AllRecursiveCircuits, AllStark, Node, StarkConfig};
 
 type F = GoldilocksField;
 const D: usize = 2;

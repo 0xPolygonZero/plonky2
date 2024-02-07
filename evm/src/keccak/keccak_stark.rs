@@ -12,6 +12,7 @@ use plonky2::timed;
 use plonky2::util::timing::TimingTree;
 
 use super::columns::reg_input_limb;
+use crate::all_stark::EvmStarkFrame;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
 use crate::keccak::columns::{
@@ -253,12 +254,12 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakStark<F, D> {
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakStark<F, D> {
-    type EvaluationFrame<FE, P, const D2: usize> = StarkFrame<P, NUM_COLUMNS>
+    type EvaluationFrame<FE, P, const D2: usize> = EvmStarkFrame<P, FE, NUM_COLUMNS>
     where
         FE: FieldExtension<D2, BaseField = F>,
         P: PackedField<Scalar = FE>;
 
-    type EvaluationFrameTarget = StarkFrame<ExtensionTarget<D>, NUM_COLUMNS>;
+    type EvaluationFrameTarget = EvmStarkFrame<ExtensionTarget<D>, ExtensionTarget<D>, NUM_COLUMNS>;
 
     fn eval_packed_generic<FE, P, const D2: usize>(
         &self,
@@ -626,11 +627,12 @@ mod tests {
     use plonky2::fri::oracle::PolynomialBatch;
     use plonky2::iop::challenger::Challenger;
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
+    use starky::lookup::GrandProductChallengeSet;
     use tiny_keccak::keccakf;
 
     use super::*;
     use crate::config::StarkConfig;
-    use crate::cross_table_lookup::{CtlData, CtlZData, GrandProductChallengeSet};
+    use crate::cross_table_lookup::{CtlData, CtlZData};
     use crate::lookup::GrandProductChallenge;
     use crate::prover::prove_single_table;
     use crate::stark_testing::{test_stark_circuit_constraints, test_stark_low_degree};
@@ -734,16 +736,16 @@ mod tests {
         let degree = 1 << trace_commitments.degree_log;
 
         // Fake CTL data.
-        let ctl_z_data = CtlZData {
-            helper_columns: vec![PolynomialValues::zero(degree)],
-            z: PolynomialValues::zero(degree),
-            challenge: GrandProductChallenge {
+        let ctl_z_data = CtlZData::new(
+            vec![PolynomialValues::zero(degree)],
+            PolynomialValues::zero(degree),
+            GrandProductChallenge {
                 beta: F::ZERO,
                 gamma: F::ZERO,
             },
-            columns: vec![],
-            filter: vec![Some(Filter::new_simple(Column::constant(F::ZERO)))],
-        };
+            vec![],
+            vec![Some(Filter::new_simple(Column::constant(F::ZERO)))],
+        );
         let ctl_data = CtlData {
             zs_columns: vec![ctl_z_data.clone(); config.num_challenges],
         };

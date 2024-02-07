@@ -5,13 +5,14 @@ use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 
+use crate::all_stark::EvmStarkFrame;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
 use crate::keccak::columns::{reg_step, NUM_COLUMNS};
 use crate::keccak::keccak_stark::NUM_ROUNDS;
 
 pub(crate) fn eval_round_flags<F: Field, P: PackedField<Scalar = F>>(
-    vars: &StarkFrame<P, NUM_COLUMNS>,
+    vars: &EvmStarkFrame<P, F, NUM_COLUMNS>,
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
     let local_values = vars.get_local_values();
@@ -40,7 +41,7 @@ pub(crate) fn eval_round_flags<F: Field, P: PackedField<Scalar = F>>(
 
 pub(crate) fn eval_round_flags_recursively<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
-    vars: &StarkFrame<ExtensionTarget<D>, NUM_COLUMNS>,
+    vars: &EvmStarkFrame<ExtensionTarget<D>, ExtensionTarget<D>, NUM_COLUMNS>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
 ) {
     let one = builder.one_extension();

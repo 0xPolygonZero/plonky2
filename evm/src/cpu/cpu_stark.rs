@@ -13,7 +13,7 @@ use super::columns::CpuColumnsView;
 use super::halt;
 use super::kernel::constants::context_metadata::ContextMetadata;
 use super::membus::NUM_GP_CHANNELS;
-use crate::all_stark::Table;
+use crate::all_stark::{EvmStarkFrame, Table};
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::{COL_MAP, NUM_CPU_COLUMNS};
 use crate::cpu::{
@@ -452,12 +452,13 @@ pub(crate) struct CpuStark<F, const D: usize> {
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for CpuStark<F, D> {
-    type EvaluationFrame<FE, P, const D2: usize> = StarkFrame<P, NUM_CPU_COLUMNS>
+    type EvaluationFrame<FE, P, const D2: usize> = EvmStarkFrame<P, FE, NUM_CPU_COLUMNS>
     where
         FE: FieldExtension<D2, BaseField = F>,
         P: PackedField<Scalar = FE>;
 
-    type EvaluationFrameTarget = StarkFrame<ExtensionTarget<D>, NUM_CPU_COLUMNS>;
+    type EvaluationFrameTarget =
+        EvmStarkFrame<ExtensionTarget<D>, ExtensionTarget<D>, NUM_CPU_COLUMNS>;
 
     /// Evaluates all CPU constraints.
     fn eval_packed_generic<FE, P, const D2: usize>(

@@ -29,13 +29,11 @@ use plonky2::util::serialization::{
 };
 use plonky2::util::timing::TimingTree;
 use plonky2_util::log2_ceil;
+use starky::lookup::{get_grand_product_challenge_set_target, GrandProductChallengeSet};
 
 use crate::all_stark::{all_cross_table_lookups, AllStark, Table, NUM_TABLES};
 use crate::config::StarkConfig;
-use crate::cross_table_lookup::{
-    get_grand_product_challenge_set_target, verify_cross_table_lookups_circuit, CrossTableLookup,
-    GrandProductChallengeSet,
-};
+use crate::cross_table_lookup::{verify_cross_table_lookups_circuit, CrossTableLookup};
 use crate::generation::GenerationInputs;
 use crate::get_challenges::observe_public_values_target;
 use crate::proof::{
@@ -587,7 +585,7 @@ where
             &mut builder,
             all_cross_table_lookups(),
             pis.map(|p| p.ctl_zs_first),
-            extra_looking_sums,
+            Some(&extra_looking_sums),
             stark_config,
         );
 
