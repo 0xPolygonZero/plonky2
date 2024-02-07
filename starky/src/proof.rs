@@ -104,6 +104,31 @@ pub struct CompressedStarkProofWithPublicInputs<
     pub public_inputs: Vec<F>,
 }
 
+/// A combination of STARK proofs for independent statements operating on possibly shared variables,
+/// along with Cross-Table Lookup (CTL) challenges to assert consistency of common variables across tables.
+#[derive(Debug, Clone)]
+pub struct MultiProof<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+    const N: usize,
+> {
+    /// Proofs for all the different STARK modules.
+    pub stark_proofs: [StarkProof<F, C, D>; N],
+    /// Cross-table lookup challenges.
+    pub(crate) ctl_challenges: GrandProductChallengeSet<F>,
+}
+
+impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize, const N: usize>
+    MultiProof<F, C, D, N>
+{
+    /// Returns the degree (i.e. the trace length) of each STARK proofs,
+    /// from their common [`StarkConfig`].
+    pub fn recover_degree_bits(&self, config: &StarkConfig) -> [usize; N] {
+        core::array::from_fn(|i| self.stark_proofs[i].recover_degree_bits(config))
+    }
+}
+
 pub(crate) struct StarkProofChallenges<F: RichField + Extendable<D>, const D: usize> {
     /// Randomness used in any permutation arguments.
     pub lookup_challenge_set: Option<GrandProductChallengeSet<F>>,
@@ -124,6 +149,15 @@ pub(crate) struct StarkProofChallengesTarget<const D: usize> {
     pub fri_challenges: FriChallengesTarget<D>,
 }
 
+/// Randomness for all STARK proofs contained in a [`MultiProof`]`.
+pub(crate) struct MultiProofChallenges<F: RichField + Extendable<D>, const D: usize, const N: usize>
+{
+    /// Randomness used in each STARK proof.
+    pub stark_challenges: [StarkProofChallenges<F, D>; N],
+    /// Randomness used for cross-table lookups. It is shared by all STARKs.
+    pub ctl_challenges: GrandProductChallengeSet<F>,
+}
+
 /// Purported values of each polynomial at the challenge point.
 #[derive(Debug, Clone)]
 pub struct StarkOpeningSet<F: RichField + Extendable<D>, const D: usize> {
@@ -131,6 +165,8 @@ pub struct StarkOpeningSet<F: RichField + Extendable<D>, const D: usize> {
     pub next_values: Vec<F::Extension>,
     pub auxiliary_polys: Option<Vec<F::Extension>>,
     pub auxiliary_polys_next: Option<Vec<F::Extension>>,
+    /// Openings of cross-table lookups `Z` polynomials at `1`.
+    pub ctl_zs_first: Option<Vec<F>>,
     pub quotient_polys: Vec<F::Extension>,
 }
 
@@ -141,19 +177,37 @@ impl<F: RichField + Extendable<D>, const D: usize> StarkOpeningSet<F, D> {
         trace_commitment: &PolynomialBatch<F, C, D>,
         auxiliary_polys_commitment: Option<&PolynomialBatch<F, C, D>>,
         quotient_commitment: &PolynomialBatch<F, C, D>,
+        num_lookup_columns: usize,
+        num_ctl_polys: &[usize],
     ) -> Self {
+        let total_num_helper_cols: usize = num_ctl_polys.iter().sum();
+
+        // Batch evaluates polynomials on the LDE, at a point `z`.
         let eval_commitment = |z: F::Extension, c: &PolynomialBatch<F, C, D>| {
             c.polynomials
                 .par_iter()
                 .map(|p| p.to_extension().eval(z))
                 .collect::<Vec<_>>()
         };
+        // Batch evaluates polynomials at a base field point `z`.
+        let eval_commitment_base = |z: F, c: &PolynomialBatch<F, C, D>| {
+            c.polynomials
+                .par_iter()
+                .map(|p| p.eval(z))
+                .collect::<Vec<_>>()
+        };
+
+        let auxiliary_first = auxiliary_polys_commitment.map(|c| eval_commitment_base(F::ONE, c));
+
         let zeta_next = zeta.scalar_mul(g);
         Self {
             local_values: eval_commitment(zeta, trace_commitment),
             next_values: eval_commitment(zeta_next, trace_commitment),
             auxiliary_polys: auxiliary_polys_commitment.map(|c| eval_commitment(zeta, c)),
             auxiliary_polys_next: auxiliary_polys_commitment.map(|c| eval_commitment(zeta_next, c)),
+            ctl_zs_first: (total_num_helper_cols != 0).then(|| {
+                auxiliary_first.unwrap()[num_lookup_columns + total_num_helper_cols..].to_vec()
+            }),
             quotient_polys: eval_commitment(zeta, quotient_commitment),
         }
     }
@@ -176,8 +230,27 @@ impl<F: RichField + Extendable<D>, const D: usize> StarkOpeningSet<F, D> {
                 .copied()
                 .collect_vec(),
         };
-        FriOpenings {
-            batches: vec![zeta_batch, zeta_next_batch],
+
+        if let Some(ctl_zs_first) = self.ctl_zs_first.as_ref() {
+            debug_assert!(!ctl_zs_first.is_empty());
+            debug_assert!(self.auxiliary_polys.is_some());
+            debug_assert!(self.auxiliary_polys_next.is_some());
+
+            let ctl_first_batch = FriOpeningBatch {
+                values: ctl_zs_first
+                    .iter()
+                    .copied()
+                    .map(F::Extension::from_basefield)
+                    .collect(),
+            };
+
+            FriOpenings {
+                batches: vec![zeta_batch, zeta_next_batch, ctl_first_batch],
+            }
+        } else {
+            FriOpenings {
+                batches: vec![zeta_batch, zeta_next_batch],
+            }
         }
     }
 }
@@ -187,11 +260,12 @@ pub struct StarkOpeningSetTarget<const D: usize> {
     pub next_values: Vec<ExtensionTarget<D>>,
     pub auxiliary_polys: Option<Vec<ExtensionTarget<D>>>,
     pub auxiliary_polys_next: Option<Vec<ExtensionTarget<D>>>,
+    pub ctl_zs_first: Option<Vec<Target>>,
     pub quotient_polys: Vec<ExtensionTarget<D>>,
 }
 
 impl<const D: usize> StarkOpeningSetTarget<D> {
-    pub(crate) fn to_fri_openings(&self) -> FriOpeningsTarget<D> {
+    pub(crate) fn to_fri_openings(&self, zero: Target) -> FriOpeningsTarget<D> {
         let zeta_batch = FriOpeningBatchTarget {
             values: self
                 .local_values
@@ -209,8 +283,27 @@ impl<const D: usize> StarkOpeningSetTarget<D> {
                 .copied()
                 .collect_vec(),
         };
-        FriOpeningsTarget {
-            batches: vec![zeta_batch, zeta_next_batch],
+
+        if let Some(ctl_zs_first) = self.ctl_zs_first.as_ref() {
+            debug_assert!(!ctl_zs_first.is_empty());
+            debug_assert!(self.auxiliary_polys.is_some());
+            debug_assert!(self.auxiliary_polys_next.is_some());
+
+            let ctl_first_batch = FriOpeningBatchTarget {
+                values: ctl_zs_first
+                    .iter()
+                    .copied()
+                    .map(|t| t.to_ext_target(zero))
+                    .collect(),
+            };
+
+            FriOpeningsTarget {
+                batches: vec![zeta_batch, zeta_next_batch, ctl_first_batch],
+            }
+        } else {
+            FriOpeningsTarget {
+                batches: vec![zeta_batch, zeta_next_batch],
+            }
         }
     }
 }

@@ -111,7 +111,6 @@ where
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 pub(crate) fn get_challenges_target<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
@@ -147,7 +146,7 @@ where
     challenger.observe_cap(quotient_polys_cap);
     let stark_zeta = challenger.get_extension_challenge(builder);
 
-    challenger.observe_openings(&openings.to_fri_openings());
+    challenger.observe_openings(&openings.to_fri_openings(builder.zero()));
 
     StarkProofChallengesTarget {
         lookup_challenge_set,

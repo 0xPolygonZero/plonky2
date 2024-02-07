@@ -1,4 +1,5 @@
 use alloc::vec::Vec;
+use core::any::type_name;
 use core::iter::once;
 
 use anyhow::{anyhow, ensure, Result};
@@ -13,6 +14,7 @@ use plonky2::plonk::plonk_common::reduce_with_powers;
 
 use crate::config::StarkConfig;
 use crate::constraint_consumer::ConstraintConsumer;
+use crate::cross_table_lookup::{CtlCheckVars, GrandProductChallengeSet};
 use crate::evaluation_frame::StarkEvaluationFrame;
 use crate::lookup::LookupCheckVars;
 use crate::proof::{StarkOpeningSet, StarkProof, StarkProofChallenges, StarkProofWithPublicInputs};
@@ -32,7 +34,8 @@ pub fn verify_stark_proof<
     ensure!(proof_with_pis.public_inputs.len() == S::PUBLIC_INPUTS);
     let degree_bits = proof_with_pis.proof.recover_degree_bits(config);
     let challenges = proof_with_pis.get_challenges(config, degree_bits);
-    verify_stark_proof_with_challenges(stark, proof_with_pis, challenges, degree_bits, config)
+
+    verify_stark_proof_with_challenges(stark, proof_with_pis, challenges, None, None, config)
 }
 
 pub(crate) fn verify_stark_proof_with_challenges<
@@ -44,10 +47,28 @@ pub(crate) fn verify_stark_proof_with_challenges<
     stark: S,
     proof_with_pis: StarkProofWithPublicInputs<F, C, D>,
     challenges: StarkProofChallenges<F, D>,
-    degree_bits: usize,
+    ctl_vars: Option<&[CtlCheckVars<F, F::Extension, F::Extension, D>]>,
+    ctl_challenges: Option<&GrandProductChallengeSet<F>>,
     config: &StarkConfig,
 ) -> Result<()> {
-    validate_proof_shape(&stark, &proof_with_pis, config)?;
+    log::debug!("Checking proof: {}", type_name::<S>());
+
+    let (num_ctl_z_polys, num_ctl_polys) = ctl_vars
+        .map(|ctls| {
+            (
+                ctls.len(),
+                ctls.iter().map(|ctl| ctl.helper_columns.len()).sum(),
+            )
+        })
+        .unwrap_or_default();
+
+    validate_proof_shape(
+        &stark,
+        &proof_with_pis,
+        config,
+        num_ctl_polys,
+        num_ctl_z_polys,
+    )?;
 
     let StarkProofWithPublicInputs {
         proof,
@@ -58,8 +79,11 @@ pub(crate) fn verify_stark_proof_with_challenges<
         next_values,
         auxiliary_polys,
         auxiliary_polys_next,
+        ctl_zs_first: _,
         quotient_polys,
     } = &proof.openings;
+
+    let degree_bits = proof.recover_degree_bits(config);
     let vars = S::EvaluationFrame::from_values(
         local_values,
         next_values,
@@ -95,8 +119,8 @@ pub(crate) fn verify_stark_proof_with_challenges<
     });
 
     let lookup_vars = stark.uses_lookups().then(|| LookupCheckVars {
-        local_values: auxiliary_polys.as_ref().unwrap().clone(),
-        next_values: auxiliary_polys_next.as_ref().unwrap().clone(),
+        local_values: auxiliary_polys.as_ref().unwrap()[..num_lookup_columns].to_vec(),
+        next_values: auxiliary_polys_next.as_ref().unwrap()[..num_lookup_columns].to_vec(),
         challenges: lookup_challenges.unwrap(),
     });
     let lookups = stark.lookups();
@@ -106,6 +130,7 @@ pub(crate) fn verify_stark_proof_with_challenges<
         &vars,
         &lookups,
         lookup_vars,
+        ctl_vars,
         &mut consumer,
     );
     let vanishing_polys_zeta = consumer.accumulators();
@@ -133,10 +158,20 @@ pub(crate) fn verify_stark_proof_with_challenges<
         .chain(once(proof.quotient_polys_cap))
         .collect_vec();
 
+    let num_ctl_zs = ctl_vars
+        .map(|vars| {
+            vars.iter()
+                .map(|ctl| ctl.helper_columns.len())
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+
     verify_fri_proof::<F, C, D>(
         &stark.fri_instance(
             challenges.stark_zeta,
             F::primitive_root_of_unity(degree_bits),
+            num_ctl_polys,
+            num_ctl_zs,
             config,
         ),
         &proof.openings.to_fri_openings(),
@@ -153,6 +188,8 @@ fn validate_proof_shape<F, C, S, const D: usize>(
     stark: &S,
     proof_with_pis: &StarkProofWithPublicInputs<F, C, D>,
     config: &StarkConfig,
+    num_ctl_helpers: usize,
+    num_ctl_zs: usize,
 ) -> anyhow::Result<()>
 where
     F: RichField + Extendable<D>,
@@ -180,6 +217,7 @@ where
         next_values,
         auxiliary_polys,
         auxiliary_polys_next,
+        ctl_zs_first,
         quotient_polys,
     } = openings;
 
@@ -187,8 +225,6 @@ where
 
     let fri_params = config.fri_params(degree_bits);
     let cap_height = fri_params.config.cap_height;
-
-    let num_auxiliary = stark.num_lookup_helper_columns(config);
 
     ensure!(trace_cap.height() == cap_height);
     ensure!(quotient_polys_cap.height() == cap_height);
@@ -202,6 +238,9 @@ where
         auxiliary_polys_cap,
         auxiliary_polys,
         auxiliary_polys_next,
+        num_ctl_helpers,
+        num_ctl_zs,
+        &ctl_zs_first,
         config,
     )?;
 
@@ -222,20 +261,23 @@ fn eval_l_0_and_l_last<F: Field>(log_n: usize, x: F) -> (F, F) {
 
 /// Utility function to check that all lookups data wrapped in `Option`s are `Some` iff
 /// the Stark uses a permutation argument.
-fn check_lookup_options<
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
-    S: Stark<F, D>,
-    const D: usize,
->(
+fn check_lookup_options<F, C, S, const D: usize>(
     stark: &S,
     auxiliary_polys_cap: &Option<MerkleCap<F, <C as GenericConfig<D>>::Hasher>>,
     auxiliary_polys: &Option<Vec<<F as Extendable<D>>::Extension>>,
     auxiliary_polys_next: &Option<Vec<<F as Extendable<D>>::Extension>>,
+    num_ctl_helpers: usize,
+    num_ctl_zs: usize,
+    ctl_zs_first: &Option<Vec<F>>,
     config: &StarkConfig,
-) -> Result<()> {
-    if stark.uses_lookups() {
-        let num_auxiliary = stark.num_lookup_helper_columns(config);
+) -> Result<()>
+where
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    S: Stark<F, D>,
+{
+    if stark.uses_lookups() || ctl_zs_first.is_some() {
+        let num_auxiliary = stark.num_lookup_helper_columns(config) + num_ctl_helpers + num_ctl_zs;
         let cap_height = config.fri_config.cap_height;
 
         let auxiliary_polys_cap = auxiliary_polys_cap
@@ -247,6 +289,10 @@ fn check_lookup_options<
         let auxiliary_polys_next = auxiliary_polys_next
             .as_ref()
             .ok_or_else(|| anyhow!("Missing auxiliary_polys_next"))?;
+
+        if let Some(ctl_zs_first) = ctl_zs_first {
+            ensure!(ctl_zs_first.len() == num_ctl_zs);
+        }
 
         ensure!(auxiliary_polys_cap.height() == cap_height);
         ensure!(auxiliary_polys.len() == num_auxiliary);

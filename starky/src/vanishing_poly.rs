@@ -4,6 +4,10 @@ use plonky2::hash::hash_types::RichField;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
+use crate::cross_table_lookup::{
+    eval_cross_table_lookup_checks, eval_cross_table_lookup_checks_circuit, CtlCheckVars,
+    CtlCheckVarsTarget,
+};
 use crate::lookup::{
     eval_ext_lookups_circuit, eval_packed_lookups_generic, Lookup, LookupCheckVars,
     LookupCheckVarsTarget,
@@ -15,6 +19,7 @@ pub(crate) fn eval_vanishing_poly<F, FE, P, S, const D: usize, const D2: usize>(
     vars: &S::EvaluationFrame<FE, P, D2>,
     lookups: &[Lookup<F>],
     lookup_vars: Option<LookupCheckVars<F, FE, P, D2>>,
+    ctl_vars: Option<&[CtlCheckVars<F, FE, P, D2>]>,
     consumer: &mut ConstraintConsumer<P>,
 ) where
     F: RichField + Extendable<D>,
@@ -33,6 +38,15 @@ pub(crate) fn eval_vanishing_poly<F, FE, P, S, const D: usize, const D2: usize>(
             consumer,
         );
     }
+    if let Some(ctl_vars) = ctl_vars {
+        // Evaluate the STARK constraints related to the permutation arguments.
+        eval_cross_table_lookup_checks::<F, FE, P, S, D, D2>(
+            vars,
+            ctl_vars,
+            consumer,
+            stark.constraint_degree(),
+        );
+    }
 }
 
 pub(crate) fn eval_vanishing_poly_circuit<F, S, const D: usize>(
@@ -40,6 +54,7 @@ pub(crate) fn eval_vanishing_poly_circuit<F, S, const D: usize>(
     stark: &S,
     vars: &S::EvaluationFrameTarget,
     lookup_vars: Option<LookupCheckVarsTarget<D>>,
+    ctl_vars: Option<&[CtlCheckVarsTarget<F, D>]>,
     consumer: &mut RecursiveConstraintConsumer<F, D>,
 ) where
     F: RichField + Extendable<D>,
@@ -49,5 +64,15 @@ pub(crate) fn eval_vanishing_poly_circuit<F, S, const D: usize>(
     if let Some(lookup_vars) = lookup_vars {
         // Evaluate all of the STARK's constraints related to the permutation argument.
         eval_ext_lookups_circuit::<F, S, D>(builder, stark, vars, lookup_vars, consumer);
+    }
+    if let Some(ctl_vars) = ctl_vars {
+        // Evaluate all of the STARK's constraints related to the CTLs.
+        eval_cross_table_lookup_checks_circuit::<S, F, D>(
+            builder,
+            vars,
+            ctl_vars,
+            consumer,
+            stark.constraint_degree(),
+        );
     }
 }

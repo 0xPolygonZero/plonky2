@@ -9,6 +9,7 @@ use plonky2::field::types::Field;
 use plonky2::fri::witness_util::set_fri_proof_target;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
+use plonky2::iop::target::Target;
 use plonky2::iop::witness::Witness;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::config::{AlgebraicHasher, GenericConfig};
@@ -17,6 +18,7 @@ use plonky2::with_context;
 
 use crate::config::StarkConfig;
 use crate::constraint_consumer::RecursiveConstraintConsumer;
+use crate::cross_table_lookup::{CtlCheckVarsTarget, GrandProductChallengeSet};
 use crate::evaluation_frame::StarkEvaluationFrame;
 use crate::lookup::LookupCheckVarsTarget;
 use crate::proof::{
@@ -52,8 +54,9 @@ pub fn verify_stark_proof_circuit<
         stark,
         proof_with_pis,
         challenges,
+        None,
+        None,
         inner_config,
-        degree_bits,
     );
 }
 
@@ -68,13 +71,20 @@ fn verify_stark_proof_with_challenges_circuit<
     stark: S,
     proof_with_pis: StarkProofWithPublicInputsTarget<D>,
     challenges: StarkProofChallengesTarget<D>,
+    ctl_vars: Option<&[CtlCheckVarsTarget<F, D>]>,
+    ctl_challenges: Option<&GrandProductChallengeSet<Target>>,
     inner_config: &StarkConfig,
-    degree_bits: usize,
 ) where
     C::Hasher: AlgebraicHasher<F>,
 {
     check_lookup_options(&stark, &proof_with_pis, &challenges).unwrap();
+
+    let zero = builder.zero();
     let one = builder.one_extension();
+
+    let num_ctl_polys = ctl_vars
+        .map(|v| v.iter().map(|ctl| ctl.helper_columns.len()).sum::<usize>())
+        .unwrap_or_default();
 
     let StarkProofWithPublicInputsTarget {
         proof,
@@ -85,6 +95,7 @@ fn verify_stark_proof_with_challenges_circuit<
         next_values,
         auxiliary_polys,
         auxiliary_polys_next,
+        ctl_zs_first,
         quotient_polys,
     } = &proof.openings;
 
@@ -97,6 +108,7 @@ fn verify_stark_proof_with_challenges_circuit<
             .collect::<Vec<_>>(),
     );
 
+    let degree_bits = proof.recover_degree_bits(inner_config);
     let zeta_pow_deg = builder.exp_power_of_2_extension(challenges.stark_zeta, degree_bits);
     let z_h_zeta = builder.sub_extension(zeta_pow_deg, one);
     let (l_0, l_last) =
@@ -133,7 +145,14 @@ fn verify_stark_proof_with_challenges_circuit<
     with_context!(
         builder,
         "evaluate vanishing polynomial",
-        eval_vanishing_poly_circuit::<F, S, D>(builder, &stark, &vars, lookup_vars, &mut consumer)
+        eval_vanishing_poly_circuit::<F, S, D>(
+            builder,
+            &stark,
+            &vars,
+            lookup_vars,
+            ctl_vars,
+            &mut consumer
+        )
     );
     let vanishing_polys_zeta = consumer.accumulators();
 
@@ -157,11 +176,13 @@ fn verify_stark_proof_with_challenges_circuit<
         builder,
         challenges.stark_zeta,
         F::primitive_root_of_unity(degree_bits),
+        num_ctl_polys,
+        ctl_zs_first.as_ref().map(|c| c.len()).unwrap_or(0),
         inner_config,
     );
     builder.verify_fri_proof::<C>(
         &fri_instance,
-        &proof.openings.to_fri_openings(),
+        &proof.openings.to_fri_openings(zero),
         &challenges.fri_challenges,
         &merkle_caps,
         &proof.opening_proof,
@@ -197,8 +218,17 @@ pub fn add_virtual_stark_proof_with_pis<
     stark: S,
     config: &StarkConfig,
     degree_bits: usize,
+    num_ctl_helper_zs: usize,
+    num_ctl_zs: usize,
 ) -> StarkProofWithPublicInputsTarget<D> {
-    let proof = add_virtual_stark_proof::<F, S, D>(builder, stark, config, degree_bits);
+    let proof = add_virtual_stark_proof::<F, S, D>(
+        builder,
+        stark,
+        config,
+        degree_bits,
+        num_ctl_helper_zs,
+        num_ctl_zs,
+    );
     let public_inputs = builder.add_virtual_targets(S::PUBLIC_INPUTS);
     StarkProofWithPublicInputsTarget {
         proof,
@@ -211,6 +241,8 @@ pub fn add_virtual_stark_proof<F: RichField + Extendable<D>, S: Stark<F, D>, con
     stark: S,
     config: &StarkConfig,
     degree_bits: usize,
+    num_ctl_helper_zs: usize,
+    num_ctl_zs: usize,
 ) -> StarkProofTarget<D> {
     let fri_params = config.fri_params(degree_bits);
     let cap_height = fri_params.config.cap_height;
@@ -229,7 +261,13 @@ pub fn add_virtual_stark_proof<F: RichField + Extendable<D>, S: Stark<F, D>, con
         trace_cap: builder.add_virtual_cap(cap_height),
         auxiliary_polys_cap,
         quotient_polys_cap: builder.add_virtual_cap(cap_height),
-        openings: add_stark_opening_set_target::<F, S, D>(builder, stark, config),
+        openings: add_stark_opening_set_target::<F, S, D>(
+            builder,
+            stark,
+            num_ctl_helper_zs,
+            num_ctl_zs,
+            config,
+        ),
         opening_proof: builder.add_virtual_fri_proof(&num_leaves_per_oracle, &fri_params),
     }
 }
@@ -237,6 +275,8 @@ pub fn add_virtual_stark_proof<F: RichField + Extendable<D>, S: Stark<F, D>, con
 fn add_stark_opening_set_target<F: RichField + Extendable<D>, S: Stark<F, D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     stark: S,
+    num_ctl_helper_zs: usize,
+    num_ctl_zs: usize,
     config: &StarkConfig,
 ) -> StarkOpeningSetTarget<D> {
     let num_challenges = config.num_challenges;
@@ -244,11 +284,16 @@ fn add_stark_opening_set_target<F: RichField + Extendable<D>, S: Stark<F, D>, co
         local_values: builder.add_virtual_extension_targets(S::COLUMNS),
         next_values: builder.add_virtual_extension_targets(S::COLUMNS),
         auxiliary_polys: stark.uses_lookups().then(|| {
-            builder.add_virtual_extension_targets(stark.num_lookup_helper_columns(config))
+            builder.add_virtual_extension_targets(
+                stark.num_lookup_helper_columns(config) + num_ctl_helper_zs,
+            )
         }),
         auxiliary_polys_next: stark.uses_lookups().then(|| {
-            builder.add_virtual_extension_targets(stark.num_lookup_helper_columns(config))
+            builder.add_virtual_extension_targets(
+                stark.num_lookup_helper_columns(config) + num_ctl_helper_zs,
+            )
         }),
+        ctl_zs_first: (num_ctl_zs != 0).then(|| builder.add_virtual_targets(num_ctl_zs)),
         quotient_polys: builder
             .add_virtual_extension_targets(stark.quotient_degree_factor() * num_challenges),
     }
@@ -258,6 +303,7 @@ pub fn set_stark_proof_with_pis_target<F, C: GenericConfig<D, F = F>, W, const D
     witness: &mut W,
     stark_proof_with_pis_target: &StarkProofWithPublicInputsTarget<D>,
     stark_proof_with_pis: &StarkProofWithPublicInputs<F, C, D>,
+    zero: Target,
 ) where
     F: RichField + Extendable<D>,
     C::Hasher: AlgebraicHasher<F>,
@@ -277,13 +323,14 @@ pub fn set_stark_proof_with_pis_target<F, C: GenericConfig<D, F = F>, W, const D
         witness.set_target(pi_t, pi);
     }
 
-    set_stark_proof_target(witness, pt, proof);
+    set_stark_proof_target(witness, pt, proof, zero);
 }
 
 pub fn set_stark_proof_target<F, C: GenericConfig<D, F = F>, W, const D: usize>(
     witness: &mut W,
     proof_target: &StarkProofTarget<D>,
     proof: &StarkProof<F, C, D>,
+    zero: Target,
 ) where
     F: RichField + Extendable<D>,
     C::Hasher: AlgebraicHasher<F>,
@@ -293,7 +340,7 @@ pub fn set_stark_proof_target<F, C: GenericConfig<D, F = F>, W, const D: usize>(
     witness.set_cap_target(&proof_target.quotient_polys_cap, &proof.quotient_polys_cap);
 
     witness.set_fri_openings(
-        &proof_target.openings.to_fri_openings(),
+        &proof_target.openings.to_fri_openings(zero),
         &proof.openings.to_fri_openings(),
     );
 
