@@ -448,9 +448,29 @@ impl<'a, F: Field> Interpreter<'a, F> {
         self.running = true;
         while self.running {
             let pc = self.generation_state.registers.program_counter;
-            if self.is_kernel() && self.halt_offsets.contains(&pc) {
+
+            if let Some(halt_context) = self.halt_context {
+                if self.is_kernel()
+                    && self.halt_offsets.contains(&pc)
+                    && halt_context == self.generation_state.registers.context
+                {
+                    log::debug!(
+                        "se acabo el show cuando el contepsto era {:?}",
+                        self.generation_state.registers.context
+                    );
+                    self.running = false;
+                    return Ok(());
+                }
+            } else if self.halt_offsets.contains(&pc) {
                 return Ok(());
-            };
+            }
+
+            if !self.running {
+                log::debug!(
+                    "se pago con contepsto {:?}",
+                    self.generation_state.registers.context
+                )
+            }
 
             let checkpoint = self.checkpoint();
             let result = self.run_opcode();
@@ -751,23 +771,8 @@ impl<'a, F: Field> Interpreter<'a, F> {
         let op = decode(self.generation_state.registers, opcode)?;
         self.generation_state.registers.gas_used += gas_to_charge(op);
 
-        // #[cfg(test)]
-        if self
-            .debug_offsets
-            .contains(&self.generation_state.registers.program_counter)
-        {
-            println!("At {}, stack={:?},", self.offset_name(), self.stack());
-        } else if let Some(label) = self.offset_label() {
-            println!(
-                "At {label} stack = {:?} is kernel = {:?}",
-                {
-                    let mut stack = self.stack();
-                    stack.reverse();
-                    stack
-                },
-                self.is_kernel()
-            );
-        } else if !self.is_kernel() {
+        #[cfg(test)]
+        if !self.is_kernel() {
             println!(
                 "User instruction {:?}, stack = {:?}, ctx = {}",
                 op,
@@ -899,6 +904,25 @@ impl<'a, F: Field> Interpreter<'a, F> {
                 Err(ProgramError::InvalidOpcode)
             }
         }?;
+
+        #[cfg(test)]
+        if self
+            .debug_offsets
+            .contains(&self.generation_state.registers.program_counter)
+        {
+            println!("At {}, stack={:?},", self.offset_name(), self.stack());
+        } else if let Some(label) = self.offset_label() {
+            println!(
+                "At {:?} stack = {:?} is kernel = {:?}",
+                label,
+                {
+                    let mut stack = self.stack();
+                    stack.reverse();
+                    stack
+                },
+                self.is_kernel()
+            );
+        }
 
         if !self.is_kernel() {
             let gas_limit_address = MemoryAddress {
@@ -1157,6 +1181,16 @@ impl<'a, F: Field> Interpreter<'a, F> {
             + (U256::from(self.generation_state.registers.gas_used) << 192);
         self.generation_state.registers.program_counter = new_program_counter;
 
+        if opcode == 244 {
+            println!(
+                "new_pc = {new_program_counter}, new_label = {:?}, sys_calldatasize = {:?}, sys_gasprice = {:?},",
+                KERNEL.offset_name(new_program_counter),
+                KERNEL.global_labels["sys_calldatasize"],
+                KERNEL.global_labels["sys_gasprice"],
+
+            );
+        }
+
         self.set_is_kernel(true);
         self.generation_state.registers.gas_used = 0;
         self.push(syscall_info)
@@ -1274,21 +1308,6 @@ impl<'a, F: Field> Interpreter<'a, F> {
         if !self.is_kernel() {
             self.add_jumpdest_offset(offset);
             log::debug!("Added {offset} to jdt")
-        }
-
-        self.running = if let Some(halt_context) = self.halt_context {
-            !(halt_context == self.generation_state.registers.context
-                && self.is_kernel()
-                && self.halt_offsets.contains(&offset))
-        } else {
-            !self.halt_offsets.contains(&offset)
-        };
-
-        if !self.running {
-            log::debug!(
-                "se pago con contepsto {:?}",
-                self.generation_state.registers.context
-            )
         }
 
         Ok(())
