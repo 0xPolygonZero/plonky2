@@ -37,26 +37,25 @@ use plonky2::field::packed::PackedField;
 use plonky2::field::polynomial::PolynomialValues;
 use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
-use plonky2::iop::challenger::{Challenger, RecursiveChallenger};
+use plonky2::iop::challenger::Challenger;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::iop::target::Target;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
-use plonky2::plonk::config::{AlgebraicHasher, GenericConfig, Hasher};
+use plonky2::plonk::config::GenericConfig;
 use plonky2::util::ceil_div_usize;
-use plonky2::util::serialization::{Buffer, IoResult, Read, Write};
 
 use crate::config::StarkConfig;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::evaluation_frame::StarkEvaluationFrame;
 use crate::lookup::{
-    eval_helper_columns, eval_helper_columns_circuit, get_helper_cols, Column, ColumnFilter,
-    Filter, GrandProductChallenge,
+    eval_helper_columns, eval_helper_columns_circuit, get_grand_product_challenge_set,
+    get_helper_cols, Column, ColumnFilter, Filter, GrandProductChallenge, GrandProductChallengeSet,
 };
 use crate::proof::{MultiProof, StarkProof, StarkProofTarget};
 use crate::stark::Stark;
 
 /// An alias for `usize`, to represent the index of a STARK table in a multi-STARK setting.
-pub(crate) type TableIdx = usize;
+pub type TableIdx = usize;
 
 /// A `table` index with a linear combination of columns and a filter.
 /// `filter` is used to determine the rows to select in `table`.
@@ -109,7 +108,7 @@ impl<F: Field> CrossTableLookup<F> {
     /// - the total number of helper columns for this table, over all Cross-table lookups,
     /// - the total number of z polynomials for this table, over all Cross-table lookups,
     /// - the number of helper columns for this table, for each Cross-table lookup.
-    pub(crate) fn num_ctl_helpers_zs_all(
+    pub fn num_ctl_helpers_zs_all(
         ctls: &[Self],
         table: TableIdx,
         num_challenges: usize,
@@ -143,25 +142,44 @@ impl<F: Field> CrossTableLookup<F> {
 #[derive(Clone, Default)]
 pub struct CtlData<'a, F: Field> {
     /// Data associated with all Z(x) polynomials for one table.
-    pub(crate) zs_columns: Vec<CtlZData<'a, F>>,
+    pub zs_columns: Vec<CtlZData<'a, F>>,
 }
 
 /// Cross-table lookup data associated with one Z(x) polynomial.
 /// One Z(x) polynomial can be associated to multiple tables,
 /// built from the same STARK.
 #[derive(Clone)]
-pub(crate) struct CtlZData<'a, F: Field> {
+pub struct CtlZData<'a, F: Field> {
     /// Helper columns to verify the Z polynomial values.
     pub(crate) helper_columns: Vec<PolynomialValues<F>>,
     /// Z polynomial values.
     pub(crate) z: PolynomialValues<F>,
     /// Cross-table lookup challenge.
-    pub(crate) challenge: GrandProductChallenge<F>,
+    pub challenge: GrandProductChallenge<F>,
     /// Vector of column linear combinations for the current tables.
     pub(crate) columns: Vec<&'a [Column<F>]>,
     /// Vector of filter columns for the current table.
     /// Each filter evaluates to either 1 or 0.
     pub(crate) filter: Vec<Option<Filter<F>>>,
+}
+
+impl<'a, F: Field> CtlZData<'a, F> {
+    /// Returs new CTL data from the provided arguments.
+    pub fn new(
+        helper_columns: Vec<PolynomialValues<F>>,
+        z: PolynomialValues<F>,
+        challenge: GrandProductChallenge<F>,
+        columns: Vec<&'a [Column<F>]>,
+        filter: Vec<Option<Filter<F>>>,
+    ) -> Self {
+        Self {
+            helper_columns,
+            z,
+            challenge,
+            columns,
+            filter,
+        }
+    }
 }
 
 impl<'a, F: Field> CtlData<'a, F> {
@@ -200,90 +218,15 @@ impl<'a, F: Field> CtlData<'a, F> {
     }
 }
 
-/// Like `PermutationChallenge`, but with `num_challenges` copies to boost soundness.
-#[derive(Clone, Eq, PartialEq, Debug)]
-pub struct GrandProductChallengeSet<T: Copy + Eq + PartialEq + Debug> {
-    pub(crate) challenges: Vec<GrandProductChallenge<T>>,
-}
-
-impl GrandProductChallengeSet<Target> {
-    pub fn to_buffer(&self, buffer: &mut Vec<u8>) -> IoResult<()> {
-        buffer.write_usize(self.challenges.len())?;
-        for challenge in &self.challenges {
-            buffer.write_target(challenge.beta)?;
-            buffer.write_target(challenge.gamma)?;
-        }
-        Ok(())
-    }
-
-    pub fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
-        let length = buffer.read_usize()?;
-        let mut challenges = Vec::with_capacity(length);
-        for _ in 0..length {
-            challenges.push(GrandProductChallenge {
-                beta: buffer.read_target()?,
-                gamma: buffer.read_target()?,
-            });
-        }
-
-        Ok(GrandProductChallengeSet { challenges })
-    }
-}
-
-fn get_grand_product_challenge<F: RichField, H: Hasher<F>>(
-    challenger: &mut Challenger<F, H>,
-) -> GrandProductChallenge<F> {
-    let beta = challenger.get_challenge();
-    let gamma = challenger.get_challenge();
-    GrandProductChallenge { beta, gamma }
-}
-
-pub(crate) fn get_grand_product_challenge_set<F: RichField, H: Hasher<F>>(
-    challenger: &mut Challenger<F, H>,
-    num_challenges: usize,
-) -> GrandProductChallengeSet<F> {
-    let challenges = (0..num_challenges)
-        .map(|_| get_grand_product_challenge(challenger))
-        .collect();
-    GrandProductChallengeSet { challenges }
-}
-
-pub fn get_grand_product_challenge_target<
-    F: RichField + Extendable<D>,
-    H: AlgebraicHasher<F>,
-    const D: usize,
->(
-    builder: &mut CircuitBuilder<F, D>,
-    challenger: &mut RecursiveChallenger<F, H, D>,
-) -> GrandProductChallenge<Target> {
-    let beta = challenger.get_challenge(builder);
-    let gamma = challenger.get_challenge(builder);
-    GrandProductChallenge { beta, gamma }
-}
-
-pub fn get_grand_product_challenge_set_target<
-    F: RichField + Extendable<D>,
-    H: AlgebraicHasher<F>,
-    const D: usize,
->(
-    builder: &mut CircuitBuilder<F, D>,
-    challenger: &mut RecursiveChallenger<F, H, D>,
-    num_challenges: usize,
-) -> GrandProductChallengeSet<Target> {
-    let challenges = (0..num_challenges)
-        .map(|_| get_grand_product_challenge_target(builder, challenger))
-        .collect();
-    GrandProductChallengeSet { challenges }
-}
-
-/// Outputs all the CTL data necessary to prove a multi-STARK system.
+/// Outputs a tuple of (challenges, data) of CTL challenges and all
+/// the CTL data necessary to prove a multi-STARK system.
 pub fn get_ctl_data<'a, F, C, const D: usize, const N: usize>(
     config: &StarkConfig,
     trace_poly_values: &[Vec<PolynomialValues<F>>; N],
     all_cross_table_lookups: &'a [CrossTableLookup<F>],
     challenger: &mut Challenger<F, C::Hasher>,
     max_constraint_degree: usize,
-) -> [CtlData<'a, F>; N]
+) -> (GrandProductChallengeSet<F>, [CtlData<'a, F>; N])
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
@@ -293,12 +236,14 @@ where
 
     // For each STARK, compute its cross-table lookup Z polynomials
     // and get the associated `CtlData`.
-    cross_table_lookup_data::<F, D, N>(
+    let ctl_data = cross_table_lookup_data::<F, D, N>(
         trace_poly_values,
         all_cross_table_lookups,
         &ctl_challenges,
         max_constraint_degree,
-    )
+    );
+
+    (ctl_challenges, ctl_data)
 }
 
 /// Outputs all the CTL data necessary to prove a multi-STARK system.
@@ -545,7 +490,7 @@ impl<'a, F: RichField + Extendable<D>, const D: usize>
     CtlCheckVars<'a, F, F::Extension, F::Extension, D>
 {
     /// Extracts the `CtlCheckVars` for each STARK.
-    pub(crate) fn from_proofs<C: GenericConfig<D, F = F>, const N: usize>(
+    pub fn from_proofs<C: GenericConfig<D, F = F>, const N: usize>(
         proofs: &[StarkProof<F, C, D>; N],
         cross_table_lookups: &'a [CrossTableLookup<F>],
         ctl_challenges: &'a GrandProductChallengeSet<F>,
@@ -762,7 +707,7 @@ pub(crate) fn eval_cross_table_lookup_checks<F, FE, P, S, const D: usize, const 
 
 /// Circuit version of `CtlCheckVars`. Data necessary to check the cross-table lookups of a given table.
 #[derive(Clone)]
-pub(crate) struct CtlCheckVarsTarget<F: Field, const D: usize> {
+pub struct CtlCheckVarsTarget<F: Field, const D: usize> {
     ///Evaluation of the helper columns to check that the Z polyomial
     /// was constructed correctly.
     pub(crate) helper_columns: Vec<ExtensionTarget<D>>,

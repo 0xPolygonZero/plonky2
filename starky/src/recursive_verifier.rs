@@ -8,6 +8,7 @@ use plonky2::field::extension::Extendable;
 use plonky2::field::types::Field;
 use plonky2::fri::witness_util::set_fri_proof_target;
 use plonky2::hash::hash_types::RichField;
+use plonky2::iop::challenger::RecursiveChallenger;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::iop::target::Target;
 use plonky2::iop::witness::Witness;
@@ -42,15 +43,17 @@ pub fn verify_stark_proof_circuit<
     C::Hasher: AlgebraicHasher<F>,
 {
     assert_eq!(proof_with_pis.public_inputs.len(), S::PUBLIC_INPUTS);
+
+    let mut challenger = RecursiveChallenger::<F, C::Hasher, D>::new(builder);
     let challenges = with_context!(
         builder,
         "compute challenges",
-        proof_with_pis.get_challenges::<F, C>(builder, inner_config)
+        proof_with_pis.get_challenges::<F, C>(builder, &mut challenger, inner_config)
     );
 
-    verify_stark_proof_with_challenges_circuit::<F, C, S, D>(
+    verify_stark_proof_with_pis_and_challenges_circuit::<F, C, S, D>(
         builder,
-        stark,
+        &stark,
         proof_with_pis,
         challenges,
         None,
@@ -59,14 +62,44 @@ pub fn verify_stark_proof_circuit<
 }
 
 /// Recursively verifies an inner proof.
-fn verify_stark_proof_with_challenges_circuit<
+pub fn verify_stark_proof_with_challenges_circuit<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
     S: Stark<F, D>,
     const D: usize,
 >(
     builder: &mut CircuitBuilder<F, D>,
-    stark: S,
+    stark: &S,
+    proof: &StarkProofTarget<D>,
+    challenges: StarkProofChallengesTarget<D>,
+    ctl_vars: Option<&[CtlCheckVarsTarget<F, D>]>,
+    inner_config: &StarkConfig,
+) where
+    C::Hasher: AlgebraicHasher<F>,
+{
+    let proof_with_pis = StarkProofWithPublicInputsTarget {
+        proof: proof.to_owned(),
+        public_inputs: vec![],
+    };
+
+    verify_stark_proof_with_pis_and_challenges_circuit::<F, C, S, D>(
+        builder,
+        stark,
+        proof_with_pis,
+        challenges,
+        ctl_vars,
+        inner_config,
+    );
+}
+/// Recursively verifies an inner proof.
+fn verify_stark_proof_with_pis_and_challenges_circuit<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    S: Stark<F, D>,
+    const D: usize,
+>(
+    builder: &mut CircuitBuilder<F, D>,
+    stark: &S,
     proof_with_pis: StarkProofWithPublicInputsTarget<D>,
     challenges: StarkProofChallengesTarget<D>,
     ctl_vars: Option<&[CtlCheckVarsTarget<F, D>]>,
@@ -74,7 +107,7 @@ fn verify_stark_proof_with_challenges_circuit<
 ) where
     C::Hasher: AlgebraicHasher<F>,
 {
-    check_lookup_options(&stark, &proof_with_pis, &challenges).unwrap();
+    check_lookup_options(stark, &proof_with_pis, &challenges).unwrap();
 
     let zero = builder.zero();
     let one = builder.one_extension();
@@ -212,7 +245,7 @@ pub fn add_virtual_stark_proof_with_pis<
     const D: usize,
 >(
     builder: &mut CircuitBuilder<F, D>,
-    stark: S,
+    stark: &S,
     config: &StarkConfig,
     degree_bits: usize,
     num_ctl_helper_zs: usize,
@@ -235,7 +268,7 @@ pub fn add_virtual_stark_proof_with_pis<
 
 pub fn add_virtual_stark_proof<F: RichField + Extendable<D>, S: Stark<F, D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
-    stark: S,
+    stark: &S,
     config: &StarkConfig,
     degree_bits: usize,
     num_ctl_helper_zs: usize,
@@ -258,7 +291,7 @@ pub fn add_virtual_stark_proof<F: RichField + Extendable<D>, S: Stark<F, D>, con
         trace_cap: builder.add_virtual_cap(cap_height),
         auxiliary_polys_cap,
         quotient_polys_cap: builder.add_virtual_cap(cap_height),
-        openings: add_stark_opening_set_target::<F, S, D>(
+        openings: add_virtual_stark_opening_set::<F, S, D>(
             builder,
             stark,
             num_ctl_helper_zs,
@@ -269,9 +302,9 @@ pub fn add_virtual_stark_proof<F: RichField + Extendable<D>, S: Stark<F, D>, con
     }
 }
 
-fn add_stark_opening_set_target<F: RichField + Extendable<D>, S: Stark<F, D>, const D: usize>(
+fn add_virtual_stark_opening_set<F: RichField + Extendable<D>, S: Stark<F, D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
-    stark: S,
+    stark: &S,
     num_ctl_helper_zs: usize,
     num_ctl_zs: usize,
     config: &StarkConfig,

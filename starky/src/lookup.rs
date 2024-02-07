@@ -422,16 +422,13 @@ impl<F: Field> Lookup<F> {
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub struct GrandProductChallenge<T: Copy + Eq + PartialEq + Debug> {
     /// Randomness used to combine multiple columns into one.
-    pub(crate) beta: T,
+    pub beta: T,
     /// Random offset that's added to the beta-reduced column values.
-    pub(crate) gamma: T,
+    pub gamma: T,
 }
 
 impl<F: Field> GrandProductChallenge<F> {
-    pub(crate) fn combine<'a, FE, P, T: IntoIterator<Item = &'a P>, const D2: usize>(
-        &self,
-        terms: T,
-    ) -> P
+    pub fn combine<'a, FE, P, T: IntoIterator<Item = &'a P>, const D2: usize>(&self, terms: T) -> P
     where
         FE: FieldExtension<D2, BaseField = F>,
         P: PackedField<Scalar = FE>,
@@ -467,7 +464,7 @@ impl GrandProductChallenge<Target> {
 /// Like `GrandProductChallenge`, but with `num_challenges` copies to boost soundness.
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub struct GrandProductChallengeSet<T: Copy + Eq + PartialEq + Debug> {
-    pub(crate) challenges: Vec<GrandProductChallenge<T>>,
+    pub challenges: Vec<GrandProductChallenge<T>>,
 }
 
 impl GrandProductChallengeSet<Target> {
@@ -502,7 +499,7 @@ fn get_grand_product_challenge<F: RichField, H: Hasher<F>>(
     GrandProductChallenge { beta, gamma }
 }
 
-pub(crate) fn get_grand_product_challenge_set<F: RichField, H: Hasher<F>>(
+pub fn get_grand_product_challenge_set<F: RichField, H: Hasher<F>>(
     challenger: &mut Challenger<F, H>,
     num_challenges: usize,
 ) -> GrandProductChallengeSet<F> {
@@ -512,7 +509,7 @@ pub(crate) fn get_grand_product_challenge_set<F: RichField, H: Hasher<F>>(
     GrandProductChallengeSet { challenges }
 }
 
-fn get_grand_product_challenge_target<
+pub fn get_grand_product_challenge_target<
     F: RichField + Extendable<D>,
     H: AlgebraicHasher<F>,
     const D: usize,
@@ -525,7 +522,7 @@ fn get_grand_product_challenge_target<
     GrandProductChallenge { beta, gamma }
 }
 
-pub(crate) fn get_grand_product_challenge_set_target<
+pub fn get_grand_product_challenge_set_target<
     F: RichField + Extendable<D>,
     H: AlgebraicHasher<F>,
     const D: usize,
@@ -832,7 +829,7 @@ pub(crate) fn get_helper_cols<F: Field>(
     helper_columns
 }
 
-pub(crate) struct LookupCheckVars<F, FE, P, const D2: usize>
+pub struct LookupCheckVars<F, FE, P, const D2: usize>
 where
     F: Field,
     FE: FieldExtension<D2, BaseField = F>,
@@ -909,7 +906,7 @@ pub(crate) fn eval_packed_lookups_generic<F, FE, P, S, const D: usize, const D2:
     }
 }
 
-pub(crate) struct LookupCheckVarsTarget<const D: usize> {
+pub struct LookupCheckVarsTarget<const D: usize> {
     pub(crate) local_values: Vec<ExtensionTarget<D>>,
     pub(crate) next_values: Vec<ExtensionTarget<D>>,
     pub(crate) challenges: Vec<Target>,

@@ -1,5 +1,3 @@
-use alloc::vec::Vec;
-
 use plonky2::field::extension::Extendable;
 use plonky2::field::polynomial::PolynomialCoeffs;
 use plonky2::fri::proof::{FriProof, FriProofTarget};
@@ -16,6 +14,7 @@ use crate::lookup::{get_grand_product_challenge_set, get_grand_product_challenge
 use crate::proof::*;
 
 fn get_challenges<F, C, const D: usize>(
+    challenger: &mut Challenger<F, C::Hasher>,
     trace_cap: &MerkleCap<F, C::Hasher>,
     auxiliary_polys_cap: Option<&MerkleCap<F, C::Hasher>>,
     quotient_polys_cap: &MerkleCap<F, C::Hasher>,
@@ -32,12 +31,10 @@ where
 {
     let num_challenges = config.num_challenges;
 
-    let mut challenger = Challenger::<F, C::Hasher>::new();
-
     challenger.observe_cap(trace_cap);
 
     let lookup_challenge_set = auxiliary_polys_cap.map(|auxiliary_polys_cap| {
-        let tmp = get_grand_product_challenge_set(&mut challenger, num_challenges);
+        let tmp = get_grand_product_challenge_set(challenger, num_challenges);
         challenger.observe_cap(auxiliary_polys_cap);
         tmp
     });
@@ -63,25 +60,19 @@ where
     }
 }
 
-impl<F, C, const D: usize> StarkProofWithPublicInputs<F, C, D>
+impl<F, C, const D: usize> StarkProof<F, C, D>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
 {
-    // TODO: Should be used later in compression?
-    #![allow(dead_code)]
-    pub(crate) fn fri_query_indices(&self, config: &StarkConfig, degree_bits: usize) -> Vec<usize> {
-        self.get_challenges(config, degree_bits)
-            .fri_challenges
-            .fri_query_indices
-    }
-
     /// Computes all Fiat-Shamir challenges used in the STARK proof.
-    pub(crate) fn get_challenges(
+    pub fn get_challenges(
         &self,
+        challenger: &mut Challenger<F, C::Hasher>,
         config: &StarkConfig,
-        degree_bits: usize,
     ) -> StarkProofChallenges<F, D> {
+        let degree_bits = self.recover_degree_bits(config);
+
         let StarkProof {
             trace_cap,
             auxiliary_polys_cap,
@@ -94,9 +85,10 @@ where
                     pow_witness,
                     ..
                 },
-        } = &self.proof;
+        } = &self;
 
         get_challenges::<F, C, D>(
+            challenger,
             trace_cap,
             auxiliary_polys_cap.as_ref(),
             quotient_polys_cap,
@@ -110,12 +102,28 @@ where
     }
 }
 
+impl<F, C, const D: usize> StarkProofWithPublicInputs<F, C, D>
+where
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+{
+    /// Computes all Fiat-Shamir challenges used in the STARK proof.
+    pub fn get_challenges(
+        &self,
+        challenger: &mut Challenger<F, C::Hasher>,
+        config: &StarkConfig,
+    ) -> StarkProofChallenges<F, D> {
+        self.proof.get_challenges(challenger, config)
+    }
+}
+
 pub(crate) fn get_challenges_target<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
     const D: usize,
 >(
     builder: &mut CircuitBuilder<F, D>,
+    challenger: &mut RecursiveChallenger<F, C::Hasher, D>,
     trace_cap: &MerkleCapTarget,
     auxiliary_polys_cap: Option<&MerkleCapTarget>,
     quotient_polys_cap: &MerkleCapTarget,
@@ -130,12 +138,10 @@ where
 {
     let num_challenges = config.num_challenges;
 
-    let mut challenger = RecursiveChallenger::<F, C::Hasher, D>::new(builder);
-
     challenger.observe_cap(trace_cap);
 
     let lookup_challenge_set = auxiliary_polys_cap.map(|permutation_zs_cap| {
-        let tmp = get_grand_product_challenge_set_target(builder, &mut challenger, num_challenges);
+        let tmp = get_grand_product_challenge_set_target(builder, challenger, num_challenges);
         challenger.observe_cap(permutation_zs_cap);
         tmp
     });
@@ -161,10 +167,11 @@ where
     }
 }
 
-impl<const D: usize> StarkProofWithPublicInputsTarget<D> {
-    pub(crate) fn get_challenges<F, C>(
+impl<const D: usize> StarkProofTarget<D> {
+    pub fn get_challenges<F, C>(
         &self,
         builder: &mut CircuitBuilder<F, D>,
+        challenger: &mut RecursiveChallenger<F, C::Hasher, D>,
         config: &StarkConfig,
     ) -> StarkProofChallengesTarget<D>
     where
@@ -184,10 +191,11 @@ impl<const D: usize> StarkProofWithPublicInputsTarget<D> {
                     pow_witness,
                     ..
                 },
-        } = &self.proof;
+        } = self;
 
         get_challenges_target::<F, C, D>(
             builder,
+            challenger,
             trace_cap,
             auxiliary_polys_cap.as_ref(),
             quotient_polys_cap,
@@ -197,6 +205,24 @@ impl<const D: usize> StarkProofWithPublicInputsTarget<D> {
             *pow_witness,
             config,
         )
+    }
+}
+
+impl<const D: usize> StarkProofWithPublicInputsTarget<D> {
+    /// Computes all Fiat-Shamir challenges used in the STARK proof.
+    pub fn get_challenges<F, C>(
+        &self,
+        builder: &mut CircuitBuilder<F, D>,
+        challenger: &mut RecursiveChallenger<F, C::Hasher, D>,
+        config: &StarkConfig,
+    ) -> StarkProofChallengesTarget<D>
+    where
+        F: RichField + Extendable<D>,
+        C: GenericConfig<D, F = F>,
+        C::Hasher: AlgebraicHasher<F>,
+    {
+        self.proof
+            .get_challenges::<F, C>(builder, challenger, config)
     }
 }
 

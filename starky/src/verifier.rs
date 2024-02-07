@@ -9,6 +9,7 @@ use plonky2::field::types::Field;
 use plonky2::fri::verifier::verify_fri_proof;
 use plonky2::hash::hash_types::RichField;
 use plonky2::hash::merkle_tree::MerkleCap;
+use plonky2::iop::challenger::Challenger;
 use plonky2::plonk::config::GenericConfig;
 use plonky2::plonk::plonk_common::reduce_with_powers;
 
@@ -32,24 +33,33 @@ pub fn verify_stark_proof<
     config: &StarkConfig,
 ) -> Result<()> {
     ensure!(proof_with_pis.public_inputs.len() == S::PUBLIC_INPUTS);
-    let degree_bits = proof_with_pis.proof.recover_degree_bits(config);
-    let challenges = proof_with_pis.get_challenges(config, degree_bits);
+    let mut challenger = Challenger::<F, C::Hasher>::new();
 
-    verify_stark_proof_with_challenges(stark, proof_with_pis, challenges, None, config)
+    let challenges = proof_with_pis.get_challenges(&mut challenger, config);
+
+    verify_stark_proof_with_challenges(
+        &stark,
+        proof_with_pis.proof,
+        &challenges,
+        None,
+        &proof_with_pis.public_inputs,
+        config,
+    )
 }
 
-pub(crate) fn verify_stark_proof_with_challenges<
+pub fn verify_stark_proof_with_challenges<F, C, S, const D: usize>(
+    stark: &S,
+    proof: StarkProof<F, C, D>,
+    challenges: &StarkProofChallenges<F, D>,
+    ctl_vars: Option<&[CtlCheckVars<F, F::Extension, F::Extension, D>]>,
+    public_inputs: &[F],
+    config: &StarkConfig,
+) -> Result<()>
+where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
     S: Stark<F, D>,
-    const D: usize,
->(
-    stark: S,
-    proof_with_pis: StarkProofWithPublicInputs<F, C, D>,
-    challenges: StarkProofChallenges<F, D>,
-    ctl_vars: Option<&[CtlCheckVars<F, F::Extension, F::Extension, D>]>,
-    config: &StarkConfig,
-) -> Result<()> {
+{
     log::debug!("Checking proof: {}", type_name::<S>());
 
     let (num_ctl_z_polys, num_ctl_polys) = ctl_vars
@@ -62,17 +72,14 @@ pub(crate) fn verify_stark_proof_with_challenges<
         .unwrap_or_default();
 
     validate_proof_shape(
-        &stark,
-        &proof_with_pis,
+        stark,
+        &proof,
+        public_inputs,
         config,
         num_ctl_polys,
         num_ctl_z_polys,
     )?;
 
-    let StarkProofWithPublicInputs {
-        proof,
-        public_inputs,
-    } = proof_with_pis;
     let StarkOpeningSet {
         local_values,
         next_values,
@@ -110,6 +117,7 @@ pub(crate) fn verify_stark_proof_with_challenges<
     let lookup_challenges = (num_lookup_columns > 0).then(|| {
         challenges
             .lookup_challenge_set
+            .as_ref()
             .unwrap()
             .challenges
             .iter()
@@ -185,7 +193,8 @@ pub(crate) fn verify_stark_proof_with_challenges<
 
 fn validate_proof_shape<F, C, S, const D: usize>(
     stark: &S,
-    proof_with_pis: &StarkProofWithPublicInputs<F, C, D>,
+    proof: &StarkProof<F, C, D>,
+    public_inputs: &[F],
     config: &StarkConfig,
     num_ctl_helpers: usize,
     num_ctl_zs: usize,
@@ -195,10 +204,6 @@ where
     C: GenericConfig<D, F = F>,
     S: Stark<F, D>,
 {
-    let StarkProofWithPublicInputs {
-        proof,
-        public_inputs,
-    } = proof_with_pis;
     let degree_bits = proof.recover_degree_bits(config);
 
     let StarkProof {

@@ -1,4 +1,5 @@
-use alloc::vec::Vec;
+#[cfg(not(feature = "std"))]
+use alloc::{sync::Arc, vec::Vec};
 use core::iter::once;
 
 use anyhow::{ensure, Result};
@@ -20,12 +21,11 @@ use plonky2_maybe_rayon::*;
 
 use crate::config::StarkConfig;
 use crate::constraint_consumer::ConstraintConsumer;
-use crate::cross_table_lookup::{
-    get_ctl_auxiliary_polys, CtlCheckVars, CtlData, GrandProductChallengeSet,
-};
+use crate::cross_table_lookup::{get_ctl_auxiliary_polys, CtlCheckVars, CtlData};
 use crate::evaluation_frame::StarkEvaluationFrame;
 use crate::lookup::{
-    get_grand_product_challenge_set, lookup_helper_columns, Lookup, LookupCheckVars,
+    get_grand_product_challenge_set, lookup_helper_columns, GrandProductChallengeSet, Lookup,
+    LookupCheckVars,
 };
 use crate::proof::{StarkOpeningSet, StarkProof, StarkProofWithPublicInputs};
 use crate::stark::Stark;
@@ -87,7 +87,7 @@ where
 /// - the initial state of the challenger,
 /// - all the requires Merkle caps,
 /// - all the required polynomial and FRI argument openings.
-fn prove_with_commitment<F, C, S, const D: usize>(
+pub fn prove_with_commitment<F, C, S, const D: usize>(
     stark: &S,
     config: &StarkConfig,
     trace_poly_values: &[PolynomialValues<F>],

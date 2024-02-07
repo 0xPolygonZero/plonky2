@@ -15,6 +15,7 @@ use plonky2::hash::merkle_tree::MerkleCap;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::iop::target::Target;
 use plonky2::plonk::config::GenericConfig;
+use plonky2::util::serialization::{Buffer, IoResult, Read, Write};
 use plonky2_maybe_rayon::*;
 
 use crate::config::StarkConfig;
@@ -46,6 +47,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> S
     }
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct StarkProofTarget<const D: usize> {
     pub trace_cap: MerkleCapTarget,
     pub auxiliary_polys_cap: Option<MerkleCapTarget>,
@@ -54,7 +56,35 @@ pub struct StarkProofTarget<const D: usize> {
     pub opening_proof: FriProofTarget<D>,
 }
 
+// TODO: RObin Fix serialization
 impl<const D: usize> StarkProofTarget<D> {
+    /// Serializes a STARK proof.
+    pub fn to_buffer(&self, buffer: &mut Vec<u8>) -> IoResult<()> {
+        buffer.write_target_merkle_cap(&self.trace_cap)?;
+        // buffer.write_target_merkle_cap(&self.auxiliary_polys_cap)?;
+        buffer.write_target_merkle_cap(&self.quotient_polys_cap)?;
+        buffer.write_target_fri_proof(&self.opening_proof)?;
+        self.openings.to_buffer(buffer)?;
+        Ok(())
+    }
+
+    /// Deserializes a STARK proof.
+    pub fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
+        let trace_cap = buffer.read_target_merkle_cap()?;
+        // let auxiliary_polys_cap = buffer.read_target_merkle_cap()?;
+        let quotient_polys_cap = buffer.read_target_merkle_cap()?;
+        let opening_proof = buffer.read_target_fri_proof()?;
+        let openings = StarkOpeningSetTarget::from_buffer(buffer)?;
+
+        Ok(Self {
+            trace_cap,
+            auxiliary_polys_cap: None,
+            quotient_polys_cap,
+            openings,
+            opening_proof,
+        })
+    }
+
     /// Recover the length of the trace from a STARK proof and a STARK config.
     pub fn recover_degree_bits(&self, config: &StarkConfig) -> usize {
         let initial_merkle_proof = &self.opening_proof.query_round_proofs[0]
@@ -142,7 +172,7 @@ pub struct StarkProofChallenges<F: RichField + Extendable<D>, const D: usize> {
     pub fri_challenges: FriChallenges<F, D>,
 }
 
-pub(crate) struct StarkProofChallengesTarget<const D: usize> {
+pub struct StarkProofChallengesTarget<const D: usize> {
     pub lookup_challenge_set: Option<GrandProductChallengeSet<Target>>,
     pub stark_alphas: Vec<Target>,
     pub stark_zeta: ExtensionTarget<D>,
@@ -254,6 +284,7 @@ impl<F: RichField + Extendable<D>, const D: usize> StarkOpeningSet<F, D> {
     }
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct StarkOpeningSetTarget<const D: usize> {
     pub local_values: Vec<ExtensionTarget<D>>,
     pub next_values: Vec<ExtensionTarget<D>>,
@@ -263,7 +294,38 @@ pub struct StarkOpeningSetTarget<const D: usize> {
     pub quotient_polys: Vec<ExtensionTarget<D>>,
 }
 
+// TODO: RObin Fix serialization
 impl<const D: usize> StarkOpeningSetTarget<D> {
+    /// Serializes a STARK's opening set.
+    pub(crate) fn to_buffer(&self, buffer: &mut Vec<u8>) -> IoResult<()> {
+        buffer.write_target_ext_vec(&self.local_values)?;
+        buffer.write_target_ext_vec(&self.next_values)?;
+        // buffer.write_target_ext_vec(&self.auxiliary_polys)?;
+        // buffer.write_target_ext_vec(&self.auxiliary_polys_next)?;
+        // buffer.write_target_vec(&self.ctl_zs_first)?;
+        buffer.write_target_ext_vec(&self.quotient_polys)?;
+        Ok(())
+    }
+
+    /// Deserializes a STARK's opening set.
+    pub(crate) fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
+        let local_values = buffer.read_target_ext_vec::<D>()?;
+        let next_values = buffer.read_target_ext_vec::<D>()?;
+        // let auxiliary_polys = buffer.read_target_ext_vec::<D>()?;
+        // let auxiliary_polys_next = buffer.read_target_ext_vec::<D>()?;
+        // let ctl_zs_first = buffer.read_target_vec()?;
+        let quotient_polys = buffer.read_target_ext_vec::<D>()?;
+
+        Ok(Self {
+            local_values,
+            next_values,
+            auxiliary_polys: None,
+            auxiliary_polys_next: None,
+            ctl_zs_first: None,
+            quotient_polys,
+        })
+    }
+
     pub(crate) fn to_fri_openings(&self, zero: Target) -> FriOpeningsTarget<D> {
         let zeta_batch = FriOpeningBatchTarget {
             values: self
