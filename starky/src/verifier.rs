@@ -1,9 +1,7 @@
 use alloc::vec::Vec;
 use core::any::type_name;
-use core::iter::once;
 
 use anyhow::{anyhow, ensure, Result};
-use itertools::Itertools;
 use plonky2::field::extension::{Extendable, FieldExtension};
 use plonky2::field::types::Field;
 use plonky2::fri::verifier::verify_fri_proof;
@@ -39,7 +37,7 @@ pub fn verify_stark_proof<
 
     verify_stark_proof_with_challenges(
         &stark,
-        proof_with_pis.proof,
+        &proof_with_pis.proof,
         &challenges,
         None,
         &proof_with_pis.public_inputs,
@@ -49,7 +47,7 @@ pub fn verify_stark_proof<
 
 pub fn verify_stark_proof_with_challenges<F, C, S, const D: usize>(
     stark: &S,
-    proof: StarkProof<F, C, D>,
+    proof: &StarkProof<F, C, D>,
     challenges: &StarkProofChallenges<F, D>,
     ctl_vars: Option<&[CtlCheckVars<F, F::Extension, F::Extension, D>]>,
     public_inputs: &[F],
@@ -73,7 +71,7 @@ where
 
     validate_proof_shape(
         stark,
-        &proof,
+        proof,
         public_inputs,
         config,
         num_ctl_polys,
@@ -160,10 +158,15 @@ where
         );
     }
 
-    let merkle_caps = once(proof.trace_cap)
-        .chain(proof.auxiliary_polys_cap)
-        .chain(once(proof.quotient_polys_cap))
-        .collect_vec();
+    let merkle_caps = if let Some(aux_polys_cap) = &proof.auxiliary_polys_cap {
+        vec![
+            proof.trace_cap.clone(),
+            aux_polys_cap.clone(),
+            proof.quotient_polys_cap.clone(),
+        ]
+    } else {
+        vec![proof.trace_cap.clone(), proof.quotient_polys_cap.clone()]
+    };
 
     let num_ctl_zs = ctl_vars
         .map(|vars| {
