@@ -153,7 +153,6 @@ pub(crate) fn decode(registers: RegistersState, opcode: u8) -> Result<Operation,
         (0xff, _) => Ok(Operation::Syscall(opcode, 1, false)), // SELFDESTRUCT
         _ => {
             log::warn!("Invalid opcode: {}", opcode);
-            println!("Invalid opcode: {}", opcode);
             Err(ProgramError::InvalidOpcode)
         }
     }
@@ -396,7 +395,7 @@ fn try_perform_instruction<F: Field>(
     if state.registers.is_kernel {
         log_kernel_instruction(state, op);
     } else {
-        log::debug!("User instruction: {:?}, stack = {:?}", op, state.stack());
+        log::debug!("User instruction: {:?}", op);
     }
 
     fill_op_flag(op, &mut row);
