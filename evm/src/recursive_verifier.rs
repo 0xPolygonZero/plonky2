@@ -300,7 +300,6 @@ where
         &[], // public inputs
         challenges,
         Some(&ctl_vars),
-        Some(&ctl_challenges_target),
         inner_config,
     );
 

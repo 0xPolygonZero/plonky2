@@ -21,7 +21,7 @@ use crate::config::StarkConfig;
 use crate::constraint_consumer::RecursiveConstraintConsumer;
 use crate::cross_table_lookup::CtlCheckVarsTarget;
 use crate::evaluation_frame::StarkEvaluationFrame;
-use crate::lookup::{GrandProductChallengeSet, LookupCheckVarsTarget};
+use crate::lookup::LookupCheckVarsTarget;
 use crate::proof::{
     StarkOpeningSetTarget, StarkProof, StarkProofChallengesTarget, StarkProofTarget,
     StarkProofWithPublicInputs, StarkProofWithPublicInputsTarget,
@@ -58,7 +58,6 @@ pub fn verify_stark_proof_circuit<
         &proof_with_pis.public_inputs,
         challenges,
         None,
-        None,
         inner_config,
     );
 }
@@ -76,7 +75,6 @@ pub fn verify_stark_proof_with_challenges_circuit<
     public_inputs: &[Target],
     challenges: StarkProofChallengesTarget<D>,
     ctl_vars: Option<&[CtlCheckVarsTarget<F, D>]>,
-    ctl_challenges: Option<&GrandProductChallengeSet<Target>>,
     inner_config: &StarkConfig,
 ) where
     C::Hasher: AlgebraicHasher<F>,

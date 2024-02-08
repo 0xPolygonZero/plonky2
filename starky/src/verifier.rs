@@ -186,7 +186,6 @@ where
         &stark.fri_instance(
             challenges.stark_zeta,
             F::primitive_root_of_unity(degree_bits),
-            ctl_challenges.is_some(),
             num_ctl_polys,
             num_ctl_zs,
             config,
