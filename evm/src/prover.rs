@@ -2,7 +2,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
 use anyhow::{anyhow, ensure, Result};
-use itertools::Itertools;
+use itertools::{Itertools, MultiPeek};
 use once_cell::sync::Lazy;
 use plonky2::field::extension::Extendable;
 use plonky2::field::packable::Packable;
@@ -21,6 +21,7 @@ use plonky2_maybe_rayon::*;
 use plonky2_util::{log2_ceil, log2_strict};
 use starky::cross_table_lookup::get_ctl_data;
 use starky::lookup::GrandProductChallengeSet;
+use starky::proof::MultiProof;
 use starky::prover::prove_with_commitment;
 
 use crate::all_stark::{AllStark, Table, NUM_TABLES};
@@ -32,7 +33,7 @@ use crate::evaluation_frame::StarkEvaluationFrame;
 use crate::generation::{generate_traces, GenerationInputs};
 use crate::get_challenges::observe_public_values;
 use crate::lookup::{Lookup, LookupCheckVars};
-use crate::proof::{AllProof, PublicValues, StarkOpeningSet, StarkProof};
+use crate::proof::{AllProof, PublicValues, StarkOpeningSet, StarkProof, StarkProofWithMetadata};
 use crate::stark::Stark;
 #[cfg(test)]
 use crate::{
@@ -162,8 +163,10 @@ where
     }
 
     Ok(AllProof {
-        stark_proofs,
-        ctl_challenges,
+        multi_proof: MultiProof {
+            stark_proofs,
+            ctl_challenges,
+        },
         public_values,
     })
 }

@@ -96,6 +96,7 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
         &self,
         zeta: F::Extension,
         g: F,
+        requires_ctls: bool,
         num_ctl_helpers: usize,
         num_ctl_zs: Vec<usize>,
         config: &StarkConfig,
@@ -137,7 +138,7 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
             polynomials: [trace_info, auxiliary_polys_info].concat(),
         };
 
-        if num_ctl_helpers != 0 {
+        if requires_ctls {
             let ctl_zs_info = FriPolynomialInfo::from_range(
                 AUXILIARY_ORACLE_INDEX,
                 num_lookup_columns + num_ctl_helpers..num_auxiliary_polys,
@@ -165,6 +166,7 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
         builder: &mut CircuitBuilder<F, D>,
         zeta: ExtensionTarget<D>,
         g: F,
+        requires_ctls: bool,
         num_ctl_helper_polys: usize,
         num_ctl_zs: usize,
         config: &StarkConfig,
@@ -213,7 +215,7 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
             polynomials: [trace_info, auxiliary_polys_info].concat(),
         };
 
-        if num_ctl_zs != 0 {
+        if requires_ctls {
             let ctl_first_batch = FriBatchInfoTarget {
                 point: builder.one_extension(),
                 polynomials: ctl_zs_info,

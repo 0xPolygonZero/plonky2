@@ -198,7 +198,9 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> A
     ) -> Result<AllProofChallenges<F, D>, ProgramError> {
         let mut challenger = Challenger::<F, C::Hasher>::new();
 
-        for proof in &self.stark_proofs {
+        let stark_proofs = &self.multi_proof.stark_proofs;
+
+        for proof in stark_proofs {
             challenger.observe_cap(&proof.proof.trace_cap);
         }
 
@@ -210,18 +212,12 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> A
         Ok(AllProofChallenges {
             stark_challenges: core::array::from_fn(|i| {
                 challenger.compact();
-<<<<<<< HEAD
-                self.stark_proofs[i]
-                    .proof
-                    .get_challenges(&mut challenger, config)
-=======
-                self.stark_proofs[i].get_challenges(
+                stark_proofs[i].proof.get_challenges(
                     &mut challenger,
                     Some(&ctl_challenges),
                     true,
                     config,
                 )
->>>>>>> fabdc6359 (Leverage starky crate)
             }),
             ctl_challenges,
         })

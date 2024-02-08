@@ -1,7 +1,9 @@
 use alloc::vec::Vec;
 use core::any::type_name;
+use core::iter::once;
 
 use anyhow::{anyhow, ensure, Result};
+use itertools::Itertools;
 use plonky2::field::extension::{Extendable, FieldExtension};
 use plonky2::field::types::Field;
 use plonky2::fri::verifier::verify_fri_proof;
@@ -90,7 +92,6 @@ where
         quotient_polys,
     } = &proof.openings;
 
-    let degree_bits = proof.recover_degree_bits(config);
     let vars = S::EvaluationFrame::from_values(
         local_values,
         next_values,
@@ -100,9 +101,12 @@ where
             .map(F::Extension::from_basefield)
             .collect::<Vec<_>>(),
     );
+
+    let degree_bits = proof.recover_degree_bits(config);
     let (l_0, l_last) = eval_l_0_and_l_last(degree_bits, challenges.stark_zeta);
     let last = F::primitive_root_of_unity(degree_bits).inverse();
     let z_last = challenges.stark_zeta - last.into();
+
     let mut consumer = ConstraintConsumer::<F::Extension>::new(
         challenges
             .stark_alphas
@@ -120,15 +124,6 @@ where
             challenges
                 .lookup_challenge_set
                 .as_ref()
-                .unwrap()
-                .challenges
-                .iter()
-                .map(|ch| ch.beta)
-                .collect::<Vec<_>>(),
-        )
-    } else if ctl_challenges.is_some() {
-        Some(
-            ctl_challenges
                 .unwrap()
                 .challenges
                 .iter()
@@ -174,15 +169,10 @@ where
         );
     }
 
-    let merkle_caps = if let Some(aux_polys_cap) = &proof.auxiliary_polys_cap {
-        vec![
-            proof.trace_cap.clone(),
-            aux_polys_cap.clone(),
-            proof.quotient_polys_cap.clone(),
-        ]
-    } else {
-        vec![proof.trace_cap.clone(), proof.quotient_polys_cap.clone()]
-    };
+    let merkle_caps = once(proof.trace_cap.clone())
+        .chain(proof.auxiliary_polys_cap.clone())
+        .chain(once(proof.quotient_polys_cap.clone()))
+        .collect_vec();
 
     let num_ctl_zs = ctl_vars
         .map(|vars| {
@@ -196,6 +186,7 @@ where
         &stark.fri_instance(
             challenges.stark_zeta,
             F::primitive_root_of_unity(degree_bits),
+            ctl_challenges.is_some(),
             num_ctl_polys,
             num_ctl_zs,
             config,

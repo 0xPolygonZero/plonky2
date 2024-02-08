@@ -56,22 +56,19 @@ where
         cross_table_lookups,
     } = all_stark;
 
-    // TODO: Robin
-    let multi_proofs = MultiProof {
-        stark_proofs: all_proof.stark_proofs.clone(),
-        ctl_challenges: all_proof.ctl_challenges,
-    };
     let ctl_vars_per_table = get_ctl_vars_from_proofs(
-        multi_proofs,
+        &all_proof.multi_proof,
         cross_table_lookups,
         &ctl_challenges,
         &num_lookup_columns,
         all_stark.arithmetic_stark.constraint_degree(),
     );
 
+    let stark_proofs = &all_proof.multi_proof.stark_proofs;
+
     verify_stark_proof_with_challenges(
         arithmetic_stark,
-        &all_proof.stark_proofs[Table::Arithmetic as usize].proof,
+        &stark_proofs[Table::Arithmetic as usize].proof,
         &stark_challenges[Table::Arithmetic as usize],
         Some(&ctl_vars_per_table[Table::Arithmetic as usize]),
         Some(&ctl_challenges),
@@ -81,7 +78,7 @@ where
 
     verify_stark_proof_with_challenges(
         byte_packing_stark,
-        &all_proof.stark_proofs[Table::BytePacking as usize].proof,
+        &stark_proofs[Table::BytePacking as usize].proof,
         &stark_challenges[Table::BytePacking as usize],
         Some(&ctl_vars_per_table[Table::BytePacking as usize]),
         Some(&ctl_challenges),
@@ -90,7 +87,7 @@ where
     )?;
     verify_stark_proof_with_challenges(
         cpu_stark,
-        &all_proof.stark_proofs[Table::Cpu as usize].proof,
+        &stark_proofs[Table::Cpu as usize].proof,
         &stark_challenges[Table::Cpu as usize],
         Some(&ctl_vars_per_table[Table::Cpu as usize]),
         Some(&ctl_challenges),
@@ -99,7 +96,7 @@ where
     )?;
     verify_stark_proof_with_challenges(
         keccak_stark,
-        &all_proof.stark_proofs[Table::Keccak as usize].proof,
+        &stark_proofs[Table::Keccak as usize].proof,
         &stark_challenges[Table::Keccak as usize],
         Some(&ctl_vars_per_table[Table::Keccak as usize]),
         Some(&ctl_challenges),
@@ -108,7 +105,7 @@ where
     )?;
     verify_stark_proof_with_challenges(
         keccak_sponge_stark,
-        &all_proof.stark_proofs[Table::KeccakSponge as usize].proof,
+        &stark_proofs[Table::KeccakSponge as usize].proof,
         &stark_challenges[Table::KeccakSponge as usize],
         Some(&ctl_vars_per_table[Table::KeccakSponge as usize]),
         Some(&ctl_challenges),
@@ -117,7 +114,7 @@ where
     )?;
     verify_stark_proof_with_challenges(
         logic_stark,
-        &all_proof.stark_proofs[Table::Logic as usize].proof,
+        &stark_proofs[Table::Logic as usize].proof,
         &stark_challenges[Table::Logic as usize],
         Some(&ctl_vars_per_table[Table::Logic as usize]),
         Some(&ctl_challenges),
@@ -126,7 +123,7 @@ where
     )?;
     verify_stark_proof_with_challenges(
         memory_stark,
-        &all_proof.stark_proofs[Table::Memory as usize].proof,
+        &stark_proofs[Table::Memory as usize].proof,
         &stark_challenges[Table::Memory as usize],
         Some(&ctl_vars_per_table[Table::Memory as usize]),
         Some(&ctl_challenges),
@@ -148,8 +145,9 @@ where
     verify_cross_table_lookups::<F, D, NUM_TABLES>(
         cross_table_lookups,
         all_proof
+            .multi_proof
             .stark_proofs
-            .map(|proof| proof.openings.ctl_zs_first.unwrap()),
+            .map(|p| p.proof.openings.ctl_zs_first.unwrap()),
         Some(&extra_looking_sums),
         config,
     )

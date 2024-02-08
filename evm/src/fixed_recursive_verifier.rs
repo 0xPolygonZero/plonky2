@@ -1000,7 +1000,7 @@ where
         let mut root_inputs = PartialWitness::new();
 
         for table in 0..NUM_TABLES {
-            let stark_proof = &all_proof.stark_proofs[table];
+            let stark_proof = &all_proof.multi_proof.stark_proofs[table];
             let original_degree_bits = stark_proof.proof.recover_degree_bits(config);
             let table_circuits = &self.by_table[table];
             let shrunk_proof = table_circuits
@@ -1013,7 +1013,7 @@ where
                         original_degree_bits,
                     ))
                 })?
-                .shrink(stark_proof, &all_proof.ctl_challenges)?;
+                .shrink(stark_proof, &all_proof.multi_proof.ctl_challenges)?;
             let index_verifier_data = table_circuits
                 .by_stark_size
                 .keys()
@@ -1105,9 +1105,10 @@ where
         for table in 0..NUM_TABLES {
             let (table_circuit, index_verifier_data) = &table_circuits[table];
 
-            let stark_proof = &all_proof.stark_proofs[table];
+            let stark_proof = &all_proof.multi_proof.stark_proofs[table];
 
-            let shrunk_proof = table_circuit.shrink(stark_proof, &all_proof.ctl_challenges)?;
+            let shrunk_proof =
+                table_circuit.shrink(stark_proof, &all_proof.multi_proof.ctl_challenges)?;
             root_inputs.set_target(
                 self.root.index_verifier_data[table],
                 F::from_canonical_u8(*index_verifier_data),

@@ -51,10 +51,11 @@ pub fn verify_stark_proof_circuit<
         proof_with_pis.get_challenges::<F, C>(builder, &mut challenger, None, inner_config)
     );
 
-    verify_stark_proof_with_pis_and_challenges_circuit::<F, C, S, D>(
+    verify_stark_proof_with_challenges_circuit::<F, C, S, D>(
         builder,
         &stark,
-        proof_with_pis,
+        &proof_with_pis.proof,
+        &proof_with_pis.public_inputs,
         challenges,
         None,
         None,
@@ -72,6 +73,7 @@ pub fn verify_stark_proof_with_challenges_circuit<
     builder: &mut CircuitBuilder<F, D>,
     stark: &S,
     proof: &StarkProofTarget<D>,
+    public_inputs: &[Target],
     challenges: StarkProofChallengesTarget<D>,
     ctl_vars: Option<&[CtlCheckVarsTarget<F, D>]>,
     ctl_challenges: Option<&GrandProductChallengeSet<Target>>,
@@ -79,45 +81,7 @@ pub fn verify_stark_proof_with_challenges_circuit<
 ) where
     C::Hasher: AlgebraicHasher<F>,
 {
-    let proof_with_pis = StarkProofWithPublicInputsTarget {
-        proof: proof.to_owned(),
-        public_inputs: vec![],
-    };
-
-    verify_stark_proof_with_pis_and_challenges_circuit::<F, C, S, D>(
-        builder,
-        stark,
-        proof_with_pis,
-        challenges,
-        ctl_vars,
-        ctl_challenges,
-        inner_config,
-    );
-}
-/// Recursively verifies an inner proof.
-fn verify_stark_proof_with_pis_and_challenges_circuit<
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
-    S: Stark<F, D>,
-    const D: usize,
->(
-    builder: &mut CircuitBuilder<F, D>,
-    stark: &S,
-    proof_with_pis: StarkProofWithPublicInputsTarget<D>,
-    challenges: StarkProofChallengesTarget<D>,
-    ctl_vars: Option<&[CtlCheckVarsTarget<F, D>]>,
-    ctl_challenges: Option<&GrandProductChallengeSet<Target>>,
-    inner_config: &StarkConfig,
-) where
-    C::Hasher: AlgebraicHasher<F>,
-{
-    check_lookup_options(
-        stark,
-        ctl_challenges.is_some(),
-        &proof_with_pis,
-        &challenges,
-    )
-    .unwrap();
+    check_lookup_options(stark, ctl_challenges.is_some(), &proof, &challenges).unwrap();
 
     let zero = builder.zero();
     let one = builder.one_extension();
@@ -125,11 +89,6 @@ fn verify_stark_proof_with_pis_and_challenges_circuit<
     let num_ctl_polys = ctl_vars
         .map(|v| v.iter().map(|ctl| ctl.helper_columns.len()).sum::<usize>())
         .unwrap_or_default();
-
-    let StarkProofWithPublicInputsTarget {
-        proof,
-        public_inputs,
-    } = proof_with_pis;
 
     let StarkOpeningSetTarget {
         local_values,
@@ -145,7 +104,7 @@ fn verify_stark_proof_with_pis_and_challenges_circuit<
         next_values,
         &public_inputs
             .into_iter()
-            .map(|t| builder.convert_to_ext(t))
+            .map(|&t| builder.convert_to_ext(t))
             .collect::<Vec<_>>(),
     );
 
@@ -172,15 +131,6 @@ fn verify_stark_proof_with_pis_and_challenges_circuit<
             challenges
                 .lookup_challenge_set
                 .as_ref()
-                .unwrap()
-                .challenges
-                .iter()
-                .map(|ch| ch.beta)
-                .collect::<Vec<_>>(),
-        )
-    } else if ctl_vars.is_some() {
-        Some(
-            ctl_challenges
                 .unwrap()
                 .challenges
                 .iter()
@@ -222,15 +172,16 @@ fn verify_stark_proof_with_pis_and_challenges_circuit<
         builder.connect_extension(vanishing_polys_zeta[i], computed_vanishing_poly);
     }
 
-    let merkle_caps = once(proof.trace_cap)
-        .chain(proof.auxiliary_polys_cap)
-        .chain(once(proof.quotient_polys_cap))
+    let merkle_caps = once(proof.trace_cap.clone())
+        .chain(proof.auxiliary_polys_cap.clone())
+        .chain(once(proof.quotient_polys_cap.clone()))
         .collect_vec();
 
     let fri_instance = stark.fri_instance_target(
         builder,
         challenges.stark_zeta,
         F::primitive_root_of_unity(degree_bits),
+        ctl_challenges.is_some(),
         num_ctl_polys,
         ctl_zs_first.as_ref().map(|c| c.len()).unwrap_or(0),
         inner_config,
@@ -338,7 +289,6 @@ fn add_virtual_stark_opening_set<F: RichField + Extendable<D>, S: Stark<F, D>, c
     num_ctl_zs: usize,
     config: &StarkConfig,
 ) -> StarkOpeningSetTarget<D> {
-    let num_challenges = config.num_challenges;
     StarkOpeningSetTarget {
         local_values: builder.add_virtual_extension_targets(S::COLUMNS),
         next_values: builder.add_virtual_extension_targets(S::COLUMNS),
@@ -352,9 +302,9 @@ fn add_virtual_stark_opening_set<F: RichField + Extendable<D>, S: Stark<F, D>, c
                 stark.num_lookup_helper_columns(config) + num_ctl_helper_zs,
             )
         }),
-        ctl_zs_first: (num_ctl_zs != 0).then(|| builder.add_virtual_targets(num_ctl_zs)),
+        ctl_zs_first: requires_ctls.then(|| builder.add_virtual_targets(num_ctl_zs)),
         quotient_polys: builder
-            .add_virtual_extension_targets(stark.quotient_degree_factor() * num_challenges),
+            .add_virtual_extension_targets(stark.quotient_degree_factor() * config.num_challenges),
     }
 }
 
@@ -418,13 +368,13 @@ pub fn set_stark_proof_target<F, C: GenericConfig<D, F = F>, W, const D: usize>(
 fn check_lookup_options<F: RichField + Extendable<D>, S: Stark<F, D>, const D: usize>(
     stark: &S,
     requires_ctls: bool,
-    proof_with_pis: &StarkProofWithPublicInputsTarget<D>,
+    proof: &StarkProofTarget<D>,
     challenges: &StarkProofChallengesTarget<D>,
 ) -> Result<()> {
     let options_is_some = [
-        proof_with_pis.proof.auxiliary_polys_cap.is_some(),
-        proof_with_pis.proof.openings.auxiliary_polys.is_some(),
-        proof_with_pis.proof.openings.auxiliary_polys_next.is_some(),
+        proof.auxiliary_polys_cap.is_some(),
+        proof.openings.auxiliary_polys.is_some(),
+        proof.openings.auxiliary_polys_next.is_some(),
         challenges.lookup_challenge_set.is_some(),
     ];
     ensure!(

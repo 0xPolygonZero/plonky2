@@ -14,7 +14,7 @@ use plonky2::hash::hash_types::{MerkleCapTarget, RichField};
 use plonky2::hash::merkle_tree::MerkleCap;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::iop::target::Target;
-use plonky2::plonk::config::GenericConfig;
+use plonky2::plonk::config::{GenericConfig, Hasher};
 use plonky2::util::serialization::{Buffer, IoResult, Read, Write};
 use plonky2_maybe_rayon::*;
 
@@ -56,12 +56,14 @@ pub struct StarkProofTarget<const D: usize> {
     pub opening_proof: FriProofTarget<D>,
 }
 
-// TODO: RObin Fix serialization
 impl<const D: usize> StarkProofTarget<D> {
     /// Serializes a STARK proof.
     pub fn to_buffer(&self, buffer: &mut Vec<u8>) -> IoResult<()> {
         buffer.write_target_merkle_cap(&self.trace_cap)?;
-        // buffer.write_target_merkle_cap(&self.auxiliary_polys_cap)?;
+        if let Some(poly) = &self.auxiliary_polys_cap {
+            buffer.write_bool(true)?;
+            buffer.write_target_merkle_cap(poly)?;
+        }
         buffer.write_target_merkle_cap(&self.quotient_polys_cap)?;
         buffer.write_target_fri_proof(&self.opening_proof)?;
         self.openings.to_buffer(buffer)?;
@@ -71,14 +73,18 @@ impl<const D: usize> StarkProofTarget<D> {
     /// Deserializes a STARK proof.
     pub fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
         let trace_cap = buffer.read_target_merkle_cap()?;
-        // let auxiliary_polys_cap = buffer.read_target_merkle_cap()?;
+        let auxiliary_polys_cap = if buffer.read_bool()? {
+            Some(buffer.read_target_merkle_cap()?)
+        } else {
+            None
+        };
         let quotient_polys_cap = buffer.read_target_merkle_cap()?;
         let opening_proof = buffer.read_target_fri_proof()?;
         let openings = StarkOpeningSetTarget::from_buffer(buffer)?;
 
         Ok(Self {
             trace_cap,
-            auxiliary_polys_cap: None,
+            auxiliary_polys_cap,
             quotient_polys_cap,
             openings,
             opening_proof,
@@ -134,6 +140,20 @@ pub struct CompressedStarkProofWithPublicInputs<
     pub public_inputs: Vec<F>,
 }
 
+/// A `StarkProof` along with some metadata about the initial Fiat-Shamir state, which is used when
+/// creating a recursive wrapper proof around a STARK proof.
+#[derive(Debug, Clone)]
+pub struct StarkProofWithMetadata<F, C, const D: usize>
+where
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+{
+    /// Initial Fiat-Shamir state.
+    pub init_challenger_state: <C::Hasher as Hasher<F>>::Permutation,
+    /// Proof for a single STARK.
+    pub proof: StarkProof<F, C, D>,
+}
+
 /// A combination of STARK proofs for independent statements operating on possibly shared variables,
 /// along with Cross-Table Lookup (CTL) challenges to assert consistency of common variables across tables.
 #[derive(Debug, Clone)]
@@ -144,7 +164,7 @@ pub struct MultiProof<
     const N: usize,
 > {
     /// Proofs for all the different STARK modules.
-    pub stark_proofs: [StarkProof<F, C, D>; N],
+    pub stark_proofs: [StarkProofWithMetadata<F, C, D>; N],
     /// Cross-table lookup challenges.
     pub ctl_challenges: GrandProductChallengeSet<F>,
 }
@@ -155,7 +175,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize, c
     /// Returns the degree (i.e. the trace length) of each STARK proofs,
     /// from their common [`StarkConfig`].
     pub fn recover_degree_bits(&self, config: &StarkConfig) -> [usize; N] {
-        core::array::from_fn(|i| self.stark_proofs[i].recover_degree_bits(config))
+        core::array::from_fn(|i| self.stark_proofs[i].proof.recover_degree_bits(config))
     }
 }
 
@@ -294,15 +314,23 @@ pub struct StarkOpeningSetTarget<const D: usize> {
     pub quotient_polys: Vec<ExtensionTarget<D>>,
 }
 
-// TODO: RObin Fix serialization
 impl<const D: usize> StarkOpeningSetTarget<D> {
     /// Serializes a STARK's opening set.
     pub(crate) fn to_buffer(&self, buffer: &mut Vec<u8>) -> IoResult<()> {
         buffer.write_target_ext_vec(&self.local_values)?;
         buffer.write_target_ext_vec(&self.next_values)?;
-        // buffer.write_target_ext_vec(&self.auxiliary_polys)?;
-        // buffer.write_target_ext_vec(&self.auxiliary_polys_next)?;
-        // buffer.write_target_vec(&self.ctl_zs_first)?;
+        if let Some(poly) = &self.auxiliary_polys {
+            buffer.write_bool(true)?;
+            buffer.write_target_ext_vec(poly)?;
+        }
+        if let Some(poly_next) = &self.auxiliary_polys_next {
+            buffer.write_bool(true)?;
+            buffer.write_target_ext_vec(poly_next)?;
+        }
+        if let Some(ctl_zs_first) = &self.ctl_zs_first {
+            buffer.write_bool(true)?;
+            buffer.write_target_vec(ctl_zs_first)?;
+        }
         buffer.write_target_ext_vec(&self.quotient_polys)?;
         Ok(())
     }
@@ -311,17 +339,29 @@ impl<const D: usize> StarkOpeningSetTarget<D> {
     pub(crate) fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
         let local_values = buffer.read_target_ext_vec::<D>()?;
         let next_values = buffer.read_target_ext_vec::<D>()?;
-        // let auxiliary_polys = buffer.read_target_ext_vec::<D>()?;
-        // let auxiliary_polys_next = buffer.read_target_ext_vec::<D>()?;
-        // let ctl_zs_first = buffer.read_target_vec()?;
+        let auxiliary_polys = if buffer.read_bool()? {
+            Some(buffer.read_target_ext_vec::<D>()?)
+        } else {
+            None
+        };
+        let auxiliary_polys_next = if buffer.read_bool()? {
+            Some(buffer.read_target_ext_vec::<D>()?)
+        } else {
+            None
+        };
+        let ctl_zs_first = if buffer.read_bool()? {
+            Some(buffer.read_target_vec()?)
+        } else {
+            None
+        };
         let quotient_polys = buffer.read_target_ext_vec::<D>()?;
 
         Ok(Self {
             local_values,
             next_values,
-            auxiliary_polys: None,
-            auxiliary_polys_next: None,
-            ctl_zs_first: None,
+            auxiliary_polys,
+            auxiliary_polys_next,
+            ctl_zs_first,
             quotient_polys,
         })
     }

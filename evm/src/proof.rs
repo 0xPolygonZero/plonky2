@@ -26,10 +26,9 @@ use crate::util::{get_h160, get_h256, h2u};
 /// A STARK proof for each table, plus some metadata used to create recursive wrapper proofs.
 #[derive(Debug, Clone)]
 pub struct AllProof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> {
-    /// Proofs for all the different STARK modules.
-    pub stark_proofs: [StarkProofWithMetadata<F, C, D>; NUM_TABLES],
-    /// Cross-table lookup challenges.
-    pub(crate) ctl_challenges: GrandProductChallengeSet<F>,
+    /// A multi-proof containing all proofs for the different STARK modules and their
+    /// cross-table lookup challenges.
+    pub multi_proof: MultiProof<F, C, D, NUM_TABLES>,
     /// Public memory values used for the recursive proofs.
     pub public_values: PublicValues,
 }
@@ -37,7 +36,7 @@ pub struct AllProof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, co
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> AllProof<F, C, D> {
     /// Returns the degree (i.e. the trace length) of each STARK.
     pub fn degree_bits(&self, config: &StarkConfig) -> [usize; NUM_TABLES] {
-        core::array::from_fn(|i| self.stark_proofs[i].proof.recover_degree_bits(config))
+        self.multi_proof.recover_degree_bits(config)
     }
 }
 
@@ -822,18 +821,4 @@ impl ExtraBlockDataTarget {
         builder.connect(ed0.gas_used_before, ed1.gas_used_before);
         builder.connect(ed0.gas_used_after, ed1.gas_used_after);
     }
-}
-
-/// A `StarkProof` along with some metadata about the initial Fiat-Shamir state, which is used when
-/// creating a recursive wrapper proof around a STARK proof.
-#[derive(Debug, Clone)]
-pub struct StarkProofWithMetadata<F, C, const D: usize>
-where
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
-{
-    /// Initial Fiat-Shamir state.
-    pub(crate) init_challenger_state: <C::Hasher as Hasher<F>>::Permutation,
-    /// Proof for a single STARK.
-    pub(crate) proof: StarkProof<F, C, D>,
 }

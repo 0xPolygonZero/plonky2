@@ -292,14 +292,13 @@ where
     let challenger_state = challenger.compact(&mut builder);
     builder.register_public_inputs(challenger_state.as_ref());
 
-    if let Some(ctl_zs_first) = &proof_target.openings.ctl_zs_first {
-        builder.register_public_inputs(&ctl_zs_first)
-    };
+    builder.register_public_inputs(&proof_target.openings.ctl_zs_first.as_ref().unwrap());
 
     verify_stark_proof_with_challenges_circuit::<F, C, _, D>(
         &mut builder,
         stark,
         &proof_target,
+        &[], // public inputs
         challenges,
         Some(&ctl_vars),
         Some(&ctl_challenges_target),
