@@ -39,7 +39,8 @@ use crate::memory::VALUE_LIMBS;
 use crate::proof::{
     BlockHashes, BlockHashesTarget, BlockMetadata, BlockMetadataTarget, ExtraBlockData,
     ExtraBlockDataTarget, PublicValues, PublicValuesTarget, StarkOpeningSetTarget, StarkProof,
-    StarkProofChallengesTarget, StarkProofTarget, TrieRoots, TrieRootsTarget,
+    StarkProofChallengesTarget, StarkProofTarget, StarkProofWithMetadata, TrieRoots,
+    TrieRootsTarget,
 };
 use crate::stark::Stark;
 use crate::util::{h256_limbs, u256_limbs, u256_to_u32, u256_to_u64};
@@ -146,7 +147,7 @@ where
 
     pub(crate) fn prove(
         &self,
-        proof: &StarkProof<F, C, D>,
+        proof_with_metadata: &StarkProofWithMetadata<F, C, D>,
         ctl_challenges: &GrandProductChallengeSet<F>,
     ) -> Result<ProofWithPublicInputs<F, C, D>> {
         let mut inputs = PartialWitness::new();
@@ -154,7 +155,7 @@ where
         set_stark_proof_target(
             &mut inputs,
             &self.stark_proof_target,
-            proof,
+            &proof_with_metadata.proof,
             self.zero_target,
         );
 
@@ -167,6 +168,11 @@ where
             inputs.set_target(challenge_target.beta, challenge.beta);
             inputs.set_target(challenge_target.gamma, challenge.gamma);
         }
+
+        inputs.set_target_arr(
+            self.init_challenger_state_target.as_ref(),
+            proof_with_metadata.init_challenger_state.as_ref(),
+        );
 
         self.circuit.prove(inputs)
     }

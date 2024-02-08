@@ -52,7 +52,7 @@ use crate::lookup::{
     eval_helper_columns, eval_helper_columns_circuit, get_helper_cols, Column, ColumnFilter,
     Filter, GrandProductChallenge,
 };
-use crate::proof::{StarkProof, StarkProofTarget};
+use crate::proof::{StarkProofTarget, StarkProofWithMetadata};
 use crate::stark::Stark;
 
 /// An alias for `usize`, to represent the index of a STARK table in a multi-STARK setting.
@@ -494,7 +494,7 @@ impl<'a, F: RichField + Extendable<D>, const D: usize>
 {
     /// Extracts the `CtlCheckVars` for each STARK.
     pub(crate) fn from_proofs<C: GenericConfig<D, F = F>, const N: usize>(
-        proofs: &[StarkProof<F, C, D>; N],
+        proofs: &[StarkProofWithMetadata<F, C, D>; N],
         cross_table_lookups: &'a [CrossTableLookup<F>],
         ctl_challenges: &'a GrandProductChallengeSet<F>,
         num_lookup_columns: &[usize; N],
@@ -511,8 +511,8 @@ impl<'a, F: RichField + Extendable<D>, const D: usize>
         let ctl_zs = proofs
             .iter()
             .zip(num_lookup_columns)
-            .map(|(proof, &num_lookup)| {
-                let openings = &proof.openings;
+            .map(|(p, &num_lookup)| {
+                let openings = &p.proof.openings;
 
                 let ctl_zs = &openings.auxiliary_polys[num_lookup..];
                 let ctl_zs_next = &openings.auxiliary_polys_next[num_lookup..];
