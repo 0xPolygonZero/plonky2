@@ -21,7 +21,7 @@ use crate::config::StarkConfig;
 use crate::constraint_consumer::RecursiveConstraintConsumer;
 use crate::cross_table_lookup::CtlCheckVarsTarget;
 use crate::evaluation_frame::StarkEvaluationFrame;
-use crate::lookup::LookupCheckVarsTarget;
+use crate::lookup::{GrandProductChallengeSet, LookupCheckVarsTarget};
 use crate::proof::{
     StarkOpeningSetTarget, StarkProof, StarkProofChallengesTarget, StarkProofTarget,
     StarkProofWithPublicInputs, StarkProofWithPublicInputsTarget,
@@ -57,6 +57,7 @@ pub fn verify_stark_proof_circuit<
         proof_with_pis,
         challenges,
         None,
+        None,
         inner_config,
     );
 }
@@ -73,6 +74,7 @@ pub fn verify_stark_proof_with_challenges_circuit<
     proof: &StarkProofTarget<D>,
     challenges: StarkProofChallengesTarget<D>,
     ctl_vars: Option<&[CtlCheckVarsTarget<F, D>]>,
+    ctl_challenges: Option<&GrandProductChallengeSet<Target>>,
     inner_config: &StarkConfig,
 ) where
     C::Hasher: AlgebraicHasher<F>,
@@ -88,6 +90,7 @@ pub fn verify_stark_proof_with_challenges_circuit<
         proof_with_pis,
         challenges,
         ctl_vars,
+        ctl_challenges,
         inner_config,
     );
 }
@@ -103,11 +106,18 @@ fn verify_stark_proof_with_pis_and_challenges_circuit<
     proof_with_pis: StarkProofWithPublicInputsTarget<D>,
     challenges: StarkProofChallengesTarget<D>,
     ctl_vars: Option<&[CtlCheckVarsTarget<F, D>]>,
+    ctl_challenges: Option<&GrandProductChallengeSet<Target>>,
     inner_config: &StarkConfig,
 ) where
     C::Hasher: AlgebraicHasher<F>,
 {
-    check_lookup_options(stark, &proof_with_pis, &challenges).unwrap();
+    check_lookup_options(
+        stark,
+        ctl_challenges.is_some(),
+        &proof_with_pis,
+        &challenges,
+    )
+    .unwrap();
 
     let zero = builder.zero();
     let one = builder.one_extension();
@@ -120,6 +130,7 @@ fn verify_stark_proof_with_pis_and_challenges_circuit<
         proof,
         public_inputs,
     } = proof_with_pis;
+
     let StarkOpeningSetTarget {
         local_values,
         next_values,
@@ -156,15 +167,29 @@ fn verify_stark_proof_with_pis_and_challenges_circuit<
     );
 
     let num_lookup_columns = stark.num_lookup_helper_columns(inner_config);
-    let lookup_challenges = stark.uses_lookups().then(|| {
-        challenges
-            .lookup_challenge_set
-            .unwrap()
-            .challenges
-            .iter()
-            .map(|ch| ch.beta)
-            .collect::<Vec<_>>()
-    });
+    let lookup_challenges = if stark.uses_lookups() {
+        Some(
+            challenges
+                .lookup_challenge_set
+                .as_ref()
+                .unwrap()
+                .challenges
+                .iter()
+                .map(|ch| ch.beta)
+                .collect::<Vec<_>>(),
+        )
+    } else if ctl_vars.is_some() {
+        Some(
+            ctl_challenges
+                .unwrap()
+                .challenges
+                .iter()
+                .map(|ch| ch.beta)
+                .collect::<Vec<_>>(),
+        )
+    } else {
+        None
+    };
 
     let lookup_vars = stark.uses_lookups().then(|| LookupCheckVarsTarget {
         local_values: auxiliary_polys.as_ref().unwrap()[..num_lookup_columns].to_vec(),
@@ -248,6 +273,7 @@ pub fn add_virtual_stark_proof_with_pis<
     stark: &S,
     config: &StarkConfig,
     degree_bits: usize,
+    requires_ctls: bool,
     num_ctl_helper_zs: usize,
     num_ctl_zs: usize,
 ) -> StarkProofWithPublicInputsTarget<D> {
@@ -256,6 +282,7 @@ pub fn add_virtual_stark_proof_with_pis<
         stark,
         config,
         degree_bits,
+        requires_ctls,
         num_ctl_helper_zs,
         num_ctl_zs,
     );
@@ -271,6 +298,7 @@ pub fn add_virtual_stark_proof<F: RichField + Extendable<D>, S: Stark<F, D>, con
     stark: &S,
     config: &StarkConfig,
     degree_bits: usize,
+    requires_ctls: bool,
     num_ctl_helper_zs: usize,
     num_ctl_zs: usize,
 ) -> StarkProofTarget<D> {
@@ -279,13 +307,12 @@ pub fn add_virtual_stark_proof<F: RichField + Extendable<D>, S: Stark<F, D>, con
 
     let num_leaves_per_oracle = vec![
         S::COLUMNS,
-        stark.num_lookup_helper_columns(config),
+        stark.num_lookup_helper_columns(config) + num_ctl_helper_zs,
         stark.quotient_degree_factor() * config.num_challenges,
     ];
 
-    let auxiliary_polys_cap = stark
-        .uses_lookups()
-        .then(|| builder.add_virtual_cap(cap_height));
+    let auxiliary_polys_cap =
+        (stark.uses_lookups() || requires_ctls).then(|| builder.add_virtual_cap(cap_height));
 
     StarkProofTarget {
         trace_cap: builder.add_virtual_cap(cap_height),
@@ -294,6 +321,7 @@ pub fn add_virtual_stark_proof<F: RichField + Extendable<D>, S: Stark<F, D>, con
         openings: add_virtual_stark_opening_set::<F, S, D>(
             builder,
             stark,
+            requires_ctls,
             num_ctl_helper_zs,
             num_ctl_zs,
             config,
@@ -305,6 +333,7 @@ pub fn add_virtual_stark_proof<F: RichField + Extendable<D>, S: Stark<F, D>, con
 fn add_virtual_stark_opening_set<F: RichField + Extendable<D>, S: Stark<F, D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     stark: &S,
+    requires_ctls: bool,
     num_ctl_helper_zs: usize,
     num_ctl_zs: usize,
     config: &StarkConfig,
@@ -313,12 +342,12 @@ fn add_virtual_stark_opening_set<F: RichField + Extendable<D>, S: Stark<F, D>, c
     StarkOpeningSetTarget {
         local_values: builder.add_virtual_extension_targets(S::COLUMNS),
         next_values: builder.add_virtual_extension_targets(S::COLUMNS),
-        auxiliary_polys: stark.uses_lookups().then(|| {
+        auxiliary_polys: (stark.uses_lookups() || requires_ctls).then(|| {
             builder.add_virtual_extension_targets(
                 stark.num_lookup_helper_columns(config) + num_ctl_helper_zs,
             )
         }),
-        auxiliary_polys_next: stark.uses_lookups().then(|| {
+        auxiliary_polys_next: (stark.uses_lookups() || requires_ctls).then(|| {
             builder.add_virtual_extension_targets(
                 stark.num_lookup_helper_columns(config) + num_ctl_helper_zs,
             )
@@ -388,6 +417,7 @@ pub fn set_stark_proof_target<F, C: GenericConfig<D, F = F>, W, const D: usize>(
 /// the Stark uses a permutation argument.
 fn check_lookup_options<F: RichField + Extendable<D>, S: Stark<F, D>, const D: usize>(
     stark: &S,
+    requires_ctls: bool,
     proof_with_pis: &StarkProofWithPublicInputsTarget<D>,
     challenges: &StarkProofChallengesTarget<D>,
 ) -> Result<()> {
@@ -400,7 +430,7 @@ fn check_lookup_options<F: RichField + Extendable<D>, S: Stark<F, D>, const D: u
     ensure!(
         options_is_some
             .into_iter()
-            .all(|b| b == stark.uses_lookups()),
+            .all(|b| b == stark.uses_lookups() || requires_ctls),
         "Lookups data doesn't match with Stark configuration."
     );
     Ok(())

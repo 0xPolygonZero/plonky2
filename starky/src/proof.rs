@@ -159,6 +159,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize, c
     }
 }
 
+#[derive(Debug)]
 pub struct StarkProofChallenges<F: RichField + Extendable<D>, const D: usize> {
     /// Randomness used in any permutation arguments.
     pub lookup_challenge_set: Option<GrandProductChallengeSet<F>>,
@@ -207,10 +208,9 @@ impl<F: RichField + Extendable<D>, const D: usize> StarkOpeningSet<F, D> {
         auxiliary_polys_commitment: Option<&PolynomialBatch<F, C, D>>,
         quotient_commitment: &PolynomialBatch<F, C, D>,
         num_lookup_columns: usize,
+        uses_cross_table_lookups: bool,
         num_ctl_polys: &[usize],
     ) -> Self {
-        let total_num_helper_cols: usize = num_ctl_polys.iter().sum();
-
         // Batch evaluates polynomials on the LDE, at a point `z`.
         let eval_commitment = |z: F::Extension, c: &PolynomialBatch<F, C, D>| {
             c.polynomials
@@ -234,7 +234,8 @@ impl<F: RichField + Extendable<D>, const D: usize> StarkOpeningSet<F, D> {
             next_values: eval_commitment(zeta_next, trace_commitment),
             auxiliary_polys: auxiliary_polys_commitment.map(|c| eval_commitment(zeta, c)),
             auxiliary_polys_next: auxiliary_polys_commitment.map(|c| eval_commitment(zeta_next, c)),
-            ctl_zs_first: (total_num_helper_cols != 0).then(|| {
+            ctl_zs_first: uses_cross_table_lookups.then(|| {
+                let total_num_helper_cols: usize = num_ctl_polys.iter().sum();
                 auxiliary_first.unwrap()[num_lookup_columns + total_num_helper_cols..].to_vec()
             }),
             quotient_polys: eval_commitment(zeta, quotient_commitment),

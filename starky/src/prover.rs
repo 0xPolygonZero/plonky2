@@ -1,6 +1,5 @@
 #[cfg(not(feature = "std"))]
 use alloc::{sync::Arc, vec::Vec};
-use core::any::type_name;
 use core::iter::once;
 
 use anyhow::{ensure, Result};
@@ -119,11 +118,6 @@ where
     let constraint_degree = stark.constraint_degree();
     let lookup_challenges = stark.uses_lookups().then(|| {
         if let Some(c) = ctl_challenges {
-            println!(
-                "Lookup challenges for {:?} are {:?}",
-                type_name::<S>(),
-                c.challenges.iter().map(|ch| ch.beta).collect::<Vec<_>>()
-            );
             c.challenges.iter().map(|ch| ch.beta).collect::<Vec<_>>()
         } else {
             get_grand_product_challenge_set(challenger, config.num_challenges)
@@ -200,8 +194,8 @@ where
         .map(|data| data.num_ctl_helper_polys())
         .unwrap_or_default();
 
+    #[cfg(test)]
     {
-        log::info!("Testing constraints for {:?}\n", type_name::<S>());
         check_constraints(
             stark,
             trace_commitment,
@@ -228,7 +222,7 @@ where
             &lookups,
             ctl_data,
             public_inputs,
-            alphas,
+            alphas.clone(),
             degree_bits,
             num_lookup_columns,
             &num_ctl_polys,
@@ -269,6 +263,7 @@ where
     challenger.observe_cap(&quotient_polys_cap);
 
     let zeta = challenger.get_extension_challenge::<D>();
+
     // To avoid leaking witness data, we want to ensure that our opening locations, `zeta` and
     // `g * zeta`, are not in our subgroup `H`. It suffices to check `zeta` only, since
     // `(g * zeta)^n = zeta^n`, where `n` is the order of `g`.
@@ -286,6 +281,7 @@ where
         auxiliary_polys_commitment.as_ref(),
         &quotient_commitment,
         stark.num_lookup_helper_columns(config),
+        ctl_challenges.is_some(),
         &num_ctl_polys,
     );
     // Get the FRI openings and observe them.
@@ -505,6 +501,7 @@ where
 
 /// Check that all constraints evaluate to zero on `H`.
 /// Can also be used to check the degree of the constraints by evaluating on a larger subgroup.
+#[cfg(test)]
 fn check_constraints<'a, F, C, S, const D: usize>(
     stark: &S,
     trace_commitment: &'a PolynomialBatch<F, C, D>,

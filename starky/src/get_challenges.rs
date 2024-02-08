@@ -16,10 +16,12 @@ use crate::lookup::{
 };
 use crate::proof::*;
 
+/// `trace_cap` is passed as `Option` to signify whether to observe it
+/// or not by the challenger.
 fn get_challenges<F, C, const D: usize>(
     challenger: &mut Challenger<F, C::Hasher>,
     challenges: Option<&GrandProductChallengeSet<F>>,
-    trace_cap: &MerkleCap<F, C::Hasher>,
+    trace_cap: Option<&MerkleCap<F, C::Hasher>>,
     auxiliary_polys_cap: Option<&MerkleCap<F, C::Hasher>>,
     quotient_polys_cap: &MerkleCap<F, C::Hasher>,
     openings: &StarkOpeningSet<F, D>,
@@ -35,17 +37,19 @@ where
 {
     let num_challenges = config.num_challenges;
 
-    challenger.observe_cap(trace_cap);
+    if let Some(cap) = &trace_cap {
+        challenger.observe_cap(cap);
+    }
 
     let lookup_challenge_set = if let Some(&challenges) = challenges.as_ref() {
-        Some(challenges.clone())
+        challenges.clone()
     } else {
-        auxiliary_polys_cap.map(|auxiliary_polys_cap| {
-            let tmp = get_grand_product_challenge_set(challenger, num_challenges);
-            challenger.observe_cap(auxiliary_polys_cap);
-            tmp
-        })
+        get_grand_product_challenge_set(challenger, num_challenges)
     };
+
+    if let Some(cap) = &auxiliary_polys_cap {
+        challenger.observe_cap(cap);
+    }
 
     let stark_alphas = challenger.get_n_challenges(num_challenges);
 
@@ -55,7 +59,7 @@ where
     challenger.observe_openings(&openings.to_fri_openings());
 
     StarkProofChallenges {
-        lookup_challenge_set,
+        lookup_challenge_set: Some(lookup_challenge_set),
         stark_alphas,
         stark_zeta,
         fri_challenges: challenger.fri_challenges::<C, D>(
@@ -78,6 +82,7 @@ where
         &self,
         challenger: &mut Challenger<F, C::Hasher>,
         challenges: Option<&GrandProductChallengeSet<F>>,
+        ignore_trace_cap: bool,
         config: &StarkConfig,
     ) -> StarkProofChallenges<F, D> {
         let degree_bits = self.recover_degree_bits(config);
@@ -95,6 +100,12 @@ where
                     ..
                 },
         } = &self;
+
+        let trace_cap = if ignore_trace_cap {
+            None
+        } else {
+            Some(trace_cap)
+        };
 
         get_challenges::<F, C, D>(
             challenger,
@@ -122,9 +133,11 @@ where
         &self,
         challenger: &mut Challenger<F, C::Hasher>,
         challenges: Option<&GrandProductChallengeSet<F>>,
+        ignore_trace_cap: bool,
         config: &StarkConfig,
     ) -> StarkProofChallenges<F, D> {
-        self.proof.get_challenges(challenger, challenges, config)
+        self.proof
+            .get_challenges(challenger, challenges, ignore_trace_cap, config)
     }
 }
 
