@@ -257,8 +257,15 @@ mod tests {
         let mut builder = CircuitBuilder::<F, D>::new(circuit_config);
         let mut pw = PartialWitness::new();
         let degree_bits = inner_proof.proof.recover_degree_bits(inner_config);
-        let pt =
-            add_virtual_stark_proof_with_pis(&mut builder, &stark, inner_config, degree_bits, 0, 0);
+        let pt = add_virtual_stark_proof_with_pis(
+            &mut builder,
+            &stark,
+            inner_config,
+            degree_bits,
+            false,
+            0,
+            0,
+        );
         set_stark_proof_with_pis_target(&mut pw, &pt, &inner_proof, builder.zero());
 
         verify_stark_proof_circuit::<F, InnerC, S, D>(&mut builder, stark, pt, inner_config);
