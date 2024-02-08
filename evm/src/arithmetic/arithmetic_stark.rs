@@ -321,6 +321,10 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for ArithmeticSta
             filter_columns: vec![None; NUM_SHARED_COLS],
         }]
     }
+
+    fn requires_ctls(&self) -> bool {
+        true
+    }
 }
 
 #[cfg(test)]

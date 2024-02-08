@@ -81,7 +81,7 @@ pub fn verify_stark_proof_with_challenges_circuit<
 ) where
     C::Hasher: AlgebraicHasher<F>,
 {
-    check_lookup_options(stark, ctl_challenges.is_some(), &proof, &challenges).unwrap();
+    check_lookup_options(stark, &proof, &challenges).unwrap();
 
     let zero = builder.zero();
     let one = builder.one_extension();
@@ -181,7 +181,6 @@ pub fn verify_stark_proof_with_challenges_circuit<
         builder,
         challenges.stark_zeta,
         F::primitive_root_of_unity(degree_bits),
-        ctl_challenges.is_some(),
         num_ctl_polys,
         ctl_zs_first.as_ref().map(|c| c.len()).unwrap_or(0),
         inner_config,
@@ -224,7 +223,6 @@ pub fn add_virtual_stark_proof_with_pis<
     stark: &S,
     config: &StarkConfig,
     degree_bits: usize,
-    requires_ctls: bool,
     num_ctl_helper_zs: usize,
     num_ctl_zs: usize,
 ) -> StarkProofWithPublicInputsTarget<D> {
@@ -233,7 +231,6 @@ pub fn add_virtual_stark_proof_with_pis<
         stark,
         config,
         degree_bits,
-        requires_ctls,
         num_ctl_helper_zs,
         num_ctl_zs,
     );
@@ -249,7 +246,6 @@ pub fn add_virtual_stark_proof<F: RichField + Extendable<D>, S: Stark<F, D>, con
     stark: &S,
     config: &StarkConfig,
     degree_bits: usize,
-    requires_ctls: bool,
     num_ctl_helper_zs: usize,
     num_ctl_zs: usize,
 ) -> StarkProofTarget<D> {
@@ -262,8 +258,8 @@ pub fn add_virtual_stark_proof<F: RichField + Extendable<D>, S: Stark<F, D>, con
         stark.quotient_degree_factor() * config.num_challenges,
     ];
 
-    let auxiliary_polys_cap =
-        (stark.uses_lookups() || requires_ctls).then(|| builder.add_virtual_cap(cap_height));
+    let auxiliary_polys_cap = (stark.uses_lookups() || stark.requires_ctls())
+        .then(|| builder.add_virtual_cap(cap_height));
 
     StarkProofTarget {
         trace_cap: builder.add_virtual_cap(cap_height),
@@ -272,7 +268,6 @@ pub fn add_virtual_stark_proof<F: RichField + Extendable<D>, S: Stark<F, D>, con
         openings: add_virtual_stark_opening_set::<F, S, D>(
             builder,
             stark,
-            requires_ctls,
             num_ctl_helper_zs,
             num_ctl_zs,
             config,
@@ -284,7 +279,6 @@ pub fn add_virtual_stark_proof<F: RichField + Extendable<D>, S: Stark<F, D>, con
 fn add_virtual_stark_opening_set<F: RichField + Extendable<D>, S: Stark<F, D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     stark: &S,
-    requires_ctls: bool,
     num_ctl_helper_zs: usize,
     num_ctl_zs: usize,
     config: &StarkConfig,
@@ -292,17 +286,19 @@ fn add_virtual_stark_opening_set<F: RichField + Extendable<D>, S: Stark<F, D>, c
     StarkOpeningSetTarget {
         local_values: builder.add_virtual_extension_targets(S::COLUMNS),
         next_values: builder.add_virtual_extension_targets(S::COLUMNS),
-        auxiliary_polys: (stark.uses_lookups() || requires_ctls).then(|| {
+        auxiliary_polys: (stark.uses_lookups() || stark.requires_ctls()).then(|| {
             builder.add_virtual_extension_targets(
                 stark.num_lookup_helper_columns(config) + num_ctl_helper_zs,
             )
         }),
-        auxiliary_polys_next: (stark.uses_lookups() || requires_ctls).then(|| {
+        auxiliary_polys_next: (stark.uses_lookups() || stark.requires_ctls()).then(|| {
             builder.add_virtual_extension_targets(
                 stark.num_lookup_helper_columns(config) + num_ctl_helper_zs,
             )
         }),
-        ctl_zs_first: requires_ctls.then(|| builder.add_virtual_targets(num_ctl_zs)),
+        ctl_zs_first: stark
+            .requires_ctls()
+            .then(|| builder.add_virtual_targets(num_ctl_zs)),
         quotient_polys: builder
             .add_virtual_extension_targets(stark.quotient_degree_factor() * config.num_challenges),
     }
@@ -367,7 +363,6 @@ pub fn set_stark_proof_target<F, C: GenericConfig<D, F = F>, W, const D: usize>(
 /// the Stark uses a permutation argument.
 fn check_lookup_options<F: RichField + Extendable<D>, S: Stark<F, D>, const D: usize>(
     stark: &S,
-    requires_ctls: bool,
     proof: &StarkProofTarget<D>,
     challenges: &StarkProofChallengesTarget<D>,
 ) -> Result<()> {
@@ -380,7 +375,7 @@ fn check_lookup_options<F: RichField + Extendable<D>, S: Stark<F, D>, const D: u
     ensure!(
         options_is_some
             .into_iter()
-            .all(|b| b == stark.uses_lookups() || requires_ctls),
+            .all(|b| b == stark.uses_lookups() || stark.requires_ctls()),
         "Lookups data doesn't match with Stark configuration."
     );
     Ok(())

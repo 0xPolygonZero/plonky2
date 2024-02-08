@@ -244,7 +244,6 @@ where
         stark,
         inner_config,
         degree_bits,
-        true,
         num_ctl_helper_zs,
         num_ctl_zs,
     );

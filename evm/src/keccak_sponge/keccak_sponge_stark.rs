@@ -809,6 +809,10 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakSpongeS
             filter_columns: vec![None; KECCAK_RATE_BYTES],
         }]
     }
+
+    fn requires_ctls(&self) -> bool {
+        true
+    }
 }
 
 #[cfg(test)]
