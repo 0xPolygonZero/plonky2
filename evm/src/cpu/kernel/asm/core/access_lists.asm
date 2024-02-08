@@ -63,11 +63,25 @@ global init_access_lists:
     POP
 %endmacro
 
+// Multiply the ptr a the top of the stack by 2
+// and abort if 2*ptr - @SEGMENT_ACCESSED_ADDRESSES >= @GLOBAL_METADATA_ACCESSED_ADDRESSES_LEN
+%macro get_valid_addr_ptr
+    // stack: ptr
+    %mul_const(2)
+    DUP1
+    %sub_const(@SEGMENT_ACCESSED_ADDRESSES)
+    %assert_lt_const(@GLOBAL_METADATA_ACCESSED_ADDRESSES_LEN)
+    // sack: 2*ptr
+%endmacro
+
+
 /// Inserts the address into the access list if it is not already present.
 /// Return 1 if the address was inserted, 0 if it was already present.
 global insert_accessed_addresses:
     // stack: addr, retdest
     PROVER_INPUT(access_lists::address_insert)
+    // stack: pred_ptr/2, addr, retdest
+    %get_valid_addr_ptr
     // stack: pred_ptr, addr, retdest
     DUP1
     MLOAD_GENERAL
@@ -151,6 +165,8 @@ insert_new_address:
 global remove_accessed_addresses:
     // stack: addr, retdest
     PROVER_INPUT(access_lists::address_remove)
+    // stack: pred_ptr/2, addr, retdest
+    %get_valid_addr_ptr
     // stack: pred_ptr, addr, retdest
     %increment
     // stack: next_ptr_ptr, addr, retdest
@@ -184,12 +200,25 @@ global remove_accessed_addresses:
     // stack: cold_access, original_value
 %endmacro
 
+// Multiply the ptr a the top of the stack by 4
+// and abort if 4*ptr - SEGMENT_ACCESSED_STORAGE_KEYS >= @GLOBAL_METADATA_ACCESSED_STORAGE_KEYS_LEN
+%macro get_valid_storage_ptr
+    // stack: ptr
+    %mul_const(4)
+    DUP1
+    %sub_const(@SEGMENT_ACCESSED_STORAGE_KEYS)
+    %assert_lt_const(@GLOBAL_METADATA_ACCESSED_STORAGE_KEYS_LEN)
+    // sack: 2*ptr
+%endmacro
+
 /// Inserts the storage key and value into the access list if it is not already present.
 /// `value` should be the current storage value at the slot `(addr, key)`.
 /// Return `1, original_value` if the storage key was inserted, `0, original_value` if it was already present.
 global insert_accessed_storage_keys:
     // stack: addr, key, value, retdest
     PROVER_INPUT(access_lists::storage_insert)
+    // stack: pred_ptr/4, addr, key, value, retdest
+    %get_valid_storage_ptr
     // stack: pred_ptr, addr, key, value, retdest
     DUP1
     MLOAD_GENERAL
@@ -304,6 +333,8 @@ insert_storage_key:
 global remove_accessed_storage_keys:
     // stack: addr, key, retdest
     PROVER_INPUT(access_lists::storage_remove)
+    // stack: pred_ptr/4, addr, key, retdest
+    %get_valid_storage_ptr
     // stack: pred_ptr, addr, key, retdest
     %add_const(3)
     // stack: next_ptr_ptr, addr, key, retdest

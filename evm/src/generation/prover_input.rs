@@ -311,7 +311,9 @@ impl<F: Field> GenerationState<F> {
         let addr = stack_peek(self, 0)?;
         for (curr_ptr, next_addr, _) in self.get_addresses_access_list()? {
             if next_addr > addr {
-                return Ok((Segment::AccessedAddresses as usize + curr_ptr).into());
+                // In order to avoid pointers to the next ptr, we use the fact
+                // that valid pointers and Segment::AccessedAddresses are always even
+                return Ok(((Segment::AccessedAddresses as usize + curr_ptr) / 2usize).into());
             }
         }
         Ok((Segment::AccessedAddresses as usize).into())
@@ -324,7 +326,7 @@ impl<F: Field> GenerationState<F> {
         let addr = stack_peek(self, 0)?;
         for (curr_ptr, next_addr, _) in self.get_addresses_access_list()? {
             if next_addr == addr {
-                return Ok((Segment::AccessedAddresses as usize + curr_ptr).into());
+                return Ok(((Segment::AccessedAddresses as usize + curr_ptr) / 2usize).into());
             }
         }
         Ok((Segment::AccessedAddresses as usize).into())
@@ -336,7 +338,9 @@ impl<F: Field> GenerationState<F> {
         let key = stack_peek(self, 1)?;
         for (curr_ptr, next_addr, next_key) in self.get_storage_keys_access_list()? {
             if next_addr > addr || (next_addr == addr && next_key > key) {
-                return Ok((Segment::AccessedStorageKeys as usize + curr_ptr).into());
+                // In order to avoid pointers to the key, value or next ptr, we use the fact
+                // that valid pointers and Segment::AccessedAddresses are always multiples of 4
+                return Ok(((Segment::AccessedStorageKeys as usize + curr_ptr) / 4usize).into());
             }
         }
         Ok((Segment::AccessedAddresses as usize).into())
@@ -348,7 +352,7 @@ impl<F: Field> GenerationState<F> {
         let key = stack_peek(self, 1)?;
         for (curr_ptr, next_addr, next_key) in self.get_storage_keys_access_list()? {
             if (next_addr == addr && next_key == key) || next_addr == U256::MAX {
-                return Ok((Segment::AccessedStorageKeys as usize + curr_ptr).into());
+                return Ok(((Segment::AccessedStorageKeys as usize + curr_ptr) / 4usize).into());
             }
         }
         Ok((Segment::AccessedStorageKeys as usize).into())
@@ -611,9 +615,11 @@ impl Iterator for AccList {
         if let Ok(new_pos) = u256_to_usize(self.access_list_mem[self.pos + self.node_size - 1]) {
             let old_pos = self.pos;
             self.pos = new_pos - self.offset;
-            if self.node_size == 2 { // addresses
+            if self.node_size == 2 {
+                // addresses
                 Some((old_pos, self.access_list_mem[self.pos], U256::zero()))
-            } else { // storage_keys
+            } else {
+                // storage_keys
                 Some((
                     old_pos,
                     self.access_list_mem[self.pos],
