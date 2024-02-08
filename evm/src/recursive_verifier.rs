@@ -558,25 +558,6 @@ fn add_data_write<F: RichField + Extendable<D>, const D: usize>(
     builder.add(running_sum, inverse)
 }
 
-fn eval_l_0_and_l_last_circuit<F: RichField + Extendable<D>, const D: usize>(
-    builder: &mut CircuitBuilder<F, D>,
-    log_n: usize,
-    x: ExtensionTarget<D>,
-    z_x: ExtensionTarget<D>,
-) -> (ExtensionTarget<D>, ExtensionTarget<D>) {
-    let n = builder.constant_extension(F::Extension::from_canonical_usize(1 << log_n));
-    let g = builder.constant_extension(F::Extension::primitive_root_of_unity(log_n));
-    let one = builder.one_extension();
-    let l_0_deno = builder.mul_sub_extension(n, x, n);
-    let l_last_deno = builder.mul_sub_extension(g, x, one);
-    let l_last_deno = builder.mul_extension(n, l_last_deno);
-
-    (
-        builder.div_extension(z_x, l_0_deno),
-        builder.div_extension(z_x, l_last_deno),
-    )
-}
-
 pub(crate) fn add_virtual_public_values<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
 ) -> PublicValuesTarget {

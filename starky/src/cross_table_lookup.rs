@@ -752,7 +752,8 @@ impl<'a, F: Field, const D: usize> CtlCheckVarsTarget<F, D> {
             ctl_zs.zip(ctl_zs_next).collect::<Vec<_>>()
         };
 
-        // Put each cross-table lookup polynomial into the correct table data: if a CTL polynomial is extracted from looking/looked table t, then we add it to the `CtlCheckVars` of table t.
+        // Put each cross-table lookup polynomial into the correct table data.
+        // If a CTL polynomial is extracted from looking/looked table t, then we add it to the `CtlCheckVars` of table t.
         let mut z_index = 0;
         let mut start_index = 0;
         let mut ctl_vars = vec![];
@@ -765,7 +766,8 @@ impl<'a, F: Field, const D: usize> CtlCheckVarsTarget<F, D> {
         ) in cross_table_lookups.iter().enumerate()
         {
             for &challenges in &ctl_challenges.challenges {
-                // Group looking tables by `Table`, since we bundle the looking tables taken from the same `Table` together thanks to helper columns.
+                // Group looking tables by `Table`, since we bundle the looking tables
+                // taken from the same `Table` together thanks to helper columns.
 
                 let count = looking_tables
                     .iter()

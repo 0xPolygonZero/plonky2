@@ -617,6 +617,10 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakStark<F
     fn constraint_degree(&self) -> usize {
         3
     }
+
+    fn requires_ctls(&self) -> bool {
+        true
+    }
 }
 
 #[cfg(test)]
