@@ -84,9 +84,7 @@ global lalol:
     // stack: rem_key, value, cur_len, retdest
     SWAP1
     // stack: value, rem_key, cur_len, retdest
-global wtf:
     %split_value
-global wtf2:
     %stack (v0, v1) -> (v0, v1, 0)
     POSEIDON
     %stack (value_hash, rem_key) -> (rem_key, value_hash, 1)

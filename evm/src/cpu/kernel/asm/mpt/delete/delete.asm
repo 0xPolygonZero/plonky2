@@ -25,18 +25,45 @@ mpt_delete_leaf:
 
 /*
 global delete_account:
-    %stack (address, retdest) -> (address, delete_account_save, retdest)
-    %addr_to_state_key
-    // stack: key, delete_account_save, retdest
-    PUSH 64
-    // stack: 64, key, delete_account_save, retdest
-    %mload_global_metadata(@GLOBAL_METADATA_STATE_TRIE_ROOT)
-    // stack: state_root_prt, 64, key, delete_account_save, retdest
-    %jump(mpt_delete)
-delete_account_save:
-    // stack: updated_state_root_ptr, retdest
-    %mstore_global_metadata(@GLOBAL_METADATA_STATE_TRIE_ROOT)
-    JUMP
+    %stack (address, retdest) -> (address, retdest)
+    DUP1 %key_nonce
+    // stack: key_nonce, address, retdest
+    DUP1 %smt_read_state ISZERO %jumpi(zero_nonce)
+    // stack: key_nonce, address, retdest
+    DUP1 %smt_delete_state
+    // stack: key_nonce, address, retdest
+zero_nonce:
+    // stack: key_nonce, address, retdest
+    POP
+    // stack: address, retdest
+    DUP1 %key_balance
+    // stack: key_balance, address, retdest
+    DUP1 %smt_read_state ISZERO %jumpi(zero_balance)
+    // stack: key_balance, address, retdest
+    DUP1 %smt_delete_state
+    // stack: key_balance, address, retdest
+zero_balance:
+    // stack: key_balance, address, retdest
+    POP
+    // stack: address, retdest
+    DUP1 %key_code
+    // stack: key_code, address, retdest
+    DUP1 %smt_read_state ISZERO %jumpi(zero_code)
+    // stack: key_code, address, retdest
+    DUP1 %smt_delete_state
+    // stack: key_code, address, retdest
+zero_code_length:
+    // stack: key_code, address, retdest
+    POP
+    // stack: address, retdest
+    DUP1 %key_code_length
+    // stack: key_code_length, address, retdest
+    DUP1 %smt_read_state ISZERO %jumpi(zero_code)
+    // stack: key_code_length, address, retdest
+    %smt_delete_state
+    // stack: address, retdest
+    // N.B.: We don't delete the storage, since there's no way of knowing keys used.
+    POP JUMP
 
 %macro delete_account
     %stack (address) -> (address, %%after)

@@ -17,6 +17,10 @@ use plonky2_evm::fixed_recursive_verifier::AllRecursiveCircuits;
 use plonky2_evm::generation::{GenerationInputs, TrieInputs};
 use plonky2_evm::proof::{BlockHashes, BlockMetadata, PublicValues, TrieRoots};
 use plonky2_evm::Node;
+use smt_utils_hermez::code::hash_contract_bytecode;
+use smt_utils_hermez::db::MemoryDb;
+use smt_utils_hermez::smt::Smt;
+use smt_utils_hermez::utils::hashout2u;
 
 type F = GoldilocksField;
 const D: usize = 2;
@@ -36,17 +40,16 @@ fn test_empty_txn_list() -> anyhow::Result<()> {
         ..Default::default()
     };
 
-    let state_trie = HashedPartialTrie::from(Node::Empty);
+    let state_smt = Smt::<MemoryDb>::default();
     let transactions_trie = HashedPartialTrie::from(Node::Empty);
     let receipts_trie = HashedPartialTrie::from(Node::Empty);
-    let storage_tries = vec![];
 
     let mut contract_code = HashMap::new();
-    contract_code.insert(keccak(vec![]), vec![]);
+    contract_code.insert(hashout2u(hash_contract_bytecode(vec![])), vec![]);
 
     // No transactions, so no trie roots change.
     let trie_roots_after = TrieRoots {
-        state_root: state_trie.hash(),
+        state_root: H256::from_uint(&hashout2u(state_smt.root)),
         transactions_root: transactions_trie.hash(),
         receipts_root: receipts_trie.hash(),
     };
@@ -56,10 +59,9 @@ fn test_empty_txn_list() -> anyhow::Result<()> {
         signed_txn: None,
         withdrawals: vec![],
         tries: TrieInputs {
-            state_trie,
+            state_smt: state_smt.serialize(),
             transactions_trie,
             receipts_trie,
-            storage_tries,
         },
         trie_roots_after,
         contract_code,

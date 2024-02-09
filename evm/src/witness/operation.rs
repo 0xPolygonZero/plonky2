@@ -171,9 +171,9 @@ pub(crate) fn generate_poseidon<F: RichField>(
         z.0[3],
     ]
     .map(F::from_canonical_u64);
-    log::debug!("Poseidon hashing {:?}", arr);
     let hash = F::poseidon(arr);
     let hash = U256(std::array::from_fn(|i| hash[i].to_canonical_u64()));
+    log::debug!("Poseidon hashing {:?} -> {}", arr, hash);
     push_no_write(state, hash);
 
     state.traces.push_memory(log_in1);

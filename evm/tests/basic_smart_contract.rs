@@ -5,7 +5,7 @@ use std::time::Duration;
 use env_logger::{try_init_from_env, Env, DEFAULT_FILTER_ENV};
 use eth_trie_utils::nibbles::Nibbles;
 use eth_trie_utils::partial_trie::{HashedPartialTrie, PartialTrie};
-use ethereum_types::{Address, H256, U256};
+use ethereum_types::{Address, H160, H256, U256};
 use hex_literal::hex;
 use keccak_hash::keccak;
 use plonky2::field::goldilocks_field::GoldilocksField;
@@ -20,6 +20,11 @@ use plonky2_evm::proof::{BlockHashes, BlockMetadata, TrieRoots};
 use plonky2_evm::prover::prove;
 use plonky2_evm::verifier::verify_proof;
 use plonky2_evm::Node;
+use smt_utils_hermez::code::hash_contract_bytecode;
+use smt_utils_hermez::db::{Db, MemoryDb};
+use smt_utils_hermez::keys::{key_balance, key_code, key_code_length, key_nonce, key_storage};
+use smt_utils_hermez::smt::Smt;
+use smt_utils_hermez::utils::hashout2u;
 
 type F = GoldilocksField;
 const D: usize = 2;
@@ -51,7 +56,7 @@ fn test_basic_smart_contract() -> anyhow::Result<()> {
     let stop = get_opcode("STOP");
     let code = [push1, 3, push1, 4, add, stop];
     let code_gas = 3 + 3 + 3;
-    let code_hash = keccak(code);
+    let code_hash = hashout2u(hash_contract_bytecode(code.to_vec()));
 
     let beneficiary_account_before = AccountRlp {
         nonce: 1.into(),
@@ -67,35 +72,30 @@ fn test_basic_smart_contract() -> anyhow::Result<()> {
         ..AccountRlp::default()
     };
 
-    let state_trie_before = {
-        let mut children = core::array::from_fn(|_| Node::Empty.into());
-        children[beneficiary_nibbles.get_nibble(0) as usize] = Node::Leaf {
-            nibbles: beneficiary_nibbles.truncate_n_nibbles_front(1),
-            value: rlp::encode(&beneficiary_account_before).to_vec(),
-        }
-        .into();
-        children[sender_nibbles.get_nibble(0) as usize] = Node::Leaf {
-            nibbles: sender_nibbles.truncate_n_nibbles_front(1),
-            value: rlp::encode(&sender_account_before).to_vec(),
-        }
-        .into();
-        children[to_nibbles.get_nibble(0) as usize] = Node::Leaf {
-            nibbles: to_nibbles.truncate_n_nibbles_front(1),
-            value: rlp::encode(&to_account_before).to_vec(),
-        }
-        .into();
-        Node::Branch {
-            children,
-            value: vec![],
-        }
-    }
-    .into();
+    let mut state_smt_before = Smt::<MemoryDb>::default();
+    set_account(
+        &mut state_smt_before,
+        H160(beneficiary),
+        &beneficiary_account_before,
+        &HashMap::new(),
+    );
+    set_account(
+        &mut state_smt_before,
+        H160(sender),
+        &sender_account_before,
+        &HashMap::new(),
+    );
+    set_account(
+        &mut state_smt_before,
+        H160(to),
+        &to_account_before,
+        &HashMap::new(),
+    );
 
     let tries_before = TrieInputs {
-        state_trie: state_trie_before,
+        state_smt: state_smt_before.serialize(),
         transactions_trie: Node::Empty.into(),
         receipts_trie: Node::Empty.into(),
-        storage_tries: vec![],
     };
 
     let txdata_gas = 2 * 16;
@@ -119,7 +119,7 @@ fn test_basic_smart_contract() -> anyhow::Result<()> {
     };
 
     let mut contract_code = HashMap::new();
-    contract_code.insert(keccak(vec![]), vec![]);
+    contract_code.insert(hashout2u(hash_contract_bytecode(vec![])), vec![]);
     contract_code.insert(code_hash, code.to_vec());
 
     let expected_state_trie_after: HashedPartialTrie = {
@@ -213,4 +213,19 @@ fn eth_to_wei(eth: U256) -> U256 {
 
 fn init_logger() {
     let _ = try_init_from_env(Env::default().filter_or(DEFAULT_FILTER_ENV, "info"));
+}
+
+fn set_account<D: Db>(
+    smt: &mut Smt<D>,
+    addr: Address,
+    account: &AccountRlp,
+    storage: &HashMap<U256, U256>,
+) {
+    smt.set(key_balance(addr), account.balance);
+    smt.set(key_nonce(addr), account.nonce);
+    smt.set(key_code(addr), account.code_hash);
+    smt.set(key_code_length(addr), account.code_length);
+    for (&k, &v) in storage {
+        smt.set(key_storage(addr, k), v);
+    }
 }

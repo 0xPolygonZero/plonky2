@@ -9,6 +9,9 @@ use eth_trie_utils::partial_trie::PartialTrie;
 use ethereum_types::{BigEndianHash, H160, H256, U256, U512};
 use keccak_hash::keccak;
 use plonky2::field::goldilocks_field::GoldilocksField;
+use serde::Serialize;
+use smt_utils_hermez::smt::hash_serialize;
+use smt_utils_hermez::utils::hashout2u;
 
 use super::assembler::BYTES_PER_OFFSET;
 use super::utils::u256_from_bool;
@@ -262,7 +265,7 @@ impl<'a> Interpreter<'a> {
             ),
             (
                 GlobalMetadata::StateTrieRootDigestBefore,
-                h2u(tries.state_trie.hash()),
+                hashout2u(hash_serialize(&tries.state_smt)),
             ),
             (
                 GlobalMetadata::TransactionTrieRootDigestBefore,
@@ -1160,8 +1163,7 @@ impl<'a> Interpreter<'a> {
             self.generation_state.observe_address(tip_h160);
         } else if offset == KERNEL.global_labels["observe_new_contract"] {
             let tip_u256 = stack_peek(&self.generation_state, 0)?;
-            let tip_h256 = H256::from_uint(&tip_u256);
-            self.generation_state.observe_contract(tip_h256)?;
+            self.generation_state.observe_contract(tip_u256)?;
         }
 
         if self.halt_offsets.contains(&offset) {

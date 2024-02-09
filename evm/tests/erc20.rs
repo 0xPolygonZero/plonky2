@@ -174,7 +174,6 @@ fn test_erc20() -> anyhow::Result<()> {
     }
     .into();
 
-    dbg!(&hashout2u(expected_smt_trie_after.root));
     let trie_roots_after = TrieRoots {
         state_root: H256::from_uint(&hashout2u(expected_smt_trie_after.root)),
         transactions_root: transactions_trie.hash(),

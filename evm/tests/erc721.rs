@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::str::FromStr;
 use std::time::Duration;
 
@@ -8,6 +9,7 @@ use ethereum_types::{Address, BigEndianHash, H160, H256, U256};
 use hex_literal::hex;
 use keccak_hash::keccak;
 use plonky2::field::goldilocks_field::GoldilocksField;
+use plonky2::hash::hash_types::HashOut;
 use plonky2::plonk::config::KeccakGoldilocksConfig;
 use plonky2::util::timing::TimingTree;
 use plonky2_evm::all_stark::AllStark;
@@ -18,6 +20,11 @@ use plonky2_evm::proof::{BlockHashes, BlockMetadata, TrieRoots};
 use plonky2_evm::prover::prove;
 use plonky2_evm::verifier::verify_proof;
 use plonky2_evm::Node;
+use smt_utils_hermez::code::hash_contract_bytecode;
+use smt_utils_hermez::db::{Db, MemoryDb};
+use smt_utils_hermez::keys::{key_balance, key_code, key_code_length, key_nonce, key_storage};
+use smt_utils_hermez::smt::{hash_serialize, Smt};
+use smt_utils_hermez::utils::hashout2u;
 
 type F = GoldilocksField;
 const D: usize = 2;
@@ -62,17 +69,24 @@ fn test_erc721() -> anyhow::Result<()> {
     let owner_nibbles = Nibbles::from_bytes_be(owner_state_key.as_bytes()).unwrap();
     let contract_nibbles = Nibbles::from_bytes_be(contract_state_key.as_bytes()).unwrap();
 
-    let mut state_trie_before = HashedPartialTrie::from(Node::Empty);
-    state_trie_before.insert(owner_nibbles, rlp::encode(&owner_account()).to_vec());
-    state_trie_before.insert(contract_nibbles, rlp::encode(&contract_account()).to_vec());
-
-    let storage_tries = vec![(contract_state_key, contract_storage())];
+    let mut state_smt_before = Smt::<MemoryDb>::default();
+    set_account(
+        &mut state_smt_before,
+        H160(owner),
+        &owner_account(),
+        &HashMap::new(),
+    );
+    set_account(
+        &mut state_smt_before,
+        H160(contract),
+        &contract_account(),
+        &contract_storage(),
+    );
 
     let tries_before = TrieInputs {
-        state_trie: state_trie_before,
+        state_smt: state_smt_before.serialize(),
         transactions_trie: HashedPartialTrie::from(Node::Empty),
         receipts_trie: HashedPartialTrie::from(Node::Empty),
-        storage_tries,
     };
 
     let txn = signed_tx();
@@ -80,28 +94,29 @@ fn test_erc721() -> anyhow::Result<()> {
     let gas_used = 58_418.into();
 
     let contract_code = [contract_bytecode(), vec![]]
-        .map(|v| (keccak(v.clone()), v))
+        .map(|v| (hashout2u(hash_contract_bytecode(v.clone())), v))
         .into();
 
-    let expected_state_trie_after: HashedPartialTrie = {
-        let mut state_trie_after = HashedPartialTrie::from(Node::Empty);
+    let expected_state_smt_after = {
+        let mut smt = Smt::<MemoryDb>::default();
         let owner_account = owner_account();
         let owner_account_after = AccountRlp {
             nonce: owner_account.nonce + 1,
             balance: owner_account.balance - gas_used * 0xa,
             ..owner_account
         };
-        state_trie_after.insert(owner_nibbles, rlp::encode(&owner_account_after).to_vec());
+        set_account(&mut smt, H160(owner), &owner_account_after, &HashMap::new());
         let contract_account_after = AccountRlp {
-            storage_root: contract_storage_after().hash(),
             ..contract_account()
         };
-        state_trie_after.insert(
-            contract_nibbles,
-            rlp::encode(&contract_account_after).to_vec(),
+        set_account(
+            &mut smt,
+            H160(contract),
+            &contract_account_after,
+            &contract_storage_after(),
         );
 
-        state_trie_after
+        smt
     };
 
     let logs = vec![LogRlp {
@@ -136,8 +151,10 @@ fn test_erc721() -> anyhow::Result<()> {
     }
     .into();
 
+    hash_serialize(&expected_state_smt_after.serialize());
+    dbg!("done");
     let trie_roots_after = TrieRoots {
-        state_root: expected_state_trie_after.hash(),
+        state_root: H256::from_uint(&hashout2u(expected_state_smt_after.root)),
         transactions_root: transactions_trie.hash(),
         receipts_root: receipts_trie.hash(),
     };
@@ -210,72 +227,61 @@ fn sh2u(s: &str) -> U256 {
     U256::from_str_radix(s, 16).unwrap()
 }
 
-fn contract_storage() -> HashedPartialTrie {
-    let mut trie = HashedPartialTrie::from(Node::Empty);
-    insert_storage(
-        &mut trie,
+fn contract_storage() -> HashMap<U256, U256> {
+    let mut storage = HashMap::new();
+    storage.insert(
         U256::zero(),
         sh2u("0x54657374546f6b656e0000000000000000000000000000000000000000000012"),
     );
-    insert_storage(
-        &mut trie,
+    storage.insert(
         U256::one(),
         sh2u("0x5445535400000000000000000000000000000000000000000000000000000008"),
     );
-    insert_storage(
-        &mut trie,
+    storage.insert(
         sd2u("6"),
         sh2u("0x5b38da6a701c568545dcfcb03fcb875f56beddc4"),
     );
-    insert_storage(
-        &mut trie,
+    storage.insert(
         sh2u("0x343ff8127bd64f680be4e996254dc3528603c6ecd54364b4cf956ebdd28f0028"),
         sh2u("0x5b38da6a701c568545dcfcb03fcb875f56beddc4"),
     );
-    insert_storage(
-        &mut trie,
+    storage.insert(
         sh2u("0x118c1ea466562cb796e30ef705e4db752f5c39d773d22c5efd8d46f67194e78a"),
         sd2u("1"),
     );
-    trie
+    storage
 }
 
-fn contract_storage_after() -> HashedPartialTrie {
-    let mut trie = HashedPartialTrie::from(Node::Empty);
-    insert_storage(
-        &mut trie,
+fn contract_storage_after() -> HashMap<U256, U256> {
+    let mut storage = HashMap::new();
+    storage.insert(
         U256::zero(),
         sh2u("0x54657374546f6b656e0000000000000000000000000000000000000000000012"),
     );
-    insert_storage(
-        &mut trie,
+    storage.insert(
         U256::one(),
         sh2u("0x5445535400000000000000000000000000000000000000000000000000000008"),
     );
-    insert_storage(
-        &mut trie,
+    storage.insert(
         sd2u("6"),
         sh2u("0x5b38da6a701c568545dcfcb03fcb875f56beddc4"),
     );
-    insert_storage(
-        &mut trie,
+    storage.insert(
         sh2u("0x343ff8127bd64f680be4e996254dc3528603c6ecd54364b4cf956ebdd28f0028"),
         sh2u("0xab8483f64d9c6d1ecf9b849ae677dd3315835cb2"),
     );
-    insert_storage(
-        &mut trie,
+    storage.insert(
         sh2u("0xf3aa6a8a9f7e3707e36cc99c499a27514922afe861ec3d80a1a314409cba92f9"),
         sd2u("1"),
     );
-    trie
+    storage
 }
 
 fn owner_account() -> AccountRlp {
     AccountRlp {
         nonce: 2.into(),
         balance: 0x1000000.into(),
-        storage_root: HashedPartialTrie::from(Node::Empty).hash(),
-        code_hash: keccak([]),
+        ..Default::default()
     }
 }
 
@@ -283,8 +289,8 @@ fn contract_account() -> AccountRlp {
     AccountRlp {
         nonce: 0.into(),
         balance: 0.into(),
-        storage_root: contract_storage().hash(),
-        code_hash: keccak(contract_bytecode()),
+        code_hash: hashout2u(hash_contract_bytecode(contract_bytecode())),
+        ..Default::default()
     }
 }
 
@@ -310,5 +316,35 @@ fn add_to_bloom(bloom: &mut [u8; 256], bloom_entry: &[u8]) {
         let byte_index = bit_to_set / 8;
         let bit_value = 1 << (7 - bit_to_set % 8);
         bloom[byte_index as usize] |= bit_value;
+    }
+}
+
+fn set_account<D: Db>(
+    smt: &mut Smt<D>,
+    addr: Address,
+    account: &AccountRlp,
+    storage: &HashMap<U256, U256>,
+) {
+    dbg!(hashout2u(HashOut {
+        elements: key_balance(addr).0
+    }));
+    dbg!(hashout2u(HashOut {
+        elements: key_nonce(addr).0
+    }));
+    dbg!(hashout2u(HashOut {
+        elements: key_code(addr).0
+    }));
+    dbg!(hashout2u(HashOut {
+        elements: key_code_length(addr).0
+    }));
+    smt.set(key_balance(addr), account.balance);
+    smt.set(key_nonce(addr), account.nonce);
+    smt.set(key_code(addr), account.code_hash);
+    smt.set(key_code_length(addr), account.code_length);
+    for (&k, &v) in storage {
+        dbg!(hashout2u(HashOut {
+            elements: key_storage(addr, k).0
+        }));
+        smt.set(key_storage(addr, k), v);
     }
 }

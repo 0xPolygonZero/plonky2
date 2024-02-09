@@ -91,14 +91,10 @@ global sys_selfdestruct:
 
     // Set the balance of the address to 0.
     // stack: balance, address, recipient, kexit_info
-    PUSH 0
-    // stack: 0, balance, address, recipient, kexit_info
-    DUP3 %mpt_read_state_trie
-    // stack: account_ptr, 0, balance, address, recipient, kexit_info
-    %add_const(1)
-    // stack: balance_ptr, 0, balance, address, recipient, kexit_info
-    %mstore_trie_data
-
+    DUP1 ISZERO %jumpi(selfdestruct_balance_is_zero)
+    DUP2 %key_balance %smt_delete_state
+    // stack: balance, address, recipient, kexit_info
+selfdestruct_balance_is_zero:
     %stack (balance, address, recipient, kexit_info) ->
         (address, recipient, address, recipient, balance, kexit_info)
 

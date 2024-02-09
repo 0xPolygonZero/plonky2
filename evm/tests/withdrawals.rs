@@ -4,7 +4,7 @@ use std::time::Duration;
 use env_logger::{try_init_from_env, Env, DEFAULT_FILTER_ENV};
 use eth_trie_utils::nibbles::Nibbles;
 use eth_trie_utils::partial_trie::{HashedPartialTrie, PartialTrie};
-use ethereum_types::{H160, H256, U256};
+use ethereum_types::{Address, BigEndianHash, H160, H256, U256};
 use keccak_hash::keccak;
 use plonky2::field::goldilocks_field::GoldilocksField;
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
@@ -18,6 +18,11 @@ use plonky2_evm::prover::prove;
 use plonky2_evm::verifier::verify_proof;
 use plonky2_evm::Node;
 use rand::random;
+use smt_utils_hermez::code::hash_contract_bytecode;
+use smt_utils_hermez::db::{Db, MemoryDb};
+use smt_utils_hermez::keys::{key_balance, key_code, key_code_length, key_nonce, key_storage};
+use smt_utils_hermez::smt::Smt;
+use smt_utils_hermez::utils::hashout2u;
 
 type F = GoldilocksField;
 const D: usize = 2;
@@ -33,31 +38,28 @@ fn test_withdrawals() -> anyhow::Result<()> {
 
     let block_metadata = BlockMetadata::default();
 
-    let state_trie_before = HashedPartialTrie::from(Node::Empty);
+    let state_smt_before = Smt::<MemoryDb>::default();
     let transactions_trie = HashedPartialTrie::from(Node::Empty);
     let receipts_trie = HashedPartialTrie::from(Node::Empty);
-    let storage_tries = vec![];
 
     let mut contract_code = HashMap::new();
-    contract_code.insert(keccak(vec![]), vec![]);
+    contract_code.insert(hashout2u(hash_contract_bytecode(vec![])), vec![]);
 
     // Just one withdrawal.
     let withdrawals = vec![(H160(random()), U256(random()))];
 
-    let state_trie_after = {
-        let mut trie = HashedPartialTrie::from(Node::Empty);
-        let addr_state_key = keccak(withdrawals[0].0);
-        let addr_nibbles = Nibbles::from_bytes_be(addr_state_key.as_bytes()).unwrap();
+    let state_smt_after = {
+        let mut smt = Smt::<MemoryDb>::default();
         let account = AccountRlp {
             balance: withdrawals[0].1,
             ..AccountRlp::default()
         };
-        trie.insert(addr_nibbles, rlp::encode(&account).to_vec());
-        trie
+        set_account(&mut smt, withdrawals[0].0, &account, &HashMap::new());
+        smt
     };
 
     let trie_roots_after = TrieRoots {
-        state_root: state_trie_after.hash(),
+        state_root: H256::from_uint(&hashout2u(state_smt_after.root)),
         transactions_root: transactions_trie.hash(),
         receipts_root: receipts_trie.hash(),
     };
@@ -66,10 +68,9 @@ fn test_withdrawals() -> anyhow::Result<()> {
         signed_txn: None,
         withdrawals,
         tries: TrieInputs {
-            state_trie: state_trie_before,
+            state_smt: state_smt_before.serialize(),
             transactions_trie,
             receipts_trie,
-            storage_tries,
         },
         trie_roots_after,
         contract_code,
@@ -93,4 +94,18 @@ fn test_withdrawals() -> anyhow::Result<()> {
 
 fn init_logger() {
     let _ = try_init_from_env(Env::default().filter_or(DEFAULT_FILTER_ENV, "info"));
+}
+fn set_account<D: Db>(
+    smt: &mut Smt<D>,
+    addr: Address,
+    account: &AccountRlp,
+    storage: &HashMap<U256, U256>,
+) {
+    smt.set(key_balance(addr), account.balance);
+    smt.set(key_nonce(addr), account.nonce);
+    smt.set(key_code(addr), account.code_hash);
+    smt.set(key_code_length(addr), account.code_length);
+    for (&k, &v) in storage {
+        smt.set(key_storage(addr, k), v);
+    }
 }

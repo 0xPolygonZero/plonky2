@@ -59,33 +59,34 @@ global deduct_eth_insufficient_balance:
 global add_eth:
     // stack: addr, amount, retdest
     DUP1 %insert_touched_addresses
+    DUP2 ISZERO %jumpi(add_eth_noop)
     // stack: addr, amount, retdest
     DUP1 %key_code %smt_read_state %mload_trie_data
     // stack: codehash, addr, amount, retdest
     ISZERO %jumpi(add_eth_new_account) // If the account is empty, we need to create the account.
     // stack: addr, amount, retdest
-    %key_balance %smt_read_state
-    %stack (balance_ptr, amount) -> (balance_ptr, amount, balance_ptr)
+    %key_balance DUP1 %smt_read_state
+    DUP1 ISZERO %jumpi(add_eth_zero_balance)
+    %stack (balance_ptr, key_balance, amount) -> (balance_ptr, amount, balance_ptr)
     // stack: balance_ptr, amount, balance_ptr, retdest
     %mload_trie_data ADD
     // stack: balance-amount, balance_ptr, retdest
     SWAP1 %mstore_trie_data
     JUMP
+add_eth_zero_balance:
+    // stack: balance_ptr, key_balance, amount, retdest
+    POP
+    // stack: key_balance, amount, retdest
+    %smt_insert_state
+    // stack: retdest
+    JUMP
 
 global add_eth_new_account:
     // stack: addr, amount, retdest
-    DUP2 ISZERO %jumpi(add_eth_new_account_zero)
     DUP1 %journal_add_account_created
-    DUP1 %key_nonce
-    %stack (key_nonce) -> (key_nonce, 0)
-    %smt_insert_state
     // stack: addr, amount, retdest
     DUP1 %key_code
     %stack (key_code) -> (key_code, @EMPTY_STRING_POSEIDON_HASH)
-    %smt_insert_state
-    // stack: addr, amount, retdest
-    DUP1 %key_code_length
-    %stack (key_code_length) -> (key_code_length, 0)
     %smt_insert_state
     // stack: addr, amount, retdest
     %key_balance
@@ -93,7 +94,7 @@ global add_eth_new_account:
     %smt_insert_state
     JUMP
 
-add_eth_new_account_zero:
+add_eth_noop:
     // stack: addr, amount, retdest
     %pop2 JUMP
 

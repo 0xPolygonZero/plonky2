@@ -1,10 +1,11 @@
+use std::collections::HashMap;
 use std::str::FromStr;
 use std::time::Duration;
 
 use env_logger::{try_init_from_env, Env, DEFAULT_FILTER_ENV};
 use eth_trie_utils::nibbles::Nibbles;
 use eth_trie_utils::partial_trie::{HashedPartialTrie, PartialTrie};
-use ethereum_types::{Address, BigEndianHash, H256, U256};
+use ethereum_types::{Address, BigEndianHash, H160, H256, U256};
 use hex_literal::hex;
 use keccak_hash::keccak;
 use plonky2::field::goldilocks_field::GoldilocksField;
@@ -18,6 +19,11 @@ use plonky2_evm::proof::{BlockHashes, BlockMetadata, TrieRoots};
 use plonky2_evm::prover::prove;
 use plonky2_evm::verifier::verify_proof;
 use plonky2_evm::Node;
+use smt_utils_hermez::code::hash_contract_bytecode;
+use smt_utils_hermez::db::{Db, MemoryDb};
+use smt_utils_hermez::keys::{key_balance, key_code, key_code_length, key_nonce, key_storage};
+use smt_utils_hermez::smt::{hash_serialize, Smt};
+use smt_utils_hermez::utils::hashout2u;
 
 type F = GoldilocksField;
 const D: usize = 2;
@@ -44,8 +50,7 @@ fn test_selfdestruct() -> anyhow::Result<()> {
     let sender_account_before = AccountRlp {
         nonce: 5.into(),
         balance: eth_to_wei(100_000.into()),
-        storage_root: HashedPartialTrie::from(Node::Empty).hash(),
-        code_hash: keccak([]),
+        ..Default::default()
     };
     let code = vec![
         0x32, // ORIGIN
@@ -54,19 +59,28 @@ fn test_selfdestruct() -> anyhow::Result<()> {
     let to_account_before = AccountRlp {
         nonce: 12.into(),
         balance: eth_to_wei(10_000.into()),
-        storage_root: HashedPartialTrie::from(Node::Empty).hash(),
-        code_hash: keccak(&code),
+        code_hash: hashout2u(hash_contract_bytecode(code.clone())),
+        ..Default::default()
     };
 
-    let mut state_trie_before = HashedPartialTrie::from(Node::Empty);
-    state_trie_before.insert(sender_nibbles, rlp::encode(&sender_account_before).to_vec());
-    state_trie_before.insert(to_nibbles, rlp::encode(&to_account_before).to_vec());
+    let mut state_smt_before = Smt::<MemoryDb>::default();
+    set_account(
+        &mut state_smt_before,
+        H160(sender),
+        &sender_account_before,
+        &HashMap::new(),
+    );
+    set_account(
+        &mut state_smt_before,
+        H160(to),
+        &to_account_before,
+        &HashMap::new(),
+    );
 
     let tries_before = TrieInputs {
-        state_trie: state_trie_before,
+        state_smt: state_smt_before.serialize(),
         transactions_trie: HashedPartialTrie::from(Node::Empty),
         receipts_trie: HashedPartialTrie::from(Node::Empty),
-        storage_tries: vec![],
     };
 
     // Generated using a little py-evm script.
@@ -85,18 +99,26 @@ fn test_selfdestruct() -> anyhow::Result<()> {
         block_bloom: [0.into(); 8],
     };
 
-    let contract_code = [(keccak(&code), code), (keccak([]), vec![])].into();
+    let contract_code = [
+        (hashout2u(hash_contract_bytecode(code.clone())), code),
+        (hashout2u(hash_contract_bytecode(vec![])), vec![]),
+    ]
+    .into();
 
-    let expected_state_trie_after: HashedPartialTrie = {
-        let mut state_trie_after = HashedPartialTrie::from(Node::Empty);
+    let expected_state_smt_after = {
+        let mut smt = Smt::<MemoryDb>::default();
         let sender_account_after = AccountRlp {
             nonce: 6.into(),
             balance: eth_to_wei(110_000.into()) - 26_002 * 0xa,
-            storage_root: HashedPartialTrie::from(Node::Empty).hash(),
-            code_hash: keccak([]),
+            ..Default::default()
         };
-        state_trie_after.insert(sender_nibbles, rlp::encode(&sender_account_after).to_vec());
-        state_trie_after
+        set_account(
+            &mut smt,
+            H160(sender),
+            &sender_account_after,
+            &HashMap::new(),
+        );
+        smt
     };
 
     let receipt_0 = LegacyReceiptRlp {
@@ -116,8 +138,10 @@ fn test_selfdestruct() -> anyhow::Result<()> {
     }
     .into();
 
+    hash_serialize(&expected_state_smt_after.serialize());
+    dbg!("done");
     let trie_roots_after = TrieRoots {
-        state_root: expected_state_trie_after.hash(),
+        state_root: H256::from_uint(&hashout2u(expected_state_smt_after.root)),
         transactions_root: transactions_trie.hash(),
         receipts_root: receipts_trie.hash(),
     };
@@ -152,4 +176,19 @@ fn eth_to_wei(eth: U256) -> U256 {
 
 fn init_logger() {
     let _ = try_init_from_env(Env::default().filter_or(DEFAULT_FILTER_ENV, "info"));
+}
+
+fn set_account<D: Db>(
+    smt: &mut Smt<D>,
+    addr: Address,
+    account: &AccountRlp,
+    storage: &HashMap<U256, U256>,
+) {
+    smt.set(key_balance(addr), account.balance);
+    smt.set(key_nonce(addr), account.nonce);
+    smt.set(key_code(addr), account.code_hash);
+    smt.set(key_code_length(addr), account.code_length);
+    for (&k, &v) in storage {
+        smt.set(key_storage(addr, k), v);
+    }
 }
