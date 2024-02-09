@@ -16,7 +16,7 @@ use plonky2_maybe_rayon::*;
 use super::segments::Segment;
 use crate::all_stark::EvmStarkFrame;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
-use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
+use crate::evaluation_frame::StarkEvaluationFrame;
 use crate::lookup::{Column, Filter, Lookup};
 use crate::memory::columns::{
     value_limb, ADDR_CONTEXT, ADDR_SEGMENT, ADDR_VIRTUAL, CONTEXT_FIRST_CHANGE, COUNTER, FILTER,

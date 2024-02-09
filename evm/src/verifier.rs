@@ -1,31 +1,21 @@
-use core::any::type_name;
-
-use anyhow::{ensure, Result};
+use anyhow::Result;
 use ethereum_types::{BigEndianHash, U256};
 use itertools::Itertools;
-use plonky2::field::extension::{Extendable, FieldExtension};
-use plonky2::field::types::Field;
-use plonky2::fri::verifier::verify_fri_proof;
+use plonky2::field::extension::Extendable;
 use plonky2::hash::hash_types::RichField;
 use plonky2::plonk::config::GenericConfig;
-use plonky2::plonk::plonk_common::reduce_with_powers;
 use starky::cross_table_lookup::get_ctl_vars_from_proofs;
-use starky::proof::MultiProof;
 use starky::verifier::verify_stark_proof_with_challenges;
 
 use crate::all_stark::{AllStark, Table, NUM_TABLES};
 use crate::config::StarkConfig;
-use crate::constraint_consumer::ConstraintConsumer;
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
 use crate::cross_table_lookup::verify_cross_table_lookups;
-use crate::evaluation_frame::StarkEvaluationFrame;
-use crate::lookup::{GrandProductChallenge, LookupCheckVars};
+use crate::lookup::GrandProductChallenge;
 use crate::memory::segments::Segment;
 use crate::memory::VALUE_LIMBS;
-use crate::proof::{
-    AllProof, AllProofChallenges, PublicValues, StarkOpeningSet, StarkProof, StarkProofChallenges,
-};
+use crate::proof::{AllProof, AllProofChallenges, PublicValues};
 use crate::stark::Stark;
 use crate::util::h2u;
 

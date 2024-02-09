@@ -18,7 +18,7 @@ use crate::arithmetic::columns::{NUM_SHARED_COLS, RANGE_COUNTER, RC_FREQUENCIES,
 use crate::arithmetic::{addcy, byte, columns, divmod, modular, mul, Operation};
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cross_table_lookup::TableWithColumns;
-use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
+use crate::evaluation_frame::StarkEvaluationFrame;
 use crate::lookup::{Column, Filter, Lookup};
 use crate::stark::Stark;
 

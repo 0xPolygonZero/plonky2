@@ -1,24 +1,17 @@
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
-use anyhow::{anyhow, ensure, Result};
-use itertools::{Itertools, MultiPeek};
+use anyhow::{anyhow, Result};
+use itertools::Itertools;
 use once_cell::sync::Lazy;
 use plonky2::field::extension::Extendable;
-use plonky2::field::packable::Packable;
-use plonky2::field::packed::PackedField;
-use plonky2::field::polynomial::{PolynomialCoeffs, PolynomialValues};
-use plonky2::field::types::Field;
-use plonky2::field::zero_poly_coset::ZeroPolyOnCoset;
+use plonky2::field::polynomial::PolynomialValues;
 use plonky2::fri::oracle::PolynomialBatch;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::challenger::Challenger;
 use plonky2::plonk::config::GenericConfig;
 use plonky2::timed;
 use plonky2::util::timing::TimingTree;
-use plonky2::util::transpose;
-use plonky2_maybe_rayon::*;
-use plonky2_util::{log2_ceil, log2_strict};
 use starky::cross_table_lookup::get_ctl_data;
 use starky::lookup::GrandProductChallengeSet;
 use starky::proof::MultiProof;
@@ -26,14 +19,11 @@ use starky::prover::prove_with_commitment;
 
 use crate::all_stark::{AllStark, Table, NUM_TABLES};
 use crate::config::StarkConfig;
-use crate::constraint_consumer::ConstraintConsumer;
 use crate::cpu::kernel::aggregator::KERNEL;
-use crate::cross_table_lookup::{CtlCheckVars, CtlData};
-use crate::evaluation_frame::StarkEvaluationFrame;
+use crate::cross_table_lookup::CtlData;
 use crate::generation::{generate_traces, GenerationInputs};
 use crate::get_challenges::observe_public_values;
-use crate::lookup::{Lookup, LookupCheckVars};
-use crate::proof::{AllProof, PublicValues, StarkOpeningSet, StarkProof, StarkProofWithMetadata};
+use crate::proof::{AllProof, PublicValues, StarkProofWithMetadata};
 use crate::stark::Stark;
 #[cfg(test)]
 use crate::{

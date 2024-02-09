@@ -4,26 +4,21 @@ use core::fmt::Debug;
 use anyhow::Result;
 use ethereum_types::{BigEndianHash, U256};
 use plonky2::field::extension::Extendable;
-use plonky2::field::types::Field;
-use plonky2::fri::witness_util::set_fri_proof_target;
 use plonky2::gates::exponentiation::ExponentiationGate;
 use plonky2::gates::gate::GateRef;
 use plonky2::gates::noop::NoopGate;
 use plonky2::hash::hash_types::RichField;
 use plonky2::hash::hashing::PlonkyPermutation;
 use plonky2::iop::challenger::RecursiveChallenger;
-use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::iop::target::Target;
 use plonky2::iop::witness::{PartialWitness, Witness, WitnessWrite};
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::circuit_data::{CircuitConfig, CircuitData};
 use plonky2::plonk::config::{AlgebraicHasher, GenericConfig};
 use plonky2::plonk::proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget};
-use plonky2::util::reducing::ReducingFactorTarget;
 use plonky2::util::serialization::{
     Buffer, GateSerializer, IoResult, Read, WitnessGeneratorSerializer, Write,
 };
-use plonky2::with_context;
 use plonky2_util::log2_ceil;
 use starky::lookup::GrandProductChallengeSet;
 use starky::recursive_verifier::{
@@ -32,19 +27,16 @@ use starky::recursive_verifier::{
 
 use crate::all_stark::Table;
 use crate::config::StarkConfig;
-use crate::constraint_consumer::RecursiveConstraintConsumer;
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
 use crate::cross_table_lookup::{CrossTableLookup, CtlCheckVarsTarget};
-use crate::evaluation_frame::StarkEvaluationFrame;
-use crate::lookup::{GrandProductChallenge, LookupCheckVarsTarget};
+use crate::lookup::GrandProductChallenge;
 use crate::memory::segments::Segment;
 use crate::memory::VALUE_LIMBS;
 use crate::proof::{
     BlockHashes, BlockHashesTarget, BlockMetadata, BlockMetadataTarget, ExtraBlockData,
-    ExtraBlockDataTarget, PublicValues, PublicValuesTarget, StarkOpeningSetTarget, StarkProof,
-    StarkProofChallengesTarget, StarkProofTarget, StarkProofWithMetadata, TrieRoots,
-    TrieRootsTarget,
+    ExtraBlockDataTarget, PublicValues, PublicValuesTarget, StarkProofTarget,
+    StarkProofWithMetadata, TrieRoots, TrieRootsTarget,
 };
 use crate::stark::Stark;
 use crate::util::{h256_limbs, u256_limbs, u256_to_u32, u256_to_u64};

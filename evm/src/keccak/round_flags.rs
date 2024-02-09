@@ -7,7 +7,7 @@ use plonky2::plonk::circuit_builder::CircuitBuilder;
 
 use crate::all_stark::EvmStarkFrame;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
-use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
+use crate::evaluation_frame::StarkEvaluationFrame;
 use crate::keccak::columns::{reg_step, NUM_COLUMNS};
 use crate::keccak::keccak_stark::NUM_ROUNDS;
 

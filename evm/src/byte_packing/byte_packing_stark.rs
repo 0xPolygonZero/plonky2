@@ -45,7 +45,7 @@ use crate::byte_packing::columns::{
     NUM_COLUMNS, RANGE_COUNTER, RC_FREQUENCIES, TIMESTAMP,
 };
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
-use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
+use crate::evaluation_frame::StarkEvaluationFrame;
 use crate::lookup::{Column, Filter, Lookup};
 use crate::stark::Stark;
 use crate::witness::memory::MemoryAddress;

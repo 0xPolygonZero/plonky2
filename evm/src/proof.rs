@@ -1,19 +1,10 @@
 use ethereum_types::{Address, H256, U256};
-use itertools::Itertools;
-use plonky2::field::extension::{Extendable, FieldExtension};
-use plonky2::fri::oracle::PolynomialBatch;
-use plonky2::fri::proof::{FriChallenges, FriChallengesTarget, FriProof, FriProofTarget};
-use plonky2::fri::structure::{
-    FriOpeningBatch, FriOpeningBatchTarget, FriOpenings, FriOpeningsTarget,
-};
-use plonky2::hash::hash_types::{MerkleCapTarget, RichField};
-use plonky2::hash::merkle_tree::MerkleCap;
-use plonky2::iop::ext_target::ExtensionTarget;
+use plonky2::field::extension::Extendable;
+use plonky2::hash::hash_types::RichField;
 use plonky2::iop::target::{BoolTarget, Target};
 use plonky2::plonk::circuit_builder::CircuitBuilder;
-use plonky2::plonk::config::{GenericConfig, Hasher};
+use plonky2::plonk::config::GenericConfig;
 use plonky2::util::serialization::{Buffer, IoResult, Read, Write};
-use plonky2_maybe_rayon::*;
 use serde::{Deserialize, Serialize};
 // TODO: move to lib
 pub use starky::proof::*;

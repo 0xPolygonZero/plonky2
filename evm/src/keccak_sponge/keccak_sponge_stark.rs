@@ -18,7 +18,7 @@ use plonky2_util::ceil_div_usize;
 use crate::all_stark::EvmStarkFrame;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::kernel::keccak_util::keccakf_u32s;
-use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
+use crate::evaluation_frame::StarkEvaluationFrame;
 use crate::keccak_sponge::columns::*;
 use crate::lookup::{Column, Filter, Lookup};
 use crate::stark::Stark;

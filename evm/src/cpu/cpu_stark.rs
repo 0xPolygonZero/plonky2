@@ -21,7 +21,7 @@ use crate::cpu::{
     modfp254, pc, push0, shift, simple_logic, stack, syscalls_exceptions,
 };
 use crate::cross_table_lookup::TableWithColumns;
-use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
+use crate::evaluation_frame::StarkEvaluationFrame;
 use crate::lookup::{Column, Filter};
 use crate::memory::segments::Segment;
 use crate::memory::{NUM_CHANNELS, VALUE_LIMBS};
