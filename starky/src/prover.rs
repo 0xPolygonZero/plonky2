@@ -1,5 +1,5 @@
 #[cfg(not(feature = "std"))]
-use alloc::{sync::Arc, vec::Vec};
+use alloc::vec::Vec;
 use core::iter::once;
 
 use anyhow::{ensure, Result};

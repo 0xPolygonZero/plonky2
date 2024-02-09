@@ -27,6 +27,8 @@
 //! is similar, but we provide not only `local_values` but also `next_values` -- corresponding to
 //! the current and next row values -- when computing the linear combinations.
 
+#[cfg(not(feature = "std"))]
+use alloc::{vec, vec::Vec};
 use core::cmp::min;
 use core::fmt::Debug;
 use core::iter::once;
@@ -1037,6 +1039,9 @@ pub fn verify_cross_table_lookups_circuit<
 
 #[cfg(debug_assertions)]
 pub mod testutils {
+    #[cfg(not(feature = "std"))]
+    use alloc::{vec, vec::Vec};
+
     use hashbrown::HashMap;
     use plonky2::field::polynomial::PolynomialValues;
     use plonky2::field::types::Field;
