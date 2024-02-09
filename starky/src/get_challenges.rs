@@ -149,7 +149,7 @@ pub(crate) fn get_challenges_target<
     builder: &mut CircuitBuilder<F, D>,
     challenger: &mut RecursiveChallenger<F, C::Hasher, D>,
     challenges: Option<&GrandProductChallengeSet<Target>>,
-    trace_cap: &MerkleCapTarget,
+    trace_cap: Option<&MerkleCapTarget>,
     auxiliary_polys_cap: Option<&MerkleCapTarget>,
     quotient_polys_cap: &MerkleCapTarget,
     openings: &StarkOpeningSetTarget<D>,
@@ -163,11 +163,14 @@ where
 {
     let num_challenges = config.num_challenges;
 
-    challenger.observe_cap(trace_cap);
+    if let Some(trace_cap) = trace_cap {
+        challenger.observe_cap(trace_cap);
+    }
 
     let lookup_challenge_set = if let Some(&challenges) = challenges.as_ref() {
         Some(challenges.clone())
     } else {
+        println!("Not goot: creating lookup challenges");
         auxiliary_polys_cap.map(|auxiliary_polys_cap| {
             let tmp = get_grand_product_challenge_set_target(builder, challenger, num_challenges);
             challenger.observe_cap(auxiliary_polys_cap);
@@ -202,6 +205,7 @@ impl<const D: usize> StarkProofTarget<D> {
         builder: &mut CircuitBuilder<F, D>,
         challenger: &mut RecursiveChallenger<F, C::Hasher, D>,
         challenges: Option<&GrandProductChallengeSet<Target>>,
+        ignore_trace_cap: bool,
         config: &StarkConfig,
     ) -> StarkProofChallengesTarget<D>
     where
@@ -222,6 +226,12 @@ impl<const D: usize> StarkProofTarget<D> {
                     ..
                 },
         } = self;
+
+        let trace_cap = if ignore_trace_cap {
+            None
+        } else {
+            Some(trace_cap)
+        };
 
         get_challenges_target::<F, C, D>(
             builder,
@@ -246,6 +256,7 @@ impl<const D: usize> StarkProofWithPublicInputsTarget<D> {
         builder: &mut CircuitBuilder<F, D>,
         challenger: &mut RecursiveChallenger<F, C::Hasher, D>,
         challenges: Option<&GrandProductChallengeSet<Target>>,
+        ignore_trace_cap: bool,
         config: &StarkConfig,
     ) -> StarkProofChallengesTarget<D>
     where
@@ -254,7 +265,7 @@ impl<const D: usize> StarkProofWithPublicInputsTarget<D> {
         C::Hasher: AlgebraicHasher<F>,
     {
         self.proof
-            .get_challenges::<F, C>(builder, challenger, challenges, config)
+            .get_challenges::<F, C>(builder, challenger, challenges, ignore_trace_cap, config)
     }
 }
 

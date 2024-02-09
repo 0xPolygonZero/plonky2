@@ -278,6 +278,7 @@ where
         &mut builder,
         &mut challenger,
         Some(&ctl_challenges_target),
+        true,
         inner_config,
     );
     let challenger_state = challenger.compact(&mut builder);
