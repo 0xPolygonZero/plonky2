@@ -140,26 +140,27 @@ pub(crate) fn simulate_cpu_and_get_user_jumps<F: Field>(
     final_label: &str,
     state: &GenerationState<F>,
 ) -> Option<HashMap<usize, Vec<usize>>> {
-    if state.jumpdest_table.is_some() {
-        None
-    } else {
-        let halt_pc = KERNEL.global_labels[final_label];
-        let initial_context = state.registers.context;
-        let mut interpreter =
-            Interpreter::new_with_state_and_halt_condition(state, halt_pc, initial_context);
+    match state.jumpdest_table {
+        Some(_) => None,
+        None => {
+            let halt_pc = KERNEL.global_labels[final_label];
+            let initial_context = state.registers.context;
+            let mut interpreter =
+                Interpreter::new_with_state_and_halt_condition(state, halt_pc, initial_context);
 
-        log::debug!("Simulating CPU for jumpdest analysis.");
+            log::debug!("Simulating CPU for jumpdest analysis.");
 
-        interpreter.run().unwrap();
+            interpreter.run();
 
-        log::debug!("jdt = {:?}", interpreter.jumpdest_table);
+            log::debug!("jdt = {:?}", interpreter.jumpdest_table);
 
-        interpreter
-            .generation_state
-            .set_jumpdest_analysis_inputs(interpreter.jumpdest_table);
+            interpreter
+                .generation_state
+                .set_jumpdest_analysis_inputs(interpreter.jumpdest_table);
 
-        log::debug!("Simulated CPU for jumpdest analysis halted.");
-        interpreter.generation_state.jumpdest_table
+            log::debug!("Simulated CPU for jumpdest analysis halted.");
+            interpreter.generation_state.jumpdest_table
+        }
     }
 }
 
@@ -454,22 +455,11 @@ impl<'a, F: Field> Interpreter<'a, F> {
                     && self.halt_offsets.contains(&pc)
                     && halt_context == self.generation_state.registers.context
                 {
-                    log::debug!(
-                        "se acabo el show cuando el contepsto era {:?}",
-                        self.generation_state.registers.context
-                    );
                     self.running = false;
                     return Ok(());
                 }
             } else if self.halt_offsets.contains(&pc) {
                 return Ok(());
-            }
-
-            if !self.running {
-                log::debug!(
-                    "se pago con contepsto {:?}",
-                    self.generation_state.registers.context
-                )
             }
 
             let checkpoint = self.checkpoint();
@@ -1172,16 +1162,6 @@ impl<'a, F: Field> Interpreter<'a, F> {
             + (U256::from(self.generation_state.registers.gas_used) << 192);
         self.generation_state.registers.program_counter = new_program_counter;
 
-        if opcode == 244 {
-            println!(
-                "new_pc = {new_program_counter}, new_label = {:?}, sys_calldatasize = {:?}, sys_gasprice = {:?},",
-                KERNEL.offset_name(new_program_counter),
-                KERNEL.global_labels["sys_calldatasize"],
-                KERNEL.global_labels["sys_gasprice"],
-
-            );
-        }
-
         self.set_is_kernel(true);
         self.generation_state.registers.gas_used = 0;
         self.push(syscall_info)
@@ -1217,15 +1197,12 @@ impl<'a, F: Field> Interpreter<'a, F> {
             .jumpdest_table
             .get_mut(&self.generation_state.registers.context)
         {
-            log::debug!("Addedded {offset}");
             jumpdest_table.insert(offset);
         } else {
             self.jumpdest_table.insert(
                 self.generation_state.registers.context,
                 BTreeSet::from([offset]),
             );
-            log::debug!("Addendum {offset}");
-            log::debug!("que linda taulita {:?}", self.jumpdest_table);
         }
     }
 
