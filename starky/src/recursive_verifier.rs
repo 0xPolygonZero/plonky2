@@ -1,3 +1,6 @@
+//! Implementation of the STARK recursive verifier, i.e. where proof
+//! verification if encoded in a plonky2 circuit.
+
 #[cfg(not(feature = "std"))]
 use alloc::{vec, vec::Vec};
 use core::iter::once;

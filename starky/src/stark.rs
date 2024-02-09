@@ -1,3 +1,6 @@
+//! Implementation of the [`Stark`] trait that defines the set of constraints
+//! related to a statement.
+
 #[cfg(not(feature = "std"))]
 use alloc::{vec, vec::Vec};
 

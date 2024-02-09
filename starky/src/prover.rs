@@ -1,3 +1,5 @@
+//! Implementation of the STARK prover.
+
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use core::iter::once;

@@ -1,3 +1,6 @@
+//! A Lookup protocol leveraging logarithmic derivatives,
+//! introduced in <https://eprint.iacr.org/2022/1530.pdf>.
+
 #[cfg(not(feature = "std"))]
 use alloc::{vec, vec::Vec};
 use core::borrow::Borrow;

@@ -1,3 +1,9 @@
+//! A [`StarkConfig`] defines all the parameters to be used when proving a
+//! [`Stark`][crate::stark::Stark].
+//!
+//! The default configuration is aimed for speed, yielding fast but large
+//! proofs, with a targeted security level of 100 bits.
+
 use plonky2::fri::reduction_strategies::FriReductionStrategy;
 use plonky2::fri::{FriConfig, FriParams};
 

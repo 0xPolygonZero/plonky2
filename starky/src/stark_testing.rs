@@ -1,3 +1,5 @@
+//! Utility module for testing [`Stark`] implementation.
+
 #[cfg(not(feature = "std"))]
 use alloc::{vec, vec::Vec};
 

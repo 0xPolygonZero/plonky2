@@ -1,3 +1,8 @@
+//! Implementation of the constraint consumer.
+//!
+//! The [`ConstraintConsumer`], and its circuit counterpart, allow a
+//! prover to evaluate all polynomials of a [`Stark`][crate::stark::Stark].
+
 #[cfg(not(feature = "std"))]
 use alloc::{vec, vec::Vec};
 use core::marker::PhantomData;

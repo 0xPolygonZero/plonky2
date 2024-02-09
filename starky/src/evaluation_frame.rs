@@ -1,3 +1,5 @@
+//! Implementation of constraint evaluation frames for STARKs.
+
 /// A trait for viewing an evaluation frame of a STARK table.
 ///
 /// It allows to access the current and next rows at a given step

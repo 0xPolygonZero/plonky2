@@ -1,3 +1,5 @@
+//! Implementation of the STARK verifier.
+
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use core::any::type_name;

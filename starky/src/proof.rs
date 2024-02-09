@@ -1,3 +1,7 @@
+//! All the different proof types and their associated `circuit` versions
+//! to be used when proving (recursive) [`Stark`][crate::stark::Stark]
+//! statements
+
 #[cfg(not(feature = "std"))]
 use alloc::{vec, vec::Vec};
 
