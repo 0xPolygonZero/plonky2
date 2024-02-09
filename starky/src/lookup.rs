@@ -1,5 +1,5 @@
-use alloc::vec;
-use alloc::vec::Vec;
+#[cfg(not(feature = "std"))]
+use alloc::{vec, vec::Vec};
 use core::borrow::Borrow;
 use core::fmt::Debug;
 use core::iter::repeat;

@@ -1,5 +1,5 @@
-use alloc::vec;
-use alloc::vec::Vec;
+#[cfg(not(feature = "std"))]
+use alloc::{vec, vec::Vec};
 
 use itertools::Itertools;
 use plonky2::field::extension::{Extendable, FieldExtension};

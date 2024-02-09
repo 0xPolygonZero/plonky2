@@ -5,6 +5,7 @@
 #![deny(missing_debug_implementations)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+#[cfg(not(feature = "std"))]
 extern crate alloc;
 
 mod get_challenges;
