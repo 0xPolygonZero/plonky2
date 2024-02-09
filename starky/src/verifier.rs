@@ -22,6 +22,7 @@ use crate::proof::{StarkOpeningSet, StarkProof, StarkProofChallenges, StarkProof
 use crate::stark::Stark;
 use crate::vanishing_poly::eval_vanishing_poly;
 
+/// Verifies a [`StarkProofWithPublicInputs`] against a STARK statement.
 pub fn verify_stark_proof<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
@@ -275,7 +276,7 @@ fn eval_l_0_and_l_last<F: Field>(log_n: usize, x: F) -> (F, F) {
 }
 
 /// Utility function to check that all lookups data wrapped in `Option`s are `Some` iff
-/// the Stark uses a permutation argument.
+/// the STARK uses a permutation argument.
 fn check_lookup_options<F, C, S, const D: usize>(
     stark: &S,
     auxiliary_polys_cap: &Option<MerkleCap<F, <C as GenericConfig<D>>::Hasher>>,

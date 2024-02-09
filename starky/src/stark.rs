@@ -25,6 +25,7 @@ const QUOTIENT_ORACLE_INDEX: usize = 2;
 pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
     /// The total number of columns in the trace.
     const COLUMNS: usize = Self::EvaluationFrameTarget::COLUMNS;
+    /// The total number of public inputs.
     const PUBLIC_INPUTS: usize = Self::EvaluationFrameTarget::PUBLIC_INPUTS;
 
     /// This is used to evaluate constraints natively.
@@ -36,7 +37,7 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
     /// The `Target` version of `Self::EvaluationFrame`, used to evaluate constraints recursively.
     type EvaluationFrameTarget: StarkEvaluationFrame<ExtensionTarget<D>, ExtensionTarget<D>>;
 
-    /// Evaluate constraints at a vector of points.
+    /// Evaluates constraints at a vector of points.
     ///
     /// The points are elements of a field `FE`, a degree `D2` extension of `F`. This lets us
     /// evaluate constraints over a larger domain if desired. This can also be called with `FE = F`
@@ -50,7 +51,7 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
         FE: FieldExtension<D2, BaseField = F>,
         P: PackedField<Scalar = FE>;
 
-    /// Evaluate constraints at a vector of points from the base field `F`.
+    /// Evaluates constraints at a vector of points from the base field `F`.
     fn eval_packed_base<P: PackedField<Scalar = F>>(
         &self,
         vars: &Self::EvaluationFrame<F, P, 1>,
@@ -59,7 +60,7 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
         self.eval_packed_generic(vars, yield_constr)
     }
 
-    /// Evaluate constraints at a single point from the degree `D` extension field.
+    /// Evaluates constraints at a single point from the degree `D` extension field.
     fn eval_ext(
         &self,
         vars: &Self::EvaluationFrame<F::Extension, F::Extension, D>,
@@ -68,7 +69,7 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
         self.eval_packed_generic(vars, yield_constr)
     }
 
-    /// Evaluate constraints at a vector of points from the degree `D` extension field. This is like
+    /// Evaluates constraints at a vector of points from the degree `D` extension field. This is like
     /// `eval_ext`, except in the context of a recursive circuit.
     /// Note: constraints must be added through`yield_constr.constraint(builder, constraint)` in the
     /// same order as they are given in `eval_packed_generic`.
@@ -231,6 +232,7 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
         }
     }
 
+    /// Outputs all the [`Lookup`] this STARK table needs to perform across its columns.
     fn lookups(&self) -> Vec<Lookup<F>> {
         vec![]
     }
@@ -249,6 +251,8 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
 
     /// Indicates whether this STARK belongs to a multi-STARK system, and as such may require
     /// cross-table lookups to connect shared values across different traces.
+    ///
+    /// It defaults to `false`, i.e. for simple uni-STARK systems.
     fn requires_ctls(&self) -> bool {
         false
     }

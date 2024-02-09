@@ -8,6 +8,7 @@ pub trait StarkEvaluationFrame<T: Copy + Clone + Default, U: Copy + Clone + Defa
 {
     /// The number of columns for the STARK table this evaluation frame views.
     const COLUMNS: usize;
+    /// The number of public inputs for the STARK.
     const PUBLIC_INPUTS: usize;
 
     /// Returns the local values (i.e. current row) for this evaluation frame.
@@ -24,6 +25,8 @@ pub trait StarkEvaluationFrame<T: Copy + Clone + Default, U: Copy + Clone + Defa
     fn from_values(lv: &[T], nv: &[T], pis: &[U]) -> Self;
 }
 
+/// An evaluation frame to be used when defining constraints of a STARK system, that
+/// implements the [`StarkEvaluationFrame`] trait.
 pub struct StarkFrame<
     T: Copy + Clone + Default,
     U: Copy + Clone + Default,

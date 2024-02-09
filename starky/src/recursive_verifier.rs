@@ -62,7 +62,7 @@ pub fn verify_stark_proof_circuit<
     );
 }
 
-/// Recursively verifies an inner proof.
+/// Recursively verifies an inner STARK proof.
 pub fn verify_stark_proof_with_challenges_circuit<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
@@ -208,6 +208,7 @@ fn eval_l_0_and_l_last_circuit<F: RichField + Extendable<D>, const D: usize>(
     )
 }
 
+/// Adds a new `StarkProofWithPublicInputsTarget` to this circuit.
 pub fn add_virtual_stark_proof_with_pis<
     F: RichField + Extendable<D>,
     S: Stark<F, D>,
@@ -235,6 +236,7 @@ pub fn add_virtual_stark_proof_with_pis<
     }
 }
 
+/// Adds a new `StarkProofTarget` to this circuit.
 pub fn add_virtual_stark_proof<F: RichField + Extendable<D>, S: Stark<F, D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     stark: &S,
@@ -298,6 +300,8 @@ fn add_virtual_stark_opening_set<F: RichField + Extendable<D>, S: Stark<F, D>, c
     }
 }
 
+/// Set the targets in a `StarkProofWithPublicInputsTarget` to
+/// their corresponding values in a `StarkProofWithPublicInputs`.
 pub fn set_stark_proof_with_pis_target<F, C: GenericConfig<D, F = F>, W, const D: usize>(
     witness: &mut W,
     stark_proof_with_pis_target: &StarkProofWithPublicInputsTarget<D>,
@@ -325,6 +329,8 @@ pub fn set_stark_proof_with_pis_target<F, C: GenericConfig<D, F = F>, W, const D
     set_stark_proof_target(witness, pt, proof, zero);
 }
 
+/// Set the targets in a `StarkProofTarget` totheir corresponding values in a
+/// `StarkProof`.
 pub fn set_stark_proof_target<F, C: GenericConfig<D, F = F>, W, const D: usize>(
     witness: &mut W,
     proof_target: &StarkProofTarget<D>,
@@ -354,7 +360,7 @@ pub fn set_stark_proof_target<F, C: GenericConfig<D, F = F>, W, const D: usize>(
 }
 
 /// Utility function to check that all lookups data wrapped in `Option`s are `Some` iff
-/// the Stark uses a permutation argument.
+/// the STARK uses a permutation argument.
 fn check_lookup_options<F: RichField + Extendable<D>, S: Stark<F, D>, const D: usize>(
     stark: &S,
     proof: &StarkProofTarget<D>,
@@ -370,7 +376,7 @@ fn check_lookup_options<F: RichField + Extendable<D>, S: Stark<F, D>, const D: u
         options_is_some
             .iter()
             .all(|&b| b == stark.uses_lookups() || stark.requires_ctls()),
-        "Lookups data doesn't match with Stark configuration."
+        "Lookups data doesn't match with STARK configuration."
     );
     Ok(())
 }

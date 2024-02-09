@@ -16,8 +16,13 @@ use crate::lookup::{
 };
 use crate::proof::*;
 
-/// `trace_cap` is passed as `Option` to signify whether to observe it
-/// or not by the challenger.
+/// Generates some challenges for a STARK proof from a challenger and given
+/// all the arguments needed to update the challenger state.
+///
+/// Note: `trace_cap` is passed as `Option` to signify whether to observe it
+/// or not by the challenger. Observing it here could be redundant in a
+/// multi-STARK system where trace caps would have already been observed
+/// before proving individually each STARK.
 fn get_challenges<F, C, const D: usize>(
     challenger: &mut Challenger<F, C::Hasher>,
     challenges: Option<&GrandProductChallengeSet<F>>,
@@ -78,6 +83,12 @@ where
     C: GenericConfig<D, F = F>,
 {
     /// Computes all Fiat-Shamir challenges used in the STARK proof.
+    /// For a single STARK system, the `ignore_trace_cap` boolean should
+    /// always be set to `false`.
+    ///
+    /// Multi-STARK systems may already observe individual trace caps
+    /// ahead of proving each table, and hence may ignore observing
+    /// again the cap when generating individual challenges.
     pub fn get_challenges(
         &self,
         challenger: &mut Challenger<F, C::Hasher>,
@@ -129,6 +140,12 @@ where
     C: GenericConfig<D, F = F>,
 {
     /// Computes all Fiat-Shamir challenges used in the STARK proof.
+    /// For a single STARK system, the `ignore_trace_cap` boolean should
+    /// always be set to `false`.
+    ///
+    /// Multi-STARK systems may already observe individual trace caps
+    /// ahead of proving each table, and hence may ignore observing
+    /// again the cap when generating individual challenges.
     pub fn get_challenges(
         &self,
         challenger: &mut Challenger<F, C::Hasher>,
@@ -141,11 +158,9 @@ where
     }
 }
 
-pub(crate) fn get_challenges_target<
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
-    const D: usize,
->(
+/// Circuit version of `get_challenges`, with the same flexibility around
+/// `trace_cap` being passed as an `Option`.
+fn get_challenges_target<F, C, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     challenger: &mut RecursiveChallenger<F, C::Hasher, D>,
     challenges: Option<&GrandProductChallengeSet<Target>>,
@@ -159,6 +174,8 @@ pub(crate) fn get_challenges_target<
     config: &StarkConfig,
 ) -> StarkProofChallengesTarget<D>
 where
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
     C::Hasher: AlgebraicHasher<F>,
 {
     let num_challenges = config.num_challenges;
@@ -203,6 +220,13 @@ where
 }
 
 impl<const D: usize> StarkProofTarget<D> {
+    /// Creates all Fiat-Shamir `Target` challenges used in the STARK proof.
+    /// For a single STARK system, the `ignore_trace_cap` boolean should
+    /// always be set to `false`.
+    ///
+    /// Multi-STARK systems may already observe individual trace caps
+    /// ahead of proving each table, and hence may ignore observing
+    /// again the cap when generating individual challenges.
     pub fn get_challenges<F, C>(
         &self,
         builder: &mut CircuitBuilder<F, D>,
@@ -253,7 +277,13 @@ impl<const D: usize> StarkProofTarget<D> {
 }
 
 impl<const D: usize> StarkProofWithPublicInputsTarget<D> {
-    /// Computes all Fiat-Shamir challenges used in the STARK proof.
+    /// Creates all Fiat-Shamir `Target` challenges used in the STARK proof.
+    /// For a single STARK system, the `ignore_trace_cap` boolean should
+    /// always be set to `false`.
+    ///
+    /// Multi-STARK systems may already observe individual trace caps
+    /// ahead of proving each table, and hence may ignore observing
+    /// again the cap when generating individual challenges.
     pub fn get_challenges<F, C>(
         &self,
         builder: &mut CircuitBuilder<F, D>,

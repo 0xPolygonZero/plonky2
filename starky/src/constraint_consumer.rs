@@ -14,9 +14,7 @@ pub struct ConstraintConsumer<P: PackedField> {
     alphas: Vec<P::Scalar>,
 
     /// Running sums of constraints that have been emitted so far, scaled by powers of alpha.
-    // TODO(JN): This is pub so it can be used in a test. Once we have an API for accessing this
-    // result, it should be made private.
-    pub constraint_accs: Vec<P>,
+    constraint_accs: Vec<P>,
 
     /// The evaluation of `X - g^(n-1)`.
     z_last: P,
@@ -31,6 +29,7 @@ pub struct ConstraintConsumer<P: PackedField> {
 }
 
 impl<P: PackedField> ConstraintConsumer<P> {
+    /// Creates a new instance of [`ConstraintConsumer`].
     pub fn new(
         alphas: Vec<P::Scalar>,
         z_last: P,
@@ -46,6 +45,8 @@ impl<P: PackedField> ConstraintConsumer<P> {
         }
     }
 
+    /// Consumes this [`ConstraintConsumer`] and outputs its sum of accumulated
+    /// constraints scaled by powers of `alpha`.
     pub fn accumulators(self) -> Vec<P> {
         self.constraint_accs
     }
@@ -98,6 +99,7 @@ pub struct RecursiveConstraintConsumer<F: RichField + Extendable<D>, const D: us
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> RecursiveConstraintConsumer<F, D> {
+    /// Creates a new instance of [`RecursiveConstraintConsumer`].
     pub fn new(
         zero: ExtensionTarget<D>,
         alphas: Vec<Target>,
@@ -115,6 +117,8 @@ impl<F: RichField + Extendable<D>, const D: usize> RecursiveConstraintConsumer<F
         }
     }
 
+    /// Consumes this [`RecursiveConstraintConsumer`] and outputs its sum of accumulated
+    /// `Target` constraints scaled by powers of `alpha`.
     pub fn accumulators(self) -> Vec<ExtensionTarget<D>> {
         self.constraint_accs
     }

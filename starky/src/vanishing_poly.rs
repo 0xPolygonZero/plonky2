@@ -14,6 +14,8 @@ use crate::lookup::{
 };
 use crate::stark::Stark;
 
+/// Evaluates all constraint, permutation and cross-table lookup polynomials
+/// of the current STARK at the local and next values.
 pub(crate) fn eval_vanishing_poly<F, FE, P, S, const D: usize, const D2: usize>(
     stark: &S,
     vars: &S::EvaluationFrame<FE, P, D2>,
@@ -27,6 +29,7 @@ pub(crate) fn eval_vanishing_poly<F, FE, P, S, const D: usize, const D2: usize>(
     P: PackedField<Scalar = FE>,
     S: Stark<F, D>,
 {
+    // Evaluate all of the STARK's table constraints.
     stark.eval_packed_generic(vars, consumer);
     if let Some(lookup_vars) = lookup_vars {
         // Evaluate the STARK constraints related to the permutation arguments.
@@ -49,6 +52,9 @@ pub(crate) fn eval_vanishing_poly<F, FE, P, S, const D: usize, const D2: usize>(
     }
 }
 
+/// Circuit version of `eval_vanishing_poly`.
+/// Evaluates all constraint, permutation and cross-table lookup polynomials
+/// of the current STARK at the local and next values.
 pub(crate) fn eval_vanishing_poly_circuit<F, S, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     stark: &S,
@@ -60,6 +66,7 @@ pub(crate) fn eval_vanishing_poly_circuit<F, S, const D: usize>(
     F: RichField + Extendable<D>,
     S: Stark<F, D>,
 {
+    // Evaluate all of the STARK's table constraints.
     stark.eval_ext_circuit(builder, vars, consumer);
     if let Some(lookup_vars) = lookup_vars {
         // Evaluate all of the STARK's constraints related to the permutation argument.

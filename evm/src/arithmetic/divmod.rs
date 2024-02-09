@@ -247,7 +247,7 @@ mod tests {
             GoldilocksField::ONE,
         );
         eval_packed(&lv, &nv, &mut constraint_consumer);
-        for &acc in &constraint_consumer.constraint_accs {
+        for &acc in &constraint_consumer.accumulators() {
             assert_eq!(acc, GoldilocksField::ZERO);
         }
     }
@@ -306,7 +306,7 @@ mod tests {
                     GoldilocksField::ZERO,
                 );
                 eval_packed(&lv, &nv, &mut constraint_consumer);
-                for &acc in &constraint_consumer.constraint_accs {
+                for &acc in &constraint_consumer.accumulators() {
                     assert_eq!(acc, GoldilocksField::ZERO);
                 }
             }

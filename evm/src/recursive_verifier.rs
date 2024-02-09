@@ -199,7 +199,7 @@ where
     }
 }
 
-/// Returns the recursive Stark circuit.
+/// Returns the recursive STARK circuit.
 pub(crate) fn recursive_stark_circuit<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,

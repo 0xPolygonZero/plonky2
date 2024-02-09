@@ -31,6 +31,7 @@ use crate::proof::{StarkOpeningSet, StarkProof, StarkProofWithPublicInputs};
 use crate::stark::Stark;
 use crate::vanishing_poly::eval_vanishing_poly;
 
+/// From a STARK trace, computes a STARK proof to attest its correctness.
 pub fn prove<F, C, S, const D: usize>(
     stark: S,
     config: &StarkConfig,
@@ -84,9 +85,12 @@ where
 }
 
 /// Generates a proof for a single STARK table, including:
+///
 /// - the initial state of the challenger,
 /// - all the requires Merkle caps,
 /// - all the required polynomial and FRI argument openings.
+/// - individual `ctl_data` and common `ctl_challenges` if the STARK is part
+/// of a multi-STARK system.
 pub fn prove_with_commitment<F, C, S, const D: usize>(
     stark: &S,
     config: &StarkConfig,
@@ -322,7 +326,7 @@ where
 }
 
 /// Computes the quotient polynomials `(sum alpha^i C_i(x)) / Z_H(x)` for `alpha` in `alphas`,
-/// where the `C_i`s are the Stark constraints.
+/// where the `C_i`s are the STARK constraints.
 fn compute_quotient_polys<'a, F, P, C, S, const D: usize>(
     stark: &S,
     trace_commitment: &'a PolynomialBatch<F, C, D>,
@@ -420,7 +424,7 @@ where
                 challenges: challenges.to_vec(),
             });
 
-            // Get all the data for this STARK's CTLs:
+            // Get all the data for this STARK's CTLs, if any:
             // - the local and next row evaluations for the CTL Z polynomials
             // - the associated challenges.
             // - for each CTL:
