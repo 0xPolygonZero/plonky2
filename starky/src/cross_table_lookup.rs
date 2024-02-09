@@ -305,13 +305,11 @@ pub(crate) fn num_ctl_helper_columns_by_table<F: Field, const N: usize>(
 pub(crate) fn get_ctl_auxiliary_polys<F: Field>(
     ctl_data: Option<&CtlData<F>>,
 ) -> Option<Vec<PolynomialValues<F>>> {
-    if let Some(data) = ctl_data {
+    ctl_data.map(|data| {
         let mut ctl_polys = data.ctl_helper_polys();
         ctl_polys.extend(data.ctl_z_polys());
-        Some(ctl_polys)
-    } else {
-        None
-    }
+        ctl_polys
+    })
 }
 
 /// Generates all the cross-table lookup data, for all tables.
@@ -504,12 +502,11 @@ impl<'a, F: RichField + Extendable<D>, const D: usize>
         // If there are no auxiliary polys in the proofs `openings`,
         // return early. The verifier will reject the proofs when
         // calling `validate_proof_shape`.
-        for p in proofs.iter() {
-            if p.proof.openings.auxiliary_polys.is_none()
-                || p.proof.openings.auxiliary_polys_next.is_none()
-            {
-                return ctl_vars_per_table;
-            }
+        if proofs
+            .iter()
+            .any(|p| p.proof.openings.auxiliary_polys.is_none())
+        {
+            return ctl_vars_per_table;
         }
 
         let mut total_num_helper_cols_by_table = [0; N];
@@ -526,8 +523,14 @@ impl<'a, F: RichField + Extendable<D>, const D: usize>
             .map(|(p, &num_lookup)| {
                 let openings = &p.proof.openings;
 
-                let ctl_zs = &openings.auxiliary_polys.as_ref().unwrap()[num_lookup..];
-                let ctl_zs_next = &openings.auxiliary_polys_next.as_ref().unwrap()[num_lookup..];
+                let ctl_zs = &openings
+                    .auxiliary_polys
+                    .as_ref()
+                    .expect("We cannot have CTls without auxiliary polynomials.")[num_lookup..];
+                let ctl_zs_next = &openings
+                    .auxiliary_polys_next
+                    .as_ref()
+                    .expect("We cannot have CTls without auxiliary polynomials.")[num_lookup..];
                 ctl_zs.iter().zip(ctl_zs_next).collect::<Vec<_>>()
             })
             .collect::<Vec<_>>();
@@ -743,20 +746,21 @@ impl<'a, F: Field, const D: usize> CtlCheckVarsTarget<F, D> {
             let ctl_zs = openings
                 .auxiliary_polys
                 .as_ref()
-                .unwrap()
+                .expect("We cannot have CTls without auxiliary polynomials.")
                 .iter()
                 .skip(num_lookup_columns);
             let ctl_zs_next = openings
                 .auxiliary_polys_next
                 .as_ref()
-                .unwrap()
+                .expect("We cannot have CTls without auxiliary polynomials.")
                 .iter()
                 .skip(num_lookup_columns);
             ctl_zs.zip(ctl_zs_next).collect::<Vec<_>>()
         };
 
-        // Put each cross-table lookup polynomial into the correct table data.
-        // If a CTL polynomial is extracted from looking/looked table t, then we add it to the `CtlCheckVars` of table t.
+        // Put each cross-table lookup polynomial into the correct table's data.
+        // If a CTL polynomial is extracted from the looking/looked table `t``,
+        // then we add it to the `CtlCheckVars` of table `t``.
         let mut z_index = 0;
         let mut start_index = 0;
         let mut ctl_vars = vec![];

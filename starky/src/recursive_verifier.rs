@@ -181,7 +181,7 @@ pub fn verify_stark_proof_with_challenges_circuit<
         challenges.stark_zeta,
         F::primitive_root_of_unity(degree_bits),
         num_ctl_polys,
-        ctl_zs_first.as_ref().map(|c| c.len()).unwrap_or(0),
+        ctl_zs_first.as_ref().map_or(0, |c| c.len()),
         inner_config,
     );
     builder.verify_fri_proof::<C>(

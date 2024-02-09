@@ -7,7 +7,7 @@
 use plonky2::fri::reduction_strategies::FriReductionStrategy;
 use plonky2::fri::{FriConfig, FriParams};
 
-/// A configuration containing the different parameters to be used by the STARK prover.
+/// A configuration containing the different parameters used by the STARK prover.
 #[derive(Clone, Debug)]
 pub struct StarkConfig {
     /// The targeted security level for the proofs generated with this configuration.

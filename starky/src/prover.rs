@@ -153,7 +153,7 @@ where
             columns
         })
     );
-    let num_lookup_columns = lookup_helper_columns.as_ref().map(|v| v.len()).unwrap_or(0);
+    let num_lookup_columns = lookup_helper_columns.as_ref().map_or(0, |v| v.len());
 
     // We add CTLs, if there are any, to the permutation arguments so that
     // we can batch commit to all auxiliary polynomials.
