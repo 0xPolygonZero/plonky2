@@ -20,11 +20,10 @@ use plonky2_evm::proof::{BlockHashes, BlockMetadata, TrieRoots};
 use plonky2_evm::prover::prove;
 use plonky2_evm::verifier::verify_proof;
 use plonky2_evm::Node;
-use smt_utils_hermez::code::{hash_bytecode_u256, hash_contract_bytecode};
+use smt_utils_hermez::code::hash_bytecode_u256;
 use smt_utils_hermez::db::{Db, MemoryDb};
 use smt_utils_hermez::keys::{key_balance, key_code, key_code_length, key_nonce, key_storage};
 use smt_utils_hermez::smt::Smt;
-use smt_utils_hermez::utils::hashout2u;
 
 type F = GoldilocksField;
 const D: usize = 2;

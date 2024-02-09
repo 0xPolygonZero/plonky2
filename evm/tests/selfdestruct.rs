@@ -7,7 +7,6 @@ use eth_trie_utils::nibbles::Nibbles;
 use eth_trie_utils::partial_trie::{HashedPartialTrie, PartialTrie};
 use ethereum_types::{Address, BigEndianHash, H160, H256, U256};
 use hex_literal::hex;
-use keccak_hash::keccak;
 use plonky2::field::goldilocks_field::GoldilocksField;
 use plonky2::plonk::config::KeccakGoldilocksConfig;
 use plonky2::util::timing::TimingTree;
@@ -19,10 +18,10 @@ use plonky2_evm::proof::{BlockHashes, BlockMetadata, TrieRoots};
 use plonky2_evm::prover::prove;
 use plonky2_evm::verifier::verify_proof;
 use plonky2_evm::Node;
-use smt_utils_hermez::code::{hash_bytecode_u256, hash_contract_bytecode};
+use smt_utils_hermez::code::hash_bytecode_u256;
 use smt_utils_hermez::db::{Db, MemoryDb};
 use smt_utils_hermez::keys::{key_balance, key_code, key_code_length, key_nonce, key_storage};
-use smt_utils_hermez::smt::{hash_serialize, Smt};
+use smt_utils_hermez::smt::Smt;
 use smt_utils_hermez::utils::hashout2u;
 
 type F = GoldilocksField;
@@ -40,12 +39,6 @@ fn test_selfdestruct() -> anyhow::Result<()> {
     let beneficiary = hex!("deadbeefdeadbeefdeadbeefdeadbeefdeadbeef");
     let sender = hex!("5eb96AA102a29fAB267E12A40a5bc6E9aC088759");
     let to = hex!("a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0");
-
-    let sender_state_key = keccak(sender);
-    let to_state_key = keccak(to);
-
-    let sender_nibbles = Nibbles::from_bytes_be(sender_state_key.as_bytes()).unwrap();
-    let to_nibbles = Nibbles::from_bytes_be(to_state_key.as_bytes()).unwrap();
 
     let sender_account_before = AccountRlp {
         nonce: 5.into(),

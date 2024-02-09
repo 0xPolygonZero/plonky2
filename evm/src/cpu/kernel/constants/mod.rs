@@ -59,10 +59,7 @@ pub(crate) fn evm_constants() -> HashMap<String, U256> {
 
     c.insert(MAX_NONCE.0.into(), U256::from(MAX_NONCE.1));
     c.insert(CALL_STACK_LIMIT.0.into(), U256::from(CALL_STACK_LIMIT.1));
-    c.insert(
-        POSEIDON_HASH_ZEROS.0.into(),
-        U256::from(POSEIDON_HASH_ZEROS.1),
-    );
+    c.insert(POSEIDON_HASH_ZEROS.0.into(), POSEIDON_HASH_ZEROS.1);
 
     for segment in Segment::all() {
         c.insert(segment.var_name().into(), (segment as usize).into());

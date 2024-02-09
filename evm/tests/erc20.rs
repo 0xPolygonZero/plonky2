@@ -7,7 +7,6 @@ use eth_trie_utils::nibbles::Nibbles;
 use eth_trie_utils::partial_trie::{HashedPartialTrie, PartialTrie};
 use ethereum_types::{Address, BigEndianHash, H160, H256, U256};
 use hex_literal::hex;
-use keccak_hash::keccak;
 use plonky2::field::goldilocks_field::GoldilocksField;
 use plonky2::plonk::config::KeccakGoldilocksConfig;
 use plonky2::util::timing::TimingTree;
@@ -19,7 +18,7 @@ use plonky2_evm::proof::{BlockHashes, BlockMetadata, TrieRoots};
 use plonky2_evm::prover::prove;
 use plonky2_evm::verifier::verify_proof;
 use plonky2_evm::Node;
-use smt_utils_hermez::code::{hash_bytecode_u256, hash_contract_bytecode};
+use smt_utils_hermez::code::hash_bytecode_u256;
 use smt_utils_hermez::db::{Db, MemoryDb};
 use smt_utils_hermez::keys::{key_balance, key_code, key_code_length, key_nonce, key_storage};
 use smt_utils_hermez::smt::Smt;
@@ -60,10 +59,6 @@ fn test_erc20() -> anyhow::Result<()> {
     let sender = hex!("70997970C51812dc3A010C7d01b50e0d17dc79C8");
     let giver = hex!("e7f1725E7734CE288F8367e1Bb143E90bb3F0512");
     let token = hex!("5FbDB2315678afecb367f032d93F642f64180aa3");
-
-    let sender_state_key = keccak(sender);
-    let giver_state_key = keccak(giver);
-    let token_state_key = keccak(token);
 
     let mut state_smt_before = Smt::<MemoryDb>::default();
     set_account(

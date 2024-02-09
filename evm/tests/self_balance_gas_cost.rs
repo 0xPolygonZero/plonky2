@@ -7,7 +7,6 @@ use eth_trie_utils::nibbles::Nibbles;
 use eth_trie_utils::partial_trie::{HashedPartialTrie, PartialTrie};
 use ethereum_types::{Address, BigEndianHash, H160, H256, U256};
 use hex_literal::hex;
-use keccak_hash::keccak;
 use plonky2::field::goldilocks_field::GoldilocksField;
 use plonky2::plonk::config::KeccakGoldilocksConfig;
 use plonky2::util::timing::TimingTree;
@@ -19,7 +18,7 @@ use plonky2_evm::proof::{BlockHashes, BlockMetadata, TrieRoots};
 use plonky2_evm::prover::prove;
 use plonky2_evm::verifier::verify_proof;
 use plonky2_evm::Node;
-use smt_utils_hermez::code::{hash_bytecode_u256, hash_contract_bytecode};
+use smt_utils_hermez::code::hash_bytecode_u256;
 use smt_utils_hermez::db::{Db, MemoryDb};
 use smt_utils_hermez::keys::{key_balance, key_code, key_code_length, key_nonce, key_storage};
 use smt_utils_hermez::smt::Smt;
@@ -41,14 +40,6 @@ fn self_balance_gas_cost() -> anyhow::Result<()> {
     let beneficiary = hex!("2adc25665018aa1fe0e6bc666dac8fc2697ff9ba");
     let sender = hex!("a94f5374fce5edbc8e2a8697c15331677e6ebf0b");
     let to = hex!("1000000000000000000000000000000000000000");
-
-    let beneficiary_state_key = keccak(beneficiary);
-    let sender_state_key = keccak(sender);
-    let to_hashed = keccak(to);
-
-    let beneficiary_nibbles = Nibbles::from_bytes_be(beneficiary_state_key.as_bytes()).unwrap();
-    let sender_nibbles = Nibbles::from_bytes_be(sender_state_key.as_bytes()).unwrap();
-    let to_nibbles = Nibbles::from_bytes_be(to_hashed.as_bytes()).unwrap();
 
     let code = [
         0x5a, 0x47, 0x5a, 0x90, 0x50, 0x90, 0x03, 0x60, 0x02, 0x90, 0x03, 0x60, 0x01, 0x55, 0x00,
