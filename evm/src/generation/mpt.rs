@@ -8,7 +8,7 @@ use ethereum_types::{Address, BigEndianHash, H256, U256, U512};
 use keccak_hash::keccak;
 use rlp::{Decodable, DecoderError, Encodable, PayloadInfo, Rlp, RlpStream};
 use rlp_derive::{RlpDecodable, RlpEncodable};
-use smt_utils_hermez::code::hash_contract_bytecode;
+use smt_utils_hermez::code::{hash_bytecode_u256, hash_contract_bytecode};
 use smt_utils_hermez::utils::hashout2u;
 
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
@@ -40,7 +40,7 @@ impl Default for AccountRlp {
         Self {
             nonce: U256::zero(),
             balance: U256::zero(),
-            code_hash: hashout2u(hash_contract_bytecode(vec![])),
+            code_hash: hash_bytecode_u256(vec![]),
             code_length: U256::zero(),
         }
     }

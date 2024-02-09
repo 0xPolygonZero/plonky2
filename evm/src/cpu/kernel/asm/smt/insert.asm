@@ -24,15 +24,14 @@ smt_insert_state_after:
 %endmacro
 
 // Insert a key-value pair in the SMT at `trie_data[node_ptr]`.
-// `value_ptr` should point to a an empty slot reserved for `rem_key`, followed by the actual value.
 // Pseudocode:
 // ```
-// insert( HashNode { h }, key, value_ptr ) = if h == 0 then Leaf { key, value_ptr } else PANIC
-// insert( InternalNode { left, right }, key, value_ptr ) = if key&1 { insert( right, key>>1, value_ptr ) } else { insert( left, key>>1, value_ptr ) }
-// insert( Leaf { key', value_ptr' }, key, value_ptr ) = {
+// insert( HashNode { h }, key, value ) = if h == 0 then Leaf { key, value } else PANIC
+// insert( InternalNode { left, right }, key, value ) = if key&1 { insert( right, key>>1, value ) } else { insert( left, key>>1, value ) }
+// insert( Leaf { key', value' }, key, value ) = {
 //    let internal = new InternalNode;
-//    insert(internal, key', value_ptr');
-//    insert(internal, key, value_ptr);
+//    insert(internal, key', value');
+//    insert(internal, key, value);
 //    return internal;}
 // ```
 global smt_insert:
@@ -48,7 +47,7 @@ global smt_insert:
     DUP1 %eq_const(@SMT_NODE_LEAF)        %jumpi(smt_insert_leaf)
     PANIC
 
-global smt_insert_hash:
+smt_insert_hash:
     // stack: node_type, node_payload_ptr, level, ks, value, retdest
     POP
     // stack: node_payload_ptr, level, ks, value, retdest
@@ -56,7 +55,7 @@ global smt_insert_hash:
     // stack: hash, level, ks, value, retdest
     ISZERO %jumpi(smt_insert_empty)
     PANIC // Trying to insert in a non-empty hash node.
-global smt_insert_empty:
+smt_insert_empty:
     // stack: level, ks, value, retdest
     POP
     // stack: ks, value, retdest
@@ -71,7 +70,7 @@ global smt_insert_empty:
     // stack: index, retdest
     SWAP1 JUMP
 
-global smt_insert_internal:
+smt_insert_internal:
     // stack: node_type, node_payload_ptr, level, ks, value, retdest
     POP
     // stack: node_payload_ptr, level, ks, value, retdest
@@ -82,31 +81,31 @@ global smt_insert_internal:
     DUP1 %eq_const(2) %jumpi(smt_insert_internal_2)
     DUP1 %eq_const(3) %jumpi(smt_insert_internal_3)
     PANIC
-global smt_insert_internal_0:
+smt_insert_internal_0:
     // stack: level%4, node_payload_ptr, level, ks, value, retdest
     %stack (level_mod_4, node_payload_ptr, level, k0, k1, k2, k3 ) -> (k0, node_payload_ptr, level, k0, k1, k2, k3 )
     %pop_bit
     %stack (bit, newk0, node_payload_ptr, level, k0, k1, k2, k3 ) -> (bit, node_payload_ptr, level, newk0, k1, k2, k3 )
     %jump(smt_insert_internal_contd)
-global smt_insert_internal_1:
+smt_insert_internal_1:
     // stack: level%4, node_payload_ptr, level, ks, value, retdest
     %stack (level_mod_4, node_payload_ptr, level, k0, k1, k2, k3 ) -> (k1, node_payload_ptr, level, k0, k1, k2, k3 )
     %pop_bit
     %stack (bit, newk1, node_payload_ptr, level, k0, k1, k2, k3 ) -> (bit, node_payload_ptr, level, k0, newk1, k2, k3 )
     %jump(smt_insert_internal_contd)
-global smt_insert_internal_2:
+smt_insert_internal_2:
     // stack: level%4, node_payload_ptr, level, ks, value, retdest
     %stack (level_mod_4, node_payload_ptr, level, k0, k1, k2, k3 ) -> (k2, node_payload_ptr, level, k0, k1, k2, k3 )
     %pop_bit
     %stack (bit, newk2, node_payload_ptr, level, k0, k1, k2, k3 ) -> (bit, node_payload_ptr, level, k0, k1, newk2, k3 )
     %jump(smt_insert_internal_contd)
-global smt_insert_internal_3:
+smt_insert_internal_3:
     // stack: level%4, node_payload_ptr, level, ks, value, retdest
     %stack (level_mod_4, node_payload_ptr, level, k0, k1, k2, k3 ) -> (k3, node_payload_ptr, level, k0, k1, k2, k3 )
     %pop_bit
     %stack (bit, newk3, node_payload_ptr, level, k0, k1, k2, k3 ) -> (bit, node_payload_ptr, level, k0, k1, k2, newk3 )
     %jump(smt_insert_internal_contd)
-global smt_insert_internal_contd:
+smt_insert_internal_contd:
     // stack: bit, node_payload_ptr, level, ks, value, retdest
     DUP2 ADD
     // stack: child_ptr_ptr, node_payload_ptr, level, ks, value, retdest
@@ -117,14 +116,14 @@ global smt_insert_internal_contd:
             (child_ptr, level_plus_1, k0, k1, k2, k3, value, smt_insert_internal_after, child_ptr_ptr, node_payload_ptr, retdest)
     %jump(smt_insert)
 
-global smt_insert_internal_after:
+smt_insert_internal_after:
     // stack: new_node_ptr, child_ptr_ptr, node_payload_ptr, retdest
     SWAP1 %mstore_trie_data
     // stack: node_payload_ptr, retdest
     %decrement
     SWAP1 JUMP
 
-global smt_insert_leaf:
+smt_insert_leaf:
     // stack: node_type, node_payload_ptr, level, ks, value, retdest
     POP
     %stack (node_payload_ptr, level, k0, k1, k2, k3, value) -> (k0, k1, k2, k3, node_payload_ptr, level, k0, k1, k2, k3, value)
@@ -148,12 +147,12 @@ global smt_insert_leaf:
     DUP9
     %stack (level, existing_value, existing_k0, existing_k1, existing_k2, existing_k3, index) -> (index, level, existing_k0, existing_k1, existing_k2, existing_k3, existing_value, after_first_leaf)
     %jump(smt_insert)
-global after_first_leaf:
+after_first_leaf:
     // stack: internal_ptr, rem_key, node_payload_ptr, level, ks, value, retdest
     %stack (internal_ptr, rem_key, node_payload_ptr, level, k0, k1, k2, k3, value) -> (internal_ptr, level, k0, k1, k2, k3, value)
     %jump(smt_insert)
 
-global smt_insert_leaf_same_key:
+smt_insert_leaf_same_key:
     // stack: existing_key, rem_key, node_payload_ptr, level, ks, value, retdest
     %pop2
     %stack (node_payload_ptr, level, k0, k1, k2, k3, value) -> (node_payload_ptr, value, node_payload_ptr)

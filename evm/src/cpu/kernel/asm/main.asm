@@ -88,9 +88,7 @@ global hash_final_tries:
     DUP3 %mload_global_metadata(@GLOBAL_METADATA_TXN_NUMBER_AFTER) %assert_eq
     %pop3
     PUSH 1 // initial trie data length 
-    %smt_hash_state        %mload_global_metadata(@GLOBAL_METADATA_STATE_TRIE_DIGEST_AFTER)
-global yopp:
-    %assert_eq
+    %smt_hash_state        %mload_global_metadata(@GLOBAL_METADATA_STATE_TRIE_DIGEST_AFTER)     %assert_eq
     %mpt_hash_txn_trie     %mload_global_metadata(@GLOBAL_METADATA_TXN_TRIE_DIGEST_AFTER)       %assert_eq
     %mpt_hash_receipt_trie %mload_global_metadata(@GLOBAL_METADATA_RECEIPT_TRIE_DIGEST_AFTER)   %assert_eq
     // We don't need the trie data length here.

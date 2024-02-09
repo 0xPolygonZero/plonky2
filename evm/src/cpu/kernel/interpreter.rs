@@ -775,8 +775,7 @@ impl<'a> Interpreter<'a> {
                     "Kernel panic at {}, stack = {:?}, memory = {:?}",
                     KERNEL.offset_name(self.generation_state.registers.program_counter),
                     self.stack(),
-                    // self.get_kernel_general_memory()
-                    self.get_trie_data()
+                    self.get_kernel_general_memory()
                 );
                 Err(ProgramError::KernelPanic)
             } // "PANIC",

@@ -221,17 +221,9 @@ decode_and_store_access_list_finish:
 %endmacro
 
 insert_accessed_storage_keys_with_original_value:
-    %stack (addr, key, retdest) -> (addr, key, after_read, addr, key, retdest)
-    %jump(sload_with_addr)
-after_read:
+    %stack (addr, key, retdest) -> (addr, key, addr, key, retdest)
+    %key_storage %smt_read_state %mload_trie_data
     %stack (value, addr, key, retdest) -> ( addr, key, value, retdest)
     %insert_accessed_storage_keys
     %pop2
     JUMP
-
-
-sload_with_addr:
-    // stack: addr, slot, retdest
-    %key_storage %smt_read_state %mload_trie_data
-    // stack: value, retdest
-    SWAP1 JUMP

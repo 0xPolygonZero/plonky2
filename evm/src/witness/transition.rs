@@ -401,7 +401,7 @@ fn try_perform_instruction<F: RichField>(
     if state.registers.is_kernel {
         log_kernel_instruction(state, op);
     } else {
-        log::debug!("User instruction: {:?}, stack: {:?}", op, state.stack());
+        log::debug!("User instruction: {:?}", op);
     }
 
     fill_op_flag(op, &mut row);
@@ -500,8 +500,7 @@ pub(crate) fn transition<F: RichField>(state: &mut GenerationState<F>) -> anyhow
                     e,
                     offset_name,
                     state.stack(),
-                    // state.memory.contexts[0].segments[Segment::KernelGeneral.unscale()].content,
-                    state.memory.contexts[0].segments[Segment::TrieData.unscale()].content,
+                    state.memory.contexts[0].segments[Segment::KernelGeneral.unscale()].content,
                 );
             }
             state.rollback(checkpoint);

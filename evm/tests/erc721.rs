@@ -20,7 +20,7 @@ use plonky2_evm::proof::{BlockHashes, BlockMetadata, TrieRoots};
 use plonky2_evm::prover::prove;
 use plonky2_evm::verifier::verify_proof;
 use plonky2_evm::Node;
-use smt_utils_hermez::code::hash_contract_bytecode;
+use smt_utils_hermez::code::{hash_bytecode_u256, hash_contract_bytecode};
 use smt_utils_hermez::db::{Db, MemoryDb};
 use smt_utils_hermez::keys::{key_balance, key_code, key_code_length, key_nonce, key_storage};
 use smt_utils_hermez::smt::{hash_serialize, Smt};
@@ -94,7 +94,7 @@ fn test_erc721() -> anyhow::Result<()> {
     let gas_used = 58_418.into();
 
     let contract_code = [contract_bytecode(), vec![]]
-        .map(|v| (hashout2u(hash_contract_bytecode(v.clone())), v))
+        .map(|v| (hash_bytecode_u256(v.clone()), v))
         .into();
 
     let expected_state_smt_after = {
@@ -289,7 +289,7 @@ fn contract_account() -> AccountRlp {
     AccountRlp {
         nonce: 0.into(),
         balance: 0.into(),
-        code_hash: hashout2u(hash_contract_bytecode(contract_bytecode())),
+        code_hash: hash_bytecode_u256(contract_bytecode()),
         ..Default::default()
     }
 }

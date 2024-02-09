@@ -18,7 +18,7 @@ use plonky2_evm::prover::prove;
 use plonky2_evm::verifier::verify_proof;
 use plonky2_evm::Node;
 use rand::random;
-use smt_utils_hermez::code::hash_contract_bytecode;
+use smt_utils_hermez::code::{hash_bytecode_u256, hash_contract_bytecode};
 use smt_utils_hermez::db::{Db, MemoryDb};
 use smt_utils_hermez::keys::{key_balance, key_code, key_code_length, key_nonce, key_storage};
 use smt_utils_hermez::smt::Smt;
@@ -43,7 +43,7 @@ fn test_withdrawals() -> anyhow::Result<()> {
     let receipts_trie = HashedPartialTrie::from(Node::Empty);
 
     let mut contract_code = HashMap::new();
-    contract_code.insert(hashout2u(hash_contract_bytecode(vec![])), vec![]);
+    contract_code.insert(hash_bytecode_u256(vec![]), vec![]);
 
     // Just one withdrawal.
     let withdrawals = vec![(H160(random()), U256(random()))];

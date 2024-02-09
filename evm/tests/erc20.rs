@@ -19,7 +19,7 @@ use plonky2_evm::proof::{BlockHashes, BlockMetadata, TrieRoots};
 use plonky2_evm::prover::prove;
 use plonky2_evm::verifier::verify_proof;
 use plonky2_evm::Node;
-use smt_utils_hermez::code::hash_contract_bytecode;
+use smt_utils_hermez::code::{hash_bytecode_u256, hash_contract_bytecode};
 use smt_utils_hermez::db::{Db, MemoryDb};
 use smt_utils_hermez::keys::{key_balance, key_code, key_code_length, key_nonce, key_storage};
 use smt_utils_hermez::smt::Smt;
@@ -65,10 +65,6 @@ fn test_erc20() -> anyhow::Result<()> {
     let giver_state_key = keccak(giver);
     let token_state_key = keccak(token);
 
-    let sender_nibbles = Nibbles::from_bytes_be(sender_state_key.as_bytes()).unwrap();
-    let giver_nibbles = Nibbles::from_bytes_be(giver_state_key.as_bytes()).unwrap();
-    let token_nibbles = Nibbles::from_bytes_be(token_state_key.as_bytes()).unwrap();
-
     let mut state_smt_before = Smt::<MemoryDb>::default();
     set_account(
         &mut state_smt_before,
@@ -113,7 +109,7 @@ fn test_erc20() -> anyhow::Result<()> {
     };
 
     let contract_code = [giver_bytecode(), token_bytecode(), vec![]]
-        .map(|v| (hashout2u(hash_contract_bytecode(v.clone())), v))
+        .map(|v| (hash_bytecode_u256(v.clone()), v))
         .into();
 
     let expected_smt_trie_after: Smt<MemoryDb> = {
@@ -256,7 +252,7 @@ fn giver_account() -> AccountRlp {
     AccountRlp {
         nonce: 1.into(),
         balance: 0.into(),
-        code_hash: hashout2u(hash_contract_bytecode(code)),
+        code_hash: hash_bytecode_u256(code),
         code_length: len.into(),
     }
 }
@@ -267,7 +263,7 @@ fn token_account() -> AccountRlp {
     AccountRlp {
         nonce: 1.into(),
         balance: 0.into(),
-        code_hash: hashout2u(hash_contract_bytecode(code)),
+        code_hash: hash_bytecode_u256(code),
         code_length: len.into(),
     }
 }

@@ -98,7 +98,6 @@ sstore_after_refund:
 
     // stack: slot, value, kexit_info
     %address
-global stillthere:
     // stack: addr, slot, value, kexit_info
     %key_storage
     // stack: storage_key, value, kexit_info
@@ -106,32 +105,13 @@ global stillthere:
     // stack: kexit_info
     EXIT_KERNEL
 
-    /*
-    // First we write the value to MPT data, and get a pointer to it.
-    %get_trie_data_size
-    // stack: value_ptr, slot, value, kexit_info
-    SWAP2
-    // stack: value, slot, value_ptr, kexit_info
-    %append_to_trie_data
-    // stack: slot, value_ptr, kexit_info
-
-    // Next, call mpt_insert on the current account's storage root.
-    %stack (slot, value_ptr) -> (slot, value_ptr, after_storage_insert)
-    %slot_to_storage_key
-    // stack: storage_key, value_ptr, after_storage_insert, kexit_info
-    PUSH 64 // storage_key has 64 nibbles
-    %current_storage_trie
-    // stack: storage_root_ptr, 64, storage_key, value_ptr, after_storage_insert, kexit_info
-    %jump(mpt_insert)
-    */
-
 sstore_noop:
     // stack: current_value, slot, value, kexit_info
     %pop3
     EXIT_KERNEL
 
 // Delete the slot from the storage trie.
-global sstore_delete:
+sstore_delete:
     // stack: slot, value, kexit_info
     %address
     // stack: address, slot, value, kexit_info

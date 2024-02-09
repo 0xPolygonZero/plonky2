@@ -20,7 +20,7 @@ use plonky2_evm::proof::{BlockHashes, BlockMetadata, TrieRoots};
 use plonky2_evm::prover::prove;
 use plonky2_evm::verifier::verify_proof;
 use plonky2_evm::Node;
-use smt_utils_hermez::code::hash_contract_bytecode;
+use smt_utils_hermez::code::{hash_bytecode_u256, hash_contract_bytecode};
 use smt_utils_hermez::db::{Db, MemoryDb};
 use smt_utils_hermez::keys::{key_balance, key_code, key_code_length, key_nonce, key_storage};
 use smt_utils_hermez::smt::Smt;
@@ -56,7 +56,7 @@ fn test_basic_smart_contract() -> anyhow::Result<()> {
     let stop = get_opcode("STOP");
     let code = [push1, 3, push1, 4, add, stop];
     let code_gas = 3 + 3 + 3;
-    let code_hash = hashout2u(hash_contract_bytecode(code.to_vec()));
+    let code_hash = hash_bytecode_u256(code.to_vec());
 
     let beneficiary_account_before = AccountRlp {
         nonce: 1.into(),
@@ -119,7 +119,7 @@ fn test_basic_smart_contract() -> anyhow::Result<()> {
     };
 
     let mut contract_code = HashMap::new();
-    contract_code.insert(hashout2u(hash_contract_bytecode(vec![])), vec![]);
+    contract_code.insert(hash_bytecode_u256(vec![]), vec![]);
     contract_code.insert(code_hash, code.to_vec());
 
     let expected_state_trie_after: HashedPartialTrie = {

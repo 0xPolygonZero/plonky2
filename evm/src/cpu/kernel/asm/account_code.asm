@@ -24,10 +24,8 @@ extcodehash_dead:
 
 global extcodehash:
     // stack: address, retdest
-    %key_code
-    %smt_read_state %mload_trie_data
+    %key_code %smt_read_state %mload_trie_data
     // stack: codehash, retdest
-global yoot:
     SWAP1 JUMP
 
 %macro extcodehash

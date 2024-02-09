@@ -374,9 +374,6 @@ pub(crate) fn byte_unpacking_log<F: Field>(
 
     let mut address = base_address;
     for &byte in &bytes {
-        if address.virt == 70 {
-            log::debug!("MSTORING byte: {}", byte);
-        }
         state.traces.push_memory(MemoryOp::new(
             MemoryChannel::Code,
             clock,

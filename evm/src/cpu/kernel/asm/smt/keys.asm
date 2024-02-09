@@ -1,3 +1,5 @@
+/// See `smt_utils_hermez:keys.rs` for documentation.
+
 // addr = sum_{0<=i<5} a_i << (32i)
 %macro key_balance
     // stack: addr

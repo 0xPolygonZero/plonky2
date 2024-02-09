@@ -19,7 +19,7 @@ use plonky2_evm::proof::{BlockHashes, BlockMetadata, TrieRoots};
 use plonky2_evm::prover::prove;
 use plonky2_evm::verifier::verify_proof;
 use plonky2_evm::Node;
-use smt_utils_hermez::code::hash_contract_bytecode;
+use smt_utils_hermez::code::{hash_bytecode_u256, hash_contract_bytecode};
 use smt_utils_hermez::db::{Db, MemoryDb};
 use smt_utils_hermez::keys::{key_balance, key_code, key_code_length, key_nonce, key_storage};
 use smt_utils_hermez::smt::{hash_serialize, Smt};
@@ -59,7 +59,7 @@ fn test_selfdestruct() -> anyhow::Result<()> {
     let to_account_before = AccountRlp {
         nonce: 12.into(),
         balance: eth_to_wei(10_000.into()),
-        code_hash: hashout2u(hash_contract_bytecode(code.clone())),
+        code_hash: hash_bytecode_u256(code.clone()),
         ..Default::default()
     };
 
@@ -100,8 +100,8 @@ fn test_selfdestruct() -> anyhow::Result<()> {
     };
 
     let contract_code = [
-        (hashout2u(hash_contract_bytecode(code.clone())), code),
-        (hashout2u(hash_contract_bytecode(vec![])), vec![]),
+        (hash_bytecode_u256(code.clone()), code),
+        (hash_bytecode_u256(vec![]), vec![]),
     ]
     .into();
 
@@ -138,8 +138,6 @@ fn test_selfdestruct() -> anyhow::Result<()> {
     }
     .into();
 
-    hash_serialize(&expected_state_smt_after.serialize());
-    dbg!("done");
     let trie_roots_after = TrieRoots {
         state_root: H256::from_uint(&hashout2u(expected_state_smt_after.root)),
         transactions_root: transactions_trie.hash(),

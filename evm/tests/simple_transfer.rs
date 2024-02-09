@@ -19,7 +19,7 @@ use plonky2_evm::proof::{BlockHashes, BlockMetadata, TrieRoots};
 use plonky2_evm::prover::prove;
 use plonky2_evm::verifier::verify_proof;
 use plonky2_evm::Node;
-use smt_utils_hermez::code::hash_contract_bytecode;
+use smt_utils_hermez::code::{hash_bytecode_u256, hash_contract_bytecode};
 use smt_utils_hermez::db::{Db, MemoryDb};
 use smt_utils_hermez::keys::{key_balance, key_code, key_code_length, key_nonce, key_storage};
 use smt_utils_hermez::smt::Smt;
@@ -93,7 +93,7 @@ fn test_simple_transfer() -> anyhow::Result<()> {
     };
 
     let mut contract_code = HashMap::new();
-    contract_code.insert(hashout2u(hash_contract_bytecode(vec![])), vec![]);
+    contract_code.insert(hash_bytecode_u256(vec![]), vec![]);
 
     let expected_state_smt_after = {
         let mut smt = Smt::<MemoryDb>::default();

@@ -27,8 +27,7 @@ global sys_balance:
 
 global balance:
     // stack: address, retdest
-    %key_balance
-    %smt_read_state %mload_trie_data
+    %key_balance %smt_read_state %mload_trie_data
     // stack: balance, retdest
     SWAP1 JUMP
 

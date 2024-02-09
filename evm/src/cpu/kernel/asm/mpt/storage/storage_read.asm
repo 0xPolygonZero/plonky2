@@ -9,9 +9,7 @@ global sload_current:
     %address
     // stack: addr, slot, retdest
     %key_storage %smt_read_state
-global watt3:
     %mload_trie_data
-global watt2:
     // stack: value, retdest
     SWAP1 JUMP
 
@@ -25,7 +23,6 @@ global sys_sload:
     DUP1
     // stack: slot, slot, kexit_info
     %sload_current
-global wattt:
 
     %stack (value, slot, kexit_info) -> (slot, value, kexit_info, value)
     %address

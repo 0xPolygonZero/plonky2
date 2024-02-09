@@ -5,7 +5,7 @@ use keccak_hash::keccak;
 use plonky2::field::extension::Extendable;
 use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
-use smt_utils_hermez::code::hash_contract_bytecode;
+use smt_utils_hermez::code::{hash_bytecode_u256, hash_contract_bytecode};
 use smt_utils_hermez::utils::hashout2u;
 
 use super::mpt::{load_all_mpts, TrieRootPtrs};
@@ -147,7 +147,7 @@ impl<F: Field> GenerationState<F> {
             .iter()
             .map(|x| x.low_u32() as u8)
             .collect::<Vec<_>>();
-        debug_assert_eq!(hashout2u(hash_contract_bytecode(code.clone())), codehash);
+        debug_assert_eq!(hash_bytecode_u256(code.clone()), codehash);
 
         self.inputs.contract_code.insert(codehash, code);
 

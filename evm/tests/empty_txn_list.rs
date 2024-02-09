@@ -17,7 +17,7 @@ use plonky2_evm::fixed_recursive_verifier::AllRecursiveCircuits;
 use plonky2_evm::generation::{GenerationInputs, TrieInputs};
 use plonky2_evm::proof::{BlockHashes, BlockMetadata, PublicValues, TrieRoots};
 use plonky2_evm::Node;
-use smt_utils_hermez::code::hash_contract_bytecode;
+use smt_utils_hermez::code::{hash_bytecode_u256, hash_contract_bytecode};
 use smt_utils_hermez::db::MemoryDb;
 use smt_utils_hermez::smt::Smt;
 use smt_utils_hermez::utils::hashout2u;
@@ -45,7 +45,7 @@ fn test_empty_txn_list() -> anyhow::Result<()> {
     let receipts_trie = HashedPartialTrie::from(Node::Empty);
 
     let mut contract_code = HashMap::new();
-    contract_code.insert(hashout2u(hash_contract_bytecode(vec![])), vec![]);
+    contract_code.insert(hash_bytecode_u256(vec![]), vec![]);
 
     // No transactions, so no trie roots change.
     let trie_roots_after = TrieRoots {

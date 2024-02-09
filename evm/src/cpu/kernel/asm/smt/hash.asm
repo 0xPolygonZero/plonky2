@@ -16,8 +16,6 @@ global smt_hash_state:
 // hash( InternalNode { left, right } ) = Poseidon(hash(left) || hash(right) || [0,0,0,0])
 // hash( Leaf { rem_key, val_hash } ) = Poseidon(rem_key || val_hash || [1,0,0,0])
 // ```
-// where `val_hash` is `keccak(nonce || balance || storage_root || code_hash)` for accounts and
-// `val` for a storage value.
 global smt_hash:
     // stack: ptr, cur_len, retdest
     DUP1
@@ -65,7 +63,7 @@ smt_hash_internal_after_right:
     %stack (hash, cur_len, retdest) -> (retdest, hash, cur_len)
     JUMP
 
-global smt_hash_leaf:
+smt_hash_leaf:
     // stack: node, node_ptr, cur_len, retdest
     POP
     // stack: node_ptr, cur_len, retdest
@@ -74,7 +72,6 @@ global smt_hash_leaf:
     %increment
     // stack: node_ptr+1, cur_len, retdest
     DUP1 %increment
-global lalol:
     // stack: node_ptr+2, node_ptr+1, cur_len, retdest
     %mload_trie_data
     // stack: value, node_ptr+1, cur_len, retdest
@@ -93,8 +90,8 @@ global lalol:
     JUMP
 
 
-// value = sum_{0<=i<8} (a_i << (i*32))
-// return (sum_{0<=i<4} (a_i << (i*64)), sum_{4<=i<8} (a_i << ((i-4)*64)))
+// Let `v = sum_{0<=i<8} a_i.2^(i*32)` be a 256-bit integer.
+// This returns `v0, v1`, with `v0 = sum_{0<=i<4} a_i.2^(i*64)` and `v1 = sum_{0<=i<4} a_{i+4}.2^(i*64)`
 %macro split_value
     // stack: value
     DUP1 %and_const(0xffffffff)

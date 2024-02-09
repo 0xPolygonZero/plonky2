@@ -38,7 +38,7 @@ global process_type_1_txn:
 // The signatureYParity, signatureR, signatureS elements of this transaction represent a secp256k1 signature
 // over keccak256(0x01 || rlp([chainId, nonce, gasPrice, gasLimit, to, value, data, accessList])).
 type_1_compute_signed_data:
-    %alloc_rlp_block POP // Doesn't work otherwise
+    %alloc_rlp_block POP // Doesn't work otherwise. TODO: Figure out why.
     %alloc_rlp_block
     // stack: rlp_addr_start, retdest
     %mload_txn_field(@TXN_FIELD_CHAIN_ID)

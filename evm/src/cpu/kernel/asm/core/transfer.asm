@@ -29,6 +29,7 @@ global transfer_eth_failure:
 global deduct_eth:
     // stack: addr, amount, retdest
     DUP1 %insert_touched_addresses
+    DUP2 ISZERO %jumpi(deduct_eth_noop)
     DUP1 %key_balance %smt_read_state
     // stack: balance_ptr, addr, amount, retdest
     DUP1 %mload_trie_data
@@ -36,6 +37,10 @@ global deduct_eth:
     DUP1 DUP5 GT
     // stack: amount > balance, balance, balance_ptr, addr, amount, retdest
     %jumpi(deduct_eth_insufficient_balance)
+    // stack: balance, balance_ptr, addr, amount, retdest
+    DUP1 DUP5 EQ
+    // stack: amount == balance, balance, balance_ptr, addr, amount, retdest
+    %jumpi(deduct_eth_delete_balance)
     %stack (balance, balance_ptr, addr, amount, retdest) -> (balance, amount, balance_ptr, retdest, 0)
     SUB
     SWAP1
@@ -43,8 +48,16 @@ global deduct_eth:
     %mstore_trie_data
     // stack: retdest, 0
     JUMP
-global deduct_eth_insufficient_balance:
+deduct_eth_insufficient_balance:
     %stack (balance, balance_ptr, addr, amount, retdest) -> (retdest, 1)
+    JUMP
+deduct_eth_delete_balance:
+    %stack (balance, balance_ptr, addr, amount, retdest) -> (addr, retdest, 1)
+    %key_balance %smt_delete_state
+    // stack: retdest, 1
+    JUMP
+deduct_eth_noop:
+    %stack (addr, amount, retdest) -> (retdest, 0)
     JUMP
 
 // Convenience macro to call deduct_eth and return where we left off.
@@ -70,7 +83,7 @@ global add_eth:
     %stack (balance_ptr, key_balance, amount) -> (balance_ptr, amount, balance_ptr)
     // stack: balance_ptr, amount, balance_ptr, retdest
     %mload_trie_data ADD
-    // stack: balance-amount, balance_ptr, retdest
+    // stack: balance+amount, balance_ptr, retdest
     SWAP1 %mstore_trie_data
     JUMP
 add_eth_zero_balance:
