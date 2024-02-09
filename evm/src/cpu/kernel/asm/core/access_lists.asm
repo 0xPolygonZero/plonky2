@@ -105,8 +105,7 @@ global insert_accessed_addresses:
     // Check that this is not a deleted node
     %increment
     MLOAD_GENERAL
-    %eq_const(@U256_MAX)
-    %jumpi(address_found)
+    %jump_neq_const(@U256_MAX, address_found)
     // We should have found the address.
     PANIC
 address_found:
@@ -254,8 +253,7 @@ global insert_accessed_storage_keys:
     DUP1
     %add_const(3)
     MLOAD_GENERAL
-    %eq_const(@U256_MAX)
-    %jumpi(storage_key_found)
+    %jump_neq_const(@U256_MAX, storage_key_found)
     // The storage key is not in the list.
     PANIC
 storage_key_found:
