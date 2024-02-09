@@ -15,10 +15,11 @@ use starky::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsume
 use starky::evaluation_frame::StarkEvaluationFrame;
 use starky::lookup::{Column, Filter};
 use starky::stark::Stark;
+use starky::util::trace_rows_to_poly_values;
 
 use crate::all_stark::EvmStarkFrame;
 use crate::logic::columns::NUM_COLUMNS;
-use crate::util::{limb_from_bits_le, limb_from_bits_le_recursive, trace_rows_to_poly_values};
+use crate::util::{limb_from_bits_le, limb_from_bits_le_recursive};
 
 /// Total number of bits per input/output.
 const VAL_BITS: usize = 256;

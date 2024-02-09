@@ -7,6 +7,7 @@ use plonky2::hash::hash_types::RichField;
 use plonky2::timed;
 use plonky2::util::timing::TimingTree;
 use starky::config::StarkConfig;
+use starky::util::trace_rows_to_poly_values;
 
 use crate::all_stark::{AllStark, NUM_TABLES};
 use crate::arithmetic::{BinaryOperator, Operation};
@@ -14,7 +15,6 @@ use crate::byte_packing::byte_packing_stark::BytePackingOp;
 use crate::cpu::columns::CpuColumnsView;
 use crate::keccak_sponge::columns::KECCAK_WIDTH_BYTES;
 use crate::keccak_sponge::keccak_sponge_stark::KeccakSpongeOp;
-use crate::util::trace_rows_to_poly_values;
 use crate::witness::memory::MemoryOp;
 use crate::{arithmetic, keccak, keccak_sponge, logic};
 

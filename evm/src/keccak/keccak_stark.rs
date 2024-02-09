@@ -14,6 +14,7 @@ use starky::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsume
 use starky::evaluation_frame::StarkEvaluationFrame;
 use starky::lookup::{Column, Filter};
 use starky::stark::Stark;
+use starky::util::trace_rows_to_poly_values;
 
 use super::columns::reg_input_limb;
 use crate::all_stark::EvmStarkFrame;
@@ -26,7 +27,6 @@ use crate::keccak::logic::{
     andn, andn_gen, andn_gen_circuit, xor, xor3_gen, xor3_gen_circuit, xor_gen, xor_gen_circuit,
 };
 use crate::keccak::round_flags::{eval_round_flags, eval_round_flags_recursively};
-use crate::util::trace_rows_to_poly_values;
 
 /// Number of rounds in a Keccak permutation.
 pub(crate) const NUM_ROUNDS: usize = 24;
