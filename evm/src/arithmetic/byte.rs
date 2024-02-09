@@ -480,14 +480,14 @@ mod tests {
                 let out_byte = val.byte(31 - i) as u64;
                 verify_output(&lv, out_byte);
 
-                let mut constrant_consumer = ConstraintConsumer::new(
+                let mut constraint_consumer = ConstraintConsumer::new(
                     vec![GoldilocksField(2), GoldilocksField(3), GoldilocksField(5)],
                     F::ONE,
                     F::ONE,
                     F::ONE,
                 );
-                eval_packed(&lv, &mut constrant_consumer);
-                for &acc in &constrant_consumer.constraint_accs {
+                eval_packed(&lv, &mut constraint_consumer);
+                for &acc in &constraint_consumer.accumulators() {
                     assert_eq!(acc, F::ZERO);
                 }
             }

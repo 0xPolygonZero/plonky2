@@ -288,7 +288,7 @@ where
 }
 
 #[cfg(debug_assertions)]
-pub(crate) mod testutils {
+pub(crate) mod debug_utils {
     use super::*;
 
     /// Output all the extra memory rows that don't appear in the CPU trace but are

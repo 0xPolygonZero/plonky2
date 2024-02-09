@@ -1038,7 +1038,7 @@ pub fn verify_cross_table_lookups_circuit<
 }
 
 #[cfg(debug_assertions)]
-pub mod testutils {
+pub mod debug_utils {
     #[cfg(not(feature = "std"))]
     use alloc::{vec, vec::Vec};
 

@@ -15,7 +15,7 @@ use plonky2::timed;
 use plonky2::util::timing::TimingTree;
 use starky::config::StarkConfig;
 #[cfg(debug_assertions)]
-use starky::cross_table_lookup::testutils::check_ctls;
+use starky::cross_table_lookup::debug_utils::check_ctls;
 use starky::cross_table_lookup::{get_ctl_data, CtlData};
 use starky::lookup::GrandProductChallengeSet;
 use starky::proof::{MultiProof, StarkProofWithMetadata};
@@ -28,7 +28,7 @@ use crate::generation::{generate_traces, GenerationInputs};
 use crate::get_challenges::observe_public_values;
 use crate::proof::{AllProof, PublicValues};
 #[cfg(debug_assertions)]
-use crate::verifier::testutils::get_memory_extra_looking_values;
+use crate::verifier::debug_utils::get_memory_extra_looking_values;
 
 /// Generate traces, then create all STARK proofs.
 pub fn prove<F, C, const D: usize>(
