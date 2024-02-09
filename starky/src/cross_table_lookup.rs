@@ -29,6 +29,7 @@
 
 use core::cmp::min;
 use core::fmt::Debug;
+use core::iter::once;
 
 use anyhow::{ensure, Result};
 use itertools::Itertools;
@@ -118,7 +119,7 @@ impl<F: Field> CrossTableLookup<F> {
         let mut num_ctls = 0;
         let mut num_helpers_by_ctl = vec![0; ctls.len()];
         for (i, ctl) in ctls.iter().enumerate() {
-            let all_tables = std::iter::once(&ctl.looked_table).chain(&ctl.looking_tables);
+            let all_tables = once(&ctl.looked_table).chain(&ctl.looking_tables);
             let num_appearances = all_tables.filter(|twc| twc.table == table).count();
             let is_helpers = num_appearances > 2;
             if is_helpers {
@@ -1036,9 +1037,7 @@ pub fn verify_cross_table_lookups_circuit<
 
 #[cfg(debug_assertions)]
 pub mod testutils {
-    // TODO: Include hashbrown and add conditional import
-    use std::collections::HashMap;
-
+    use hashbrown::HashMap;
     use plonky2::field::polynomial::PolynomialValues;
     use plonky2::field::types::Field;
 
