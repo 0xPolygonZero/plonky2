@@ -142,7 +142,7 @@ where
     let lookups = stark.lookups();
 
     eval_vanishing_poly::<F, F::Extension, F::Extension, S, D, D>(
-        &stark,
+        stark,
         &vars,
         &lookups,
         lookup_vars,
@@ -255,7 +255,7 @@ where
         ctl_challenges,
         num_ctl_helpers,
         num_ctl_zs,
-        &ctl_zs_first,
+        ctl_zs_first,
         config,
     )?;
 

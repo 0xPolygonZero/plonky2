@@ -283,7 +283,7 @@ where
     let challenger_state = challenger.compact(&mut builder);
     builder.register_public_inputs(challenger_state.as_ref());
 
-    builder.register_public_inputs(&stark_proof_target.openings.ctl_zs_first.as_ref().unwrap());
+    builder.register_public_inputs(stark_proof_target.openings.ctl_zs_first.as_ref().unwrap());
 
     verify_stark_proof_with_challenges_circuit::<F, C, _, D>(
         &mut builder,

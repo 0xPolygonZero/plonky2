@@ -265,7 +265,7 @@ where
     CtlCheckVars::from_proofs(
         &multi_proof.stark_proofs,
         all_cross_table_lookups,
-        &ctl_challenges,
+        ctl_challenges,
         num_lookup_columns,
         &num_ctl_helper_cols,
     )

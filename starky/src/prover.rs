@@ -154,7 +154,9 @@ where
     let auxiliary_polys = match lookup_helper_columns {
         None => get_ctl_auxiliary_polys(ctl_data),
         Some(mut lookup_columns) => {
-            get_ctl_auxiliary_polys(ctl_data).map(|p| lookup_columns.extend(p));
+            if let Some(p) = get_ctl_auxiliary_polys(ctl_data) {
+                lookup_columns.extend(p)
+            };
 
             Some(lookup_columns)
         }

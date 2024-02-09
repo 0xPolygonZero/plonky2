@@ -79,7 +79,7 @@ pub fn verify_stark_proof_with_challenges_circuit<
 ) where
     C::Hasher: AlgebraicHasher<F>,
 {
-    check_lookup_options(stark, &proof, &challenges).unwrap();
+    check_lookup_options(stark, proof, &challenges).unwrap();
 
     let zero = builder.zero();
     let one = builder.one_extension();
@@ -101,7 +101,7 @@ pub fn verify_stark_proof_with_challenges_circuit<
         local_values,
         next_values,
         &public_inputs
-            .into_iter()
+            .iter()
             .map(|&t| builder.convert_to_ext(t))
             .collect::<Vec<_>>(),
     );
@@ -146,7 +146,7 @@ pub fn verify_stark_proof_with_challenges_circuit<
         "evaluate vanishing polynomial",
         eval_vanishing_poly_circuit::<F, S, D>(
             builder,
-            &stark,
+            stark,
             &vars,
             lookup_vars,
             ctl_vars,
@@ -368,8 +368,8 @@ fn check_lookup_options<F: RichField + Extendable<D>, S: Stark<F, D>, const D: u
     ];
     ensure!(
         options_is_some
-            .into_iter()
-            .all(|b| b == stark.uses_lookups() || stark.requires_ctls()),
+            .iter()
+            .all(|&b| b == stark.uses_lookups() || stark.requires_ctls()),
         "Lookups data doesn't match with Stark configuration."
     );
     Ok(())
