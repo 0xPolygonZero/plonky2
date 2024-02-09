@@ -83,7 +83,7 @@ impl<F: Field> TableWithColumns<F> {
 
 /// Cross-table lookup data consisting in the lookup table (`looked_table`) and all the tables that look into `looked_table` (`looking_tables`).
 /// Each `looking_table` corresponds to a STARK's table whose rows have been filtered out and whose columns have been through a linear combination (see `eval_table`). The concatenation of those smaller tables should result in the `looked_table`.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct CrossTableLookup<F: Field> {
     /// Column linear combinations for all tables that are looking into the current table.
     pub(crate) looking_tables: Vec<TableWithColumns<F>>,
@@ -142,7 +142,7 @@ impl<F: Field> CrossTableLookup<F> {
 }
 
 /// Cross-table lookup data for one table.
-#[derive(Clone, Default)]
+#[derive(Clone, Default, Debug)]
 pub struct CtlData<'a, F: Field> {
     /// Data associated with all Z(x) polynomials for one table.
     pub zs_columns: Vec<CtlZData<'a, F>>,
@@ -151,7 +151,7 @@ pub struct CtlData<'a, F: Field> {
 /// Cross-table lookup data associated with one Z(x) polynomial.
 /// One Z(x) polynomial can be associated to multiple tables,
 /// built from the same STARK.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct CtlZData<'a, F: Field> {
     /// Helper columns to verify the Z polynomial values.
     pub(crate) helper_columns: Vec<PolynomialValues<F>>,
@@ -467,7 +467,7 @@ fn partial_sums<F: Field>(
 }
 
 /// Data necessary to check the cross-table lookups of a given table.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct CtlCheckVars<'a, F, FE, P, const D2: usize>
 where
     F: Field,
@@ -709,7 +709,7 @@ pub(crate) fn eval_cross_table_lookup_checks<F, FE, P, S, const D: usize, const 
 }
 
 /// Circuit version of `CtlCheckVars`. Data necessary to check the cross-table lookups of a given table.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct CtlCheckVarsTarget<F: Field, const D: usize> {
     ///Evaluation of the helper columns to check that the Z polyomial
     /// was constructed correctly.

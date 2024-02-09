@@ -9,6 +9,7 @@ use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::iop::target::Target;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 
+#[derive(Debug)]
 pub struct ConstraintConsumer<P: PackedField> {
     /// Random values used to combine multiple constraints into one.
     alphas: Vec<P::Scalar>,
@@ -77,6 +78,7 @@ impl<P: PackedField> ConstraintConsumer<P> {
     }
 }
 
+#[derive(Debug)]
 pub struct RecursiveConstraintConsumer<F: RichField + Extendable<D>, const D: usize> {
     /// A random value used to combine multiple constraints into one.
     alphas: Vec<Target>,

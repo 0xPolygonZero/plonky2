@@ -1,6 +1,8 @@
 #![allow(clippy::too_many_arguments)]
 #![allow(clippy::needless_range_loop)]
 #![allow(clippy::type_complexity)]
+#![deny(rustdoc::broken_intra_doc_links)]
+#![deny(missing_debug_implementations)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
 extern crate alloc;

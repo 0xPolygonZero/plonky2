@@ -187,6 +187,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize, c
 }
 
 /// Randomness used for a STARK proof.
+#[derive(Debug)]
 pub struct StarkProofChallenges<F: RichField + Extendable<D>, const D: usize> {
     /// Randomness used in any permutation arguments.
     pub lookup_challenge_set: Option<GrandProductChallengeSet<F>>,
@@ -202,6 +203,7 @@ pub struct StarkProofChallenges<F: RichField + Extendable<D>, const D: usize> {
 }
 
 /// Circuit version of [`StarkProofChallenges`].
+#[derive(Debug)]
 pub struct StarkProofChallengesTarget<const D: usize> {
     pub lookup_challenge_set: Option<GrandProductChallengeSet<Target>>,
     pub stark_alphas: Vec<Target>,
@@ -210,6 +212,7 @@ pub struct StarkProofChallengesTarget<const D: usize> {
 }
 
 /// Randomness for all STARK proofs contained in a [`MultiProof`]`.
+#[derive(Debug)]
 pub struct MultiProofChallenges<F: RichField + Extendable<D>, const D: usize, const N: usize> {
     /// Randomness used in each STARK proof.
     pub stark_challenges: [StarkProofChallenges<F, D>; N],

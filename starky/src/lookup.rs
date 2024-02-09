@@ -394,6 +394,7 @@ impl<F: Field> Column<F> {
 
 pub(crate) type ColumnFilter<'a, F> = (&'a [Column<F>], &'a Option<Filter<F>>);
 
+#[derive(Debug)]
 pub struct Lookup<F: Field> {
     /// Columns whose values should be contained in the lookup table.
     /// These are the f_i(x) polynomials in the logUp paper.
@@ -829,6 +830,7 @@ pub(crate) fn get_helper_cols<F: Field>(
     helper_columns
 }
 
+#[derive(Debug)]
 pub struct LookupCheckVars<F, FE, P, const D2: usize>
 where
     F: Field,
@@ -906,6 +908,7 @@ pub(crate) fn eval_packed_lookups_generic<F, FE, P, S, const D: usize, const D2:
     }
 }
 
+#[derive(Debug)]
 pub struct LookupCheckVarsTarget<const D: usize> {
     pub(crate) local_values: Vec<ExtensionTarget<D>>,
     pub(crate) next_values: Vec<ExtensionTarget<D>>,
