@@ -462,30 +462,26 @@ impl<F: Field> GenerationState<F> {
     }
 
     pub(crate) fn get_addresses_access_list(&self) -> Result<AccList, ProgramError> {
-        let addr_1 = self.memory.get(MemoryAddress::new(
-            0,
-            Segment::GlobalMetadata,
-            GlobalMetadata::AccessedAddressesLen.unscale(),
-        ));
-        let acc_addr_len = u256_to_usize(
-            self.memory.get(MemoryAddress::new(
-                0,
-                Segment::GlobalMetadata,
-                GlobalMetadata::AccessedAddressesLen.unscale(),
-            )) - Segment::AccessedAddresses as usize,
-        )?;
+        // GlobalMetadata::AccessedAddressesLen stores the value of the next available virtual address in the segment.
+        // In ordert to get the length we need to substract Segment::AccessedAddresses as usize
+        let acc_addr_len =
+            u256_to_usize(self.get_global_metadata(GlobalMetadata::AccessedAddressesLen))?
+                - Segment::AccessedAddresses as usize;
         let access_address_mem: Vec<_> = (0..acc_addr_len)
             .map(|virt| {
                 self.memory
                     .get(MemoryAddress::new(0, Segment::AccessedAddresses, virt))
             })
             .collect();
-        Ok(AccList {
-            access_list_mem: access_address_mem,
-            node_size: 2,
-            offset: Segment::AccessedAddresses as usize,
-            pos: 0,
-        })
+        AccList::from_mem_and_segment(access_address_mem, Segment::AccessedAddresses)
+    }
+
+    fn get_global_metadata(&self, data: GlobalMetadata) -> U256 {
+        self.memory.get(MemoryAddress::new(
+            0,
+            Segment::GlobalMetadata,
+            data.unscale(),
+        ))
     }
 
     pub(crate) fn get_storage_keys_access_list(&self) -> Result<AccList, ProgramError> {
@@ -502,12 +498,7 @@ impl<F: Field> GenerationState<F> {
                     .get(MemoryAddress::new(0, Segment::AccessedStorageKeys, virt))
             })
             .collect();
-        Ok(AccList {
-            access_list_mem: access_storage_mem,
-            node_size: 4,
-            offset: Segment::AccessedStorageKeys as usize,
-            pos: 0,
-        })
+        AccList::from_mem_and_segment(access_storage_mem, Segment::AccessedStorageKeys)
     }
 }
 
@@ -600,11 +591,35 @@ impl<'a> Iterator for CodeIterator<'a> {
     }
 }
 
+// Iterates over a linked list implemented using a vector `access_list_mem`.
+// In this representation, the values of nodes are stored in the range `access_list_mem[i..i + node_size - 1]`,
+// and `access_list_mem[i + node_size - 1]` holds the address of the next node, where i = node_size * j.
 pub(crate) struct AccList {
     access_list_mem: Vec<U256>,
     node_size: usize,
     offset: usize,
     pos: usize,
+}
+
+impl AccList {
+    fn from_mem_and_segment(
+        access_list_mem: Vec<U256>,
+        segment: Segment,
+    ) -> Result<Self, ProgramError> {
+        if access_list_mem.is_empty() {
+            return Err(ProgramError::ProverInputError(InvalidInput));
+        }
+        Ok(Self {
+            access_list_mem,
+            node_size: match segment {
+                Segment::AccessedAddresses => 2,
+                Segment::AccessedStorageKeys => 4,
+                _ => return Err(ProgramError::ProverInputError(InvalidInput)),
+            },
+            offset: segment as usize,
+            pos: 0,
+        })
+    }
 }
 
 impl Iterator for AccList {
