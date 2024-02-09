@@ -10,11 +10,13 @@ use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::plonk::plonk_common::reduce_with_powers_ext_circuit;
 use plonky2::timed;
 use plonky2::util::timing::TimingTree;
+use starky::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
+use starky::evaluation_frame::StarkEvaluationFrame;
+use starky::lookup::{Column, Filter};
+use starky::stark::Stark;
 
 use super::columns::reg_input_limb;
 use crate::all_stark::EvmStarkFrame;
-use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
-use crate::evaluation_frame::StarkEvaluationFrame;
 use crate::keccak::columns::{
     reg_a, reg_a_prime, reg_a_prime_prime, reg_a_prime_prime_0_0_bit, reg_a_prime_prime_prime,
     reg_b, reg_c, reg_c_prime, reg_output_limb, reg_step, NUM_COLUMNS, TIMESTAMP,
@@ -24,8 +26,6 @@ use crate::keccak::logic::{
     andn, andn_gen, andn_gen_circuit, xor, xor3_gen, xor3_gen_circuit, xor_gen, xor_gen_circuit,
 };
 use crate::keccak::round_flags::{eval_round_flags, eval_round_flags_recursively};
-use crate::lookup::{Column, Filter};
-use crate::stark::Stark;
 use crate::util::trace_rows_to_poly_values;
 
 /// Number of rounds in a Keccak permutation.
@@ -631,15 +631,14 @@ mod tests {
     use plonky2::fri::oracle::PolynomialBatch;
     use plonky2::iop::challenger::Challenger;
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
-    use starky::lookup::GrandProductChallengeSet;
+    use starky::config::StarkConfig;
+    use starky::cross_table_lookup::{CtlData, CtlZData};
+    use starky::lookup::{GrandProductChallenge, GrandProductChallengeSet};
+    use starky::stark_testing::{test_stark_circuit_constraints, test_stark_low_degree};
     use tiny_keccak::keccakf;
 
     use super::*;
-    use crate::config::StarkConfig;
-    use crate::cross_table_lookup::{CtlData, CtlZData};
-    use crate::lookup::GrandProductChallenge;
     use crate::prover::prove_single_table;
-    use crate::stark_testing::{test_stark_circuit_constraints, test_stark_low_degree};
 
     #[test]
     fn test_stark_degree() -> Result<()> {

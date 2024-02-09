@@ -3,9 +3,9 @@ use plonky2::field::extension::Extendable;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::challenger::{Challenger, RecursiveChallenger};
 use plonky2::plonk::config::{AlgebraicHasher, GenericConfig};
+use starky::config::StarkConfig;
+use starky::lookup::get_grand_product_challenge_set;
 
-use crate::config::StarkConfig;
-use crate::lookup::get_grand_product_challenge_set;
 use crate::proof::*;
 use crate::util::{h256_limbs, u256_limbs, u256_to_u32, u256_to_u64};
 use crate::witness::errors::ProgramError;

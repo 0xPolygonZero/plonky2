@@ -4,10 +4,10 @@ use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
+use starky::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
+use starky::evaluation_frame::StarkEvaluationFrame;
 
 use crate::all_stark::EvmStarkFrame;
-use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
-use crate::evaluation_frame::StarkEvaluationFrame;
 use crate::keccak::columns::{reg_step, NUM_COLUMNS};
 use crate::keccak::keccak_stark::NUM_ROUNDS;
 

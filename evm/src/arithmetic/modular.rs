@@ -119,13 +119,13 @@ use plonky2::field::types::{Field, PrimeField64};
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
+use starky::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use static_assertions::const_assert;
 
 use super::columns;
 use crate::arithmetic::addcy::{eval_ext_circuit_addcy, eval_packed_generic_addcy};
 use crate::arithmetic::columns::*;
 use crate::arithmetic::utils::*;
-use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::extension_tower::BN_BASE;
 
 const fn bn254_modulus_limbs() -> [u16; N_LIMBS] {
@@ -832,10 +832,10 @@ mod tests {
     use plonky2::field::types::{Field, Sample};
     use rand::{Rng, SeedableRng};
     use rand_chacha::ChaCha8Rng;
+    use starky::constraint_consumer::ConstraintConsumer;
 
     use super::*;
     use crate::arithmetic::columns::NUM_ARITH_COLUMNS;
-    use crate::constraint_consumer::ConstraintConsumer;
     use crate::extension_tower::BN_BASE;
 
     const N_RND_TESTS: usize = 1000;

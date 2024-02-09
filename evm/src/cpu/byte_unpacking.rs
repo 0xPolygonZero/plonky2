@@ -4,8 +4,8 @@ use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
+use starky::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 
-use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::CpuColumnsView;
 
 pub(crate) fn eval_packed<P: PackedField>(

@@ -194,7 +194,8 @@ where
         .map(|data| data.num_ctl_helper_polys())
         .unwrap_or_default();
 
-    #[cfg(test)]
+    // This is an expensive check, hence is only run when `debug_assertions` are enabled.
+    #[cfg(debug_assertions)]
     {
         check_constraints(
             stark,
@@ -501,7 +502,7 @@ where
 
 /// Check that all constraints evaluate to zero on `H`.
 /// Can also be used to check the degree of the constraints by evaluating on a larger subgroup.
-#[cfg(test)]
+#[cfg(debug_assertions)]
 fn check_constraints<'a, F, C, S, const D: usize>(
     stark: &S,
     trace_commitment: &'a PolynomialBatch<F, C, D>,

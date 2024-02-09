@@ -11,13 +11,13 @@ use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::timed;
 use plonky2::util::timing::TimingTree;
 use plonky2_util::ceil_div_usize;
+use starky::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
+use starky::evaluation_frame::StarkEvaluationFrame;
+use starky::lookup::{Column, Filter};
+use starky::stark::Stark;
 
 use crate::all_stark::EvmStarkFrame;
-use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
-use crate::evaluation_frame::StarkEvaluationFrame;
 use crate::logic::columns::NUM_COLUMNS;
-use crate::lookup::{Column, Filter};
-use crate::stark::Stark;
 use crate::util::{limb_from_bits_le, limb_from_bits_le_recursive, trace_rows_to_poly_values};
 
 /// Total number of bits per input/output.
@@ -365,9 +365,9 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for LogicStark<F,
 mod tests {
     use anyhow::Result;
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
+    use starky::stark_testing::{test_stark_circuit_constraints, test_stark_low_degree};
 
     use crate::logic::LogicStark;
-    use crate::stark_testing::{test_stark_circuit_constraints, test_stark_low_degree};
 
     #[test]
     fn test_stark_degree() -> Result<()> {

@@ -10,13 +10,13 @@ use plonky2::hash::hash_types::RichField;
 use plonky2::timed;
 use plonky2::util::timing::TimingTree;
 use serde::{Deserialize, Serialize};
+use starky::config::StarkConfig;
 use GlobalMetadata::{
     ReceiptTrieRootDigestAfter, ReceiptTrieRootDigestBefore, StateTrieRootDigestAfter,
     StateTrieRootDigestBefore, TransactionTrieRootDigestAfter, TransactionTrieRootDigestBefore,
 };
 
 use crate::all_stark::{AllStark, NUM_TABLES};
-use crate::config::StarkConfig;
 use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;

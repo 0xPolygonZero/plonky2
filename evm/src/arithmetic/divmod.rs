@@ -11,13 +11,13 @@ use plonky2::field::types::PrimeField64;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
+use starky::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 
 use crate::arithmetic::columns::*;
 use crate::arithmetic::modular::{
     generate_modular_op, modular_constr_poly, modular_constr_poly_ext_circuit,
 };
 use crate::arithmetic::utils::*;
-use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 
 /// Generates the output and auxiliary values for modular operations,
 /// assuming the input, modular and output limbs are already set.
@@ -215,10 +215,10 @@ mod tests {
     use plonky2::field::types::{Field, Sample};
     use rand::{Rng, SeedableRng};
     use rand_chacha::ChaCha8Rng;
+    use starky::constraint_consumer::ConstraintConsumer;
 
     use super::*;
     use crate::arithmetic::columns::NUM_ARITH_COLUMNS;
-    use crate::constraint_consumer::ConstraintConsumer;
 
     const N_RND_TESTS: usize = 1000;
     const MODULAR_OPS: [usize; 2] = [IS_MOD, IS_DIV];

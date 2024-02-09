@@ -20,25 +20,24 @@ use plonky2::util::serialization::{
     Buffer, GateSerializer, IoResult, Read, WitnessGeneratorSerializer, Write,
 };
 use plonky2_util::log2_ceil;
-use starky::lookup::GrandProductChallengeSet;
+use starky::config::StarkConfig;
+use starky::cross_table_lookup::{CrossTableLookup, CtlCheckVarsTarget};
+use starky::lookup::{GrandProductChallenge, GrandProductChallengeSet};
+use starky::proof::{StarkProofTarget, StarkProofWithMetadata};
 use starky::recursive_verifier::{
     add_virtual_stark_proof, set_stark_proof_target, verify_stark_proof_with_challenges_circuit,
 };
+use starky::stark::Stark;
 
 use crate::all_stark::Table;
-use crate::config::StarkConfig;
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
-use crate::cross_table_lookup::{CrossTableLookup, CtlCheckVarsTarget};
-use crate::lookup::GrandProductChallenge;
 use crate::memory::segments::Segment;
 use crate::memory::VALUE_LIMBS;
 use crate::proof::{
     BlockHashes, BlockHashesTarget, BlockMetadata, BlockMetadataTarget, ExtraBlockData,
-    ExtraBlockDataTarget, PublicValues, PublicValuesTarget, StarkProofTarget,
-    StarkProofWithMetadata, TrieRoots, TrieRootsTarget,
+    ExtraBlockDataTarget, PublicValues, PublicValuesTarget, TrieRoots, TrieRootsTarget,
 };
-use crate::stark::Stark;
 use crate::util::{h256_limbs, u256_limbs, u256_to_u32, u256_to_u64};
 use crate::witness::errors::ProgramError;
 

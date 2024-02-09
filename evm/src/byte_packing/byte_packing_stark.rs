@@ -37,6 +37,10 @@ use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::timed;
 use plonky2::util::timing::TimingTree;
 use plonky2::util::transpose;
+use starky::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
+use starky::evaluation_frame::StarkEvaluationFrame;
+use starky::lookup::{Column, Filter, Lookup};
+use starky::stark::Stark;
 
 use super::NUM_BYTES;
 use crate::all_stark::EvmStarkFrame;
@@ -44,10 +48,6 @@ use crate::byte_packing::columns::{
     index_len, value_bytes, ADDR_CONTEXT, ADDR_SEGMENT, ADDR_VIRTUAL, IS_READ, LEN_INDICES_COLS,
     NUM_COLUMNS, RANGE_COUNTER, RC_FREQUENCIES, TIMESTAMP,
 };
-use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
-use crate::evaluation_frame::StarkEvaluationFrame;
-use crate::lookup::{Column, Filter, Lookup};
-use crate::stark::Stark;
 use crate::witness::memory::MemoryAddress;
 
 /// Strict upper bound for the individual bytes range-check.
@@ -408,9 +408,9 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for BytePackingSt
 pub(crate) mod tests {
     use anyhow::Result;
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
+    use starky::stark_testing::{test_stark_circuit_constraints, test_stark_low_degree};
 
     use crate::byte_packing::byte_packing_stark::BytePackingStark;
-    use crate::stark_testing::{test_stark_circuit_constraints, test_stark_low_degree};
 
     #[test]
     fn test_stark_degree() -> Result<()> {

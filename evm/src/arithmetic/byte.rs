@@ -69,11 +69,11 @@ use plonky2::field::types::{Field, PrimeField64};
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
+use starky::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use static_assertions::const_assert;
 
 use crate::arithmetic::columns::*;
 use crate::arithmetic::utils::u256_to_array;
-use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 
 // Give meaningful names to the columns of AUX_INPUT_REGISTER_0 that
 // we're using

@@ -22,10 +22,10 @@ use plonky2::field::types::{Field, PrimeField64};
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
+use starky::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 
 use crate::arithmetic::columns::*;
 use crate::arithmetic::utils::u256_to_array;
-use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 
 /// Generate row for ADD, SUB, GT and LT operations.
 pub(crate) fn generate<F: PrimeField64>(
@@ -263,10 +263,10 @@ mod tests {
     use plonky2::field::types::{Field, Sample};
     use rand::{Rng, SeedableRng};
     use rand_chacha::ChaCha8Rng;
+    use starky::constraint_consumer::ConstraintConsumer;
 
     use super::*;
     use crate::arithmetic::columns::NUM_ARITH_COLUMNS;
-    use crate::constraint_consumer::ConstraintConsumer;
 
     // TODO: Should be able to refactor this test to apply to all operations.
     #[test]

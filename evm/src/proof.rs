@@ -6,12 +6,11 @@ use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::config::GenericConfig;
 use plonky2::util::serialization::{Buffer, IoResult, Read, Write};
 use serde::{Deserialize, Serialize};
-// TODO: move to lib
-pub use starky::proof::*;
+use starky::config::StarkConfig;
+use starky::lookup::GrandProductChallengeSet;
+use starky::proof::{MultiProof, StarkProofChallenges};
 
 use crate::all_stark::NUM_TABLES;
-use crate::config::StarkConfig;
-use crate::lookup::GrandProductChallengeSet;
 use crate::util::{get_h160, get_h256, h2u};
 
 /// A STARK proof for each table, plus some metadata used to create recursive wrapper proofs.

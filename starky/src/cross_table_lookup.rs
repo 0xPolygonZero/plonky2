@@ -1034,7 +1034,9 @@ pub fn verify_cross_table_lookups_circuit<
     debug_assert!(ctl_zs_openings.iter_mut().all(|iter| iter.next().is_none()));
 }
 
+#[cfg(debug_assertions)]
 pub mod testutils {
+    // TODO: Include hashbrown and add conditional import
     use std::collections::HashMap;
 
     use plonky2::field::polynomial::PolynomialValues;
@@ -1048,9 +1050,10 @@ pub mod testutils {
     pub fn check_ctls<F: Field>(
         trace_poly_values: &[Vec<PolynomialValues<F>>],
         cross_table_lookups: &[CrossTableLookup<F>],
+        extra_looking_values: &HashMap<TableIdx, Vec<Vec<F>>>,
     ) {
         for (i, ctl) in cross_table_lookups.iter().enumerate() {
-            check_ctl(trace_poly_values, ctl, i);
+            check_ctl(trace_poly_values, ctl, i, extra_looking_values.get(&i));
         }
     }
 
@@ -1058,6 +1061,7 @@ pub mod testutils {
         trace_poly_values: &[Vec<PolynomialValues<F>>],
         ctl: &CrossTableLookup<F>,
         ctl_index: usize,
+        extra_looking_values: Option<&Vec<Vec<F>>>,
     ) {
         let CrossTableLookup {
             looking_tables,
@@ -1073,6 +1077,18 @@ pub mod testutils {
             process_table(trace_poly_values, table, &mut looking_multiset);
         }
         process_table(trace_poly_values, looked_table, &mut looked_multiset);
+
+        // Include extra looking values if any for this `ctl_index`.
+        if let Some(values) = extra_looking_values {
+            for row in values.iter() {
+                // The table and the row index don't matter here, as we just want to enforce
+                // that the special extra values do appear when looking against the specified table.
+                looking_multiset
+                    .entry(row.to_vec())
+                    .or_default()
+                    .push((0, 0));
+            }
+        }
 
         let empty = &vec![];
         // Check that every row in the looking tables appears in the looked table the same number of times.

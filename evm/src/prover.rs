@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
@@ -12,23 +13,22 @@ use plonky2::iop::challenger::Challenger;
 use plonky2::plonk::config::GenericConfig;
 use plonky2::timed;
 use plonky2::util::timing::TimingTree;
-use starky::cross_table_lookup::get_ctl_data;
+use starky::config::StarkConfig;
+#[cfg(debug_assertions)]
+use starky::cross_table_lookup::testutils::check_ctls;
+use starky::cross_table_lookup::{get_ctl_data, CtlData};
 use starky::lookup::GrandProductChallengeSet;
-use starky::proof::MultiProof;
+use starky::proof::{MultiProof, StarkProofWithMetadata};
 use starky::prover::prove_with_commitment;
+use starky::stark::Stark;
 
 use crate::all_stark::{AllStark, Table, NUM_TABLES};
-use crate::config::StarkConfig;
 use crate::cpu::kernel::aggregator::KERNEL;
-use crate::cross_table_lookup::CtlData;
 use crate::generation::{generate_traces, GenerationInputs};
 use crate::get_challenges::observe_public_values;
-use crate::proof::{AllProof, PublicValues, StarkProofWithMetadata};
-use crate::stark::Stark;
-#[cfg(test)]
-use crate::{
-    cross_table_lookup::testutils::check_ctls, verifier::testutils::get_memory_extra_looking_values,
-};
+use crate::proof::{AllProof, PublicValues};
+#[cfg(debug_assertions)]
+use crate::verifier::testutils::get_memory_extra_looking_values;
 
 /// Generate traces, then create all STARK proofs.
 pub fn prove<F, C, const D: usize>(
@@ -143,12 +143,18 @@ where
         )?
     );
 
-    #[cfg(test)]
+    // This is an expensive check, hence is only run when `debug_assertions` are enabled.
+    #[cfg(debug_assertions)]
     {
+        let mut extra_values = HashMap::new();
+        extra_values.insert(
+            *Table::Memory,
+            get_memory_extra_looking_values(&public_values),
+        );
         check_ctls(
             &trace_poly_values,
             &all_stark.cross_table_lookups,
-            // &get_memory_extra_looking_values(&public_values),
+            &extra_values,
         );
     }
 

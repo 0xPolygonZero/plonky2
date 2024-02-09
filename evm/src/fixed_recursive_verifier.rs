@@ -29,16 +29,18 @@ use plonky2::util::serialization::{
 };
 use plonky2::util::timing::TimingTree;
 use plonky2_util::log2_ceil;
+use starky::config::StarkConfig;
+use starky::cross_table_lookup::{verify_cross_table_lookups_circuit, CrossTableLookup};
 use starky::lookup::{get_grand_product_challenge_set_target, GrandProductChallengeSet};
+use starky::proof::StarkProofWithMetadata;
+use starky::stark::Stark;
 
 use crate::all_stark::{all_cross_table_lookups, AllStark, Table, NUM_TABLES};
-use crate::config::StarkConfig;
-use crate::cross_table_lookup::{verify_cross_table_lookups_circuit, CrossTableLookup};
 use crate::generation::GenerationInputs;
 use crate::get_challenges::observe_public_values_target;
 use crate::proof::{
     AllProof, BlockHashesTarget, BlockMetadataTarget, ExtraBlockData, ExtraBlockDataTarget,
-    PublicValues, PublicValuesTarget, StarkProofWithMetadata, TrieRoots, TrieRootsTarget,
+    PublicValues, PublicValuesTarget, TrieRoots, TrieRootsTarget,
 };
 use crate::prover::{check_abort_signal, prove};
 use crate::recursive_verifier::{
@@ -46,7 +48,6 @@ use crate::recursive_verifier::{
     recursive_stark_circuit, set_public_value_targets, PlonkWrapperCircuit, PublicInputs,
     StarkWrapperCircuit,
 };
-use crate::stark::Stark;
 use crate::util::h256_limbs;
 
 /// The recursion threshold. We end a chain of recursive proofs once we reach this size.

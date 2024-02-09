@@ -4,19 +4,18 @@ use itertools::Itertools;
 use plonky2::field::extension::Extendable;
 use plonky2::hash::hash_types::RichField;
 use plonky2::plonk::config::GenericConfig;
-use starky::cross_table_lookup::get_ctl_vars_from_proofs;
+use starky::config::StarkConfig;
+use starky::cross_table_lookup::{get_ctl_vars_from_proofs, verify_cross_table_lookups};
+use starky::lookup::GrandProductChallenge;
+use starky::stark::Stark;
 use starky::verifier::verify_stark_proof_with_challenges;
 
 use crate::all_stark::{AllStark, Table, NUM_TABLES};
-use crate::config::StarkConfig;
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
-use crate::cross_table_lookup::verify_cross_table_lookups;
-use crate::lookup::GrandProductChallenge;
 use crate::memory::segments::Segment;
 use crate::memory::VALUE_LIMBS;
 use crate::proof::{AllProof, AllProofChallenges, PublicValues};
-use crate::stark::Stark;
 use crate::util::h2u;
 
 pub fn verify_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
@@ -288,7 +287,7 @@ where
     running_sum + challenge.combine(row.iter()).inverse()
 }
 
-#[cfg(test)]
+#[cfg(debug_assertions)]
 pub(crate) mod testutils {
     use super::*;
 

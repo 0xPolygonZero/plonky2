@@ -27,11 +27,11 @@ use plonky2::field::types::PrimeField64;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
+use starky::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 
 use super::{divmod, mul};
 use crate::arithmetic::columns::*;
 use crate::arithmetic::utils::*;
-use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 
 /// Generates a shift operation (either SHL or SHR).
 /// The inputs are stored in the form `(shift, input, 1 << shift)`.
@@ -184,10 +184,10 @@ mod tests {
     use plonky2::field::types::{Field, Sample};
     use rand::{Rng, SeedableRng};
     use rand_chacha::ChaCha8Rng;
+    use starky::constraint_consumer::ConstraintConsumer;
 
     use super::*;
     use crate::arithmetic::columns::NUM_ARITH_COLUMNS;
-    use crate::constraint_consumer::ConstraintConsumer;
 
     const N_RND_TESTS: usize = 1000;
 

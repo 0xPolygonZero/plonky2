@@ -9,6 +9,11 @@ use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::util::transpose;
+use starky::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
+use starky::cross_table_lookup::TableWithColumns;
+use starky::evaluation_frame::StarkEvaluationFrame;
+use starky::lookup::{Column, Filter, Lookup};
+use starky::stark::Stark;
 use static_assertions::const_assert;
 
 use super::columns::{op_flags, NUM_ARITH_COLUMNS};
@@ -16,11 +21,6 @@ use super::shift;
 use crate::all_stark::{EvmStarkFrame, Table};
 use crate::arithmetic::columns::{NUM_SHARED_COLS, RANGE_COUNTER, RC_FREQUENCIES, SHARED_COLS};
 use crate::arithmetic::{addcy, byte, columns, divmod, modular, mul, Operation};
-use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
-use crate::cross_table_lookup::TableWithColumns;
-use crate::evaluation_frame::StarkEvaluationFrame;
-use crate::lookup::{Column, Filter, Lookup};
-use crate::stark::Stark;
 
 /// Creates a vector of `Columns` to link the 16-bit columns of the arithmetic table,
 /// split into groups of N_LIMBS at a time in `regs`, with the corresponding 32-bit
@@ -335,11 +335,11 @@ mod tests {
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use rand::{Rng, SeedableRng};
     use rand_chacha::ChaCha8Rng;
+    use starky::stark_testing::{test_stark_circuit_constraints, test_stark_low_degree};
 
     use super::{columns, ArithmeticStark};
     use crate::arithmetic::columns::OUTPUT_REGISTER;
     use crate::arithmetic::*;
-    use crate::stark_testing::{test_stark_circuit_constraints, test_stark_low_degree};
 
     #[test]
     fn degree() -> Result<()> {
