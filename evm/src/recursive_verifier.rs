@@ -231,7 +231,7 @@ where
         );
     let num_ctl_helper_zs = num_ctl_zs + total_num_helpers;
 
-    let proof_target = add_virtual_stark_proof(
+    let stark_proof_target = add_virtual_stark_proof(
         &mut builder,
         stark,
         inner_config,
@@ -241,7 +241,7 @@ where
     );
 
     builder.register_public_inputs(
-        &proof_target
+        &stark_proof_target
             .trace_cap
             .0
             .iter()
@@ -260,7 +260,7 @@ where
 
     let ctl_vars = CtlCheckVarsTarget::from_proof(
         *table,
-        &proof_target,
+        &stark_proof_target,
         cross_table_lookups,
         &ctl_challenges_target,
         num_lookup_columns,
@@ -274,7 +274,7 @@ where
         }));
     let mut challenger =
         RecursiveChallenger::<F, C::Hasher, D>::from_state(init_challenger_state_target);
-    let challenges = proof_target.get_challenges::<F, C>(
+    let challenges = stark_proof_target.get_challenges::<F, C>(
         &mut builder,
         &mut challenger,
         Some(&ctl_challenges_target),
@@ -284,12 +284,12 @@ where
     let challenger_state = challenger.compact(&mut builder);
     builder.register_public_inputs(challenger_state.as_ref());
 
-    builder.register_public_inputs(&proof_target.openings.ctl_zs_first.as_ref().unwrap());
+    builder.register_public_inputs(&stark_proof_target.openings.ctl_zs_first.as_ref().unwrap());
 
     verify_stark_proof_with_challenges_circuit::<F, C, _, D>(
         &mut builder,
         stark,
-        &proof_target,
+        &stark_proof_target,
         &[], // public inputs
         challenges,
         Some(&ctl_vars),
@@ -306,7 +306,7 @@ where
     let circuit = builder.build::<C>();
     StarkWrapperCircuit {
         circuit,
-        stark_proof_target: proof_target,
+        stark_proof_target,
         ctl_challenges_target,
         init_challenger_state_target,
         zero_target,

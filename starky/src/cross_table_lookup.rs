@@ -796,8 +796,6 @@ impl<'a, F: Field, const D: usize> CtlCheckVarsTarget<F, D> {
 
                     start_index += num_helper_ctl_columns[i];
                     z_index += 1;
-                    // let columns = group.0.clone();
-                    // let filter = group.1.clone();
                     ctl_vars.push(Self {
                         helper_columns,
                         local_z: *looking_z,

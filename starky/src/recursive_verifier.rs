@@ -48,7 +48,7 @@ pub fn verify_stark_proof_circuit<
     let challenges = with_context!(
         builder,
         "compute challenges",
-        proof_with_pis.get_challenges::<F, C>(builder, &mut challenger, None, inner_config)
+        proof_with_pis.get_challenges::<F, C>(builder, &mut challenger, None, false, inner_config)
     );
 
     verify_stark_proof_with_challenges_circuit::<F, C, S, D>(
@@ -124,20 +124,16 @@ pub fn verify_stark_proof_with_challenges_circuit<
     );
 
     let num_lookup_columns = stark.num_lookup_helper_columns(inner_config);
-    let lookup_challenges = if stark.uses_lookups() {
-        Some(
-            challenges
-                .lookup_challenge_set
-                .as_ref()
-                .unwrap()
-                .challenges
-                .iter()
-                .map(|ch| ch.beta)
-                .collect::<Vec<_>>(),
-        )
-    } else {
-        None
-    };
+    let lookup_challenges = stark.uses_lookups().then(|| {
+        challenges
+            .lookup_challenge_set
+            .as_ref()
+            .unwrap()
+            .challenges
+            .iter()
+            .map(|ch| ch.beta)
+            .collect::<Vec<_>>()
+    });
 
     let lookup_vars = stark.uses_lookups().then(|| LookupCheckVarsTarget {
         local_values: auxiliary_polys.as_ref().unwrap()[..num_lookup_columns].to_vec(),

@@ -42,9 +42,9 @@ where
     }
 
     let lookup_challenge_set = if let Some(&challenges) = challenges.as_ref() {
-        challenges.clone()
+        Some(challenges.clone())
     } else {
-        get_grand_product_challenge_set(challenger, num_challenges)
+        Some(get_grand_product_challenge_set(challenger, num_challenges))
     };
 
     if let Some(cap) = &auxiliary_polys_cap {
@@ -59,7 +59,7 @@ where
     challenger.observe_openings(&openings.to_fri_openings());
 
     StarkProofChallenges {
-        lookup_challenge_set: Some(lookup_challenge_set),
+        lookup_challenge_set,
         stark_alphas,
         stark_zeta,
         fri_challenges: challenger.fri_challenges::<C, D>(
@@ -170,13 +170,16 @@ where
     let lookup_challenge_set = if let Some(&challenges) = challenges.as_ref() {
         Some(challenges.clone())
     } else {
-        println!("Not goot: creating lookup challenges");
-        auxiliary_polys_cap.map(|auxiliary_polys_cap| {
-            let tmp = get_grand_product_challenge_set_target(builder, challenger, num_challenges);
-            challenger.observe_cap(auxiliary_polys_cap);
-            tmp
-        })
+        Some(get_grand_product_challenge_set_target(
+            builder,
+            challenger,
+            num_challenges,
+        ))
     };
+
+    if let Some(cap) = auxiliary_polys_cap {
+        challenger.observe_cap(cap);
+    }
 
     let stark_alphas = challenger.get_n_challenges(builder, num_challenges);
 
