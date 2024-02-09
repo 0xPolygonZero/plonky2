@@ -508,6 +508,12 @@ where
 
 /// Check that all constraints evaluate to zero on `H`.
 /// Can also be used to check the degree of the constraints by evaluating on a larger subgroup.
+///
+/// Debugging module, to assert that all constraints evaluate to zero on `H`.
+/// It can also be used to check the degree of the constraints by evaluating on a larger subgroup.
+///
+/// **Note**: this is an expensive check, hence is only available when the `debug_assertions`
+/// flag is activated, to not hinder performances with regular `release` build.
 #[cfg(debug_assertions)]
 fn check_constraints<'a, F, C, S, const D: usize>(
     stark: &S,

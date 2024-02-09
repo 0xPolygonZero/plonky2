@@ -37,6 +37,7 @@ pub struct Filter<F: Field> {
 }
 
 impl<F: Field> Filter<F> {
+    /// Returns a filter from the provided `products` and `constants` vectors.
     pub fn new(products: Vec<(Column<F>, Column<F>)>, constants: Vec<Column<F>>) -> Self {
         Self {
             products,
@@ -394,13 +395,24 @@ impl<F: Field> Column<F> {
 
 pub(crate) type ColumnFilter<'a, F> = (&'a [Column<F>], &'a Option<Filter<F>>);
 
+/// A `Lookup` defines a set of `columns`` whose values should appear in a
+/// `table_column` (i.e. the lookup table associated to these looking columns),
+/// along with a `frequencies_column` indicating the frequency of each looking
+/// column in the looked table.
+///
+/// It also features a `filter_columns` vector, optionally adding at most one
+/// filter per looking column.
+///
+/// The lookup argumented implemented here is based on logarithmic derivatives,
+/// a technique described with the whole lookup protocol in
+/// <https://eprint.iacr.org/2022/1530>.
 #[derive(Debug)]
 pub struct Lookup<F: Field> {
     /// Columns whose values should be contained in the lookup table.
     /// These are the f_i(x) polynomials in the logUp paper.
     pub columns: Vec<Column<F>>,
     /// Column containing the lookup table.
-    /// This is the t(x) polynomial in the paper.
+    /// This is the t(x) polynomial in the logUp paper.
     pub table_column: Column<F>,
     /// Column containing the frequencies of `columns` in `table_column`.
     /// This is the m(x) polynomial in the paper.
@@ -412,6 +424,7 @@ pub struct Lookup<F: Field> {
 }
 
 impl<F: Field> Lookup<F> {
+    /// Outputs the number of helper columns needed by this `Lookup`.
     pub fn num_helper_columns(&self, constraint_degree: usize) -> usize {
         // One helper column for each column batch of size `constraint_degree-1`,
         // then one column for the inverse of `table + challenge` and one for the `Z` polynomial.
@@ -429,6 +442,9 @@ pub struct GrandProductChallenge<T: Copy + Eq + PartialEq + Debug> {
 }
 
 impl<F: Field> GrandProductChallenge<F> {
+    /// Combines a series of values `t_i` with these challenge random values.
+    /// In particular, given `beta` and `gamma` challenges, this will compute
+    /// `(Σ t_i * beta^i) + gamma`.
     pub fn combine<'a, FE, P, T: IntoIterator<Item = &'a P>, const D2: usize>(&self, terms: T) -> P
     where
         FE: FieldExtension<D2, BaseField = F>,
@@ -452,6 +468,7 @@ impl GrandProductChallenge<Target> {
 }
 
 impl GrandProductChallenge<Target> {
+    /// Circuit version of `combine`.
     pub fn combine_base_circuit<F: RichField + Extendable<D>, const D: usize>(
         &self,
         builder: &mut CircuitBuilder<F, D>,
@@ -465,10 +482,13 @@ impl GrandProductChallenge<Target> {
 /// Like `GrandProductChallenge`, but with `num_challenges` copies to boost soundness.
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub struct GrandProductChallengeSet<T: Copy + Eq + PartialEq + Debug> {
+    /// A sequence of `num_challenges` challenge pairs, where `num_challenges`
+    /// is defined in [`StarkConfig`][crate::config::StarkConfig].
     pub challenges: Vec<GrandProductChallenge<T>>,
 }
 
 impl GrandProductChallengeSet<Target> {
+    /// Serializes this `GrandProductChallengeSet` of `Target`s.
     pub fn to_buffer(&self, buffer: &mut Vec<u8>) -> IoResult<()> {
         buffer.write_usize(self.challenges.len())?;
         for challenge in &self.challenges {
@@ -478,6 +498,7 @@ impl GrandProductChallengeSet<Target> {
         Ok(())
     }
 
+    /// Serializes a `GrandProductChallengeSet` of `Target`s from the provided buffer.
     pub fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
         let length = buffer.read_usize()?;
         let mut challenges = Vec::with_capacity(length);
@@ -500,6 +521,8 @@ fn get_grand_product_challenge<F: RichField, H: Hasher<F>>(
     GrandProductChallenge { beta, gamma }
 }
 
+/// Generates a new `GrandProductChallengeSet` containing `num_challenges`
+/// pairs of challenges from the current `challenger` state.
 pub fn get_grand_product_challenge_set<F: RichField, H: Hasher<F>>(
     challenger: &mut Challenger<F, H>,
     num_challenges: usize,
@@ -510,7 +533,7 @@ pub fn get_grand_product_challenge_set<F: RichField, H: Hasher<F>>(
     GrandProductChallengeSet { challenges }
 }
 
-pub fn get_grand_product_challenge_target<
+fn get_grand_product_challenge_target<
     F: RichField + Extendable<D>,
     H: AlgebraicHasher<F>,
     const D: usize,
@@ -523,6 +546,7 @@ pub fn get_grand_product_challenge_target<
     GrandProductChallenge { beta, gamma }
 }
 
+/// Circuit version of `get_grand_product_challenge_set`.
 pub fn get_grand_product_challenge_set_target<
     F: RichField + Extendable<D>,
     H: AlgebraicHasher<F>,
@@ -831,7 +855,7 @@ pub(crate) fn get_helper_cols<F: Field>(
 }
 
 #[derive(Debug)]
-pub struct LookupCheckVars<F, FE, P, const D2: usize>
+pub(crate) struct LookupCheckVars<F, FE, P, const D2: usize>
 where
     F: Field,
     FE: FieldExtension<D2, BaseField = F>,
@@ -909,7 +933,7 @@ pub(crate) fn eval_packed_lookups_generic<F, FE, P, S, const D: usize, const D2:
 }
 
 #[derive(Debug)]
-pub struct LookupCheckVarsTarget<const D: usize> {
+pub(crate) struct LookupCheckVarsTarget<const D: usize> {
     pub(crate) local_values: Vec<ExtensionTarget<D>>,
     pub(crate) next_values: Vec<ExtensionTarget<D>>,
     pub(crate) challenges: Vec<Target>,

@@ -49,6 +49,10 @@ pub fn verify_stark_proof<
     )
 }
 
+/// Verifies a [`StarkProofWithPublicInputs`] against a STARK statement,
+/// with the provided [`StarkProofChallenges`].
+/// It also supports optional cross-table lookups data and challenges,
+/// in case this proof is part of a multi-STARK system.
 pub fn verify_stark_proof_with_challenges<F, C, S, const D: usize>(
     stark: &S,
     proof: &StarkProof<F, C, D>,

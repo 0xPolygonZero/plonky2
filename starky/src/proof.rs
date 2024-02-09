@@ -48,12 +48,19 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> S
     }
 }
 
+/// Circuit version of [`StarkProof`].
+/// Merkle caps and openings that form the proof of a single STARK.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct StarkProofTarget<const D: usize> {
+    /// `Target` for the Merkle cap if LDEs of trace values.
     pub trace_cap: MerkleCapTarget,
+    /// `Target` for the Merkle cap of LDEs of lookup helper and CTL columns.
     pub auxiliary_polys_cap: Option<MerkleCapTarget>,
+    /// `Target` for the Merkle cap of LDEs of quotient polynomial evaluations.
     pub quotient_polys_cap: MerkleCapTarget,
+    /// `Target`s for the purported values of each polynomial at the challenge point.
     pub openings: StarkOpeningSetTarget<D>,
+    /// `Target`s for the batch FRI argument for all openings.
     pub opening_proof: FriProofTarget<D>,
 }
 
@@ -110,14 +117,19 @@ pub struct StarkProofWithPublicInputs<
     C: GenericConfig<D, F = F>,
     const D: usize,
 > {
+    /// A STARK proof.
     pub proof: StarkProof<F, C, D>,
+    /// Public inputs associated to this STARK proof.
     // TODO: Maybe make it generic over a `S: Stark` and replace with `[F; S::PUBLIC_INPUTS]`.
     pub public_inputs: Vec<F>,
 }
 
+/// Circuit version of [`StarkProofWithPublicInputs`].
 #[derive(Debug, Clone)]
 pub struct StarkProofWithPublicInputsTarget<const D: usize> {
+    /// `Target` STARK proof.
     pub proof: StarkProofTarget<D>,
+    /// `Target` public inputs for this STARK proof.
     pub public_inputs: Vec<Target>,
 }
 
@@ -143,7 +155,9 @@ pub struct CompressedStarkProofWithPublicInputs<
     C: GenericConfig<D, F = F>,
     const D: usize,
 > {
+    /// A compressed STARK proof.
     pub proof: CompressedStarkProof<F, C, D>,
+    /// Public inputs for this compressed STARK proof.
     pub public_inputs: Vec<F>,
 }
 
@@ -189,15 +203,12 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize, c
 /// Randomness used for a STARK proof.
 #[derive(Debug)]
 pub struct StarkProofChallenges<F: RichField + Extendable<D>, const D: usize> {
-    /// Randomness used in any permutation arguments.
+    /// Optional randomness used in any permutation arguments.
     pub lookup_challenge_set: Option<GrandProductChallengeSet<F>>,
-
     /// Random values used to combine STARK constraints.
     pub stark_alphas: Vec<F>,
-
     /// Point at which the STARK polynomials are opened.
     pub stark_zeta: F::Extension,
-
     /// Randomness used in FRI.
     pub fri_challenges: FriChallenges<F, D>,
 }
@@ -205,9 +216,13 @@ pub struct StarkProofChallenges<F: RichField + Extendable<D>, const D: usize> {
 /// Circuit version of [`StarkProofChallenges`].
 #[derive(Debug)]
 pub struct StarkProofChallengesTarget<const D: usize> {
+    /// Optional `Target`'s randomness used in any permutation arguments.
     pub lookup_challenge_set: Option<GrandProductChallengeSet<Target>>,
+    /// `Target`s for the random values used to combine STARK constraints.
     pub stark_alphas: Vec<Target>,
+    /// `ExtensionTarget` for the point at which the STARK polynomials are opened.
     pub stark_zeta: ExtensionTarget<D>,
+    /// `Target`s for the randomness used in FRI.
     pub fri_challenges: FriChallengesTarget<D>,
 }
 
@@ -328,7 +343,7 @@ impl<F: RichField + Extendable<D>, const D: usize> StarkOpeningSet<F, D> {
     }
 }
 
-/// Circuit version of `StarkOpeningSet`.
+/// Circuit version of [`StarkOpeningSet`].
 /// `Target`s for the purported values of each polynomial at the challenge point.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct StarkOpeningSetTarget<const D: usize> {
@@ -398,7 +413,7 @@ impl<const D: usize> StarkOpeningSetTarget<D> {
         })
     }
 
-    /// Circuit version of `to_fri_openings`for `FriOpeningsTarget`.
+    /// Circuit version of `to_fri_openings`for [`FriOpeningsTarget`].
     pub(crate) fn to_fri_openings(&self, zero: Target) -> FriOpeningsTarget<D> {
         let zeta_batch = FriOpeningBatchTarget {
             values: self

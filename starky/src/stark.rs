@@ -69,10 +69,10 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
         self.eval_packed_generic(vars, yield_constr)
     }
 
-    /// Evaluates constraints at a vector of points from the degree `D` extension field. This is like
-    /// `eval_ext`, except in the context of a recursive circuit.
-    /// Note: constraints must be added through`yield_constr.constraint(builder, constraint)` in the
-    /// same order as they are given in `eval_packed_generic`.
+    /// Evaluates constraints at a vector of points from the degree `D` extension field.
+    /// This is like `eval_ext`, except in the context of a recursive circuit.
+    /// Note: constraints must be added through`yield_constr.constraint(builder, constraint)`
+    /// in the same order as they are given in `eval_packed_generic`.
     fn eval_ext_circuit(
         &self,
         builder: &mut CircuitBuilder<F, D>,
@@ -80,14 +80,16 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
         yield_constr: &mut RecursiveConstraintConsumer<F, D>,
     );
 
-    /// The maximum constraint degree.
+    /// Outputs the maximum constraint degree of this [`Stark`].
     fn constraint_degree(&self) -> usize;
 
-    /// The maximum constraint degree.
+    /// Outputs the maximum quotient polynomial's degree factor of this [`Stark`].
     fn quotient_degree_factor(&self) -> usize {
         1.max(self.constraint_degree() - 1)
     }
 
+    /// Outputs the number of quotient polynomials this [`Stark`] would require with
+    /// the provided [`StarkConfig`]
     fn num_quotient_polys(&self, config: &StarkConfig) -> usize {
         self.quotient_degree_factor() * config.num_challenges
     }
@@ -237,6 +239,8 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
         vec![]
     }
 
+    /// Outputs the number of total lookup helper columns, based on this STARK's vector
+    /// of [`Lookup`] and the number of challenges used by this [`StarkConfig`].
     fn num_lookup_helper_columns(&self, config: &StarkConfig) -> usize {
         self.lookups()
             .iter()
@@ -245,6 +249,8 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
             * config.num_challenges
     }
 
+    /// Indicates whether this STARK uses lookups over some of its columns, and as such requires
+    /// additional steps during proof generation to handle auxiliary polynomials.
     fn uses_lookups(&self) -> bool {
         !self.lookups().is_empty()
     }

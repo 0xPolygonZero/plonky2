@@ -9,6 +9,8 @@ use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::iop::target::Target;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 
+/// A [`ConstraintConsumer`] evaluates all constraint, permutation and cross-table
+/// lookup polynomials of a [`Stark`][crate::stark::Stark].
 #[derive(Debug)]
 pub struct ConstraintConsumer<P: PackedField> {
     /// Random values used to combine multiple constraints into one.
@@ -78,6 +80,7 @@ impl<P: PackedField> ConstraintConsumer<P> {
     }
 }
 
+/// Circuit version of [`ConstraintConsumer`].
 #[derive(Debug)]
 pub struct RecursiveConstraintConsumer<F: RichField + Extendable<D>, const D: usize> {
     /// A random value used to combine multiple constraints into one.

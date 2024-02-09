@@ -16,6 +16,7 @@ pub trait StarkEvaluationFrame<T: Copy + Clone + Default, U: Copy + Clone + Defa
     /// Returns the next values (i.e. next row) for this evaluation frame.
     fn get_next_values(&self) -> &[T];
 
+    /// Returns the public inputs for this evaluation frame.
     fn get_public_inputs(&self) -> &[U];
 
     /// Outputs a new evaluation frame from the provided local and next values.

@@ -29,6 +29,8 @@ use crate::proof::{
 use crate::stark::Stark;
 use crate::vanishing_poly::eval_vanishing_poly_circuit;
 
+/// Encodes the verification of a [`StarkProofWithPublicInputsTarget`]
+/// for some statement in a circuit.
 pub fn verify_stark_proof_circuit<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
