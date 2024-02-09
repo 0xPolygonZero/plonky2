@@ -18,7 +18,7 @@ use crate::witness::memory::MemoryAddress;
 fn test_init_access_lists() -> Result<()> {
     let init_label = KERNEL.global_labels["init_access_lists"];
 
-    // Test for address already in list.
+    // Check the initial state of the access list in the kernel.
     let initial_stack = vec![0xdeadbeefu32.into()];
     let mut interpreter = Interpreter::new_with_kernel(init_label, initial_stack);
     interpreter.run()?;
@@ -58,6 +58,17 @@ fn test_init_access_lists() -> Result<()> {
         ],
         acc_storage_keys
     );
+
+    Ok(())
+}
+
+#[test]
+fn test_list_iterator() -> Result<()> {
+    let init_label = KERNEL.global_labels["init_access_lists"];
+
+    let initial_stack = vec![0xdeadbeefu32.into()];
+    let mut interpreter = Interpreter::new_with_kernel(init_label, initial_stack);
+    interpreter.run()?;
 
     // test the list iterator
     let mut list = interpreter
