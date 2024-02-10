@@ -1,3 +1,4 @@
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 
 use itertools::Itertools;
@@ -336,6 +337,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(not(feature = "std"))]
+    use alloc::vec;
+
     use anyhow::Result;
     use hashbrown::HashMap;
 

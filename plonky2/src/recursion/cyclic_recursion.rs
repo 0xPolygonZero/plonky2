@@ -1,5 +1,8 @@
 #![allow(clippy::int_plus_one)] // Makes more sense for some inequalities below.
 
+#[cfg(not(feature = "std"))]
+use alloc::vec::Vec;
+
 use anyhow::{ensure, Result};
 
 use crate::field::extension::Extendable;
@@ -196,6 +199,9 @@ where
 
 #[cfg(test)]
 mod tests {
+    #[cfg(not(feature = "std"))]
+    use alloc::vec;
+
     use anyhow::Result;
 
     use crate::field::extension::Extendable;

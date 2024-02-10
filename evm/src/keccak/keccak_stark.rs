@@ -1,4 +1,4 @@
-use std::marker::PhantomData;
+use core::marker::PhantomData;
 
 use itertools::Itertools;
 use plonky2::field::extension::{Extendable, FieldExtension};
@@ -13,7 +13,6 @@ use plonky2::util::timing::TimingTree;
 
 use super::columns::reg_input_limb;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
-use crate::cross_table_lookup::Column;
 use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
 use crate::keccak::columns::{
     reg_a, reg_a_prime, reg_a_prime_prime, reg_a_prime_prime_0_0_bit, reg_a_prime_prime_prime,
@@ -24,6 +23,7 @@ use crate::keccak::logic::{
     andn, andn_gen, andn_gen_circuit, xor, xor3_gen, xor3_gen_circuit, xor_gen, xor_gen_circuit,
 };
 use crate::keccak::round_flags::{eval_round_flags, eval_round_flags_recursively};
+use crate::lookup::{Column, Filter};
 use crate::stark::Stark;
 use crate::util::trace_rows_to_poly_values;
 
@@ -33,28 +33,32 @@ pub(crate) const NUM_ROUNDS: usize = 24;
 /// Number of 64-bit elements in the Keccak permutation input.
 pub(crate) const NUM_INPUTS: usize = 25;
 
-pub fn ctl_data_inputs<F: Field>() -> Vec<Column<F>> {
+/// Create vector of `Columns` corresponding to the permutation input limbs.
+pub(crate) fn ctl_data_inputs<F: Field>() -> Vec<Column<F>> {
     let mut res: Vec<_> = (0..2 * NUM_INPUTS).map(reg_input_limb).collect();
     res.push(Column::single(TIMESTAMP));
     res
 }
 
-pub fn ctl_data_outputs<F: Field>() -> Vec<Column<F>> {
+/// Create vector of `Columns` corresponding to the permutation output limbs.
+pub(crate) fn ctl_data_outputs<F: Field>() -> Vec<Column<F>> {
     let mut res: Vec<_> = Column::singles((0..2 * NUM_INPUTS).map(reg_output_limb)).collect();
     res.push(Column::single(TIMESTAMP));
     res
 }
 
-pub fn ctl_filter_inputs<F: Field>() -> Column<F> {
-    Column::single(reg_step(0))
+/// CTL filter for the first round of the Keccak permutation.
+pub(crate) fn ctl_filter_inputs<F: Field>() -> Filter<F> {
+    Filter::new_simple(Column::single(reg_step(0)))
 }
 
-pub fn ctl_filter_outputs<F: Field>() -> Column<F> {
-    Column::single(reg_step(NUM_ROUNDS - 1))
+/// CTL filter for the final round of the Keccak permutation.
+pub(crate) fn ctl_filter_outputs<F: Field>() -> Filter<F> {
+    Filter::new_simple(Column::single(reg_step(NUM_ROUNDS - 1)))
 }
 
 #[derive(Copy, Clone, Default)]
-pub struct KeccakStark<F, const D: usize> {
+pub(crate) struct KeccakStark<F, const D: usize> {
     pub(crate) f: PhantomData<F>,
 }
 
@@ -227,7 +231,7 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakStark<F, D> {
         row[out_reg_hi] = F::from_canonical_u64(row[in_reg_hi].to_canonical_u64() ^ rc_hi);
     }
 
-    pub fn generate_trace(
+    pub(crate) fn generate_trace(
         &self,
         inputs: Vec<([u64; NUM_INPUTS], usize)>,
         min_rows: usize,
@@ -618,21 +622,16 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakStark<F
 mod tests {
     use anyhow::Result;
     use env_logger::{try_init_from_env, Env, DEFAULT_FILTER_ENV};
-    use plonky2::field::polynomial::PolynomialValues;
-    use plonky2::field::types::{Field, PrimeField64};
+    use plonky2::field::types::PrimeField64;
     use plonky2::fri::oracle::PolynomialBatch;
     use plonky2::iop::challenger::Challenger;
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
-    use plonky2::timed;
-    use plonky2::util::timing::TimingTree;
     use tiny_keccak::keccakf;
 
+    use super::*;
     use crate::config::StarkConfig;
-    use crate::cross_table_lookup::{
-        CtlData, CtlZData, GrandProductChallenge, GrandProductChallengeSet,
-    };
-    use crate::keccak::columns::reg_output_limb;
-    use crate::keccak::keccak_stark::{KeccakStark, NUM_INPUTS, NUM_ROUNDS};
+    use crate::cross_table_lookup::{CtlData, CtlZData, GrandProductChallengeSet};
+    use crate::lookup::GrandProductChallenge;
     use crate::prover::prove_single_table;
     use crate::stark_testing::{test_stark_circuit_constraints, test_stark_low_degree};
 
@@ -718,8 +717,6 @@ mod tests {
             stark.generate_trace(input, 8, &mut timing)
         );
 
-        // TODO: Cloning this isn't great; consider having `from_values` accept a reference,
-        // or having `compute_permutation_z_polys` read trace values from the `PolynomialBatch`.
         let cloned_trace_poly_values = timed!(timing, "clone", trace_poly_values.clone());
 
         let trace_commitments = timed!(
@@ -738,13 +735,14 @@ mod tests {
 
         // Fake CTL data.
         let ctl_z_data = CtlZData {
+            helper_columns: vec![PolynomialValues::zero(degree)],
             z: PolynomialValues::zero(degree),
             challenge: GrandProductChallenge {
                 beta: F::ZERO,
                 gamma: F::ZERO,
             },
             columns: vec![],
-            filter_column: None,
+            filter: vec![Some(Filter::new_simple(Column::constant(F::ZERO)))],
         };
         let ctl_data = CtlData {
             zs_columns: vec![ctl_z_data.clone(); config.num_challenges],
@@ -761,6 +759,7 @@ mod tests {
             },
             &mut Challenger::new(),
             &mut timing,
+            None,
         )?;
 
         timing.print();

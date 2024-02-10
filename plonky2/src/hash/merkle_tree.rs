@@ -1,3 +1,4 @@
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use core::mem::MaybeUninit;
 use core::slice;

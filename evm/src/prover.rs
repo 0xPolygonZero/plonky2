@@ -1,4 +1,7 @@
-use anyhow::{ensure, Result};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+
+use anyhow::{anyhow, ensure, Result};
 use itertools::Itertools;
 use once_cell::sync::Lazy;
 use plonky2::field::extension::Extendable;
@@ -26,7 +29,6 @@ use crate::cross_table_lookup::{
     GrandProductChallengeSet,
 };
 use crate::evaluation_frame::StarkEvaluationFrame;
-use crate::generation::outputs::GenerationOutputs;
 use crate::generation::{generate_traces, GenerationInputs};
 use crate::get_challenges::observe_public_values;
 use crate::lookup::{lookup_helper_columns, Lookup, LookupCheckVars};
@@ -44,35 +46,29 @@ pub fn prove<F, C, const D: usize>(
     config: &StarkConfig,
     inputs: GenerationInputs,
     timing: &mut TimingTree,
+    abort_signal: Option<Arc<AtomicBool>>,
 ) -> Result<AllProof<F, C, D>>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
 {
-    let (proof, _outputs) = prove_with_outputs(all_stark, config, inputs, timing)?;
-    Ok(proof)
-}
-
-/// Generate traces, then create all STARK proofs. Returns information about the post-state,
-/// intended for debugging, in addition to the proof.
-pub fn prove_with_outputs<F, C, const D: usize>(
-    all_stark: &AllStark<F, D>,
-    config: &StarkConfig,
-    inputs: GenerationInputs,
-    timing: &mut TimingTree,
-) -> Result<(AllProof<F, C, D>, GenerationOutputs)>
-where
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
-{
     timed!(timing, "build kernel", Lazy::force(&KERNEL));
-    let (traces, public_values, outputs) = timed!(
+    let (traces, public_values) = timed!(
         timing,
         "generate all traces",
         generate_traces(all_stark, inputs, config, timing)?
     );
-    let proof = prove_with_traces(all_stark, config, traces, public_values, timing)?;
-    Ok((proof, outputs))
+    check_abort_signal(abort_signal.clone())?;
+
+    let proof = prove_with_traces(
+        all_stark,
+        config,
+        traces,
+        public_values,
+        timing,
+        abort_signal,
+    )?;
+    Ok(proof)
 }
 
 /// Compute all STARK proofs.
@@ -82,6 +78,7 @@ pub(crate) fn prove_with_traces<F, C, const D: usize>(
     trace_poly_values: [Vec<PolynomialValues<F>>; NUM_TABLES],
     public_values: PublicValues,
     timing: &mut TimingTree,
+    abort_signal: Option<Arc<AtomicBool>>,
 ) -> Result<AllProof<F, C, D>>
 where
     F: RichField + Extendable<D>,
@@ -90,6 +87,7 @@ where
     let rate_bits = config.fri_config.rate_bits;
     let cap_height = config.fri_config.cap_height;
 
+    // For each STARK, we compute the polynomial commitments for the polynomials interpolating its trace.
     let trace_commitments = timed!(
         timing,
         "compute all trace commitments",
@@ -101,8 +99,6 @@ where
                     timing,
                     &format!("compute trace commitment for {:?}", table),
                     PolynomialBatch::<F, C, D>::from_values(
-                        // TODO: Cloning this isn't great; consider having `from_values` accept a reference,
-                        // or having `compute_permutation_z_polys` read trace values from the `PolynomialBatch`.
                         trace.clone(),
                         rate_bits,
                         false,
@@ -115,6 +111,7 @@ where
             .collect::<Vec<_>>()
     );
 
+    // Get the Merkle caps for all trace commitments and observe them.
     let trace_caps = trace_commitments
         .iter()
         .map(|c| c.merkle_tree.cap.clone())
@@ -127,14 +124,17 @@ where
     observe_public_values::<F, C, D>(&mut challenger, &public_values)
         .map_err(|_| anyhow::Error::msg("Invalid conversion of public values."))?;
 
+    // Get challenges for the cross-table lookups.
     let ctl_challenges = get_grand_product_challenge_set(&mut challenger, config.num_challenges);
+    // For each STARK, compute its cross-table lookup Z polynomials and get the associated `CtlData`.
     let ctl_data_per_table = timed!(
         timing,
         "compute CTL data",
-        cross_table_lookup_data::<F, D>(
+        cross_table_lookup_data::<F, D, NUM_TABLES>(
             &trace_poly_values,
             &all_stark.cross_table_lookups,
             &ctl_challenges,
+            all_stark.arithmetic_stark.constraint_degree()
         )
     );
 
@@ -149,7 +149,8 @@ where
             ctl_data_per_table,
             &mut challenger,
             &ctl_challenges,
-            timing
+            timing,
+            abort_signal,
         )?
     );
 
@@ -169,6 +170,13 @@ where
     })
 }
 
+/// Generates a proof for each STARK.
+/// At this stage, we have computed the trace polynomials commitments for the various STARKs,
+/// and we have the cross-table lookup data for each table, including the associated challenges.
+/// - `trace_poly_values` are the trace values for each STARK.
+/// - `trace_commitments` are the trace polynomials commitments for each STARK.
+/// - `ctl_data_per_table` group all the cross-table lookup data for each STARK.
+/// Each STARK uses its associated data to generate a proof.
 fn prove_with_commitments<F, C, const D: usize>(
     all_stark: &AllStark<F, D>,
     config: &StarkConfig,
@@ -178,6 +186,7 @@ fn prove_with_commitments<F, C, const D: usize>(
     challenger: &mut Challenger<F, C::Hasher>,
     ctl_challenges: &GrandProductChallengeSet<F>,
     timing: &mut TimingTree,
+    abort_signal: Option<Arc<AtomicBool>>,
 ) -> Result<[StarkProofWithMetadata<F, C, D>; NUM_TABLES]>
 where
     F: RichField + Extendable<D>,
@@ -195,6 +204,7 @@ where
             ctl_challenges,
             challenger,
             timing,
+            abort_signal.clone(),
         )?
     );
     let byte_packing_proof = timed!(
@@ -209,6 +219,7 @@ where
             ctl_challenges,
             challenger,
             timing,
+            abort_signal.clone(),
         )?
     );
     let cpu_proof = timed!(
@@ -223,6 +234,7 @@ where
             ctl_challenges,
             challenger,
             timing,
+            abort_signal.clone(),
         )?
     );
     let keccak_proof = timed!(
@@ -237,6 +249,7 @@ where
             ctl_challenges,
             challenger,
             timing,
+            abort_signal.clone(),
         )?
     );
     let keccak_sponge_proof = timed!(
@@ -251,6 +264,7 @@ where
             ctl_challenges,
             challenger,
             timing,
+            abort_signal.clone(),
         )?
     );
     let logic_proof = timed!(
@@ -265,6 +279,7 @@ where
             ctl_challenges,
             challenger,
             timing,
+            abort_signal.clone(),
         )?
     );
     let memory_proof = timed!(
@@ -279,6 +294,7 @@ where
             ctl_challenges,
             challenger,
             timing,
+            abort_signal,
         )?
     );
 
@@ -293,7 +309,10 @@ where
     ])
 }
 
-/// Compute proof for a single STARK table.
+/// Computes a proof for a single STARK table, including:
+/// - the initial state of the challenger,
+/// - all the requires Merkle caps,
+/// - all the required polynomial and FRI argument openings.
 pub(crate) fn prove_single_table<F, C, S, const D: usize>(
     stark: &S,
     config: &StarkConfig,
@@ -303,12 +322,15 @@ pub(crate) fn prove_single_table<F, C, S, const D: usize>(
     ctl_challenges: &GrandProductChallengeSet<F>,
     challenger: &mut Challenger<F, C::Hasher>,
     timing: &mut TimingTree,
+    abort_signal: Option<Arc<AtomicBool>>,
 ) -> Result<StarkProofWithMetadata<F, C, D>>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
     S: Stark<F, D>,
 {
+    check_abort_signal(abort_signal.clone())?;
+
     let degree = trace_poly_values[0].len();
     let degree_bits = log2_strict(degree);
     let fri_params = config.fri_params(degree_bits);
@@ -350,15 +372,23 @@ where
     );
     let num_lookup_columns = lookup_helper_columns.as_ref().map(|v| v.len()).unwrap_or(0);
 
+    // We add CTLs to the permutation arguments so that we can batch commit to
+    // all auxiliary polynomials.
     let auxiliary_polys = match lookup_helper_columns {
-        None => ctl_data.z_polys(),
+        None => {
+            let mut ctl_polys = ctl_data.ctl_helper_polys();
+            ctl_polys.extend(ctl_data.ctl_z_polys());
+            ctl_polys
+        }
         Some(mut lookup_columns) => {
-            lookup_columns.extend(ctl_data.z_polys());
+            lookup_columns.extend(ctl_data.ctl_helper_polys());
+            lookup_columns.extend(ctl_data.ctl_z_polys());
             lookup_columns
         }
     };
     assert!(!auxiliary_polys.is_empty(), "No CTL?");
 
+    // Get the polynomial commitments for all auxiliary polynomials.
     let auxiliary_polys_commitment = timed!(
         timing,
         "compute auxiliary polynomials commitment",
@@ -377,6 +407,8 @@ where
 
     let alphas = challenger.get_n_challenges(config.num_challenges);
 
+    let num_ctl_polys = ctl_data.num_ctl_helper_polys();
+
     #[cfg(test)]
     {
         check_constraints(
@@ -389,8 +421,11 @@ where
             alphas.clone(),
             degree_bits,
             num_lookup_columns,
+            &num_ctl_polys,
         );
     }
+
+    check_abort_signal(abort_signal.clone())?;
 
     let quotient_polys = timed!(
         timing,
@@ -405,6 +440,7 @@ where
             alphas,
             degree_bits,
             num_lookup_columns,
+            &num_ctl_polys,
             config,
         )
     );
@@ -424,6 +460,7 @@ where
             })
             .collect()
     );
+    // Commit to the quotient polynomials.
     let quotient_commitment = timed!(
         timing,
         "compute quotient commitment",
@@ -436,6 +473,7 @@ where
             None,
         )
     );
+    // Observe the quotient polynomials Merkle cap.
     let quotient_polys_cap = quotient_commitment.merkle_tree.cap.clone();
     challenger.observe_cap(&quotient_polys_cap);
 
@@ -449,6 +487,7 @@ where
         "Opening point is in the subgroup."
     );
 
+    // Compute all openings: evaluate all committed polynomials at `zeta` and, when necessary, at `g * zeta`.
     let openings = StarkOpeningSet::new(
         zeta,
         g,
@@ -456,7 +495,9 @@ where
         &auxiliary_polys_commitment,
         &quotient_commitment,
         stark.num_lookup_helper_columns(config),
+        &num_ctl_polys,
     );
+    // Get the FRI openings and observe them.
     challenger.observe_openings(&openings.to_fri_openings());
 
     let initial_merkle_trees = vec![
@@ -465,11 +506,13 @@ where
         &quotient_commitment,
     ];
 
+    check_abort_signal(abort_signal.clone())?;
+
     let opening_proof = timed!(
         timing,
         "compute openings proof",
         PolynomialBatch::prove_openings(
-            &stark.fri_instance(zeta, g, ctl_data.len(), config),
+            &stark.fri_instance(zeta, g, num_ctl_polys.iter().sum(), num_ctl_polys, config),
             &initial_merkle_trees,
             challenger,
             &fri_params,
@@ -497,11 +540,12 @@ fn compute_quotient_polys<'a, F, P, C, S, const D: usize>(
     trace_commitment: &'a PolynomialBatch<F, C, D>,
     auxiliary_polys_commitment: &'a PolynomialBatch<F, C, D>,
     lookup_challenges: Option<&'a Vec<F>>,
-    lookups: &[Lookup],
+    lookups: &[Lookup<F>],
     ctl_data: &CtlData<F>,
     alphas: Vec<F>,
     degree_bits: usize,
     num_lookup_columns: usize,
+    num_ctl_columns: &[usize],
     config: &StarkConfig,
 ) -> Vec<PolynomialCoeffs<F>>
 where
@@ -512,6 +556,7 @@ where
 {
     let degree = 1 << degree_bits;
     let rate_bits = config.fri_config.rate_bits;
+    let total_num_helper_cols: usize = num_ctl_columns.iter().sum();
 
     let quotient_degree_bits = log2_ceil(stark.quotient_degree_factor());
     assert!(
@@ -563,31 +608,62 @@ where
                 lagrange_basis_first,
                 lagrange_basis_last,
             );
+            // Get the local and next row evaluations for the current STARK.
             let vars = S::EvaluationFrame::from_values(
                 &get_trace_values_packed(i_start),
                 &get_trace_values_packed(i_next_start),
             );
+            // Get the local and next row evaluations for the permutation argument, as well as the associated challenges.
             let lookup_vars = lookup_challenges.map(|challenges| LookupCheckVars {
                 local_values: auxiliary_polys_commitment.get_lde_values_packed(i_start, step)
                     [..num_lookup_columns]
                     .to_vec(),
-                next_values: auxiliary_polys_commitment.get_lde_values_packed(i_next_start, step),
+                next_values: auxiliary_polys_commitment.get_lde_values_packed(i_next_start, step)
+                    [..num_lookup_columns]
+                    .to_vec(),
                 challenges: challenges.to_vec(),
             });
+
+            // Get all the data for this STARK's CTLs:
+            // - the local and next row evaluations for the CTL Z polynomials
+            // - the associated challenges.
+            // - for each CTL:
+            //     - the filter `Column`
+            //     - the `Column`s that form the looking/looked table.
+
+            let mut start_index = 0;
             let ctl_vars = ctl_data
                 .zs_columns
                 .iter()
                 .enumerate()
-                .map(|(i, zs_columns)| CtlCheckVars::<F, F, P, 1> {
-                    local_z: auxiliary_polys_commitment.get_lde_values_packed(i_start, step)
-                        [num_lookup_columns + i],
-                    next_z: auxiliary_polys_commitment.get_lde_values_packed(i_next_start, step)
-                        [num_lookup_columns + i],
-                    challenges: zs_columns.challenge,
-                    columns: &zs_columns.columns,
-                    filter_column: &zs_columns.filter_column,
+                .map(|(i, zs_columns)| {
+                    let num_ctl_helper_cols = num_ctl_columns[i];
+                    let helper_columns = auxiliary_polys_commitment
+                        .get_lde_values_packed(i_start, step)[num_lookup_columns
+                        + start_index
+                        ..num_lookup_columns + start_index + num_ctl_helper_cols]
+                        .to_vec();
+
+                    let ctl_vars = CtlCheckVars::<F, F, P, 1> {
+                        helper_columns,
+                        local_z: auxiliary_polys_commitment.get_lde_values_packed(i_start, step)
+                            [num_lookup_columns + total_num_helper_cols + i],
+                        next_z: auxiliary_polys_commitment
+                            .get_lde_values_packed(i_next_start, step)
+                            [num_lookup_columns + total_num_helper_cols + i],
+                        challenges: zs_columns.challenge,
+                        columns: zs_columns.columns.clone(),
+                        filter: zs_columns.filter.clone(),
+                    };
+
+                    start_index += num_ctl_helper_cols;
+
+                    ctl_vars
                 })
                 .collect::<Vec<_>>();
+
+            // Evaluate the polynomial combining all constraints, including those associated
+            // to the permutation and CTL arguments.
             eval_vanishing_poly::<F, F, P, S, D, 1>(
                 stark,
                 &vars,
@@ -620,6 +696,19 @@ where
         .collect()
 }
 
+/// Utility method that checks whether a kill signal has been emitted by one of the workers,
+/// which will result in an early abort for all the other processes involved in the same set
+/// of transactions.
+pub fn check_abort_signal(abort_signal: Option<Arc<AtomicBool>>) -> Result<()> {
+    if let Some(signal) = abort_signal {
+        if signal.load(Ordering::Relaxed) {
+            return Err(anyhow!("Stopping job from abort signal."));
+        }
+    }
+
+    Ok(())
+}
+
 #[cfg(test)]
 /// Check that all constraints evaluate to zero on `H`.
 /// Can also be used to check the degree of the constraints by evaluating on a larger subgroup.
@@ -628,11 +717,12 @@ fn check_constraints<'a, F, C, S, const D: usize>(
     trace_commitment: &'a PolynomialBatch<F, C, D>,
     auxiliary_commitment: &'a PolynomialBatch<F, C, D>,
     lookup_challenges: Option<&'a Vec<F>>,
-    lookups: &[Lookup],
+    lookups: &[Lookup<F>],
     ctl_data: &CtlData<F>,
     alphas: Vec<F>,
     degree_bits: usize,
     num_lookup_columns: usize,
+    num_ctl_helper_cols: &[usize],
 ) where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
@@ -640,6 +730,8 @@ fn check_constraints<'a, F, C, S, const D: usize>(
 {
     let degree = 1 << degree_bits;
     let rate_bits = 0; // Set this to higher value to check constraint degree.
+
+    let total_num_helper_cols: usize = num_ctl_helper_cols.iter().sum();
 
     let size = degree << rate_bits;
     let step = 1 << rate_bits;
@@ -661,6 +753,7 @@ fn check_constraints<'a, F, C, S, const D: usize>(
         transpose(&values)
     };
 
+    // Get batch evaluations of the trace, permutation and CTL polynomials over our subgroup.
     let trace_subgroup_evals = get_subgroup_evals(trace_commitment);
     let auxiliary_subgroup_evals = get_subgroup_evals(auxiliary_commitment);
 
@@ -682,28 +775,49 @@ fn check_constraints<'a, F, C, S, const D: usize>(
                 lagrange_basis_first,
                 lagrange_basis_last,
             );
+            // Get the local and next row evaluations for the current STARK's trace.
             let vars = S::EvaluationFrame::from_values(
                 &trace_subgroup_evals[i],
                 &trace_subgroup_evals[i_next],
             );
+            // Get the local and next row evaluations for the current STARK's permutation argument.
             let lookup_vars = lookup_challenges.map(|challenges| LookupCheckVars {
                 local_values: auxiliary_subgroup_evals[i][..num_lookup_columns].to_vec(),
                 next_values: auxiliary_subgroup_evals[i_next][..num_lookup_columns].to_vec(),
                 challenges: challenges.to_vec(),
             });
 
+            // Get the local and next row evaluations for the current STARK's CTL Z polynomials.
+            let mut start_index = 0;
             let ctl_vars = ctl_data
                 .zs_columns
                 .iter()
                 .enumerate()
-                .map(|(iii, zs_columns)| CtlCheckVars::<F, F, F, 1> {
-                    local_z: auxiliary_subgroup_evals[i][num_lookup_columns + iii],
-                    next_z: auxiliary_subgroup_evals[i_next][num_lookup_columns + iii],
-                    challenges: zs_columns.challenge,
-                    columns: &zs_columns.columns,
-                    filter_column: &zs_columns.filter_column,
+                .map(|(iii, zs_columns)| {
+                    let num_helper_cols = num_ctl_helper_cols[iii];
+                    let helper_columns = auxiliary_subgroup_evals[i][num_lookup_columns
+                        + start_index
+                        ..num_lookup_columns + start_index + num_helper_cols]
+                        .to_vec();
+                    let ctl_vars = CtlCheckVars::<F, F, F, 1> {
+                        helper_columns,
+                        local_z: auxiliary_subgroup_evals[i]
+                            [num_lookup_columns + total_num_helper_cols + iii],
+                        next_z: auxiliary_subgroup_evals[i_next]
+                            [num_lookup_columns + total_num_helper_cols + iii],
+                        challenges: zs_columns.challenge,
+                        columns: zs_columns.columns.clone(),
+                        filter: zs_columns.filter.clone(),
+                    };
+
+                    start_index += num_helper_cols;
+
+                    ctl_vars
                 })
                 .collect::<Vec<_>>();
+
+            // Evaluate the polynomial combining all constraints, including those associated
+            // to the permutation and CTL arguments.
             eval_vanishing_poly::<F, F, F, S, D, 1>(
                 stark,
                 &vars,
@@ -716,6 +830,7 @@ fn check_constraints<'a, F, C, S, const D: usize>(
         })
         .collect::<Vec<_>>();
 
+    // Assert that all constraints evaluate to 0 over our subgroup.
     for v in constraint_values {
         assert!(
             v.iter().all(|x| x.is_zero()),

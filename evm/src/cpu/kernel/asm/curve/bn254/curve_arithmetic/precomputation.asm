@@ -1,5 +1,5 @@
 // Precompute a table of multiples of the BN254 point `Q = (Qx, Qy)`.
-// Let `(Qxi, Qyi) = i * Q`, then store in the `SEGMENT_KERNEL_BN_TABLE_Q` segment of memory the values
+// Let `(Qxi, Qyi) = i * Q`, then store in the `SEGMENT_BN_TABLE_Q` segment of memory the values
 // `i-1 => Qxi`, `i => Qyi if i < 16 else -Qy(32-i)` for `i in range(1, 32, 2)`.
 global bn_precompute_table:
     // stack: Qx, Qy, retdest
@@ -12,14 +12,14 @@ bn_precompute_table_loop:
     // stack i, Qx2, Qy2, Qx, Qy, retdest
     PUSH 1 DUP2 SUB
     %stack (im, i, Qx2, Qy2, Qx, Qy, retdest) -> (i, Qy, im, Qx, i, Qx2, Qy2, Qx, Qy, retdest)
-    %mstore_kernel(@SEGMENT_KERNEL_BN_TABLE_Q) %mstore_kernel(@SEGMENT_KERNEL_BN_TABLE_Q)
+    %mstore_current(@SEGMENT_BN_TABLE_Q) %mstore_current(@SEGMENT_BN_TABLE_Q)
     // stack: i, Qx2, Qy2, Qx, Qy, retdest
     DUP1 PUSH 32 SUB PUSH 1 DUP2 SUB
     // stack: 31-i, 32-i, i, Qx2, Qy2, Qx, Qy, retdest
     DUP7 PUSH @BN_BASE SUB
     // TODO: Could maybe avoid storing Qx a second time here, not sure if it would be more efficient.
     %stack (Qyy, iii, ii, i, Qx2, Qy2, Qx, Qy, retdest) -> (iii, Qx, ii, Qyy, i, Qx2, Qy2, Qx, Qy, retdest)
-    %mstore_kernel(@SEGMENT_KERNEL_BN_TABLE_Q) %mstore_kernel(@SEGMENT_KERNEL_BN_TABLE_Q)
+    %mstore_current(@SEGMENT_BN_TABLE_Q) %mstore_current(@SEGMENT_BN_TABLE_Q)
     // stack: i, Qx2, Qy2, Qx, Qy, retdest
     PUSH 2 ADD
     // stack: i+2, Qx2, Qy2, Qx, Qy, retdest

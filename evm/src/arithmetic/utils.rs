@@ -1,4 +1,4 @@
-use std::ops::{Add, AddAssign, Mul, Neg, Range, Shr, Sub, SubAssign};
+use core::ops::{Add, AddAssign, Mul, Neg, Range, Shr, Sub, SubAssign};
 
 use ethereum_types::U256;
 use plonky2::field::extension::Extendable;
@@ -319,6 +319,7 @@ pub(crate) fn read_value_i64_limbs<const N: usize, F: PrimeField64>(
 }
 
 #[inline]
+/// Turn a 64-bit integer into 4 16-bit limbs and convert them to field elements.
 fn u64_to_array<F: Field>(out: &mut [F], x: u64) {
     const_assert!(LIMB_BITS == 16);
     debug_assert!(out.len() == 4);
@@ -329,6 +330,7 @@ fn u64_to_array<F: Field>(out: &mut [F], x: u64) {
     out[3] = F::from_canonical_u16((x >> 48) as u16);
 }
 
+/// Turn a 256-bit integer into 16 16-bit limbs and convert them to field elements.
 // TODO: Refactor/replace u256_limbs in evm/src/util.rs
 pub(crate) fn u256_to_array<F: Field>(out: &mut [F], x: U256) {
     const_assert!(N_LIMBS == 16);

@@ -11,43 +11,43 @@
 // We pass around total_num_limbs and len for conveience, because we can't access them from the stack
 // if they're hidden behind the variable number of limbs.
 mload_bytes_as_limbs:
-    // stack: ctx, segment, offset, num_bytes, retdest, total_num_limbs, len, ..limbs
-    DUP4
-    // stack: num_bytes, ctx, segment, offset, num_bytes, retdest, total_num_limbs, len, ..limbs
+    // stack: addr, num_bytes, retdest, total_num_limbs, len, ..limbs
+    DUP2
+    // stack: num_bytes, addr, num_bytes, retdest, total_num_limbs, len, ..limbs
     %mod_16
-    // stack: min(16, num_bytes), ctx, segment, offset, num_bytes, retdest, total_num_limbs, len, ..limbs
-    %stack (len, addr: 3) -> (addr, len, addr)
-    // stack: ctx, segment, offset, min(16, num_bytes), ctx, segment, offset, num_bytes, retdest, total_num_limbs, len, ..limbs
-    %mload_packing
-    // stack: new_limb, ctx, segment, offset, num_bytes, retdest, total_num_limbs, len, ..limbs
-    %stack (new, addr: 3, numb, ret, tot, len) -> (numb, addr, ret, tot, len, new)
-    // stack: num_bytes, ctx, segment, offset, retdest, total_num_limbs, len, new_limb, ..limbs
+    // stack: min(16, num_bytes), addr, num_bytes, retdest, total_num_limbs, len, ..limbs
+    DUP2
+    // stack: addr, min(16, num_bytes), addr, num_bytes, retdest, total_num_limbs, len, ..limbs
+    MLOAD_32BYTES
+    // stack: new_limb, addr, num_bytes, retdest, total_num_limbs, len, ..limbs
+    %stack (new, addr, numb, ret, tot, len) -> (numb, addr, ret, tot, len, new)
+    // stack: num_bytes, addr, retdest, total_num_limbs, len, new_limb, ..limbs
     DUP1
     %mod_16
-    // stack: num_bytes%16, num_bytes, ctx, segment, offset, retdest, total_num_limbs, len, new_limb, ..limbs
+    // stack: num_bytes%16, num_bytes, addr, retdest, total_num_limbs, len, new_limb, ..limbs
     DUP1 SWAP2
     SUB
-    // stack:num_bytes_new, num_bytes%16, ctx, segment, offset, retdest, total_num_limbs, len, new_limb, ..limbs
+    // stack: num_bytes_new, num_bytes%16, addr, retdest, total_num_limbs, len, new_limb, ..limbs
     DUP1
     ISZERO
     %jumpi(mload_bytes_return)
     SWAP1
-    // stack: num_bytes%16, num_bytes_new, ctx, segment, offset, retdest, total_num_limbs, len, new_limb, ..limbs
-    DUP5 // offset
-    ADD
-    // stack: offset_new, num_bytes_new, ctx, segment, offset, retdest, total_num_limbs, len, new_limb, ..limbs
-    SWAP4 POP
-    // stack: num_bytes_new, ctx, segment, offset_new, retdest, total_num_limbs, len, new_limb, ..limbs
-    %stack (num, addr: 3) -> (addr, num)
+    // stack: num_bytes%16, num_bytes_new, addr, retdest, total_num_limbs, len, new_limb, ..limbs
+    DUP3 // addr
+    ADD // increment offset
+    // stack: addr_new, num_bytes_new, addr, retdest, total_num_limbs, len, new_limb, ..limbs
+    SWAP2 POP
+    // stack: num_bytes_new, addr_new, retdest, total_num_limbs, len, new_limb, ..limbs
+    SWAP1
     %jump(mload_bytes_as_limbs)
 mload_bytes_return:
-    // stack: num_bytes_new, num_bytes%16, ctx, segment, offset, retdest, total_num_limbs, len, new_limb, ..limbs
-    %pop5
+    // stack: num_bytes_new, num_bytes%16, addr, retdest, total_num_limbs, len, new_limb, ..limbs
+    %pop3
     // stack: retdest, total_num_limbs, len, ..limbs
     JUMP
 
 %macro mload_bytes_as_limbs
-    %stack (ctx, segment, offset, num_bytes, total_num_limbs) -> (ctx, segment, offset, num_bytes, %%after, total_num_limbs)
+    %stack (addr, num_bytes, total_num_limbs) -> (addr, num_bytes, %%after, total_num_limbs)
     %jump(mload_bytes_as_limbs)
 %%after:
 %endmacro
@@ -112,7 +112,8 @@ calculate_l_E_prime:
     // stack: 96 + l_B, 32, l_E, l_B, retdest
     PUSH @SEGMENT_CALLDATA
     GET_CONTEXT
-    %mload_packing
+    %build_address
+    MLOAD_32BYTES
     // stack: i[96 + l_B..128 + l_B], l_E, l_B, retdest
     %log2_floor
     // stack: log2(i[96 + l_B..128 + l_B]), l_E, l_B, retdest
@@ -142,7 +143,8 @@ case_le_32:
     // stack: 96 + l_B, l_E, retdest
     PUSH @SEGMENT_CALLDATA
     GET_CONTEXT
-    %mload_packing
+    %build_address
+    MLOAD_32BYTES
     // stack: E, retdest
     %log2_floor
     // stack: log2(E), retdest
@@ -165,23 +167,26 @@ global precompile_expmod:
     // stack: kexit_info
 
     // Load l_B from i[0..32].
-    %stack () -> (@SEGMENT_CALLDATA, 0, 32)
-    // stack: @SEGMENT_CALLDATA, 0, 32, kexit_info
+    %stack () -> (@SEGMENT_CALLDATA, 32)
+    // stack: @SEGMENT_CALLDATA, 32, kexit_info
     GET_CONTEXT
-    // stack: ctx, @SEGMENT_CALLDATA, 0, 32, kexit_info
-    %mload_packing
+    // stack: ctx, @SEGMENT_CALLDATA, 32, kexit_info
+    %build_address_no_offset
+    MLOAD_32BYTES
     // stack: l_B, kexit_info
 
     // Load l_E from i[32..64].
     %stack () -> (@SEGMENT_CALLDATA, 32, 32)
     GET_CONTEXT
-    %mload_packing
+    %build_address
+    MLOAD_32BYTES
     // stack: l_E, l_B, kexit_info
 
     // Load l_M from i[64..96].
     %stack () -> (@SEGMENT_CALLDATA, 64, 32)
     GET_CONTEXT
-    %mload_packing
+    %build_address
+    MLOAD_32BYTES
     // stack: l_M, l_E, l_B, kexit_info
     DUP3 ISZERO DUP2 ISZERO
     MUL // AND
@@ -247,6 +252,7 @@ l_E_prime_return:
     %stack () -> (@SEGMENT_CALLDATA, 96)
     GET_CONTEXT
     // stack: ctx, @SEGMENT_CALLDATA, 96, num_bytes, num_limbs, len, len, l_M, l_E, l_B, kexit_info
+    %build_address
     %mload_bytes_as_limbs
     // stack: num_limbs, len, limbs[num_limbs-1], .., limbs[0], len, l_M, l_E, l_B, kexit_info
     SWAP1
@@ -282,6 +288,7 @@ copy_b_end:
     PUSH @SEGMENT_CALLDATA
     GET_CONTEXT
     // stack: ctx, @SEGMENT_CALLDATA, 96 + l_B, num_bytes, num_limbs, len, len, l_M, l_E, l_B, kexit_info
+    %build_address
     %mload_bytes_as_limbs
     // stack: num_limbs, len, limbs[num_limbs-1], .., limbs[0], len, l_M, l_E, l_B, kexit_info
     SWAP1
@@ -316,6 +323,7 @@ copy_e_end:
     PUSH @SEGMENT_CALLDATA
     GET_CONTEXT
     // stack: ctx, @SEGMENT_CALLDATA, 96 + l_B + l_E, num_bytes, num_limbs, len, len, l_M, l_E, l_B, kexit_info
+    %build_address
     %mload_bytes_as_limbs
     // stack: num_limbs, len, limbs[num_limbs-1], .., limbs[0], len, l_M, l_E, l_B, kexit_info
     SWAP1
@@ -410,33 +418,33 @@ expmod_contd:
     DUP2
     DUP2
     ADD
-    // stack: cur_address=out+l_M_128-1, end_address=out-1, l_M_128, l_M%16, kexit_info
+    // stack: cur_offset=out+l_M_128-1, end_offset=out-1, l_M_128, l_M%16, kexit_info
     DUP1 %mload_current_general
-    %stack (cur_limb, cur_address, end_address, l_M_128, l_M_mod16, kexit_info) ->
-        (@SEGMENT_RETURNDATA, 0, cur_limb, l_M_mod16, cur_address, end_address, l_M_128, kexit_info)
+    %stack (cur_limb, cur_offset, end_offset, l_M_128, l_M_mod16, kexit_info) ->
+        (@SEGMENT_RETURNDATA, cur_limb, l_M_mod16, cur_offset, end_offset, l_M_128, kexit_info)
     %mload_context_metadata(@CTX_METADATA_PARENT_CONTEXT)
+    %build_address_no_offset
     %mstore_unpacking
-    // stack: offset, cur_address, end_address, l_M_128, kexit_info
+    // stack: address, cur_offset, end_offset, l_M_128, kexit_info
     SWAP1
     %decrement
-    // stack: cur_address, offset, end_address, l_M_128, kexit_info
+    // stack: cur_offset, address, end_offset, l_M_128, kexit_info
     // Store in big-endian format.
 expmod_store_loop:
-    // stack: cur_address, offset, end_address, l_M_128, kexit_info
+    // stack: cur_offset, address, end_offset, l_M_128, kexit_info
     DUP3 DUP2 EQ %jumpi(expmod_store_end)
-    // stack: cur_address, offset, end_address, l_M_128, kexit_info
+    // stack: cur_offset, address, end_offset, l_M_128, kexit_info
     DUP1 %mload_current_general
-    %stack (cur_limb, cur_address, offset, end_address, l_M_128, kexit_info) ->
-         (offset, cur_limb, cur_address, end_address, l_M_128, kexit_info)
-    %stack (offset, cur_limb) -> (@SEGMENT_RETURNDATA, offset, cur_limb, 16)
-    %mload_context_metadata(@CTX_METADATA_PARENT_CONTEXT)
+    %stack (cur_limb, cur_offset, address, end_offset, l_M_128, kexit_info) ->
+         (address, cur_limb, cur_offset, end_offset, l_M_128, kexit_info)
+    %stack (address, cur_limb) -> (address, cur_limb, 16)
     %mstore_unpacking
-    // stack: offset', cur_address, end_address, l_M_128, kexit_info)
+    // stack: address', cur_offset, end_offset, l_M_128, kexit_info)
     SWAP1 %decrement
-    // stack: cur_address-1, offset', end_address, l_M_128, kexit_info)
+    // stack: cur_offset-1, address', end_offset, l_M_128, kexit_info)
     %jump(expmod_store_loop)
 expmod_store_end:
-    // stack: cur_address, offset, end_address, l_M_128, kexit_info
+    // stack: cur_offset, address, end_offset, l_M_128, kexit_info
     %pop4
 the_end:
     // stack: kexit_info

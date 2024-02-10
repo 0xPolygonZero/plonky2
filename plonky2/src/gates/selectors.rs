@@ -1,5 +1,5 @@
-use alloc::vec;
-use alloc::vec::Vec;
+#[cfg(not(feature = "std"))]
+use alloc::{vec, vec::Vec};
 use core::ops::Range;
 
 use serde::Serialize;
@@ -40,7 +40,7 @@ pub enum LookupSelectors {
 }
 
 /// Returns selector polynomials for each LUT. We have two constraint domains (remember that gates are stored upside down):
-/// - [last_lut_row, first_lut_row] (Sum and RE transition contraints),
+/// - [last_lut_row, first_lut_row] (Sum and RE transition constraints),
 /// - [last_lu_row, last_lut_row - 1] (LDC column transition constraints).
 /// We also add two more:
 /// - {first_lut_row + 1} where we check the initial values of sum and RE (which are 0),

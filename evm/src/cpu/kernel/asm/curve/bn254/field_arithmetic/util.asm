@@ -1,7 +1,7 @@
 // Load a single value from bn254 pairings memory.
 %macro mload_bn254_pairing
     // stack: offset
-    %mload_current(@SEGMENT_KERNEL_BN_PAIRING)
+    %mload_current(@SEGMENT_BN_PAIRING)
     // stack: value
 %endmacro
 
@@ -9,14 +9,32 @@
     // stack:
     PUSH $offset
     // stack: offset
-    %mload_current(@SEGMENT_KERNEL_BN_PAIRING)
+    %mload_current(@SEGMENT_BN_PAIRING)
     // stack: value
 %endmacro
 
 // Store a single value to bn254 pairings memory.
 %macro mstore_bn254_pairing
     // stack: offset, value
-    %mstore_current(@SEGMENT_KERNEL_BN_PAIRING)
+    %mstore_current(@SEGMENT_BN_PAIRING)
+    // stack:
+%endmacro
+
+// Build an address on the current context within SEGMENT_BN_PAIRING.
+%macro create_bn254_pairing_address
+    // stack: offset
+    PUSH @SEGMENT_BN_PAIRING
+    GET_CONTEXT
+    %build_address
+    // stack: addr
+%endmacro
+
+// Store a single value to bn254 pairings memory.
+%macro mstore_bn254_pairing_value(value)
+    // stack: offset
+    %create_bn254_pairing_address
+    PUSH $value
+    MSTORE_GENERAL
     // stack:
 %endmacro
 
@@ -24,7 +42,7 @@
     // stack: value
     PUSH $offset
     // stack: offset, value
-    %mstore_current(@SEGMENT_KERNEL_BN_PAIRING)
+    %mstore_current(@SEGMENT_BN_PAIRING)
     // stack:
 %endmacro
 
@@ -32,14 +50,15 @@
 
 %macro load_fp254_2
     // stack:       ptr
-    DUP1  
+    %create_bn254_pairing_address
+    DUP1
     %add_const(1)
-    // stack: ind1, ptr
-    %mload_bn254_pairing
-    // stack:   x1, ptr
+    // stack: addr1, addr
+    MLOAD_GENERAL
+    // stack:   x1, addr
     SWAP1
-    // stack: ind0, x1
-    %mload_bn254_pairing
+    // stack: addr0, x1
+    MLOAD_GENERAL
     // stack:   x0, x1
 %endmacro 
 
@@ -101,14 +120,14 @@
     // stack:      b,  a , b
     DUP2
     // stack:  a , b,  a , b
-    PUSH 9  
+    PUSH 9
     MULFP254
     // stack: 9a , b,  a , b
     SUBFP254
     // stack: 9a - b,  a , b
     SWAP2 
     // stack:  b , a, 9a - b
-    PUSH 9  
+    PUSH 9
     MULFP254
     // stack  9b , a, 9a - b
     ADDFP254
@@ -145,24 +164,25 @@
 
 %macro load_fp254_4
     // stack:                         ptr
-    DUP1  
+    %create_bn254_pairing_address
+    DUP1
     %add_const(2)
-    // stack:                   ind2, ptr
-    %mload_bn254_pairing
-    // stack:                     x2, ptr
-    DUP2  
+    // stack:                  addr2, addr
+    MLOAD_GENERAL
+    // stack:                     x2, addr
+    DUP2
     %add_const(1)
-    // stack:               ind1, x2, ptr
-    %mload_bn254_pairing
-    // stack:                 x1, x2, ptr
-    DUP3  
+    // stack:              addr1, x2, addr
+    MLOAD_GENERAL
+    // stack:                 x1, x2, addr
+    DUP3
     %add_const(3)
-    // stack:           ind3, x1, x2, ptr
-    %mload_bn254_pairing
-    // stack:             x3, x1, x2, ptr
+    // stack:          addr3, x1, x2, addr
+    MLOAD_GENERAL
+    // stack:             x3, x1, x2, addr
     SWAP3
-    // stack:            ind0, x1, x2, x3
-    %mload_bn254_pairing
+    // stack:           addr0, x1, x2, x3
+    MLOAD_GENERAL
     // stack:              x0, x1, x2, x3
 %endmacro
 
@@ -170,228 +190,177 @@
 
 %macro load_fp254_6
     // stack:                         ptr
-    DUP1  
+    %create_bn254_pairing_address
+    DUP1
     %add_const(4)
-    // stack:                   ind4, ptr
-    %mload_bn254_pairing
-    // stack:                     x4, ptr
-    DUP2  
+    // stack:                   addr4, addr
+    MLOAD_GENERAL
+    // stack:                     x4, addr
+    DUP2
     %add_const(3)
-    // stack:               ind3, x4, ptr
-    %mload_bn254_pairing
-    // stack:                 x3, x4, ptr
-    DUP3  
+    // stack:               addr3, x4, addr
+    MLOAD_GENERAL
+    // stack:                 x3, x4, addr
+    DUP3
     %add_const(2)
-    // stack:           ind2, x3, x4, ptr
-    %mload_bn254_pairing
-    // stack:             x2, x3, x4, ptr
-    DUP4  
+    // stack:           addr2, x3, x4, addr
+    MLOAD_GENERAL
+    // stack:             x2, x3, x4, addr
+    DUP4
     %add_const(1)
-    // stack:       ind1, x2, x3, x4, ptr
-    %mload_bn254_pairing
-    // stack:         x1, x2, x3, x4, ptr
-    DUP5  
+    // stack:       addr1, x2, x3, x4, addr
+    MLOAD_GENERAL
+    // stack:         x1, x2, x3, x4, addr
+    DUP5
     %add_const(5)
-    // stack:   ind5, x1, x2, x3, x4, ptr
-    %mload_bn254_pairing
-    // stack:     x5, x1, x2, x3, x4, ptr
+    // stack:   addr5, x1, x2, x3, x4, addr
+    MLOAD_GENERAL
+    // stack:     x5, x1, x2, x3, x4, addr
     SWAP5
-    // stack:   ind0, x1, x2, x3, x4, x5
-    %mload_bn254_pairing
+    // stack:   addr0, x1, x2, x3, x4, x5
+    MLOAD_GENERAL
     // stack:     x0, x1, x2, x3, x4, x5
 %endmacro
 
-// cost: 6 loads + 6 pushes + 5 adds = 6*4 + 6*1 + 5*2 = 40
 %macro load_fp254_6(ptr)
     // stack:
-    PUSH $ptr  
-    %add_const(5)
-    // stack:                     ind5
-    %mload_bn254_pairing
-    // stack:                       x5
-    PUSH $ptr  
-    %add_const(4)
-    // stack:                 ind4, x5
-    %mload_bn254_pairing
-    // stack:                   x4, x5
-    PUSH $ptr  
-    %add_const(3)
-    // stack:             ind3, x4, x5
-    %mload_bn254_pairing
-    // stack:               x3, x4, x5
-    PUSH $ptr  
-    %add_const(2)
-    // stack:         ind2, x3, x4, x5
-    %mload_bn254_pairing
-    // stack:           x2, x3, x4, x5
-    PUSH $ptr  
-    %add_const(1)
-    // stack:     ind1, x2, x3, x4, x5
-    %mload_bn254_pairing
-    // stack:       x1, x2, x3, x4, x5
     PUSH $ptr
-    // stack: ind0, x1, x2, x3, x4, x5
-    %mload_bn254_pairing
-    // stack:   x0, x1, x2, x3, x4, x5
+    %load_fp254_6
+    // stack: x0, x1, x2, x3, x4, x5
 %endmacro
 
-// cost: 6 stores + 6 swaps/dups + 5 adds = 6*4 + 6*1 + 5*2 = 40
 %macro store_fp254_6
     // stack:      ptr, x0, x1, x2, x3, x4 , x5
+    %create_bn254_pairing_address
     SWAP5
-    // stack:       x4, x0, x1, x2, x3, ptr, x5
-    DUP6  
+    // stack:       x4, x0, x1, x2, x3, addr, x5
+    DUP6
     %add_const(4)
-    // stack: ind4, x4, x0, x1, x2, x3, ptr, x5
-    %mstore_bn254_pairing
-    // stack:           x0, x1, x2, x3, ptr, x5
+    // stack: addr4, x4, x0, x1, x2, x3, addr, x5
+    %swap_mstore
+    // stack:           x0, x1, x2, x3, addr, x5
     DUP5
-    // stack:     ind0, x0, x1, x2, x3, ptr, x5
-    %mstore_bn254_pairing
-    // stack:               x1, x2, x3, ptr, x5
-    DUP4  
+    // stack:     addr0, x0, x1, x2, x3, addr, x5
+    %swap_mstore
+    // stack:               x1, x2, x3, addr, x5
+    DUP4
     %add_const(1)
-    // stack:         ind1, x1, x2, x3, ptr, x5
-    %mstore_bn254_pairing
-    // stack:                   x2, x3, ptr, x5
-    DUP3  
+    // stack:         addr1, x1, x2, x3, addr, x5
+    %swap_mstore
+    // stack:                   x2, x3, addr, x5
+    DUP3
     %add_const(2)
-    // stack:             ind2, x2, x3, ptr, x5
-    %mstore_bn254_pairing
-    // stack:                       x3, ptr, x5
-    DUP2  
+    // stack:             addr2, x2, x3, addr, x5
+    %swap_mstore
+    // stack:                       x3, addr, x5
+    DUP2
     %add_const(3)
-    // stack:                 ind3, x3, ptr, x5
-    %mstore_bn254_pairing
-    // stack:                           ptr, x5
+    // stack:                 addr3, x3, addr, x5
+    %swap_mstore
+    // stack:                           addr, x5
     %add_const(5)
-    // stack:                          ind5, x5
-    %mstore_bn254_pairing
+    // stack:                          addr5, x5
+    %swap_mstore
     // stack:
 %endmacro
 
-// cost: 6 stores + 7 swaps/dups + 5 adds + 6 doubles = 6*4 + 7*1 + 5*2 + 6*2 = 53
 %macro store_fp254_6_double
     // stack:        ptr, x0, x1, x2, x3, x4, x5
+    %create_bn254_pairing_address
     SWAP6
-    // stack:         x5, x0, x1, x2, x3, x4, ptr
-    PUSH 2  
+    // stack:         x5, x0, x1, x2, x3, x4, addr
+    PUSH 2
     MULFP254
-    // stack:       2*x5, x0, x1, x2, x3, x4, ptr
-    DUP7  
+    // stack:       2*x5, x0, x1, x2, x3, x4, addr
+    DUP7
     %add_const(5)
-    // stack: ind5, 2*x5, x0, x1, x2, x3, x4, ptr
-    %mstore_bn254_pairing
-    // stack:             x0, x1, x2, x3, x4, ptr
-    PUSH 2  
+    // stack: addr5, 2*x5, x0, x1, x2, x3, x4, addr
+    %swap_mstore
+    // stack:             x0, x1, x2, x3, x4, addr
+    PUSH 2
     MULFP254
-    // stack:           2*x0, x1, x2, x3, x4, ptr
+    // stack:           2*x0, x1, x2, x3, x4, addr
     DUP6
-    // stack:     ind0, 2*x0, x1, x2, x3, x4, ptr
-    %mstore_bn254_pairing
-    // stack:                 x1, x2, x3, x4, ptr
-    PUSH 2  
+    // stack:     addr0, 2*x0, x1, x2, x3, x4, addr
+    %swap_mstore
+    // stack:                 x1, x2, x3, x4, addr
+    PUSH 2
     MULFP254
-    // stack:               2*x1, x2, x3, x4, ptr
-    DUP5  
+    // stack:               2*x1, x2, x3, x4, addr
+    DUP5
     %add_const(1)
-    // stack:         ind1, 2*x1, x2, x3, x4, ptr
-    %mstore_bn254_pairing
-    // stack:                     x2, x3, x4, ptr
-    PUSH 2  
+    // stack:         addr1, 2*x1, x2, x3, x4, addr
+    %swap_mstore
+    // stack:                     x2, x3, x4, addr
+    PUSH 2
     MULFP254
-    // stack:                   2*x2, x3, x4, ptr
-    DUP4  
+    // stack:                   2*x2, x3, x4, addr
+    DUP4
     %add_const(2)
-    // stack:             ind2, 2*x2, x3, x4, ptr
-    %mstore_bn254_pairing
-    // stack:                         x3, x4, ptr
+    // stack:             addr2, 2*x2, x3, x4, addr
+    %swap_mstore
+    // stack:                         x3, x4, addr
     PUSH 2 
     MULFP254
-    // stack:                       2*x3, x4, ptr
-    DUP3  
+    // stack:                       2*x3, x4, addr
+    DUP3
     %add_const(3)
-    // stack:                 ind3, 2*x3, x4, ptr
-    %mstore_bn254_pairing
-    // stack:                             x4, ptr
-    PUSH 2  
+    // stack:                 addr3, 2*x3, x4, addr
+    %swap_mstore
+    // stack:                             x4, addr
+    PUSH 2
     MULFP254
-    // stack:                           2*x4, ptr
+    // stack:                           2*x4, addr
     SWAP1
-    // stack:                           ptr, 2*x4
+    // stack:                           addr, 2*x4
     %add_const(4)
-    // stack:                          ind4, 2*x4
-    %mstore_bn254_pairing
+    // stack:                          addr4, 2*x4
+    %swap_mstore
     // stack:
 %endmacro
 
-// cost: 6 stores + 6 pushes + 5 adds = 6*4 + 6*1 + 5*2 = 40
 %macro store_fp254_6(ptr)
-    // stack:       x0, x1, x2, x3, x4, x5
+    // stack: x0, x1, x2, x3, x4, x5
     PUSH $ptr
-    // stack: ind0, x0, x1, x2, x3, x4, x5
-    %mstore_bn254_pairing
-    // stack:           x1, x2, x3, x4, x5
-    PUSH $ptr  
-    %add_const(1)
-    // stack:     ind1, x1, x2, x3, x4, x5
-    %mstore_bn254_pairing
-    // stack:               x2, x3, x4, x5
-    PUSH $ptr  
-    %add_const(2)
-    // stack:         ind2, x2, x3, x4, x5
-    %mstore_bn254_pairing
-    // stack:                   x3, x4, x5
-    PUSH $ptr  
-    %add_const(3)
-    // stack:             ind3, x3, x4, x5
-    %mstore_bn254_pairing
-    // stack:                       x4, x5
-    PUSH $ptr  
-    %add_const(4)
-    // stack:                 ind4, x4, x5
-    %mstore_bn254_pairing
-    // stack:                           x5
-    PUSH $ptr  
-    %add_const(5)
-    // stack:                     ind5, x5
-    %mstore_bn254_pairing
+    %store_fp254_6
     // stack:
 %endmacro
 
-// cost: store (40) + i9 (9) = 49
 %macro store_fp254_6_sh(ptr)
     // stack:       x0, x1, x2, x3, x4, x5
-    PUSH $ptr  
+    PUSH $ptr
+    %create_bn254_pairing_address
+    // stack: addr, x0, x1, x2, x3, x4, x5
     %add_const(2)
-    // stack: ind2, x0, x1, x2, x3, x4, x5
-    %mstore_bn254_pairing
-    // stack:           x1, x2, x3, x4, x5
-    PUSH $ptr  
-    %add_const(3)
-    // stack:     ind3, x1, x2, x3, x4, x5
-    %mstore_bn254_pairing
-    // stack:               x2, x3, x4, x5
-    PUSH $ptr  
-    %add_const(4)
-    // stack:         ind4, x2, x3, x4, x5
-    %mstore_bn254_pairing
-    // stack:                   x3, x4, x5
-    PUSH $ptr  
-    %add_const(5)
-    // stack:             ind5, x3, x4, x5
-    %mstore_bn254_pairing
+    DUP1
+    // stack: addr2, addr2, x0, x1, x2, x3, x4, x5
+    SWAP2 MSTORE_GENERAL
+    // stack:    addr2, x1, x2, x3, x4, x5
+    %add_const(1)
+    DUP1
+    // stack: addr3, addr3, x1, x2, x3, x4, x5
+    SWAP2 MSTORE_GENERAL
+    // stack:        addr3, x2, x3, x4, x5
+    %add_const(1)
+    DUP1
+    // stack: addr4, addr4, x2, x3, x4, x5
+    SWAP2 MSTORE_GENERAL
+    // stack:            addr4, x3, x4, x5
+    %add_const(1)
+    // stack:            addr5, x3, x4, x5
+    %swap_mstore
     // stack:                       x4, x5
     %i9
     // stack:                       y5, y4
     PUSH $ptr  
+    %create_bn254_pairing_address
+    DUP1
     %add_const(1)
-    // stack:                 ind1, y5, y4
-    %mstore_bn254_pairing
-    // stack:                           y4
-    PUSH $ptr
-    // stack:                     ind0, y4
-    %mstore_bn254_pairing
+    // stack:          addr1, addr, y5, y4
+    SWAP3
+    MSTORE_GENERAL
+    // stack:                    y5, addr1
+    MSTORE_GENERAL
     // stack:
 %endmacro
 
@@ -575,10 +544,10 @@
     MULFP254
     SWAP3 
     // stack: c , f0,     f1, c * f2, c * f3, c *f 4, c * f5
-    SWAP2  
-    DUP3  
+    SWAP2
+    DUP3
     MULFP254
-    SWAP2  
+    SWAP2
     // stack: c , f0, c * f1, c * f2, c * f3, c * f4, c * f5
     MULFP254
     // stack: c * f0, c * f1, c * f2, c * f3, c * f4, c * f5
@@ -864,264 +833,268 @@
 
 %macro load_fp254_12
     // stack:                                                          ptr
-    DUP1  
+    %create_bn254_pairing_address
+    DUP1
     %add_const(10)
-    // stack:                                                   ind10, ptr
-    %mload_bn254_pairing
-    // stack:                                                     x10, ptr
-    DUP2  
+    // stack:                                                   addr10, addr
+    MLOAD_GENERAL
+    // stack:                                                     x10, addr
+    DUP2
     %add_const(9)
-    // stack:                                              ind09, x10, ptr
-    %mload_bn254_pairing
-    // stack:                                                x09, x10, ptr
-    DUP3  
+    // stack:                                              addr09, x10, addr
+    MLOAD_GENERAL
+    // stack:                                                x09, x10, addr
+    DUP3
     %add_const(8)
-    // stack:                                         ind08, x09, x10, ptr
-    %mload_bn254_pairing
-    // stack:                                           x08, x09, x10, ptr
-    DUP4  
+    // stack:                                         addr08, x09, x10, addr
+    MLOAD_GENERAL
+    // stack:                                           x08, x09, x10, addr
+    DUP4
     %add_const(7)
-    // stack:                                    ind07, x08, x09, x10, ptr
-    %mload_bn254_pairing
-    // stack:                                      x07, x08, x09, x10, ptr
-    DUP5  
+    // stack:                                    addr07, x08, x09, x10, addr
+    MLOAD_GENERAL
+    // stack:                                      x07, x08, x09, x10, addr
+    DUP5
     %add_const(6)
-    // stack:                               ind06, x07, x08, x09, x10, ptr
-    %mload_bn254_pairing
-    // stack:                                 x06, x07, x08, x09, x10, ptr
-    DUP6  
+    // stack:                               addr06, x07, x08, x09, x10, addr
+    MLOAD_GENERAL
+    // stack:                                 x06, x07, x08, x09, x10, addr
+    DUP6
     %add_const(5)
-    // stack:                          ind05, x06, x07, x08, x09, x10, ptr
-    %mload_bn254_pairing
-    // stack:                            x05, x06, x07, x08, x09, x10, ptr
-    DUP7  
+    // stack:                          addr05, x06, x07, x08, x09, x10, addr
+    MLOAD_GENERAL
+    // stack:                            x05, x06, x07, x08, x09, x10, addr
+    DUP7
     %add_const(4)
-    // stack:                     ind04, x05, x06, x07, x08, x09, x10, ptr
-    %mload_bn254_pairing
-    // stack:                       x04, x05, x06, x07, x08, x09, x10, ptr
-    DUP8  
+    // stack:                     addr04, x05, x06, x07, x08, x09, x10, addr
+    MLOAD_GENERAL
+    // stack:                       x04, x05, x06, x07, x08, x09, x10, addr
+    DUP8
     %add_const(3)
-    // stack:                ind03, x04, x05, x06, x07, x08, x09, x10, ptr
-    %mload_bn254_pairing
-    // stack:                  x03, x04, x05, x06, x07, x08, x09, x10, ptr
-    DUP9  
+    // stack:                addr03, x04, x05, x06, x07, x08, x09, x10, addr
+    MLOAD_GENERAL
+    // stack:                  x03, x04, x05, x06, x07, x08, x09, x10, addr
+    DUP9
     %add_const(2)
-    // stack:           ind02, x03, x04, x05, x06, x07, x08, x09, x10, ptr
-    %mload_bn254_pairing
-    // stack:             x02, x03, x04, x05, x06, x07, x08, x09, x10, ptr
-    DUP10  
+    // stack:           addr02, x03, x04, x05, x06, x07, x08, x09, x10, addr
+    MLOAD_GENERAL
+    // stack:             x02, x03, x04, x05, x06, x07, x08, x09, x10, addr
+    DUP10
     %add_const(1)
-    // stack:      ind01, x02, x03, x04, x05, x06, x07, x08, x09, x10, ptr
-    %mload_bn254_pairing
-    // stack:        x01, x02, x03, x04, x05, x06, x07, x08, x09, x10, ptr
-    DUP11  
+    // stack:      addr01, x02, x03, x04, x05, x06, x07, x08, x09, x10, addr
+    MLOAD_GENERAL
+    // stack:        x01, x02, x03, x04, x05, x06, x07, x08, x09, x10, addr
+    DUP11
     %add_const(11)
-    // stack: ind11, x01, x02, x03, x04, x05, x06, x07, x08, x09, x10, ptr
-    %mload_bn254_pairing
-    // stack:   x11, x01, x02, x03, x04, x05, x06, x07, x08, x09, x10, ptr
+    // stack: addr11, x01, x02, x03, x04, x05, x06, x07, x08, x09, x10, addr
+    MLOAD_GENERAL
+    // stack:   x11, x01, x02, x03, x04, x05, x06, x07, x08, x09, x10, addr
     SWAP11
-    // stack: ind00, x01, x02, x03, x04, x05, x06, x07, x08, x09, x10, x11
-    %mload_bn254_pairing
+    // stack: addr00, x01, x02, x03, x04, x05, x06, x07, x08, x09, x10, x11
+    MLOAD_GENERAL
     // stack:   x00, x01, x02, x03, x04, x05, x06, x07, x08, x09, x10, x11
 %endmacro
 
 %macro store_fp254_12
     // stack:        ptr, x00, x01, x02, x03, x04, x05, x06, x07, x08, x09, x10, x11
+    %create_bn254_pairing_address
     SWAP11
-    // stack:        x10, x00, x01, x02, x03, x04, x05, x06, x07, x08, x09, ptr, x11
-    DUP12  
+    // stack:        x10, x00, x01, x02, x03, x04, x05, x06, x07, x08, x09, addr, x11
+    DUP12
     %add_const(10)
-    // stack: ind10, x10, x00, x01, x02, x03, x04, x05, x06, x07, x08, x09, ptr, x11
-    %mstore_bn254_pairing
-    // stack:             x00, x01, x02, x03, x04, x05, x06, x07, x08, x09, ptr, x11
+    // stack: addr10, x10, x00, x01, x02, x03, x04, x05, x06, x07, x08, x09, addr, x11
+    %swap_mstore
+    // stack:             x00, x01, x02, x03, x04, x05, x06, x07, x08, x09, addr, x11
     DUP11
-    // stack:      ind00, x00, x01, x02, x03, x04, x05, x06, x07, x08, x09, ptr, x11
-    %mstore_bn254_pairing
-    // stack:                  x01, x02, x03, x04, x05, x06, x07, x08, x09, ptr, x11
-    DUP10  
+    // stack:      addr00, x00, x01, x02, x03, x04, x05, x06, x07, x08, x09, addr, x11
+    %swap_mstore
+    // stack:                  x01, x02, x03, x04, x05, x06, x07, x08, x09, addr, x11
+    DUP10
     %add_const(01)
-    // stack:           ind01, x01, x02, x03, x04, x05, x06, x07, x08, x09, ptr, x11
-    %mstore_bn254_pairing
-    // stack:                       x02, x03, x04, x05, x06, x07, x08, x09, ptr, x11
+    // stack:           addr01, x01, x02, x03, x04, x05, x06, x07, x08, x09, addr, x11
+    %swap_mstore
+    // stack:                       x02, x03, x04, x05, x06, x07, x08, x09, addr, x11
     DUP9   
     %add_const(02)
-    // stack:                ind02, x02, x03, x04, x05, x06, x07, x08, x09, ptr, x11
-    %mstore_bn254_pairing
-    // stack:                            x03, x04, x05, x06, x07, x08, x09, ptr, x11
+    // stack:                addr02, x02, x03, x04, x05, x06, x07, x08, x09, addr, x11
+    %swap_mstore
+    // stack:                            x03, x04, x05, x06, x07, x08, x09, addr, x11
     DUP8   
     %add_const(03)
-    // stack:                     ind03, x03, x04, x05, x06, x07, x08, x09, ptr, x11
-    %mstore_bn254_pairing
-    // stack:                                 x04, x05, x06, x07, x08, x09, ptr, x11
+    // stack:                     addr03, x03, x04, x05, x06, x07, x08, x09, addr, x11
+    %swap_mstore
+    // stack:                                 x04, x05, x06, x07, x08, x09, addr, x11
     DUP7   
     %add_const(04)
-    // stack:                          ind04, x04, x05, x06, x07, x08, x09, ptr, x11
-    %mstore_bn254_pairing
-    // stack:                                      x05, x06, x07, x08, x09, ptr, x11
+    // stack:                          addr04, x04, x05, x06, x07, x08, x09, addr, x11
+    %swap_mstore
+    // stack:                                      x05, x06, x07, x08, x09, addr, x11
     DUP6   
     %add_const(05)
-    // stack:                               ind05, x05, x06, x07, x08, x09, ptr, x11
-    %mstore_bn254_pairing
-    // stack:                                           x06, x07, x08, x09, ptr, x11
+    // stack:                               addr05, x05, x06, x07, x08, x09, addr, x11
+    %swap_mstore
+    // stack:                                           x06, x07, x08, x09, addr, x11
     DUP5   
     %add_const(06)
-    // stack:                                    ind06, x06, x07, x08, x09, ptr, x11
-    %mstore_bn254_pairing
-    // stack:                                                x07, x08, x09, ptr, x11
+    // stack:                                    addr06, x06, x07, x08, x09, addr, x11
+    %swap_mstore
+    // stack:                                                x07, x08, x09, addr, x11
     DUP4   
     %add_const(07)
-    // stack:                                         ind07, x07, x08, x09, ptr, x11
-    %mstore_bn254_pairing
-    // stack:                                                     x08, x09, ptr, x11
+    // stack:                                         addr07, x07, x08, x09, addr, x11
+    %swap_mstore
+    // stack:                                                     x08, x09, addr, x11
     DUP3   
     %add_const(08)
-    // stack:                                              ind08, x08, x09, ptr, x11
-    %mstore_bn254_pairing
-    // stack:                                                          x09, ptr, x11
+    // stack:                                              addr08, x08, x09, addr, x11
+    %swap_mstore
+    // stack:                                                          x09, addr, x11
     DUP2   
     %add_const(09)
-    // stack:                                                   ind09, x09, ptr, x11
-    %mstore_bn254_pairing
-    // stack:                                                               ptr, x11
+    // stack:                                                   addr09, x09, addr, x11
+    %swap_mstore
+    // stack:                                                               addr, x11
     %add_const(11)
-    // stack:                                                             ind11, x11
-    %mstore_bn254_pairing
+    // stack:                                                             addr11, x11
+    %swap_mstore
     // stack:                                                            
 %endmacro
 
 /// moves fp254_12 from src..src+12 to dest..dest+12
-/// these should not overlap. leaves dest on stack
+/// these should not overlap. leaves scaled DEST on stack
 %macro move_fp254_12
     // stack:              src, dest
-    DUP1  
-    // stack:       ind00, src, dest
-    %mload_bn254_pairing
-    // stack:         x00, src, dest
+    PUSH @SEGMENT_BN_PAIRING
+    GET_CONTEXT
+    %build_address_no_offset
+    DUP1
+    // stack: base_addr, base_addr, src, dest
+    SWAP3 ADD
+    // stack: DEST, src, base_addr
+    SWAP2 ADD
+    // stack:              SRC, DEST
+    DUP1
+    // stack:       addr00, SRC, DEST
+    MLOAD_GENERAL
+    // stack:         x00, SRC, DEST
     DUP3
-    // stack: ind00', x00, src, dest
-    %mstore_bn254_pairing
-    // stack:              src, dest
-    DUP1  
+    // stack: addr00', x00, SRC, DEST
+    %swap_mstore
+    // stack:              SRC, DEST
+    DUP1
     %add_const(1)
-    // stack:       ind01, src, dest
-    %mload_bn254_pairing
-    // stack:         x01, src, dest
-    DUP3  
+    // stack:       addr01, SRC, DEST
+    MLOAD_GENERAL
+    // stack:         x01, SRC, DEST
+    DUP3
     %add_const(1)
-    // stack: ind01', x01, src, dest
-    %mstore_bn254_pairing
-    // stack:              src, dest
-    DUP1  
+    // stack: addr01', x01, SRC, DEST
+    %swap_mstore
+    // stack:              SRC, DEST
+    DUP1
     %add_const(2)
-    // stack:       ind02, src, dest
-    %mload_bn254_pairing
-    // stack:         x02, src, dest
-    DUP3  
+    // stack:       addr02, SRC, DEST
+    MLOAD_GENERAL
+    // stack:         x02, SRC, DEST
+    DUP3
     %add_const(2)
-    // stack: ind02', x02, src, dest
-    %mstore_bn254_pairing
-    // stack:              src, dest
-    DUP1  
+    // stack: addr02', x02, SRC, DEST
+    %swap_mstore
+    // stack:              SRC, DEST
+    DUP1
     %add_const(3)
-    // stack:       ind03, src, dest
-    %mload_bn254_pairing
-    // stack:         x03, src, dest
-    DUP3  
+    // stack:       addr03, SRC, DEST
+    MLOAD_GENERAL
+    // stack:         x03, SRC, DEST
+    DUP3
     %add_const(3)
-    // stack: ind03', x03, src, dest
-    %mstore_bn254_pairing
-    // stack:              src, dest
-    DUP1  
+    // stack: addr03', x03, SRC, DEST
+    %swap_mstore
+    // stack:              SRC, DEST
+    DUP1
     %add_const(4)
-    // stack:       ind04, src, dest
-    %mload_bn254_pairing
-    // stack:         x04, src, dest
+    // stack:       addr04, SRC, DEST
+    MLOAD_GENERAL
+    // stack:         x04, SRC, DEST
     DUP3 
     %add_const(4)
-    // stack: ind04', x04, src, dest
-    %mstore_bn254_pairing
-    // stack:              src, dest
-    DUP1  
+    // stack: addr04', x04, SRC, DEST
+    %swap_mstore
+    // stack:              SRC, DEST
+    DUP1
     %add_const(5)
-    // stack:       ind05, src, dest
-    %mload_bn254_pairing
-    // stack:         x05, src, dest
-    DUP3  
+    // stack:       addr05, SRC, DEST
+    MLOAD_GENERAL
+    // stack:         x05, SRC, DEST
+    DUP3
     %add_const(5)
-    // stack: ind05', x05, src, dest
-    %mstore_bn254_pairing
-    // stack:              src, dest
-    DUP1  
+    // stack: addr05', x05, SRC, DEST
+    %swap_mstore
+    // stack:              SRC, DEST
+    DUP1
     %add_const(6)
-    // stack:       ind06, src, dest
-    %mload_bn254_pairing
-    // stack:         x06, src, dest
-    DUP3  
+    // stack:       addr06, SRC, DEST
+    MLOAD_GENERAL
+    // stack:         x06, SRC, DEST
+    DUP3
     %add_const(6)
-    // stack: ind06', x06, src, dest
-    %mstore_bn254_pairing
-    // stack:              src, dest
-    DUP1  
+    // stack: addr06', x06, SRC, DEST
+    %swap_mstore
+    // stack:              SRC, DEST
+    DUP1
     %add_const(7)
-    // stack:       ind07, src, dest
-    %mload_bn254_pairing
-    // stack:         x07, src, dest
-    DUP3  
+    // stack:       addr07, SRC, DEST
+    MLOAD_GENERAL
+    // stack:         x07, SRC, DEST
+    DUP3
     %add_const(7)
-    // stack: ind07', x07, src, dest
-    %mstore_bn254_pairing
-    // stack:              src, dest
-    DUP1  
+    // stack: addr07', x07, SRC, DEST
+    %swap_mstore
+    // stack:              SRC, DEST
+    DUP1
     %add_const(8)
-    // stack:       ind08, src, dest
-    %mload_bn254_pairing
-    // stack:         x08, src, dest
-    DUP3  
+    // stack:       addr08, SRC, DEST
+    MLOAD_GENERAL
+    // stack:         x08, SRC, DEST
+    DUP3
     %add_const(8)
-    // stack: ind08', x08, src, dest
-    %mstore_bn254_pairing
-    // stack:              src, dest
+    // stack: addr08', x08, SRC, DEST
+    %swap_mstore
+    // stack:              SRC, DEST
     DUP1 
     %add_const(9)
-    // stack:       ind09, src, dest
-    %mload_bn254_pairing
-    // stack:         x09, src, dest
-    DUP3  
+    // stack:       addr09, SRC, DEST
+    MLOAD_GENERAL
+    // stack:         x09, SRC, DEST
+    DUP3
     %add_const(9)
-    // stack: ind09', x09, src, dest
-    %mstore_bn254_pairing
-    // stack:              src, dest
-    DUP1  
+    // stack: addr09', x09, SRC, DEST
+    %swap_mstore
+    // stack:              SRC, DEST
+    DUP1
     %add_const(10)
-    // stack:       ind10, src, dest
-    %mload_bn254_pairing
-    // stack:         x10, src, dest
-    DUP3  
+    // stack:       addr10, SRC, DEST
+    MLOAD_GENERAL
+    // stack:         x10, SRC, DEST
+    DUP3
     %add_const(10)
-    // stack: ind10', x10, src, dest
-    %mstore_bn254_pairing
-    // stack:              src, dest
+    // stack: addr10', x10, SRC, DEST
+    %swap_mstore
+    // stack:              SRC, DEST
     %add_const(11)
-    // stack:            ind11, dest
-    %mload_bn254_pairing
-    // stack:              x11, dest
-    DUP2  
+    // stack:            addr11, DEST
+    MLOAD_GENERAL
+    // stack:              x11, DEST
+    DUP2
     %add_const(11)
-    // stack:      ind11', x11, dest
-    %mstore_bn254_pairing
+    // stack:      addr11', x11, DEST
+    %swap_mstore
 %endmacro
 
 %macro assert_eq_unit_fp254_12
     %assert_eq_const(1)
-    %assert_zero
-    %assert_zero
-    %assert_zero
-    %assert_zero
-    %assert_zero
-    %assert_zero
-    %assert_zero
-    %assert_zero
-    %assert_zero
-    %assert_zero
+    %rep 10
+        OR
+    %endrep
     %assert_zero
 %endmacro

@@ -1,5 +1,10 @@
 //! A module to help with WitnessGeneratorRef serialization
 
+#[cfg(not(feature = "std"))]
+pub use alloc::vec::Vec;
+#[cfg(feature = "std")]
+pub use std::vec::Vec; // For macros below
+
 use plonky2_field::extension::Extendable;
 
 use crate::hash::hash_types::RichField;
@@ -50,14 +55,18 @@ macro_rules! get_generator_tag_impl {
             Ok(tag)
         } else)*
         {
-            log::log!(log::Level::Error, "attempted to serialize generator with id {} which is unsupported by this generator serializer", $generator.0.id());
+            log::log!(
+                log::Level::Error,
+                "attempted to serialize generator with id {} which is unsupported by this generator serializer",
+                $generator.0.id()
+            );
             Err($crate::util::serialization::IoError)
         }
     }};
 }
 
 #[macro_export]
-/// Macro implementing the `WitnessGeneratorSerializer` trait.
+/// Macro implementing the [`WitnessGeneratorSerializer`] trait.
 /// To serialize a list of generators used for a circuit,
 /// this macro should be called with a struct on which to implement
 /// this as first argument, followed by all the targeted generators.
@@ -74,7 +83,7 @@ macro_rules! impl_generator_serializer {
 
         fn write_generator(
             &self,
-            buf: &mut Vec<u8>,
+            buf: &mut $crate::util::serialization::generator_serialization::Vec<u8>,
             generator: &$crate::iop::generator::WitnessGeneratorRef<F, D>,
             common: &$crate::plonk::circuit_data::CommonCircuitData<F, D>,
         ) -> $crate::util::serialization::IoResult<()> {

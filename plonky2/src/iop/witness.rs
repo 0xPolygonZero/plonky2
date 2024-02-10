@@ -1,5 +1,5 @@
-use alloc::vec;
-use alloc::vec::Vec;
+#[cfg(not(feature = "std"))]
+use alloc::{vec, vec::Vec};
 
 use hashbrown::HashMap;
 use itertools::{zip_eq, Itertools};
@@ -297,7 +297,7 @@ impl<F: Field> Witness<F> for PartialWitness<F> {
 
 /// `PartitionWitness` holds a disjoint-set forest of the targets respecting a circuit's copy constraints.
 /// The value of a target is defined to be the value of its root in the forest.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct PartitionWitness<'a, F: Field> {
     pub values: Vec<Option<F>>,
     pub representative_map: &'a [usize],

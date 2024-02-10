@@ -1,3 +1,10 @@
+//! A module to help with GateRef serialization
+
+#[cfg(not(feature = "std"))]
+use alloc::vec::Vec;
+#[cfg(feature = "std")]
+use std::vec::Vec; // For macros below
+
 use plonky2_field::extension::Extendable;
 
 use crate::gates::gate::GateRef;
@@ -44,14 +51,18 @@ macro_rules! get_gate_tag_impl {
             Ok(tag)
         } else)*
         {
-            log::log!(log::Level::Error, "attempted to serialize gate with id `{}` which is unsupported by this gate serializer", $gate.0.id());
+            log::log!(
+                log::Level::Error,
+                "attempted to serialize gate with id `{}` which is unsupported by this gate serializer",
+                $gate.0.id()
+            );
             Err($crate::util::serialization::IoError)
         }
     }};
 }
 
 #[macro_export]
-/// Macro implementing the `GateSerializer` trait.
+/// Macro implementing the [`GateSerializer`] trait.
 /// To serialize a list of gates used for a circuit,
 /// this macro should be called with a struct on which to implement
 /// this as first argument, followed by all the targeted gates.
@@ -68,7 +79,7 @@ macro_rules! impl_gate_serializer {
 
         fn write_gate(
             &self,
-            buf: &mut Vec<u8>,
+            buf: &mut $crate::util::serialization::gate_serialization::Vec<u8>,
             gate: &$crate::gates::gate::GateRef<F, D>,
             common: &$crate::plonk::circuit_data::CommonCircuitData<F, D>,
         ) -> $crate::util::serialization::IoResult<()> {

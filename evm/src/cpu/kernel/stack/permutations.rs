@@ -19,8 +19,8 @@
 //!
 //! We typically represent a `(0 i)` transposition as a single scalar `i`.
 
+use core::hash::Hash;
 use std::collections::{HashMap, HashSet};
-use std::hash::Hash;
 
 use crate::cpu::kernel::stack::stack_manipulation::{StackItem, StackOp};
 
@@ -58,8 +58,8 @@ fn apply_perm<T: Eq + Hash + Clone>(permutation: Vec<Vec<usize>>, mut lst: Vec<T
 
 /// This function does STEP 1.
 /// Given 2 lists A, B find a permutation P such that P . A = B.
-pub fn find_permutation<T: Eq + Hash + Clone>(lst_a: &[T], lst_b: &[T]) -> Vec<Vec<usize>> {
-    // We should check to ensure that A and B are indeed rearrangments of each other.
+pub(crate) fn find_permutation<T: Eq + Hash + Clone>(lst_a: &[T], lst_b: &[T]) -> Vec<Vec<usize>> {
+    // We should check to ensure that A and B are indeed rearrangements of each other.
     assert!(is_permutation(lst_a, lst_b));
 
     let n = lst_a.len();
@@ -210,7 +210,7 @@ fn transpositions_to_stack_ops(trans: Vec<usize>) -> Vec<StackOp> {
     trans.into_iter().map(|i| StackOp::Swap(i as u8)).collect()
 }
 
-pub fn is_permutation<T: Eq + Hash + Clone>(a: &[T], b: &[T]) -> bool {
+pub(crate) fn is_permutation<T: Eq + Hash + Clone>(a: &[T], b: &[T]) -> bool {
     make_multiset(a) == make_multiset(b)
 }
 

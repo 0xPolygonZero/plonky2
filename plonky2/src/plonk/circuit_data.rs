@@ -1,7 +1,22 @@
-use alloc::collections::BTreeMap;
-use alloc::vec;
-use alloc::vec::Vec;
+//! Circuit data specific to the prover and the verifier.
+//!
+//! This module also defines a [`CircuitConfig`] to be customized
+//! when building circuits for arbitrary statements.
+//!
+//! After building a circuit, one obtains an instance of [`CircuitData`].
+//! This contains both prover and verifier data, allowing to generate
+//! proofs for the given circuit and verify them.
+//!
+//! Most of the [`CircuitData`] is actually prover-specific, and can be
+//! extracted by calling [`CircuitData::prover_data`] method.
+//! The verifier data can similarly be extracted by calling [`CircuitData::verifier_data`].
+//! This is useful to allow even small devices to verify plonky2 proofs.
+
+#[cfg(not(feature = "std"))]
+use alloc::{collections::BTreeMap, vec, vec::Vec};
 use core::ops::{Range, RangeFrom};
+#[cfg(feature = "std")]
+use std::collections::BTreeMap;
 
 use anyhow::Result;
 use serde::Serialize;
@@ -38,10 +53,22 @@ use crate::util::serialization::{
 };
 use crate::util::timing::TimingTree;
 
+/// Configuration to be used when building a circuit. This defines the shape of the circuit
+/// as well as its targeted security level and sub-protocol (e.g. FRI) parameters.
+///
+/// It supports a [`Default`] implementation tailored for recursion with Poseidon hash (of width 12)
+/// as internal hash function and FRI rate of 1/8.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct CircuitConfig {
+    /// The number of wires available at each row. This corresponds to the "width" of the circuit,
+    /// and consists in the sum of routed wires and advice wires.
     pub num_wires: usize,
+    /// The number of routed wires, i.e. wires that will be involved in Plonk's permutation argument.
+    /// This allows copy constraints, i.e. enforcing that two distant values in a circuit are equal.
+    /// Non-routed wires are called advice wires.
     pub num_routed_wires: usize,
+    /// The number of constants that can be used per gate. If a gate requires more constants than the config
+    /// allows, the [`CircuitBuilder`] will complain when trying to add this gate to its set of gates.
     pub num_constants: usize,
     /// Whether to use a dedicated gate for base field arithmetic, rather than using a single gate
     /// for both base field and extension field arithmetic.
@@ -50,6 +77,8 @@ pub struct CircuitConfig {
     /// The number of challenge points to generate, for IOPs that have soundness errors of (roughly)
     /// `degree / |F|`.
     pub num_challenges: usize,
+    /// A boolean to activate the zero-knowledge property. When this is set to `false`, proofs *may*
+    /// leak additional information.
     pub zero_knowledge: bool,
     /// A cap on the quotient polynomial's degree factor. The actual degree factor is derived
     /// systematically, but will never exceed this value.
@@ -64,12 +93,12 @@ impl Default for CircuitConfig {
 }
 
 impl CircuitConfig {
-    pub fn num_advice_wires(&self) -> usize {
+    pub const fn num_advice_wires(&self) -> usize {
         self.num_wires - self.num_routed_wires
     }
 
     /// A typical recursion config, without zero-knowledge, targeting ~100 bit security.
-    pub fn standard_recursion_config() -> Self {
+    pub const fn standard_recursion_config() -> Self {
         Self {
             num_wires: 135,
             num_routed_wires: 80,
@@ -265,7 +294,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 }
 
 /// Circuit data required by the prover.
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct VerifierCircuitData<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
@@ -442,11 +471,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CommonCircuitData<F, D> {
         self.fri_params.degree_bits
     }
 
-    pub fn degree(&self) -> usize {
+    pub const fn degree(&self) -> usize {
         1 << self.degree_bits()
     }
 
-    pub fn lde_size(&self) -> usize {
+    pub const fn lde_size(&self) -> usize {
         self.fri_params.lde_size()
     }
 
@@ -462,37 +491,37 @@ impl<F: RichField + Extendable<D>, const D: usize> CommonCircuitData<F, D> {
             .expect("No gates?")
     }
 
-    pub fn quotient_degree(&self) -> usize {
+    pub const fn quotient_degree(&self) -> usize {
         self.quotient_degree_factor * self.degree()
     }
 
     /// Range of the constants polynomials in the `constants_sigmas_commitment`.
-    pub fn constants_range(&self) -> Range<usize> {
+    pub const fn constants_range(&self) -> Range<usize> {
         0..self.num_constants
     }
 
     /// Range of the sigma polynomials in the `constants_sigmas_commitment`.
-    pub fn sigmas_range(&self) -> Range<usize> {
+    pub const fn sigmas_range(&self) -> Range<usize> {
         self.num_constants..self.num_constants + self.config.num_routed_wires
     }
 
     /// Range of the `z`s polynomials in the `zs_partial_products_commitment`.
-    pub fn zs_range(&self) -> Range<usize> {
+    pub const fn zs_range(&self) -> Range<usize> {
         0..self.config.num_challenges
     }
 
     /// Range of the partial products polynomials in the `zs_partial_products_lookup_commitment`.
-    pub fn partial_products_range(&self) -> Range<usize> {
+    pub const fn partial_products_range(&self) -> Range<usize> {
         self.config.num_challenges..(self.num_partial_products + 1) * self.config.num_challenges
     }
 
     /// Range of lookup polynomials in the `zs_partial_products_lookup_commitment`.
-    pub fn lookup_range(&self) -> RangeFrom<usize> {
+    pub const fn lookup_range(&self) -> RangeFrom<usize> {
         self.num_zs_partial_products_polys()..
     }
 
     /// Range of lookup polynomials needed for evaluation at `g * zeta`.
-    pub fn next_lookup_range(&self, i: usize) -> Range<usize> {
+    pub const fn next_lookup_range(&self, i: usize) -> Range<usize> {
         self.num_zs_partial_products_polys() + i * self.num_lookup_polys
             ..self.num_zs_partial_products_polys() + i * self.num_lookup_polys + 2
     }
@@ -573,7 +602,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CommonCircuitData<F, D> {
         )
     }
 
-    pub(crate) fn num_preprocessed_polys(&self) -> usize {
+    pub(crate) const fn num_preprocessed_polys(&self) -> usize {
         self.sigmas_range().end
     }
 
@@ -589,12 +618,12 @@ impl<F: RichField + Extendable<D>, const D: usize> CommonCircuitData<F, D> {
         )
     }
 
-    pub(crate) fn num_zs_partial_products_polys(&self) -> usize {
+    pub(crate) const fn num_zs_partial_products_polys(&self) -> usize {
         self.config.num_challenges * (1 + self.num_partial_products)
     }
 
     /// Returns the total number of lookup polynomials.
-    pub(crate) fn num_all_lookup_polys(&self) -> usize {
+    pub(crate) const fn num_all_lookup_polys(&self) -> usize {
         self.config.num_challenges * self.num_lookup_polys
     }
     fn fri_zs_polys(&self) -> Vec<FriPolynomialInfo> {
@@ -618,7 +647,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CommonCircuitData<F, D> {
                 ..self.num_zs_partial_products_polys() + self.num_all_lookup_polys(),
         )
     }
-    pub(crate) fn num_quotient_polys(&self) -> usize {
+    pub(crate) const fn num_quotient_polys(&self) -> usize {
         self.config.num_challenges * self.quotient_degree_factor
     }
 

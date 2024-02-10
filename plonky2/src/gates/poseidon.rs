@@ -1,6 +1,10 @@
-use alloc::string::String;
-use alloc::vec::Vec;
-use alloc::{format, vec};
+#[cfg(not(feature = "std"))]
+use alloc::{
+    format,
+    string::{String, ToString},
+    vec,
+    vec::Vec,
+};
 use core::marker::PhantomData;
 
 use crate::field::extension::Extendable;
@@ -30,17 +34,17 @@ use crate::util::serialization::{Buffer, IoResult, Read, Write};
 pub struct PoseidonGate<F: RichField + Extendable<D>, const D: usize>(PhantomData<F>);
 
 impl<F: RichField + Extendable<D>, const D: usize> PoseidonGate<F, D> {
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self(PhantomData)
     }
 
     /// The wire index for the `i`th input to the permutation.
-    pub fn wire_input(i: usize) -> usize {
+    pub const fn wire_input(i: usize) -> usize {
         i
     }
 
     /// The wire index for the `i`th output to the permutation.
-    pub fn wire_output(i: usize) -> usize {
+    pub const fn wire_output(i: usize) -> usize {
         SPONGE_WIDTH + i
     }
 
@@ -90,7 +94,7 @@ impl<F: RichField + Extendable<D>, const D: usize> PoseidonGate<F, D> {
     }
 
     /// End of wire indices, exclusive.
-    fn end() -> usize {
+    const fn end() -> usize {
         Self::START_FULL_1 + SPONGE_WIDTH * poseidon::HALF_N_FULL_ROUNDS
     }
 }
@@ -533,16 +537,12 @@ impl<F: RichField + Extendable<D> + Poseidon, const D: usize> SimpleGenerator<F,
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
+    use plonky2_field::goldilocks_field::GoldilocksField;
 
-    use crate::field::goldilocks_field::GoldilocksField;
-    use crate::field::types::Field;
+    use super::*;
     use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
-    use crate::gates::poseidon::PoseidonGate;
-    use crate::hash::poseidon::{Poseidon, SPONGE_WIDTH};
     use crate::iop::generator::generate_partial_witness;
-    use crate::iop::wire::Wire;
-    use crate::iop::witness::{PartialWitness, Witness, WitnessWrite};
-    use crate::plonk::circuit_builder::CircuitBuilder;
+    use crate::iop::witness::PartialWitness;
     use crate::plonk::circuit_data::CircuitConfig;
     use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
 

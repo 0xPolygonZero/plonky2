@@ -1,4 +1,4 @@
-use std::ops::RangeInclusive;
+use core::ops::RangeInclusive;
 
 use ethereum_types::U256;
 
@@ -28,7 +28,7 @@ const fn u256_from_set_index_ranges<const N: usize>(ranges: &[RangeInclusive<u8>
     U256(res_limbs)
 }
 
-pub const STACK_LENGTH_INCREASING_OPCODES_USER: U256 = u256_from_set_index_ranges(&[
+pub(crate) const STACK_LENGTH_INCREASING_OPCODES_USER: U256 = u256_from_set_index_ranges(&[
     0x30..=0x30, // ADDRESS
     0x32..=0x34, // ORIGIN, CALLER, CALLVALUE
     0x36..=0x36, // CALLDATASIZE
@@ -41,7 +41,7 @@ pub const STACK_LENGTH_INCREASING_OPCODES_USER: U256 = u256_from_set_index_range
     0x5f..=0x8f, // PUSH*, DUP*
 ]);
 
-pub const INVALID_OPCODES_USER: U256 = u256_from_set_index_ranges(&[
+pub(crate) const INVALID_OPCODES_USER: U256 = u256_from_set_index_ranges(&[
     0x0c..=0x0f,
     0x1e..=0x1f,
     0x21..=0x2f,

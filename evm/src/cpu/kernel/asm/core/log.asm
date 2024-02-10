@@ -206,22 +206,27 @@ log_after_topics:
     // stack: next_log_ptr, data_ptr, data_offset, retdest
     SWAP1
     // stack: data_ptr, next_log_ptr, data_offset, retdest
+    SWAP2
+    PUSH @SEGMENT_MAIN_MEMORY GET_CONTEXT %build_address
+    SWAP2
+    // stack: data_ptr, next_log_ptr, data_addr, retdest
+    
 
 store_log_data_loop:
-    // stack: cur_data_ptr, next_log_ptr, cur_data_offset, retdest
+    // stack: cur_data_ptr, next_log_ptr, cur_data_addr, retdest
     DUP2 DUP2 EQ
-    // stack: cur_data_ptr == next_log_ptr, cur_data_ptr, next_log_ptr, cur_data_offset, retdest
+    // stack: cur_data_ptr == next_log_ptr, cur_data_ptr, next_log_ptr, cur_data_addr, retdest
     %jumpi(store_log_data_loop_end)
-    // stack: cur_data_ptr, next_log_ptr, cur_data_offset, retdest
+    // stack: cur_data_ptr, next_log_ptr, cur_data_addr, retdest
     DUP3
-    %mload_current(@SEGMENT_MAIN_MEMORY)
-    // stack: cur_data, cur_data_ptr, next_log_ptr, cur_data_offset, retdest
+    MLOAD_GENERAL
+    // stack: cur_data, cur_data_ptr, next_log_ptr, cur_data_addr, retdest
     // Store current data byte.
     DUP2
     %mstore_kernel(@SEGMENT_LOGS_DATA)
-    // stack: cur_data_ptr, next_log_ptr, cur_data_offset, retdest
+    // stack: cur_data_ptr, next_log_ptr, cur_data_addr, retdest
     SWAP2 %increment SWAP2
-    // stack: cur_data_ptr, next_log_ptr, next_data_offset, retdest
+    // stack: cur_data_ptr, next_log_ptr, next_data_addr, retdest
     %increment
     %jump(store_log_data_loop)
 

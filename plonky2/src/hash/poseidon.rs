@@ -1,9 +1,9 @@
 //! Implementation of the Poseidon hash function, as described in
 //! <https://eprint.iacr.org/2019/458.pdf>
 
-use alloc::vec;
-use alloc::vec::Vec;
-use std::fmt::Debug;
+#[cfg(not(feature = "std"))]
+use alloc::{vec, vec::Vec};
+use core::fmt::Debug;
 
 use unroll::unroll_for_loops;
 
@@ -36,7 +36,7 @@ pub const N_ROUNDS: usize = N_FULL_ROUNDS_TOTAL + N_PARTIAL_ROUNDS;
 const MAX_WIDTH: usize = 12; // we only have width 8 and 12, and 12 is bigger. :)
 
 #[inline(always)]
-fn add_u160_u128((x_lo, x_hi): (u128, u32), y: u128) -> (u128, u32) {
+const fn add_u160_u128((x_lo, x_hi): (u128, u32), y: u128) -> (u128, u32) {
     let (res_lo, over) = x_lo.overflowing_add(y);
     let res_hi = x_hi + (over as u32);
     (res_lo, res_hi)
@@ -753,8 +753,7 @@ impl<F: RichField> AlgebraicHasher<F> for PoseidonHash {
 
 #[cfg(test)]
 pub(crate) mod test_helpers {
-    use crate::field::types::Field;
-    use crate::hash::poseidon::{Poseidon, SPONGE_WIDTH};
+    use super::*;
 
     pub(crate) fn check_test_vectors<F: Field>(
         test_vectors: Vec<([u64; SPONGE_WIDTH], [u64; SPONGE_WIDTH])>,

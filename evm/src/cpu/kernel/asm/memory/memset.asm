@@ -1,63 +1,49 @@
-// Sets `count` values to 0 at
-//     DST = (dst_ctx, dst_segment, dst_addr).
-// This tuple definition is used for brevity in the stack comments below.
+// Sets `count` values to 0 at DST.
 global memset:
     // stack: DST, count, retdest
 
-    // Handle empty case
-    DUP4
-    // stack: count, DST, count, retdest
-    ISZERO
-    // stack: count == 0, DST, count, retdest
-    %jumpi(memset_bytes_empty)
-
-    // stack: DST, count, retdest
-
     // Handle small case
-    DUP4
+    DUP2
     // stack: count, DST, count, retdest
-    %lt_const(0x20)
-    // stack: count < 32, DST, count, retdest
+    %lt_const(0x21)
+    // stack: count <= 32, DST, count, retdest
     %jumpi(memset_finish)
 
     // stack: DST, count, retdest
-    PUSH 32
     PUSH 0
-    DUP5
-    DUP5
-    DUP5
-    // stack: DST, 0, 32, DST, count, retdest
-    MSTORE_32BYTES
-    // stack: DST, count, retdest
-
-    // Increment dst_addr.
-    SWAP2
-    %add_const(0x20)
-    SWAP2
+    SWAP1
+    // stack: DST, 0, count, retdest
+    MSTORE_32BYTES_32
+    // stack: DST', count, retdest
     // Decrement count.
-    SWAP3
-    %sub_const(0x20)
-    SWAP3
+    PUSH 32 DUP3 SUB SWAP2 POP
 
     // Continue the loop.
     %jump(memset)
 
 memset_finish:
     // stack: DST, final_count, retdest
-    DUP4
-    PUSH 0
-    DUP5
-    DUP5
-    DUP5
-    // stack: DST, 0, final_count, DST, final_count, retdest
-    MSTORE_32BYTES
+
+    // Handle empty case
+    DUP2
+    // stack: final_count, DST, final_count, retdest
+    ISZERO
+    // stack: final_count == 0, DST, final_count, retdest
+    %jumpi(memset_bytes_empty)
+
     // stack: DST, final_count, retdest
-    %pop4
+    DUP2
+    PUSH 0
+    DUP3
+    // stack: DST, 0, final_count, DST, final_count, retdest
+    %mstore_unpacking
+    // stack: DST, final_count, retdest
+    %pop3
     // stack: retdest
     JUMP
 
 memset_bytes_empty:
     // stack: DST, 0, retdest
-    %pop4
+    %pop2
     // stack: retdest
     JUMP

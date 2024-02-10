@@ -25,13 +25,12 @@ fn cost_estimate_item(item: &Item) -> u32 {
     }
 }
 
-fn cost_estimate_standard_op(_op: &str) -> u32 {
+const fn cost_estimate_standard_op(_op: &str) -> u32 {
     // For now we just treat any standard operation as having the same cost. This is pretty naive,
     // but should work fine with our current set of simple optimization rules.
     1
 }
 
-fn cost_estimate_push(num_bytes: usize) -> u32 {
-    // TODO: Once PUSH is actually implemented, check if this needs to be revised.
+const fn cost_estimate_push(num_bytes: usize) -> u32 {
     num_bytes as u32
 }

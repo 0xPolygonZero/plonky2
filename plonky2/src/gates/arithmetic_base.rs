@@ -1,6 +1,9 @@
-use alloc::format;
-use alloc::string::String;
-use alloc::vec::Vec;
+#[cfg(not(feature = "std"))]
+use alloc::{
+    format,
+    string::{String, ToString},
+    vec::Vec,
+};
 
 use crate::field::extension::Extendable;
 use crate::field::packed::PackedField;
@@ -20,8 +23,8 @@ use crate::plonk::vars::{
 };
 use crate::util::serialization::{Buffer, IoResult, Read, Write};
 
-/// A gate which can perform a weighted multiply-add, i.e. `result = c0 x y + c1 z`. If the config
-/// supports enough routed wires, it can support several such operations in one gate.
+/// A gate which can perform a weighted multiply-add, i.e. `result = c0.x.y + c1.z`. If the config
+/// has enough routed wires, it can support several such operations in one gate.
 #[derive(Debug, Clone)]
 pub struct ArithmeticGate {
     /// Number of arithmetic operations performed by an arithmetic gate.
@@ -29,28 +32,28 @@ pub struct ArithmeticGate {
 }
 
 impl ArithmeticGate {
-    pub fn new_from_config(config: &CircuitConfig) -> Self {
+    pub const fn new_from_config(config: &CircuitConfig) -> Self {
         Self {
             num_ops: Self::num_ops(config),
         }
     }
 
     /// Determine the maximum number of operations that can fit in one gate for the given config.
-    pub(crate) fn num_ops(config: &CircuitConfig) -> usize {
+    pub(crate) const fn num_ops(config: &CircuitConfig) -> usize {
         let wires_per_op = 4;
         config.num_routed_wires / wires_per_op
     }
 
-    pub fn wire_ith_multiplicand_0(i: usize) -> usize {
+    pub const fn wire_ith_multiplicand_0(i: usize) -> usize {
         4 * i
     }
-    pub fn wire_ith_multiplicand_1(i: usize) -> usize {
+    pub const fn wire_ith_multiplicand_1(i: usize) -> usize {
         4 * i + 1
     }
-    pub fn wire_ith_addend(i: usize) -> usize {
+    pub const fn wire_ith_addend(i: usize) -> usize {
         4 * i + 2
     }
-    pub fn wire_ith_output(i: usize) -> usize {
+    pub const fn wire_ith_output(i: usize) -> usize {
         4 * i + 3
     }
 }

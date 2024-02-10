@@ -1,7 +1,7 @@
-use std::cmp::Ordering;
+use core::cmp::Ordering;
+use core::hash::Hash;
 use std::collections::hash_map::Entry::{Occupied, Vacant};
 use std::collections::{BinaryHeap, HashMap};
-use std::hash::Hash;
 
 use itertools::Itertools;
 
@@ -286,15 +286,15 @@ impl StackOp {
                         panic!("Target should have been expanded already: {target:?}")
                     }
                 };
-                // This is just a rough estimate; we can update it after implementing PUSH.
-                (bytes, bytes)
+                // A PUSH takes one cycle, and 1 memory read per byte.
+                (1, bytes + 1)
             }
-            // A POP takes one cycle, and doesn't involve memory, it just decrements a pointer.
-            Pop => (1, 0),
+            // A POP takes one cycle, and most of the time a read to update the top of the stack.
+            Pop => (1, 1),
             // A DUP takes one cycle, and a read and a write.
             StackOp::Dup(_) => (1, 2),
-            // A SWAP takes one cycle with four memory ops, to read both values then write to them.
-            StackOp::Swap(_) => (1, 4),
+            // A SWAP takes one cycle with three memory ops, to read both values then write to them.
+            StackOp::Swap(_) => (1, 3),
         };
 
         let cpu_cost = cpu_rows * NUM_CPU_COLUMNS as u32;

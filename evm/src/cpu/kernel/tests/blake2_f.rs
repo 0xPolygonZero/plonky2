@@ -5,6 +5,8 @@ use crate::cpu::kernel::interpreter::{
 };
 use crate::memory::segments::Segment::KernelGeneral;
 
+type ConvertedBlakeInputs = (u32, [u64; 8], [u64; 16], u64, u64, bool);
+
 fn reverse_bytes_u64(input: u64) -> u64 {
     let mut result = 0;
     for i in 0..8 {
@@ -13,7 +15,7 @@ fn reverse_bytes_u64(input: u64) -> u64 {
     result
 }
 
-fn convert_input(input: &str) -> Result<(u32, [u64; 8], [u64; 16], u64, u64, bool)> {
+fn convert_input(input: &str) -> Result<ConvertedBlakeInputs> {
     let rounds = u32::from_str_radix(&input[..8], 16).unwrap();
 
     let mut h = [0u64; 8];

@@ -1,6 +1,10 @@
-use alloc::format;
-use alloc::string::String;
-use alloc::vec::Vec;
+#[cfg(not(feature = "std"))]
+use alloc::{
+    format,
+    string::{String, ToString},
+    vec,
+    vec::Vec,
+};
 use core::usize;
 
 use itertools::Itertools;
@@ -51,16 +55,16 @@ impl LookupGate {
             lut_hash: keccak(table_bytes).0,
         }
     }
-    pub(crate) fn num_slots(config: &CircuitConfig) -> usize {
+    pub(crate) const fn num_slots(config: &CircuitConfig) -> usize {
         let wires_per_lookup = 2;
         config.num_routed_wires / wires_per_lookup
     }
 
-    pub fn wire_ith_looking_inp(i: usize) -> usize {
+    pub const fn wire_ith_looking_inp(i: usize) -> usize {
         2 * i
     }
 
-    pub fn wire_ith_looking_out(i: usize) -> usize {
+    pub const fn wire_ith_looking_out(i: usize) -> usize {
         2 * i + 1
     }
 }

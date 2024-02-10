@@ -1,8 +1,7 @@
 //! Concrete instantiation of a hash function.
-
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use core::fmt::Debug;
-use std::iter::repeat;
 
 use crate::field::extension::Extendable;
 use crate::field::types::Field;
@@ -34,7 +33,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         num_outputs: usize,
     ) -> Vec<Target> {
         let zero = self.zero();
-        let mut state = H::AlgebraicPermutation::new(std::iter::repeat(zero));
+        let mut state = H::AlgebraicPermutation::new(core::iter::repeat(zero));
 
         // Absorb all input chunks.
         for input_chunk in inputs.chunks(H::AlgebraicPermutation::RATE) {
@@ -71,7 +70,7 @@ pub trait PlonkyPermutation<T: Copy + Default>:
     /// received; remaining state (if any) initialised with
     /// `T::default()`. To initialise remaining elements with a
     /// different value, instead of your original `iter` pass
-    /// `iter.chain(std::iter::repeat(F::from_canonical_u64(12345)))`
+    /// `iter.chain(core::iter::repeat(F::from_canonical_u64(12345)))`
     /// or similar.
     fn new<I: IntoIterator<Item = T>>(iter: I) -> Self;
 
@@ -103,7 +102,7 @@ pub fn compress<F: Field, P: PlonkyPermutation<F>>(x: HashOut<F>, y: HashOut<F>)
     debug_assert_eq!(y.elements.len(), NUM_HASH_OUT_ELTS);
     debug_assert!(P::RATE >= NUM_HASH_OUT_ELTS);
 
-    let mut perm = P::new(repeat(F::ZERO));
+    let mut perm = P::new(core::iter::repeat(F::ZERO));
     perm.set_from_slice(&x.elements, 0);
     perm.set_from_slice(&y.elements, NUM_HASH_OUT_ELTS);
 
@@ -120,7 +119,7 @@ pub fn hash_n_to_m_no_pad<F: RichField, P: PlonkyPermutation<F>>(
     inputs: &[F],
     num_outputs: usize,
 ) -> Vec<F> {
-    let mut perm = P::new(repeat(F::ZERO));
+    let mut perm = P::new(core::iter::repeat(F::ZERO));
 
     // Absorb all input chunks.
     for input_chunk in inputs.chunks(P::RATE) {

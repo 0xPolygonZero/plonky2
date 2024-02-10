@@ -74,9 +74,21 @@ node_key_continues:
     // Pseudocode: new_node = [MPT_TYPE_BRANCH] + [0] * 17
     %get_trie_data_size // pointer to the branch node we're about to create
     PUSH @MPT_NODE_BRANCH %append_to_trie_data
-    %rep 17
-        PUSH 0 %append_to_trie_data
-    %endrep
+
+    PUSH 0
+    // Increment trie data size by 17
+    %get_trie_data_size
+    // stack: trie_data_size, 0
+    DUP1
+    %add_const(17)
+    %set_trie_data_size
+
+    // stack: trie_data_size, 0
+
+    // Write 17 consecutive 0s at once
+    PUSH @SEGMENT_TRIE_DATA %build_kernel_address
+    MSTORE_32BYTES_17
+    POP
 
 process_node_child:
     // stack: new_node_ptr, common_len, common_key, node_len, node_key, insert_len, insert_key, node_child_ptr, insert_value_ptr, retdest

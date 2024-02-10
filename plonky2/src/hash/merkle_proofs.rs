@@ -1,5 +1,5 @@
-use alloc::vec;
-use alloc::vec::Vec;
+#[cfg(not(feature = "std"))]
+use alloc::{vec, vec::Vec};
 
 use anyhow::{ensure, Result};
 use itertools::Itertools;
@@ -132,7 +132,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             perm_inputs.set_from_slice(&state.elements, 0);
             perm_inputs.set_from_slice(&sibling.elements, NUM_HASH_OUT_ELTS);
             // Ensure the rest of the state, if any, is zero:
-            perm_inputs.set_from_iter(std::iter::repeat(zero), 2 * NUM_HASH_OUT_ELTS);
+            perm_inputs.set_from_iter(core::iter::repeat(zero), 2 * NUM_HASH_OUT_ELTS);
             let perm_outs = self.permute_swapped::<H>(perm_inputs, bit);
             let hash_outs = perm_outs.squeeze()[0..NUM_HASH_OUT_ELTS]
                 .try_into()

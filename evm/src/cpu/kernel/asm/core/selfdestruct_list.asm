@@ -5,8 +5,9 @@
 %macro insert_selfdestruct_list
     // stack: addr
     %mload_global_metadata(@GLOBAL_METADATA_SELFDESTRUCT_LIST_LEN)
-    %stack (len, addr) -> (len, addr, len)
-    %mstore_kernel(@SEGMENT_SELFDESTRUCT_LIST) // Store new address at the end of the array.
+    DUP1 PUSH @SEGMENT_SELFDESTRUCT_LIST %build_kernel_address
+    %stack (write_addr, len, addr) -> (addr, write_addr, len)
+    MSTORE_GENERAL // Store new address at the end of the array.
     // stack: len
     %increment
     %mstore_global_metadata(@GLOBAL_METADATA_SELFDESTRUCT_LIST_LEN) // Store new length.
@@ -18,12 +19,14 @@ global remove_selfdestruct_list:
     // stack: addr, retdest
     %mload_global_metadata(@GLOBAL_METADATA_SELFDESTRUCT_LIST_LEN)
     // stack: len, addr, retdest
-    PUSH 0
+    PUSH @SEGMENT_SELFDESTRUCT_LIST ADD
+    PUSH @SEGMENT_SELFDESTRUCT_LIST
 remove_selfdestruct_list_loop:
+    // `i` and `len` are both scaled by SEGMENT_SELFDESTRUCT_LIST
     %stack (i, len, addr, retdest) -> (i, len, i, len, addr, retdest)
     EQ %jumpi(remove_selfdestruct_not_found)
     // stack: i, len, addr, retdest
-    DUP1 %mload_kernel(@SEGMENT_SELFDESTRUCT_LIST)
+    DUP1 MLOAD_GENERAL
     // stack: loaded_addr, i, len, addr, retdest
     DUP4
     // stack: addr, loaded_addr, i, len, addr, retdest
@@ -33,12 +36,14 @@ remove_selfdestruct_list_loop:
     %jump(remove_selfdestruct_list_loop)
 remove_selfdestruct_list_found:
     %stack (i, len, addr, retdest) -> (len, 1, i, retdest)
-    SUB DUP1 %mstore_global_metadata(@GLOBAL_METADATA_SELFDESTRUCT_LIST_LEN) // Decrement the list length.
+    SUB
+    PUSH @SEGMENT_SELFDESTRUCT_LIST
+    DUP2 SUB // unscale
+    %mstore_global_metadata(@GLOBAL_METADATA_SELFDESTRUCT_LIST_LEN) // Decrement the list length.
     // stack: len-1, i, retdest
-    %mload_kernel(@SEGMENT_SELFDESTRUCT_LIST) // Load the last address in the list.
+    MLOAD_GENERAL // Load the last address in the list.
     // stack: last_addr, i, retdest
-    SWAP1
-    %mstore_kernel(@SEGMENT_SELFDESTRUCT_LIST) // Store the last address at the position of the removed address.
+    MSTORE_GENERAL // Store the last address at the position of the removed address.
     JUMP
 remove_selfdestruct_not_found:
     // stack: i, len, addr, retdest
@@ -49,12 +54,14 @@ global delete_all_selfdestructed_addresses:
     // stack: retdest
     %mload_global_metadata(@GLOBAL_METADATA_SELFDESTRUCT_LIST_LEN)
     // stack: len, retdest
-    PUSH 0
+    PUSH @SEGMENT_SELFDESTRUCT_LIST ADD
+    PUSH @SEGMENT_SELFDESTRUCT_LIST
 delete_all_selfdestructed_addresses_loop:
+    // `i` and `len` are both scaled by SEGMENT_SELFDESTRUCT_LIST
     // stack: i, len, retdest
     DUP2 DUP2 EQ %jumpi(delete_all_selfdestructed_addresses_done)
     // stack: i, len, retdest
-    DUP1 %mload_kernel(@SEGMENT_SELFDESTRUCT_LIST)
+    DUP1 MLOAD_GENERAL
     // stack: loaded_addr, i, len, retdest
     DUP1 %is_non_existent ISZERO %jumpi(bingo)
     // stack: loaded_addr, i, len, retdest

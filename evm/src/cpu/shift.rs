@@ -9,6 +9,8 @@ use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::membus::NUM_GP_CHANNELS;
 use crate::memory::segments::Segment;
 
+/// Evaluates constraints for shift operations on the CPU side:
+/// the shifting factor is read from memory when displacement < 2^32.
 pub(crate) fn eval_packed<P: PackedField>(
     lv: &CpuColumnsView<P>,
     yield_constr: &mut ConstraintConsumer<P>,
@@ -22,7 +24,7 @@ pub(crate) fn eval_packed<P: PackedField>(
     // let val = lv.mem_channels[0];
     // let output = lv.mem_channels[NUM_GP_CHANNELS - 1];
 
-    let shift_table_segment = P::Scalar::from_canonical_u64(Segment::ShiftTable as u64);
+    let shift_table_segment = P::Scalar::from_canonical_usize(Segment::ShiftTable.unscale());
 
     // Only lookup the shifting factor when displacement is < 2^32.
     // two_exp.used is true (1) if the high limbs of the displacement are
@@ -46,7 +48,7 @@ pub(crate) fn eval_packed<P: PackedField>(
     yield_constr.constraint(is_shift * (two_exp.addr_virtual - displacement.value[0]));
 
     // Other channels must be unused
-    for chan in &lv.mem_channels[3..NUM_GP_CHANNELS - 1] {
+    for chan in &lv.mem_channels[3..NUM_GP_CHANNELS] {
         yield_constr.constraint(is_shift * chan.used); // channel is not used
     }
 
@@ -56,9 +58,12 @@ pub(crate) fn eval_packed<P: PackedField>(
     //
     // 1 -> 0  (value to be shifted is the same)
     // 2 -> 1  (two_exp becomes the multiplicand (resp. divisor))
-    // last -> last  (output is the same)
+    // next_0 -> next_0  (output is the same)
 }
 
+/// Circuit version.
+/// Evaluates constraints for shift operations on the CPU side:
+/// the shifting factor is read from memory when displacement < 2^32.
 pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
     lv: &CpuColumnsView<ExtensionTarget<D>>,
@@ -68,7 +73,7 @@ pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let displacement = lv.mem_channels[0];
     let two_exp = lv.mem_channels[2];
 
-    let shift_table_segment = F::from_canonical_u64(Segment::ShiftTable as u64);
+    let shift_table_segment = F::from_canonical_usize(Segment::ShiftTable.unscale());
 
     // Only lookup the shifting factor when displacement is < 2^32.
     // two_exp.used is true (1) if the high limbs of the displacement are
@@ -111,7 +116,7 @@ pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     yield_constr.constraint(builder, t);
 
     // Other channels must be unused
-    for chan in &lv.mem_channels[3..NUM_GP_CHANNELS - 1] {
+    for chan in &lv.mem_channels[3..NUM_GP_CHANNELS] {
         let t = builder.mul_extension(is_shift, chan.used);
         yield_constr.constraint(builder, t);
     }

@@ -9,7 +9,8 @@ use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::membus::NUM_GP_CHANNELS;
 use crate::memory::segments::Segment;
 
-pub fn eval_packed_exit_kernel<P: PackedField>(
+/// Evaluates constraints for EXIT_KERNEL.
+pub(crate) fn eval_packed_exit_kernel<P: PackedField>(
     lv: &CpuColumnsView<P>,
     nv: &CpuColumnsView<P>,
     yield_constr: &mut ConstraintConsumer<P>,
@@ -22,11 +23,14 @@ pub fn eval_packed_exit_kernel<P: PackedField>(
     // but we trust the kernel to set them to zero).
     yield_constr.constraint_transition(filter * (input[0] - nv.program_counter));
     yield_constr.constraint_transition(filter * (input[1] - nv.is_kernel_mode));
-    yield_constr.constraint_transition(filter * (input[6] - nv.gas[0]));
-    yield_constr.constraint_transition(filter * (input[7] - nv.gas[1]));
+    yield_constr.constraint_transition(filter * (input[6] - nv.gas));
+    // High limb of gas must be 0 for convenient detection of overflow.
+    yield_constr.constraint(filter * input[7]);
 }
 
-pub fn eval_ext_circuit_exit_kernel<F: RichField + Extendable<D>, const D: usize>(
+/// Circuit version of `eval_packed_exit_kernel`.
+/// Evaluates constraints for EXIT_KERNEL.
+pub(crate) fn eval_ext_circuit_exit_kernel<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
     lv: &CpuColumnsView<ExtensionTarget<D>>,
     nv: &CpuColumnsView<ExtensionTarget<D>>,
@@ -48,18 +52,19 @@ pub fn eval_ext_circuit_exit_kernel<F: RichField + Extendable<D>, const D: usize
     yield_constr.constraint_transition(builder, kernel_constr);
 
     {
-        let diff = builder.sub_extension(input[6], nv.gas[0]);
+        let diff = builder.sub_extension(input[6], nv.gas);
         let constr = builder.mul_extension(filter, diff);
         yield_constr.constraint_transition(builder, constr);
     }
     {
-        let diff = builder.sub_extension(input[7], nv.gas[1]);
-        let constr = builder.mul_extension(filter, diff);
-        yield_constr.constraint_transition(builder, constr);
+        // High limb of gas must be 0 for convenient detection of overflow.
+        let constr = builder.mul_extension(filter, input[7]);
+        yield_constr.constraint(builder, constr);
     }
 }
 
-pub fn eval_packed_jump_jumpi<P: PackedField>(
+/// Evaluates constraints jump operations: JUMP and JUMPI.
+pub(crate) fn eval_packed_jump_jumpi<P: PackedField>(
     lv: &CpuColumnsView<P>,
     nv: &CpuColumnsView<P>,
     yield_constr: &mut ConstraintConsumer<P>,
@@ -82,7 +87,8 @@ pub fn eval_packed_jump_jumpi<P: PackedField>(
     yield_constr.constraint_transition(new_filter * (channel.is_read - P::ONES));
     yield_constr.constraint_transition(new_filter * (channel.addr_context - nv.context));
     yield_constr.constraint_transition(
-        new_filter * (channel.addr_segment - P::Scalar::from_canonical_u64(Segment::Stack as u64)),
+        new_filter
+            * (channel.addr_segment - P::Scalar::from_canonical_usize(Segment::Stack.unscale())),
     );
     let addr_virtual = nv.stack_len - P::ONES;
     yield_constr.constraint_transition(new_filter * (channel.addr_virtual - addr_virtual));
@@ -129,7 +135,7 @@ pub fn eval_packed_jump_jumpi<P: PackedField>(
     yield_constr.constraint(
         filter
             * (jumpdest_flag_channel.addr_segment
-                - P::Scalar::from_canonical_u64(Segment::JumpdestBits as u64)),
+                - P::Scalar::from_canonical_usize(Segment::JumpdestBits.unscale())),
     );
     yield_constr.constraint(filter * (jumpdest_flag_channel.addr_virtual - dst[0]));
 
@@ -137,6 +143,8 @@ pub fn eval_packed_jump_jumpi<P: PackedField>(
     for &channel in &lv.mem_channels[2..NUM_GP_CHANNELS - 1] {
         yield_constr.constraint(filter * channel.used);
     }
+    yield_constr.constraint(filter * lv.partial_channel.used);
+
     // Channel 1 is unused by the `JUMP` instruction.
     yield_constr.constraint(is_jump * lv.mem_channels[1].used);
 
@@ -156,7 +164,9 @@ pub fn eval_packed_jump_jumpi<P: PackedField>(
         .constraint_transition(filter * jumps_lv.should_jump * (nv.program_counter - jump_dest));
 }
 
-pub fn eval_ext_circuit_jump_jumpi<F: RichField + Extendable<D>, const D: usize>(
+/// Circuit version of `eval_packed_jumpi_jumpi`.
+/// Evaluates constraints jump operations: JUMP and JUMPI.
+pub(crate) fn eval_ext_circuit_jump_jumpi<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
     lv: &CpuColumnsView<ExtensionTarget<D>>,
     nv: &CpuColumnsView<ExtensionTarget<D>>,
@@ -196,7 +206,7 @@ pub fn eval_ext_circuit_jump_jumpi<F: RichField + Extendable<D>, const D: usize>
     {
         let constr = builder.arithmetic_extension(
             F::ONE,
-            -F::from_canonical_u64(Segment::Stack as u64),
+            -F::from_canonical_usize(Segment::Stack.unscale()),
             new_filter,
             channel.addr_segment,
             new_filter,
@@ -299,7 +309,7 @@ pub fn eval_ext_circuit_jump_jumpi<F: RichField + Extendable<D>, const D: usize>
     {
         let constr = builder.arithmetic_extension(
             F::ONE,
-            -F::from_canonical_u64(Segment::JumpdestBits as u64),
+            -F::from_canonical_usize(Segment::JumpdestBits.unscale()),
             filter,
             jumpdest_flag_channel.addr_segment,
             filter,
@@ -315,6 +325,10 @@ pub fn eval_ext_circuit_jump_jumpi<F: RichField + Extendable<D>, const D: usize>
     // Disable unused memory channels
     for &channel in &lv.mem_channels[2..NUM_GP_CHANNELS - 1] {
         let constr = builder.mul_extension(filter, channel.used);
+        yield_constr.constraint(builder, constr);
+    }
+    {
+        let constr = builder.mul_extension(filter, lv.partial_channel.used);
         yield_constr.constraint(builder, constr);
     }
     // Channel 1 is unused by the `JUMP` instruction.
@@ -353,7 +367,8 @@ pub fn eval_ext_circuit_jump_jumpi<F: RichField + Extendable<D>, const D: usize>
     }
 }
 
-pub fn eval_packed<P: PackedField>(
+/// Evaluates constraints for EXIT_KERNEL, JUMP and JUMPI.
+pub(crate) fn eval_packed<P: PackedField>(
     lv: &CpuColumnsView<P>,
     nv: &CpuColumnsView<P>,
     yield_constr: &mut ConstraintConsumer<P>,
@@ -362,7 +377,9 @@ pub fn eval_packed<P: PackedField>(
     eval_packed_jump_jumpi(lv, nv, yield_constr);
 }
 
-pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
+/// Circuit version of `eval_packed`.
+/// Evaluates constraints for EXIT_KERNEL, JUMP and JUMPI.
+pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
     lv: &CpuColumnsView<ExtensionTarget<D>>,
     nv: &CpuColumnsView<ExtensionTarget<D>>,

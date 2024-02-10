@@ -9,7 +9,7 @@
 // Charge gas for *call opcodes and return the sub-context gas limit.
 // Doesn't include memory expansion costs.
 global call_charge_gas:
-    // Compute C_aaccess
+    // Compute C_access
     // stack: is_call_or_callcode, is_call_or_staticcall, cold_access, address, gas, kexit_info, value, retdest
     SWAP2
     // stack: cold_access, is_call_or_staticcall, is_call_or_callcode, address, gas, kexit_info, value, retdest
