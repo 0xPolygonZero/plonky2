@@ -20,7 +20,7 @@ use crate::config::StarkConfig;
 use crate::constraint_consumer::ConstraintConsumer;
 use crate::cross_table_lookup::CtlCheckVars;
 use crate::evaluation_frame::StarkEvaluationFrame;
-use crate::lookup::{GrandProductChallengeSet, LookupCheckVars};
+use crate::lookup::LookupCheckVars;
 use crate::proof::{StarkOpeningSet, StarkProof, StarkProofChallenges, StarkProofWithPublicInputs};
 use crate::stark::Stark;
 use crate::vanishing_poly::eval_vanishing_poly;
@@ -46,7 +46,6 @@ pub fn verify_stark_proof<
         &proof_with_pis.proof,
         &challenges,
         None,
-        None,
         &proof_with_pis.public_inputs,
         config,
     )
@@ -61,7 +60,6 @@ pub fn verify_stark_proof_with_challenges<F, C, S, const D: usize>(
     proof: &StarkProof<F, C, D>,
     challenges: &StarkProofChallenges<F, D>,
     ctl_vars: Option<&[CtlCheckVars<F, F::Extension, F::Extension, D>]>,
-    ctl_challenges: Option<&GrandProductChallengeSet<F>>,
     public_inputs: &[F],
     config: &StarkConfig,
 ) -> Result<()>
@@ -86,7 +84,6 @@ where
         proof,
         public_inputs,
         config,
-        ctl_challenges,
         num_ctl_polys,
         num_ctl_z_polys,
     )?;
@@ -213,7 +210,6 @@ fn validate_proof_shape<F, C, S, const D: usize>(
     proof: &StarkProof<F, C, D>,
     public_inputs: &[F],
     config: &StarkConfig,
-    ctl_challenges: Option<&GrandProductChallengeSet<F>>,
     num_ctl_helpers: usize,
     num_ctl_zs: usize,
 ) -> anyhow::Result<()>
@@ -260,7 +256,6 @@ where
         auxiliary_polys_cap,
         auxiliary_polys,
         auxiliary_polys_next,
-        ctl_challenges,
         num_ctl_helpers,
         num_ctl_zs,
         ctl_zs_first,
@@ -289,7 +284,6 @@ fn check_lookup_options<F, C, S, const D: usize>(
     auxiliary_polys_cap: &Option<MerkleCap<F, <C as GenericConfig<D>>::Hasher>>,
     auxiliary_polys: &Option<Vec<<F as Extendable<D>>::Extension>>,
     auxiliary_polys_next: &Option<Vec<<F as Extendable<D>>::Extension>>,
-    ctl_challenges: Option<&GrandProductChallengeSet<F>>,
     num_ctl_helpers: usize,
     num_ctl_zs: usize,
     ctl_zs_first: &Option<Vec<F>>,
@@ -300,7 +294,7 @@ where
     C: GenericConfig<D, F = F>,
     S: Stark<F, D>,
 {
-    if stark.uses_lookups() || ctl_challenges.is_some() {
+    if stark.uses_lookups() || stark.requires_ctls() {
         let num_auxiliary = stark.num_lookup_helper_columns(config) + num_ctl_helpers + num_ctl_zs;
         let cap_height = config.fri_config.cap_height;
 

@@ -169,7 +169,7 @@ where
     };
 
     debug_assert!(
-        (stark.uses_lookups() || ctl_data.is_some()) || auxiliary_polys.is_none(),
+        (stark.uses_lookups() || stark.requires_ctls()) || auxiliary_polys.is_none(),
         "No auxiliary polynomials?"
     );
 
@@ -290,7 +290,7 @@ where
         auxiliary_polys_commitment.as_ref(),
         &quotient_commitment,
         stark.num_lookup_helper_columns(config),
-        ctl_challenges.is_some(),
+        stark.requires_ctls(),
         &num_ctl_polys,
     );
     // Get the FRI openings and observe them.

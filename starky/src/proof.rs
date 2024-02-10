@@ -268,7 +268,7 @@ impl<F: RichField + Extendable<D>, const D: usize> StarkOpeningSet<F, D> {
         auxiliary_polys_commitment: Option<&PolynomialBatch<F, C, D>>,
         quotient_commitment: &PolynomialBatch<F, C, D>,
         num_lookup_columns: usize,
-        uses_cross_table_lookups: bool,
+        requires_ctl: bool,
         num_ctl_polys: &[usize],
     ) -> Self {
         // Batch evaluates polynomials on the LDE, at a point `z`.
@@ -294,7 +294,7 @@ impl<F: RichField + Extendable<D>, const D: usize> StarkOpeningSet<F, D> {
             next_values: eval_commitment(zeta_next, trace_commitment),
             auxiliary_polys: auxiliary_polys_commitment.map(|c| eval_commitment(zeta, c)),
             auxiliary_polys_next: auxiliary_polys_commitment.map(|c| eval_commitment(zeta_next, c)),
-            ctl_zs_first: uses_cross_table_lookups.then(|| {
+            ctl_zs_first: requires_ctl.then(|| {
                 let total_num_helper_cols: usize = num_ctl_polys.iter().sum();
                 auxiliary_first.unwrap()[num_lookup_columns + total_num_helper_cols..].to_vec()
             }),
@@ -323,6 +323,8 @@ impl<F: RichField + Extendable<D>, const D: usize> StarkOpeningSet<F, D> {
                 .collect_vec(),
         };
 
+        let mut batches = vec![zeta_batch, zeta_next_batch];
+
         if let Some(ctl_zs_first) = self.ctl_zs_first.as_ref() {
             debug_assert!(!ctl_zs_first.is_empty());
             debug_assert!(self.auxiliary_polys.is_some());
@@ -336,14 +338,10 @@ impl<F: RichField + Extendable<D>, const D: usize> StarkOpeningSet<F, D> {
                     .collect(),
             };
 
-            FriOpenings {
-                batches: vec![zeta_batch, zeta_next_batch, ctl_first_batch],
-            }
-        } else {
-            FriOpenings {
-                batches: vec![zeta_batch, zeta_next_batch],
-            }
+            batches.push(ctl_first_batch);
         }
+
+        FriOpenings { batches }
     }
 }
 
@@ -437,6 +435,8 @@ impl<const D: usize> StarkOpeningSetTarget<D> {
                 .collect_vec(),
         };
 
+        let mut batches = vec![zeta_batch, zeta_next_batch];
+
         if let Some(ctl_zs_first) = self.ctl_zs_first.as_ref() {
             debug_assert!(!ctl_zs_first.is_empty());
             debug_assert!(self.auxiliary_polys.is_some());
@@ -450,13 +450,8 @@ impl<const D: usize> StarkOpeningSetTarget<D> {
                     .collect(),
             };
 
-            FriOpeningsTarget {
-                batches: vec![zeta_batch, zeta_next_batch, ctl_first_batch],
-            }
-        } else {
-            FriOpeningsTarget {
-                batches: vec![zeta_batch, zeta_next_batch],
-            }
+            batches.push(ctl_first_batch);
         }
+        FriOpeningsTarget { batches }
     }
 }
