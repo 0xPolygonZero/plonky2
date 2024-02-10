@@ -1,12 +1,10 @@
 //! Logic for building plonky2 circuits.
 
-use alloc::collections::BTreeMap;
-use alloc::sync::Arc;
-use alloc::vec;
-use alloc::vec::Vec;
+#[cfg(not(feature = "std"))]
+use alloc::{collections::BTreeMap, sync::Arc, vec, vec::Vec};
 use core::cmp::max;
 #[cfg(feature = "std")]
-use std::time::Instant;
+use std::{collections::BTreeMap, sync::Arc, time::Instant};
 
 use hashbrown::{HashMap, HashSet};
 use itertools::Itertools;

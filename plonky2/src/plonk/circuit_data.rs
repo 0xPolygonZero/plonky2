@@ -12,10 +12,11 @@
 //! The verifier data can similarly be extracted by calling [`CircuitData::verifier_data`].
 //! This is useful to allow even small devices to verify plonky2 proofs.
 
-use alloc::collections::BTreeMap;
-use alloc::vec;
-use alloc::vec::Vec;
+#[cfg(not(feature = "std"))]
+use alloc::{collections::BTreeMap, vec, vec::Vec};
 use core::ops::{Range, RangeFrom};
+#[cfg(feature = "std")]
+use std::collections::BTreeMap;
 
 use anyhow::Result;
 use serde::Serialize;

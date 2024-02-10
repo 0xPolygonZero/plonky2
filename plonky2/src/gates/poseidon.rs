@@ -1,6 +1,10 @@
-use alloc::string::{String, ToString};
-use alloc::vec::Vec;
-use alloc::{format, vec};
+#[cfg(not(feature = "std"))]
+use alloc::{
+    format,
+    string::{String, ToString},
+    vec,
+    vec::Vec,
+};
 use core::marker::PhantomData;
 
 use crate::field::extension::Extendable;
@@ -532,20 +536,13 @@ impl<F: RichField + Extendable<D> + Poseidon, const D: usize> SimpleGenerator<F,
 
 #[cfg(test)]
 mod tests {
-    #[cfg(not(feature = "std"))]
-    use alloc::{vec, vec::Vec};
-
     use anyhow::Result;
+    use plonky2_field::goldilocks_field::GoldilocksField;
 
-    use crate::field::goldilocks_field::GoldilocksField;
-    use crate::field::types::Field;
+    use super::*;
     use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
-    use crate::gates::poseidon::PoseidonGate;
-    use crate::hash::poseidon::{Poseidon, SPONGE_WIDTH};
     use crate::iop::generator::generate_partial_witness;
-    use crate::iop::wire::Wire;
-    use crate::iop::witness::{PartialWitness, Witness, WitnessWrite};
-    use crate::plonk::circuit_builder::CircuitBuilder;
+    use crate::iop::witness::PartialWitness;
     use crate::plonk::circuit_data::CircuitConfig;
     use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
 

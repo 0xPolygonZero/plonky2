@@ -1,11 +1,11 @@
-use alloc::string::String;
-use alloc::sync::Arc;
-use alloc::vec;
-use alloc::vec::Vec;
+#[cfg(not(feature = "std"))]
+use alloc::{string::String, sync::Arc, vec, vec::Vec};
 use core::any::Any;
 use core::fmt::{Debug, Error, Formatter};
 use core::hash::{Hash, Hasher};
 use core::ops::Range;
+#[cfg(feature = "std")]
+use std::sync::Arc;
 
 use hashbrown::HashMap;
 use serde::{Serialize, Serializer};

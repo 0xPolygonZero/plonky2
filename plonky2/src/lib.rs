@@ -2,6 +2,7 @@
 #![allow(clippy::needless_range_loop)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+#[cfg(not(feature = "std"))]
 pub extern crate alloc;
 
 /// Re-export of `plonky2_field`.

@@ -1,5 +1,6 @@
 #![allow(clippy::int_plus_one)] // Makes more sense for some inequalities below.
 
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 
 use anyhow::{ensure, Result};
