@@ -2,7 +2,7 @@
 //! verification if encoded in a plonky2 circuit.
 
 #[cfg(not(feature = "std"))]
-use alloc::{vec, vec::Vec};
+use alloc::vec::Vec;
 use core::iter::once;
 
 use anyhow::{ensure, Result};
@@ -253,11 +253,13 @@ pub fn add_virtual_stark_proof<F: RichField + Extendable<D>, S: Stark<F, D>, con
     let fri_params = config.fri_params(degree_bits);
     let cap_height = fri_params.config.cap_height;
 
-    let num_leaves_per_oracle = vec![
-        S::COLUMNS,
-        stark.num_lookup_helper_columns(config) + num_ctl_helper_zs,
-        stark.quotient_degree_factor() * config.num_challenges,
-    ];
+    let num_leaves_per_oracle = once(S::COLUMNS)
+        .chain(
+            (stark.uses_lookups() || stark.requires_ctls())
+                .then(|| stark.num_lookup_helper_columns(config) + num_ctl_helper_zs),
+        )
+        .chain(once(stark.quotient_degree_factor() * config.num_challenges))
+        .collect_vec();
 
     let auxiliary_polys_cap = (stark.uses_lookups() || stark.requires_ctls())
         .then(|| builder.add_virtual_cap(cap_height));
