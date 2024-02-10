@@ -6,8 +6,8 @@
 //! the Poseidon hash function both internally and natively, and one
 //! mixing Poseidon internally and truncated Keccak externally.
 
-use alloc::vec;
-use alloc::vec::Vec;
+#[cfg(not(feature = "std"))]
+use alloc::{vec, vec::Vec};
 use core::fmt::Debug;
 
 use serde::de::DeserializeOwned;

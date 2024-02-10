@@ -1,3 +1,4 @@
+#[cfg(not(feature = "std"))]
 use alloc::vec;
 
 use plonky2_field::extension::Extendable;
