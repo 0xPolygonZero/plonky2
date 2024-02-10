@@ -2,6 +2,7 @@
 name = "plonky2_evm"
 description = "Implementation of STARKs for the Ethereum Virtual Machine"
 version = "0.1.1"
+license = "MIT or Apache-2.0"
 authors = ["Daniel Lubarov <daniel@lubarov.com>", "William Borgeaud <williamborgeaud@gmail.com>"]
 readme = "README.md"
 repository = "https://github.com/0xPolygonZero/plonky2"
@@ -13,7 +14,7 @@ edition = "2021"
 anyhow = "1.0.40"
 bytes = "1.4.0"
 env_logger = "0.10.0"
-eth_trie_utils = { git = "https://github.com/0xPolygonZero/eth_trie_utils.git", rev = "e9ec4ec2aa2ae976b7c699ef40c1ffc716d87ed5" }
+eth_trie_utils = { git = "https://github.com/0xPolygonZero/eth_trie_utils.git", rev = "7fc3c3f54b3cec9c6fc5ffc5230910bd1cb77f76" }
 ethereum-types = "0.14.0"
 hex = { version = "0.4.3", optional = true }
 hex-literal = "0.4.1"
@@ -59,3 +60,7 @@ required-features = ["asmtools"]
 [[bench]]
 name = "stack_manipulation"
 harness = false
+
+# Display math equations properly in documentation
+[package.metadata.docs.rs]
+rustdoc-args = ["--html-in-header", ".cargo/katex-header.html"]

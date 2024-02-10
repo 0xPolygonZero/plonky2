@@ -9,7 +9,7 @@ use crate::cpu::kernel::constants::global_metadata::GlobalMetadata::{
     AccessedAddressesLen, AccessedStorageKeysLen,
 };
 use crate::cpu::kernel::interpreter::Interpreter;
-use crate::memory::segments::Segment::{AccessedAddresses, AccessedStorageKeys, GlobalMetadata};
+use crate::memory::segments::Segment::{AccessedAddresses, AccessedStorageKeys};
 use crate::witness::memory::MemoryAddress;
 
 #[test]
@@ -42,17 +42,16 @@ fn test_insert_accessed_addresses() -> Result<()> {
             .set(MemoryAddress::new(0, AccessedAddresses, i), addr);
     }
     interpreter.generation_state.memory.set(
-        MemoryAddress::new(0, GlobalMetadata, AccessedAddressesLen as usize),
+        MemoryAddress::new_bundle(U256::from(AccessedAddressesLen as usize)).unwrap(),
         U256::from(n),
     );
     interpreter.run()?;
     assert_eq!(interpreter.stack(), &[U256::zero()]);
     assert_eq!(
-        interpreter.generation_state.memory.get(MemoryAddress::new(
-            0,
-            GlobalMetadata,
-            AccessedAddressesLen as usize
-        )),
+        interpreter
+            .generation_state
+            .memory
+            .get(MemoryAddress::new_bundle(U256::from(AccessedAddressesLen as usize)).unwrap()),
         U256::from(n)
     );
 
@@ -67,17 +66,16 @@ fn test_insert_accessed_addresses() -> Result<()> {
             .set(MemoryAddress::new(0, AccessedAddresses, i), addr);
     }
     interpreter.generation_state.memory.set(
-        MemoryAddress::new(0, GlobalMetadata, AccessedAddressesLen as usize),
+        MemoryAddress::new_bundle(U256::from(AccessedAddressesLen as usize)).unwrap(),
         U256::from(n),
     );
     interpreter.run()?;
     assert_eq!(interpreter.stack(), &[U256::one()]);
     assert_eq!(
-        interpreter.generation_state.memory.get(MemoryAddress::new(
-            0,
-            GlobalMetadata,
-            AccessedAddressesLen as usize
-        )),
+        interpreter
+            .generation_state
+            .memory
+            .get(MemoryAddress::new_bundle(U256::from(AccessedAddressesLen as usize)).unwrap()),
         U256::from(n + 1)
     );
     assert_eq!(
@@ -134,17 +132,16 @@ fn test_insert_accessed_storage_keys() -> Result<()> {
         );
     }
     interpreter.generation_state.memory.set(
-        MemoryAddress::new(0, GlobalMetadata, AccessedStorageKeysLen as usize),
+        MemoryAddress::new_bundle(U256::from(AccessedStorageKeysLen as usize)).unwrap(),
         U256::from(3 * n),
     );
     interpreter.run()?;
     assert_eq!(interpreter.stack(), &[storage_key_in_list.2, U256::zero()]);
     assert_eq!(
-        interpreter.generation_state.memory.get(MemoryAddress::new(
-            0,
-            GlobalMetadata,
-            AccessedStorageKeysLen as usize
-        )),
+        interpreter
+            .generation_state
+            .memory
+            .get(MemoryAddress::new_bundle(U256::from(AccessedStorageKeysLen as usize)).unwrap()),
         U256::from(3 * n)
     );
 
@@ -172,7 +169,7 @@ fn test_insert_accessed_storage_keys() -> Result<()> {
         );
     }
     interpreter.generation_state.memory.set(
-        MemoryAddress::new(0, GlobalMetadata, AccessedStorageKeysLen as usize),
+        MemoryAddress::new_bundle(U256::from(AccessedStorageKeysLen as usize)).unwrap(),
         U256::from(3 * n),
     );
     interpreter.run()?;
@@ -181,11 +178,10 @@ fn test_insert_accessed_storage_keys() -> Result<()> {
         &[storage_key_not_in_list.2, U256::one()]
     );
     assert_eq!(
-        interpreter.generation_state.memory.get(MemoryAddress::new(
-            0,
-            GlobalMetadata,
-            AccessedStorageKeysLen as usize
-        )),
+        interpreter
+            .generation_state
+            .memory
+            .get(MemoryAddress::new_bundle(U256::from(AccessedStorageKeysLen as usize)).unwrap()),
         U256::from(3 * (n + 1))
     );
     assert_eq!(

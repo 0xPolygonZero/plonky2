@@ -24,15 +24,20 @@ global precompile_id:
     // Simply copy the call data to the parent's return data.
     %calldatasize
     DUP1 %mstore_parent_context_metadata(@CTX_METADATA_RETURNDATA_SIZE)
+
+    PUSH id_contd SWAP1
+
+    PUSH @SEGMENT_CALLDATA
     GET_CONTEXT
+    %build_address_no_offset
+    // stack: SRC, size, id_contd
+
+    PUSH @SEGMENT_RETURNDATA
     %mload_context_metadata(@CTX_METADATA_PARENT_CONTEXT)
-    %stack (parent_ctx, ctx, size) ->
-        (
-        parent_ctx, @SEGMENT_RETURNDATA, 0,  // DST
-        ctx, @SEGMENT_CALLDATA, 0,  // SRC
-        size, id_contd              // count, retdest
-        )
-    %jump(memcpy)
+    %build_address_no_offset
+
+    // stack: DST, SRC, size, id_contd
+    %jump(memcpy_bytes)
 
 id_contd:
     // stack: kexit_info

@@ -14,28 +14,32 @@ global precompile_ecrec:
 
     %charge_gas_const(@ECREC_GAS)
 
-    // Load hash, v, r, s from the call data using `mload_packing`.
+    // Load hash, v, r, s from the call data using `MLOAD_32BYTES`.
     PUSH ecrec_return
     // stack: ecrec_return, kexit_info
     %stack () -> (@SEGMENT_CALLDATA, 96, 32)
     GET_CONTEXT
     // stack: ctx, @SEGMENT_CALLDATA, 96, 32, ecrec_return, kexit_info
-    %mload_packing
+    %build_address
+    MLOAD_32BYTES
     // stack: s, ecrec_return, kexit_info
     %stack () -> (@SEGMENT_CALLDATA, 64, 32)
     GET_CONTEXT
     // stack: ctx, @SEGMENT_CALLDATA, 64, 32, s, ecrec_return, kexit_info
-    %mload_packing
+    %build_address
+    MLOAD_32BYTES
     // stack: r, s, ecrec_return, kexit_info
     %stack () -> (@SEGMENT_CALLDATA, 32, 32)
     GET_CONTEXT
     // stack: ctx, @SEGMENT_CALLDATA, 32, 32, r, s, ecrec_return, kexit_info
-    %mload_packing
+    %build_address
+    MLOAD_32BYTES
     // stack: v, r, s, ecrec_return, kexit_info
-    %stack () -> (@SEGMENT_CALLDATA, 0, 32)
+    %stack () -> (@SEGMENT_CALLDATA, 32)
     GET_CONTEXT
-    // stack: ctx, @SEGMENT_CALLDATA, 0, 32, v, r, s, ecrec_return, kexit_info
-    %mload_packing
+    // stack: ctx, @SEGMENT_CALLDATA, 32, v, r, s, ecrec_return, kexit_info
+    %build_address_no_offset
+    MLOAD_32BYTES
     // stack: hash, v, r, s, ecrec_return, kexit_info
     %jump(ecrecover)
 ecrec_return:
@@ -45,8 +49,10 @@ ecrec_return:
     // Store the result address to the parent's return data using `mstore_unpacking`.
     %mstore_parent_context_metadata(@CTX_METADATA_RETURNDATA_SIZE, 32)
     %mload_context_metadata(@CTX_METADATA_PARENT_CONTEXT)
-    %stack (parent_ctx, address) -> (parent_ctx, @SEGMENT_RETURNDATA, 0, address, 32, pop_and_return_success)
-    %jump(mstore_unpacking)
+    %stack (parent_ctx, address) -> (parent_ctx, @SEGMENT_RETURNDATA, address)
+    %build_address_no_offset
+    MSTORE_32BYTES_32
+    %jump(pop_and_return_success)
 
 // On bad input, return empty return data but still return success.
 ecrec_bad_input:

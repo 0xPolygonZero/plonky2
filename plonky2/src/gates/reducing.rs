@@ -1,4 +1,4 @@
-use alloc::string::String;
+use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use alloc::{format, vec};
 use core::ops::Range;
@@ -23,7 +23,7 @@ pub struct ReducingGate<const D: usize> {
 }
 
 impl<const D: usize> ReducingGate<D> {
-    pub fn new(num_coeffs: usize) -> Self {
+    pub const fn new(num_coeffs: usize) -> Self {
         Self { num_coeffs }
     }
 
@@ -31,23 +31,23 @@ impl<const D: usize> ReducingGate<D> {
         (num_routed_wires - 3 * D).min((num_wires - 2 * D) / (D + 1))
     }
 
-    pub fn wires_output() -> Range<usize> {
+    pub const fn wires_output() -> Range<usize> {
         0..D
     }
-    pub fn wires_alpha() -> Range<usize> {
+    pub const fn wires_alpha() -> Range<usize> {
         D..2 * D
     }
-    pub fn wires_old_acc() -> Range<usize> {
+    pub const fn wires_old_acc() -> Range<usize> {
         2 * D..3 * D
     }
     const START_COEFFS: usize = 3 * D;
-    pub fn wires_coeffs(&self) -> Range<usize> {
+    pub const fn wires_coeffs(&self) -> Range<usize> {
         Self::START_COEFFS..Self::START_COEFFS + self.num_coeffs
     }
-    fn start_accs(&self) -> usize {
+    const fn start_accs(&self) -> usize {
         Self::START_COEFFS + self.num_coeffs
     }
-    fn wires_accs(&self, i: usize) -> Range<usize> {
+    const fn wires_accs(&self, i: usize) -> Range<usize> {
         if i == self.num_coeffs - 1 {
             // The last accumulator is the output.
             return Self::wires_output();

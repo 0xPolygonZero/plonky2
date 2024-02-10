@@ -1,5 +1,6 @@
-use alloc::vec;
+use alloc::string::String;
 use alloc::vec::Vec;
+use alloc::{format, vec};
 use core::borrow::Borrow;
 
 use itertools::Itertools;
@@ -90,7 +91,7 @@ impl<F: RichField + Extendable<D>, const B: usize, const D: usize> SimpleGenerat
     for BaseSumGenerator<B>
 {
     fn id(&self) -> String {
-        "BaseSumGenerator".to_string()
+        format!("BaseSumGenerator + Base: {B}")
     }
 
     fn dependencies(&self) -> Vec<Target> {

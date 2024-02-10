@@ -69,9 +69,22 @@ global mpt_insert_leaf:
     // For now, we allocate the branch node, initially with no children or value.
     %get_trie_data_size  // pointer to the branch node we're about to create
     PUSH @MPT_NODE_BRANCH %append_to_trie_data
-    %rep 17
-        PUSH 0 %append_to_trie_data
-    %endrep
+
+    PUSH 0
+    // Increment trie data size by 17
+    %get_trie_data_size
+    // stack: trie_data_size, 0
+    DUP1
+    %add_const(17)
+    %set_trie_data_size
+
+    // stack: trie_data_size, 0
+
+    // Write 17 consecutive 0s at once
+    PUSH @SEGMENT_TRIE_DATA %build_kernel_address
+    MSTORE_32BYTES_17
+    POP
+
     // stack: branch_ptr, common_len, common_key, node_len, node_key, insert_len, insert_key, node_value_ptr, insert_value_ptr, retdest
 
     // Now, we branch based on whether each key continues beyond the common

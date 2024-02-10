@@ -66,7 +66,7 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
 
     /// Evaluate constraints at a vector of points from the degree `D` extension field. This is like
     /// `eval_ext`, except in the context of a recursive circuit.
-    /// Note: constraints must be added through`yeld_constr.constraint(builder, constraint)` in the
+    /// Note: constraints must be added through`yield_constr.constraint(builder, constraint)` in the
     /// same order as they are given in `eval_packed_generic`.
     fn eval_ext_circuit(
         &self,
@@ -92,7 +92,8 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
         &self,
         zeta: F::Extension,
         g: F,
-        num_ctl_zs: usize,
+        num_ctl_helpers: usize,
+        num_ctl_zs: Vec<usize>,
         config: &StarkConfig,
     ) -> FriInstanceInfo<F, D> {
         let trace_oracle = FriOracleInfo {
@@ -102,7 +103,7 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
         let trace_info = FriPolynomialInfo::from_range(TRACE_ORACLE_INDEX, 0..Self::COLUMNS);
 
         let num_lookup_columns = self.num_lookup_helper_columns(config);
-        let num_auxiliary_polys = num_lookup_columns + num_ctl_zs;
+        let num_auxiliary_polys = num_lookup_columns + num_ctl_helpers + num_ctl_zs.len();
         let auxiliary_oracle = FriOracleInfo {
             num_polys: num_auxiliary_polys,
             blinding: false,
@@ -112,7 +113,7 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
 
         let ctl_zs_info = FriPolynomialInfo::from_range(
             AUXILIARY_ORACLE_INDEX,
-            num_lookup_columns..num_lookup_columns + num_ctl_zs,
+            num_lookup_columns + num_ctl_helpers..num_auxiliary_polys,
         );
 
         let num_quotient_polys = self.num_quotient_polys(config);
@@ -152,6 +153,7 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
         builder: &mut CircuitBuilder<F, D>,
         zeta: ExtensionTarget<D>,
         g: F,
+        num_ctl_helper_polys: usize,
         num_ctl_zs: usize,
         inner_config: &StarkConfig,
     ) -> FriInstanceInfoTarget<D> {
@@ -162,7 +164,7 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
         let trace_info = FriPolynomialInfo::from_range(TRACE_ORACLE_INDEX, 0..Self::COLUMNS);
 
         let num_lookup_columns = self.num_lookup_helper_columns(inner_config);
-        let num_auxiliary_polys = num_lookup_columns + num_ctl_zs;
+        let num_auxiliary_polys = num_lookup_columns + num_ctl_helper_polys + num_ctl_zs;
         let auxiliary_oracle = FriOracleInfo {
             num_polys: num_auxiliary_polys,
             blinding: false,
@@ -172,7 +174,8 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
 
         let ctl_zs_info = FriPolynomialInfo::from_range(
             AUXILIARY_ORACLE_INDEX,
-            num_lookup_columns..num_lookup_columns + num_ctl_zs,
+            num_lookup_columns + num_ctl_helper_polys
+                ..num_lookup_columns + num_ctl_helper_polys + num_ctl_zs,
         );
 
         let num_quotient_polys = self.num_quotient_polys(inner_config);
@@ -207,7 +210,7 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
         }
     }
 
-    fn lookups(&self) -> Vec<Lookup> {
+    fn lookups(&self) -> Vec<Lookup<F>> {
         vec![]
     }
 

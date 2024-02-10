@@ -1,4 +1,4 @@
-// Returns reverse order divison y/x, modulo N
+// Returns reverse order division y/x, modulo N
 %macro divr_fp254
     // stack: x   , y
     %inv_fp254
@@ -42,9 +42,12 @@ check_inv_fp254_12:
     // stack: unit?, retdest
     %assert_eq_unit_fp254_12
     // stack:        retdest
+    PUSH 60
+    %create_bn254_pairing_address
     PUSH 0
-    // stack:     0, retdest
-    %mstore_bn254_pairing(60)
+    // stack: 0, addr, retdest
+    MSTORE_GENERAL
+    // stack: retdest
     JUMP
 
 %macro prover_inv_fp254_12

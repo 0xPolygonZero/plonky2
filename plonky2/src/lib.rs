@@ -2,8 +2,9 @@
 #![allow(clippy::needless_range_loop)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-extern crate alloc;
+pub extern crate alloc;
 
+/// Re-export of `plonky2_field`.
 #[doc(inline)]
 pub use plonky2_field as field;
 

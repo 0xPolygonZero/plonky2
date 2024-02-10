@@ -23,28 +23,19 @@ use crate::cpu::columns::{CpuColumnsView, COL_MAP};
 /// behavior.
 /// Note: invalid opcodes are not represented here. _Any_ opcode is permitted to decode to
 /// `is_invalid`. The kernel then verifies that the opcode was _actually_ invalid.
-const OPCODES: [(u8, usize, bool, usize); 16] = [
+const OPCODES: [(u8, usize, bool, usize); 5] = [
     // (start index of block, number of top bits to check (log2), kernel-only, flag column)
     // ADD, MUL, SUB, DIV, MOD, LT, GT and BYTE flags are handled partly manually here, and partly through the Arithmetic table CTL.
     // ADDMOD, MULMOD and SUBMOD flags are handled partly manually here, and partly through the Arithmetic table CTL.
     // FP254 operation flags are handled partly manually here, and partly through the Arithmetic table CTL.
     (0x14, 1, false, COL_MAP.op.eq_iszero),
     // AND, OR and XOR flags are handled partly manually here, and partly through the Logic table CTL.
-    (0x19, 0, false, COL_MAP.op.not),
+    // NOT and POP are handled manually here.
     // SHL and SHR flags are handled partly manually here, and partly through the Logic table CTL.
-    (0x21, 0, true, COL_MAP.op.keccak_general),
-    (0x49, 0, true, COL_MAP.op.prover_input),
-    (0x50, 0, false, COL_MAP.op.pop),
-    (0x56, 1, false, COL_MAP.op.jumps), // 0x56-0x57
-    (0x58, 0, false, COL_MAP.op.pc),
-    (0x5b, 0, false, COL_MAP.op.jumpdest),
-    (0x5f, 0, false, COL_MAP.op.push0),
-    (0x60, 5, false, COL_MAP.op.push),     // 0x60-0x7f
-    (0x80, 5, false, COL_MAP.op.dup_swap), // 0x80-0x9f
-    (0xee, 0, true, COL_MAP.op.mstore_32bytes),
-    (0xf6, 0, true, COL_MAP.op.get_context),
-    (0xf7, 0, true, COL_MAP.op.set_context),
-    (0xf8, 0, true, COL_MAP.op.mload_32bytes),
+    // JUMPDEST and KECCAK_GENERAL are handled manually here.
+    (0x56, 1, false, COL_MAP.op.jumps),     // 0x56-0x57
+    (0x80, 5, false, COL_MAP.op.dup_swap),  // 0x80-0x9f
+    (0xf6, 1, true, COL_MAP.op.context_op), //0xf6-0xf7
     (0xf9, 0, true, COL_MAP.op.exit_kernel),
     // MLOAD_GENERAL and MSTORE_GENERAL flags are handled manually here.
 ];
@@ -52,13 +43,18 @@ const OPCODES: [(u8, usize, bool, usize); 16] = [
 /// List of combined opcodes requiring a special handling.
 /// Each index in the list corresponds to an arbitrary combination
 /// of opcodes defined in evm/src/cpu/columns/ops.rs.
-const COMBINED_OPCODES: [usize; 6] = [
+const COMBINED_OPCODES: [usize; 11] = [
     COL_MAP.op.logic_op,
     COL_MAP.op.fp254_op,
     COL_MAP.op.binary_op,
     COL_MAP.op.ternary_op,
     COL_MAP.op.shift,
     COL_MAP.op.m_op_general,
+    COL_MAP.op.jumpdest_keccak_general,
+    COL_MAP.op.not_pop,
+    COL_MAP.op.pc_push0,
+    COL_MAP.op.m_op_32bytes,
+    COL_MAP.op.push_prover_input,
 ];
 
 /// Break up an opcode (which is 8 bits long) into its eight bits.
@@ -75,7 +71,8 @@ const fn bits_from_opcode(opcode: u8) -> [bool; 8] {
     ]
 }
 
-pub fn eval_packed_generic<P: PackedField>(
+/// Evaluates the constraints for opcode decoding.
+pub(crate) fn eval_packed_generic<P: PackedField>(
     lv: &CpuColumnsView<P>,
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
@@ -134,22 +131,96 @@ pub fn eval_packed_generic<P: PackedField>(
         yield_constr.constraint(lv[col] * (unavailable + opcode_mismatch));
     }
 
+    let opcode_high_bits = |num_high_bits| -> P {
+        lv.opcode_bits
+            .into_iter()
+            .enumerate()
+            .rev()
+            .take(num_high_bits)
+            .map(|(i, bit)| bit * P::Scalar::from_canonical_u64(1 << i))
+            .sum()
+    };
+
     // Manually check lv.op.m_op_constr
-    let opcode: P = lv
-        .opcode_bits
-        .into_iter()
-        .enumerate()
-        .map(|(i, bit)| bit * P::Scalar::from_canonical_u64(1 << i))
-        .sum();
+    let opcode = opcode_high_bits(8);
     yield_constr.constraint((P::ONES - kernel_mode) * lv.op.m_op_general);
 
     let m_op_constr = (opcode - P::Scalar::from_canonical_usize(0xfb_usize))
         * (opcode - P::Scalar::from_canonical_usize(0xfc_usize))
         * lv.op.m_op_general;
     yield_constr.constraint(m_op_constr);
+
+    // Manually check lv.op.jumpdest_keccak_general.
+    // KECCAK_GENERAL is a kernel-only instruction, but not JUMPDEST.
+    // JUMPDEST is differentiated from KECCAK_GENERAL by its second bit set to 1.
+    yield_constr.constraint(
+        (P::ONES - kernel_mode) * lv.op.jumpdest_keccak_general * (P::ONES - lv.opcode_bits[1]),
+    );
+
+    // Check the JUMPDEST and KERNEL_GENERAL opcodes.
+    let jumpdest_opcode = P::Scalar::from_canonical_usize(0x5b);
+    let keccak_general_opcode = P::Scalar::from_canonical_usize(0x21);
+    let jumpdest_keccak_general_constr = (opcode - keccak_general_opcode)
+        * (opcode - jumpdest_opcode)
+        * lv.op.jumpdest_keccak_general;
+    yield_constr.constraint(jumpdest_keccak_general_constr);
+
+    // Manually check lv.op.pc_push0.
+    // Both PC and PUSH0 can be called outside of the kernel mode:
+    // there is no need to constrain them in that regard.
+    let pc_push0_constr = (opcode - P::Scalar::from_canonical_usize(0x58_usize))
+        * (opcode - P::Scalar::from_canonical_usize(0x5f_usize))
+        * lv.op.pc_push0;
+    yield_constr.constraint(pc_push0_constr);
+
+    // Manually check lv.op.not_pop.
+    // Both NOT and POP can be called outside of the kernel mode:
+    // there is no need to constrain them in that regard.
+    let not_pop_op = (opcode - P::Scalar::from_canonical_usize(0x19_usize))
+        * (opcode - P::Scalar::from_canonical_usize(0x50_usize))
+        * lv.op.not_pop;
+    yield_constr.constraint(not_pop_op);
+
+    // Manually check lv.op.m_op_32bytes.
+    // Both are kernel-only.
+    yield_constr.constraint((P::ONES - kernel_mode) * lv.op.m_op_32bytes);
+
+    // Check the MSTORE_32BYTES and MLOAD-32BYTES opcodes.
+    let opcode_high_three = opcode_high_bits(3);
+    let op_32bytes = (opcode_high_three - P::Scalar::from_canonical_usize(0xc0_usize))
+        * (opcode - P::Scalar::from_canonical_usize(0xf8_usize))
+        * lv.op.m_op_32bytes;
+    yield_constr.constraint(op_32bytes);
+
+    // Manually check PUSH and PROVER_INPUT.
+    // PROVER_INPUT is a kernel-only instruction, but not PUSH.
+    let push_prover_input_constr = (opcode - P::Scalar::from_canonical_usize(0x49_usize))
+        * (opcode_high_three - P::Scalar::from_canonical_usize(0x60_usize))
+        * lv.op.push_prover_input;
+    yield_constr.constraint(push_prover_input_constr);
+    let prover_input_constr =
+        lv.op.push_prover_input * (lv.opcode_bits[5] - P::ONES) * (P::ONES - kernel_mode);
+    yield_constr.constraint(prover_input_constr);
 }
 
-pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
+fn opcode_high_bits_circuit<F: RichField + Extendable<D>, const D: usize>(
+    builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
+    lv: &CpuColumnsView<ExtensionTarget<D>>,
+    num_high_bits: usize,
+) -> ExtensionTarget<D> {
+    lv.opcode_bits
+        .into_iter()
+        .enumerate()
+        .rev()
+        .take(num_high_bits)
+        .fold(builder.zero_extension(), |cumul, (i, bit)| {
+            builder.mul_const_add_extension(F::from_canonical_usize(1 << i), bit, cumul)
+        })
+}
+
+/// Circuit version of `eval_packed_generic`.
+/// Evaluates the constraints for opcode decoding.
+pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
     lv: &CpuColumnsView<ExtensionTarget<D>>,
     yield_constr: &mut RecursiveConstraintConsumer<F, D>,
@@ -227,13 +298,7 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     }
 
     // Manually check lv.op.m_op_constr
-    let opcode = lv
-        .opcode_bits
-        .into_iter()
-        .rev()
-        .fold(builder.zero_extension(), |cumul, bit| {
-            builder.mul_const_add_extension(F::TWO, cumul, bit)
-        });
+    let opcode = opcode_high_bits_circuit(builder, lv, 8);
 
     let mload_opcode = builder.constant_extension(F::Extension::from_canonical_usize(0xfb_usize));
     let mstore_opcode = builder.constant_extension(F::Extension::from_canonical_usize(0xfc_usize));
@@ -249,4 +314,92 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     m_op_constr = builder.mul_extension(m_op_constr, lv.op.m_op_general);
 
     yield_constr.constraint(builder, m_op_constr);
+
+    // Manually check lv.op.jumpdest_keccak_general.
+    // KECCAK_GENERAL is a kernel-only instruction, but not JUMPDEST.
+    // JUMPDEST is differentiated from KECCAK_GENERAL by its second bit set to 1.
+    let jumpdest_opcode =
+        builder.constant_extension(F::Extension::from_canonical_usize(0x5b_usize));
+    let keccak_general_opcode =
+        builder.constant_extension(F::Extension::from_canonical_usize(0x21_usize));
+
+    // Check that KECCAK_GENERAL is kernel-only.
+    let mut kernel_general_filter = builder.sub_extension(one, lv.opcode_bits[1]);
+    kernel_general_filter =
+        builder.mul_extension(lv.op.jumpdest_keccak_general, kernel_general_filter);
+    let constr = builder.mul_extension(is_not_kernel_mode, kernel_general_filter);
+    yield_constr.constraint(builder, constr);
+
+    // Check the JUMPDEST and KERNEL_GENERAL opcodes.
+    let jumpdest_constr = builder.sub_extension(opcode, jumpdest_opcode);
+    let keccak_general_constr = builder.sub_extension(opcode, keccak_general_opcode);
+    let mut jumpdest_keccak_general_constr =
+        builder.mul_extension(jumpdest_constr, keccak_general_constr);
+    jumpdest_keccak_general_constr = builder.mul_extension(
+        jumpdest_keccak_general_constr,
+        lv.op.jumpdest_keccak_general,
+    );
+
+    yield_constr.constraint(builder, jumpdest_keccak_general_constr);
+
+    // Manually check lv.op.pc_push0.
+    // Both PC and PUSH0 can be called outside of the kernel mode:
+    // there is no need to constrain them in that regard.
+    let pc_opcode = builder.constant_extension(F::Extension::from_canonical_usize(0x58_usize));
+    let push0_opcode = builder.constant_extension(F::Extension::from_canonical_usize(0x5f_usize));
+    let pc_constr = builder.sub_extension(opcode, pc_opcode);
+    let push0_constr = builder.sub_extension(opcode, push0_opcode);
+    let mut pc_push0_constr = builder.mul_extension(pc_constr, push0_constr);
+    pc_push0_constr = builder.mul_extension(pc_push0_constr, lv.op.pc_push0);
+    yield_constr.constraint(builder, pc_push0_constr);
+
+    // Manually check lv.op.not_pop.
+    // Both NOT and POP can be called outside of the kernel mode:
+    // there is no need to constrain them in that regard.
+    let not_opcode = builder.constant_extension(F::Extension::from_canonical_usize(0x19_usize));
+    let pop_opcode = builder.constant_extension(F::Extension::from_canonical_usize(0x50_usize));
+
+    let not_constr = builder.sub_extension(opcode, not_opcode);
+    let pop_constr = builder.sub_extension(opcode, pop_opcode);
+
+    let mut not_pop_constr = builder.mul_extension(not_constr, pop_constr);
+    not_pop_constr = builder.mul_extension(lv.op.not_pop, not_pop_constr);
+    yield_constr.constraint(builder, not_pop_constr);
+
+    // Manually check lv.op.m_op_32bytes.
+    // Both are kernel-only.
+    let constr = builder.mul_extension(is_not_kernel_mode, lv.op.m_op_32bytes);
+    yield_constr.constraint(builder, constr);
+
+    // Check the MSTORE_32BYTES and MLOAD-32BYTES opcodes.
+    let opcode_high_three = opcode_high_bits_circuit(builder, lv, 3);
+    let mstore_32bytes_opcode =
+        builder.constant_extension(F::Extension::from_canonical_usize(0xc0_usize));
+    let mload_32bytes_opcode =
+        builder.constant_extension(F::Extension::from_canonical_usize(0xf8_usize));
+    let mstore_32bytes_constr = builder.sub_extension(opcode_high_three, mstore_32bytes_opcode);
+    let mload_32bytes_constr = builder.sub_extension(opcode, mload_32bytes_opcode);
+    let constr = builder.mul_extension(mstore_32bytes_constr, mload_32bytes_constr);
+    let constr = builder.mul_extension(constr, lv.op.m_op_32bytes);
+    yield_constr.constraint(builder, constr);
+
+    // Manually check PUSH and PROVER_INPUT.
+    // PROVER_INPUT is a kernel-only instruction, but not PUSH.
+    let prover_input_opcode =
+        builder.constant_extension(F::Extension::from_canonical_usize(0x49usize));
+    let push_opcodes = builder.constant_extension(F::Extension::from_canonical_usize(0x60usize));
+
+    let push_constr = builder.sub_extension(opcode_high_three, push_opcodes);
+    let prover_input_constr = builder.sub_extension(opcode, prover_input_opcode);
+
+    let push_prover_input_constr =
+        builder.mul_many_extension([lv.op.push_prover_input, prover_input_constr, push_constr]);
+    yield_constr.constraint(builder, push_prover_input_constr);
+    let prover_input_filter = builder.mul_sub_extension(
+        lv.op.push_prover_input,
+        lv.opcode_bits[5],
+        lv.op.push_prover_input,
+    );
+    let constr = builder.mul_extension(prover_input_filter, is_not_kernel_mode);
+    yield_constr.constraint(builder, constr);
 }

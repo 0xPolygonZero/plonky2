@@ -11,7 +11,7 @@
 %macro next_context_id
     // stack: (empty)
     %mload_global_metadata(@GLOBAL_METADATA_LARGEST_CONTEXT)
-    %increment
+    %add_const(0x10000000000000000) // scale each context by 2^64
     // stack: new_ctx
     DUP1
     %mstore_global_metadata(@GLOBAL_METADATA_LARGEST_CONTEXT)
@@ -83,7 +83,6 @@
     SET_CONTEXT
     // stack: (empty)
     // We can now read this stack length from memory.
-    push @CTX_METADATA_STACK_SIZE
-    %mload_current(@SEGMENT_CONTEXT_METADATA)
+    %mload_context_metadata(@CTX_METADATA_STACK_SIZE)
     // stack: stack_length
 %endmacro

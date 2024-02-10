@@ -1,3 +1,5 @@
+//! plonky2 verifier implementation.
+
 use anyhow::{ensure, Result};
 
 use crate::field::extension::Extendable;

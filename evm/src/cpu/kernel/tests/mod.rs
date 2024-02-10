@@ -1,4 +1,5 @@
 mod account_code;
+mod add11;
 mod balance;
 mod bignum;
 mod blake2_f;
@@ -9,6 +10,7 @@ mod core;
 mod ecc;
 mod exp;
 mod hash;
+mod kernel_consistency;
 mod log;
 mod mpt;
 mod packing;

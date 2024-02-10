@@ -1,4 +1,4 @@
-use std::fmt::Debug;
+use core::fmt::Debug;
 
 use ethereum_types::U256;
 use plonky2_util::ceil_div_usize;
@@ -31,7 +31,7 @@ pub(crate) fn u256_to_trimmed_be_bytes(u256: &U256) -> Vec<u8> {
     (0..num_bytes).rev().map(|i| u256.byte(i)).collect()
 }
 
-pub(crate) fn u256_from_bool(b: bool) -> U256 {
+pub(crate) const fn u256_from_bool(b: bool) -> U256 {
     if b {
         U256::one()
     } else {

@@ -1,4 +1,4 @@
-use alloc::string::String;
+use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use alloc::{format, vec};
 use core::marker::PhantomData;
@@ -30,17 +30,17 @@ use crate::util::serialization::{Buffer, IoResult, Read, Write};
 pub struct PoseidonGate<F: RichField + Extendable<D>, const D: usize>(PhantomData<F>);
 
 impl<F: RichField + Extendable<D>, const D: usize> PoseidonGate<F, D> {
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self(PhantomData)
     }
 
     /// The wire index for the `i`th input to the permutation.
-    pub fn wire_input(i: usize) -> usize {
+    pub const fn wire_input(i: usize) -> usize {
         i
     }
 
     /// The wire index for the `i`th output to the permutation.
-    pub fn wire_output(i: usize) -> usize {
+    pub const fn wire_output(i: usize) -> usize {
         SPONGE_WIDTH + i
     }
 
@@ -90,7 +90,7 @@ impl<F: RichField + Extendable<D>, const D: usize> PoseidonGate<F, D> {
     }
 
     /// End of wire indices, exclusive.
-    fn end() -> usize {
+    const fn end() -> usize {
         Self::START_FULL_1 + SPONGE_WIDTH * poseidon::HALF_N_FULL_ROUNDS
     }
 }
@@ -532,6 +532,9 @@ impl<F: RichField + Extendable<D> + Poseidon, const D: usize> SimpleGenerator<F,
 
 #[cfg(test)]
 mod tests {
+    #[cfg(not(feature = "std"))]
+    use alloc::{vec, vec::Vec};
+
     use anyhow::Result;
 
     use crate::field::goldilocks_field::GoldilocksField;

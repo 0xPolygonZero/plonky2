@@ -134,7 +134,7 @@ pub trait Read {
     /// Reads a `usize` value from `self`.
     #[inline]
     fn read_usize(&mut self) -> IoResult<usize> {
-        let mut buf = [0; std::mem::size_of::<u64>()];
+        let mut buf = [0; core::mem::size_of::<u64>()];
         self.read_exact(&mut buf)?;
         Ok(u64::from_le_bytes(buf) as usize)
     }
@@ -2173,19 +2173,19 @@ pub struct Buffer<'a> {
 impl<'a> Buffer<'a> {
     /// Builds a new [`Buffer`] over `buffer`.
     #[inline]
-    pub fn new(bytes: &'a [u8]) -> Self {
+    pub const fn new(bytes: &'a [u8]) -> Self {
         Self { bytes, pos: 0 }
     }
 
     /// Returns the inner position.
     #[inline]
-    pub fn pos(&self) -> usize {
+    pub const fn pos(&self) -> usize {
         self.pos
     }
 
     /// Returns the inner buffer.
     #[inline]
-    pub fn bytes(&self) -> &'a [u8] {
+    pub const fn bytes(&self) -> &'a [u8] {
         self.bytes
     }
 

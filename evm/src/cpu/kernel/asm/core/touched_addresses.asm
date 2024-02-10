@@ -15,12 +15,14 @@ global insert_touched_addresses:
     // stack: addr, retdest
     %mload_global_metadata(@GLOBAL_METADATA_TOUCHED_ADDRESSES_LEN)
     // stack: len, addr, retdest
-    PUSH 0
+    PUSH @SEGMENT_TOUCHED_ADDRESSES ADD
+    PUSH @SEGMENT_TOUCHED_ADDRESSES
 insert_touched_addresses_loop:
+    // `i` and `len` are both scaled by SEGMENT_TOUCHED_ADDRESSES
     %stack (i, len, addr, retdest) -> (i, len, i, len, addr, retdest)
     EQ %jumpi(insert_address)
     // stack: i, len, addr, retdest
-    DUP1 %mload_kernel(@SEGMENT_TOUCHED_ADDRESSES)
+    DUP1 MLOAD_GENERAL
     // stack: loaded_addr, i, len, addr, retdest
     DUP4
     // stack: addr, loaded_addr, i, len, addr, retdest
@@ -30,10 +32,11 @@ insert_touched_addresses_loop:
     %jump(insert_touched_addresses_loop)
 
 insert_address:
-    %stack (i, len, addr, retdest) -> (i, addr, len, retdest)
+    %stack (i, len, addr, retdest) -> (i, addr, len, @SEGMENT_TOUCHED_ADDRESSES, retdest)
     DUP2 %journal_add_account_touched // Add a journal entry for the touched account.
-    %mstore_kernel(@SEGMENT_TOUCHED_ADDRESSES) // Store new address at the end of the array.
-    // stack: len, retdest
+    %swap_mstore // Store new address at the end of the array.
+    // stack: len, segment, retdest
+    SUB // unscale
     %increment
     %mstore_global_metadata(@GLOBAL_METADATA_TOUCHED_ADDRESSES_LEN) // Store new length.
     JUMP
@@ -49,12 +52,14 @@ global remove_touched_addresses:
     // stack: addr, retdest
     %mload_global_metadata(@GLOBAL_METADATA_TOUCHED_ADDRESSES_LEN)
     // stack: len, addr, retdest
-    PUSH 0
+    PUSH @SEGMENT_TOUCHED_ADDRESSES ADD
+    PUSH @SEGMENT_TOUCHED_ADDRESSES
 remove_touched_addresses_loop:
+    // `i` and `len` are both scaled by SEGMENT_TOUCHED_ADDRESSES
     %stack (i, len, addr, retdest) -> (i, len, i, len, addr, retdest)
     EQ %jumpi(panic)
     // stack: i, len, addr, retdest
-    DUP1 %mload_kernel(@SEGMENT_TOUCHED_ADDRESSES)
+    DUP1 MLOAD_GENERAL
     // stack: loaded_addr, i, len, addr, retdest
     DUP4
     // stack: addr, loaded_addr, i, len, addr, retdest
@@ -64,12 +69,14 @@ remove_touched_addresses_loop:
     %jump(remove_touched_addresses_loop)
 remove_touched_addresses_found:
     %stack (i, len, addr, retdest) -> (len, 1, i, retdest)
-    SUB DUP1 %mstore_global_metadata(@GLOBAL_METADATA_TOUCHED_ADDRESSES_LEN) // Decrement the list length.
+    SUB
+    PUSH @SEGMENT_TOUCHED_ADDRESSES DUP2
+    SUB // unscale
+    %mstore_global_metadata(@GLOBAL_METADATA_TOUCHED_ADDRESSES_LEN) // Decrement the list length.
     // stack: len-1, i, retdest
-    %mload_kernel(@SEGMENT_TOUCHED_ADDRESSES) // Load the last address in the list.
+    MLOAD_GENERAL // Load the last address in the list.
     // stack: last_addr, i, retdest
-    SWAP1
-    %mstore_kernel(@SEGMENT_TOUCHED_ADDRESSES) // Store the last address at the position of the removed address.
+    MSTORE_GENERAL // Store the last address at the position of the removed address.
     JUMP
 
 
@@ -77,12 +84,14 @@ global delete_all_touched_addresses:
     // stack: retdest
     %mload_global_metadata(@GLOBAL_METADATA_TOUCHED_ADDRESSES_LEN)
     // stack: len, retdest
-    PUSH 0
+    PUSH @SEGMENT_TOUCHED_ADDRESSES ADD
+    PUSH @SEGMENT_TOUCHED_ADDRESSES
 delete_all_touched_addresses_loop:
+    // `i` and `len` are both scaled by SEGMENT_TOUCHED_ADDRESSES
     // stack: i, len, retdest
     DUP2 DUP2 EQ %jumpi(delete_all_touched_addresses_done)
     // stack: i, len, retdest
-    DUP1 %mload_kernel(@SEGMENT_TOUCHED_ADDRESSES)
+    DUP1 MLOAD_GENERAL
     // stack: loaded_addr, i, len, retdest
     DUP1 %is_empty %jumpi(bingo)
     // stack: loaded_addr, i, len, retdest

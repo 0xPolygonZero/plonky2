@@ -6,10 +6,6 @@ global sys_stop:
     // Set the parent context's return data size to 0.
     %mstore_parent_context_metadata(@CTX_METADATA_RETURNDATA_SIZE, 0)
 
-    // This makes sure the gas used hasn't overflowed the gaslimit.
-    // This could happen when executing a native instruction (i.e. not a syscall).
-    %charge_gas_const(0)
-
     %leftover_gas
     // stack: leftover_gas
     PUSH 1 // success
@@ -33,19 +29,27 @@ return_after_gas:
 
     // Store the return data size in the parent context's metadata.
     %stack (parent_ctx, kexit_info, offset, size) ->
-        (parent_ctx, @SEGMENT_CONTEXT_METADATA, @CTX_METADATA_RETURNDATA_SIZE, size, offset, size, parent_ctx, kexit_info)
+        (parent_ctx, @CTX_METADATA_RETURNDATA_SIZE, size, offset, size, parent_ctx, kexit_info)
+    ADD // addr (CTX offsets are already scaled by their segment)
+    SWAP1
+    // stack: size, addr, offset, size, parent_ctx, kexit_info
     MSTORE_GENERAL
     // stack: offset, size, parent_ctx, kexit_info
 
     // Store the return data in the parent context's returndata segment.
+    PUSH @SEGMENT_MAIN_MEMORY
     GET_CONTEXT
-    %stack (ctx, offset, size, parent_ctx, kexit_info) ->
+    %build_address
+
+    %stack (addr, size, parent_ctx, kexit_info) ->
         (
-        parent_ctx, @SEGMENT_RETURNDATA, 0, // DST
-        ctx, @SEGMENT_MAIN_MEMORY, offset,  // SRC
+        parent_ctx, @SEGMENT_RETURNDATA, // DST
+        addr, // SRC
         size, sys_return_finish, kexit_info // count, retdest, ...
         )
-    %jump(memcpy)
+    %build_address_no_offset
+    // stack: DST, SRC, size, sys_return_finish, kexit_info
+    %jump(memcpy_bytes)
 
 sys_return_finish:
     // stack: kexit_info
@@ -147,19 +151,27 @@ revert_after_gas:
 
     // Store the return data size in the parent context's metadata.
     %stack (parent_ctx, kexit_info, offset, size) ->
-        (parent_ctx, @SEGMENT_CONTEXT_METADATA, @CTX_METADATA_RETURNDATA_SIZE, size, offset, size, parent_ctx, kexit_info)
+        (parent_ctx, @CTX_METADATA_RETURNDATA_SIZE, size, offset, size, parent_ctx, kexit_info)
+    ADD // addr (CTX offsets are already scaled by their segment)
+    SWAP1
+    // stack: size, addr, offset, size, parent_ctx, kexit_info
     MSTORE_GENERAL
     // stack: offset, size, parent_ctx, kexit_info
 
     // Store the return data in the parent context's returndata segment.
+    PUSH @SEGMENT_MAIN_MEMORY
     GET_CONTEXT
-    %stack (ctx, offset, size, parent_ctx, kexit_info) ->
+    %build_address
+
+    %stack (addr, size, parent_ctx, kexit_info) ->
         (
-        parent_ctx, @SEGMENT_RETURNDATA, 0, // DST
-        ctx, @SEGMENT_MAIN_MEMORY, offset,  // SRC
+        parent_ctx, @SEGMENT_RETURNDATA, // DST
+        addr,  // SRC
         size, sys_revert_finish, kexit_info // count, retdest, ...
         )
-    %jump(memcpy)
+    %build_address_no_offset
+    // stack: DST, SRC, size, sys_revert_finish, kexit_info
+    %jump(memcpy_bytes)
 
 sys_revert_finish:
     %leftover_gas
@@ -205,9 +217,11 @@ global terminate_common:
 
     // Similarly, we write the parent PC to SEGMENT_KERNEL_GENERAL[2] so that
     // we can later read it after switching to the parent context.
-    %mload_context_metadata(@CTX_METADATA_PARENT_PC)
     PUSH 2
-    %mstore_kernel(@SEGMENT_KERNEL_GENERAL)
+    PUSH @SEGMENT_KERNEL_GENERAL
+    %build_kernel_address
+    %mload_context_metadata(@CTX_METADATA_PARENT_PC)
+    MSTORE_GENERAL
     // stack: (empty)
 
     // Go back to the parent context.
