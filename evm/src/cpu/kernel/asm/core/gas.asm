@@ -122,7 +122,7 @@ global sys_gasprice:
 //     L(n) = n - floor(n / 64)
 %macro all_but_one_64th
     // stack: n
-    DUP1 %div_const(64)
+    DUP1 %shr_const(6)
     // stack: floor(n / 64), n
     SWAP1 SUB
     // stack: n - floor(n / 64)

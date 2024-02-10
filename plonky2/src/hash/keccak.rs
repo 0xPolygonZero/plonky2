@@ -1,6 +1,5 @@
-use alloc::vec;
-use alloc::vec::Vec;
-use core::iter;
+#[cfg(not(feature = "std"))]
+use alloc::{vec, vec::Vec};
 use core::mem::size_of;
 
 use itertools::Itertools;
@@ -68,7 +67,7 @@ impl<F: RichField> PlonkyPermutation<F> for KeccakPermutation<F> {
                 .copy_from_slice(&self.state[i].to_canonical_u64().to_le_bytes());
         }
 
-        let hash_onion = iter::repeat_with(|| {
+        let hash_onion = core::iter::repeat_with(|| {
             let output = keccak(state_bytes.clone()).to_fixed_bytes();
             state_bytes = output.to_vec();
             output

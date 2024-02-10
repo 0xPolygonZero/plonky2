@@ -5,10 +5,8 @@
 global route_txn:
     // stack: txn_counter, num_nibbles, retdest
     // First load transaction data into memory, where it will be parsed.
-    PUSH read_txn_from_memory
-    SWAP2 SWAP1
-    PUSH update_txn_trie
-    // stack: update_txn_trie, tx_counter, num_nibbles, read_txn_from_memory, retdest
+    %stack(txn_counter, num_nibbles) -> (update_txn_trie, txn_counter, num_nibbles, read_txn_from_memory)
+    // stack: update_txn_trie, txn_counter, num_nibbles, read_txn_from_memory, retdest
     %jump(read_rlp_to_memory)
 
 // At this point, the raw txn data is in memory.
@@ -20,15 +18,15 @@ read_txn_from_memory:
     // Type 0 (legacy) transactions have no such prefix, but their RLP will have a
     // first byte >= 0xc0, so there is no overlap.
 
-    PUSH 0
-    %mload_kernel(@SEGMENT_RLP_RAW)
+    PUSH @SEGMENT_RLP_RAW // ctx == virt == 0
+    MLOAD_GENERAL
     %eq_const(1)
     // stack: first_byte == 1, retdest
     %jumpi(process_type_1_txn)
     // stack: retdest
 
-    PUSH 0
-    %mload_kernel(@SEGMENT_RLP_RAW)
+    PUSH @SEGMENT_RLP_RAW // ctx == virt == 0
+    MLOAD_GENERAL
     %eq_const(2)
     // stack: first_byte == 2, retdest
     %jumpi(process_type_2_txn)
@@ -53,10 +51,12 @@ global update_txn_trie:
 
     // and now copy txn_rlp to the new block
     %stack (rlp_start, txn_rlp_len, value_ptr, txn_counter, num_nibbles) -> (
-        0, @SEGMENT_TRIE_DATA, rlp_start, // dest addr
-        0, @SEGMENT_RLP_RAW, 0, // src addr. Kernel has context 0
+        @SEGMENT_RLP_RAW, // src addr. ctx == virt == 0
+        rlp_start, @SEGMENT_TRIE_DATA, // swapped dest addr, ctx == 0
         txn_rlp_len, // mcpy len
         txn_rlp_len, rlp_start, txn_counter, num_nibbles, value_ptr)
+    SWAP2 %build_kernel_address
+    // stack: DST, SRC, txn_rlp_len, txn_rlp_len, rlp_start, txn_counter, num_nibbles, value_ptr
     %memcpy_bytes
     ADD
     %set_trie_data_size

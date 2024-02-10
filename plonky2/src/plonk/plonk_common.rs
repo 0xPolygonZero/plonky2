@@ -1,5 +1,7 @@
-use alloc::vec;
-use alloc::vec::Vec;
+//! Utility methods and constants for Plonk.
+
+#[cfg(not(feature = "std"))]
+use alloc::{vec, vec::Vec};
 
 use crate::field::extension::Extendable;
 use crate::field::packed::PackedField;
@@ -38,7 +40,7 @@ impl PlonkOracle {
     };
 }
 
-pub fn salt_size(salted: bool) -> usize {
+pub const fn salt_size(salted: bool) -> usize {
     if salted {
         SALT_SIZE
     } else {

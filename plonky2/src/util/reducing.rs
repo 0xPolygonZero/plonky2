@@ -1,5 +1,5 @@
-use alloc::vec;
-use alloc::vec::Vec;
+#[cfg(not(feature = "std"))]
+use alloc::{vec, vec::Vec};
 use core::borrow::Borrow;
 
 use crate::field::extension::{Extendable, FieldExtension};
@@ -28,7 +28,7 @@ pub struct ReducingFactor<F: Field> {
 }
 
 impl<F: Field> ReducingFactor<F> {
-    pub fn new(base: F) -> Self {
+    pub const fn new(base: F) -> Self {
         Self { base, count: 0 }
     }
 
@@ -117,7 +117,7 @@ pub struct ReducingFactorTarget<const D: usize> {
 }
 
 impl<const D: usize> ReducingFactorTarget<D> {
-    pub fn new(base: ExtensionTarget<D>) -> Self {
+    pub const fn new(base: ExtensionTarget<D>) -> Self {
         Self { base, count: 0 }
     }
 

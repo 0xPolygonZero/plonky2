@@ -1,0 +1,285 @@
+\section{CPU logic}
+\label{cpulogic}
+
+The CPU is in charge of coordinating the different STARKs, proving the correct execution of the instructions it reads and guaranteeing
+that the final state of the EVM corresponds to the starting state after executing the input transaction. All design choices were made 
+to make sure these properties can be adequately translated into constraints of degree at most 3 while minimizing the size of the different
+table traces (number of columns and number of rows).
+
+In this section, we will detail some of these choices.
+
+\subsection{Kernel}
+The kernel is in charge of the proving logic. This section aims at providing a high level overview of this logic. For details about any specific part of the logic, one can consult the various ``asm'' files in the \href{https://github.com/0xPolygonZero/plonky2/tree/main/evm/src/cpu/kernel}{``kernel'' folder}.
+
+We prove one transaction at a time. These proofs can later be aggregated recursively to prove a block. Proof aggregation is however not in the scope of this section. Here, we assume that we have an initial state of the EVM, and we wish to prove that a single transaction was correctly executed, leading to a correct update of the state.
+
+Since we process one transaction at a time, a few intermediary values need to be provided by the prover. Indeed, to prove that the registers in the EVM state are correctly updated, we need to have access to their initial values. When aggregating proofs, we can also constrain those values to match from one transaction to the next. Let us consider the example of the transaction number. Let $n$ be the number of transactions executed so far in the current block. If the current proof is not a dummy one (we are indeed executing a transaction), then the transaction number should be updated: $n := n+1$. Otherwise, the number remains unchanged. We can easily constrain this update. When aggregating the previous transaction proof ($lhs$) with the current one ($rhs$), we also need to check that the output transaction number of $lhs$ is the same as the input transaction number of $rhs$. 
+
+Those prover provided values are stored in memory prior to entering the kernel, and are used in the kernel to assert correct updates. The list of prover provided values necessary to the kernel is the following:
+\begin{enumerate}
+    \item the previous transaction number: $t_n$,
+    \item the gas used before executing the current transaction: $g\_u_0$,
+    \item the gas used after executing the current transaction: $g\_u_1$,
+    \item the state, transaction and receipts MPTs before executing the current transaction: $\texttt{tries}_0$,
+    \item the hash of all MPTs before executing the current transaction: $\texttt{digests}_0$,
+    \item the hash of all MPTs after executing the current transaction: $\texttt{digests}_1$,
+    \item the RLP encoding of the transaction.
+\end{enumerate}
+
+\paragraph*{Initialization:} The first step consists in initializing:
+\begin{itemize}
+    \item The shift table: it maps the number of bit shifts $s$ with its shifted value $1 << s$. Note that $0 \leq s \leq 255$.
+    \item The initial MPTs: the initial state, transaction and receipt tries $\texttt{tries}_0$ are loaded from memory and hashed. The hashes are then compared to $\texttt{digests}\_0$.
+    \item We load the transaction number $t\_n$ and the current gas used $g\_u_0$ from memory.
+\end{itemize}
+
+If no transaction is provided, we can halt after this initialization. Otherwise, we start processing the transaction. The transaction is provided as its RLP encoding. We can deduce the various transaction fields (such as its type or the transfer value) from its encoding. Based on this, the kernel updates the state trie by executing the transaction. Processing the transaction also includes updating the transactions MPT with the transaction at hand.
+
+The processing of the transaction returns a boolean ``success'' that indicates whether the transaction was executed successfully, along with the leftover gas. 
+
+The following step is then to update the receipts MPT. Here, we update the transaction's bloom filter. We store ``success'', the leftover gas, the transaction bloom filter and the logs in memory. We also store some additional information that facilitates the RLP encoding of the receipts later.
+
+If there are any withdrawals, they are performed at this stage.
+
+Finally, once the three MPTs have been updated, we need to carry out final checks:
+\begin{itemize}
+    \item the gas used after the execution is equal to $g\_u_1$,
+    \item the new transaction number is $n+1$ if there was a transaction,
+    \item the three MPTs are hashed and checked against $\texttt{digests}_1$.
+\end{itemize}
+Once those final checks are performed, the program halts.
+
+\subsection{Simple opcodes VS Syscalls}
+For simplicity and efficiency, EVM opcodes are categorized into two groups: ``simple opcodes'' and ``syscalls''. Simple opcodes are generated directly in Rust, in \href{https://github.com/0xPolygonZero/plonky2/blob/main/evm/src/witness/operation.rs}{operation.rs}. Every call to a simple opcode adds exactly one row to the \href{https://github.com/0xPolygonZero/plonky2/blob/main/evm/spec/tables/cpu.tex}{cpu table}. Syscalls are more complex structures written with simple opcodes, in the kernel.
+
+Whenever we encounter a syscall, we switch to kernel mode and execute its associated code. At the end of each syscall, we run EXIT\_KERNEL, which resets the kernel mode to its state right before the syscall. It also sets the PC to point to the opcode right after the syscall.
+
+Exceptions are handled differently for simple opcodes and syscalls. When necessary, simple opcodes throw an exception (see \ref{exceptions}). This activates the ``exception flag'' in the CPU and runs the exception operations. On the other hand, syscalls handle exceptions in the kernel directly.
+
+\subsection{Privileged instructions}
+
+To ease and speed-up proving time, the zkEVM supports custom, privileged instructions that can only be executed by the kernel.
+Any appearance of those privileged instructions in a contract bytecode for instance would result in an unprovable state.
+
+In what follows, we denote by $p_{BN}$ the characteristic of the BN254 curve base field, curve for which Ethereum supports the 
+ecAdd, ecMul and ecPairing precompiles.
+
+\begin{enumerate}[align=left]
+  \item[0x0C.] \texttt{ADDFP254}. Pops 2 elements from the stack interpreted as BN254 base field elements, and pushes their addition modulo $p_{BN}$ onto the stack.
+
+  \item[0x0D.] \texttt{MULFP254}. Pops 2 elements from the stack interpreted as BN254 base field elements, and pushes their product modulo $p_{BN}$ onto the stack.
+
+  \item[0x0E.] \texttt{SUBFP254}. Pops 2 elements from the stack interpreted as BN254 base field elements, and pushes their difference modulo $p_{BN}$ onto the stack.
+  This instruction behaves similarly to the SUB (0x03) opcode, in that we subtract the second element of the stack from the initial (top) one.
+
+  \item[0x0F.] \texttt{SUBMOD}. Pops 3 elements from the stack, and pushes the modular difference of the first two elements of the stack by the third one.
+  It is similar to the SUB instruction, with an extra pop for the custom modulus.
+
+  \item[0x21.] \texttt{KECCAK\_GENERAL}. Pops 2 elements (a Memory address, followed by a length $\ell$) and pushes the hash of the memory portion starting at the
+  constructed address and of length $\ell$. It is similar to KECCAK256 (0x20) instruction, but can be applied to any memory section (i.e. even privileged ones).
+
+  \item[0x49.] \texttt{PROVER\_INPUT}. Pushes a single prover input onto the stack.
+
+  \item[0xC0-0xDF.] \texttt{MSTORE\_32BYTES}. Pops 2 elements from the stack (a Memory address, and then a value), and pushes
+  a new address' onto the stack. The value is being decomposed into bytes and written to memory, starting from the fetched address. The new address being pushed is computed as the
+  initial address + the length of the byte sequence being written to memory. Note that similarly to PUSH (0x60-0x7F) instructions, there are 32 MSTORE\_32BYTES instructions, each
+  corresponding to a target byte length (length 0 is ignored, for the same reasons as MLOAD\_32BYTES, see below). Writing to memory an integer fitting in $n$ bytes with a length $\ell < n$ will
+  result in the integer being truncated. On the other hand, specifying a length $\ell$ greater than the byte size of the value being written will result in padding with zeroes. This
+  process is heavily used when resetting memory sections (by calling MSTORE\_32BYTES\_32 with the value 0).
+
+  \item[0xF6.] \texttt{GET\_CONTEXT}. Pushes the current context onto the stack. The kernel always has context 0.
+
+  \item[0xF7.] \texttt{SET\_CONTEXT}. Pops the top element of the stack and updates the current context to this value. It is usually used when calling another contract or precompile,
+  to distinguish the caller from the callee.
+
+  \item[0xF8.] \texttt{MLOAD\_32BYTES}. Pops 2 elements from the stack (a Memory address, and then a length $\ell$), and pushes
+  a value onto the stack. The pushed value corresponds to the U256 integer read from the big-endian sequence of length $\ell$ from the memory address being fetched. Note that an
+  empty length is not valid, nor is a length greater than 32 (as a U256 consists in at most 32 bytes). Missing these conditions will result in an unverifiable proof.
+
+  \item[0xF9.] \texttt{EXIT\_KERNEL}. Pops 1 element from the stack. This instruction is used at the end of a syscall, before proceeding to the rest of the execution logic.
+  The popped element, \textit{kexit\_info}, contains several pieces of information like the current program counter, the current amount of gas used, and whether we are in kernel (i.e. privileged) mode or not.
+
+  \item[0xFB.] \texttt{MLOAD\_GENERAL}. Pops 1 elements (a Memory address), and pushes the value stored at this memory
+  address onto the stack. It can read any memory location, general (similarly to MLOAD (0x51) instruction) or privileged.
+
+  \item[0xFC.] \texttt{MSTORE\_GENERAL}. Pops 2 elements (a value and a Memory address), and writes the popped value from
+  the stack at the fetched address. It can write to any memory location, general (similarly to MSTORE (0x52) / MSTORE8 (0x53) instructions) or privileged.
+\end{enumerate}
+
+
+\subsection{Memory addresses}
+\label{memoryaddresses}
+
+Kernel operations deal with memory addresses as single U256 elements.
+However, when processing the operations to generate the proof witness, the CPU will decompose these into three components:
+
+\begin{itemize}
+  \item[context.] The context of the memory address. The Kernel context is special, and has value 0.
+
+  \item[segment.] The segment of the memory address, corresponding to a specific section given a context (eg. MPT data, global metadata, etc.).
+
+  \item[virtual.] The offset of the memory address, within a segment given a context.
+\end{itemize}
+
+To easily retrieve these components, we scale them so that they can represent a memory address as:
+
+$$ \mathrm{addr} = 2^{64} \cdot \mathrm{context} + 2^{32} \cdot \mathrm{segment} + \mathrm{offset}$$
+
+This allows to easily retrieve each component individually once a Memory address has been decomposed into 32-bit limbs.
+
+
+\subsection{Stack handling}
+\label{stackhandling}
+
+\subsubsection{Top of the stack}
+
+The majority of memory operations involve the stack. The stack is a segment in memory, and stack operations (popping or pushing) use the memory channels.
+Every CPU instruction performs between 0 and 3 pops, and may push at most once. However, for efficiency purposes, we hold the top of the stack in
+the first memory channel \texttt{current\_row.mem\_channels[0]}, only writing it in memory if necessary.
+
+\paragraph*{Motivation:}
+
+See \href{https://github.com/0xPolygonZero/plonky2/issues/1149}{this issue}.
+
+\paragraph*{Top reading and writing:}
+
+When a CPU instruction modifies the stack, it must update the top of the stack accordingly. There are three cases.
+
+\begin{itemize}
+  \item \textbf{The instruction pops and pushes:} The new top of the stack is stored in \texttt{next\_row.mem\_channels[0]}; it may be computed by the instruction,
+or it could be read from memory. In either case, the instruction is responsible for setting \texttt{next\_row.mem\_channels[0]}'s flags and address columns correctly.
+After use, the previous top of the stack is discarded and doesn't need to be written in memory.
+  \item \textbf{The instruction pushes, but doesn't pop:} The new top of the stack is stored in \texttt{next\_row.mem\_channels[0]}; it may be computed by the instruction,
+or it could be read from memory. In either case, the instruction is responsible for setting \texttt{next\_row.mem\_channels[0]}'s flags and address columns correctly.
+If the stack wasn't empty (\texttt{current\_row.stack\_len > 0}), the instruction performs a memory read in \texttt{current\_row.partial\_ channel}. \texttt{current\_row.partial\_channel}
+shares its values with \texttt{current\_ row.mem\_channels[0]} (which holds the current top of the stack). If the stack was empty, \texttt{current\_row.partial\_channel}
+is disabled.
+  \item \textbf{The instruction pops, but doesn't push:} After use, the current top of the stack is discarded and doesn't need to be written in memory.
+If the stack isn't empty now (\texttt{current\_row.stack\_len > num\_pops}), the new top of the stack is set in \texttt{next\_row.mem\_channels[0]}
+with a memory read from the stack segment. If the stack is now empty, \texttt{next\_row.mem\_channels[0]} is disabled.
+\end{itemize}
+
+In the last two cases, there is an edge case if \texttt{current\_row.stack\_len} is equal to a \texttt{special\_len}. For a strictly pushing instruction,
+this happens if the stack is empty, and \texttt{special\_len = 0}. For a strictly popping instruction, this happens if the next stack is empty, i.e. if
+all remaining elements are popped, and \texttt{special\_len = num\_pops}. Note that we do not need to check for values below \texttt{num\_pops}, since this
+would be a stack underflow exception which is handled separately.
+The edge case is detected with the compound flag
+$$\texttt{1 - not\_special\_len * stack\_inv\_aux,}$$
+where $$\texttt{not\_special\_len = current\_row - special\_len}$$
+
+
+and \texttt{stack\_inv\_aux} is constrained to be the modular inverse of \texttt{not\_special\_ len} if it's non-zero, or 0 otherwise. The flag is 1
+if \texttt{stack\_len} is equal to \texttt{special\_len}, and 0 otherwise.
+
+This logic can be found in code in the \texttt{eval\_packed\_one} function of \href{https://github.com/0xPolygonZero/plonky2/blob/main/evm/src/cpu/stack.rs}{stack.rs}.
+The function multiplies all of the stack constraints with the degree 1 filter associated with the current instruction.
+
+\paragraph*{Operation flag merging:}
+
+To reduce the total number of columns, many operation flags are merged together (e.g. \texttt{DUP} and \texttt{SWAP}) and are distinguished with the binary decomposition of their opcodes.
+The filter for a merged operation is now of degree 2: for example, \texttt{is\_swap = dup\_swap * opcode\_bits[4]} since the 4th bit is set to 1 for a \texttt{SWAP} and 0 for a \texttt{DUP}.
+If the two instructions have different stack behaviors, this can be a problem: \texttt{eval\_packed\_one}'s constraints are already of degree 3 and it can't support degree 2 filters.
+
+When this happens, stack constraints are defined manually in the operation's dedicated file (e.g. \texttt{dup\_swap.rs}). Implementation details vary case-by-case and can be found in the files.
+
+\subsubsection{Stack length checking}
+
+The CPU must make sure that the stack length never goes below zero and, in user mode, never grows beyond the maximum stack size. When this happens, an honest prover should trigger the
+corresponding exception. If a malicious prover doesn't trigger the exception, constraints must fail the proof.
+
+\paragraph*{Stack underflow:}
+There is no explicit constraint checking for stack underflow. An underflow happens when the CPU tries to pop the empty stack, which would perform a memory read at virtual address \texttt{-1}.
+Such a read cannot succeed: in Memory, the range-check argument requires the gap between two consecutive addresses to be lower than the length of the Memory trace. Since the prime of the Plonky2 field is 64-bit long,
+this would require a Memory trace longer than $2^{32}$.
+
+\paragraph*{Stack overflow:}
+An instruction can only push at most once, meaning that an overflow occurs whenever the stack length is exactly one more than the maximum stack size ($1024+1$) in user mode.
+To constrain this, the column \texttt{stack\_len\_bounds\_aux} contains:
+
+\begin{itemize}
+  \item[--] the modular inverse of \texttt{stack\_len - 1025} if we're in user mode and \texttt{stack\_len $\neq$ 1025},
+  \item[--] 0 if \texttt{stack\_len = 1025} or if we're in kernel mode.
+\end{itemize}
+Then overflow can be checked with the flag
+$$\texttt{(1 - is\_kernel\_mode) - stack\_len * stack\_len\_bounds\_aux}.$$
+The flag is 1 if \texttt{stack\_len = 1025} and we're in user mode, and 0 otherwise.
+
+Because \texttt{stack\_len\_bounds\_aux} is a shared general column, we only check this constraint after an instruction that can actually trigger an overflow,
+i.e. a pushing, non-popping instruction.
+
+\subsection{Gas handling}
+
+\subsubsection{Out of gas errors}
+
+The CPU table has a ``gas'' register that keeps track of the gas used by the transaction so far.
+
+The crucial invariant in our out-of-gas checking method is that at any point in the program's execution, we have not used more gas than we have available; that is ``gas'' is at most the gas allocation for the transaction (which is stored separately by the kernel). We assume that the gas allocation will never be $2^{32}$ or more, so if ``gas'' does not fit in one limb, then we've run out of gas.
+
+When a native instruction (one that is not a syscall) is executed, a constraint ensures that the ``gas'' register is increased by the correct amount. This is not automatic for syscalls; the syscall handler itself must calculate and charge the appropriate amount.
+
+If everything goes smoothly and we have not run out of gas, ``gas'' should be no more than the gas allowance at the point that we STOP, REVERT, stack overflow, or whatever. Indeed, because we assume that the gas overflow handler is invoked \textit{as soon as} we've run out of gas, all these termination methods verify that $\texttt{gas} \leq \texttt{allowance}$, and jump to \texttt{exc\_out\_of\_gas} if this is not the case. This is also true for the out-of-gas handler, which checks that: 
+\begin{enumerate}
+  \item we have not yet run out of gas
+  \item we are about to run out of gas
+\end{enumerate} 
+and ``PANIC'' if either of those statements does not hold.
+
+When we do run out of gas, however, this event must be handled. Syscalls are responsible for checking that their execution would not cause the transaction to run out of gas. If the syscall detects that it would need to charge more gas than available, it aborts the transaction (or the current code) by jumping to \texttt{fault\_exception}. In fact, \texttt{fault\_exception} is in charge of handling all exceptional halts in the kernel.
+
+Native instructions do this differently. If the prover notices that execution of the instruction would cause an out-of-gas error, it must jump to the appropriate handler instead of executing the instruction. (The handler contains special code that PANICs if the prover invoked it incorrectly.)
+
+\subsubsection{Overflow}
+
+We must be careful to ensure that ``gas'' does not overflow to prevent denial of service attacks.
+
+Note that a syscall cannot be the instruction that causes an overflow. This is because every syscall is required to verify that its execution does not cause us to exceed the gas limit. Upon entry into a syscall, a constraint verifies that $\texttt{gas} < 2^{32}$. Some syscalls may have to be careful to ensure that the gas check is performed correctly (for example, that overflow modulo $2^{256}$ does not occur). So we can assume that upon entry and exit out of a syscall, $\texttt{gas} < 2^{32}$.
+
+Similarly, native instructions alone cannot cause wraparound. The most expensive instruction, JUMPI, costs 10 gas. Even if we were to execute $2^{32}$ consecutive JUMPI instructions, the maximum length of a trace, we are nowhere close to consuming $2^{64} - 2^{32} + 1$ (= Goldilocks prime) gas.
+
+The final scenario we must tackle is an expensive syscall followed by many expensive native instructions. Upon exit from a syscall, $\texttt{gas} < 2^{32}$. Again, even if that syscall is followed by $2^{32}$ native instructions of cost 10, we do not see wraparound modulo Goldilocks.
+
+
+\subsection{Exceptions}
+\label{exceptions}
+
+Sometimes, when executing user code (i.e. contract or transaction code), the EVM halts exceptionally (i.e. outside of a STOP, a RETURN or a REVERT).
+When this happens, the CPU table invokes a special instruction with a dedicated operation flag \texttt{exception}.
+Exceptions can only happen in user mode; triggering an exception in kernel mode would make the proof unverifiable.
+No matter the exception, the handling is the same:
+
+-- The opcode which would trigger the exception is not executed. The operation flag set is \texttt{exception} instead of the opcode's flag.
+
+-- We push a value to the stack which contains: the current program counter (to retrieve the faulty opcode), and the current value of \texttt{gas\_used}.
+The program counter is then set to the corresponding exception handler in the kernel (e.g. \texttt{exc\_out\_of\_gas}).
+
+-- The exception handler verifies that the given exception would indeed be triggered by the faulty opcode. If this is not the case (if the exception has already happened or if it doesn't happen after executing
+the faulty opcode), then the kernel panics: there was an issue during witness generation.
+
+-- The kernel consumes the remaining gas and returns from the current context with \texttt{success} set to 0 to indicate an execution failure.
+
+Here is the list of the possible exceptions:
+
+\begin{enumerate}[align=left]
+  \item[\textbf{Out of gas:}] Raised when a native instruction (i.e. not a syscall) in user mode pushes the amount of gas used over the current gas limit.
+When this happens, the EVM jumps to \texttt{exc\_out\_of\_gas}. The kernel then checks that the consumed gas is currently below the gas limit,
+and that adding the gas cost of the faulty instruction pushes it over it.
+If the exception is not raised, the prover will panic when returning from the execution: the remaining gas is checked to be positive after STOP, RETURN or REVERT.
+  \item[\textbf{Invalid opcode:}] Raised when the read opcode is invalid. It means either that it doesn't exist, or that it's a privileged instruction and
+thus not available in user mode. When this happens, the EVM jumps to \texttt{exc\_invalid\_opcode}. The kernel then checks that the given opcode is indeed invalid.
+If the exception is not raised, decoding constraints ensure no operation flag is set to 1, which would make it a padding row. Halting constraints would then make the proof
+unverifiable.
+  \item[\textbf{Stack underflow:}] Raised when an instruction which pops from the stack is called when the stack doesn't have enough elements.
+When this happens, the EVM jumps to \texttt{exc\_stack\_overflow}. The kernel then checks that the current stack length is smaller than the minimum 
+stack length required by the faulty opcode.
+If the exception is not raised, the popping memory operation's address offset would underflow, and the Memory range check would require the Memory trace to be too
+large ($>2^{32}$).
+  \item[\textbf{Invalid JUMP destination:}] Raised when the program counter jumps to an invalid location (i.e. not a JUMPDEST). When this happens, the EVM jumps to
+\texttt{exc\_invalid\_jump\_destination}. The kernel then checks that the opcode is a JUMP, and that the destination is not a JUMPDEST by checking the
+JUMPDEST segment.
+If the exception is not raised, jumping constraints will fail the proof.
+  \item[\textbf{Invalid JUMPI destination:}] Same as the above, for JUMPI.
+  \item[\textbf{Stack overflow:}] Raised when a pushing instruction in user mode pushes the stack over 1024. When this happens, the EVM jumps
+to \texttt{exc\_stack\_overflow}. The kernel then checks that the current stack length is exactly equal to 1024 (since an instruction can only
+push once at most), and that the faulty instruction is pushing.
+If the exception is not raised, stack constraints ensure that a stack length of 1025 in user mode will fail the proof.
+\end{enumerate}

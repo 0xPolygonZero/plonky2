@@ -86,7 +86,7 @@ sys_exp_gas_loop_enter:
     // stack: e >> shift, shift, x, e, return_info
     %jumpi(sys_exp_gas_loop)
     // stack: shift_bits, x, e, return_info
-    %div_const(8)
+    %shr_const(3)
     // stack: byte_size_of_e := shift_bits / 8, x, e, return_info
     %mul_const(@GAS_EXPBYTE)
     %add_const(@GAS_EXP)

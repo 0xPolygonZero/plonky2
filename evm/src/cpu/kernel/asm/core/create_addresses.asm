@@ -14,10 +14,7 @@ global get_create_address:
     %encode_rlp_scalar
     // stack: rlp_pos, rlp_start, retdest
     %prepend_rlp_list_prefix
-    // stack: rlp_prefix_start, rlp_len, retdest
-    PUSH @SEGMENT_RLP_RAW
-    PUSH 0 // context
-    // stack: RLP_ADDR: 3, rlp_len, retdest
+    // stack: RLP_ADDR, rlp_len, retdest
     KECCAK_GENERAL
     // stack: hash, retdest
     %u256_to_addr
@@ -40,20 +37,21 @@ global get_create_address:
 // Post stack: address
 global get_create2_address:
     // stack: sender, code_hash, salt, retdest
-    PUSH 0xff PUSH 0 %mstore_kernel_general
-    %stack (sender, code_hash, salt, retdest) -> (0, @SEGMENT_KERNEL_GENERAL, 1, sender, 20, get_create2_address_contd, salt, code_hash, retdest)
-    %jump(mstore_unpacking)
-get_create2_address_contd:
+    PUSH @SEGMENT_KERNEL_GENERAL
+    DUP1
+    PUSH 0xff
+    MSTORE_GENERAL
+    // stack: addr, sender, code_hash, salt, retdest
+    %increment
+    %stack (addr, sender, code_hash, salt, retdest) -> (addr, sender, salt, code_hash, retdest)
+    MSTORE_32BYTES_20
+    // stack: addr, salt, code_hash, retdest
+    MSTORE_32BYTES_32
+    // stack: addr, code_hash, retdest
+    MSTORE_32BYTES_32
     POP
-    %stack (salt, code_hash, retdest) -> (0, @SEGMENT_KERNEL_GENERAL, 21, salt, 32, get_create2_address_contd2, code_hash, retdest)
-    %jump(mstore_unpacking)
-get_create2_address_contd2:
-    POP
-    %stack (code_hash, retdest) -> (0, @SEGMENT_KERNEL_GENERAL, 53, code_hash, 32, get_create2_address_finish, retdest)
-    %jump(mstore_unpacking)
-get_create2_address_finish:
-    POP
-    %stack (retdest) -> (0, @SEGMENT_KERNEL_GENERAL, 0, 85, retdest) // context, segment, offset, len
+    %stack (retdest) -> (@SEGMENT_KERNEL_GENERAL, 85, retdest) // offset == context == 0
+    // addr, len, retdest
     KECCAK_GENERAL
     // stack: hash, retdest
     %u256_to_addr

@@ -15,7 +15,7 @@ pub trait OEF<const D: usize>: FieldExtension<D> {
     // Element W of BaseField, such that `X^d - W` is irreducible over BaseField.
     const W: Self::BaseField;
 
-    // Element of BaseField such that DTH_ROOT^D == 1. Implementors
+    // Element of BaseField such that DTH_ROOT^D == 1. Implementers
     // should set this to W^((p - 1)/D), where W is as above and p is
     // the order of the BaseField.
     const DTH_ROOT: Self::BaseField;

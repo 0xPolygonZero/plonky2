@@ -1,5 +1,7 @@
-use alloc::vec::Vec;
-use alloc::{format, vec};
+//! plonky2 prover implementation.
+
+#[cfg(not(feature = "std"))]
+use alloc::{format, vec, vec::Vec};
 use core::cmp::min;
 use core::mem::swap;
 
@@ -441,7 +443,7 @@ fn wires_permutation_partial_products_and_zs<
 }
 
 /// Computes lookup polynomials for a given challenge.
-/// The polynomials hold the value of RE, Sum and Ldc of the Tip5 paper (https://eprint.iacr.org/2023/107.pdf). To reduce their
+/// The polynomials hold the value of RE, Sum and Ldc of the Tip5 paper (<https://eprint.iacr.org/2023/107.pdf>). To reduce their
 /// numbers, we batch multiple slots in a single polynomial. Since RE only involves degree one constraints, we can batch
 /// all the slots of a row. For Sum and Ldc, batching increases the constraint degree, so we bound the number of
 /// partial polynomials according to `max_quotient_degree_factor`.

@@ -1,10 +1,10 @@
-use alloc::vec;
-use alloc::vec::Vec;
-#[cfg(feature = "timing")]
-use std::time::Instant;
+#[cfg(not(feature = "std"))]
+use alloc::{vec, vec::Vec};
 
 use log::debug;
 use serde::Serialize;
+#[cfg(feature = "timing")]
+use web_time::Instant;
 
 /// A method for deciding what arity to use at each reduction layer.
 #[derive(Debug, Clone, Eq, PartialEq, Serialize)]

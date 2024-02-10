@@ -1,12 +1,16 @@
 // Address where the working version of the hash value is stored.
+// It is ready to be used, i.e. already containing the current context
+// and SEGMENT_KERNEL_GENERAL.
 %macro blake2_hash_value_addr
-    PUSH 0
-    // stack: 0
-    %mload_current_general
-    // stack: num_blocks
+    %build_current_general_address_no_offset
+    DUP1
+    MLOAD_GENERAL
+    // stack: num_blocks, addr
     %block_size
     %add_const(2)
-    // stack: num_bytes+2
+    // stack: num_bytes+2, addr
+    ADD
+    // stack: addr
 %endmacro
 
 // Address where the working version of the compression internal state is stored.

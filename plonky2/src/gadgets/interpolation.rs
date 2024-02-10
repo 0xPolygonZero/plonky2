@@ -1,3 +1,4 @@
+#[cfg(not(feature = "std"))]
 use alloc::vec;
 
 use plonky2_field::extension::Extendable;
@@ -38,6 +39,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(not(feature = "std"))]
+    use alloc::vec::Vec;
+
     use anyhow::Result;
 
     use crate::field::extension::FieldExtension;

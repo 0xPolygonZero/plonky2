@@ -33,7 +33,7 @@ pub(crate) enum Item {
     /// Any opcode besides a PUSH opcode.
     StandardOp(String),
     /// Literal hex data; should contain an even number of hex chars.
-    Bytes(Vec<u8>),
+    Bytes(Vec<BytesTarget>),
     /// Creates a table of addresses from a list of labels.
     Jumptable(Vec<String>),
 }
@@ -73,5 +73,12 @@ pub(crate) enum PushTarget {
     Label(String),
     MacroLabel(String),
     MacroVar(String),
+    Constant(String),
+}
+
+/// The target of a `BYTES` item.
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+pub(crate) enum BytesTarget {
+    Literal(u8),
     Constant(String),
 }

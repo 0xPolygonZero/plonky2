@@ -1,39 +1,30 @@
 // Load a big-endian u32, consisting of 4 bytes (c_3, c_2, c_1, c_0).
 %macro mload_u32
-    // stack: context, segment, offset
-    %stack (addr: 3) -> (addr, 4, %%after)
-    %jump(mload_packing)
-%%after:
+    // stack: addr
+    %stack (addr) -> (addr, 4)
+    MLOAD_32BYTES
 %endmacro
 
 // Load a little-endian u32, consisting of 4 bytes (c_0, c_1, c_2, c_3).
 %macro mload_u32_LE
-    // stack: context, segment, offset
-    DUP3
-    DUP3
-    DUP3
+    // stack: addr
+    DUP1
     MLOAD_GENERAL
-    // stack: c0, context, segment, offset
-    DUP4
+    // stack: c0, addr
+    DUP2
     %increment
-    DUP4
-    DUP4
     MLOAD_GENERAL
     %shl_const(8)
     ADD
-    // stack: c0 | (c1 << 8), context, segment, offset
-    DUP4
+    // stack: c0 | (c1 << 8), addr
+    DUP2
     %add_const(2)
-    DUP4
-    DUP4
     MLOAD_GENERAL
     %shl_const(16)
     ADD
-    // stack: c0 | (c1 << 8) | (c2 << 16), context, segment, offset
-    SWAP3
-    %add_const(3)
-    SWAP2
+    // stack: c0 | (c1 << 8) | (c2 << 16), addr
     SWAP1
+    %add_const(3)
     MLOAD_GENERAL
     %shl_const(24)
     ADD // OR
@@ -42,16 +33,12 @@
 
 // Load a little-endian u64, consisting of 8 bytes (c_0, ..., c_7).
 %macro mload_u64_LE
-    // stack: context, segment, offset
-    DUP3
-    DUP3
-    DUP3
+    // stack: addr
+    DUP1
     %mload_u32_LE
-    // stack: lo, context, segment, offset
-    SWAP3
-    %add_const(4)
-    SWAP2
+    // stack: lo, addr
     SWAP1
+    %add_const(4)
     %mload_u32_LE
     // stack: hi, lo
     %shl_const(32)
@@ -62,18 +49,15 @@
 
 // Load a big-endian u256.
 %macro mload_u256
-    // stack: context, segment, offset
-    %stack (addr: 3) -> (addr, 32, %%after)
-    %jump(mload_packing)
-%%after:
+    // stack: addr
+    %stack (addr) -> (addr, 32)
+    MLOAD_32BYTES
 %endmacro
 
 // Store a big-endian u32, consisting of 4 bytes (c_3, c_2, c_1, c_0).
 %macro mstore_u32
-    // stack: context, segment, offset, value
-    %stack (addr: 3, value) -> (addr, value, 4, %%after)
-    %jump(mstore_unpacking)
-%%after:
+    // stack: addr, value
+    MSTORE_32BYTES_4
     // stack: offset
     POP
 %endmacro
@@ -88,6 +72,7 @@
     // stack: segment, offset
     GET_CONTEXT
     // stack: context, segment, offset
+    %build_address
     MLOAD_GENERAL
     // stack: value
 %endmacro
@@ -102,6 +87,22 @@
     // stack: segment, offset, value
     GET_CONTEXT
     // stack: context, segment, offset, value
+    %build_address
+    SWAP1
+    MSTORE_GENERAL
+    // stack: (empty)
+%endmacro
+
+%macro mstore_current(segment, offset)
+    // stack: value
+    PUSH $offset
+    // stack: offset, value
+    PUSH $segment
+    // stack: segment, offset, value
+    GET_CONTEXT
+    // stack: context, segment, offset, value
+    %build_address
+    SWAP1
     MSTORE_GENERAL
     // stack: (empty)
 %endmacro
@@ -109,7 +110,10 @@
 // Load a single byte from user code.
 %macro mload_current_code
     // stack: offset
-    %mload_current(@SEGMENT_CODE)
+    // SEGMENT_CODE == 0
+    GET_CONTEXT ADD
+    // stack: addr
+    MLOAD_GENERAL
     // stack: value
 %endmacro
 
@@ -120,13 +124,18 @@
     // stack: value
 %endmacro
 
+// Load a single value from the kernel general memory, in the current context (not the kernel's context).
+%macro mload_current_general_no_offset
+    // stack:
+    %build_current_general_address_no_offset
+    MLOAD_GENERAL
+    // stack: value
+%endmacro
+
 // Load a big-endian u32 from kernel general memory in the current context.
 %macro mload_current_general_u32
     // stack: offset
-    PUSH @SEGMENT_KERNEL_GENERAL
-    // stack: segment, offset
-    GET_CONTEXT
-    // stack: context, segment, offset
+    %build_current_general_address
     %mload_u32
     // stack: value
 %endmacro
@@ -134,10 +143,7 @@
 // Load a little-endian u32 from kernel general memory in the current context.
 %macro mload_current_general_u32_LE
     // stack: offset
-    PUSH @SEGMENT_KERNEL_GENERAL
-    // stack: segment, offset
-    GET_CONTEXT
-    // stack: context, segment, offset
+    %build_current_general_address
     %mload_u32_LE
     // stack: value
 %endmacro
@@ -145,10 +151,7 @@
 // Load a little-endian u64 from kernel general memory in the current context.
 %macro mload_current_general_u64_LE
     // stack: offset
-    PUSH @SEGMENT_KERNEL_GENERAL
-    // stack: segment, offset
-    GET_CONTEXT
-    // stack: context, segment, offset
+    %build_current_general_address
     %mload_u64_LE
     // stack: value
 %endmacro
@@ -156,10 +159,7 @@
 // Load a u256 from kernel general memory in the current context.
 %macro mload_current_general_u256
     // stack: offset
-    PUSH @SEGMENT_KERNEL_GENERAL
-    // stack: segment, offset
-    GET_CONTEXT
-    // stack: context, segment, offset
+    %build_current_general_address
     %mload_u256
     // stack: value
 %endmacro
@@ -167,10 +167,17 @@
 // Store a single value to kernel general memory in the current context.
 %macro mstore_current_general
     // stack: offset, value
-    PUSH @SEGMENT_KERNEL_GENERAL
-    // stack: segment, offset, value
-    GET_CONTEXT
-    // stack: context, segment, offset, value
+    %build_current_general_address
+    SWAP1
+    MSTORE_GENERAL
+    // stack: (empty)
+%endmacro
+
+// Store a single value to kernel general memory in the current context.
+%macro mstore_current_general_no_offset
+    // stack: value
+    %build_current_general_address_no_offset
+    SWAP1
     MSTORE_GENERAL
     // stack: (empty)
 %endmacro
@@ -186,10 +193,7 @@
 // Store a big-endian u32 to kernel general memory in the current context.
 %macro mstore_current_general_u32
     // stack: offset, value
-    PUSH @SEGMENT_KERNEL_GENERAL
-    // stack: segment, offset, value
-    GET_CONTEXT
-    // stack: context, segment, offset, value
+    %build_current_general_address
     %mstore_u32
     // stack: (empty)
 %endmacro
@@ -209,8 +213,16 @@
     // stack: offset
     PUSH $segment
     // stack: segment, offset
-    PUSH 0 // kernel has context 0
-    // stack: context, segment, offset
+    %build_kernel_address
+    MLOAD_GENERAL
+    // stack: value
+%endmacro
+
+// Load a single value from the given segment of kernel (context 0) memory.
+%macro mload_kernel_no_offset(segment)
+    // stack: empty
+    PUSH $segment
+    // stack: addr
     MLOAD_GENERAL
     // stack: value
 %endmacro
@@ -220,8 +232,19 @@
     // stack: offset, value
     PUSH $segment
     // stack: segment, offset, value
-    PUSH 0 // kernel has context 0
-    // stack: context, segment, offset, value
+    %build_kernel_address
+    // stack: addr, value
+    SWAP1
+    MSTORE_GENERAL
+    // stack: (empty)
+%endmacro
+
+// Store a single value from the given segment of kernel (context 0) memory.
+%macro mstore_kernel_no_offset(segment)
+    // stack: value
+    PUSH $segment
+    // stack: addr, value
+    SWAP1
     MSTORE_GENERAL
     // stack: (empty)
 %endmacro
@@ -233,8 +256,9 @@
     // stack: offset, value
     PUSH $segment
     // stack: segment, offset, value
-    PUSH 0 // kernel has context 0
-    // stack: context, segment, offset, value
+    %build_kernel_address
+    // stack: addr, value
+    SWAP1
     MSTORE_GENERAL
     // stack: (empty)
 %endmacro
@@ -244,8 +268,7 @@
     // stack: offset
     PUSH $segment
     // stack: segment, offset
-    PUSH 0 // kernel has context 0
-    // stack: context, segment, offset
+    %build_kernel_address
     %mload_u32
 %endmacro
 
@@ -254,8 +277,7 @@
     // stack: offset
     PUSH $segment
     // stack: segment, offset
-    PUSH 0 // kernel has context 0
-    // stack: context, segment, offset
+    %build_kernel_address
     %mload_u32_LE
 %endmacro
 
@@ -264,8 +286,7 @@
     // stack: offset
     PUSH $segment
     // stack: segment, offset
-    PUSH 0 // kernel has context 0
-    // stack: context, segment, offset
+    %build_kernel_address
     %mload_u64_LE
 %endmacro
 
@@ -274,8 +295,7 @@
     // stack: offset
     PUSH $segment
     // stack: segment, offset
-    PUSH 0 // kernel has context 0
-    // stack: context, segment, offset
+    %build_kernel_address
     %mload_u256
 %endmacro
 
@@ -285,15 +305,16 @@
     // stack: offset, value
     PUSH $segment
     // stack: segment, offset, value
-    PUSH 0 // kernel has context 0
-    // stack: context, segment, offset, value
+    %build_kernel_address
+    // stack: addr, value
     %mstore_u32
 %endmacro
 
 // Load a single byte from kernel code.
 %macro mload_kernel_code
     // stack: offset
-    %mload_kernel(@SEGMENT_CODE)
+    // ctx == SEGMENT_CODE == 0
+    MLOAD_GENERAL
     // stack: value
 %endmacro
 
@@ -310,7 +331,8 @@
 // from kernel code.
 %macro mload_kernel_code_u32
     // stack: offset
-    %mload_kernel_u32(@SEGMENT_CODE)
+    // ctx == SEGMENT_CODE == 0
+    %mload_u32
     // stack: value
 %endmacro
 
@@ -321,7 +343,8 @@
     PUSH $label
     ADD
     // stack: offset
-    %mload_kernel_u32(@SEGMENT_CODE)
+    // ctx == SEGMENT_CODE == 0
+    %mload_u32
     // stack: value
 %endmacro
 
@@ -366,7 +389,8 @@
 // Load a u256 (big-endian) from kernel code.
 %macro mload_kernel_code_u256
     // stack: offset
-    %mload_kernel_u256(@SEGMENT_CODE)
+    // ctx == SEGMENT_CODE == 0
+    %mload_u256
     // stack: value
 %endmacro
 
@@ -380,7 +404,8 @@
 // Store a single byte to kernel code.
 %macro mstore_kernel_code
     // stack: offset, value
-    %mstore_kernel(@SEGMENT_CODE)
+    // ctx == SEGMENT_CODE == 0
+    MSTORE_GENERAL
     // stack: (empty)
 %endmacro
 
@@ -388,13 +413,14 @@
 // to kernel code.
 %macro mstore_kernel_code_u32
     // stack: offset, value
-    %mstore_kernel_u32(@SEGMENT_CODE)
+    // ctx == SEGMENT_CODE == 0
+    %mstore_u32
 %endmacro
 
-// Store a single byte to @SEGMENT_RLP_RAW.
-%macro mstore_rlp
-    // stack: offset, value
-    %mstore_kernel(@SEGMENT_RLP_RAW)
+%macro swap_mstore
+    // stack: addr, value
+    SWAP1
+    MSTORE_GENERAL
     // stack: (empty)
 %endmacro
 

@@ -11,7 +11,8 @@ use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer
 use crate::cpu::columns::{CpuColumnsView, COL_MAP};
 use crate::cpu::membus::NUM_GP_CHANNELS;
 
-pub fn eval_packed<P: PackedField>(
+/// Evaluates constraints for the `halt` flag.
+pub(crate) fn eval_packed<P: PackedField>(
     lv: &CpuColumnsView<P>,
     nv: &CpuColumnsView<P>,
     yield_constr: &mut ConstraintConsumer<P>,
@@ -19,13 +20,15 @@ pub fn eval_packed<P: PackedField>(
     let is_cpu_cycle: P = COL_MAP.op.iter().map(|&col_i| lv[col_i]).sum();
     let is_cpu_cycle_next: P = COL_MAP.op.iter().map(|&col_i| nv[col_i]).sum();
 
-    let halt_state = P::ONES - lv.is_bootstrap_kernel - is_cpu_cycle;
-    let next_halt_state = P::ONES - nv.is_bootstrap_kernel - is_cpu_cycle_next;
+    let halt_state = P::ONES - is_cpu_cycle;
+    let next_halt_state = P::ONES - is_cpu_cycle_next;
 
     // The halt flag must be boolean.
     yield_constr.constraint(halt_state * (halt_state - P::ONES));
     // Once we reach a padding row, there must be only padding rows.
     yield_constr.constraint_transition(halt_state * (next_halt_state - P::ONES));
+    // Check that we're in kernel mode.
+    yield_constr.constraint(halt_state * (lv.is_kernel_mode - P::ONES));
 
     // Padding rows should have their memory channels disabled.
     for i in 0..NUM_GP_CHANNELS {
@@ -45,7 +48,9 @@ pub fn eval_packed<P: PackedField>(
     yield_constr.constraint(halt_state * (lv.program_counter - halt_pc));
 }
 
-pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
+/// Circuit version of `eval_packed`.
+/// Evaluates constraints for the `halt` flag.
+pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
     lv: &CpuColumnsView<ExtensionTarget<D>>,
     nv: &CpuColumnsView<ExtensionTarget<D>>,
@@ -56,10 +61,8 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     let is_cpu_cycle = builder.add_many_extension(COL_MAP.op.iter().map(|&col_i| lv[col_i]));
     let is_cpu_cycle_next = builder.add_many_extension(COL_MAP.op.iter().map(|&col_i| nv[col_i]));
 
-    let halt_state = builder.add_extension(lv.is_bootstrap_kernel, is_cpu_cycle);
-    let halt_state = builder.sub_extension(one, halt_state);
-    let next_halt_state = builder.add_extension(nv.is_bootstrap_kernel, is_cpu_cycle_next);
-    let next_halt_state = builder.sub_extension(one, next_halt_state);
+    let halt_state = builder.sub_extension(one, is_cpu_cycle);
+    let next_halt_state = builder.sub_extension(one, is_cpu_cycle_next);
 
     // The halt flag must be boolean.
     let constr = builder.mul_sub_extension(halt_state, halt_state, halt_state);
@@ -67,6 +70,9 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
     // Once we reach a padding row, there must be only padding rows.
     let constr = builder.mul_sub_extension(halt_state, next_halt_state, halt_state);
     yield_constr.constraint_transition(builder, constr);
+    // Check that we're in kernel mode.
+    let constr = builder.mul_sub_extension(halt_state, lv.is_kernel_mode, halt_state);
+    yield_constr.constraint(builder, constr);
 
     // Padding rows should have their memory channels disabled.
     for i in 0..NUM_GP_CHANNELS {

@@ -1,6 +1,9 @@
-use alloc::string::{String, ToString};
-use alloc::vec;
-use alloc::vec::Vec;
+#[cfg(not(feature = "std"))]
+use alloc::{
+    string::{String, ToString},
+    vec,
+    vec::Vec,
+};
 
 use log::{log, Level};
 
@@ -30,7 +33,7 @@ impl ContextTree {
     }
 
     /// Whether this context is still in scope.
-    fn is_open(&self) -> bool {
+    const fn is_open(&self) -> bool {
         self.exit_gate_count.is_none()
     }
 

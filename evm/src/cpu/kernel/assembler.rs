@@ -2,13 +2,13 @@ use std::collections::HashMap;
 use std::fs;
 use std::time::Instant;
 
-use ethereum_types::U256;
+use ethereum_types::{H256, U256};
 use itertools::{izip, Itertools};
 use keccak_hash::keccak;
 use log::debug;
 use serde::{Deserialize, Serialize};
 
-use super::ast::PushTarget;
+use super::ast::{BytesTarget, PushTarget};
 use crate::cpu::kernel::ast::Item::LocalLabelDeclaration;
 use crate::cpu::kernel::ast::{File, Item, StackReplacement};
 use crate::cpu::kernel::opcodes::{get_opcode, get_push_opcode};
@@ -26,9 +26,8 @@ pub(crate) const BYTES_PER_OFFSET: u8 = 3;
 pub struct Kernel {
     pub(crate) code: Vec<u8>,
 
-    /// Computed using `hash_kernel`. It is encoded as `u32` limbs for convenience, since we deal
-    /// with `u32` limbs in our Keccak table.
-    pub(crate) code_hash: [u32; 8],
+    /// Computed using `hash_kernel`.
+    pub(crate) code_hash: H256,
 
     pub(crate) global_labels: HashMap<String, usize>,
     pub(crate) ordered_labels: Vec<String>,
@@ -43,11 +42,7 @@ impl Kernel {
         global_labels: HashMap<String, usize>,
         prover_inputs: HashMap<usize, ProverInputFn>,
     ) -> Self {
-        let code_hash_bytes = keccak(&code).0;
-        let code_hash_be = core::array::from_fn(|i| {
-            u32::from_le_bytes(core::array::from_fn(|j| code_hash_bytes[i * 4 + j]))
-        });
-        let code_hash = code_hash_be.map(u32::from_be);
+        let code_hash = keccak(&code);
         let ordered_labels = global_labels
             .keys()
             .cloned()
@@ -277,6 +272,23 @@ fn inline_constants(body: Vec<Item>, constants: &HashMap<String, U256>) -> Vec<I
         .map(|item| {
             if let Item::Push(PushTarget::Constant(c)) = item {
                 Item::Push(PushTarget::Literal(resolve_const(c)))
+            } else if let Item::Bytes(targets) = item {
+                let targets = targets
+                    .into_iter()
+                    .map(|target| {
+                        if let BytesTarget::Constant(c) = target {
+                            let c = resolve_const(c);
+                            assert!(
+                                c < U256::from(256),
+                                "Constant in a BYTES object should be a byte"
+                            );
+                            BytesTarget::Literal(c.byte(0))
+                        } else {
+                            target
+                        }
+                    })
+                    .collect();
+                Item::Bytes(targets)
             } else if let Item::StackManipulation(from, to) = item {
                 let to = to
                     .into_iter()
@@ -387,7 +399,14 @@ fn assemble_file(
             Item::StandardOp(opcode) => {
                 code.push(get_opcode(&opcode));
             }
-            Item::Bytes(bytes) => code.extend(bytes),
+            Item::Bytes(targets) => {
+                for target in targets {
+                    match target {
+                        BytesTarget::Literal(n) => code.push(n),
+                        BytesTarget::Constant(c) => panic!("Constant wasn't inlined: {c}"),
+                    }
+                }
+            }
             Item::Jumptable(labels) => {
                 for label in labels {
                     let bytes = look_up_label(&label, &local_labels, global_labels);
@@ -411,12 +430,7 @@ fn push_target_size(target: &PushTarget) -> u8 {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
-
-    use itertools::Itertools;
-
-    use crate::cpu::kernel::assembler::*;
-    use crate::cpu::kernel::ast::*;
+    use super::*;
     use crate::cpu::kernel::parser::parse;
 
     #[test]
@@ -507,7 +521,10 @@ mod tests {
     #[test]
     fn literal_bytes() {
         let file = File {
-            body: vec![Item::Bytes(vec![0x12, 42]), Item::Bytes(vec![0xFE, 255])],
+            body: vec![
+                Item::Bytes(vec![BytesTarget::Literal(0x12), BytesTarget::Literal(42)]),
+                Item::Bytes(vec![BytesTarget::Literal(0xFE), BytesTarget::Literal(255)]),
+            ],
         };
         let code = assemble(vec![file], HashMap::new(), false).code;
         assert_eq!(code, vec![0x12, 42, 0xfe, 255]);

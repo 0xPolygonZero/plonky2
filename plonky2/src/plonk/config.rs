@@ -1,5 +1,13 @@
-use alloc::vec;
-use alloc::vec::Vec;
+//! Hashing configuration to be used when building a circuit.
+//!
+//! This module defines a [`Hasher`] trait as well as its recursive
+//! counterpart [`AlgebraicHasher`] for in-circuit hashing. It also
+//! provides concrete configurations, one fully recursive leveraging
+//! the Poseidon hash function both internally and natively, and one
+//! mixing Poseidon internally and truncated Keccak externally.
+
+#[cfg(not(feature = "std"))]
+use alloc::{vec, vec::Vec};
 use core::fmt::Debug;
 
 use serde::de::DeserializeOwned;

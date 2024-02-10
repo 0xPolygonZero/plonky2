@@ -1,5 +1,5 @@
-use alloc::string::String;
-use alloc::vec::Vec;
+#[cfg(not(feature = "std"))]
+use alloc::{string::String, vec::Vec};
 use core::ops::Range;
 
 use crate::field::extension::Extendable;
@@ -22,7 +22,7 @@ use crate::util::serialization::{Buffer, IoResult};
 pub struct PublicInputGate;
 
 impl PublicInputGate {
-    pub fn wires_public_inputs_hash() -> Range<usize> {
+    pub const fn wires_public_inputs_hash() -> Range<usize> {
         0..4
     }
 }

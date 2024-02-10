@@ -315,7 +315,7 @@ mod poseidon12_mds {
 
     /// Split 3 x 4 FFT-based MDS vector-multiplication with the Poseidon circulant MDS matrix.
     #[inline(always)]
-    pub(crate) fn mds_multiply_freq(state: [u64; 12]) -> [u64; 12] {
+    pub(crate) const fn mds_multiply_freq(state: [u64; 12]) -> [u64; 12] {
         let [s0, s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11] = state;
 
         let (u0, u1, u2) = fft4_real([s0, s3, s6, s9]);
@@ -323,7 +323,7 @@ mod poseidon12_mds {
         let (u8, u9, u10) = fft4_real([s2, s5, s8, s11]);
 
         // This where the multiplication in frequency domain is done. More precisely, and with
-        // the appropriate permuations in between, the sequence of
+        // the appropriate permutations in between, the sequence of
         // 3-point FFTs --> multiplication by twiddle factors --> Hadamard multiplication -->
         // 3 point iFFTs --> multiplication by (inverse) twiddle factors
         // is "squashed" into one step composed of the functions "block1", "block2" and "block3".
@@ -343,7 +343,7 @@ mod poseidon12_mds {
     }
 
     #[inline(always)]
-    fn block1(x: [i64; 3], y: [i64; 3]) -> [i64; 3] {
+    const fn block1(x: [i64; 3], y: [i64; 3]) -> [i64; 3] {
         let [x0, x1, x2] = x;
         let [y0, y1, y2] = y;
         let z0 = x0 * y0 + x1 * y2 + x2 * y1;
@@ -354,7 +354,7 @@ mod poseidon12_mds {
     }
 
     #[inline(always)]
-    fn block2(x: [(i64, i64); 3], y: [(i64, i64); 3]) -> [(i64, i64); 3] {
+    const fn block2(x: [(i64, i64); 3], y: [(i64, i64); 3]) -> [(i64, i64); 3] {
         let [(x0r, x0i), (x1r, x1i), (x2r, x2i)] = x;
         let [(y0r, y0i), (y1r, y1i), (y2r, y2i)] = y;
         let x0s = x0r + x0i;
@@ -392,7 +392,7 @@ mod poseidon12_mds {
     }
 
     #[inline(always)]
-    fn block3(x: [i64; 3], y: [i64; 3]) -> [i64; 3] {
+    const fn block3(x: [i64; 3], y: [i64; 3]) -> [i64; 3] {
         let [x0, x1, x2] = x;
         let [y0, y1, y2] = y;
         let z0 = x0 * y0 - x1 * y2 - x2 * y1;
@@ -404,20 +404,20 @@ mod poseidon12_mds {
 
     /// Real 2-FFT over u64 integers.
     #[inline(always)]
-    pub(crate) fn fft2_real(x: [u64; 2]) -> [i64; 2] {
+    pub(crate) const fn fft2_real(x: [u64; 2]) -> [i64; 2] {
         [(x[0] as i64 + x[1] as i64), (x[0] as i64 - x[1] as i64)]
     }
 
     /// Real 2-iFFT over u64 integers.
     /// Division by two to complete the inverse FFT is not performed here.
     #[inline(always)]
-    pub(crate) fn ifft2_real_unreduced(y: [i64; 2]) -> [u64; 2] {
+    pub(crate) const fn ifft2_real_unreduced(y: [i64; 2]) -> [u64; 2] {
         [(y[0] + y[1]) as u64, (y[0] - y[1]) as u64]
     }
 
     /// Real 4-FFT over u64 integers.
     #[inline(always)]
-    pub(crate) fn fft4_real(x: [u64; 4]) -> (i64, (i64, i64), i64) {
+    pub(crate) const fn fft4_real(x: [u64; 4]) -> (i64, (i64, i64), i64) {
         let [z0, z2] = fft2_real([x[0], x[2]]);
         let [z1, z3] = fft2_real([x[1], x[3]]);
         let y0 = z0 + z1;
@@ -429,7 +429,7 @@ mod poseidon12_mds {
     /// Real 4-iFFT over u64 integers.
     /// Division by four to complete the inverse FFT is not performed here.
     #[inline(always)]
-    pub(crate) fn ifft4_real_unreduced(y: (i64, (i64, i64), i64)) -> [u64; 4] {
+    pub(crate) const fn ifft4_real_unreduced(y: (i64, (i64, i64), i64)) -> [u64; 4] {
         let z0 = y.0 + y.2;
         let z1 = y.0 - y.2;
         let z2 = y.1 .0;
@@ -444,6 +444,9 @@ mod poseidon12_mds {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(not(feature = "std"))]
+    use alloc::{vec, vec::Vec};
+
     use crate::field::goldilocks_field::GoldilocksField as F;
     use crate::field::types::{Field, PrimeField64};
     use crate::hash::poseidon::test_helpers::{check_consistency, check_test_vectors};

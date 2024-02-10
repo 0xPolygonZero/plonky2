@@ -61,16 +61,12 @@ fn observe_block_metadata<
     challenger.observe_element(u256_to_u32(block_metadata.block_number)?);
     challenger.observe_element(u256_to_u32(block_metadata.block_difficulty)?);
     challenger.observe_elements(&h256_limbs::<F>(block_metadata.block_random));
-    let gaslimit = u256_to_u64(block_metadata.block_gaslimit)?;
-    challenger.observe_element(gaslimit.0);
-    challenger.observe_element(gaslimit.1);
+    challenger.observe_element(u256_to_u32(block_metadata.block_gaslimit)?);
     challenger.observe_element(u256_to_u32(block_metadata.block_chain_id)?);
     let basefee = u256_to_u64(block_metadata.block_base_fee)?;
     challenger.observe_element(basefee.0);
     challenger.observe_element(basefee.1);
-    let gas_used = u256_to_u64(block_metadata.block_gas_used)?;
-    challenger.observe_element(gas_used.0);
-    challenger.observe_element(gas_used.1);
+    challenger.observe_element(u256_to_u32(block_metadata.block_gas_used)?);
     for i in 0..8 {
         challenger.observe_elements(&u256_limbs(block_metadata.block_bloom[i]));
     }
@@ -93,10 +89,10 @@ fn observe_block_metadata_target<
     challenger.observe_element(block_metadata.block_number);
     challenger.observe_element(block_metadata.block_difficulty);
     challenger.observe_elements(&block_metadata.block_random);
-    challenger.observe_elements(&block_metadata.block_gaslimit);
+    challenger.observe_element(block_metadata.block_gaslimit);
     challenger.observe_element(block_metadata.block_chain_id);
     challenger.observe_elements(&block_metadata.block_base_fee);
-    challenger.observe_elements(&block_metadata.block_gas_used);
+    challenger.observe_element(block_metadata.block_gas_used);
     challenger.observe_elements(&block_metadata.block_bloom);
 }
 
@@ -108,21 +104,11 @@ fn observe_extra_block_data<
     challenger: &mut Challenger<F, C::Hasher>,
     extra_data: &ExtraBlockData,
 ) -> Result<(), ProgramError> {
-    challenger.observe_elements(&h256_limbs(extra_data.genesis_state_trie_root));
+    challenger.observe_elements(&h256_limbs(extra_data.checkpoint_state_trie_root));
     challenger.observe_element(u256_to_u32(extra_data.txn_number_before)?);
     challenger.observe_element(u256_to_u32(extra_data.txn_number_after)?);
-    let gas_used_before = u256_to_u64(extra_data.gas_used_before)?;
-    challenger.observe_element(gas_used_before.0);
-    challenger.observe_element(gas_used_before.1);
-    let gas_used_after = u256_to_u64(extra_data.gas_used_after)?;
-    challenger.observe_element(gas_used_after.0);
-    challenger.observe_element(gas_used_after.1);
-    for i in 0..8 {
-        challenger.observe_elements(&u256_limbs(extra_data.block_bloom_before[i]));
-    }
-    for i in 0..8 {
-        challenger.observe_elements(&u256_limbs(extra_data.block_bloom_after[i]));
-    }
+    challenger.observe_element(u256_to_u32(extra_data.gas_used_before)?);
+    challenger.observe_element(u256_to_u32(extra_data.gas_used_after)?);
 
     Ok(())
 }
@@ -137,13 +123,11 @@ fn observe_extra_block_data_target<
 ) where
     C::Hasher: AlgebraicHasher<F>,
 {
-    challenger.observe_elements(&extra_data.genesis_state_trie_root);
+    challenger.observe_elements(&extra_data.checkpoint_state_trie_root);
     challenger.observe_element(extra_data.txn_number_before);
     challenger.observe_element(extra_data.txn_number_after);
-    challenger.observe_elements(&extra_data.gas_used_before);
-    challenger.observe_elements(&extra_data.gas_used_after);
-    challenger.observe_elements(&extra_data.block_bloom_before);
-    challenger.observe_elements(&extra_data.block_bloom_after);
+    challenger.observe_element(extra_data.gas_used_before);
+    challenger.observe_element(extra_data.gas_used_after);
 }
 
 fn observe_block_hashes<
