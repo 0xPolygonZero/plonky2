@@ -371,14 +371,20 @@ impl<const D: usize> StarkOpeningSetTarget<D> {
         if let Some(poly) = &self.auxiliary_polys {
             buffer.write_bool(true)?;
             buffer.write_target_ext_vec(poly)?;
+        } else {
+            buffer.write_bool(false)?;
         }
         if let Some(poly_next) = &self.auxiliary_polys_next {
             buffer.write_bool(true)?;
             buffer.write_target_ext_vec(poly_next)?;
+        } else {
+            buffer.write_bool(false)?;
         }
         if let Some(ctl_zs_first) = &self.ctl_zs_first {
             buffer.write_bool(true)?;
             buffer.write_target_vec(ctl_zs_first)?;
+        } else {
+            buffer.write_bool(false)?;
         }
         buffer.write_target_ext_vec(&self.quotient_polys)?;
         Ok(())

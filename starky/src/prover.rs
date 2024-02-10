@@ -170,7 +170,7 @@ where
 
     debug_assert!(
         (stark.uses_lookups() || stark.requires_ctls()) || auxiliary_polys.is_none(),
-        "No auxiliary polynomials?"
+        "There should be auxiliary polynomials if and only if we have either lookups or require cross-table lookups."
     );
 
     // Get the polynomial commitments for all auxiliary polynomials.
@@ -433,8 +433,8 @@ where
             //     - the filter `Column`
             //     - the `Column`s that form the looking/looked table.
 
-            let mut start_index = 0;
             let ctl_vars = ctl_data.map(|data| {
+                let mut start_index = 0;
                 data.zs_columns
                     .iter()
                     .enumerate()
