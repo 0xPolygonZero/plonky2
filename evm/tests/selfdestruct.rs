@@ -82,10 +82,11 @@ fn test_selfdestruct() -> anyhow::Result<()> {
         block_chain_id: 1.into(),
         block_base_fee: 0xa.into(),
         block_gas_used: 26002.into(),
+        block_blob_base_fee: 0x2.into(),
         block_bloom: [0.into(); 8],
     };
 
-    let contract_code = [(keccak(&code), code), (keccak([]), vec![])].into();
+    let contract_code = [(keccak(&code), code.clone()), (keccak([]), vec![])].into();
 
     let expected_state_trie_after: HashedPartialTrie = {
         let mut state_trie_after = HashedPartialTrie::from(Node::Empty);
@@ -96,6 +97,15 @@ fn test_selfdestruct() -> anyhow::Result<()> {
             code_hash: keccak([]),
         };
         state_trie_after.insert(sender_nibbles, rlp::encode(&sender_account_after).to_vec());
+
+        // EIP-6780: The account won't be deleted because it wasn't created during this transaction.
+        let to_account_before = AccountRlp {
+            nonce: 12.into(),
+            balance: 0.into(),
+            storage_root: HashedPartialTrie::from(Node::Empty).hash(),
+            code_hash: keccak(&code),
+        };
+        state_trie_after.insert(to_nibbles, rlp::encode(&to_account_before).to_vec());
         state_trie_after
     };
 
