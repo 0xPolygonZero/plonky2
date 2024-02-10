@@ -4,7 +4,7 @@ use core::cmp::Ordering;
 use core::ops::Range;
 use std::collections::{BTreeSet, HashMap};
 
-use anyhow::bail;
+use anyhow::{anyhow, bail};
 use eth_trie_utils::partial_trie::PartialTrie;
 use ethereum_types::{BigEndianHash, H160, H256, U256, U512};
 use keccak_hash::keccak;
@@ -298,7 +298,7 @@ impl<'a> Interpreter<'a> {
                         (Segment::GlobalBlockBloom.unscale()).into(),
                         i.into(),
                     )
-                    .unwrap(),
+                    .expect("This cannot panic as `virt` fits in a `u32`"),
                     metadata.block_bloom[i],
                 )
             })
@@ -315,7 +315,7 @@ impl<'a> Interpreter<'a> {
                         (Segment::BlockHashes.unscale()).into(),
                         i.into(),
                     )
-                    .unwrap(),
+                    .expect("This cannot panic as `virt` fits in a `u32`"),
                     h2u(inputs.block_hashes.prev_hashes[i]),
                 )
             })
@@ -336,7 +336,7 @@ impl<'a> Interpreter<'a> {
         }
     }
 
-    fn roll_memory_back(&mut self, len: usize) {
+    fn roll_memory_back(&mut self, len: usize) -> Result<(), ProgramError> {
         // We roll the memory back until `memops` reaches length `len`.
         debug_assert!(self.memops.len() >= len);
         while self.memops.len() > len {
@@ -346,25 +346,28 @@ impl<'a> Interpreter<'a> {
                         self.generation_state.memory.contexts[context].segments
                             [Segment::Stack.unscale()]
                         .content
-                        .pop();
+                        .pop()
+                        .ok_or(ProgramError::StackUnderflow)?;
                     }
                     InterpreterMemOpKind::Pop(value, context) => {
                         self.generation_state.memory.contexts[context].segments
                             [Segment::Stack.unscale()]
                         .content
-                        .push(value)
+                        .push(value);
                     }
                     InterpreterMemOpKind::Write(value, context, segment, offset) => {
                         self.generation_state.memory.contexts[context].segments
                             [segment >> SEGMENT_SCALING_FACTOR] // we need to unscale the segment value
-                            .content[offset] = value
+                            .content[offset] = value;
                     }
                 }
             }
         }
+
+        Ok(())
     }
 
-    fn rollback(&mut self, checkpoint: InterpreterCheckpoint) {
+    fn rollback(&mut self, checkpoint: InterpreterCheckpoint) -> anyhow::Result<()> {
         let InterpreterRegistersState {
             kernel_mode,
             context,
@@ -373,7 +376,8 @@ impl<'a> Interpreter<'a> {
         self.set_is_kernel(kernel_mode);
         self.set_context(context);
         self.generation_state.registers = registers;
-        self.roll_memory_back(checkpoint.mem_len);
+        self.roll_memory_back(checkpoint.mem_len)
+            .map_err(|_| anyhow!("Memory rollback failed unexpectedly."))
     }
 
     fn handle_error(&mut self, err: ProgramError) -> anyhow::Result<()> {
@@ -417,7 +421,7 @@ impl<'a> Interpreter<'a> {
                             .content,
                         );
                     }
-                    self.rollback(checkpoint);
+                    self.rollback(checkpoint)?;
                     self.handle_error(e)
                 }
             }?;
@@ -630,7 +634,7 @@ impl<'a> Interpreter<'a> {
     }
 
     pub(crate) fn extract_kernel_memory(self, segment: Segment, range: Range<usize>) -> Vec<U256> {
-        let mut output: Vec<U256> = vec![];
+        let mut output: Vec<U256> = Vec::with_capacity(range.end);
         for i in range {
             let term = self
                 .generation_state
@@ -672,7 +676,7 @@ impl<'a> Interpreter<'a> {
                 .push(InterpreterMemOpKind::Pop(val, self.context()));
         }
         if self.stack_len() > 1 {
-            let top = stack_peek(&self.generation_state, 1).unwrap();
+            let top = stack_peek(&self.generation_state, 1)?;
             self.generation_state.registers.stack_top = top;
         }
         self.generation_state.registers.stack_len -= 1;
@@ -986,6 +990,7 @@ impl<'a> Interpreter<'a> {
         let i = self.pop()?;
         let x = self.pop()?;
         let result = if i < 32.into() {
+            // Calling `as_usize()` here is safe.
             x.byte(31 - i.as_usize())
         } else {
             0
@@ -1013,7 +1018,7 @@ impl<'a> Interpreter<'a> {
         let addr = self.pop()?;
         let (context, segment, offset) = unpack_address!(addr);
 
-        let size = self.pop()?.as_usize();
+        let size = u256_to_usize(self.pop()?)?;
         let bytes = (offset..offset + size)
             .map(|i| {
                 self.generation_state
@@ -1211,7 +1216,7 @@ impl<'a> Interpreter<'a> {
 
     fn run_set_context(&mut self) -> anyhow::Result<(), ProgramError> {
         let x = self.pop()?;
-        let new_ctx = (x >> CONTEXT_SCALING_FACTOR).as_usize();
+        let new_ctx = u256_to_usize(x >> CONTEXT_SCALING_FACTOR)?;
         let sp_to_save = self.stack_len().into();
 
         let old_ctx = self.context();
@@ -1222,7 +1227,7 @@ impl<'a> Interpreter<'a> {
         let new_sp_addr = MemoryAddress::new(new_ctx, Segment::ContextMetadata, sp_field);
         self.generation_state.memory.set(old_sp_addr, sp_to_save);
 
-        let new_sp = self.generation_state.memory.get(new_sp_addr).as_usize();
+        let new_sp = u256_to_usize(self.generation_state.memory.get(new_sp_addr))?;
 
         if new_sp > 0 {
             let new_stack_top = self.generation_state.memory.contexts[new_ctx].segments
@@ -1249,7 +1254,7 @@ impl<'a> Interpreter<'a> {
     fn run_mload_32bytes(&mut self) -> anyhow::Result<(), ProgramError> {
         let addr = self.pop()?;
         let (context, segment, offset) = unpack_address!(addr);
-        let len = self.pop()?.as_usize();
+        let len = u256_to_usize(self.pop()?)?;
         if len > 32 {
             return Err(ProgramError::IntegerTooLarge);
         }
