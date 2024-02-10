@@ -42,7 +42,7 @@ pub(crate) mod state;
 mod trie_extractor;
 
 use plonky2::field::types::PrimeField64;
-use smt_utils_hermez::smt::hash_serialize;
+use smt_utils_hermez::smt::{hash_serialize, hash_serialize_u256};
 
 use self::mpt::{load_all_mpts, TrieRootPtrs};
 use crate::witness::util::{mem_write_log, stack_peek};
@@ -144,11 +144,7 @@ fn apply_metadata_and_tries_memops<F: RichField + Extendable<D>, const D: usize>
         ),
         (
             GlobalMetadata::StateTrieRootDigestBefore,
-            U256(
-                hash_serialize(&tries.state_smt)
-                    .elements
-                    .map(|x| x.to_canonical_u64()),
-            ),
+            hash_serialize_u256(&tries.state_smt),
         ),
         (
             GlobalMetadata::TransactionTrieRootDigestBefore,

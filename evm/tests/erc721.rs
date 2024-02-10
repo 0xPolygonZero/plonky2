@@ -9,7 +9,6 @@ use ethereum_types::{Address, BigEndianHash, H160, H256, U256};
 use hex_literal::hex;
 use keccak_hash::keccak;
 use plonky2::field::goldilocks_field::GoldilocksField;
-use plonky2::hash::hash_types::HashOut;
 use plonky2::plonk::config::KeccakGoldilocksConfig;
 use plonky2::util::timing::TimingTree;
 use plonky2_evm::all_stark::AllStark;
@@ -309,26 +308,11 @@ fn set_account<D: Db>(
     account: &AccountRlp,
     storage: &HashMap<U256, U256>,
 ) {
-    dbg!(hashout2u(HashOut {
-        elements: key_balance(addr).0
-    }));
-    dbg!(hashout2u(HashOut {
-        elements: key_nonce(addr).0
-    }));
-    dbg!(hashout2u(HashOut {
-        elements: key_code(addr).0
-    }));
-    dbg!(hashout2u(HashOut {
-        elements: key_code_length(addr).0
-    }));
     smt.set(key_balance(addr), account.balance);
     smt.set(key_nonce(addr), account.nonce);
     smt.set(key_code(addr), account.code_hash);
     smt.set(key_code_length(addr), account.code_length);
     for (&k, &v) in storage {
-        dbg!(hashout2u(HashOut {
-            elements: key_storage(addr, k).0
-        }));
         smt.set(key_storage(addr, k), v);
     }
 }
