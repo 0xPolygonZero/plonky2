@@ -49,7 +49,9 @@ where
     let lookup_challenge_set = if let Some(&challenges) = challenges.as_ref() {
         Some(challenges.clone())
     } else {
-        Some(get_grand_product_challenge_set(challenger, num_challenges))
+        auxiliary_polys_cap
+            .is_some()
+            .then(|| get_grand_product_challenge_set(challenger, num_challenges))
     };
 
     if let Some(cap) = &auxiliary_polys_cap {
@@ -187,11 +189,9 @@ where
     let lookup_challenge_set = if let Some(&challenges) = challenges.as_ref() {
         Some(challenges.clone())
     } else {
-        Some(get_grand_product_challenge_set_target(
-            builder,
-            challenger,
-            num_challenges,
-        ))
+        auxiliary_polys_cap
+            .is_some()
+            .then(|| get_grand_product_challenge_set_target(builder, challenger, num_challenges))
     };
 
     if let Some(cap) = auxiliary_polys_cap {

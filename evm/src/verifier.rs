@@ -60,7 +60,6 @@ where
         &stark_proofs[Table::Arithmetic as usize].proof,
         &stark_challenges[Table::Arithmetic as usize],
         Some(&ctl_vars_per_table[Table::Arithmetic as usize]),
-        Some(&ctl_challenges),
         &[],
         config,
     )?;
@@ -70,7 +69,6 @@ where
         &stark_proofs[Table::BytePacking as usize].proof,
         &stark_challenges[Table::BytePacking as usize],
         Some(&ctl_vars_per_table[Table::BytePacking as usize]),
-        Some(&ctl_challenges),
         &[],
         config,
     )?;
@@ -79,7 +77,6 @@ where
         &stark_proofs[Table::Cpu as usize].proof,
         &stark_challenges[Table::Cpu as usize],
         Some(&ctl_vars_per_table[Table::Cpu as usize]),
-        Some(&ctl_challenges),
         &[],
         config,
     )?;
@@ -88,7 +85,6 @@ where
         &stark_proofs[Table::Keccak as usize].proof,
         &stark_challenges[Table::Keccak as usize],
         Some(&ctl_vars_per_table[Table::Keccak as usize]),
-        Some(&ctl_challenges),
         &[],
         config,
     )?;
@@ -97,7 +93,6 @@ where
         &stark_proofs[Table::KeccakSponge as usize].proof,
         &stark_challenges[Table::KeccakSponge as usize],
         Some(&ctl_vars_per_table[Table::KeccakSponge as usize]),
-        Some(&ctl_challenges),
         &[],
         config,
     )?;
@@ -106,7 +101,6 @@ where
         &stark_proofs[Table::Logic as usize].proof,
         &stark_challenges[Table::Logic as usize],
         Some(&ctl_vars_per_table[Table::Logic as usize]),
-        Some(&ctl_challenges),
         &[],
         config,
     )?;
@@ -115,7 +109,6 @@ where
         &stark_proofs[Table::Memory as usize].proof,
         &stark_challenges[Table::Memory as usize],
         Some(&ctl_vars_per_table[Table::Memory as usize]),
-        Some(&ctl_challenges),
         &[],
         config,
     )?;
