@@ -1,9 +1,9 @@
 //! A module to help with WitnessGeneratorRef serialization
 
 #[cfg(not(feature = "std"))]
-use alloc::vec::Vec;
+pub use alloc::vec::Vec;
 #[cfg(feature = "std")]
-use std::vec::Vec; // For macros below
+pub use std::vec::Vec; // For macros below
 
 use plonky2_field::extension::Extendable;
 
