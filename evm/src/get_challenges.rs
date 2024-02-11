@@ -67,6 +67,9 @@ fn observe_block_metadata<
     challenger.observe_element(basefee.0);
     challenger.observe_element(basefee.1);
     challenger.observe_element(u256_to_u32(block_metadata.block_gas_used)?);
+    let blob_basefee = u256_to_u64(block_metadata.block_blob_base_fee)?;
+    challenger.observe_element(blob_basefee.0);
+    challenger.observe_element(blob_basefee.1);
     for i in 0..8 {
         challenger.observe_elements(&u256_limbs(block_metadata.block_bloom[i]));
     }
@@ -93,6 +96,7 @@ fn observe_block_metadata_target<
     challenger.observe_element(block_metadata.block_chain_id);
     challenger.observe_elements(&block_metadata.block_base_fee);
     challenger.observe_element(block_metadata.block_gas_used);
+    challenger.observe_elements(&block_metadata.block_blob_base_fee);
     challenger.observe_elements(&block_metadata.block_bloom);
 }
 
