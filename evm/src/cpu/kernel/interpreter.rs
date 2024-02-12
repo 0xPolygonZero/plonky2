@@ -9,8 +9,10 @@ use eth_trie_utils::partial_trie::PartialTrie;
 use ethereum_types::{BigEndianHash, H160, H256, U256, U512};
 use keccak_hash::keccak;
 use plonky2::field::goldilocks_field::GoldilocksField;
+use plonky2::field::types::{Field, PrimeField64};
+use plonky2::hash::poseidon::Poseidon;
 use serde::Serialize;
-use smt_utils_hermez::smt::hash_serialize;
+use smt_utils_hermez::smt::{hash_serialize, hash_serialize_u256};
 use smt_utils_hermez::utils::hashout2u;
 
 use super::assembler::BYTES_PER_OFFSET;
@@ -265,7 +267,7 @@ impl<'a> Interpreter<'a> {
             ),
             (
                 GlobalMetadata::StateTrieRootDigestBefore,
-                hashout2u(hash_serialize(&tries.state_smt)),
+                hash_serialize_u256(&tries.state_smt),
             ),
             (
                 GlobalMetadata::TransactionTrieRootDigestBefore,
@@ -724,6 +726,7 @@ impl<'a> Interpreter<'a> {
             0x1d => self.run_syscall(opcode, 2, false), // "SAR",
             0x20 => self.run_syscall(opcode, 2, false), // "KECCAK256",
             0x21 => self.run_keccak_general(),          // "KECCAK_GENERAL",
+            0x22 => self.run_poseidon(),                // "POSEIDON",
             0x30 => self.run_syscall(opcode, 0, true),  // "ADDRESS",
             0x31 => self.run_syscall(opcode, 1, false), // "BALANCE",
             0x32 => self.run_syscall(opcode, 0, true),  // "ORIGIN",
@@ -1029,6 +1032,21 @@ impl<'a> Interpreter<'a> {
         println!("Hashing {:?}", &bytes);
         let hash = keccak(bytes);
         self.push(U256::from_big_endian(hash.as_bytes()))
+    }
+
+    fn run_poseidon(&mut self) -> anyhow::Result<(), ProgramError> {
+        let x = self.pop()?;
+        let y = self.pop()?;
+        let z = self.pop()?;
+
+        let mut arr = [
+            x.0[0], x.0[1], x.0[2], x.0[3], y.0[0], y.0[1], y.0[2], y.0[3], z.0[0], z.0[1], z.0[2],
+            z.0[3],
+        ]
+        .map(F::from_canonical_u64);
+        let hash = F::poseidon(arr);
+        let hash = U256(std::array::from_fn(|i| hash[i].to_canonical_u64()));
+        self.push(hash)
     }
 
     fn run_prover_input(&mut self) -> Result<(), ProgramError> {
@@ -1493,6 +1511,7 @@ fn get_mnemonic(opcode: u8) -> &'static str {
         0x1d => "SAR",
         0x20 => "KECCAK256",
         0x21 => "KECCAK_GENERAL",
+        0x22 => "POSEIDON",
         0x30 => "ADDRESS",
         0x31 => "BALANCE",
         0x32 => "ORIGIN",

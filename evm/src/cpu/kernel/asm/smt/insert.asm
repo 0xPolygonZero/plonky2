@@ -1,5 +1,6 @@
 // Insert a key-value pair in the state SMT.
 global smt_insert_state:
+    // stack: key, value, retdest
     DUP2 ISZERO %jumpi(panic)
     // stack: key, value, retdest
     %stack (key, value) -> (key, value, smt_insert_state_after)

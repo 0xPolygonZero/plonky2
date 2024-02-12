@@ -162,6 +162,7 @@ pub(crate) fn generate_keccak_general<F: Field>(
 
 /// Pops 3 elements `x,y,z` from the stack, and returns `Poseidon(x || y || z)[0..4]`,
 /// where values are split into 64-bit limbs, and `z` is used as the capacity.
+/// Limbs are range-checked to be in canonical form in the PoseidonStark.
 pub(crate) fn generate_poseidon<F: RichField>(
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
