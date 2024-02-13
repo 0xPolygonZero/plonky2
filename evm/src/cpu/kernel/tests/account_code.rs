@@ -129,9 +129,7 @@ fn prepare_interpreter(
             "Expected empty stack after insert, found {:?}",
             interpreter.stack()
         );
-        dbg!("done");
     }
-    dbg!("OKOK");
 
     // Now, execute mpt_hash_state_trie.
     interpreter.generation_state.registers.program_counter = smt_hash_state;

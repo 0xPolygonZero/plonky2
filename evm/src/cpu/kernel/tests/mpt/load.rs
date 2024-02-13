@@ -1,105 +1,97 @@
-// use std::str::FromStr;
-//
-// use anyhow::{anyhow, Result};
-// use eth_trie_utils::nibbles::Nibbles;
-// use eth_trie_utils::partial_trie::HashedPartialTrie;
-// use ethereum_types::{BigEndianHash, H256, U256};
-// use hex_literal::hex;
-//
-// use crate::cpu::kernel::aggregator::KERNEL;
-// use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
-// use crate::cpu::kernel::constants::trie_type::PartialTrieType;
-// use crate::cpu::kernel::interpreter::Interpreter;
-// use crate::cpu::kernel::tests::account_code::initialize_mpts;
-// use crate::cpu::kernel::tests::mpt::{extension_to_leaf, test_account_1, test_account_1_rlp};
-// use crate::generation::TrieInputs;
-// use crate::Node;
-//
-// #[test]
-// fn load_all_mpts_empty() -> Result<()> {
-//     let trie_inputs = TrieInputs {
-//         state_trie: Default::default(),
-//         transactions_trie: Default::default(),
-//         receipts_trie: Default::default(),
-//         storage_tries: vec![],
-//     };
-//
-//     let initial_stack = vec![];
-//     let mut interpreter = Interpreter::new_with_kernel(0, initial_stack);
-//     initialize_mpts(&mut interpreter, &trie_inputs);
-//     assert_eq!(interpreter.stack(), vec![]);
-//
-//     // We need to have the first element in `TrieData` be 0.
-//     assert_eq!(interpreter.get_trie_data(), vec![0.into()]);
-//
-//     assert_eq!(
-//         interpreter.get_global_metadata_field(GlobalMetadata::StateTrieRoot),
-//         0.into()
-//     );
-//     assert_eq!(
-//         interpreter.get_global_metadata_field(GlobalMetadata::TransactionTrieRoot),
-//         0.into()
-//     );
-//     assert_eq!(
-//         interpreter.get_global_metadata_field(GlobalMetadata::ReceiptTrieRoot),
-//         0.into()
-//     );
-//
-//     Ok(())
-// }
-//
-// #[test]
-// fn load_all_mpts_leaf() -> Result<()> {
-//     let trie_inputs = TrieInputs {
-//         state_trie: Node::Leaf {
-//             nibbles: 0xABC_u64.into(),
-//             value: test_account_1_rlp(),
-//         }
-//         .into(),
-//         transactions_trie: Default::default(),
-//         receipts_trie: Default::default(),
-//         storage_tries: vec![],
-//     };
-//
-//     let initial_stack = vec![];
-//     let mut interpreter = Interpreter::new_with_kernel(0, initial_stack);
-//     initialize_mpts(&mut interpreter, &trie_inputs);
-//     assert_eq!(interpreter.stack(), vec![]);
-//
-//     let type_leaf = U256::from(PartialTrieType::Leaf as u32);
-//     assert_eq!(
-//         interpreter.get_trie_data(),
-//         vec![
-//             0.into(),
-//             type_leaf,
-//             3.into(),
-//             0xABC.into(),
-//             5.into(), // value ptr
-//             test_account_1().nonce,
-//             test_account_1().balance,
-//             9.into(), // pointer to storage trie root
-//             test_account_1().code_hash.into_uint(),
-//             // These last two elements encode the storage trie, which is a hash node.
-//             (PartialTrieType::Hash as u32).into(),
-//             test_account_1().storage_root.into_uint(),
-//         ]
-//     );
-//
-//     assert_eq!(
-//         interpreter.get_global_metadata_field(GlobalMetadata::TransactionTrieRoot),
-//         0.into()
-//     );
-//     assert_eq!(
-//         interpreter.get_global_metadata_field(GlobalMetadata::ReceiptTrieRoot),
-//         0.into()
-//     );
-//
-//     Ok(())
-// }
-//
+use std::str::FromStr;
+
+use anyhow::{anyhow, Result};
+use eth_trie_utils::nibbles::Nibbles;
+use eth_trie_utils::partial_trie::HashedPartialTrie;
+use ethereum_types::{BigEndianHash, H160, H256, U256};
+use hex_literal::hex;
+use rand::{thread_rng, Rng};
+use smt_utils_hermez::db::MemoryDb;
+use smt_utils_hermez::keys::key_balance;
+use smt_utils_hermez::smt::Smt;
+use smt_utils_hermez::utils::key2u;
+
+use crate::cpu::kernel::aggregator::KERNEL;
+use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
+use crate::cpu::kernel::constants::smt_type::PartialSmtType;
+use crate::cpu::kernel::constants::trie_type::PartialTrieType;
+use crate::cpu::kernel::interpreter::Interpreter;
+use crate::cpu::kernel::tests::account_code::initialize_mpts;
+use crate::cpu::kernel::tests::mpt::{extension_to_leaf, test_account_1, test_account_1_rlp};
+use crate::generation::TrieInputs;
+use crate::Node;
+
+#[test]
+fn load_all_mpts_empty() -> Result<()> {
+    let smt = Smt::<MemoryDb>::default();
+    let trie_inputs = TrieInputs {
+        state_smt: smt.serialize(),
+        transactions_trie: Default::default(),
+        receipts_trie: Default::default(),
+    };
+
+    let initial_stack = vec![];
+    let mut interpreter = Interpreter::new_with_kernel(0, initial_stack);
+    initialize_mpts(&mut interpreter, &trie_inputs);
+    assert_eq!(interpreter.stack(), vec![]);
+
+    // We need to have the first element in `TrieData` be 0.
+    assert_eq!(interpreter.get_trie_data(), vec![0.into(); 4]);
+
+    assert_eq!(
+        interpreter.get_global_metadata_field(GlobalMetadata::StateTrieRoot),
+        2.into()
+    );
+    assert_eq!(
+        interpreter.get_global_metadata_field(GlobalMetadata::TransactionTrieRoot),
+        0.into()
+    );
+    assert_eq!(
+        interpreter.get_global_metadata_field(GlobalMetadata::ReceiptTrieRoot),
+        0.into()
+    );
+
+    Ok(())
+}
+
+#[test]
+fn load_all_mpts_leaf() -> Result<()> {
+    let mut state_smt = Smt::<MemoryDb>::default();
+    let key = key_balance(H160(thread_rng().gen()));
+    let value = U256(thread_rng().gen());
+    state_smt.set(key, value);
+    let trie_inputs = TrieInputs {
+        state_smt: state_smt.serialize(),
+        transactions_trie: Default::default(),
+        receipts_trie: Default::default(),
+    };
+
+    let initial_stack = vec![];
+    let mut interpreter = Interpreter::new_with_kernel(0, initial_stack);
+    initialize_mpts(&mut interpreter, &trie_inputs);
+    assert_eq!(interpreter.stack(), vec![]);
+
+    let type_leaf = U256::from(PartialSmtType::Leaf as u32);
+    assert_eq!(
+        interpreter.get_trie_data(),
+        vec![0.into(), 0.into(), type_leaf, key2u(key), value,]
+    );
+
+    assert_eq!(
+        interpreter.get_global_metadata_field(GlobalMetadata::TransactionTrieRoot),
+        0.into()
+    );
+    assert_eq!(
+        interpreter.get_global_metadata_field(GlobalMetadata::ReceiptTrieRoot),
+        0.into()
+    );
+
+    Ok(())
+}
+
 // #[test]
 // fn load_all_mpts_hash() -> Result<()> {
-//     let hash = H256::random();
+//     let hash = U256::random();
 //     let trie_inputs = TrieInputs {
 //         state_trie: Node::Hash(hash).into(),
 //         transactions_trie: Default::default(),
