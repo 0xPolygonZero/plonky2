@@ -2,6 +2,7 @@ use anyhow::Result;
 use eth_trie_utils::nibbles::Nibbles;
 use eth_trie_utils::partial_trie::{HashedPartialTrie, PartialTrie};
 use ethereum_types::{BigEndianHash, H256};
+use plonky2::field::goldilocks_field::GoldilocksField as F;
 
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
@@ -173,7 +174,7 @@ fn test_state_trie(
     let mpt_hash_state_trie = KERNEL.global_labels["mpt_hash_state_trie"];
 
     let initial_stack = vec![];
-    let mut interpreter = Interpreter::new_with_kernel(0, initial_stack);
+    let mut interpreter: Interpreter<F> = Interpreter::new_with_kernel(0, initial_stack);
 
     initialize_mpts(&mut interpreter, &trie_inputs);
     assert_eq!(interpreter.stack(), vec![]);

@@ -2,6 +2,7 @@ use anyhow::Result;
 use ethereum_types::{Address, U256};
 use hex_literal::hex;
 use keccak_hash::keccak;
+use plonky2::field::goldilocks_field::GoldilocksField as F;
 use rand::{thread_rng, Rng};
 
 use crate::cpu::kernel::aggregator::KERNEL;
@@ -47,7 +48,8 @@ fn test_process_receipt() -> Result<()> {
         leftover_gas,
         success,
     ];
-    let mut interpreter = Interpreter::new_with_kernel(process_receipt, initial_stack);
+    let mut interpreter: Interpreter<F> =
+        Interpreter::new_with_kernel(process_receipt, initial_stack);
     interpreter.set_memory_segment(
         Segment::LogsData,
         vec![
@@ -128,7 +130,8 @@ fn test_receipt_encoding() -> Result<()> {
     let expected_rlp = rlp::encode(&rlp::encode(&receipt_1));
 
     let initial_stack: Vec<U256> = vec![retdest, 0.into(), 0.into(), 0.into()];
-    let mut interpreter = Interpreter::new_with_kernel(encode_receipt, initial_stack);
+    let mut interpreter: Interpreter<F> =
+        Interpreter::new_with_kernel(encode_receipt, initial_stack);
 
     // Write data to memory.
     let expected_bloom_bytes = vec![
@@ -248,7 +251,7 @@ fn test_receipt_bloom_filter() -> Result<()> {
     // Set logs memory and initialize TxnBloom and BlockBloom segments.
     let initial_stack: Vec<U256> = vec![retdest];
 
-    let mut interpreter = Interpreter::new_with_kernel(logs_bloom, initial_stack);
+    let mut interpreter: Interpreter<F> = Interpreter::new_with_kernel(logs_bloom, initial_stack);
     let mut logs = vec![
         0.into(), // unused
         addr,
@@ -408,7 +411,7 @@ fn test_mpt_insert_receipt() -> Result<()> {
     receipt.push(num_logs.into()); // num_logs
     receipt.extend(logs_0.clone());
 
-    let mut interpreter = Interpreter::new_with_kernel(0, vec![]);
+    let mut interpreter: Interpreter<F> = Interpreter::new_with_kernel(0, vec![]);
     initialize_mpts(&mut interpreter, &trie_inputs);
 
     // If TrieData is empty, we need to push 0 because the first value is always 0.
@@ -562,7 +565,7 @@ fn test_bloom_two_logs() -> Result<()> {
         ]
         .into(),
     ];
-    let mut interpreter = Interpreter::new_with_kernel(logs_bloom, initial_stack);
+    let mut interpreter: Interpreter<F> = Interpreter::new_with_kernel(logs_bloom, initial_stack);
     interpreter.set_memory_segment(Segment::TxnBloom, vec![0.into(); 256]); // Initialize transaction Bloom filter.
     interpreter.set_memory_segment(Segment::LogsData, logs);
     interpreter.set_memory_segment(Segment::Logs, vec![0.into(), 4.into()]);

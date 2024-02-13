@@ -1,5 +1,6 @@
 use anyhow::Result;
 use ethereum_types::U256;
+use plonky2::field::goldilocks_field::GoldilocksField as F;
 
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::interpreter::Interpreter;
@@ -13,7 +14,8 @@ fn test_decode_rlp_string_len_short() -> Result<()> {
         0xDEADBEEFu32.into(),
         U256::from(Segment::RlpRaw as usize + 2),
     ];
-    let mut interpreter = Interpreter::new_with_kernel(decode_rlp_string_len, initial_stack);
+    let mut interpreter: Interpreter<F> =
+        Interpreter::new_with_kernel(decode_rlp_string_len, initial_stack);
 
     // A couple dummy bytes, followed by "0x70" which is its own encoding.
     interpreter.set_rlp_memory(vec![123, 234, 0x70]);
@@ -33,7 +35,8 @@ fn test_decode_rlp_string_len_medium() -> Result<()> {
         0xDEADBEEFu32.into(),
         U256::from(Segment::RlpRaw as usize + 2),
     ];
-    let mut interpreter = Interpreter::new_with_kernel(decode_rlp_string_len, initial_stack);
+    let mut interpreter: Interpreter<F> =
+        Interpreter::new_with_kernel(decode_rlp_string_len, initial_stack);
 
     // A couple dummy bytes, followed by the RLP encoding of "1 2 3 4 5".
     interpreter.set_rlp_memory(vec![123, 234, 0x85, 1, 2, 3, 4, 5]);
@@ -53,7 +56,8 @@ fn test_decode_rlp_string_len_long() -> Result<()> {
         0xDEADBEEFu32.into(),
         U256::from(Segment::RlpRaw as usize + 2),
     ];
-    let mut interpreter = Interpreter::new_with_kernel(decode_rlp_string_len, initial_stack);
+    let mut interpreter: Interpreter<F> =
+        Interpreter::new_with_kernel(decode_rlp_string_len, initial_stack);
 
     // The RLP encoding of the string "1 2 3 ... 56".
     interpreter.set_rlp_memory(vec![
@@ -74,7 +78,8 @@ fn test_decode_rlp_list_len_short() -> Result<()> {
     let decode_rlp_list_len = KERNEL.global_labels["decode_rlp_list_len"];
 
     let initial_stack = vec![0xDEADBEEFu32.into(), U256::from(Segment::RlpRaw as usize)];
-    let mut interpreter = Interpreter::new_with_kernel(decode_rlp_list_len, initial_stack);
+    let mut interpreter: Interpreter<F> =
+        Interpreter::new_with_kernel(decode_rlp_list_len, initial_stack);
 
     // The RLP encoding of [1, 2, [3, 4]].
     interpreter.set_rlp_memory(vec![0xc5, 1, 2, 0xc2, 3, 4]);
@@ -91,7 +96,8 @@ fn test_decode_rlp_list_len_long() -> Result<()> {
     let decode_rlp_list_len = KERNEL.global_labels["decode_rlp_list_len"];
 
     let initial_stack = vec![0xDEADBEEFu32.into(), U256::from(Segment::RlpRaw as usize)];
-    let mut interpreter = Interpreter::new_with_kernel(decode_rlp_list_len, initial_stack);
+    let mut interpreter: Interpreter<F> =
+        Interpreter::new_with_kernel(decode_rlp_list_len, initial_stack);
 
     // The RLP encoding of [1, ..., 56].
     interpreter.set_rlp_memory(vec![
@@ -112,7 +118,8 @@ fn test_decode_rlp_scalar() -> Result<()> {
     let decode_rlp_scalar = KERNEL.global_labels["decode_rlp_scalar"];
 
     let initial_stack = vec![0xDEADBEEFu32.into(), U256::from(Segment::RlpRaw as usize)];
-    let mut interpreter = Interpreter::new_with_kernel(decode_rlp_scalar, initial_stack);
+    let mut interpreter: Interpreter<F> =
+        Interpreter::new_with_kernel(decode_rlp_scalar, initial_stack);
 
     // The RLP encoding of "12 34 56".
     interpreter.set_rlp_memory(vec![0x83, 0x12, 0x34, 0x56]);

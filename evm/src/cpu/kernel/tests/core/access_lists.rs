@@ -2,6 +2,7 @@ use std::collections::HashSet;
 
 use anyhow::Result;
 use ethereum_types::{Address, U256};
+use plonky2::field::goldilocks_field::GoldilocksField as F;
 use rand::{thread_rng, Rng};
 
 use crate::cpu::kernel::aggregator::KERNEL;
@@ -33,7 +34,8 @@ fn test_insert_accessed_addresses() -> Result<()> {
 
     // Test for address already in list.
     let initial_stack = vec![retaddr, U256::from(addr_in_list.0.as_slice())];
-    let mut interpreter = Interpreter::new_with_kernel(insert_accessed_addresses, initial_stack);
+    let mut interpreter: Interpreter<F> =
+        Interpreter::new_with_kernel(insert_accessed_addresses, initial_stack);
     for i in 0..n {
         let addr = U256::from(addresses[i].0.as_slice());
         interpreter
@@ -57,7 +59,8 @@ fn test_insert_accessed_addresses() -> Result<()> {
 
     // Test for address not in list.
     let initial_stack = vec![retaddr, U256::from(addr_not_in_list.0.as_slice())];
-    let mut interpreter = Interpreter::new_with_kernel(insert_accessed_addresses, initial_stack);
+    let mut interpreter: Interpreter<F> =
+        Interpreter::new_with_kernel(insert_accessed_addresses, initial_stack);
     for i in 0..n {
         let addr = U256::from(addresses[i].0.as_slice());
         interpreter
@@ -115,7 +118,8 @@ fn test_insert_accessed_storage_keys() -> Result<()> {
         storage_key_in_list.1,
         U256::from(storage_key_in_list.0 .0.as_slice()),
     ];
-    let mut interpreter = Interpreter::new_with_kernel(insert_accessed_storage_keys, initial_stack);
+    let mut interpreter: Interpreter<F> =
+        Interpreter::new_with_kernel(insert_accessed_storage_keys, initial_stack);
     for i in 0..n {
         let addr = U256::from(storage_keys[i].0 .0.as_slice());
         interpreter
@@ -152,7 +156,8 @@ fn test_insert_accessed_storage_keys() -> Result<()> {
         storage_key_not_in_list.1,
         U256::from(storage_key_not_in_list.0 .0.as_slice()),
     ];
-    let mut interpreter = Interpreter::new_with_kernel(insert_accessed_storage_keys, initial_stack);
+    let mut interpreter: Interpreter<F> =
+        Interpreter::new_with_kernel(insert_accessed_storage_keys, initial_stack);
     for i in 0..n {
         let addr = U256::from(storage_keys[i].0 .0.as_slice());
         interpreter

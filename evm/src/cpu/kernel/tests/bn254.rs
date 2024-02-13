@@ -1,5 +1,6 @@
 use anyhow::Result;
 use ethereum_types::U256;
+use plonky2::field::goldilocks_field::GoldilocksField as F;
 use rand::Rng;
 
 use crate::cpu::kernel::interpreter::{
@@ -23,7 +24,7 @@ fn run_bn_mul_fp6(f: Fp6<BN254>, g: Fp6<BN254>, label: &str) -> Fp6<BN254> {
         segment: BnPairing,
         memory: vec![],
     };
-    let interpreter = run_interpreter_with_memory(setup).unwrap();
+    let interpreter = run_interpreter_with_memory::<F>(setup).unwrap();
     let output: Vec<U256> = interpreter.stack().iter().rev().cloned().collect();
     Fp6::<BN254>::from_stack(&output)
 }
@@ -63,7 +64,7 @@ fn run_bn_mul_fp12(f: Fp12<BN254>, g: Fp12<BN254>, label: &str) -> Fp12<BN254> {
         segment: BnPairing,
         memory: vec![(in0, f.to_stack().to_vec()), (in1, g.to_stack().to_vec())],
     };
-    let interpreter = run_interpreter_with_memory(setup).unwrap();
+    let interpreter = run_interpreter_with_memory::<F>(setup).unwrap();
     let output = interpreter.extract_kernel_memory(BnPairing, out..out + 12);
     Fp12::<BN254>::from_stack(&output)
 }
@@ -93,7 +94,7 @@ fn run_bn_frob_fp6(n: usize, f: Fp6<BN254>) -> Fp6<BN254> {
         segment: BnPairing,
         memory: vec![],
     };
-    let interpreter: Interpreter = run_interpreter_with_memory(setup).unwrap();
+    let interpreter: Interpreter<F> = run_interpreter_with_memory(setup).unwrap();
     let output: Vec<U256> = interpreter.stack().iter().rev().cloned().collect();
     Fp6::<BN254>::from_stack(&output)
 }
@@ -117,7 +118,7 @@ fn run_bn_frob_fp12(f: Fp12<BN254>, n: usize) -> Fp12<BN254> {
         segment: BnPairing,
         memory: vec![(ptr, f.to_stack().to_vec())],
     };
-    let interpreter: Interpreter = run_interpreter_with_memory(setup).unwrap();
+    let interpreter: Interpreter<F> = run_interpreter_with_memory(setup).unwrap();
     let output: Vec<U256> = interpreter.extract_kernel_memory(BnPairing, ptr..ptr + 12);
     Fp12::<BN254>::from_stack(&output)
 }
@@ -147,7 +148,7 @@ fn test_bn_inv_fp12() -> Result<()> {
         segment: BnPairing,
         memory: vec![(ptr, f.to_stack().to_vec())],
     };
-    let interpreter: Interpreter = run_interpreter_with_memory(setup).unwrap();
+    let interpreter: Interpreter<F> = run_interpreter_with_memory(setup).unwrap();
     let output: Vec<U256> = interpreter.extract_kernel_memory(BnPairing, inv..inv + 12);
     let output = Fp12::<BN254>::from_stack(&output);
 
@@ -175,7 +176,7 @@ fn test_bn_final_exponent() -> Result<()> {
         memory: vec![(ptr, f.to_stack().to_vec())],
     };
 
-    let interpreter: Interpreter = run_interpreter_with_memory(setup).unwrap();
+    let interpreter: Interpreter<F> = run_interpreter_with_memory(setup).unwrap();
     let output: Vec<U256> = interpreter.extract_kernel_memory(BnPairing, ptr..ptr + 12);
     let expected: Vec<U256> = bn_final_exponent(f).to_stack();
 
@@ -202,7 +203,7 @@ fn test_bn_miller() -> Result<()> {
         segment: BnPairing,
         memory: vec![(ptr, input)],
     };
-    let interpreter = run_interpreter_with_memory(setup).unwrap();
+    let interpreter = run_interpreter_with_memory::<F>(setup).unwrap();
     let output: Vec<U256> = interpreter.extract_kernel_memory(BnPairing, out..out + 12);
     let expected = bn_miller_loop(p, q).to_stack();
 
@@ -246,7 +247,7 @@ fn test_bn_pairing() -> Result<()> {
         segment: BnPairing,
         memory: vec![(ptr, input)],
     };
-    let interpreter = run_interpreter_with_memory(setup).unwrap();
+    let interpreter = run_interpreter_with_memory::<F>(setup).unwrap();
     assert_eq!(interpreter.stack()[0], U256::one());
     Ok(())
 }

@@ -1,6 +1,7 @@
 use anyhow::Result;
 use ethereum_types::U256;
 use hex_literal::hex;
+use plonky2::field::goldilocks_field::GoldilocksField as F;
 use NormalizedTxnField::*;
 
 use crate::cpu::kernel::aggregator::KERNEL;
@@ -13,7 +14,8 @@ fn process_type_0_txn() -> Result<()> {
     let process_normalized_txn = KERNEL.global_labels["process_normalized_txn"];
 
     let retaddr = 0xDEADBEEFu32.into();
-    let mut interpreter = Interpreter::new_with_kernel(process_type_0_txn, vec![retaddr]);
+    let mut interpreter: Interpreter<F> =
+        Interpreter::new_with_kernel(process_type_0_txn, vec![retaddr]);
 
     // When we reach process_normalized_txn, we're done with parsing and normalizing.
     // Processing normalized transactions is outside the scope of this test.

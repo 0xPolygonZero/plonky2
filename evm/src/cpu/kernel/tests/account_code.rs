@@ -6,6 +6,8 @@ use eth_trie_utils::partial_trie::{HashedPartialTrie, PartialTrie};
 use ethereum_types::{Address, BigEndianHash, H256, U256};
 use hex_literal::hex;
 use keccak_hash::keccak;
+use plonky2::field::goldilocks_field::GoldilocksField as F;
+use plonky2::field::types::Field;
 use rand::{thread_rng, Rng};
 
 use crate::cpu::kernel::aggregator::KERNEL;
@@ -20,7 +22,10 @@ use crate::witness::memory::MemoryAddress;
 use crate::witness::operation::CONTEXT_SCALING_FACTOR;
 use crate::Node;
 
-pub(crate) fn initialize_mpts(interpreter: &mut Interpreter, trie_inputs: &TrieInputs) {
+pub(crate) fn initialize_mpts<F: Field>(
+    interpreter: &mut Interpreter<F>,
+    trie_inputs: &TrieInputs,
+) {
     // Load all MPTs.
     let (trie_root_ptrs, trie_data) =
         load_all_mpts(trie_inputs).expect("Invalid MPT data for preinitialization");
@@ -70,8 +75,8 @@ fn random_code() -> Vec<u8> {
 
 // Stolen from `tests/mpt/insert.rs`
 // Prepare the interpreter by inserting the account in the state trie.
-fn prepare_interpreter(
-    interpreter: &mut Interpreter,
+fn prepare_interpreter<F: Field>(
+    interpreter: &mut Interpreter<F>,
     address: Address,
     account: &AccountRlp,
 ) -> Result<()> {
@@ -151,7 +156,7 @@ fn test_extcodesize() -> Result<()> {
     let code = random_code();
     let account = test_account(&code);
 
-    let mut interpreter = Interpreter::new_with_kernel(0, vec![]);
+    let mut interpreter: Interpreter<F> = Interpreter::new_with_kernel(0, vec![]);
     let address: Address = thread_rng().gen();
     // Prepare the interpreter by inserting the account in the state trie.
     prepare_interpreter(&mut interpreter, address, &account)?;
@@ -183,7 +188,7 @@ fn test_extcodecopy() -> Result<()> {
     let code = random_code();
     let account = test_account(&code);
 
-    let mut interpreter = Interpreter::new_with_kernel(0, vec![]);
+    let mut interpreter: Interpreter<F> = Interpreter::new_with_kernel(0, vec![]);
     let address: Address = thread_rng().gen();
     // Prepare the interpreter by inserting the account in the state trie.
     prepare_interpreter(&mut interpreter, address, &account)?;
@@ -252,8 +257,8 @@ fn test_extcodecopy() -> Result<()> {
 
 /// Prepare the interpreter for storage tests by inserting all necessary accounts
 /// in the state trie, adding the code we want to context 1 and switching the context.
-fn prepare_interpreter_all_accounts(
-    interpreter: &mut Interpreter,
+fn prepare_interpreter_all_accounts<F: Field>(
+    interpreter: &mut Interpreter<F>,
     trie_inputs: TrieInputs,
     addr: [u8; 20],
     code: &[u8],
@@ -318,7 +323,7 @@ fn sstore() -> Result<()> {
     };
 
     let initial_stack = vec![];
-    let mut interpreter = Interpreter::new_with_kernel(0, initial_stack);
+    let mut interpreter: Interpreter<F> = Interpreter::new_with_kernel(0, initial_stack);
 
     // Prepare the interpreter by inserting the account in the state trie.
     prepare_interpreter_all_accounts(&mut interpreter, trie_inputs, addr, &code)?;
@@ -407,7 +412,7 @@ fn sload() -> Result<()> {
     };
 
     let initial_stack = vec![];
-    let mut interpreter = Interpreter::new_with_kernel(0, initial_stack);
+    let mut interpreter: Interpreter<F> = Interpreter::new_with_kernel(0, initial_stack);
 
     // Prepare the interpreter by inserting the account in the state trie.
     prepare_interpreter_all_accounts(&mut interpreter, trie_inputs, addr, &code)?;

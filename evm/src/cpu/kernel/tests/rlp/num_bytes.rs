@@ -1,4 +1,5 @@
 use anyhow::Result;
+use plonky2::field::goldilocks_field::GoldilocksField as F;
 
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::interpreter::Interpreter;
@@ -10,7 +11,7 @@ fn test_num_bytes_0() -> Result<()> {
     let retdest = 0xDEADBEEFu32.into();
     let x = 0.into();
     let initial_stack = vec![retdest, x];
-    let mut interpreter = Interpreter::new_with_kernel(num_bytes, initial_stack);
+    let mut interpreter: Interpreter<F> = Interpreter::new_with_kernel(num_bytes, initial_stack);
 
     interpreter.run()?;
     assert_eq!(interpreter.stack(), vec![1.into()]);
@@ -24,7 +25,7 @@ fn test_num_bytes_small() -> Result<()> {
     let retdest = 0xDEADBEEFu32.into();
     let x = 42.into();
     let initial_stack = vec![retdest, x];
-    let mut interpreter = Interpreter::new_with_kernel(num_bytes, initial_stack);
+    let mut interpreter: Interpreter<F> = Interpreter::new_with_kernel(num_bytes, initial_stack);
 
     interpreter.run()?;
     assert_eq!(interpreter.stack(), vec![1.into()]);
@@ -38,7 +39,7 @@ fn test_num_bytes_medium() -> Result<()> {
     let retdest = 0xDEADBEEFu32.into();
     let x = 0xAABBCCDDu32.into();
     let initial_stack = vec![retdest, x];
-    let mut interpreter = Interpreter::new_with_kernel(num_bytes, initial_stack);
+    let mut interpreter: Interpreter<F> = Interpreter::new_with_kernel(num_bytes, initial_stack);
 
     interpreter.run()?;
     assert_eq!(interpreter.stack(), vec![4.into()]);

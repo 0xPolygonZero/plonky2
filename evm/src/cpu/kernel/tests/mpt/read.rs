@@ -1,5 +1,6 @@
 use anyhow::Result;
 use ethereum_types::BigEndianHash;
+use plonky2::field::goldilocks_field::GoldilocksField as F;
 
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
@@ -20,7 +21,7 @@ fn mpt_read() -> Result<()> {
     let mpt_read = KERNEL.global_labels["mpt_read"];
 
     let initial_stack = vec![];
-    let mut interpreter = Interpreter::new_with_kernel(0, initial_stack);
+    let mut interpreter: Interpreter<F> = Interpreter::new_with_kernel(0, initial_stack);
     initialize_mpts(&mut interpreter, &trie_inputs);
     assert_eq!(interpreter.stack(), vec![]);
 

@@ -9,8 +9,11 @@ use eth_trie_utils::partial_trie::PartialTrie;
 use ethereum_types::{BigEndianHash, H160, H256, U256, U512};
 use keccak_hash::keccak;
 use plonky2::field::goldilocks_field::GoldilocksField;
+use plonky2::field::types::Field;
 
 use super::assembler::BYTES_PER_OFFSET;
+use super::utils::u256_from_bool;
+use crate::cpu::halt;
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::constants::context_metadata::ContextMetadata;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
@@ -23,7 +26,7 @@ use crate::generation::rlp::all_rlp_prover_inputs_reversed;
 use crate::generation::state::{all_withdrawals_prover_inputs_reversed, GenerationState};
 use crate::generation::GenerationInputs;
 use crate::memory::segments::{Segment, SEGMENT_SCALING_FACTOR};
-use crate::util::{h2u, u256_to_usize};
+use crate::util::{h2u, u256_to_u8, u256_to_usize};
 use crate::witness::errors::{ProgramError, ProverInputError};
 use crate::witness::gas::gas_to_charge;
 use crate::witness::memory::{MemoryAddress, MemoryContextState, MemorySegmentState, MemoryState};
@@ -31,8 +34,6 @@ use crate::witness::operation::{Operation, CONTEXT_SCALING_FACTOR};
 use crate::witness::state::RegistersState;
 use crate::witness::transition::decode;
 use crate::witness::util::stack_peek;
-
-type F = GoldilocksField;
 
 /// Halt interpreter execution whenever a jump to this offset is done.
 const DEFAULT_HALT_OFFSET: usize = 0xdeadbeef;
@@ -55,14 +56,17 @@ impl MemoryState {
     }
 }
 
-pub(crate) struct Interpreter<'a> {
+pub(crate) struct Interpreter<'a, F: Field> {
     pub(crate) generation_state: GenerationState<F>,
     prover_inputs_map: &'a HashMap<usize, ProverInputFn>,
     pub(crate) halt_offsets: Vec<usize>,
+    // The interpreter will halt only if the current context matches halt_context
+    halt_context: Option<usize>,
     pub(crate) debug_offsets: Vec<usize>,
     running: bool,
     opcode_count: [usize; 0x100],
     memops: Vec<InterpreterMemOpKind>,
+    jumpdest_table: HashMap<usize, BTreeSet<usize>>,
 }
 
 /// Structure storing the state of the interpreter's registers.
@@ -80,10 +84,10 @@ struct InterpreterCheckpoint {
     mem_len: usize,
 }
 
-pub(crate) fn run_interpreter(
+pub(crate) fn run_interpreter<F: Field>(
     initial_offset: usize,
     initial_stack: Vec<U256>,
-) -> anyhow::Result<Interpreter<'static>> {
+) -> anyhow::Result<Interpreter<'static, F>> {
     run(
         &KERNEL.code,
         initial_offset,
@@ -100,9 +104,9 @@ pub(crate) struct InterpreterMemoryInitialization {
     pub memory: Vec<(usize, Vec<U256>)>,
 }
 
-pub(crate) fn run_interpreter_with_memory(
+pub(crate) fn run_interpreter_with_memory<F: Field>(
     memory_init: InterpreterMemoryInitialization,
-) -> anyhow::Result<Interpreter<'static>> {
+) -> anyhow::Result<Interpreter<'static, F>> {
     let label = KERNEL.global_labels[&memory_init.label];
     let mut stack = memory_init.stack;
     stack.reverse();
@@ -119,15 +123,45 @@ pub(crate) fn run_interpreter_with_memory(
     Ok(interpreter)
 }
 
-pub(crate) fn run<'a>(
+pub(crate) fn run<'a, F: Field>(
     code: &'a [u8],
     initial_offset: usize,
     initial_stack: Vec<U256>,
     prover_inputs: &'a HashMap<usize, ProverInputFn>,
-) -> anyhow::Result<Interpreter<'a>> {
+) -> anyhow::Result<Interpreter<'a, F>> {
     let mut interpreter = Interpreter::new(code, initial_offset, initial_stack, prover_inputs);
     interpreter.run()?;
     Ok(interpreter)
+}
+
+/// Simulates the CPU execution from `state` until the program counter reaches `final_label`  
+/// in the current context.
+pub(crate) fn simulate_cpu_and_get_user_jumps<F: Field>(
+    final_label: &str,
+    state: &GenerationState<F>,
+) -> Option<HashMap<usize, Vec<usize>>> {
+    match state.jumpdest_table {
+        Some(_) => None,
+        None => {
+            let halt_pc = KERNEL.global_labels[final_label];
+            let initial_context = state.registers.context;
+            let mut interpreter =
+                Interpreter::new_with_state_and_halt_condition(state, halt_pc, initial_context);
+
+            log::debug!("Simulating CPU for jumpdest analysis.");
+
+            interpreter.run();
+
+            log::debug!("jdt = {:?}", interpreter.jumpdest_table);
+
+            interpreter
+                .generation_state
+                .set_jumpdest_analysis_inputs(interpreter.jumpdest_table);
+
+            log::debug!("Simulated CPU for jumpdest analysis halted.");
+            interpreter.generation_state.jumpdest_table
+        }
+    }
 }
 
 /// Different types of Memory operations in the interpreter, and the data required to revert them.
@@ -140,7 +174,7 @@ enum InterpreterMemOpKind {
     Write(U256, usize, usize, usize),
 }
 
-impl<'a> Interpreter<'a> {
+impl<'a, F: Field> Interpreter<'a, F> {
     pub(crate) fn new_with_kernel(initial_offset: usize, initial_stack: Vec<U256>) -> Self {
         let mut result = Self::new(
             &KERNEL.code,
@@ -177,10 +211,12 @@ impl<'a> Interpreter<'a> {
             // `DEFAULT_HALT_OFFSET` is used as a halting point for the interpreter,
             // while the label `halt` is the halting label in the kernel.
             halt_offsets: vec![DEFAULT_HALT_OFFSET, KERNEL.global_labels["halt"]],
+            halt_context: None,
             debug_offsets: vec![],
             running: false,
             opcode_count: [0; 256],
             memops: vec![],
+            jumpdest_table: HashMap::new(),
         };
         result.generation_state.registers.program_counter = initial_offset;
         let initial_stack_len = initial_stack.len();
@@ -192,6 +228,24 @@ impl<'a> Interpreter<'a> {
         }
 
         result
+    }
+
+    pub(crate) fn new_with_state_and_halt_condition(
+        state: &GenerationState<F>,
+        halt_offset: usize,
+        halt_context: usize,
+    ) -> Self {
+        Self {
+            generation_state: state.soft_clone(),
+            prover_inputs_map: &KERNEL.prover_inputs,
+            halt_offsets: vec![halt_offset],
+            halt_context: Some(halt_context),
+            debug_offsets: vec![],
+            running: false,
+            opcode_count: [0; 256],
+            memops: vec![],
+            jumpdest_table: HashMap::new(),
+        }
     }
 
     /// Initializes the interpreter state given `GenerationInputs`, using the KERNEL code.
@@ -399,9 +453,18 @@ impl<'a> Interpreter<'a> {
         self.running = true;
         while self.running {
             let pc = self.generation_state.registers.program_counter;
-            if self.is_kernel() && self.halt_offsets.contains(&pc) {
+
+            if let Some(halt_context) = self.halt_context {
+                if self.is_kernel()
+                    && self.halt_offsets.contains(&pc)
+                    && halt_context == self.generation_state.registers.context
+                {
+                    self.running = false;
+                    return Ok(());
+                }
+            } else if self.halt_offsets.contains(&pc) {
                 return Ok(());
-            };
+            }
 
             let checkpoint = self.checkpoint();
             let result = self.run_opcode();
@@ -426,13 +489,16 @@ impl<'a> Interpreter<'a> {
                 }
             }?;
         }
-        println!("Opcode count:");
-        for i in 0..0x100 {
-            if self.opcode_count[i] > 0 {
-                println!("{}: {}", get_mnemonic(i as u8), self.opcode_count[i])
+        #[cfg(debug_assertions)]
+        {
+            println!("Opcode count:");
+            for i in 0..0x100 {
+                if self.opcode_count[i] > 0 {
+                    println!("{}: {}", get_mnemonic(i as u8), self.opcode_count[i])
+                }
             }
+            println!("Total: {}", self.opcode_count.into_iter().sum::<usize>());
         }
-        println!("Total: {}", self.opcode_count.into_iter().sum::<usize>());
         Ok(())
     }
 
@@ -587,14 +653,6 @@ impl<'a> Interpreter<'a> {
         }
     }
 
-    pub(crate) fn get_jumpdest_bits(&self, context: usize) -> Vec<bool> {
-        self.generation_state.memory.contexts[context].segments[Segment::JumpdestBits.unscale()]
-            .content
-            .iter()
-            .map(|x| x.bit(0))
-            .collect()
-    }
-
     pub(crate) fn set_jumpdest_analysis_inputs(&mut self, jumps: HashMap<usize, BTreeSet<usize>>) {
         self.generation_state.set_jumpdest_analysis_inputs(jumps);
     }
@@ -685,12 +743,42 @@ impl<'a> Interpreter<'a> {
     }
 
     fn run_opcode(&mut self) -> Result<(), ProgramError> {
+        // Jumpdest analysis is performed natively by the interpreter and not
+        // using the non-deterministic Kernel assembly code.
+        if self.is_kernel()
+            && self.generation_state.registers.program_counter
+                == KERNEL.global_labels["jumpdest_analysis"]
+        {
+            self.generation_state.registers.program_counter =
+                KERNEL.global_labels["jumpdest_analysis_end"];
+            self.generation_state
+                .set_jumpdest_bits(&self.generation_state.get_current_code()?);
+        }
+
         let opcode = self
             .code()
             .get(self.generation_state.registers.program_counter)
             .byte(0);
         self.opcode_count[opcode as usize] += 1;
         self.incr(1);
+
+        let op = decode(self.generation_state.registers, opcode)?;
+        self.generation_state.registers.gas_used += gas_to_charge(op);
+
+        #[cfg(debug_assertions)]
+        if !self.is_kernel() {
+            println!(
+                "User instruction {:?}, stack = {:?}, ctx = {}",
+                op,
+                {
+                    let mut stack = self.stack();
+                    stack.reverse();
+                    stack
+                },
+                self.generation_state.registers.context
+            );
+        }
+
         match opcode {
             0x00 => self.run_syscall(opcode, 0, false), // "STOP",
             0x01 => self.run_add(),                     // "ADD",
@@ -811,19 +899,15 @@ impl<'a> Interpreter<'a> {
             }
         }?;
 
+        #[cfg(debug_assertions)]
         if self
             .debug_offsets
             .contains(&self.generation_state.registers.program_counter)
         {
-            println!("At {}, stack={:?}", self.offset_name(), self.stack());
+            println!("At {},", self.offset_name());
         } else if let Some(label) = self.offset_label() {
             println!("At {label}");
         }
-
-        let op = decode(self.generation_state.registers, opcode)
-            // We default to prover inputs, as those are kernel-only instructions that charge nothing.
-            .unwrap_or(Operation::ProverInput);
-        self.generation_state.registers.gas_used += gas_to_charge(op);
 
         if !self.is_kernel() {
             let gas_limit_address = MemoryAddress {
@@ -1027,6 +1111,7 @@ impl<'a> Interpreter<'a> {
                     .byte(0)
             })
             .collect::<Vec<_>>();
+        #[cfg(debug_assertions)]
         println!("Hashing {:?}", &bytes);
         let hash = keccak(bytes);
         self.push(U256::from_big_endian(hash.as_bytes()))
@@ -1087,51 +1172,75 @@ impl<'a> Interpreter<'a> {
         self.push(syscall_info)
     }
 
-    fn set_jumpdest_bit(&mut self, x: U256) -> U256 {
+    fn get_jumpdest_bit(&self, offset: usize) -> U256 {
         if self.generation_state.memory.contexts[self.context()].segments
             [Segment::JumpdestBits.unscale()]
         .content
         .len()
-            > x.low_u32() as usize
+            > offset
         {
             self.generation_state.memory.get(MemoryAddress {
                 context: self.context(),
                 segment: Segment::JumpdestBits.unscale(),
-                virt: x.low_u32() as usize,
+                virt: offset,
             })
         } else {
             0.into()
         }
     }
-    fn run_jump(&mut self) -> anyhow::Result<(), ProgramError> {
-        let x = self.pop()?;
 
-        let jumpdest_bit = self.set_jumpdest_bit(x);
+    pub(crate) fn get_jumpdest_bits(&self, context: usize) -> Vec<bool> {
+        self.generation_state.memory.contexts[context].segments[Segment::JumpdestBits.unscale()]
+            .content
+            .iter()
+            .map(|x| x.bit(0))
+            .collect()
+    }
+
+    fn add_jumpdest_offset(&mut self, offset: usize) {
+        if let Some(jumpdest_table) = self
+            .jumpdest_table
+            .get_mut(&self.generation_state.registers.context)
+        {
+            jumpdest_table.insert(offset);
+        } else {
+            self.jumpdest_table.insert(
+                self.generation_state.registers.context,
+                BTreeSet::from([offset]),
+            );
+        }
+    }
+
+    fn run_jump(&mut self) -> anyhow::Result<(), ProgramError> {
+        let offset = self.pop()?;
 
         // Check that the destination is valid.
-        let x: u32 = x
-            .try_into()
-            .map_err(|_| ProgramError::InvalidJumpDestination)?;
+        let offset: usize = u256_to_usize(offset)?;
+
+        let jumpdest_bit = self.get_jumpdest_bit(offset);
 
         if !self.is_kernel() && jumpdest_bit != U256::one() {
             return Err(ProgramError::InvalidJumpDestination);
         }
 
-        self.jump_to(x as usize, false)
+        self.jump_to(offset, false)
     }
 
     fn run_jumpi(&mut self) -> anyhow::Result<(), ProgramError> {
-        let x = self.pop()?;
-        let b = self.pop()?;
-        if !b.is_zero() {
-            let x: u32 = x
-                .try_into()
-                .map_err(|_| ProgramError::InvalidJumpiDestination)?;
-            self.jump_to(x as usize, true)?;
-        }
-        let jumpdest_bit = self.set_jumpdest_bit(x);
+        let offset = self.pop()?;
+        let cond = self.pop()?;
 
-        if !b.is_zero() && !self.is_kernel() && jumpdest_bit != U256::one() {
+        let offset: usize = offset
+            .try_into()
+            .map_err(|_| ProgramError::InvalidJumpiDestination)?;
+
+        let jumpdest_bit = self.get_jumpdest_bit(offset);
+
+        if !cond.is_zero() && (self.is_kernel() || jumpdest_bit == U256::one()) {
+            self.jump_to(offset, true)?;
+        }
+
+        if !cond.is_zero() && !self.is_kernel() && jumpdest_bit != U256::one() {
             return Err(ProgramError::InvalidJumpiDestination);
         }
         Ok(())
@@ -1167,9 +1276,10 @@ impl<'a> Interpreter<'a> {
             self.generation_state.observe_contract(tip_h256)?;
         }
 
-        if self.halt_offsets.contains(&offset) {
-            self.running = false;
+        if !self.is_kernel() {
+            self.add_jumpdest_offset(offset);
         }
+
         Ok(())
     }
 
@@ -1237,6 +1347,7 @@ impl<'a> Interpreter<'a> {
         }
         self.set_context(new_ctx);
         self.generation_state.registers.stack_len = new_sp;
+
         Ok(())
     }
 
@@ -1603,8 +1714,16 @@ pub(crate) use unpack_address;
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use std::collections::HashMap;
+
+    use ethereum_types::U256;
+    use plonky2::field::goldilocks_field::GoldilocksField as F;
+
+    use crate::cpu::kernel::constants::context_metadata::ContextMetadata;
+    use crate::cpu::kernel::interpreter::{run, Interpreter};
     use crate::memory::segments::Segment;
+    use crate::witness::memory::MemoryAddress;
+    use crate::witness::operation::CONTEXT_SCALING_FACTOR;
 
     #[test]
     fn test_run() -> anyhow::Result<()> {
@@ -1612,7 +1731,7 @@ mod tests {
             0x60, 0x1, 0x60, 0x2, 0x1, 0x63, 0xde, 0xad, 0xbe, 0xef, 0x56,
         ]; // PUSH1, 1, PUSH1, 2, ADD, PUSH4 deadbeef, JUMP
         assert_eq!(
-            run(&code, 0, vec![], &HashMap::new())?.stack(),
+            run::<F>(&code, 0, vec![], &HashMap::new())?.stack(),
             &[0x3.into()],
         );
         Ok(())
@@ -1637,7 +1756,7 @@ mod tests {
             0x60, 0xff, 0x60, 0x0, 0x52, 0x60, 0, 0x51, 0x60, 0x1, 0x51, 0x60, 0x42, 0x60, 0x27,
             0x53,
         ];
-        let mut interpreter = Interpreter::new_with_kernel(0, vec![]);
+        let mut interpreter: Interpreter<F> = Interpreter::new_with_kernel(0, vec![]);
 
         interpreter.set_code(1, code.to_vec());
 
