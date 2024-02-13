@@ -89,7 +89,7 @@ where
 /// Generates a proof for a single STARK table, including:
 ///
 /// - the initial state of the challenger,
-/// - all the requires Merkle caps,
+/// - all the required Merkle caps,
 /// - all the required polynomial and FRI argument openings.
 /// - individual `ctl_data` and common `ctl_challenges` if the STARK is part
 /// of a multi-STARK system.

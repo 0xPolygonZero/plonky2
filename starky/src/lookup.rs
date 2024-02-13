@@ -398,7 +398,7 @@ impl<F: Field> Column<F> {
 
 pub(crate) type ColumnFilter<'a, F> = (&'a [Column<F>], &'a Option<Filter<F>>);
 
-/// A `Lookup` defines a set of `columns`` whose values should appear in a
+/// A [`Lookup`] defines a set of `columns`` whose values should appear in a
 /// `table_column` (i.e. the lookup table associated to these looking columns),
 /// along with a `frequencies_column` indicating the frequency of each looking
 /// column in the looked table.
@@ -427,7 +427,7 @@ pub struct Lookup<F: Field> {
 }
 
 impl<F: Field> Lookup<F> {
-    /// Outputs the number of helper columns needed by this `Lookup`.
+    /// Outputs the number of helper columns needed by this [`Lookup`].
     pub fn num_helper_columns(&self, constraint_degree: usize) -> usize {
         // One helper column for each column batch of size `constraint_degree-1`,
         // then one column for the inverse of `table + challenge` and one for the `Z` polynomial.

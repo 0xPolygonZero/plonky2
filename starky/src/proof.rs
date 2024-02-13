@@ -56,11 +56,11 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> S
 /// Merkle caps and openings that form the proof of a single STARK.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct StarkProofTarget<const D: usize> {
-    /// `Target` for the Merkle cap if LDEs of trace values.
+    /// `Target` for the Merkle cap trace values LDEs.
     pub trace_cap: MerkleCapTarget,
-    /// `Target` for the Merkle cap of LDEs of lookup helper and CTL columns.
+    /// Optional `Target` for the Merkle cap of lookup helper and CTL columns LDEs, if any.
     pub auxiliary_polys_cap: Option<MerkleCapTarget>,
-    /// `Target` for the Merkle cap of LDEs of quotient polynomial evaluations.
+    /// `Target` for the Merkle cap of quotient polynomial evaluations LDEs.
     pub quotient_polys_cap: MerkleCapTarget,
     /// `Target`s for the purported values of each polynomial at the challenge point.
     pub openings: StarkOpeningSetTarget<D>,
@@ -72,8 +72,8 @@ impl<const D: usize> StarkProofTarget<D> {
     /// Serializes a STARK proof.
     pub fn to_buffer(&self, buffer: &mut Vec<u8>) -> IoResult<()> {
         buffer.write_target_merkle_cap(&self.trace_cap)?;
+        buffer.write_bool(self.auxiliary_polys_cap.is_some())?;
         if let Some(poly) = &self.auxiliary_polys_cap {
-            buffer.write_bool(true)?;
             buffer.write_target_merkle_cap(poly)?;
         }
         buffer.write_target_merkle_cap(&self.quotient_polys_cap)?;
@@ -152,7 +152,7 @@ pub struct CompressedStarkProof<
     pub opening_proof: CompressedFriProof<F, C::Hasher, D>,
 }
 
-/// A compressed proof format of a single STARK with its public inputs.
+/// A compressed [`StarkProof`] format of a single STARK with its public inputs.
 #[derive(Debug, Clone)]
 pub struct CompressedStarkProofWithPublicInputs<
     F: RichField + Extendable<D>,
@@ -165,7 +165,7 @@ pub struct CompressedStarkProofWithPublicInputs<
     pub public_inputs: Vec<F>,
 }
 
-/// A `StarkProof` along with some metadata about the initial Fiat-Shamir state, which is used when
+/// A [`StarkProof`] along with metadata about the initial Fiat-Shamir state, which is used when
 /// creating a recursive wrapper proof around a STARK proof.
 #[derive(Debug, Clone)]
 pub struct StarkProofWithMetadata<F, C, const D: usize>

@@ -6,7 +6,7 @@
 //! is tailored for a system with a single STARK, it also is flexible
 //! enough to support a multi-STARK system, i.e. a system of independent
 //! STARK statements possibly sharing common values. See section below for
-//! more information on how to define such a system. // TODO: ROBIN
+//! more information on how to define such a system.
 //!
 //!
 //! # Defining a STARK statement
@@ -53,7 +53,7 @@
 //!     // The second public input is `x1`.
 //!     const PI_INDEX_X1: usize = 1;
 //!     // The third public input is the second element of the last row,
-//!     //which should be equal to the `num_rows`-th Fibonacci number.
+//!     // which should be equal to the `num_rows`-th Fibonacci number.
 //!     const PI_INDEX_RES: usize = 2;
 //!
 //!     /// Generate the trace using `x0, x1, 0` as initial state values.
@@ -74,7 +74,6 @@
 //! }
 //!
 //! // Define constraints.
-//!
 //! const COLUMNS: usize = 3;
 //! const PUBLIC_INPUTS: usize = 3;
 //!

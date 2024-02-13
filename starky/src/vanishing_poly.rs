@@ -42,7 +42,7 @@ pub(crate) fn eval_vanishing_poly<F, FE, P, S, const D: usize, const D2: usize>(
         );
     }
     if let Some(ctl_vars) = ctl_vars {
-        // Evaluate the STARK constraints related to the permutation arguments.
+        // Evaluate the STARK constraints related to the CTLs.
         eval_cross_table_lookup_checks::<F, FE, P, S, D, D2>(
             vars,
             ctl_vars,

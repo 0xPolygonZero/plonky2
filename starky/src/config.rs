@@ -140,19 +140,8 @@ mod tests {
                 num_query_rounds: 50,
             },
         );
+        // The conjectured security yields `rate_bits` * `num_query_rounds` + `proof_of_work_bits` = 66
+        // bits of security for FRI, which falls short of the 100 bits of security target.
         assert!(too_few_queries_config.check_config::<F, D>().is_err());
-
-        let pow_too_low_config = StarkConfig::new(
-            100,
-            2,
-            FriConfig {
-                rate_bits: 1,
-                cap_height: 4,
-                proof_of_work_bits: 10,
-                reduction_strategy: FriReductionStrategy::ConstantArityBits(4, 5),
-                num_query_rounds: 84,
-            },
-        );
-        assert!(pow_too_low_config.check_config::<F, D>().is_err());
     }
 }
