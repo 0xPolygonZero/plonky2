@@ -10,6 +10,7 @@ use plonky2::field::types::Field;
 use serde::{Deserialize, Serialize};
 
 use crate::cpu::kernel::constants::context_metadata::ContextMetadata;
+use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
 use crate::extension_tower::{FieldExt, Fp12, BLS381, BN254};
 use crate::generation::prover_input::EvmField::{
     Bls381Base, Bls381Scalar, Bn254Base, Bn254Scalar, Secp256k1Base, Secp256k1Scalar,
