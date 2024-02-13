@@ -1722,6 +1722,8 @@ mod tests {
     use crate::cpu::kernel::constants::context_metadata::ContextMetadata;
     use crate::cpu::kernel::interpreter::{run, Interpreter};
     use crate::memory::segments::Segment;
+    use crate::witness::memory::MemoryAddress;
+    use crate::witness::operation::CONTEXT_SCALING_FACTOR;
 
     #[test]
     fn test_run() -> anyhow::Result<()> {
