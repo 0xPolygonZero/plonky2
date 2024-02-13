@@ -18,11 +18,11 @@ use crate::generation::TrieInputs;
 use crate::Node;
 
 #[test]
-fn mpt_delete_empty() -> Result<()> {
+fn smt_delete_empty() -> Result<()> {
     test_state_trie(
         Smt::<MemoryDb>::default(),
-        key_balance(H160(thread_rng().gen())),
-        U256(thread_rng().gen()),
+        key_balance(H160(random())),
+        U256(random()),
     )
 }
 
@@ -61,7 +61,7 @@ fn test_state_trie(state_smt: Smt<MemoryDb>, k: Key, value: U256) -> Result<()> 
     };
     let smt_insert_state = KERNEL.global_labels["smt_insert_state"];
     let smt_delete = KERNEL.global_labels["smt_delete"];
-    let smt_hash_state = KERNEL.global_labels["smt_hash_state"];
+    let smt_hash = KERNEL.global_labels["smt_hash"];
 
     let initial_stack = vec![];
     let mut interpreter = Interpreter::new_with_kernel(0, initial_stack);
@@ -69,7 +69,7 @@ fn test_state_trie(state_smt: Smt<MemoryDb>, k: Key, value: U256) -> Result<()> 
     initialize_mpts(&mut interpreter, &trie_inputs);
     assert_eq!(interpreter.stack(), vec![]);
 
-    // Next, execute mpt_insert_state_trie.
+    // Next, execute smt_insert_state.
     interpreter.generation_state.registers.program_counter = smt_insert_state;
     let trie_data = interpreter.get_trie_data_mut();
     if trie_data.is_empty() {
@@ -85,7 +85,7 @@ fn test_state_trie(state_smt: Smt<MemoryDb>, k: Key, value: U256) -> Result<()> 
         .expect("The stack should not overflow");
     interpreter
         .push(value)
-        .expect("The stack should not overflow"); // value_ptr
+        .expect("The stack should not overflow");
     interpreter
         .push(key2u(k))
         .expect("The stack should not overflow"); // key
@@ -97,7 +97,7 @@ fn test_state_trie(state_smt: Smt<MemoryDb>, k: Key, value: U256) -> Result<()> 
         interpreter.stack()
     );
 
-    // Next, execute mpt_delete, deleting the account we just inserted.
+    // Next, execute smt_delete, deleting the account we just inserted.
     let state_trie_ptr = interpreter.get_global_metadata_field(GlobalMetadata::StateTrieRoot);
     interpreter.generation_state.registers.program_counter = smt_delete;
     interpreter
@@ -111,15 +111,17 @@ fn test_state_trie(state_smt: Smt<MemoryDb>, k: Key, value: U256) -> Result<()> 
         .expect("The stack should not overflow");
     interpreter.run()?;
     let state_trie_ptr = interpreter.pop().expect("The stack should not be empty");
-    interpreter.set_global_metadata_field(GlobalMetadata::StateTrieRoot, state_trie_ptr);
 
-    // Now, execute mpt_hash_state_trie.
-    interpreter.generation_state.registers.program_counter = smt_hash_state;
+    // Now, execute smt_hash_state.
+    interpreter.generation_state.registers.program_counter = smt_hash;
     interpreter
         .push(0xDEADBEEFu32.into())
         .expect("The stack should not overflow");
     interpreter
         .push(2.into()) // Initial length of the trie data segment, unused.
+        .expect("The stack should not overflow");
+    interpreter
+        .push(state_trie_ptr)
         .expect("The stack should not overflow");
     interpreter.run()?;
 
