@@ -1,7 +1,7 @@
 //! Utility methods and constants for Plonk.
 
-use alloc::vec;
-use alloc::vec::Vec;
+#[cfg(not(feature = "std"))]
+use alloc::{vec, vec::Vec};
 
 use crate::field::extension::Extendable;
 use crate::field::packed::PackedField;

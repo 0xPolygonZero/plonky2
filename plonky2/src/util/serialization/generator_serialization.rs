@@ -1,6 +1,9 @@
 //! A module to help with WitnessGeneratorRef serialization
 
-use alloc::vec::Vec;
+#[cfg(not(feature = "std"))]
+pub use alloc::vec::Vec;
+#[cfg(feature = "std")]
+pub use std::vec::Vec; // For macros below
 
 use plonky2_field::extension::Extendable;
 
@@ -80,7 +83,7 @@ macro_rules! impl_generator_serializer {
 
         fn write_generator(
             &self,
-            buf: &mut $crate::alloc::vec::Vec<u8>,
+            buf: &mut $crate::util::serialization::generator_serialization::Vec<u8>,
             generator: &$crate::iop::generator::WitnessGeneratorRef<F, D>,
             common: &$crate::plonk::circuit_data::CommonCircuitData<F, D>,
         ) -> $crate::util::serialization::IoResult<()> {

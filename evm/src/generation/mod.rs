@@ -1,11 +1,8 @@
 use std::collections::{BTreeSet, HashMap};
-use std::sync::atomic::AtomicBool;
-use std::sync::Arc;
 
 use anyhow::anyhow;
 use eth_trie_utils::partial_trie::{HashedPartialTrie, PartialTrie};
 use ethereum_types::{Address, BigEndianHash, H256, U256};
-use itertools::enumerate;
 use plonky2::field::extension::Extendable;
 use plonky2::field::polynomial::PolynomialValues;
 use plonky2::field::types::Field;
@@ -22,16 +19,12 @@ use crate::all_stark::{AllStark, NUM_TABLES};
 use crate::config::StarkConfig;
 use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::kernel::aggregator::KERNEL;
-use crate::cpu::kernel::assembler::Kernel;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
-use crate::cpu::kernel::opcodes::get_opcode;
 use crate::generation::state::GenerationState;
 use crate::generation::trie_extractor::{get_receipt_trie, get_state_trie, get_txn_trie};
 use crate::memory::segments::Segment;
 use crate::proof::{BlockHashes, BlockMetadata, ExtraBlockData, PublicValues, TrieRoots};
-use crate::prover::check_abort_signal;
 use crate::util::{h2u, u256_to_u8, u256_to_usize};
-use crate::witness::errors::{ProgramError, ProverInputError};
 use crate::witness::memory::{MemoryAddress, MemoryChannel};
 use crate::witness::transition::transition;
 
@@ -41,7 +34,6 @@ pub(crate) mod rlp;
 pub(crate) mod state;
 mod trie_extractor;
 
-use self::mpt::{load_all_mpts, TrieRootPtrs};
 use crate::witness::util::{mem_write_log, stack_peek};
 
 /// Inputs needed for trace generation.
@@ -282,7 +274,6 @@ pub fn generate_traces<F: RichField + Extendable<D>, const D: usize>(
     let gas_used_after = read_metadata(GlobalMetadata::BlockGasUsedAfter);
     let txn_number_after = read_metadata(GlobalMetadata::TxnNumberAfter);
 
-    let trie_root_ptrs = state.trie_root_ptrs;
     let extra_block_data = ExtraBlockData {
         checkpoint_state_trie_root: inputs.checkpoint_state_trie_root,
         txn_number_before: inputs.txn_number_before,

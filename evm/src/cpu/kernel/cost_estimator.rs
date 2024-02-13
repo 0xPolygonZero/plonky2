@@ -1,4 +1,3 @@
-use super::opcodes::get_opcode;
 use crate::cpu::kernel::assembler::BYTES_PER_OFFSET;
 use crate::cpu::kernel::ast::Item;
 use crate::cpu::kernel::ast::Item::*;

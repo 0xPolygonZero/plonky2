@@ -1,5 +1,6 @@
 //! Utility module for helper methods and plonky2 serialization logic.
 
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 
 use plonky2_maybe_rayon::*;
@@ -41,6 +42,10 @@ pub(crate) const fn reverse_bits(n: usize, num_bits: usize) -> usize {
 
 #[cfg(test)]
 mod tests {
+
+    #[cfg(not(feature = "std"))]
+    use alloc::vec;
+
     use super::*;
 
     #[test]

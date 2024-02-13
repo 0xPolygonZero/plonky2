@@ -1,4 +1,4 @@
-use std::ops::Deref;
+use core::ops::Deref;
 
 use eth_trie_utils::partial_trie::HashedPartialTrie;
 

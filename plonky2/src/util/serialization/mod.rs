@@ -4,14 +4,14 @@ pub mod generator_serialization;
 #[macro_use]
 pub mod gate_serialization;
 
-use alloc::collections::BTreeMap;
-use alloc::sync::Arc;
-use alloc::vec;
-use alloc::vec::Vec;
+#[cfg(not(feature = "std"))]
+use alloc::{collections::BTreeMap, sync::Arc, vec, vec::Vec};
 use core::convert::Infallible;
 use core::fmt::{Debug, Display, Formatter};
 use core::mem::size_of;
 use core::ops::Range;
+#[cfg(feature = "std")]
+use std::{collections::BTreeMap, sync::Arc};
 
 pub use gate_serialization::default::DefaultGateSerializer;
 pub use gate_serialization::GateSerializer;

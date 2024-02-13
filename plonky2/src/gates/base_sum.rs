@@ -1,6 +1,5 @@
-use alloc::string::{String, ToString};
-use alloc::vec::Vec;
-use alloc::{format, vec};
+#[cfg(not(feature = "std"))]
+use alloc::{format, string::String, vec, vec::Vec};
 use core::ops::Range;
 
 use crate::field::extension::Extendable;
@@ -179,7 +178,7 @@ impl<F: RichField + Extendable<D>, const B: usize, const D: usize> SimpleGenerat
     for BaseSplitGenerator<B>
 {
     fn id(&self) -> String {
-        "BaseSplitGenerator".to_string()
+        format!("BaseSplitGenerator + Base: {B}")
     }
 
     fn dependencies(&self) -> Vec<Target> {

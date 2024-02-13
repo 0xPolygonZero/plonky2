@@ -4,7 +4,7 @@ use plonky2::field::goldilocks_field::GoldilocksField as F;
 use rand::{thread_rng, Rng};
 
 use crate::cpu::kernel::aggregator::KERNEL;
-use crate::cpu::kernel::interpreter::{run, run_interpreter, Interpreter};
+use crate::cpu::kernel::interpreter::{run_interpreter, Interpreter};
 
 #[test]
 fn test_exp() -> Result<()> {

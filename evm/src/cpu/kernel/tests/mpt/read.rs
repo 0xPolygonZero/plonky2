@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use ethereum_types::BigEndianHash;
 use plonky2::field::goldilocks_field::GoldilocksField as F;
 

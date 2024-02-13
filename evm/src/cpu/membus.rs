@@ -11,7 +11,7 @@ pub(crate) const NUM_GP_CHANNELS: usize = 3;
 
 /// Indices for code and general purpose memory channels.
 pub mod channel_indices {
-    use std::ops::Range;
+    use core::ops::Range;
 
     pub(crate) const CODE: usize = 0;
     pub(crate) const GP: Range<usize> = CODE + 1..(CODE + 1) + super::NUM_GP_CHANNELS;

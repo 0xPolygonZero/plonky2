@@ -111,7 +111,6 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
         let auxiliary_polys_info =
             FriPolynomialInfo::from_range(AUXILIARY_ORACLE_INDEX, 0..num_auxiliary_polys);
 
-        let mut start_index = num_lookup_columns;
         let ctl_zs_info = FriPolynomialInfo::from_range(
             AUXILIARY_ORACLE_INDEX,
             num_lookup_columns + num_ctl_helpers..num_auxiliary_polys,

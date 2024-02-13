@@ -1,5 +1,5 @@
+use core::ops::Deref;
 use std::collections::HashMap;
-use std::ops::Deref;
 
 use bytes::Bytes;
 use eth_trie_utils::nibbles::Nibbles;
@@ -9,13 +9,10 @@ use keccak_hash::keccak;
 use rlp::{Decodable, DecoderError, Encodable, PayloadInfo, Rlp, RlpStream};
 use rlp_derive::{RlpDecodable, RlpEncodable};
 
-use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
 use crate::cpu::kernel::constants::trie_type::PartialTrieType;
 use crate::generation::TrieInputs;
-use crate::memory::segments::Segment;
 use crate::util::h2u;
 use crate::witness::errors::{ProgramError, ProverInputError};
-use crate::witness::memory::MemoryAddress;
 use crate::Node;
 
 #[derive(RlpEncodable, RlpDecodable, Debug)]

@@ -1,18 +1,14 @@
-use std::cmp::min;
+use core::mem::transmute;
 use std::collections::{BTreeSet, HashMap};
-use std::mem::transmute;
 use std::str::FromStr;
 
 use anyhow::{bail, Error};
 use ethereum_types::{BigEndianHash, H256, U256, U512};
-use itertools::{enumerate, Itertools};
+use itertools::Itertools;
 use num_bigint::BigUint;
-use plonky2::field::extension::Extendable;
 use plonky2::field::types::Field;
-use plonky2::hash::hash_types::RichField;
 use serde::{Deserialize, Serialize};
 
-use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::constants::context_metadata::ContextMetadata;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
 use crate::cpu::kernel::interpreter::simulate_cpu_and_get_user_jumps;
@@ -253,7 +249,6 @@ impl<F: Field> GenerationState<F> {
     /// Returns the next used jump address.
     fn run_next_jumpdest_table_address(&mut self) -> Result<U256, ProgramError> {
         let context = u256_to_usize(stack_peek(self, 0)? >> CONTEXT_SCALING_FACTOR)?;
-        let code_len = u256_to_usize(self.get_current_code_len()?.into());
 
         if self.jumpdest_table.is_none() {
             self.generate_jumpdest_table()?;
@@ -316,10 +311,6 @@ impl<F: Field> GenerationState<F> {
     fn generate_jumpdest_table(&mut self) -> Result<(), ProgramError> {
         let checkpoint = self.checkpoint();
 
-        let code = self.get_current_code()?;
-        // We need to set the simulated jumpdest bits to one as otherwise
-        // the simulation will fail.
-
         // Simulate the user's code and (unnecessarily) part of the kernel code, skipping the validate table call
         self.jumpdest_table = simulate_cpu_and_get_user_jumps("terminate_common", self);
 
@@ -360,17 +351,6 @@ impl<F: Field> GenerationState<F> {
             })
             .collect::<Result<Vec<u8>, _>>()?;
         Ok(code)
-    }
-
-    fn set_code_len(&mut self, len: usize) {
-        self.memory.set(
-            MemoryAddress::new(
-                self.registers.context,
-                Segment::ContextMetadata,
-                ContextMetadata::CodeSize.unscale(),
-            ),
-            len.into(),
-        )
     }
 
     fn get_code_len(&self, context: usize) -> Result<usize, ProgramError> {

@@ -1,6 +1,7 @@
 //! Information about the structure of a FRI instance, in terms of the oracles and polynomials
 //! involved, and the points they are opened at.
 
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use core::ops::Range;
 

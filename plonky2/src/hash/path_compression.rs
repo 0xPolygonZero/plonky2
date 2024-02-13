@@ -1,5 +1,5 @@
-use alloc::vec;
-use alloc::vec::Vec;
+#[cfg(not(feature = "std"))]
+use alloc::{vec, vec::Vec};
 
 use hashbrown::HashMap;
 use num::Integer;
@@ -148,12 +148,15 @@ mod tests {
 
         assert_eq!(proofs, decompressed_proofs);
 
-        let compressed_proof_bytes = serde_cbor::to_vec(&compressed_proofs).unwrap();
-        println!(
-            "Compressed proof length: {} bytes",
-            compressed_proof_bytes.len()
-        );
-        let proof_bytes = serde_cbor::to_vec(&proofs).unwrap();
-        println!("Proof length: {} bytes", proof_bytes.len());
+        #[cfg(feature = "std")]
+        {
+            let compressed_proof_bytes = serde_cbor::to_vec(&compressed_proofs).unwrap();
+            println!(
+                "Compressed proof length: {} bytes",
+                compressed_proof_bytes.len()
+            );
+            let proof_bytes = serde_cbor::to_vec(&proofs).unwrap();
+            println!("Proof length: {} bytes", proof_bytes.len());
+        }
     }
 }
