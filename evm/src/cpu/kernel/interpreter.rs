@@ -485,7 +485,7 @@ impl<'a, F: Field> Interpreter<'a, F> {
                 }
             }?;
         }
-        #[cfg(test)]
+        #[cfg(debug_assertions)]
         {
             println!("Opcode count:");
             for i in 0..0x100 {
@@ -761,7 +761,7 @@ impl<'a, F: Field> Interpreter<'a, F> {
         let op = decode(self.generation_state.registers, opcode)?;
         self.generation_state.registers.gas_used += gas_to_charge(op);
 
-        #[cfg(test)]
+        #[cfg(debug_assertions)]
         if !self.is_kernel() {
             println!(
                 "User instruction {:?}, stack = {:?}, ctx = {}",
@@ -895,7 +895,7 @@ impl<'a, F: Field> Interpreter<'a, F> {
             }
         }?;
 
-        #[cfg(test)]
+        #[cfg(debug_assertions)]
         if self
             .debug_offsets
             .contains(&self.generation_state.registers.program_counter)
@@ -1106,7 +1106,7 @@ impl<'a, F: Field> Interpreter<'a, F> {
                     .byte(0)
             })
             .collect::<Vec<_>>();
-        #[cfg(test)]
+        #[cfg(debug_assertions)]
         println!("Hashing {:?}", &bytes);
         let hash = keccak(bytes);
         self.push(U256::from_big_endian(hash.as_bytes()))
@@ -1210,9 +1210,7 @@ impl<'a, F: Field> Interpreter<'a, F> {
         let offset = self.pop()?;
 
         // Check that the destination is valid.
-        let offset: usize = offset
-            .try_into()
-            .map_err(|_| ProgramError::InvalidJumpDestination)?;
+        let offset: usize = u256_to_usize(offset)?;
 
         let jumpdest_bit = self.get_jumpdest_bit(offset);
 
@@ -1275,7 +1273,6 @@ impl<'a, F: Field> Interpreter<'a, F> {
 
         if !self.is_kernel() {
             self.add_jumpdest_offset(offset);
-            log::debug!("Added {offset} to jdt")
         }
 
         Ok(())

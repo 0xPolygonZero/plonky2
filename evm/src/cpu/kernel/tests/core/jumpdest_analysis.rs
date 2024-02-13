@@ -39,7 +39,6 @@ fn test_jumpdest_analysis() -> Result<()> {
             .map(get_push_opcode)
             .chain(std::iter::once(jumpdest)),
     );
-    let code_len = code.len();
 
     let mut jumpdest_bits = vec![false, true, false, false, false, true, false, true];
     // Add 32 falses and 1 true
@@ -50,6 +49,8 @@ fn test_jumpdest_analysis() -> Result<()> {
     );
 
     let mut interpreter: Interpreter<F> = Interpreter::new_with_kernel(jumpdest_analysis, vec![]);
+    let code_len = code.len();
+
     interpreter.set_code(CONTEXT, code);
     interpreter.set_jumpdest_analysis_inputs(HashMap::from([(
         3,
