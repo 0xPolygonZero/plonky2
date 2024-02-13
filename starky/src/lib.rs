@@ -189,7 +189,7 @@
 //! #     // The second public input is `x1`.
 //! #     const PI_INDEX_X1: usize = 1;
 //! #     // The third public input is the second element of the last row,
-//! #     //which should be equal to the `num_rows`-th Fibonacci number.
+//! #     // which should be equal to the `num_rows`-th Fibonacci number.
 //! #     const PI_INDEX_RES: usize = 2;
 //! #     /// Generate the trace using `x0, x1, 0` as initial state values.
 //! #     fn generate_trace(&self, x0: F, x1: F) -> Vec<PolynomialValues<F>> {

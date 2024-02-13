@@ -336,8 +336,8 @@ pub fn set_stark_proof_with_pis_target<F, C: GenericConfig<D, F = F>, W, const D
     set_stark_proof_target(witness, pt, proof, zero);
 }
 
-/// Set the targets in a `StarkProofTarget` totheir corresponding values in a
-/// `StarkProof`.
+/// Set the targets in a [`StarkProofTarget`] to their corresponding values in a
+/// [`StarkProof`].
 pub fn set_stark_proof_target<F, C: GenericConfig<D, F = F>, W, const D: usize>(
     witness: &mut W,
     proof_target: &StarkProofTarget<D>,

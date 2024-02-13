@@ -16,7 +16,7 @@ use crate::lookup::{
 };
 use crate::proof::*;
 
-/// Generates some challenges for a STARK proof from a challenger and given
+/// Generates challenges for a STARK proof from a challenger and given
 /// all the arguments needed to update the challenger state.
 ///
 /// Note: `trace_cap` is passed as `Option` to signify whether to observe it

@@ -30,7 +30,7 @@ use crate::lookup::GrandProductChallengeSet;
 pub struct StarkProof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> {
     /// Merkle cap of LDEs of trace values.
     pub trace_cap: MerkleCap<F, C::Hasher>,
-    /// Merkle cap of LDEs of permutation Z values.
+    /// Optional merkle cap of LDEs of permutation Z values, if any.
     pub auxiliary_polys_cap: Option<MerkleCap<F, C::Hasher>>,
     /// Merkle cap of LDEs of trace values.
     pub quotient_polys_cap: MerkleCap<F, C::Hasher>,
@@ -197,7 +197,7 @@ pub struct MultiProof<
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize, const N: usize>
     MultiProof<F, C, D, N>
 {
-    /// Returns the degree (i.e. the trace length) of each STARK proofs,
+    /// Returns the degree (i.e. the trace length) of each STARK proof,
     /// from their common [`StarkConfig`].
     pub fn recover_degree_bits(&self, config: &StarkConfig) -> [usize; N] {
         core::array::from_fn(|i| self.stark_proofs[i].proof.recover_degree_bits(config))
@@ -207,7 +207,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize, c
 /// Randomness used for a STARK proof.
 #[derive(Debug)]
 pub struct StarkProofChallenges<F: RichField + Extendable<D>, const D: usize> {
-    /// Optional randomness used in any permutation arguments.
+    /// Optional randomness used in any permutation argument.
     pub lookup_challenge_set: Option<GrandProductChallengeSet<F>>,
     /// Random values used to combine STARK constraints.
     pub stark_alphas: Vec<F>,
@@ -220,7 +220,7 @@ pub struct StarkProofChallenges<F: RichField + Extendable<D>, const D: usize> {
 /// Circuit version of [`StarkProofChallenges`].
 #[derive(Debug)]
 pub struct StarkProofChallengesTarget<const D: usize> {
-    /// Optional `Target`'s randomness used in any permutation arguments.
+    /// Optional `Target`'s randomness used in any permutation argument.
     pub lookup_challenge_set: Option<GrandProductChallengeSet<Target>>,
     /// `Target`s for the random values used to combine STARK constraints.
     pub stark_alphas: Vec<Target>,
