@@ -1,6 +1,6 @@
-use std::borrow::{Borrow, BorrowMut};
-use std::mem::{size_of, transmute};
-use std::ops::Range;
+use core::borrow::{Borrow, BorrowMut};
+use core::mem::{size_of, transmute};
+use core::ops::Range;
 
 use crate::util::{indices_arr, transmute_no_compile_time_size_checks};
 

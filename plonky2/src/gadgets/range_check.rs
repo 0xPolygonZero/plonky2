@@ -1,6 +1,9 @@
-use alloc::string::{String, ToString};
-use alloc::vec;
-use alloc::vec::Vec;
+#[cfg(not(feature = "std"))]
+use alloc::{
+    string::{String, ToString},
+    vec,
+    vec::Vec,
+};
 
 use crate::field::extension::Extendable;
 use crate::hash::hash_types::RichField;

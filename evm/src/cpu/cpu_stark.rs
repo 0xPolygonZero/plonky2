@@ -1,6 +1,6 @@
-use std::borrow::Borrow;
-use std::iter::repeat;
-use std::marker::PhantomData;
+use core::borrow::Borrow;
+use core::iter::repeat;
+use core::marker::PhantomData;
 
 use itertools::Itertools;
 use plonky2::field::extension::{Extendable, FieldExtension};
@@ -20,8 +20,9 @@ use crate::cpu::{
     byte_unpacking, clock, contextops, control_flow, decode, dup_swap, gas, jumps, membus, memio,
     modfp254, pc, push0, shift, simple_logic, stack, syscalls_exceptions,
 };
-use crate::cross_table_lookup::{Column, Filter, TableWithColumns};
+use crate::cross_table_lookup::TableWithColumns;
 use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
+use crate::lookup::{Column, Filter};
 use crate::memory::segments::Segment;
 use crate::memory::{NUM_CHANNELS, VALUE_LIMBS};
 use crate::stark::Stark;
@@ -108,7 +109,7 @@ pub(crate) fn ctl_arithmetic_base_rows<F: Field>() -> TableWithColumns<F> {
         F::ONE,
     );
     TableWithColumns::new(
-        Table::Cpu,
+        *Table::Cpu,
         columns,
         Some(Filter::new(
             vec![(Column::single(COL_MAP.op.push_prover_input), col_bit)],

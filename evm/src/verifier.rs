@@ -1,4 +1,4 @@
-use std::any::type_name;
+use core::any::type_name;
 
 use anyhow::{ensure, Result};
 use ethereum_types::{BigEndianHash, U256};
@@ -17,10 +17,10 @@ use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
 use crate::cross_table_lookup::{
     num_ctl_helper_columns_by_table, verify_cross_table_lookups, CtlCheckVars,
-    GrandProductChallenge, GrandProductChallengeSet,
+    GrandProductChallengeSet,
 };
 use crate::evaluation_frame::StarkEvaluationFrame;
-use crate::lookup::LookupCheckVars;
+use crate::lookup::{GrandProductChallenge, LookupCheckVars};
 use crate::memory::segments::Segment;
 use crate::memory::VALUE_LIMBS;
 use crate::proof::{
@@ -138,7 +138,7 @@ where
         .map(|i| get_memory_extra_looking_sum(&public_values, ctl_challenges.challenges[i]))
         .collect_vec();
 
-    verify_cross_table_lookups::<F, D>(
+    verify_cross_table_lookups::<F, D, NUM_TABLES>(
         cross_table_lookups,
         all_proof
             .stark_proofs
@@ -318,7 +318,7 @@ pub(crate) fn verify_stark_proof_with_challenges<
         next_values,
         auxiliary_polys,
         auxiliary_polys_next,
-        ctl_zs_first,
+        ctl_zs_first: _,
         quotient_polys,
     } = &proof.openings;
     let vars = S::EvaluationFrame::from_values(local_values, next_values);

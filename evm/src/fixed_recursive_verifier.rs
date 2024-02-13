@@ -1,7 +1,6 @@
 use core::mem::{self, MaybeUninit};
+use core::ops::Range;
 use std::collections::BTreeMap;
-use std::ops::Range;
-use std::path::Path;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
@@ -25,7 +24,6 @@ use plonky2::plonk::config::{AlgebraicHasher, GenericConfig};
 use plonky2::plonk::proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget};
 use plonky2::recursion::cyclic_recursion::check_cyclic_proof_verifier_data;
 use plonky2::recursion::dummy_circuit::cyclic_base_proof;
-use plonky2::util::serialization::gate_serialization::default;
 use plonky2::util::serialization::{
     Buffer, GateSerializer, IoResult, Read, WitnessGeneratorSerializer, Write,
 };
@@ -419,49 +417,49 @@ where
         let arithmetic = RecursiveCircuitsForTable::new(
             Table::Arithmetic,
             &all_stark.arithmetic_stark,
-            degree_bits_ranges[Table::Arithmetic as usize].clone(),
+            degree_bits_ranges[*Table::Arithmetic].clone(),
             &all_stark.cross_table_lookups,
             stark_config,
         );
         let byte_packing = RecursiveCircuitsForTable::new(
             Table::BytePacking,
             &all_stark.byte_packing_stark,
-            degree_bits_ranges[Table::BytePacking as usize].clone(),
+            degree_bits_ranges[*Table::BytePacking].clone(),
             &all_stark.cross_table_lookups,
             stark_config,
         );
         let cpu = RecursiveCircuitsForTable::new(
             Table::Cpu,
             &all_stark.cpu_stark,
-            degree_bits_ranges[Table::Cpu as usize].clone(),
+            degree_bits_ranges[*Table::Cpu].clone(),
             &all_stark.cross_table_lookups,
             stark_config,
         );
         let keccak = RecursiveCircuitsForTable::new(
             Table::Keccak,
             &all_stark.keccak_stark,
-            degree_bits_ranges[Table::Keccak as usize].clone(),
+            degree_bits_ranges[*Table::Keccak].clone(),
             &all_stark.cross_table_lookups,
             stark_config,
         );
         let keccak_sponge = RecursiveCircuitsForTable::new(
             Table::KeccakSponge,
             &all_stark.keccak_sponge_stark,
-            degree_bits_ranges[Table::KeccakSponge as usize].clone(),
+            degree_bits_ranges[*Table::KeccakSponge].clone(),
             &all_stark.cross_table_lookups,
             stark_config,
         );
         let logic = RecursiveCircuitsForTable::new(
             Table::Logic,
             &all_stark.logic_stark,
-            degree_bits_ranges[Table::Logic as usize].clone(),
+            degree_bits_ranges[*Table::Logic].clone(),
             &all_stark.cross_table_lookups,
             stark_config,
         );
         let memory = RecursiveCircuitsForTable::new(
             Table::Memory,
             &all_stark.memory_stark,
-            degree_bits_ranges[Table::Memory as usize].clone(),
+            degree_bits_ranges[*Table::Memory].clone(),
             &all_stark.cross_table_lookups,
             stark_config,
         );
@@ -574,7 +572,7 @@ where
             vec![vec![builder.zero(); stark_config.num_challenges]; NUM_TABLES];
 
         // Memory
-        extra_looking_sums[Table::Memory as usize] = (0..stark_config.num_challenges)
+        extra_looking_sums[*Table::Memory] = (0..stark_config.num_challenges)
             .map(|c| {
                 get_memory_extra_looking_sum_circuit(
                     &mut builder,
@@ -585,7 +583,7 @@ where
             .collect_vec();
 
         // Verify the CTL checks.
-        verify_cross_table_lookups_circuit::<F, D>(
+        verify_cross_table_lookups_circuit::<F, D, NUM_TABLES>(
             &mut builder,
             all_cross_table_lookups(),
             pis.map(|p| p.ctl_zs_first),
@@ -1100,11 +1098,8 @@ where
     /// ```
     pub fn prove_root_after_initial_stark(
         &self,
-        all_stark: &AllStark<F, D>,
-        config: &StarkConfig,
         all_proof: AllProof<F, C, D>,
         table_circuits: &[(RecursiveCircuitsForTableSize<F, C, D>, u8); NUM_TABLES],
-        timing: &mut TimingTree,
         abort_signal: Option<Arc<AtomicBool>>,
     ) -> anyhow::Result<(ProofWithPublicInputs<F, C, D>, PublicValues)> {
         let mut root_inputs = PartialWitness::new();
@@ -1113,7 +1108,6 @@ where
             let (table_circuit, index_verifier_data) = &table_circuits[table];
 
             let stark_proof = &all_proof.stark_proofs[table];
-            let original_degree_bits = stark_proof.proof.recover_degree_bits(config);
 
             let shrunk_proof = table_circuit.shrink(stark_proof, &all_proof.ctl_challenges)?;
             root_inputs.set_target(

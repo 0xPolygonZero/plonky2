@@ -3,19 +3,18 @@ use plonky2::field::packed::PackedField;
 use plonky2::hash::hash_types::RichField;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 
-use crate::config::StarkConfig;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
-use crate::permutation::{
-    eval_permutation_checks, eval_permutation_checks_circuit, PermutationCheckDataTarget,
-    PermutationCheckVars,
+use crate::lookup::{
+    eval_ext_lookups_circuit, eval_packed_lookups_generic, Lookup, LookupCheckVars,
+    LookupCheckVarsTarget,
 };
 use crate::stark::Stark;
 
 pub(crate) fn eval_vanishing_poly<F, FE, P, S, const D: usize, const D2: usize>(
     stark: &S,
-    config: &StarkConfig,
     vars: &S::EvaluationFrame<FE, P, D2>,
-    permutation_data: Option<PermutationCheckVars<F, FE, P, D2>>,
+    lookups: &[Lookup<F>],
+    lookup_vars: Option<LookupCheckVars<F, FE, P, D2>>,
     consumer: &mut ConstraintConsumer<P>,
 ) where
     F: RichField + Extendable<D>,
@@ -24,12 +23,13 @@ pub(crate) fn eval_vanishing_poly<F, FE, P, S, const D: usize, const D2: usize>(
     S: Stark<F, D>,
 {
     stark.eval_packed_generic(vars, consumer);
-    if let Some(permutation_data) = permutation_data {
-        eval_permutation_checks::<F, FE, P, S, D, D2>(
+    if let Some(lookup_vars) = lookup_vars {
+        // Evaluate the STARK constraints related to the permutation arguments.
+        eval_packed_lookups_generic::<F, FE, P, S, D, D2>(
             stark,
-            config,
+            lookups,
             vars,
-            permutation_data,
+            lookup_vars,
             consumer,
         );
     }
@@ -38,23 +38,16 @@ pub(crate) fn eval_vanishing_poly<F, FE, P, S, const D: usize, const D2: usize>(
 pub(crate) fn eval_vanishing_poly_circuit<F, S, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     stark: &S,
-    config: &StarkConfig,
     vars: &S::EvaluationFrameTarget,
-    permutation_data: Option<PermutationCheckDataTarget<D>>,
+    lookup_vars: Option<LookupCheckVarsTarget<D>>,
     consumer: &mut RecursiveConstraintConsumer<F, D>,
 ) where
     F: RichField + Extendable<D>,
     S: Stark<F, D>,
 {
     stark.eval_ext_circuit(builder, vars, consumer);
-    if let Some(permutation_data) = permutation_data {
-        eval_permutation_checks_circuit::<F, S, D>(
-            builder,
-            stark,
-            config,
-            vars,
-            permutation_data,
-            consumer,
-        );
+    if let Some(lookup_vars) = lookup_vars {
+        // Evaluate all of the STARK's constraints related to the permutation argument.
+        eval_ext_lookups_circuit::<F, S, D>(builder, stark, vars, lookup_vars, consumer);
     }
 }

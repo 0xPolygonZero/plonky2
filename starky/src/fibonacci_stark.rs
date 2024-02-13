@@ -11,7 +11,7 @@ use plonky2::plonk::circuit_builder::CircuitBuilder;
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
-use crate::permutation::PermutationPair;
+use crate::lookup::{Column, Lookup};
 use crate::stark::Stark;
 use crate::util::trace_rows_to_poly_values;
 
@@ -41,15 +41,16 @@ impl<F: RichField + Extendable<D>, const D: usize> FibonacciStark<F, D> {
         }
     }
 
-    /// Generate the trace using `x0, x1, 0, 1` as initial state values.
+    /// Generate the trace using `x0, x1, 0, 1, 1` as initial state values.
     fn generate_trace(&self, x0: F, x1: F) -> Vec<PolynomialValues<F>> {
         let mut trace_rows = (0..self.num_rows)
-            .scan([x0, x1, F::ZERO, F::ONE], |acc, _| {
+            .scan([x0, x1, F::ZERO, F::ONE, F::ONE], |acc, _| {
                 let tmp = *acc;
                 acc[0] = tmp[1];
                 acc[1] = tmp[0] + tmp[1];
                 acc[2] = tmp[2] + F::ONE;
                 acc[3] = tmp[3] + F::ONE;
+                // acc[4] (i.e. frequency column) remains unchanged, as we're permuting a strictly monotonous sequence.
                 Some(tmp)
             })
             .collect::<Vec<_>>();
@@ -58,7 +59,7 @@ impl<F: RichField + Extendable<D>, const D: usize> FibonacciStark<F, D> {
     }
 }
 
-const COLUMNS: usize = 4;
+const COLUMNS: usize = 5;
 const PUBLIC_INPUTS: usize = 3;
 
 impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for FibonacciStark<F, D> {
@@ -127,8 +128,13 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for FibonacciStar
         2
     }
 
-    fn permutation_pairs(&self) -> Vec<PermutationPair> {
-        vec![PermutationPair::singletons(2, 3)]
+    fn lookups(&self) -> Vec<Lookup<F>> {
+        vec![Lookup {
+            columns: vec![Column::single(2)],
+            table_column: Column::single(3),
+            frequencies_column: Column::single(4),
+            filter_columns: vec![None; 1],
+        }]
     }
 }
 

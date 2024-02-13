@@ -3,11 +3,16 @@
 // put it in `src/bin/`, but then we wouldn't have access to
 // `[dev-dependencies]`.
 
+#[cfg(not(feature = "std"))]
 extern crate alloc;
+
+#[cfg(not(feature = "std"))]
 use alloc::sync::Arc;
 use core::num::ParseIntError;
 use core::ops::RangeInclusive;
 use core::str::FromStr;
+#[cfg(feature = "std")]
+use std::sync::Arc;
 
 use anyhow::{anyhow, Context as _, Result};
 use itertools::Itertools;

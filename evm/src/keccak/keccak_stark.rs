@@ -1,4 +1,4 @@
-use std::marker::PhantomData;
+use core::marker::PhantomData;
 
 use itertools::Itertools;
 use plonky2::field::extension::{Extendable, FieldExtension};
@@ -13,7 +13,6 @@ use plonky2::util::timing::TimingTree;
 
 use super::columns::reg_input_limb;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
-use crate::cross_table_lookup::{Column, Filter};
 use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
 use crate::keccak::columns::{
     reg_a, reg_a_prime, reg_a_prime_prime, reg_a_prime_prime_0_0_bit, reg_a_prime_prime_prime,
@@ -24,6 +23,7 @@ use crate::keccak::logic::{
     andn, andn_gen, andn_gen_circuit, xor, xor3_gen, xor3_gen_circuit, xor_gen, xor_gen_circuit,
 };
 use crate::keccak::round_flags::{eval_round_flags, eval_round_flags_recursively};
+use crate::lookup::{Column, Filter};
 use crate::stark::Stark;
 use crate::util::trace_rows_to_poly_values;
 
@@ -622,21 +622,16 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakStark<F
 mod tests {
     use anyhow::Result;
     use env_logger::{try_init_from_env, Env, DEFAULT_FILTER_ENV};
-    use plonky2::field::polynomial::PolynomialValues;
-    use plonky2::field::types::{Field, PrimeField64};
+    use plonky2::field::types::PrimeField64;
     use plonky2::fri::oracle::PolynomialBatch;
     use plonky2::iop::challenger::Challenger;
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
-    use plonky2::timed;
-    use plonky2::util::timing::TimingTree;
     use tiny_keccak::keccakf;
 
+    use super::*;
     use crate::config::StarkConfig;
-    use crate::cross_table_lookup::{
-        Column, CtlData, CtlZData, Filter, GrandProductChallenge, GrandProductChallengeSet,
-    };
-    use crate::keccak::columns::reg_output_limb;
-    use crate::keccak::keccak_stark::{KeccakStark, NUM_INPUTS, NUM_ROUNDS};
+    use crate::cross_table_lookup::{CtlData, CtlZData, GrandProductChallengeSet};
+    use crate::lookup::GrandProductChallenge;
     use crate::prover::prove_single_table;
     use crate::stark_testing::{test_stark_circuit_constraints, test_stark_low_degree};
 

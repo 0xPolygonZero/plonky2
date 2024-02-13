@@ -1,5 +1,5 @@
-use alloc::vec::Vec;
-use alloc::{format, vec};
+#[cfg(not(feature = "std"))]
+use alloc::{format, vec, vec::Vec};
 use core::cmp::min;
 
 use plonky2_field::polynomial::PolynomialCoeffs;

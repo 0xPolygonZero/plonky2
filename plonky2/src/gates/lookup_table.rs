@@ -1,8 +1,14 @@
-use alloc::string::{String, ToString};
-use alloc::sync::Arc;
-use alloc::vec::Vec;
-use alloc::{format, vec};
+#[cfg(not(feature = "std"))]
+use alloc::{
+    format,
+    string::{String, ToString},
+    sync::Arc,
+    vec,
+    vec::Vec,
+};
 use core::usize;
+#[cfg(feature = "std")]
+use std::sync::Arc;
 
 use itertools::Itertools;
 use keccak_hash::keccak;

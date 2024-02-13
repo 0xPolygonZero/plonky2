@@ -60,7 +60,7 @@
 //!    y * 256 ∈ {0, 256, 512, ..., 2^16 - 256}
 //! 8. Hence y ∈ {0, 1, ..., 255}
 
-use std::ops::Range;
+use core::ops::Range;
 
 use ethereum_types::U256;
 use plonky2::field::extension::Extendable;

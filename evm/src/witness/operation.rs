@@ -398,7 +398,7 @@ pub(crate) fn generate_set_context<F: Field>(
     };
 
     // If the new stack isn't empty, read stack_top from memory.
-    let new_sp = new_sp.as_usize();
+    let new_sp = u256_to_usize(new_sp)?;
     if new_sp > 0 {
         // Set up columns to disable the channel if it *is* empty.
         let new_sp_field = F::from_canonical_usize(new_sp);
@@ -928,7 +928,7 @@ pub(crate) fn generate_exception<F: Field>(
         row.general.stack_mut().stack_inv_aux = F::ONE;
     }
 
-    fill_stack_fields(state, &mut row);
+    fill_stack_fields(state, &mut row)?;
 
     row.general.exception_mut().exc_code_bits = [
         F::from_bool(exc_code & 1 != 0),

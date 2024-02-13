@@ -1,5 +1,6 @@
 #![allow(clippy::too_many_arguments)]
 #![allow(clippy::type_complexity)]
+#![allow(unused)] // TODO: Remove post code migration
 #![cfg_attr(not(feature = "std"), no_std)]
 
 extern crate alloc;
@@ -9,7 +10,7 @@ mod get_challenges;
 pub mod config;
 pub mod constraint_consumer;
 pub mod evaluation_frame;
-pub mod permutation;
+pub mod lookup;
 pub mod proof;
 pub mod prover;
 pub mod recursive_verifier;

@@ -1,17 +1,16 @@
 //! An EVM interpreter for testing and debugging purposes.
 
 use core::cmp::Ordering;
-use std::collections::{BTreeSet, HashMap, HashSet};
-use std::ops::Range;
+use core::ops::Range;
+use std::collections::{BTreeSet, HashMap};
 
-use anyhow::bail;
+use anyhow::{anyhow, bail};
 use eth_trie_utils::partial_trie::PartialTrie;
 use ethereum_types::{BigEndianHash, H160, H256, U256, U512};
 use keccak_hash::keccak;
 use plonky2::field::goldilocks_field::GoldilocksField;
 
 use super::assembler::BYTES_PER_OFFSET;
-use super::utils::u256_from_bool;
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::constants::context_metadata::ContextMetadata;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
@@ -299,7 +298,7 @@ impl<'a> Interpreter<'a> {
                         (Segment::GlobalBlockBloom.unscale()).into(),
                         i.into(),
                     )
-                    .unwrap(),
+                    .expect("This cannot panic as `virt` fits in a `u32`"),
                     metadata.block_bloom[i],
                 )
             })
@@ -316,7 +315,7 @@ impl<'a> Interpreter<'a> {
                         (Segment::BlockHashes.unscale()).into(),
                         i.into(),
                     )
-                    .unwrap(),
+                    .expect("This cannot panic as `virt` fits in a `u32`"),
                     h2u(inputs.block_hashes.prev_hashes[i]),
                 )
             })
@@ -337,7 +336,7 @@ impl<'a> Interpreter<'a> {
         }
     }
 
-    fn roll_memory_back(&mut self, len: usize) {
+    fn roll_memory_back(&mut self, len: usize) -> Result<(), ProgramError> {
         // We roll the memory back until `memops` reaches length `len`.
         debug_assert!(self.memops.len() >= len);
         while self.memops.len() > len {
@@ -347,25 +346,28 @@ impl<'a> Interpreter<'a> {
                         self.generation_state.memory.contexts[context].segments
                             [Segment::Stack.unscale()]
                         .content
-                        .pop();
+                        .pop()
+                        .ok_or(ProgramError::StackUnderflow)?;
                     }
                     InterpreterMemOpKind::Pop(value, context) => {
                         self.generation_state.memory.contexts[context].segments
                             [Segment::Stack.unscale()]
                         .content
-                        .push(value)
+                        .push(value);
                     }
                     InterpreterMemOpKind::Write(value, context, segment, offset) => {
                         self.generation_state.memory.contexts[context].segments
                             [segment >> SEGMENT_SCALING_FACTOR] // we need to unscale the segment value
-                            .content[offset] = value
+                            .content[offset] = value;
                     }
                 }
             }
         }
+
+        Ok(())
     }
 
-    fn rollback(&mut self, checkpoint: InterpreterCheckpoint) {
+    fn rollback(&mut self, checkpoint: InterpreterCheckpoint) -> anyhow::Result<()> {
         let InterpreterRegistersState {
             kernel_mode,
             context,
@@ -374,7 +376,8 @@ impl<'a> Interpreter<'a> {
         self.set_is_kernel(kernel_mode);
         self.set_context(context);
         self.generation_state.registers = registers;
-        self.roll_memory_back(checkpoint.mem_len);
+        self.roll_memory_back(checkpoint.mem_len)
+            .map_err(|_| anyhow!("Memory rollback failed unexpectedly."))
     }
 
     fn handle_error(&mut self, err: ProgramError) -> anyhow::Result<()> {
@@ -418,7 +421,7 @@ impl<'a> Interpreter<'a> {
                             .content,
                         );
                     }
-                    self.rollback(checkpoint);
+                    self.rollback(checkpoint)?;
                     self.handle_error(e)
                 }
             }?;
@@ -631,7 +634,7 @@ impl<'a> Interpreter<'a> {
     }
 
     pub(crate) fn extract_kernel_memory(self, segment: Segment, range: Range<usize>) -> Vec<U256> {
-        let mut output: Vec<U256> = vec![];
+        let mut output: Vec<U256> = Vec::with_capacity(range.end);
         for i in range {
             let term = self
                 .generation_state
@@ -673,7 +676,7 @@ impl<'a> Interpreter<'a> {
                 .push(InterpreterMemOpKind::Pop(val, self.context()));
         }
         if self.stack_len() > 1 {
-            let top = stack_peek(&self.generation_state, 1).unwrap();
+            let top = stack_peek(&self.generation_state, 1)?;
             self.generation_state.registers.stack_top = top;
         }
         self.generation_state.registers.stack_len -= 1;
@@ -987,6 +990,7 @@ impl<'a> Interpreter<'a> {
         let i = self.pop()?;
         let x = self.pop()?;
         let result = if i < 32.into() {
+            // Calling `as_usize()` here is safe.
             x.byte(31 - i.as_usize())
         } else {
             0
@@ -1014,7 +1018,7 @@ impl<'a> Interpreter<'a> {
         let addr = self.pop()?;
         let (context, segment, offset) = unpack_address!(addr);
 
-        let size = self.pop()?.as_usize();
+        let size = u256_to_usize(self.pop()?)?;
         let bytes = (offset..offset + size)
             .map(|i| {
                 self.generation_state
@@ -1212,7 +1216,7 @@ impl<'a> Interpreter<'a> {
 
     fn run_set_context(&mut self) -> anyhow::Result<(), ProgramError> {
         let x = self.pop()?;
-        let new_ctx = (x >> CONTEXT_SCALING_FACTOR).as_usize();
+        let new_ctx = u256_to_usize(x >> CONTEXT_SCALING_FACTOR)?;
         let sp_to_save = self.stack_len().into();
 
         let old_ctx = self.context();
@@ -1223,7 +1227,7 @@ impl<'a> Interpreter<'a> {
         let new_sp_addr = MemoryAddress::new(new_ctx, Segment::ContextMetadata, sp_field);
         self.generation_state.memory.set(old_sp_addr, sp_to_save);
 
-        let new_sp = self.generation_state.memory.get(new_sp_addr).as_usize();
+        let new_sp = u256_to_usize(self.generation_state.memory.get(new_sp_addr))?;
 
         if new_sp > 0 {
             let new_stack_top = self.generation_state.memory.contexts[new_ctx].segments
@@ -1250,7 +1254,7 @@ impl<'a> Interpreter<'a> {
     fn run_mload_32bytes(&mut self) -> anyhow::Result<(), ProgramError> {
         let addr = self.pop()?;
         let (context, segment, offset) = unpack_address!(addr);
-        let len = self.pop()?.as_usize();
+        let len = u256_to_usize(self.pop()?)?;
         if len > 32 {
             return Err(ProgramError::IntegerTooLarge);
         }
@@ -1392,70 +1396,6 @@ impl<'a> Interpreter<'a> {
         )
     }
 }
-
-// Computes the two's complement of the given integer.
-fn two_complement(x: U256) -> U256 {
-    let flipped_bits = x ^ MINUS_ONE;
-    flipped_bits.overflowing_add(U256::one()).0
-}
-
-fn signed_cmp(x: U256, y: U256) -> Ordering {
-    let x_is_zero = x.is_zero();
-    let y_is_zero = y.is_zero();
-
-    if x_is_zero && y_is_zero {
-        return Ordering::Equal;
-    }
-
-    let x_is_pos = x.eq(&(x & SIGN_MASK));
-    let y_is_pos = y.eq(&(y & SIGN_MASK));
-
-    if x_is_zero {
-        if y_is_pos {
-            return Ordering::Less;
-        } else {
-            return Ordering::Greater;
-        }
-    };
-
-    if y_is_zero {
-        if x_is_pos {
-            return Ordering::Greater;
-        } else {
-            return Ordering::Less;
-        }
-    };
-
-    match (x_is_pos, y_is_pos) {
-        (true, true) => x.cmp(&y),
-        (true, false) => Ordering::Greater,
-        (false, true) => Ordering::Less,
-        (false, false) => x.cmp(&y).reverse(),
-    }
-}
-
-/// -1 in two's complement representation consists in all bits set to 1.
-const MINUS_ONE: U256 = U256([
-    0xffffffffffffffff,
-    0xffffffffffffffff,
-    0xffffffffffffffff,
-    0xffffffffffffffff,
-]);
-
-/// -2^255 in two's complement representation consists in the MSB set to 1.
-const MIN_VALUE: U256 = U256([
-    0x0000000000000000,
-    0x0000000000000000,
-    0x0000000000000000,
-    0x8000000000000000,
-]);
-
-const SIGN_MASK: U256 = U256([
-    0xffffffffffffffff,
-    0xffffffffffffffff,
-    0xffffffffffffffff,
-    0x7fffffffffffffff,
-]);
 
 fn get_mnemonic(opcode: u8) -> &'static str {
     match opcode {
@@ -1651,7 +1591,6 @@ fn get_mnemonic(opcode: u8) -> &'static str {
     }
 }
 
-#[macro_use]
 macro_rules! unpack_address {
     ($addr:ident) => {{
         let offset = $addr.low_u32() as usize;
@@ -1664,15 +1603,8 @@ pub(crate) use unpack_address;
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
-
-    use ethereum_types::U256;
-
-    use crate::cpu::kernel::constants::context_metadata::ContextMetadata;
-    use crate::cpu::kernel::interpreter::{run, Interpreter};
+    use super::*;
     use crate::memory::segments::Segment;
-    use crate::witness::memory::MemoryAddress;
-    use crate::witness::operation::CONTEXT_SCALING_FACTOR;
 
     #[test]
     fn test_run() -> anyhow::Result<()> {
@@ -1736,8 +1668,8 @@ mod tests {
         interpreter.run()?;
 
         // sys_stop returns `success` and `cum_gas_used`, that we need to pop.
-        interpreter.pop();
-        interpreter.pop();
+        interpreter.pop().expect("Stack should not be empty");
+        interpreter.pop().expect("Stack should not be empty");
 
         assert_eq!(interpreter.stack(), &[0xff.into(), 0xff00.into()]);
         assert_eq!(
