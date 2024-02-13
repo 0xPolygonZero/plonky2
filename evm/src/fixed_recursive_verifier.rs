@@ -29,18 +29,18 @@ use plonky2::util::serialization::{
 };
 use plonky2::util::timing::TimingTree;
 use plonky2_util::log2_ceil;
+use starky::config::StarkConfig;
+use starky::cross_table_lookup::{verify_cross_table_lookups_circuit, CrossTableLookup};
+use starky::lookup::{get_grand_product_challenge_set_target, GrandProductChallengeSet};
+use starky::proof::StarkProofWithMetadata;
+use starky::stark::Stark;
 
 use crate::all_stark::{all_cross_table_lookups, AllStark, Table, NUM_TABLES};
-use crate::config::StarkConfig;
-use crate::cross_table_lookup::{
-    get_grand_product_challenge_set_target, verify_cross_table_lookups_circuit, CrossTableLookup,
-    GrandProductChallengeSet,
-};
 use crate::generation::GenerationInputs;
 use crate::get_challenges::observe_public_values_target;
 use crate::proof::{
     AllProof, BlockHashesTarget, BlockMetadataTarget, ExtraBlockData, ExtraBlockDataTarget,
-    PublicValues, PublicValuesTarget, StarkProofWithMetadata, TrieRoots, TrieRootsTarget,
+    PublicValues, PublicValuesTarget, TrieRoots, TrieRootsTarget,
 };
 use crate::prover::{check_abort_signal, prove};
 use crate::recursive_verifier::{
@@ -48,7 +48,6 @@ use crate::recursive_verifier::{
     recursive_stark_circuit, set_public_value_targets, PlonkWrapperCircuit, PublicInputs,
     StarkWrapperCircuit,
 };
-use crate::stark::Stark;
 use crate::util::h256_limbs;
 
 /// The recursion threshold. We end a chain of recursive proofs once we reach this size.
@@ -587,7 +586,7 @@ where
             &mut builder,
             all_cross_table_lookups(),
             pis.map(|p| p.ctl_zs_first),
-            extra_looking_sums,
+            Some(&extra_looking_sums),
             stark_config,
         );
 
@@ -1002,7 +1001,7 @@ where
         let mut root_inputs = PartialWitness::new();
 
         for table in 0..NUM_TABLES {
-            let stark_proof = &all_proof.stark_proofs[table];
+            let stark_proof = &all_proof.multi_proof.stark_proofs[table];
             let original_degree_bits = stark_proof.proof.recover_degree_bits(config);
             let table_circuits = &self.by_table[table];
             let shrunk_proof = table_circuits
@@ -1015,7 +1014,7 @@ where
                         original_degree_bits,
                     ))
                 })?
-                .shrink(stark_proof, &all_proof.ctl_challenges)?;
+                .shrink(stark_proof, &all_proof.multi_proof.ctl_challenges)?;
             let index_verifier_data = table_circuits
                 .by_stark_size
                 .keys()
@@ -1107,9 +1106,10 @@ where
         for table in 0..NUM_TABLES {
             let (table_circuit, index_verifier_data) = &table_circuits[table];
 
-            let stark_proof = &all_proof.stark_proofs[table];
+            let stark_proof = &all_proof.multi_proof.stark_proofs[table];
 
-            let shrunk_proof = table_circuit.shrink(stark_proof, &all_proof.ctl_challenges)?;
+            let shrunk_proof =
+                table_circuit.shrink(stark_proof, &all_proof.multi_proof.ctl_challenges)?;
             root_inputs.set_target(
                 self.root.index_verifier_data[table],
                 F::from_canonical_u8(*index_verifier_data),

@@ -22,10 +22,10 @@ use plonky2::field::types::{Field, PrimeField64};
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
+use starky::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 
 use crate::arithmetic::columns::*;
 use crate::arithmetic::utils::u256_to_array;
-use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 
 /// Generate row for ADD, SUB, GT and LT operations.
 pub(crate) fn generate<F: PrimeField64>(
@@ -263,10 +263,10 @@ mod tests {
     use plonky2::field::types::{Field, Sample};
     use rand::{Rng, SeedableRng};
     use rand_chacha::ChaCha8Rng;
+    use starky::constraint_consumer::ConstraintConsumer;
 
     use super::*;
     use crate::arithmetic::columns::NUM_ARITH_COLUMNS;
-    use crate::constraint_consumer::ConstraintConsumer;
 
     // TODO: Should be able to refactor this test to apply to all operations.
     #[test]
@@ -284,14 +284,14 @@ mod tests {
         lv[IS_LT] = F::ZERO;
         lv[IS_GT] = F::ZERO;
 
-        let mut constrant_consumer = ConstraintConsumer::new(
+        let mut constraint_consumer = ConstraintConsumer::new(
             vec![GoldilocksField(2), GoldilocksField(3), GoldilocksField(5)],
             F::ONE,
             F::ONE,
             F::ONE,
         );
-        eval_packed_generic(&lv, &mut constrant_consumer);
-        for &acc in &constrant_consumer.constraint_accs {
+        eval_packed_generic(&lv, &mut constraint_consumer);
+        for &acc in &constraint_consumer.accumulators() {
             assert_eq!(acc, F::ZERO);
         }
     }
@@ -324,14 +324,14 @@ mod tests {
 
                 generate(&mut lv, op_filter, left_in, right_in);
 
-                let mut constrant_consumer = ConstraintConsumer::new(
+                let mut constraint_consumer = ConstraintConsumer::new(
                     vec![GoldilocksField(2), GoldilocksField(3), GoldilocksField(5)],
                     F::ONE,
                     F::ONE,
                     F::ONE,
                 );
-                eval_packed_generic(&lv, &mut constrant_consumer);
-                for &acc in &constrant_consumer.constraint_accs {
+                eval_packed_generic(&lv, &mut constraint_consumer);
+                for &acc in &constraint_consumer.accumulators() {
                     assert_eq!(acc, F::ZERO);
                 }
 

@@ -5,9 +5,9 @@ use plonky2::field::extension::Extendable;
 use plonky2::field::packed::PackedField;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
+use starky::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 
 use super::control_flow::get_halt_pc;
-use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::{CpuColumnsView, COL_MAP};
 use crate::cpu::membus::NUM_GP_CHANNELS;
 

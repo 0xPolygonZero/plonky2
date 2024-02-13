@@ -62,10 +62,10 @@ use plonky2::field::types::{Field, PrimeField64};
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
+use starky::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 
 use crate::arithmetic::columns::*;
 use crate::arithmetic::utils::*;
-use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 
 /// Given the two limbs of `left_in` and `right_in`, computes `left_in * right_in`.
 pub(crate) fn generate_mul<F: PrimeField64>(lv: &mut [F], left_in: [i64; 16], right_in: [i64; 16]) {
@@ -253,10 +253,10 @@ mod tests {
     use plonky2::field::types::{Field, Sample};
     use rand::{Rng, SeedableRng};
     use rand_chacha::ChaCha8Rng;
+    use starky::constraint_consumer::ConstraintConsumer;
 
     use super::*;
     use crate::arithmetic::columns::NUM_ARITH_COLUMNS;
-    use crate::constraint_consumer::ConstraintConsumer;
 
     const N_RND_TESTS: usize = 1000;
 
@@ -279,7 +279,7 @@ mod tests {
             GoldilocksField::ONE,
         );
         eval_packed_generic(&lv, &mut constraint_consumer);
-        for &acc in &constraint_consumer.constraint_accs {
+        for &acc in &constraint_consumer.accumulators() {
             assert_eq!(acc, GoldilocksField::ZERO);
         }
     }
@@ -312,7 +312,7 @@ mod tests {
                 GoldilocksField::ONE,
             );
             eval_packed_generic(&lv, &mut constraint_consumer);
-            for &acc in &constraint_consumer.constraint_accs {
+            for &acc in &constraint_consumer.accumulators() {
                 assert_eq!(acc, GoldilocksField::ZERO);
             }
         }

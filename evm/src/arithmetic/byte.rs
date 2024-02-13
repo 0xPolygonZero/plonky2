@@ -69,11 +69,11 @@ use plonky2::field::types::{Field, PrimeField64};
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
+use starky::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use static_assertions::const_assert;
 
 use crate::arithmetic::columns::*;
 use crate::arithmetic::utils::u256_to_array;
-use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 
 // Give meaningful names to the columns of AUX_INPUT_REGISTER_0 that
 // we're using
@@ -480,14 +480,14 @@ mod tests {
                 let out_byte = val.byte(31 - i) as u64;
                 verify_output(&lv, out_byte);
 
-                let mut constrant_consumer = ConstraintConsumer::new(
+                let mut constraint_consumer = ConstraintConsumer::new(
                     vec![GoldilocksField(2), GoldilocksField(3), GoldilocksField(5)],
                     F::ONE,
                     F::ONE,
                     F::ONE,
                 );
-                eval_packed(&lv, &mut constrant_consumer);
-                for &acc in &constrant_consumer.constraint_accs {
+                eval_packed(&lv, &mut constraint_consumer);
+                for &acc in &constraint_consumer.accumulators() {
                     assert_eq!(acc, F::ZERO);
                 }
             }

@@ -165,35 +165,32 @@
 #![allow(unused)]
 #![feature(let_chains)]
 
-pub mod all_stark;
+// Individual STARK processing units
 pub mod arithmetic;
 pub mod byte_packing;
-pub mod config;
-pub mod constraint_consumer;
 pub mod cpu;
-pub mod cross_table_lookup;
-pub mod curve_pairings;
-pub mod evaluation_frame;
-pub mod extension_tower;
-pub mod fixed_recursive_verifier;
-pub mod generation;
-mod get_challenges;
 pub mod keccak;
 pub mod keccak_sponge;
 pub mod logic;
-pub mod lookup;
 pub mod memory;
+
+// Proving system components
+pub mod all_stark;
+pub mod fixed_recursive_verifier;
+mod get_challenges;
 pub mod proof;
 pub mod prover;
 pub mod recursive_verifier;
-pub mod stark;
-pub mod util;
-pub mod vanishing_poly;
 pub mod verifier;
+
+// Witness generation
+pub mod generation;
 pub mod witness;
 
-#[cfg(test)]
-mod stark_testing;
+// Utility modules
+pub mod curve_pairings;
+pub mod extension_tower;
+pub mod util;
 
 use eth_trie_utils::partial_trie::HashedPartialTrie;
 // Set up Jemalloc
@@ -209,6 +206,6 @@ static GLOBAL: Jemalloc = Jemalloc;
 pub type Node = eth_trie_utils::partial_trie::Node<HashedPartialTrie>;
 
 pub use all_stark::AllStark;
-pub use config::StarkConfig;
 pub use fixed_recursive_verifier::AllRecursiveCircuits;
 pub use generation::GenerationInputs;
+pub use starky::config::StarkConfig;

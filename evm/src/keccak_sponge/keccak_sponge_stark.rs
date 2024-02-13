@@ -14,13 +14,14 @@ use plonky2::timed;
 use plonky2::util::timing::TimingTree;
 use plonky2::util::transpose;
 use plonky2_util::ceil_div_usize;
+use starky::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
+use starky::evaluation_frame::StarkEvaluationFrame;
+use starky::lookup::{Column, Filter, Lookup};
+use starky::stark::Stark;
 
-use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
+use crate::all_stark::EvmStarkFrame;
 use crate::cpu::kernel::keccak_util::keccakf_u32s;
-use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
 use crate::keccak_sponge::columns::*;
-use crate::lookup::{Column, Filter, Lookup};
-use crate::stark::Stark;
 use crate::witness::memory::MemoryAddress;
 
 /// Strict upper bound for the individual bytes range-check.
@@ -520,12 +521,13 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakSpongeStark<F, D> {
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakSpongeStark<F, D> {
-    type EvaluationFrame<FE, P, const D2: usize> = StarkFrame<P, NUM_KECCAK_SPONGE_COLUMNS>
+    type EvaluationFrame<FE, P, const D2: usize> = EvmStarkFrame<P, FE, NUM_KECCAK_SPONGE_COLUMNS>
     where
         FE: FieldExtension<D2, BaseField = F>,
         P: PackedField<Scalar = FE>;
 
-    type EvaluationFrameTarget = StarkFrame<ExtensionTarget<D>, NUM_KECCAK_SPONGE_COLUMNS>;
+    type EvaluationFrameTarget =
+        EvmStarkFrame<ExtensionTarget<D>, ExtensionTarget<D>, NUM_KECCAK_SPONGE_COLUMNS>;
 
     fn eval_packed_generic<FE, P, const D2: usize>(
         &self,
@@ -807,6 +809,10 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakSpongeS
             filter_columns: vec![None; KECCAK_RATE_BYTES],
         }]
     }
+
+    fn requires_ctls(&self) -> bool {
+        true
+    }
 }
 
 #[cfg(test)]
@@ -816,10 +822,10 @@ mod tests {
     use plonky2::field::goldilocks_field::GoldilocksField;
     use plonky2::field::types::PrimeField64;
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
+    use starky::stark_testing::{test_stark_circuit_constraints, test_stark_low_degree};
 
     use super::*;
     use crate::memory::segments::Segment;
-    use crate::stark_testing::{test_stark_circuit_constraints, test_stark_low_degree};
 
     #[test]
     fn test_stark_degree() -> Result<()> {

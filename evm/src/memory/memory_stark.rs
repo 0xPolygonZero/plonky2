@@ -12,18 +12,19 @@ use plonky2::timed;
 use plonky2::util::timing::TimingTree;
 use plonky2::util::transpose;
 use plonky2_maybe_rayon::*;
+use starky::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
+use starky::evaluation_frame::StarkEvaluationFrame;
+use starky::lookup::{Column, Filter, Lookup};
+use starky::stark::Stark;
 
 use super::segments::Segment;
-use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
-use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
-use crate::lookup::{Column, Filter, Lookup};
+use crate::all_stark::EvmStarkFrame;
 use crate::memory::columns::{
     value_limb, ADDR_CONTEXT, ADDR_SEGMENT, ADDR_VIRTUAL, CONTEXT_FIRST_CHANGE, COUNTER, FILTER,
     FREQUENCIES, INITIALIZE_AUX, IS_READ, NUM_COLUMNS, RANGE_CHECK, SEGMENT_FIRST_CHANGE,
     TIMESTAMP, VIRTUAL_FIRST_CHANGE,
 };
 use crate::memory::VALUE_LIMBS;
-use crate::stark::Stark;
 use crate::witness::memory::MemoryOpKind::Read;
 use crate::witness::memory::{MemoryAddress, MemoryOp};
 
@@ -268,12 +269,12 @@ impl<F: RichField + Extendable<D>, const D: usize> MemoryStark<F, D> {
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F, D> {
-    type EvaluationFrame<FE, P, const D2: usize> = StarkFrame<P, NUM_COLUMNS>
+    type EvaluationFrame<FE, P, const D2: usize> = EvmStarkFrame<P, FE, NUM_COLUMNS>
     where
         FE: FieldExtension<D2, BaseField = F>,
         P: PackedField<Scalar = FE>;
 
-    type EvaluationFrameTarget = StarkFrame<ExtensionTarget<D>, NUM_COLUMNS>;
+    type EvaluationFrameTarget = EvmStarkFrame<ExtensionTarget<D>, ExtensionTarget<D>, NUM_COLUMNS>;
 
     fn eval_packed_generic<FE, P, const D2: usize>(
         &self,
@@ -569,15 +570,19 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for MemoryStark<F
             ],
         }]
     }
+
+    fn requires_ctls(&self) -> bool {
+        true
+    }
 }
 
 #[cfg(test)]
 pub(crate) mod tests {
     use anyhow::Result;
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
+    use starky::stark_testing::{test_stark_circuit_constraints, test_stark_low_degree};
 
     use crate::memory::memory_stark::MemoryStark;
-    use crate::stark_testing::{test_stark_circuit_constraints, test_stark_low_degree};
 
     #[test]
     fn test_stark_degree() -> Result<()> {

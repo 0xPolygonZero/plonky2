@@ -1,33 +1,24 @@
 use ethereum_types::{Address, H256, U256};
-use itertools::Itertools;
-use plonky2::field::extension::{Extendable, FieldExtension};
-use plonky2::fri::oracle::PolynomialBatch;
-use plonky2::fri::proof::{FriChallenges, FriChallengesTarget, FriProof, FriProofTarget};
-use plonky2::fri::structure::{
-    FriOpeningBatch, FriOpeningBatchTarget, FriOpenings, FriOpeningsTarget,
-};
-use plonky2::hash::hash_types::{MerkleCapTarget, RichField};
-use plonky2::hash::merkle_tree::MerkleCap;
-use plonky2::iop::ext_target::ExtensionTarget;
+use plonky2::field::extension::Extendable;
+use plonky2::hash::hash_types::RichField;
 use plonky2::iop::target::{BoolTarget, Target};
 use plonky2::plonk::circuit_builder::CircuitBuilder;
-use plonky2::plonk::config::{GenericConfig, Hasher};
+use plonky2::plonk::config::GenericConfig;
 use plonky2::util::serialization::{Buffer, IoResult, Read, Write};
-use plonky2_maybe_rayon::*;
 use serde::{Deserialize, Serialize};
+use starky::config::StarkConfig;
+use starky::lookup::GrandProductChallengeSet;
+use starky::proof::{MultiProof, StarkProofChallenges};
 
 use crate::all_stark::NUM_TABLES;
-use crate::config::StarkConfig;
-use crate::cross_table_lookup::GrandProductChallengeSet;
 use crate::util::{get_h160, get_h256, h2u};
 
 /// A STARK proof for each table, plus some metadata used to create recursive wrapper proofs.
 #[derive(Debug, Clone)]
 pub struct AllProof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> {
-    /// Proofs for all the different STARK modules.
-    pub stark_proofs: [StarkProofWithMetadata<F, C, D>; NUM_TABLES],
-    /// Cross-table lookup challenges.
-    pub(crate) ctl_challenges: GrandProductChallengeSet<F>,
+    /// A multi-proof containing all proofs for the different STARK modules and their
+    /// cross-table lookup challenges.
+    pub multi_proof: MultiProof<F, C, D, NUM_TABLES>,
     /// Public memory values used for the recursive proofs.
     pub public_values: PublicValues,
 }
@@ -35,7 +26,7 @@ pub struct AllProof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, co
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> AllProof<F, C, D> {
     /// Returns the degree (i.e. the trace length) of each STARK.
     pub fn degree_bits(&self, config: &StarkConfig) -> [usize; NUM_TABLES] {
-        core::array::from_fn(|i| self.stark_proofs[i].proof.recover_degree_bits(config))
+        self.multi_proof.recover_degree_bits(config)
     }
 }
 
@@ -819,311 +810,5 @@ impl ExtraBlockDataTarget {
         builder.connect(ed0.txn_number_after, ed1.txn_number_after);
         builder.connect(ed0.gas_used_before, ed1.gas_used_before);
         builder.connect(ed0.gas_used_after, ed1.gas_used_after);
-    }
-}
-
-/// Merkle caps and openings that form the proof of a single STARK.
-#[derive(Debug, Clone)]
-pub struct StarkProof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> {
-    /// Merkle cap of LDEs of trace values.
-    pub trace_cap: MerkleCap<F, C::Hasher>,
-    /// Merkle cap of LDEs of lookup helper and CTL columns.
-    pub auxiliary_polys_cap: MerkleCap<F, C::Hasher>,
-    /// Merkle cap of LDEs of quotient polynomial evaluations.
-    pub quotient_polys_cap: MerkleCap<F, C::Hasher>,
-    /// Purported values of each polynomial at the challenge point.
-    pub openings: StarkOpeningSet<F, D>,
-    /// A batch FRI argument for all openings.
-    pub opening_proof: FriProof<F, C::Hasher, D>,
-}
-
-/// A `StarkProof` along with some metadata about the initial Fiat-Shamir state, which is used when
-/// creating a recursive wrapper proof around a STARK proof.
-#[derive(Debug, Clone)]
-pub struct StarkProofWithMetadata<F, C, const D: usize>
-where
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
-{
-    /// Initial Fiat-Shamir state.
-    pub(crate) init_challenger_state: <C::Hasher as Hasher<F>>::Permutation,
-    /// Proof for a single STARK.
-    pub(crate) proof: StarkProof<F, C, D>,
-}
-
-impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> StarkProof<F, C, D> {
-    /// Recover the length of the trace from a STARK proof and a STARK config.
-    pub fn recover_degree_bits(&self, config: &StarkConfig) -> usize {
-        let initial_merkle_proof = &self.opening_proof.query_round_proofs[0]
-            .initial_trees_proof
-            .evals_proofs[0]
-            .1;
-        let lde_bits = config.fri_config.cap_height + initial_merkle_proof.siblings.len();
-        lde_bits - config.fri_config.rate_bits
-    }
-
-    /// Returns the number of cross-table lookup polynomials computed for the current STARK.
-    pub fn num_ctl_zs(&self) -> usize {
-        self.openings.ctl_zs_first.len()
-    }
-}
-
-/// Circuit version of `StarkProof`.
-/// Merkle caps and openings that form the proof of a single STARK.
-#[derive(Eq, PartialEq, Debug)]
-pub(crate) struct StarkProofTarget<const D: usize> {
-    /// `Target` for the Merkle cap if LDEs of trace values.
-    pub trace_cap: MerkleCapTarget,
-    /// `Target` for the Merkle cap of LDEs of lookup helper and CTL columns.
-    pub auxiliary_polys_cap: MerkleCapTarget,
-    /// `Target` for the Merkle cap of LDEs of quotient polynomial evaluations.
-    pub quotient_polys_cap: MerkleCapTarget,
-    /// `Target`s for the purported values of each polynomial at the challenge point.
-    pub openings: StarkOpeningSetTarget<D>,
-    /// `Target`s for the batch FRI argument for all openings.
-    pub opening_proof: FriProofTarget<D>,
-}
-
-impl<const D: usize> StarkProofTarget<D> {
-    /// Serializes a STARK proof.
-    pub(crate) fn to_buffer(&self, buffer: &mut Vec<u8>) -> IoResult<()> {
-        buffer.write_target_merkle_cap(&self.trace_cap)?;
-        buffer.write_target_merkle_cap(&self.auxiliary_polys_cap)?;
-        buffer.write_target_merkle_cap(&self.quotient_polys_cap)?;
-        buffer.write_target_fri_proof(&self.opening_proof)?;
-        self.openings.to_buffer(buffer)?;
-        Ok(())
-    }
-
-    /// Deserializes a STARK proof.
-    pub(crate) fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
-        let trace_cap = buffer.read_target_merkle_cap()?;
-        let auxiliary_polys_cap = buffer.read_target_merkle_cap()?;
-        let quotient_polys_cap = buffer.read_target_merkle_cap()?;
-        let opening_proof = buffer.read_target_fri_proof()?;
-        let openings = StarkOpeningSetTarget::from_buffer(buffer)?;
-
-        Ok(Self {
-            trace_cap,
-            auxiliary_polys_cap,
-            quotient_polys_cap,
-            openings,
-            opening_proof,
-        })
-    }
-
-    /// Recover the length of the trace from a STARK proof and a STARK config.
-    pub(crate) fn recover_degree_bits(&self, config: &StarkConfig) -> usize {
-        let initial_merkle_proof = &self.opening_proof.query_round_proofs[0]
-            .initial_trees_proof
-            .evals_proofs[0]
-            .1;
-        let lde_bits = config.fri_config.cap_height + initial_merkle_proof.siblings.len();
-        lde_bits - config.fri_config.rate_bits
-    }
-}
-
-/// Randomness used for a STARK proof.
-pub(crate) struct StarkProofChallenges<F: RichField + Extendable<D>, const D: usize> {
-    /// Random values used to combine STARK constraints.
-    pub stark_alphas: Vec<F>,
-
-    /// Point at which the STARK polynomials are opened.
-    pub stark_zeta: F::Extension,
-
-    /// Randomness used in FRI.
-    pub fri_challenges: FriChallenges<F, D>,
-}
-
-/// Circuit version of `StarkProofChallenges`.
-pub(crate) struct StarkProofChallengesTarget<const D: usize> {
-    /// `Target`s for the random values used to combine STARK constraints.
-    pub stark_alphas: Vec<Target>,
-    /// `ExtensionTarget` for the point at which the STARK polynomials are opened.
-    pub stark_zeta: ExtensionTarget<D>,
-    /// `Target`s for the randomness used in FRI.
-    pub fri_challenges: FriChallengesTarget<D>,
-}
-
-/// Purported values of each polynomial at the challenge point.
-#[derive(Debug, Clone)]
-pub struct StarkOpeningSet<F: RichField + Extendable<D>, const D: usize> {
-    /// Openings of trace polynomials at `zeta`.
-    pub local_values: Vec<F::Extension>,
-    /// Openings of trace polynomials at `g * zeta`.
-    pub next_values: Vec<F::Extension>,
-    /// Openings of lookups and cross-table lookups `Z` polynomials at `zeta`.
-    pub auxiliary_polys: Vec<F::Extension>,
-    /// Openings of lookups and cross-table lookups `Z` polynomials at `g * zeta`.
-    pub auxiliary_polys_next: Vec<F::Extension>,
-    /// Openings of cross-table lookups `Z` polynomials at `1`.
-    pub ctl_zs_first: Vec<F>,
-    /// Openings of quotient polynomials at `zeta`.
-    pub quotient_polys: Vec<F::Extension>,
-}
-
-impl<F: RichField + Extendable<D>, const D: usize> StarkOpeningSet<F, D> {
-    /// Returns a `StarkOpeningSet` given all the polynomial commitments, the number of permutation `Z`polynomials,
-    /// the evaluation point and a generator `g`.
-    /// Polynomials are evaluated at point `zeta` and, if necessary, at `g * zeta`.
-    pub fn new<C: GenericConfig<D, F = F>>(
-        zeta: F::Extension,
-        g: F,
-        trace_commitment: &PolynomialBatch<F, C, D>,
-        auxiliary_polys_commitment: &PolynomialBatch<F, C, D>,
-        quotient_commitment: &PolynomialBatch<F, C, D>,
-        num_lookup_columns: usize,
-        num_ctl_polys: &[usize],
-    ) -> Self {
-        let total_num_helper_cols: usize = num_ctl_polys.iter().sum();
-
-        // Batch evaluates polynomials on the LDE, at a point `z`.
-        let eval_commitment = |z: F::Extension, c: &PolynomialBatch<F, C, D>| {
-            c.polynomials
-                .par_iter()
-                .map(|p| p.to_extension().eval(z))
-                .collect::<Vec<_>>()
-        };
-        // Batch evaluates polynomials at a base field point `z`.
-        let eval_commitment_base = |z: F, c: &PolynomialBatch<F, C, D>| {
-            c.polynomials
-                .par_iter()
-                .map(|p| p.eval(z))
-                .collect::<Vec<_>>()
-        };
-
-        let auxiliary_first = eval_commitment_base(F::ONE, auxiliary_polys_commitment);
-        let ctl_zs_first = auxiliary_first[num_lookup_columns + total_num_helper_cols..].to_vec();
-        // `g * zeta`.
-        let zeta_next = zeta.scalar_mul(g);
-        Self {
-            local_values: eval_commitment(zeta, trace_commitment),
-            next_values: eval_commitment(zeta_next, trace_commitment),
-            auxiliary_polys: eval_commitment(zeta, auxiliary_polys_commitment),
-            auxiliary_polys_next: eval_commitment(zeta_next, auxiliary_polys_commitment),
-            ctl_zs_first,
-            quotient_polys: eval_commitment(zeta, quotient_commitment),
-        }
-    }
-
-    /// Constructs the openings required by FRI.
-    /// All openings but `ctl_zs_first` are grouped together.
-    pub(crate) fn to_fri_openings(&self) -> FriOpenings<F, D> {
-        let zeta_batch = FriOpeningBatch {
-            values: self
-                .local_values
-                .iter()
-                .chain(&self.auxiliary_polys)
-                .chain(&self.quotient_polys)
-                .copied()
-                .collect_vec(),
-        };
-        let zeta_next_batch = FriOpeningBatch {
-            values: self
-                .next_values
-                .iter()
-                .chain(&self.auxiliary_polys_next)
-                .copied()
-                .collect_vec(),
-        };
-        debug_assert!(!self.ctl_zs_first.is_empty());
-        let ctl_first_batch = FriOpeningBatch {
-            values: self
-                .ctl_zs_first
-                .iter()
-                .copied()
-                .map(F::Extension::from_basefield)
-                .collect(),
-        };
-
-        FriOpenings {
-            batches: vec![zeta_batch, zeta_next_batch, ctl_first_batch],
-        }
-    }
-}
-
-/// Circuit version of `StarkOpeningSet`.
-/// `Target`s for the purported values of each polynomial at the challenge point.
-#[derive(Eq, PartialEq, Debug)]
-pub(crate) struct StarkOpeningSetTarget<const D: usize> {
-    /// `ExtensionTarget`s for the openings of trace polynomials at `zeta`.
-    pub local_values: Vec<ExtensionTarget<D>>,
-    /// `ExtensionTarget`s for the opening of trace polynomials at `g * zeta`.
-    pub next_values: Vec<ExtensionTarget<D>>,
-    /// `ExtensionTarget`s for the opening of lookups and cross-table lookups `Z` polynomials at `zeta`.
-    pub auxiliary_polys: Vec<ExtensionTarget<D>>,
-    /// `ExtensionTarget`s for the opening of lookups and cross-table lookups `Z` polynomials at `g * zeta`.
-    pub auxiliary_polys_next: Vec<ExtensionTarget<D>>,
-    /// `ExtensionTarget`s for the opening of lookups and cross-table lookups `Z` polynomials at 1.
-    pub ctl_zs_first: Vec<Target>,
-    /// `ExtensionTarget`s for the opening of quotient polynomials at `zeta`.
-    pub quotient_polys: Vec<ExtensionTarget<D>>,
-}
-
-impl<const D: usize> StarkOpeningSetTarget<D> {
-    /// Serializes a STARK's opening set.
-    pub(crate) fn to_buffer(&self, buffer: &mut Vec<u8>) -> IoResult<()> {
-        buffer.write_target_ext_vec(&self.local_values)?;
-        buffer.write_target_ext_vec(&self.next_values)?;
-        buffer.write_target_ext_vec(&self.auxiliary_polys)?;
-        buffer.write_target_ext_vec(&self.auxiliary_polys_next)?;
-        buffer.write_target_vec(&self.ctl_zs_first)?;
-        buffer.write_target_ext_vec(&self.quotient_polys)?;
-        Ok(())
-    }
-
-    /// Deserializes a STARK's opening set.
-    pub(crate) fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
-        let local_values = buffer.read_target_ext_vec::<D>()?;
-        let next_values = buffer.read_target_ext_vec::<D>()?;
-        let auxiliary_polys = buffer.read_target_ext_vec::<D>()?;
-        let auxiliary_polys_next = buffer.read_target_ext_vec::<D>()?;
-        let ctl_zs_first = buffer.read_target_vec()?;
-        let quotient_polys = buffer.read_target_ext_vec::<D>()?;
-
-        Ok(Self {
-            local_values,
-            next_values,
-            auxiliary_polys,
-            auxiliary_polys_next,
-            ctl_zs_first,
-            quotient_polys,
-        })
-    }
-
-    /// Circuit version of `to_fri_openings`for `FriOpenings`.
-    /// Constructs the `Target`s the circuit version of FRI.
-    /// All openings but `ctl_zs_first` are grouped together.
-    pub(crate) fn to_fri_openings(&self, zero: Target) -> FriOpeningsTarget<D> {
-        let zeta_batch = FriOpeningBatchTarget {
-            values: self
-                .local_values
-                .iter()
-                .chain(&self.auxiliary_polys)
-                .chain(&self.quotient_polys)
-                .copied()
-                .collect_vec(),
-        };
-        let zeta_next_batch = FriOpeningBatchTarget {
-            values: self
-                .next_values
-                .iter()
-                .chain(&self.auxiliary_polys_next)
-                .copied()
-                .collect_vec(),
-        };
-        debug_assert!(!self.ctl_zs_first.is_empty());
-        let ctl_first_batch = FriOpeningBatchTarget {
-            values: self
-                .ctl_zs_first
-                .iter()
-                .copied()
-                .map(|t| t.to_ext_target(zero))
-                .collect(),
-        };
-
-        FriOpeningsTarget {
-            batches: vec![zeta_batch, zeta_next_batch, ctl_first_batch],
-        }
     }
 }

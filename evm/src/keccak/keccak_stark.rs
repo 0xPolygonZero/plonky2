@@ -10,10 +10,14 @@ use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::plonk::plonk_common::reduce_with_powers_ext_circuit;
 use plonky2::timed;
 use plonky2::util::timing::TimingTree;
+use starky::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
+use starky::evaluation_frame::StarkEvaluationFrame;
+use starky::lookup::{Column, Filter};
+use starky::stark::Stark;
+use starky::util::trace_rows_to_poly_values;
 
 use super::columns::reg_input_limb;
-use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
-use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
+use crate::all_stark::EvmStarkFrame;
 use crate::keccak::columns::{
     reg_a, reg_a_prime, reg_a_prime_prime, reg_a_prime_prime_0_0_bit, reg_a_prime_prime_prime,
     reg_b, reg_c, reg_c_prime, reg_output_limb, reg_step, NUM_COLUMNS, TIMESTAMP,
@@ -23,9 +27,6 @@ use crate::keccak::logic::{
     andn, andn_gen, andn_gen_circuit, xor, xor3_gen, xor3_gen_circuit, xor_gen, xor_gen_circuit,
 };
 use crate::keccak::round_flags::{eval_round_flags, eval_round_flags_recursively};
-use crate::lookup::{Column, Filter};
-use crate::stark::Stark;
-use crate::util::trace_rows_to_poly_values;
 
 /// Number of rounds in a Keccak permutation.
 pub(crate) const NUM_ROUNDS: usize = 24;
@@ -253,12 +254,12 @@ impl<F: RichField + Extendable<D>, const D: usize> KeccakStark<F, D> {
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakStark<F, D> {
-    type EvaluationFrame<FE, P, const D2: usize> = StarkFrame<P, NUM_COLUMNS>
+    type EvaluationFrame<FE, P, const D2: usize> = EvmStarkFrame<P, FE, NUM_COLUMNS>
     where
         FE: FieldExtension<D2, BaseField = F>,
         P: PackedField<Scalar = FE>;
 
-    type EvaluationFrameTarget = StarkFrame<ExtensionTarget<D>, NUM_COLUMNS>;
+    type EvaluationFrameTarget = EvmStarkFrame<ExtensionTarget<D>, ExtensionTarget<D>, NUM_COLUMNS>;
 
     fn eval_packed_generic<FE, P, const D2: usize>(
         &self,
@@ -616,6 +617,10 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for KeccakStark<F
     fn constraint_degree(&self) -> usize {
         3
     }
+
+    fn requires_ctls(&self) -> bool {
+        true
+    }
 }
 
 #[cfg(test)]
@@ -626,14 +631,14 @@ mod tests {
     use plonky2::fri::oracle::PolynomialBatch;
     use plonky2::iop::challenger::Challenger;
     use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
+    use starky::config::StarkConfig;
+    use starky::cross_table_lookup::{CtlData, CtlZData};
+    use starky::lookup::{GrandProductChallenge, GrandProductChallengeSet};
+    use starky::stark_testing::{test_stark_circuit_constraints, test_stark_low_degree};
     use tiny_keccak::keccakf;
 
     use super::*;
-    use crate::config::StarkConfig;
-    use crate::cross_table_lookup::{CtlData, CtlZData, GrandProductChallengeSet};
-    use crate::lookup::GrandProductChallenge;
     use crate::prover::prove_single_table;
-    use crate::stark_testing::{test_stark_circuit_constraints, test_stark_low_degree};
 
     #[test]
     fn test_stark_degree() -> Result<()> {
@@ -734,16 +739,16 @@ mod tests {
         let degree = 1 << trace_commitments.degree_log;
 
         // Fake CTL data.
-        let ctl_z_data = CtlZData {
-            helper_columns: vec![PolynomialValues::zero(degree)],
-            z: PolynomialValues::zero(degree),
-            challenge: GrandProductChallenge {
+        let ctl_z_data = CtlZData::new(
+            vec![PolynomialValues::zero(degree)],
+            PolynomialValues::zero(degree),
+            GrandProductChallenge {
                 beta: F::ZERO,
                 gamma: F::ZERO,
             },
-            columns: vec![],
-            filter: vec![Some(Filter::new_simple(Column::constant(F::ZERO)))],
-        };
+            vec![],
+            vec![Some(Filter::new_simple(Column::constant(F::ZERO)))],
+        );
         let ctl_data = CtlData {
             zs_columns: vec![ctl_z_data.clone(); config.num_challenges],
         };

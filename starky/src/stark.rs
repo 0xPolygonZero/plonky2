@@ -1,5 +1,8 @@
-use alloc::vec;
-use alloc::vec::Vec;
+//! Implementation of the [`Stark`] trait that defines the set of constraints
+//! related to a statement.
+
+#[cfg(not(feature = "std"))]
+use alloc::{vec, vec::Vec};
 
 use plonky2::field::extension::{Extendable, FieldExtension};
 use plonky2::field::packed::PackedField;
@@ -17,14 +20,11 @@ use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer
 use crate::evaluation_frame::StarkEvaluationFrame;
 use crate::lookup::Lookup;
 
-const TRACE_ORACLE_INDEX: usize = 0;
-const AUXILIARY_ORACLE_INDEX: usize = 1;
-const QUOTIENT_ORACLE_INDEX: usize = 2;
-
 /// Represents a STARK system.
 pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
     /// The total number of columns in the trace.
     const COLUMNS: usize = Self::EvaluationFrameTarget::COLUMNS;
+    /// The total number of public inputs.
     const PUBLIC_INPUTS: usize = Self::EvaluationFrameTarget::PUBLIC_INPUTS;
 
     /// This is used to evaluate constraints natively.
@@ -36,7 +36,7 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
     /// The `Target` version of `Self::EvaluationFrame`, used to evaluate constraints recursively.
     type EvaluationFrameTarget: StarkEvaluationFrame<ExtensionTarget<D>, ExtensionTarget<D>>;
 
-    /// Evaluate constraints at a vector of points.
+    /// Evaluates constraints at a vector of points.
     ///
     /// The points are elements of a field `FE`, a degree `D2` extension of `F`. This lets us
     /// evaluate constraints over a larger domain if desired. This can also be called with `FE = F`
@@ -50,7 +50,7 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
         FE: FieldExtension<D2, BaseField = F>,
         P: PackedField<Scalar = FE>;
 
-    /// Evaluate constraints at a vector of points from the base field `F`.
+    /// Evaluates constraints at a vector of points from the base field `F`.
     fn eval_packed_base<P: PackedField<Scalar = F>>(
         &self,
         vars: &Self::EvaluationFrame<F, P, 1>,
@@ -59,7 +59,7 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
         self.eval_packed_generic(vars, yield_constr)
     }
 
-    /// Evaluate constraints at a single point from the degree `D` extension field.
+    /// Evaluates constraints at a single point from the degree `D` extension field.
     fn eval_ext(
         &self,
         vars: &Self::EvaluationFrame<F::Extension, F::Extension, D>,
@@ -68,10 +68,10 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
         self.eval_packed_generic(vars, yield_constr)
     }
 
-    /// Evaluate constraints at a vector of points from the degree `D` extension field. This is like
-    /// `eval_ext`, except in the context of a recursive circuit.
-    /// Note: constraints must be added through`yield_constr.constraint(builder, constraint)` in the
-    /// same order as they are given in `eval_packed_generic`.
+    /// Evaluates constraints at a vector of points from the degree `D` extension field.
+    /// This is like `eval_ext`, except in the context of a recursive circuit.
+    /// Note: constraints must be added through`yield_constr.constraint(builder, constraint)`
+    /// in the same order as they are given in `eval_packed_generic`.
     fn eval_ext_circuit(
         &self,
         builder: &mut CircuitBuilder<F, D>,
@@ -79,14 +79,16 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
         yield_constr: &mut RecursiveConstraintConsumer<F, D>,
     );
 
-    /// The maximum constraint degree.
+    /// Outputs the maximum constraint degree of this [`Stark`].
     fn constraint_degree(&self) -> usize;
 
-    /// The maximum constraint degree.
+    /// Outputs the maximum quotient polynomial's degree factor of this [`Stark`].
     fn quotient_degree_factor(&self) -> usize {
         1.max(self.constraint_degree() - 1)
     }
 
+    /// Outputs the number of quotient polynomials this [`Stark`] would require with
+    /// the provided [`StarkConfig`]
     fn num_quotient_polys(&self, config: &StarkConfig) -> usize {
         self.quotient_degree_factor() * config.num_challenges
     }
@@ -96,30 +98,36 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
         &self,
         zeta: F::Extension,
         g: F,
+        num_ctl_helpers: usize,
+        num_ctl_zs: Vec<usize>,
         config: &StarkConfig,
     ) -> FriInstanceInfo<F, D> {
-        let trace_oracle = FriOracleInfo {
+        let mut oracles = vec![];
+        let trace_info = FriPolynomialInfo::from_range(oracles.len(), 0..Self::COLUMNS);
+        oracles.push(FriOracleInfo {
             num_polys: Self::COLUMNS,
             blinding: false,
-        };
-        let trace_info = FriPolynomialInfo::from_range(TRACE_ORACLE_INDEX, 0..Self::COLUMNS);
+        });
 
         let num_lookup_columns = self.num_lookup_helper_columns(config);
-        let num_auxiliary_polys = num_lookup_columns;
-        let auxiliary_oracle = FriOracleInfo {
-            num_polys: num_auxiliary_polys,
-            blinding: false,
+        let num_auxiliary_polys = num_lookup_columns + num_ctl_helpers + num_ctl_zs.len();
+        let auxiliary_polys_info = if self.uses_lookups() || self.requires_ctls() {
+            let aux_polys = FriPolynomialInfo::from_range(oracles.len(), 0..num_auxiliary_polys);
+            oracles.push(FriOracleInfo {
+                num_polys: num_auxiliary_polys,
+                blinding: false,
+            });
+            aux_polys
+        } else {
+            vec![]
         };
-        let auxiliary_polys_info =
-            FriPolynomialInfo::from_range(AUXILIARY_ORACLE_INDEX, 0..num_auxiliary_polys);
 
         let num_quotient_polys = self.num_quotient_polys(config);
-        let quotient_oracle = FriOracleInfo {
+        let quotient_info = FriPolynomialInfo::from_range(oracles.len(), 0..num_quotient_polys);
+        oracles.push(FriOracleInfo {
             num_polys: num_quotient_polys,
             blinding: false,
-        };
-        let quotient_info =
-            FriPolynomialInfo::from_range(QUOTIENT_ORACLE_INDEX, 0..num_quotient_polys);
+        });
 
         let zeta_batch = FriBatchInfo {
             point: zeta,
@@ -135,10 +143,22 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
             polynomials: [trace_info, auxiliary_polys_info].concat(),
         };
 
-        FriInstanceInfo {
-            oracles: vec![trace_oracle, auxiliary_oracle, quotient_oracle],
-            batches: vec![zeta_batch, zeta_next_batch],
+        let mut batches = vec![zeta_batch, zeta_next_batch];
+
+        if self.requires_ctls() {
+            let ctl_zs_info = FriPolynomialInfo::from_range(
+                1, // auxiliary oracle index
+                num_lookup_columns + num_ctl_helpers..num_auxiliary_polys,
+            );
+            let ctl_first_batch = FriBatchInfo {
+                point: F::Extension::ONE,
+                polynomials: ctl_zs_info,
+            };
+
+            batches.push(ctl_first_batch);
         }
+
+        FriInstanceInfo { oracles, batches }
     }
 
     /// Computes the FRI instance used to prove this Stark.
@@ -147,30 +167,36 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
         builder: &mut CircuitBuilder<F, D>,
         zeta: ExtensionTarget<D>,
         g: F,
+        num_ctl_helper_polys: usize,
+        num_ctl_zs: usize,
         config: &StarkConfig,
     ) -> FriInstanceInfoTarget<D> {
-        let trace_oracle = FriOracleInfo {
+        let mut oracles = vec![];
+        let trace_info = FriPolynomialInfo::from_range(oracles.len(), 0..Self::COLUMNS);
+        oracles.push(FriOracleInfo {
             num_polys: Self::COLUMNS,
             blinding: false,
-        };
-        let trace_info = FriPolynomialInfo::from_range(TRACE_ORACLE_INDEX, 0..Self::COLUMNS);
+        });
 
         let num_lookup_columns = self.num_lookup_helper_columns(config);
-        let num_auxiliary_polys = num_lookup_columns;
-        let auxiliary_oracle = FriOracleInfo {
-            num_polys: num_auxiliary_polys,
-            blinding: false,
+        let num_auxiliary_polys = num_lookup_columns + num_ctl_helper_polys + num_ctl_zs;
+        let auxiliary_polys_info = if self.uses_lookups() || self.requires_ctls() {
+            let aux_polys = FriPolynomialInfo::from_range(oracles.len(), 0..num_auxiliary_polys);
+            oracles.push(FriOracleInfo {
+                num_polys: num_auxiliary_polys,
+                blinding: false,
+            });
+            aux_polys
+        } else {
+            vec![]
         };
-        let auxiliary_polys_info =
-            FriPolynomialInfo::from_range(AUXILIARY_ORACLE_INDEX, 0..num_auxiliary_polys);
 
         let num_quotient_polys = self.num_quotient_polys(config);
-        let quotient_oracle = FriOracleInfo {
+        let quotient_info = FriPolynomialInfo::from_range(oracles.len(), 0..num_quotient_polys);
+        oracles.push(FriOracleInfo {
             num_polys: num_quotient_polys,
             blinding: false,
-        };
-        let quotient_info =
-            FriPolynomialInfo::from_range(QUOTIENT_ORACLE_INDEX, 0..num_quotient_polys);
+        });
 
         let zeta_batch = FriBatchInfoTarget {
             point: zeta,
@@ -187,16 +213,31 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
             polynomials: [trace_info, auxiliary_polys_info].concat(),
         };
 
-        FriInstanceInfoTarget {
-            oracles: vec![trace_oracle, auxiliary_oracle, quotient_oracle],
-            batches: vec![zeta_batch, zeta_next_batch],
+        let mut batches = vec![zeta_batch, zeta_next_batch];
+
+        if self.requires_ctls() {
+            let ctl_zs_info = FriPolynomialInfo::from_range(
+                1, // auxiliary oracle index
+                num_lookup_columns + num_ctl_helper_polys..num_auxiliary_polys,
+            );
+            let ctl_first_batch = FriBatchInfoTarget {
+                point: builder.one_extension(),
+                polynomials: ctl_zs_info,
+            };
+
+            batches.push(ctl_first_batch);
         }
+
+        FriInstanceInfoTarget { oracles, batches }
     }
 
+    /// Outputs all the [`Lookup`] this STARK table needs to perform across its columns.
     fn lookups(&self) -> Vec<Lookup<F>> {
         vec![]
     }
 
+    /// Outputs the number of total lookup helper columns, based on this STARK's vector
+    /// of [`Lookup`] and the number of challenges used by this [`StarkConfig`].
     fn num_lookup_helper_columns(&self, config: &StarkConfig) -> usize {
         self.lookups()
             .iter()
@@ -205,7 +246,17 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
             * config.num_challenges
     }
 
+    /// Indicates whether this STARK uses lookups over some of its columns, and as such requires
+    /// additional steps during proof generation to handle auxiliary polynomials.
     fn uses_lookups(&self) -> bool {
         !self.lookups().is_empty()
+    }
+
+    /// Indicates whether this STARK belongs to a multi-STARK system, and as such may require
+    /// cross-table lookups to connect shared values across different traces.
+    ///
+    /// It defaults to `false`, i.e. for simple uni-STARK systems.
+    fn requires_ctls(&self) -> bool {
+        false
     }
 }

@@ -3,8 +3,8 @@ use plonky2::field::packed::PackedField;
 use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
+use starky::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 
-use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cpu::columns::CpuColumnsView;
 use crate::cpu::membus::NUM_GP_CHANNELS;
 use crate::memory::segments::Segment;

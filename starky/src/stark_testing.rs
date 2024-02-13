@@ -1,5 +1,7 @@
-use alloc::vec;
-use alloc::vec::Vec;
+//! Utility module for testing [`Stark`] implementation.
+
+#[cfg(not(feature = "std"))]
+use alloc::{vec, vec::Vec};
 
 use anyhow::{ensure, Result};
 use plonky2::field::extension::{Extendable, FieldExtension};

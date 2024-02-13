@@ -119,13 +119,13 @@ use plonky2::field::types::{Field, PrimeField64};
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
+use starky::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use static_assertions::const_assert;
 
 use super::columns;
 use crate::arithmetic::addcy::{eval_ext_circuit_addcy, eval_packed_generic_addcy};
 use crate::arithmetic::columns::*;
 use crate::arithmetic::utils::*;
-use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::extension_tower::BN_BASE;
 
 const fn bn254_modulus_limbs() -> [u16; N_LIMBS] {
@@ -832,10 +832,10 @@ mod tests {
     use plonky2::field::types::{Field, Sample};
     use rand::{Rng, SeedableRng};
     use rand_chacha::ChaCha8Rng;
+    use starky::constraint_consumer::ConstraintConsumer;
 
     use super::*;
     use crate::arithmetic::columns::NUM_ARITH_COLUMNS;
-    use crate::constraint_consumer::ConstraintConsumer;
     use crate::extension_tower::BN_BASE;
 
     const N_RND_TESTS: usize = 1000;
@@ -873,7 +873,7 @@ mod tests {
             GoldilocksField::ONE,
         );
         eval_packed(&lv, &nv, &mut constraint_consumer);
-        for &acc in &constraint_consumer.constraint_accs {
+        for &acc in &constraint_consumer.accumulators() {
             assert_eq!(acc, GoldilocksField::ZERO);
         }
     }
@@ -930,7 +930,7 @@ mod tests {
                     GoldilocksField::ZERO,
                 );
                 eval_packed(&lv, &nv, &mut constraint_consumer);
-                for &acc in &constraint_consumer.constraint_accs {
+                for &acc in &constraint_consumer.accumulators() {
                     assert_eq!(acc, GoldilocksField::ZERO);
                 }
             }
@@ -945,54 +945,59 @@ mod tests {
 
         for op_filter in [IS_ADDMOD, IS_SUBMOD, IS_MULMOD] {
             for _i in 0..N_RND_TESTS {
-                // set inputs to random values and the modulus to zero;
-                // the output is defined to be zero when modulus is zero.
-                let mut lv = [F::default(); NUM_ARITH_COLUMNS]
-                    .map(|_| F::from_canonical_u16(rng.gen::<u16>()));
-                let mut nv = [F::default(); NUM_ARITH_COLUMNS]
-                    .map(|_| F::from_canonical_u16(rng.gen::<u16>()));
+                for corrupt_constraints in [false, true] {
+                    // set inputs to random values and the modulus to zero;
+                    // the output is defined to be zero when modulus is zero.
+                    let mut lv = [F::default(); NUM_ARITH_COLUMNS]
+                        .map(|_| F::from_canonical_u16(rng.gen::<u16>()));
+                    let mut nv = [F::default(); NUM_ARITH_COLUMNS]
+                        .map(|_| F::from_canonical_u16(rng.gen::<u16>()));
 
-                // Reset operation columns, then select one
-                for op in MODULAR_OPS {
-                    lv[op] = F::ZERO;
+                    // Reset operation columns, then select one
+                    for op in MODULAR_OPS {
+                        lv[op] = F::ZERO;
+                    }
+                    lv[IS_SHR] = F::ZERO;
+                    lv[IS_DIV] = F::ZERO;
+                    lv[IS_MOD] = F::ZERO;
+                    lv[op_filter] = F::ONE;
+
+                    let input0 = U256::from(rng.gen::<[u8; 32]>());
+                    let input1 = U256::from(rng.gen::<[u8; 32]>());
+                    let modulus = U256::zero();
+
+                    generate(&mut lv, &mut nv, op_filter, input0, input1, modulus);
+
+                    // check that the correct output was generated
+                    assert!(lv[MODULAR_OUTPUT].iter().all(|&c| c == F::ZERO));
+
+                    let mut constraint_consumer = ConstraintConsumer::new(
+                        vec![GoldilocksField(2), GoldilocksField(3), GoldilocksField(5)],
+                        GoldilocksField::ONE,
+                        GoldilocksField::ZERO,
+                        GoldilocksField::ZERO,
+                    );
+                    eval_packed(&lv, &nv, &mut constraint_consumer);
+
+                    if corrupt_constraints {
+                        // Corrupt one output limb by setting it to a non-zero value.
+                        let random_oi = MODULAR_OUTPUT.start + rng.gen::<usize>() % N_LIMBS;
+                        lv[random_oi] = F::from_canonical_u16(rng.gen_range(1..u16::MAX));
+
+                        eval_packed(&lv, &nv, &mut constraint_consumer);
+
+                        // Check that at least one of the constraints was non-zero.
+                        assert!(constraint_consumer
+                            .accumulators()
+                            .iter()
+                            .any(|&acc| acc != F::ZERO));
+                    } else {
+                        assert!(constraint_consumer
+                            .accumulators()
+                            .iter()
+                            .all(|&acc| acc == F::ZERO));
+                    }
                 }
-                lv[IS_SHR] = F::ZERO;
-                lv[IS_DIV] = F::ZERO;
-                lv[IS_MOD] = F::ZERO;
-                lv[op_filter] = F::ONE;
-
-                let input0 = U256::from(rng.gen::<[u8; 32]>());
-                let input1 = U256::from(rng.gen::<[u8; 32]>());
-                let modulus = U256::zero();
-
-                generate(&mut lv, &mut nv, op_filter, input0, input1, modulus);
-
-                // check that the correct output was generated
-                assert!(lv[MODULAR_OUTPUT].iter().all(|&c| c == F::ZERO));
-
-                let mut constraint_consumer = ConstraintConsumer::new(
-                    vec![GoldilocksField(2), GoldilocksField(3), GoldilocksField(5)],
-                    GoldilocksField::ONE,
-                    GoldilocksField::ZERO,
-                    GoldilocksField::ZERO,
-                );
-                eval_packed(&lv, &nv, &mut constraint_consumer);
-                assert!(constraint_consumer
-                    .constraint_accs
-                    .iter()
-                    .all(|&acc| acc == F::ZERO));
-
-                // Corrupt one output limb by setting it to a non-zero value
-                let random_oi = MODULAR_OUTPUT.start + rng.gen::<usize>() % N_LIMBS;
-                lv[random_oi] = F::from_canonical_u16(rng.gen_range(1..u16::MAX));
-
-                eval_packed(&lv, &nv, &mut constraint_consumer);
-
-                // Check that at least one of the constraints was non-zero
-                assert!(constraint_consumer
-                    .constraint_accs
-                    .iter()
-                    .any(|&acc| acc != F::ZERO));
             }
         }
     }
