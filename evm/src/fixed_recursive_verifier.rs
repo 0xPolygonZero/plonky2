@@ -465,6 +465,7 @@ where
             &all_stark.cross_table_lookups,
             stark_config,
         );
+        let poseidon = todo!();
 
         let by_table = [
             arithmetic,
@@ -474,6 +475,7 @@ where
             keccak_sponge,
             logic,
             memory,
+            poseidon,
         ];
         let root = Self::create_root_circuit(&by_table, stark_config);
         let aggregation = Self::create_aggregation_circuit(&root);

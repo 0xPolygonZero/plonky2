@@ -14,6 +14,7 @@ use crate::config::StarkConfig;
 use crate::cpu::columns::CpuColumnsView;
 use crate::keccak_sponge::columns::KECCAK_WIDTH_BYTES;
 use crate::keccak_sponge::keccak_sponge_stark::KeccakSpongeOp;
+use crate::poseidon::poseidon_stark::PoseidonOp;
 use crate::util::trace_rows_to_poly_values;
 use crate::witness::memory::MemoryOp;
 use crate::{arithmetic, keccak, keccak_sponge, logic};
@@ -30,7 +31,7 @@ pub(crate) struct TraceCheckpoint {
 }
 
 #[derive(Debug)]
-pub(crate) struct Traces<T: Copy> {
+pub(crate) struct Traces<T: Copy + RichField> {
     pub(crate) arithmetic_ops: Vec<arithmetic::Operation>,
     pub(crate) byte_packing_ops: Vec<BytePackingOp>,
     pub(crate) cpu: Vec<CpuColumnsView<T>>,
@@ -38,9 +39,10 @@ pub(crate) struct Traces<T: Copy> {
     pub(crate) memory_ops: Vec<MemoryOp>,
     pub(crate) keccak_inputs: Vec<([u64; keccak::keccak_stark::NUM_INPUTS], usize)>,
     pub(crate) keccak_sponge_ops: Vec<KeccakSpongeOp>,
+    pub(crate) poseidon_ops: Vec<PoseidonOp<T>>,
 }
 
-impl<T: Copy> Traces<T> {
+impl<T: Copy + RichField> Traces<T> {
     pub(crate) fn new() -> Self {
         Traces {
             arithmetic_ops: vec![],
@@ -50,6 +52,7 @@ impl<T: Copy> Traces<T> {
             memory_ops: vec![],
             keccak_inputs: vec![],
             keccak_sponge_ops: vec![],
+            poseidon_ops: vec![],
         }
     }
 
@@ -180,6 +183,7 @@ impl<T: Copy> Traces<T> {
             memory_ops,
             keccak_inputs,
             keccak_sponge_ops,
+            poseidon_ops,
         } = self;
 
         let arithmetic_trace = timed!(
@@ -222,6 +226,13 @@ impl<T: Copy> Traces<T> {
             "generate memory trace",
             all_stark.memory_stark.generate_trace(memory_ops, timing)
         );
+        let poseidon_trace = timed!(
+            timing,
+            "generate memory trace",
+            all_stark
+                .poseidon_stark
+                .generate_trace(poseidon_ops, cap_elements, timing)
+        );
 
         [
             arithmetic_trace,
@@ -231,11 +242,12 @@ impl<T: Copy> Traces<T> {
             keccak_sponge_trace,
             logic_trace,
             memory_trace,
+            poseidon_trace,
         ]
     }
 }
 
-impl<T: Copy> Default for Traces<T> {
+impl<T: Copy + RichField> Default for Traces<T> {
     fn default() -> Self {
         Self::new()
     }

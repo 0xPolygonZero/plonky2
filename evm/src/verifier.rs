@@ -54,6 +54,7 @@ where
         keccak_sponge_stark,
         logic_stark,
         memory_stark,
+        poseidon_stark,
         cross_table_lookups,
     } = all_stark;
 

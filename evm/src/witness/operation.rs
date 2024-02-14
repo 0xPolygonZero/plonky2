@@ -19,6 +19,7 @@ use crate::cpu::stack::MAX_USER_STACK_SIZE;
 use crate::extension_tower::BN_BASE;
 use crate::generation::state::GenerationState;
 use crate::memory::segments::Segment;
+use crate::poseidon::poseidon_stark::PoseidonOp;
 use crate::util::u256_to_usize;
 use crate::witness::errors::MemoryError::VirtTooLarge;
 use crate::witness::errors::ProgramError;
@@ -67,7 +68,7 @@ pub(crate) const CONTEXT_SCALING_FACTOR: usize = 64;
 /// Adds a CPU row filled with the two inputs and the output of a logic operation.
 /// Generates a new logic operation and adds it to the vector of operation in `LogicStark`.
 /// Adds three memory read operations to `MemoryStark`: for the two inputs and the output.
-pub(crate) fn generate_binary_logic_op<F: Field>(
+pub(crate) fn generate_binary_logic_op<F: RichField>(
     op: logic::Op,
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
@@ -83,7 +84,7 @@ pub(crate) fn generate_binary_logic_op<F: Field>(
     Ok(())
 }
 
-pub(crate) fn generate_binary_arithmetic_op<F: Field>(
+pub(crate) fn generate_binary_arithmetic_op<F: RichField>(
     operator: arithmetic::BinaryOperator,
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
@@ -112,7 +113,7 @@ pub(crate) fn generate_binary_arithmetic_op<F: Field>(
     Ok(())
 }
 
-pub(crate) fn generate_ternary_arithmetic_op<F: Field>(
+pub(crate) fn generate_ternary_arithmetic_op<F: RichField>(
     operator: arithmetic::TernaryOperator,
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
@@ -130,7 +131,7 @@ pub(crate) fn generate_ternary_arithmetic_op<F: Field>(
     Ok(())
 }
 
-pub(crate) fn generate_keccak_general<F: Field>(
+pub(crate) fn generate_keccak_general<F: RichField>(
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
@@ -179,6 +180,8 @@ pub(crate) fn generate_poseidon<F: RichField>(
     log::debug!("Poseidon hashing {:?} -> {}", arr, hash);
     push_no_write(state, hash);
 
+    state.traces.poseidon_ops.push(PoseidonOp(arr));
+
     state.traces.push_memory(log_in1);
     state.traces.push_memory(log_in2);
     state.traces.push_cpu(row);
@@ -212,7 +215,7 @@ pub(crate) fn generate_prover_input<F: RichField>(
     Ok(())
 }
 
-pub(crate) fn generate_pop<F: Field>(
+pub(crate) fn generate_pop<F: RichField>(
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
@@ -234,7 +237,7 @@ pub(crate) fn generate_pop<F: Field>(
     Ok(())
 }
 
-pub(crate) fn generate_jump<F: Field>(
+pub(crate) fn generate_jump<F: RichField>(
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
@@ -283,7 +286,7 @@ pub(crate) fn generate_jump<F: Field>(
     Ok(())
 }
 
-pub(crate) fn generate_jumpi<F: Field>(
+pub(crate) fn generate_jumpi<F: RichField>(
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
@@ -346,7 +349,7 @@ pub(crate) fn generate_jumpi<F: Field>(
     Ok(())
 }
 
-pub(crate) fn generate_pc<F: Field>(
+pub(crate) fn generate_pc<F: RichField>(
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
@@ -355,7 +358,7 @@ pub(crate) fn generate_pc<F: Field>(
     Ok(())
 }
 
-pub(crate) fn generate_jumpdest<F: Field>(
+pub(crate) fn generate_jumpdest<F: RichField>(
     state: &mut GenerationState<F>,
     row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
@@ -363,7 +366,7 @@ pub(crate) fn generate_jumpdest<F: Field>(
     Ok(())
 }
 
-pub(crate) fn generate_get_context<F: Field>(
+pub(crate) fn generate_get_context<F: RichField>(
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
@@ -391,7 +394,7 @@ pub(crate) fn generate_get_context<F: Field>(
     Ok(())
 }
 
-pub(crate) fn generate_set_context<F: Field>(
+pub(crate) fn generate_set_context<F: RichField>(
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
@@ -458,7 +461,7 @@ pub(crate) fn generate_set_context<F: Field>(
     Ok(())
 }
 
-pub(crate) fn generate_push<F: Field>(
+pub(crate) fn generate_push<F: RichField>(
     n: u8,
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
@@ -502,7 +505,7 @@ pub(crate) fn generate_push<F: Field>(
 // - Update `stack_top` with `val` and add 1 to `stack_len`
 // Since the write must happen before the read, the normal way of assigning
 // GP channels doesn't work and we must handle them manually.
-pub(crate) fn generate_dup<F: Field>(
+pub(crate) fn generate_dup<F: RichField>(
     n: u8,
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
@@ -564,7 +567,7 @@ pub(crate) fn generate_dup<F: Field>(
     Ok(())
 }
 
-pub(crate) fn generate_swap<F: Field>(
+pub(crate) fn generate_swap<F: RichField>(
     n: u8,
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
@@ -587,7 +590,7 @@ pub(crate) fn generate_swap<F: Field>(
     Ok(())
 }
 
-pub(crate) fn generate_not<F: Field>(
+pub(crate) fn generate_not<F: RichField>(
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
@@ -610,7 +613,7 @@ pub(crate) fn generate_not<F: Field>(
     Ok(())
 }
 
-pub(crate) fn generate_iszero<F: Field>(
+pub(crate) fn generate_iszero<F: RichField>(
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
@@ -628,7 +631,7 @@ pub(crate) fn generate_iszero<F: Field>(
     Ok(())
 }
 
-fn append_shift<F: Field>(
+fn append_shift<F: RichField>(
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
     is_shl: bool,
@@ -668,7 +671,7 @@ fn append_shift<F: Field>(
     Ok(())
 }
 
-pub(crate) fn generate_shl<F: Field>(
+pub(crate) fn generate_shl<F: RichField>(
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
@@ -682,7 +685,7 @@ pub(crate) fn generate_shl<F: Field>(
     append_shift(state, row, true, input0, input1, log_in1, result)
 }
 
-pub(crate) fn generate_shr<F: Field>(
+pub(crate) fn generate_shr<F: RichField>(
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
@@ -696,7 +699,7 @@ pub(crate) fn generate_shr<F: Field>(
     append_shift(state, row, false, input0, input1, log_in1, result)
 }
 
-pub(crate) fn generate_syscall<F: Field>(
+pub(crate) fn generate_syscall<F: RichField>(
     opcode: u8,
     stack_values_read: usize,
     stack_len_increased: bool,
@@ -782,7 +785,7 @@ pub(crate) fn generate_syscall<F: Field>(
     Ok(())
 }
 
-pub(crate) fn generate_eq<F: Field>(
+pub(crate) fn generate_eq<F: RichField>(
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
@@ -798,7 +801,7 @@ pub(crate) fn generate_eq<F: Field>(
     Ok(())
 }
 
-pub(crate) fn generate_exit_kernel<F: Field>(
+pub(crate) fn generate_exit_kernel<F: RichField>(
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
@@ -827,7 +830,7 @@ pub(crate) fn generate_exit_kernel<F: Field>(
     Ok(())
 }
 
-pub(crate) fn generate_mload_general<F: Field>(
+pub(crate) fn generate_mload_general<F: RichField>(
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
@@ -854,7 +857,7 @@ pub(crate) fn generate_mload_general<F: Field>(
     Ok(())
 }
 
-pub(crate) fn generate_mload_32bytes<F: Field>(
+pub(crate) fn generate_mload_32bytes<F: RichField>(
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
@@ -892,7 +895,7 @@ pub(crate) fn generate_mload_32bytes<F: Field>(
     Ok(())
 }
 
-pub(crate) fn generate_mstore_general<F: Field>(
+pub(crate) fn generate_mstore_general<F: RichField>(
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
@@ -920,7 +923,7 @@ pub(crate) fn generate_mstore_general<F: Field>(
     Ok(())
 }
 
-pub(crate) fn generate_mstore_32bytes<F: Field>(
+pub(crate) fn generate_mstore_32bytes<F: RichField>(
     n: u8,
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,
@@ -939,7 +942,7 @@ pub(crate) fn generate_mstore_32bytes<F: Field>(
     Ok(())
 }
 
-pub(crate) fn generate_exception<F: Field>(
+pub(crate) fn generate_exception<F: RichField>(
     exc_code: u8,
     state: &mut GenerationState<F>,
     mut row: CpuColumnsView<F>,

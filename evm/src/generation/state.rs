@@ -28,7 +28,7 @@ pub(crate) struct GenerationStateCheckpoint {
 }
 
 #[derive(Debug)]
-pub(crate) struct GenerationState<F: Field> {
+pub(crate) struct GenerationState<F: RichField> {
     pub(crate) inputs: GenerationInputs,
     pub(crate) registers: RegistersState,
     pub(crate) memory: MemoryState,
@@ -60,7 +60,7 @@ pub(crate) struct GenerationState<F: Field> {
     pub(crate) jumpdest_table: Option<HashMap<usize, Vec<usize>>>,
 }
 
-impl<F: Field> GenerationState<F> {
+impl<F: RichField> GenerationState<F> {
     fn preinitialize_mpts(&mut self, trie_inputs: &TrieInputs) -> TrieRootPtrs {
         let (trie_roots_ptrs, trie_data) =
             load_all_mpts(trie_inputs).expect("Invalid MPT data for preinitialization");

@@ -23,6 +23,7 @@ use crate::cpu::{
 use crate::cross_table_lookup::TableWithColumns;
 use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
 use crate::lookup::{Column, Filter, Lookup};
+use crate::memory;
 use crate::memory::segments::Segment;
 use crate::memory::{NUM_CHANNELS, VALUE_LIMBS};
 use crate::stark::Stark;
@@ -411,6 +412,31 @@ pub(crate) fn ctl_filter_set_context<F: Field>() -> Filter<F> {
             Column::single(COL_MAP.opcode_bits[0]),
         )],
         vec![],
+    )
+}
+
+/// Returns the `TableWithColumns` for the CPU rows calling POSEIDON.
+pub(crate) fn ctl_poseidon<F: Field>() -> TableWithColumns<F> {
+    let mut columns = Vec::new();
+    for channel in 0..3 {
+        for i in 0..memory::VALUE_LIMBS / 2 {
+            columns.push(Column::linear_combination([
+                (COL_MAP.mem_channels[channel].value[2 * i], F::ONE),
+                (
+                    COL_MAP.mem_channels[channel].value[2 * i + 1],
+                    F::from_canonical_u64(1 << 32),
+                ),
+            ]));
+        }
+    }
+    columns.extend(Column::singles_next_row(COL_MAP.mem_channels[0].value));
+    // res.extend(Column::singles(COL_MAP.mem_channels[1].value));
+    // res.extend(Column::singles(COL_MAP.mem_channels[2].value));
+    // res
+    TableWithColumns::new(
+        *Table::Cpu,
+        columns,
+        Some(Filter::new_simple(Column::single(COL_MAP.op.poseidon))),
     )
 }
 

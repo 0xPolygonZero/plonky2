@@ -23,7 +23,10 @@ use crate::witness::state::RegistersState;
 use crate::witness::util::mem_read_code_with_log_and_fill;
 use crate::{arithmetic, logic};
 
-fn read_code_memory<F: Field>(state: &mut GenerationState<F>, row: &mut CpuColumnsView<F>) -> u8 {
+fn read_code_memory<F: RichField>(
+    state: &mut GenerationState<F>,
+    row: &mut CpuColumnsView<F>,
+) -> u8 {
     let code_context = state.registers.code_context();
     row.code_context = F::from_canonical_usize(code_context);
 
@@ -328,7 +331,7 @@ fn perform_op<F: RichField>(
 /// Row that has the correct values for system registers and the code channel, but is otherwise
 /// blank. It fulfills the constraints that are common to successful operations and the exception
 /// operation. It also returns the opcode.
-fn base_row<F: Field>(state: &mut GenerationState<F>) -> (CpuColumnsView<F>, u8) {
+fn base_row<F: RichField>(state: &mut GenerationState<F>) -> (CpuColumnsView<F>, u8) {
     let mut row: CpuColumnsView<F> = CpuColumnsView::default();
     row.clock = F::from_canonical_usize(state.traces.clock());
     row.context = F::from_canonical_usize(state.registers.context);
@@ -342,7 +345,7 @@ fn base_row<F: Field>(state: &mut GenerationState<F>) -> (CpuColumnsView<F>, u8)
     (row, opcode)
 }
 
-pub(crate) fn fill_stack_fields<F: Field>(
+pub(crate) fn fill_stack_fields<F: RichField>(
     state: &mut GenerationState<F>,
     row: &mut CpuColumnsView<F>,
 ) -> Result<(), ProgramError> {
@@ -426,7 +429,7 @@ fn try_perform_instruction<F: RichField>(
     perform_op(state, op, row)
 }
 
-fn log_kernel_instruction<F: Field>(state: &GenerationState<F>, op: Operation) {
+fn log_kernel_instruction<F: RichField>(state: &GenerationState<F>, op: Operation) {
     // The logic below is a bit costly, so skip it if debug logs aren't enabled.
     if !log_enabled!(log::Level::Debug) {
         return;
@@ -455,7 +458,10 @@ fn log_kernel_instruction<F: Field>(state: &GenerationState<F>, op: Operation) {
     assert!(pc < KERNEL.code.len(), "Kernel PC is out of range: {}", pc);
 }
 
-fn handle_error<F: Field>(state: &mut GenerationState<F>, err: ProgramError) -> anyhow::Result<()> {
+fn handle_error<F: RichField>(
+    state: &mut GenerationState<F>,
+    err: ProgramError,
+) -> anyhow::Result<()> {
     let exc_code: u8 = match err {
         ProgramError::OutOfGas => 0,
         ProgramError::InvalidOpcode => 1,

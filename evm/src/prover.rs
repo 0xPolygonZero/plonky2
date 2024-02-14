@@ -298,6 +298,21 @@ where
             abort_signal,
         )?
     );
+    let poseidon_proof = timed!(
+        timing,
+        "prove memory STARK",
+        todo!() // prove_single_table(
+                //     &all_stark.memory_stark,
+                //     config,
+                //     &trace_poly_values[Table::Memory as usize],
+                //     &trace_commitments[Table::Memory as usize],
+                //     &ctl_data_per_table[Table::Memory as usize],
+                //     ctl_challenges,
+                //     challenger,
+                //     timing,
+                //     abort_signal,
+                // )?
+    );
 
     Ok([
         arithmetic_proof,
@@ -307,6 +322,7 @@ where
         keccak_sponge_proof,
         logic_proof,
         memory_proof,
+        poseidon_proof,
     ])
 }
 

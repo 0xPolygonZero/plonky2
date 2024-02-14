@@ -15,7 +15,7 @@ anyhow = "1.0.40"
 bytes = "1.4.0"
 env_logger = "0.10.0"
 eth_trie_utils = { git = "https://github.com/0xPolygonZero/eth_trie_utils.git", rev = "7fc3c3f54b3cec9c6fc5ffc5230910bd1cb77f76" }
-smt_utils_hermez = { git = "https://github.com/wborgeaud/smt-utils-hermez", rev = "c50037ab6a810e2d80d7bee912d97d645f79933f"}
+smt_utils_hermez = { git = "https://github.com/wborgeaud/smt-utils-hermez", rev = "17e94ea51f740331821c471810108ce16bd9bc9a"}
 ethereum-types = "0.14.0"
 hex = { version = "0.4.3", optional = true }
 hex-literal = "0.4.1"
