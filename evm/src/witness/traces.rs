@@ -28,6 +28,7 @@ pub(crate) struct TraceCheckpoint {
     pub(self) keccak_sponge_len: usize,
     pub(self) logic_len: usize,
     pub(self) memory_len: usize,
+    pub(self) poseidon_len: usize,
 }
 
 #[derive(Debug)]
@@ -88,6 +89,7 @@ impl<T: Copy + RichField> Traces<T> {
             // This is technically a lower-bound, as we may fill gaps,
             // but this gives a relatively good estimate.
             memory_len: self.memory_ops.len(),
+            poseidon_len: self.poseidon_ops.len(),
         }
     }
 
@@ -101,6 +103,7 @@ impl<T: Copy + RichField> Traces<T> {
             keccak_sponge_len: self.keccak_sponge_ops.len(),
             logic_len: self.logic_ops.len(),
             memory_len: self.memory_ops.len(),
+            poseidon_len: self.poseidon_ops.len(),
         }
     }
 
@@ -113,6 +116,7 @@ impl<T: Copy + RichField> Traces<T> {
             .truncate(checkpoint.keccak_sponge_len);
         self.logic_ops.truncate(checkpoint.logic_len);
         self.memory_ops.truncate(checkpoint.memory_len);
+        self.poseidon_ops.truncate(checkpoint.poseidon_len);
     }
 
     pub(crate) fn mem_ops_since(&self, checkpoint: TraceCheckpoint) -> &[MemoryOp] {

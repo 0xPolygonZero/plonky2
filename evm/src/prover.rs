@@ -295,23 +295,23 @@ where
             ctl_challenges,
             challenger,
             timing,
-            abort_signal,
+            abort_signal.clone(),
         )?
     );
     let poseidon_proof = timed!(
         timing,
         "prove memory STARK",
-        todo!() // prove_single_table(
-                //     &all_stark.memory_stark,
-                //     config,
-                //     &trace_poly_values[Table::Memory as usize],
-                //     &trace_commitments[Table::Memory as usize],
-                //     &ctl_data_per_table[Table::Memory as usize],
-                //     ctl_challenges,
-                //     challenger,
-                //     timing,
-                //     abort_signal,
-                // )?
+        prove_single_table(
+            &all_stark.poseidon_stark,
+            config,
+            &trace_poly_values[Table::Poseidon as usize],
+            &trace_commitments[Table::Poseidon as usize],
+            &ctl_data_per_table[Table::Poseidon as usize],
+            ctl_challenges,
+            challenger,
+            timing,
+            abort_signal,
+        )?
     );
 
     Ok([

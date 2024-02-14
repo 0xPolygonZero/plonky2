@@ -107,7 +107,7 @@ fn test_erc20() -> anyhow::Result<()> {
         .map(|v| (hash_bytecode_u256(v.clone()), v))
         .into();
 
-    let expected_smt_trie_after: Smt<MemoryDb> = {
+    let expected_smt_after: Smt<MemoryDb> = {
         let mut smt = Smt::default();
         let sender_account = sender_account();
         let sender_account_after = AccountRlp {
@@ -166,7 +166,7 @@ fn test_erc20() -> anyhow::Result<()> {
     .into();
 
     let trie_roots_after = TrieRoots {
-        state_root: H256::from_uint(&hashout2u(expected_smt_trie_after.root)),
+        state_root: H256::from_uint(&hashout2u(expected_smt_after.root)),
         transactions_root: transactions_trie.hash(),
         receipts_root: receipts_trie.hash(),
     };
