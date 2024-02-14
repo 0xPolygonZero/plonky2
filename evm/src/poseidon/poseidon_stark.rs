@@ -22,7 +22,6 @@ use super::columns::{
 use crate::all_stark::Table;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::cross_table_lookup::TableWithColumns;
-// use crate::cross_table_lookup::Column;
 use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
 use crate::lookup::{Column, Filter};
 use crate::stark::Stark;
@@ -32,9 +31,6 @@ use crate::witness::memory::MemoryAddress;
 pub(crate) fn ctl_looked<F: Field>() -> TableWithColumns<F> {
     let mut columns = Column::singles(POSEIDON_COL_MAP.input).collect_vec();
     columns.extend(Column::singles(POSEIDON_COL_MAP.digest));
-    // res.extend(Column::singles(COL_MAP.mem_channels[1].value));
-    // res.extend(Column::singles(COL_MAP.mem_channels[2].value));
-    // res
     TableWithColumns::new(
         *Table::Poseidon,
         columns,
@@ -43,61 +39,6 @@ pub(crate) fn ctl_looked<F: Field>() -> TableWithColumns<F> {
         ))),
     )
 }
-
-// pub fn ctl_looked_data<F: Field>() -> Vec<Column<F>> {
-//     let cols = POSEIDON_COL_MAP;
-//     let outputs: Vec<Column<F>> = Column::singles(cols.digest).collect();
-//     let mut res: Vec<_> = Column::singles([
-//         cols.context,
-//         cols.segment,
-//         cols.virt,
-//         cols.len,
-//         cols.timestamp,
-//     ])
-//     .collect();
-//     res.extend(outputs);
-//     res
-// }
-//
-// pub fn ctl_looked_filter<F: Field>() -> Column<F> {
-//     Column::sum(POSEIDON_COL_MAP.is_final_input_len)
-// }
-
-// pub fn ctl_looking_memory<F: Field>(i: usize) -> Vec<Column<F>> {
-//     let cols = POSEIDON_COL_MAP;
-//     let mut res = vec![Column::constant(F::ONE)]; // is_read
-//
-//     res.extend(Column::singles([cols.context, cols.segment]));
-//
-//     res.push(Column::linear_combination_with_constant(
-//         [
-//             (cols.virt, F::ONE),
-//             (cols.already_absorbed_elements, F::ONE),
-//         ],
-//         F::from_canonical_usize(i),
-//     ));
-//
-//     res.push(Column::single(cols.input[i]));
-//     res.extend((1..8).map(|_| Column::zero()));
-//
-//     res.push(Column::single(cols.timestamp));
-//
-//     assert_eq!(
-//         res.len(),
-//         crate::memory::memory_stark::ctl_data::<F>().len()
-//     );
-//
-//     res
-// }
-
-// pub fn ctl_looking_memory_filter<F: Field>(i: usize) -> Column<F> {
-//     let cols = POSEIDON_COL_MAP;
-//     if i == POSEIDON_SPONGE_RATE - 1 {
-//         Column::single(cols.is_full_input_block)
-//     } else {
-//         Column::sum(once(&cols.is_full_input_block).chain(&cols.is_final_input_len[i + 1..]))
-//     }
-// }
 
 #[derive(Copy, Clone, Debug)]
 pub struct PoseidonOp<F: RichField>(pub [F; POSEIDON_SPONGE_WIDTH]);
@@ -142,48 +83,6 @@ impl<F: RichField + Extendable<D>, const D: usize> PoseidonStark<F, D> {
         row.not_padding = F::ONE;
         row.into()
     }
-
-    // fn generate_commons(
-    //     row: &mut PoseidonColumnsView<F>,
-    //     input: [F; POSEIDON_SPONGE_WIDTH],
-    //     op: &PoseidonOp,
-    //     already_absorbed_elements: usize,
-    // ) {
-    //     row.context = F::from_canonical_usize(op.base_address.context);
-    //     row.segment = F::from_canonical_usize(op.base_address.segment);
-    //     row.virt = F::from_canonical_usize(op.base_address.virt);
-    //     row.timestamp = F::from_canonical_usize(op.timestamp);
-    //     row.len = F::from_canonical_usize(op.len);
-    //     row.already_absorbed_elements = F::from_canonical_usize(already_absorbed_elements);
-    //
-    //     Self::generate_perm(row, input);
-    // }
-    // // One row per permutation.
-    // fn generate_trace_row_for_perm(
-    //     &self,
-    //     input: [F; POSEIDON_SPONGE_WIDTH],
-    //     op: &PoseidonOp,
-    //     already_absorbed_elements: usize,
-    // ) -> PoseidonColumnsView<F> {
-    //     let mut row = PoseidonColumnsView::default();
-    //     row.is_full_input_block = F::ONE;
-    //
-    //     Self::generate_commons(&mut row, input, op, already_absorbed_elements);
-    //     row
-    // }
-    //
-    // fn generate_trace_final_row_for_perm(
-    //     &self,
-    //     input: [F; POSEIDON_SPONGE_WIDTH],
-    //     op: &PoseidonOp,
-    //     already_absorbed_elements: usize,
-    // ) -> PoseidonColumnsView<F> {
-    //     let mut row = PoseidonColumnsView::default();
-    //     row.is_final_input_len[op.len % POSEIDON_SPONGE_RATE] = F::ONE;
-    //
-    //     Self::generate_commons(&mut row, input, op, already_absorbed_elements);
-    //     row
-    // }
 
     fn generate_perm(row: &mut PoseidonColumnsView<F>, input: [F; POSEIDON_SPONGE_WIDTH]) {
         // Populate the round input for the first round.
@@ -302,85 +201,14 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for PoseidonStark
         FE: FieldExtension<D2, BaseField = F>,
         P: PackedField<Scalar = FE>,
     {
-        /*        let lv: &[P; NUM_COLUMNS] = vars.get_local_values().try_into().unwrap();
+        let lv: &[P; NUM_COLUMNS] = vars.get_local_values().try_into().unwrap();
         let lv: &PoseidonColumnsView<P> = lv.borrow();
-        let nv: &[P; NUM_COLUMNS] = vars.get_next_values().try_into().unwrap();
-        let nv: &PoseidonColumnsView<P> = nv.borrow();
 
-        // Each flag (full-input block, final block or implied dummy flag) must be boolean.
-        let is_full_input_block = lv.is_full_input_block;
-        yield_constr.constraint(is_full_input_block * (is_full_input_block - P::ONES));
+        // Padding flag must be boolean.
+        let not_padding = lv.not_padding;
+        yield_constr.constraint(not_padding * (not_padding - P::ONES));
 
-        let is_final_block: P = lv.is_final_input_len.iter().copied().sum();
-        yield_constr.constraint(is_final_block * (is_final_block - P::ONES));
-
-        for &is_final_len in lv.is_final_input_len.iter() {
-            yield_constr.constraint(is_final_len * (is_final_len - P::ONES));
-        }
-
-        // Ensure that full-input block and final block flags are not set to 1 at the same time.
-        yield_constr.constraint(is_final_block * is_full_input_block);
-
-        // If this is the first row, the original sponge state should have the input in the
-        // first `POSEIDON_SPONGE_RATE` elements followed by 0 for the capacity elements.
-        // The input values are checked with a CTL.
-        // Also, already_absorbed_elements = 0.
-        let already_absorbed_elements = lv.already_absorbed_elements;
-        yield_constr.constraint_first_row(already_absorbed_elements);
-
-        for i in POSEIDON_SPONGE_RATE..POSEIDON_SPONGE_WIDTH {
-            yield_constr.constraint_first_row(lv.input[i]);
-        }
-
-        // If this is a final row and there is an upcoming operation, then
-        // we make the previous checks for next row's `already_absorbed_elements`
-        // and the original sponge state.
-        yield_constr.constraint_transition(is_final_block * nv.already_absorbed_elements);
-
-        for i in POSEIDON_SPONGE_RATE..POSEIDON_SPONGE_WIDTH {
-            yield_constr.constraint_transition(is_final_block * nv.input[i]);
-        }
-
-        // If this is a full-input block, the next row's address,
-        // time and len must match as well as its timestamp.
-        yield_constr.constraint_transition(is_full_input_block * (lv.context - nv.context));
-        yield_constr.constraint_transition(is_full_input_block * (lv.segment - nv.segment));
-        yield_constr.constraint_transition(is_full_input_block * (lv.virt - nv.virt));
-        yield_constr.constraint_transition(is_full_input_block * (lv.timestamp - nv.timestamp));
-
-        // If this is a full-input block, the next row's already_absorbed_elements should be ours plus `POSEIDON_SPONGE_RATE`,
-        // and the next input's capacity is the current output's capacity.
-        yield_constr.constraint_transition(
-            is_full_input_block
-                * (already_absorbed_elements
-                    + P::from(FE::from_canonical_usize(POSEIDON_SPONGE_RATE))
-                    - nv.already_absorbed_elements),
-        );
-
-        for i in 0..POSEIDON_SPONGE_WIDTH - POSEIDON_SPONGE_RATE {
-            yield_constr.constraint_transition(
-                is_full_input_block
-                    * (lv.output_partial[reg_output_capacity(i)]
-                        - nv.input[POSEIDON_SPONGE_RATE + i]),
-            );
-        }
-
-        // A dummy row is always followed by another dummy row, so the prover can't put dummy rows "in between" to avoid the above checks.
-        let is_dummy = P::ONES - is_full_input_block - is_final_block;
-        let next_is_final_block: P = nv.is_final_input_len.iter().copied().sum();
-        yield_constr
-            .constraint_transition(is_dummy * (nv.is_full_input_block + next_is_final_block));
-
-        // If this is a final block, is_final_input_len implies `len - already_absorbed == i`.
-        let offset = lv.len - already_absorbed_elements;
-        for (i, &is_final_len) in lv.is_final_input_len.iter().enumerate() {
-            let entry_match = offset - P::from(FE::from_canonical_usize(i));
-            yield_constr.constraint(is_final_len * entry_match);
-        }
-
-        // Compute the input layer. We assume that, when necessary,
-        // input values were previously swapped before being passed
-        // to Poseidon.
+        // Compute the input layer.
         let mut state = lv.input;
 
         let mut round_ctr = 0;
@@ -479,7 +307,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for PoseidonStark
                 - P::ONES)
                 * lv.digest[2 * i];
             yield_constr.constraint(constr);
-        }*/
+        }
     }
 
     fn eval_ext_circuit(
@@ -488,111 +316,15 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for PoseidonStark
         vars: &Self::EvaluationFrameTarget,
         yield_constr: &mut RecursiveConstraintConsumer<F, D>,
     ) {
-        /*        let lv: &[ExtensionTarget<D>; NUM_COLUMNS] = vars.get_local_values().try_into().unwrap();
+        let lv: &[ExtensionTarget<D>; NUM_COLUMNS] = vars.get_local_values().try_into().unwrap();
         let lv: &PoseidonColumnsView<ExtensionTarget<D>> = lv.borrow();
-        let nv: &[ExtensionTarget<D>; NUM_COLUMNS] = vars.get_next_values().try_into().unwrap();
-        let nv: &PoseidonColumnsView<ExtensionTarget<D>> = nv.borrow();
 
-        // Each flag (full-input block, final block or implied dummy flag) must be boolean.
-        let is_full_input_block = lv.is_full_input_block;
-        let constr = builder.mul_sub_extension(
-            is_full_input_block,
-            is_full_input_block,
-            is_full_input_block,
-        );
+        // Padding flag must be boolean.
+        let not_padding = lv.not_padding;
+        let constr = builder.mul_sub_extension(not_padding, not_padding, not_padding);
         yield_constr.constraint(builder, constr);
 
-        let is_final_block = builder.add_many_extension(lv.is_final_input_len);
-        let constr = builder.mul_sub_extension(is_final_block, is_final_block, is_final_block);
-        yield_constr.constraint(builder, constr);
-
-        for &is_final_len in lv.is_final_input_len.iter() {
-            let constr = builder.mul_sub_extension(is_final_len, is_final_len, is_final_len);
-            yield_constr.constraint(builder, constr);
-        }
-
-        // Ensure that full-input block and final block flags are not set to 1 at the same time.
-        let constr = builder.mul_extension(is_final_block, is_full_input_block);
-        yield_constr.constraint(builder, constr);
-
-        // If this is the first row, the original sponge state should have the input in the
-        // first `POSEIDON_SPONGE_RATE` elements followed by 0 for the capacity elements.
-        // Also, already_absorbed_elements = 0.
-        let already_absorbed_elements = lv.already_absorbed_elements;
-        yield_constr.constraint_first_row(builder, already_absorbed_elements);
-
-        for i in 0..POSEIDON_SPONGE_WIDTH - POSEIDON_SPONGE_RATE {
-            yield_constr.constraint_first_row(builder, lv.input[reg_input_capacity(i)]);
-        }
-
-        // If this is a final row and there is an upcoming operation, then
-        // we make the previous checks for next row's `already_absorbed_elements`
-        // and the original sponge state.
-        let constr = builder.mul_extension(is_final_block, nv.already_absorbed_elements);
-        yield_constr.constraint_transition(builder, constr);
-
-        for i in 0..POSEIDON_SPONGE_WIDTH - POSEIDON_SPONGE_RATE {
-            let constr = builder.mul_extension(is_final_block, nv.input[reg_input_capacity(i)]);
-            yield_constr.constraint_transition(builder, constr);
-        }
-
-        // If this is a full-input block, the next row's address,
-        // time and len must match as well as its timestamp.
-        let mut constr = builder.sub_extension(lv.context, nv.context);
-        constr = builder.mul_extension(is_full_input_block, constr);
-        yield_constr.constraint_transition(builder, constr);
-        let mut constr = builder.sub_extension(lv.segment, nv.segment);
-        constr = builder.mul_extension(is_full_input_block, constr);
-        yield_constr.constraint_transition(builder, constr);
-        let mut constr = builder.sub_extension(lv.virt, nv.virt);
-        constr = builder.mul_extension(is_full_input_block, constr);
-        yield_constr.constraint_transition(builder, constr);
-        let mut constr = builder.sub_extension(lv.timestamp, nv.timestamp);
-        constr = builder.mul_extension(is_full_input_block, constr);
-        yield_constr.constraint_transition(builder, constr);
-
-        // If this is a full-input block, the next row's already_absorbed_elements should be ours plus `POSEIDON_SPONGE_RATE`,
-        // and the next input's capacity is the current output's capacity.
-        let diff = builder.sub_extension(already_absorbed_elements, nv.already_absorbed_elements);
-        let constr = builder.arithmetic_extension(
-            F::ONE,
-            F::from_canonical_usize(POSEIDON_SPONGE_RATE),
-            diff,
-            is_full_input_block,
-            is_full_input_block,
-        );
-        yield_constr.constraint_transition(builder, constr);
-
-        for i in 0..POSEIDON_SPONGE_WIDTH - POSEIDON_SPONGE_RATE {
-            let mut constr = builder.sub_extension(
-                lv.output_partial[reg_output_capacity(i)],
-                nv.input[reg_input_capacity(i)],
-            );
-            constr = builder.mul_extension(is_full_input_block, constr);
-            yield_constr.constraint_transition(builder, constr);
-        }
-
-        // A dummy row is always followed by another dummy row, so the prover can't put dummy rows "in between" to avoid the above checks.
-        let mut is_dummy = builder.add_extension(is_full_input_block, is_final_block);
-        let one = builder.one_extension();
-        is_dummy = builder.sub_extension(one, is_dummy);
-        let next_is_final_block = builder.add_many_extension(nv.is_final_input_len.iter());
-        let mut constr = builder.add_extension(nv.is_full_input_block, next_is_final_block);
-        constr = builder.mul_extension(is_dummy, constr);
-        yield_constr.constraint_transition(builder, constr);
-
-        // If this is a final block, is_final_input_len implies `len - already_absorbed == i`
-        let offset = builder.sub_extension(lv.len, already_absorbed_elements);
-        for (i, &is_final_len) in lv.is_final_input_len.iter().enumerate() {
-            let index = builder.constant_extension(F::from_canonical_usize(i).into());
-            let entry_match = builder.sub_extension(offset, index);
-            let constr = builder.mul_extension(is_final_len, entry_match);
-            yield_constr.constraint(builder, constr);
-        }
-
-        // Compute the input layer. We assume that, when necessary,
-        // input values were previously swapped before being passed
-        // to Poseidon.
+        // Compute the input layer.
         let mut state = lv.input;
 
         let mut round_ctr = 0;
@@ -728,7 +460,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for PoseidonStark
             constr = builder.mul_sub_extension(lv.digest[2 * i], constr, lv.digest[2 * i]);
 
             yield_constr.constraint(builder, constr);
-        }*/
+        }
     }
 
     fn constraint_degree(&self) -> usize {
@@ -752,6 +484,8 @@ mod tests {
     use plonky2::util::timing::TimingTree;
 
     use crate::config::StarkConfig;
+    use crate::cross_table_lookup::{CtlData, CtlZData, GrandProductChallengeSet};
+    use crate::lookup::GrandProductChallenge;
     // use crate::cross_table_lookup::{
     //     CtlData, CtlZData, GrandProductChallenge, GrandProductChallengeSet,
     // };
@@ -819,89 +553,6 @@ mod tests {
 
         Ok(())
     }
-
-    // #[test]
-    // fn poseidon_benchmark() -> Result<()> {
-    //     const NUM_PERMS: usize = 85;
-    //     const D: usize = 2;
-    //     type C = PoseidonGoldilocksConfig;
-    //     type F = <C as GenericConfig<D>>::F;
-    //     type S = PoseidonStark<F, D>;
-    //     let stark = S::default();
-    //     let config = StarkConfig::standard_fast_config();
-    //
-    //     init_logger();
-    //
-    //     let input: Vec<Vec<u32>> = (0..NUM_PERMS)
-    //         .map(|_| {
-    //             (0..POSEIDON_SPONGE_RATE)
-    //                 .map(|_| rand::random())
-    //                 .collect::<Vec<_>>()
-    //         })
-    //         .collect();
-    //     let ops: Vec<_> = (0..NUM_PERMS)
-    //         .map(|i| PoseidonOp {
-    //             base_address: MemoryAddress::new(0, Segment::BlockHashes, 0),
-    //             timestamp: 0,
-    //             input: input[i].clone(),
-    //             len: 5,
-    //         })
-    //         .collect();
-    //     let mut timing = TimingTree::new("prove", log::Level::Debug);
-    //     let trace_poly_values = timed!(
-    //         timing,
-    //         "generate trace",
-    //         stark.generate_trace(ops, 8, &mut timing)
-    //     );
-    //
-    //     // TODO: Cloning this isn't great; consider having `from_values` accept a reference,
-    //     // or having `compute_permutation_z_polys` read trace values from the `PolynomialBatch`.
-    //     let cloned_trace_poly_values = timed!(timing, "clone", trace_poly_values.clone());
-    //
-    //     let trace_commitments = timed!(
-    //         timing,
-    //         "compute trace commitment",
-    //         PolynomialBatch::<F, C, D>::from_values(
-    //             cloned_trace_poly_values,
-    //             config.fri_config.rate_bits,
-    //             false,
-    //             config.fri_config.cap_height,
-    //             &mut timing,
-    //             None,
-    //         )
-    //     );
-    //     let degree = 1 << trace_commitments.degree_log;
-    //
-    //     // Fake CTL data.
-    //     let ctl_z_data = CtlZData {
-    //         z: PolynomialValues::zero(degree),
-    //         challenge: GrandProductChallenge {
-    //             beta: F::ZERO,
-    //             gamma: F::ZERO,
-    //         },
-    //         columns: vec![],
-    //         filter_column: None,
-    //     };
-    //     let ctl_data = CtlData {
-    //         zs_columns: vec![ctl_z_data.clone(); config.num_challenges],
-    //     };
-    //
-    //     prove_single_table(
-    //         &stark,
-    //         &config,
-    //         &trace_poly_values,
-    //         &trace_commitments,
-    //         &ctl_data,
-    //         &GrandProductChallengeSet {
-    //             challenges: vec![ctl_z_data.challenge; config.num_challenges],
-    //         },
-    //         &mut Challenger::new(),
-    //         &mut timing,
-    //     )?;
-    //
-    //     timing.print();
-    //     Ok(())
-    // }
 
     fn init_logger() {
         let _ = try_init_from_env(Env::default().filter_or(DEFAULT_FILTER_ENV, "debug"));

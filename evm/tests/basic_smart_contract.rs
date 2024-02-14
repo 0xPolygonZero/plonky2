@@ -7,7 +7,6 @@ use eth_trie_utils::nibbles::Nibbles;
 use eth_trie_utils::partial_trie::{HashedPartialTrie, PartialTrie};
 use ethereum_types::{Address, BigEndianHash, H160, H256, U256};
 use hex_literal::hex;
-use keccak_hash::keccak;
 use plonky2::field::goldilocks_field::GoldilocksField;
 use plonky2::plonk::config::KeccakGoldilocksConfig;
 use plonky2::util::timing::TimingTree;
