@@ -183,6 +183,7 @@ pub mod keccak_sponge;
 pub mod logic;
 pub mod lookup;
 pub mod memory;
+pub mod poseidon;
 pub mod proof;
 pub mod prover;
 pub mod recursive_verifier;
