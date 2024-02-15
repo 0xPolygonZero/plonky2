@@ -2,15 +2,6 @@
 
 extern crate alloc;
 
-#[cfg(not(feature = "parallel"))]
-use {
-    core::{
-        iter::{FlatMap, IntoIterator, Iterator},
-        slice::{self, Chunks, ChunksExact, ChunksExactMut, ChunksMut},
-    },
-    alloc::vec::Vec,
-};
-
 #[cfg(feature = "parallel")]
 pub use rayon::{
     self,
@@ -25,6 +16,14 @@ use rayon::{
     slice::{
         Chunks as ParChunks, ChunksExact as ParChunksExact, ChunksExactMut as ParChunksExactMut,
         ChunksMut as ParChunksMut, ParallelSlice, ParallelSliceMut,
+    },
+};
+#[cfg(not(feature = "parallel"))]
+use {
+    alloc::vec::Vec,
+    core::{
+        iter::{FlatMap, IntoIterator, Iterator},
+        slice::{self, Chunks, ChunksExact, ChunksExactMut, ChunksMut},
     },
 };
 
