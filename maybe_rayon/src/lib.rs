@@ -1,8 +1,7 @@
+#![cfg_attr(not(std), no_std)]
+
 #[cfg(not(feature = "parallel"))]
-use core::{
-    iter::{FlatMap, IntoIterator, Iterator},
-    slice::{Chunks, ChunksExact, ChunksExactMut, ChunksMut},
-};
+extern crate alloc;
 
 #[cfg(feature = "parallel")]
 pub use rayon::{
@@ -18,6 +17,14 @@ use rayon::{
     slice::{
         Chunks as ParChunks, ChunksExact as ParChunksExact, ChunksExactMut as ParChunksExactMut,
         ChunksMut as ParChunksMut, ParallelSlice, ParallelSliceMut,
+    },
+};
+#[cfg(not(feature = "parallel"))]
+use {
+    alloc::vec::Vec,
+    core::{
+        iter::{FlatMap, IntoIterator, Iterator},
+        slice::{self, Chunks, ChunksExact, ChunksExactMut, ChunksMut},
     },
 };
 
@@ -53,7 +60,7 @@ where
 #[cfg(not(feature = "parallel"))]
 impl<'data, T: 'data> MaybeParIter<'data> for Vec<T> {
     type Item = &'data T;
-    type Iter = std::slice::Iter<'data, T>;
+    type Iter = slice::Iter<'data, T>;
 
     fn par_iter(&'data self) -> Self::Iter {
         self.iter()
@@ -63,7 +70,7 @@ impl<'data, T: 'data> MaybeParIter<'data> for Vec<T> {
 #[cfg(not(feature = "parallel"))]
 impl<'data, T: 'data> MaybeParIter<'data> for [T] {
     type Item = &'data T;
-    type Iter = std::slice::Iter<'data, T>;
+    type Iter = slice::Iter<'data, T>;
 
     fn par_iter(&'data self) -> Self::Iter {
         self.iter()
@@ -102,7 +109,7 @@ where
 #[cfg(not(feature = "parallel"))]
 impl<'data, T: 'data> MaybeParIterMut<'data> for Vec<T> {
     type Item = &'data mut T;
-    type Iter = std::slice::IterMut<'data, T>;
+    type Iter = slice::IterMut<'data, T>;
 
     fn par_iter_mut(&'data mut self) -> Self::Iter {
         self.iter_mut()
@@ -112,7 +119,7 @@ impl<'data, T: 'data> MaybeParIterMut<'data> for Vec<T> {
 #[cfg(not(feature = "parallel"))]
 impl<'data, T: 'data> MaybeParIterMut<'data> for [T] {
     type Item = &'data mut T;
-    type Iter = std::slice::IterMut<'data, T>;
+    type Iter = slice::IterMut<'data, T>;
 
     fn par_iter_mut(&'data mut self) -> Self::Iter {
         self.iter_mut()
