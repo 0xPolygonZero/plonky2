@@ -215,6 +215,7 @@ pub trait Poseidon: PrimeField64 {
         res
     }
 
+    /// Same as `mds_row_shf` for `PackedField`.
     fn mds_row_shf_packed_field<
         F: RichField + Extendable<D>,
         const D: usize,
@@ -371,9 +372,10 @@ pub trait Poseidon: PrimeField64 {
         }
     }
 
+    /// Same as `partial_first_constant_layer` for `PackedField`.
     #[inline(always)]
     #[unroll_for_loops]
-    fn partial_first_constant_layer_packed<
+    fn partial_first_constant_layer_packed_field<
         F: RichField + Extendable<D>,
         const D: usize,
         FE,
@@ -438,6 +440,7 @@ pub trait Poseidon: PrimeField64 {
         result
     }
 
+    /// Same as `mds_partial_layer_init` for `PackedField`.
     #[inline(always)]
     #[unroll_for_loops]
     fn mds_partial_layer_packed_init<
