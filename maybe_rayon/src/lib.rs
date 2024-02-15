@@ -1,5 +1,6 @@
 #![cfg_attr(not(std), no_std)]
 
+#[cfg(not(feature = "parallel"))]
 extern crate alloc;
 
 #[cfg(feature = "parallel")]
