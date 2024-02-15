@@ -75,6 +75,13 @@
     %endrep
 %endmacro
 
+%macro or_const(c)
+    // stack: input, ...
+    PUSH $c
+    OR
+    // stack: input & c, ...
+%endmacro
+
 %macro and_const(c)
     // stack: input, ...
     PUSH $c

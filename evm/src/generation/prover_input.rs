@@ -156,11 +156,23 @@ impl<F: RichField> GenerationState<F> {
             .contract_code
             .get(&codehash)
             .ok_or(ProgramError::ProverInputError(CodeHashNotFound))?;
+        let code_len = code.len();
+
         for &byte in code {
             self.memory.set(address, byte.into());
             address.increment();
         }
-        Ok(code.len().into())
+
+        // Padding
+        self.memory.set(address, 1.into());
+        let mut len = code_len + 1;
+        len = 56 * ((len + 55) / 56);
+        let last_byte_addr = MemoryAddress::new(context, Segment::Code, len - 1);
+        let mut last_byte = u256_to_usize(self.memory.get(last_byte_addr))?;
+        last_byte |= 0x80;
+        self.memory.set(last_byte_addr, last_byte.into());
+
+        Ok(len.into())
     }
 
     // Bignum modular multiplication.
