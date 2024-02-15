@@ -443,7 +443,7 @@ pub trait Poseidon: PrimeField64 {
     /// Same as `mds_partial_layer_init` for `PackedField`.
     #[inline(always)]
     #[unroll_for_loops]
-    fn mds_partial_layer_packed_init<
+    fn mds_partial_layer_init_packed_field<
         F: RichField + Extendable<D>,
         const D: usize,
         FE,
