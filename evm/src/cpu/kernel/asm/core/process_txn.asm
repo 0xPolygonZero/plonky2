@@ -205,7 +205,8 @@ global process_contract_creation_txn_after_constructor:
     GET_CONTEXT
     %build_address_no_offset
     // stack: addr, len
-    KECCAK_GENERAL
+    PROVER_INPUT(poseidon_code) // TODO: FIX THIS!
+    %stack (codehash, addr, len) -> (codehash)
     // stack: codehash, leftover_gas, new_ctx, address, retdest, success
     %observe_new_contract
     DUP4

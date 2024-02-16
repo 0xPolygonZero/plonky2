@@ -81,59 +81,14 @@ global execute_withdrawals:
 execute_withdrawals_post_stack_op:
     %withdrawals
 
-global wtf1:
-    PUSH 0x095e7baea6a6c7c4c2dfeb977efac326af552d87
-    // stack: addr
-    DUP1 %key_nonce %smt_read_state %mload_trie_data
-global wtf2:
-    POP
-    DUP1 %key_balance %smt_read_state %mload_trie_data
-global wtf3:
-    POP
-    DUP1 %key_code_length %smt_read_state %mload_trie_data
-global wtf4:
-    POP
-    %stack (addr) -> (addr, 0)
-    %key_storage %smt_read_state %mload_trie_data
-global wtf5:
-    POP
-    PUSH 0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b
-    // stack: addr
-    DUP1 %key_nonce %smt_read_state %mload_trie_data
-global wtf6:
-    POP
-    DUP1 %key_balance %smt_read_state %mload_trie_data
-global wtf7:
-    POP
-    DUP1 %key_code_length %smt_read_state %mload_trie_data
-global wtf8:
-    POP POP
-    PUSH 0xd2571607e241ecf590ed94b12d87c94babe36db6
-    // stack: addr
-    DUP1 %key_nonce %smt_read_state %mload_trie_data
-global wtf9:
-    POP
-    DUP1 %key_balance %smt_read_state %mload_trie_data
-global wtf10:
-    POP
-    DUP1 %key_code_length %smt_read_state %mload_trie_data
-global wtf11:
-    POP POP
-
 global hash_final_tries:
     // stack: cum_gas, txn_counter, num_nibbles, txn_nb
     // Check that we end up with the correct `cum_gas`, `txn_nb` and bloom filter.
-    %mload_global_metadata(@GLOBAL_METADATA_BLOCK_GAS_USED_AFTER)
-global lol1:
-    %assert_eq
-    DUP3 %mload_global_metadata(@GLOBAL_METADATA_TXN_NUMBER_AFTER)
-global lol2:
-    %assert_eq
+    %mload_global_metadata(@GLOBAL_METADATA_BLOCK_GAS_USED_AFTER) %assert_eq
+    DUP3 %mload_global_metadata(@GLOBAL_METADATA_TXN_NUMBER_AFTER) %assert_eq
     %pop3
     PUSH 1 // initial trie data length 
-    %smt_hash_state        %mload_global_metadata(@GLOBAL_METADATA_STATE_TRIE_DIGEST_AFTER)
-global lol3:
-    %assert_eq
+    %smt_hash_state        %mload_global_metadata(@GLOBAL_METADATA_STATE_TRIE_DIGEST_AFTER) %assert_eq
     %mpt_hash_txn_trie     %mload_global_metadata(@GLOBAL_METADATA_TXN_TRIE_DIGEST_AFTER)       %assert_eq
     %mpt_hash_receipt_trie %mload_global_metadata(@GLOBAL_METADATA_RECEIPT_TRIE_DIGEST_AFTER)   %assert_eq
     // We don't need the trie data length here.
