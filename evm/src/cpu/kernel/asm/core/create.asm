@@ -251,17 +251,16 @@ create_too_deep:
 global set_codehash:
     // stack: addr, codehash, retdest
     DUP1 %insert_touched_addresses
-    DUP1 %mpt_read_state_trie
-    // stack: account_ptr, addr, codehash, retdest
-    %add_const(3)
-    // stack: codehash_ptr, addr, codehash, retdest
-    DUP1 %mload_trie_data
-    // stack: prev_codehash, codehash_ptr, addr, codehash, retdest
-    DUP3 %journal_add_code_change // Add the code change to the journal.
-    %stack (codehash_ptr, addr, codehash) -> (codehash_ptr, codehash)
-    %mstore_trie_data
-    // stack: retdest
-    JUMP
+    DUP1 %key_code %smt_read_state %mload_trie_data
+    // stack: prev_codehash, addr, codehash, retdest
+    DUP2 %key_code_length %smt_read_state %mload_trie_data
+    %stack (prev_code_length, prev_codehash, addr) -> (addr, prev_codehash, prev_code_length, addr)
+    %journal_add_code_change // Add the code change to the journal.
+    // stack: addr, codehash, retdest
+    DUP2 DUP2 %key_code %smt_insert_state
+    %returndatasize DUP2 %key_code_length %smt_insert_state
+    // stack: addr, codehash, retdest
+    %pop2 JUMP
 
 // Check and charge gas cost for initcode size. See EIP-3860.
 // Pre stack: code_size, kexit_info

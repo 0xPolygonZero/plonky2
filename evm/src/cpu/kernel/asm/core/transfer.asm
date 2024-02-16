@@ -52,9 +52,9 @@ deduct_eth_insufficient_balance:
     %stack (balance, balance_ptr, addr, amount, retdest) -> (retdest, 1)
     JUMP
 deduct_eth_delete_balance:
-    %stack (balance, balance_ptr, addr, amount, retdest) -> (addr, retdest, 1)
+    %stack (balance, balance_ptr, addr, amount, retdest) -> (addr, retdest, 0)
     %key_balance %smt_delete_state
-    // stack: retdest, 1
+    // stack: retdest, 0
     JUMP
 deduct_eth_noop:
     %stack (addr, amount, retdest) -> (retdest, 0)

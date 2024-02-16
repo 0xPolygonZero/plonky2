@@ -68,11 +68,9 @@ global sys_extcodesize:
 
 global extcodesize:
     // stack: address, retdest
-    %next_context_id
-    // stack: codesize_ctx, address, retdest
-    SWAP1
-    // stack: address, codesize_ctx, retdest
-    %jump(load_code)
+    %key_code_length %smt_read_state %mload_trie_data
+    // stack: codesize, retdest
+    SWAP1 JUMP
 
 // Loads the code at `address` into memory, in the code segment of the given context, starting at offset 0.
 // Checks that the hash of the loaded code corresponds to the `codehash` in the state trie.

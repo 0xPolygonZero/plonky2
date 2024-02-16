@@ -304,9 +304,10 @@ global process_message_txn_after_call:
     // We will return leftover_gas and success.
     %stack (success, leftover_gas, new_ctx, retdest) -> (success, leftover_gas, new_ctx, retdest, success, leftover_gas)
     ISZERO %jumpi(process_message_txn_fail)
-process_message_txn_after_call_contd:
+global process_message_txn_after_call_contd:
     // stack: leftover_gas, new_ctx, retdest, success, leftover_gas
     %pay_coinbase_and_refund_sender
+global lalol1:
     // stack: leftover_gas', new_ctx, retdest, success, leftover_gas
     SWAP4 POP
     %delete_all_touched_addresses

@@ -64,7 +64,7 @@ fn test_account(code: &[u8]) -> AccountRlp {
         nonce: U256::from(1111),
         balance: U256::from(2222),
         code_hash: hashout2u(hash_contract_bytecode(code.to_vec())),
-        ..Default::default()
+        code_length: code.len().into(),
     }
 }
 
