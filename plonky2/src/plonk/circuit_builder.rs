@@ -339,7 +339,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     /// Adds a new `HashOutTarget`.
     pub fn add_virtual_hash(&mut self) -> HashOutTarget {
-        HashOutTarget::from_vec(self.add_virtual_target_arr<4>())
+        HashOutTarget::from_vec(self.add_virtual_target_arr::<4>())
     }
 
     /// Registers a new `HashOutTarget` as a public input, adding
