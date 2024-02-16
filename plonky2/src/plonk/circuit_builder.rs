@@ -337,17 +337,15 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         [0; N].map(|_| self.add_virtual_target())
     }
 
-    /// Adds a new `HashOutTarget`. `NUM_HASH_OUT_ELTS` being hardcoded to 4, it internally
-    /// adds 4 virtual targets in a vector fashion.
+    /// Adds a new `HashOutTarget`.
     pub fn add_virtual_hash(&mut self) -> HashOutTarget {
-        HashOutTarget::from_vec(self.add_virtual_targets(4))
+        HashOutTarget::from_vec(self.add_virtual_target_arr<4>())
     }
 
-    /// Registers a new `HashOutTarget` as a public input. `NUM_HASH_OUT_ELTS`
-    /// being hardcoded to 4, it internally adds 4 virtual targets in a
-    /// vector fashion.
+    /// Registers a new `HashOutTarget` as a public input, adding
+    /// internally `NUM_HASH_OUT_ELTS` virtual targets.
     pub fn add_virtual_hash_public_input(&mut self) -> HashOutTarget {
-        HashOutTarget::from_vec(self.add_virtual_public_input_arr::<4>().into())
+        HashOutTarget::from(self.add_virtual_public_input_arr::<4>())
     }
 
     /// Adds a new `MerkleCapTarget`, consisting in `1 << cap_height` `HashOutTarget`.
