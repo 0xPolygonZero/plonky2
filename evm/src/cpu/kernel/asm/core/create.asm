@@ -86,9 +86,14 @@ global create_common:
 
     %checkpoint
 
+global lolq1:
+
     // stack: address, value, code_offset, code_len, kexit_info
     DUP2 DUP2 %address %transfer_eth %jumpi(panic) // We checked the balance above, so this should never happen.
+global lolq2:
     DUP2 DUP2 %address %journal_add_balance_transfer // Add journal entry for the balance transfer.
+
+global lolq3:
 
     %create_context
     // stack: new_ctx, address, value, code_offset, code_len, kexit_info
@@ -108,6 +113,7 @@ global create_common:
     %build_address
     // stack: SRC, DST, code_len, run_constructor, new_ctx, value, address
     SWAP1
+global lolq4:
     // stack: DST, SRC, code_len, run_constructor, new_ctx, value, address
     %jump(memcpy_bytes)
 
@@ -132,7 +138,9 @@ run_constructor:
 
     // Create the new contract account in the state trie.
     DUP2
+global lolq5:
     %create_contract_account
+global lolq6:
     // stack: status, new_ctx, address, kexit_info
     %jumpi(create_collision)
 
@@ -172,7 +180,8 @@ after_constructor:
     %returndatasize
     PUSH @SEGMENT_RETURNDATA GET_CONTEXT %build_address_no_offset
     // stack: addr, len
-    KECCAK_GENERAL
+    PROVER_INPUT(poseidon_code) // TODO: FIX THIS!
+    %stack (codehash, addr, len) -> (codehash)
     // stack: codehash, leftover_gas, success, address, kexit_info
     %observe_new_contract
     DUP4

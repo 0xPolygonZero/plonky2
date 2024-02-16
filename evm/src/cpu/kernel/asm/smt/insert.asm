@@ -1,7 +1,7 @@
 // Insert a key-value pair in the state SMT.
 global smt_insert_state:
     // stack: key, value, retdest
-    DUP2 ISZERO %jumpi(panic)
+    DUP2 ISZERO %jumpi(insert_zero)
     // stack: key, value, retdest
     %stack (key, value) -> (key, value, smt_insert_state_after)
     %split_key
@@ -162,3 +162,16 @@ smt_insert_leaf_same_key:
     %decrement
     // stack: node_ptr, retdest
     SWAP1 JUMP
+
+
+insert_zero:
+    // stack: key, value, retdest
+    DUP1 %smt_read_state %mload_trie_data %jumpi(delete)
+    // stack: key, value, retdest
+    %pop2 JUMP
+delete:
+    // stack: key, value, retdest
+    %smt_delete_state
+    // stack: value, retdest
+    POP JUMP
+

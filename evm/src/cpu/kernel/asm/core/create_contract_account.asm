@@ -17,7 +17,7 @@
     // stack: address
     // Check that the code is empty.
     DUP1 %extcodehash
-    %eq_const(@EMPTY_STRING_HASH) ISZERO %jumpi(%%error_collision)
+    %eq_const(@EMPTY_STRING_POSEIDON_HASH) ISZERO %jumpi(%%error_collision)
     DUP1 %balance
     %jump(%%do_insert)
 
@@ -34,10 +34,8 @@
     %key_nonce %smt_insert_state // nonce = 1
     // stack: new_acct_value, address
     DUP2 %key_balance %smt_insert_state // balance = new_acct_value
-    %stack (address) -> (address, @EMPTY_STRING_HASH, address)
+    %stack (address) -> (address, @EMPTY_STRING_POSEIDON_HASH)
     %key_code %smt_insert_state
-    %stack (address) -> (address, 0)
-    %key_code_length %smt_insert_state
     // stack: empty
     PUSH 0 // success
     %jump(%%end)
