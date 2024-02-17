@@ -179,8 +179,14 @@ Plonky2's default hash function is Poseidon, configured with 8 full rounds, 22 p
 
 ## Links
 
-- [System Zero](https://github.com/0xPolygonZero/system-zero), a zkVM built on top of Starky (no longer maintained)
-- [Waksman](https://github.com/0xPolygonZero/plonky2-waksman), Plonky2 gadgets for permutation checking using Waksman networks (no longer maintained)
-- [Insertion](https://github.com/0xPolygonZero/plonky2-insertion), Plonky2 gadgets for insertion into a list (no longer maintained)
-- [u32](https://github.com/0xPolygonZero/plonky2-u32), Plonky2 gadgets for u32 arithmetic (no longer actively maintained)
-- [ECDSA](https://github.com/0xPolygonZero/plonky2-ecdsa), Plonky2 gadgets for the ECDSA algorithm (no longer actively maintained)
+#### Actively maintained
+
+- [Polygon Zero's zkEVM](https://github.com/0xPolygonZero/zk_evm), an efficient Type 1 zkEVM built on top of Starky and plonky2
+
+#### No longer maintained
+
+- [System Zero](https://github.com/0xPolygonZero/system-zero), a zkVM built on top of Starky
+- [Waksman](https://github.com/0xPolygonZero/plonky2-waksman), Plonky2 gadgets for permutation checking using Waksman networks
+- [Insertion](https://github.com/0xPolygonZero/plonky2-insertion), Plonky2 gadgets for insertion into a list
+- [u32](https://github.com/0xPolygonZero/plonky2-u32), Plonky2 gadgets for u32 arithmetic
+- [ECDSA](https://github.com/0xPolygonZero/plonky2-ecdsa), Plonky2 gadgets for the ECDSA algorithm
