@@ -563,7 +563,7 @@ pub trait PrimeField64: PrimeField + Field64 {
 }
 
 /// An iterator over the powers of a certain base element `b`: `b^0, b^1, b^2, ...`.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Powers<F: Field> {
     base: F,
     current: F,

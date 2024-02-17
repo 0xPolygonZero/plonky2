@@ -12,7 +12,7 @@ use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::config::{AlgebraicHasher, GenericHashOut, Hasher};
 
 /// Observes prover messages, and generates challenges by hashing the transcript, a la Fiat-Shamir.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Challenger<F: RichField, H: Hasher<F>> {
     pub(crate) sponge_state: H::Permutation,
     pub(crate) input_buffer: Vec<F>,
@@ -161,6 +161,7 @@ impl<F: RichField, H: AlgebraicHasher<F>> Default for Challenger<F, H> {
 /// A recursive version of `Challenger`. The main difference is that `RecursiveChallenger`'s input
 /// buffer can grow beyond `H::Permutation::RATE`. This is so that `observe_element` etc do not need access
 /// to the `CircuitBuilder`.
+#[derive(Debug)]
 pub struct RecursiveChallenger<F: RichField + Extendable<D>, H: AlgebraicHasher<F>, const D: usize>
 {
     sponge_state: H::AlgebraicPermutation,

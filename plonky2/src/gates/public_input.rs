@@ -19,6 +19,7 @@ use crate::plonk::vars::{
 use crate::util::serialization::{Buffer, IoResult};
 
 /// A gate whose first four wires will be equal to a hash of public inputs.
+#[derive(Debug)]
 pub struct PublicInputGate;
 
 impl PublicInputGate {

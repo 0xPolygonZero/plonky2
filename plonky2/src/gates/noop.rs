@@ -12,6 +12,7 @@ use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBaseBa
 use crate::util::serialization::{Buffer, IoResult};
 
 /// A gate which does nothing.
+#[derive(Debug)]
 pub struct NoopGate;
 
 impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for NoopGate {

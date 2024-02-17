@@ -114,6 +114,7 @@ pub mod default {
     use crate::hash::hash_types::RichField;
     use crate::util::serialization::GateSerializer;
 
+    #[derive(Debug)]
     pub struct DefaultGateSerializer;
     impl<F: RichField + Extendable<D>, const D: usize> GateSerializer<F, D> for DefaultGateSerializer {
         impl_gate_serializer! {

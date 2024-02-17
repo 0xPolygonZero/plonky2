@@ -132,6 +132,7 @@ impl<'a, F: Field> EvaluationVarsBase<'a, F> {
 }
 
 /// Iterator of views (`EvaluationVarsBase`) into a `EvaluationVarsBaseBatch`.
+#[derive(Debug)]
 pub struct EvaluationVarsBaseBatchIter<'a, F: Field> {
     i: usize,
     vars_batch: EvaluationVarsBaseBatch<'a, F>,
@@ -159,6 +160,7 @@ impl<'a, F: Field> Iterator for EvaluationVarsBaseBatchIter<'a, F> {
 /// Iterator of packed views (`EvaluationVarsBasePacked`) into a `EvaluationVarsBaseBatch`.
 /// Note: if the length of `EvaluationVarsBaseBatch` is not a multiple of `P::WIDTH`, then the
 /// leftovers at the end are ignored.
+#[derive(Debug)]
 pub struct EvaluationVarsBaseBatchIterPacked<'a, P: PackedField> {
     /// Index to yield next, in units of `P::Scalar`. E.g. if `P::WIDTH == 4`, then we will yield
     /// the vars for points `i`, `i + 1`, `i + 2`, and `i + 3`, packed.
@@ -219,7 +221,7 @@ impl<'a, const D: usize> EvaluationTargets<'a, D> {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct EvaluationTargets<'a, const D: usize> {
     pub local_constants: &'a [ExtensionTarget<D>],
     pub local_wires: &'a [ExtensionTarget<D>],
