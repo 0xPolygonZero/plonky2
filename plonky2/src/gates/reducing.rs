@@ -35,17 +35,17 @@ impl<const D: usize> ReducingGate<D> {
         (num_routed_wires - 3 * D).min((num_wires - 2 * D) / (D + 1))
     }
 
-    pub const fn wires_output() -> Range<usize> {
+    pub(crate) const fn wires_output() -> Range<usize> {
         0..D
     }
-    pub const fn wires_alpha() -> Range<usize> {
+    pub(crate) const fn wires_alpha() -> Range<usize> {
         D..2 * D
     }
-    pub const fn wires_old_acc() -> Range<usize> {
+    pub(crate) const fn wires_old_acc() -> Range<usize> {
         2 * D..3 * D
     }
     const START_COEFFS: usize = 3 * D;
-    pub const fn wires_coeffs(&self) -> Range<usize> {
+    pub(crate) const fn wires_coeffs(&self) -> Range<usize> {
         Self::START_COEFFS..Self::START_COEFFS + self.num_coeffs
     }
     const fn start_accs(&self) -> usize {

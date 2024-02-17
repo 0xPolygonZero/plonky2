@@ -33,12 +33,12 @@ impl<F: RichField + Extendable<D> + Poseidon, const D: usize> PoseidonMdsGate<F,
         Self(PhantomData)
     }
 
-    pub fn wires_input(i: usize) -> Range<usize> {
+    pub(crate) const fn wires_input(i: usize) -> Range<usize> {
         assert!(i < SPONGE_WIDTH);
         i * D..(i + 1) * D
     }
 
-    pub fn wires_output(i: usize) -> Range<usize> {
+    pub(crate) const fn wires_output(i: usize) -> Range<usize> {
         assert!(i < SPONGE_WIDTH);
         (SPONGE_WIDTH + i) * D..(SPONGE_WIDTH + i + 1) * D
     }

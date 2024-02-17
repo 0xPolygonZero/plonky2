@@ -23,7 +23,7 @@ use crate::util::serialization::{Buffer, IoResult};
 pub struct PublicInputGate;
 
 impl PublicInputGate {
-    pub const fn wires_public_inputs_hash() -> Range<usize> {
+    pub(crate) const fn wires_public_inputs_hash() -> Range<usize> {
         0..4
     }
 }
