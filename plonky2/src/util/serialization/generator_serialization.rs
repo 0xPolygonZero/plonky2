@@ -127,8 +127,22 @@ pub mod default {
     use crate::recursion::dummy_circuit::DummyProofGenerator;
     use crate::util::serialization::WitnessGeneratorSerializer;
 
+    /// A generator serializer that can be used to serialize all default generators supported
+    /// by the `plonky2` library.
+    ///
+    /// Applications using custom generators should define their own serializer implementing
+    /// the `WitnessGeneratorSerializer` trait. This can be easily done through the
+    /// `impl_generator_serializer` macro.
     pub struct DefaultGeneratorSerializer<C: GenericConfig<D>, const D: usize> {
         pub _phantom: PhantomData<C>,
+    }
+
+    impl<C: GenericConfig<D>, const D: usize> Default for DefaultGeneratorSerializer<C, D> {
+        fn default() -> Self {
+            Self {
+                _phantom: PhantomData::<C>,
+            }
+        }
     }
 
     impl<F, C, const D: usize> WitnessGeneratorSerializer<F, D> for DefaultGeneratorSerializer<C, D>

@@ -70,6 +70,14 @@ pub struct CustomGeneratorSerializer<C: GenericConfig<D>, const D: usize> {
     pub _phantom: PhantomData<C>,
 }
 
+impl<C: GenericConfig<D>, const D: usize> Default for CustomGeneratorSerializer<C, D> {
+    fn default() -> Self {
+        Self {
+            _phantom: PhantomData::<C>,
+        }
+    }
+}
+
 impl<F, C, const D: usize> WitnessGeneratorSerializer<F, D> for CustomGeneratorSerializer<C, D>
 where
     F: RichField + Extendable<D>,
@@ -131,9 +139,7 @@ fn main() -> Result<()> {
     // Test serialization
     {
         let gate_serializer = DefaultGateSerializer;
-        let generator_serializer = CustomGeneratorSerializer {
-            _phantom: PhantomData::<C>,
-        };
+        let generator_serializer = CustomGeneratorSerializer::<C, D>::default();
 
         let data_bytes = data
             .to_bytes(&gate_serializer, &generator_serializer)
