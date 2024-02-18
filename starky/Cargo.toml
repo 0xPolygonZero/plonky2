@@ -18,14 +18,16 @@ std = ["anyhow/std", "plonky2/std"]
 timing = ["plonky2/timing"]
 
 [dependencies]
-ahash = { version = "0.8.3", default-features = false, features = ["compile-time-rng"] } # NOTE: Be sure to keep this version the same as the dependency in `hashbrown`.
-anyhow = { version = "1.0.40", default-features = false }
-hashbrown = { version = "0.14.0", default-features = false, features = ["ahash", "serde"] } # NOTE: When upgrading, see `ahash` dependency.
-itertools = { version = "0.11.0", default-features = false }
-log = { version = "0.4.14", default-features = false }
+ahash = { workspace = true }
+anyhow = { workspace = true }
+hashbrown = { workspace = true }
+itertools = { workspace = true }
+log = { workspace = true }
 num-bigint = { version = "0.4.3", default-features = false }
-plonky2_maybe_rayon = { path = "../maybe_rayon", default-features = false }
+
+# Local dependencies
 plonky2 = { path = "../plonky2", default-features = false }
+plonky2_maybe_rayon = { path = "../maybe_rayon", default-features = false }
 plonky2_util = { path = "../util", default-features = false }
 
 [dev-dependencies]
