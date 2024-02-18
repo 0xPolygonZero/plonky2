@@ -66,16 +66,9 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D>
     }
 }
 
+#[derive(Default)]
 pub struct CustomGeneratorSerializer<C: GenericConfig<D>, const D: usize> {
     pub _phantom: PhantomData<C>,
-}
-
-impl<C: GenericConfig<D>, const D: usize> Default for CustomGeneratorSerializer<C, D> {
-    fn default() -> Self {
-        Self {
-            _phantom: PhantomData::<C>,
-        }
-    }
 }
 
 impl<F, C, const D: usize> WitnessGeneratorSerializer<F, D> for CustomGeneratorSerializer<C, D>
