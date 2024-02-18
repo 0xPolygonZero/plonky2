@@ -2,13 +2,14 @@
 name = "starky"
 description = "Implementation of STARKs"
 version = "0.1.2"
-license = "MIT OR Apache-2.0"
 authors = ["Daniel Lubarov <daniel@lubarov.com>", "William Borgeaud <williamborgeaud@gmail.com>"]
 readme = "README.md"
-repository = "https://github.com/0xPolygonZero/plonky2"
-keywords = ["cryptography", "STARK", "FRI"]
-categories = ["cryptography"]
-edition = "2021"
+edition.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
 
 [features]
 default = ["parallel", "std", "timing"]

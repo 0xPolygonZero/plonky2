@@ -10,3 +10,11 @@ incremental = true
 
 [profile.bench]
 opt-level = 3
+
+[workspace.package]
+edition = "2021"
+license = "MIT OR Apache-2.0"
+homepage = "https://github.com/0xPolygonZero/plonky2"
+repository = "https://github.com/0xPolygonZero/plonky2"
+keywords = ["cryptography", "SNARK", "PLONK", "FRI", "plonky2"]
+categories = ["cryptography"]
