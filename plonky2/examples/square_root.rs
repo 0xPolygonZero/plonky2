@@ -131,7 +131,7 @@ fn main() -> Result<()> {
 
     // Test serialization
     {
-        let gate_serializer = DefaultGateSerializer::default();
+        let gate_serializer = DefaultGateSerializer;
         let generator_serializer = CustomGeneratorSerializer::<C, D>::default();
 
         let data_bytes = data

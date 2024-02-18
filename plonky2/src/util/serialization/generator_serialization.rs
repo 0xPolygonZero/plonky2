@@ -131,7 +131,7 @@ pub mod default {
     /// by the `plonky2` library. It can simply be called as
     /// ```rust
     /// use plonky2::util::serialization::DefaultGeneratorSerializer;
-    /// let gate_serializer = DefaultGeneratorSerializer::default();
+    /// let generator_serializer = DefaultGeneratorSerializer::default();
     /// ```
     /// Applications using custom generators should define their own serializer implementing
     /// the `WitnessGeneratorSerializer` trait. This can be easily done through the
