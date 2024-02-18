@@ -128,8 +128,11 @@ pub mod default {
     use crate::util::serialization::WitnessGeneratorSerializer;
 
     /// A generator serializer that can be used to serialize all default generators supported
-    /// by the `plonky2` library.
-    ///
+    /// by the `plonky2` library. It can simply be called as
+    /// ```rust
+    /// use plonky2::util::serialization::DefaultGeneratorSerializer;
+    /// let gate_serializer = DefaultGeneratorSerializer::default();
+    /// ```
     /// Applications using custom generators should define their own serializer implementing
     /// the `WitnessGeneratorSerializer` trait. This can be easily done through the
     /// `impl_generator_serializer` macro.

@@ -115,11 +115,10 @@ pub mod default {
     use crate::util::serialization::GateSerializer;
 
     /// A gate serializer that can be used to serialize all default gates supported
-    /// by the `plonky2` library.
-    /// Being a unit struct, it can be simply called as
+    /// by the `plonky2` library. It can simply be called as
     /// ```rust
     /// use plonky2::util::serialization::DefaultGateSerializer;
-    /// let gate_serializer = DefaultGateSerializer;
+    /// let gate_serializer = DefaultGateSerializer::default();
     /// ```
     /// Applications using custom gates should define their own serializer implementing
     /// the `GateSerializer` trait. This can be easily done through the `impl_gate_serializer` macro.

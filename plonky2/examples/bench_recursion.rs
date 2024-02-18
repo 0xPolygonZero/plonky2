@@ -275,7 +275,7 @@ fn test_serialization<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, 
         CompressedProofWithPublicInputs::from_bytes(compressed_proof_bytes, common_data)?;
     assert_eq!(compressed_proof, compressed_proof_from_bytes);
 
-    let gate_serializer = DefaultGateSerializer;
+    let gate_serializer = DefaultGateSerializer::default();
     let common_data_bytes = common_data
         .to_bytes(&gate_serializer)
         .map_err(|_| anyhow::Error::msg("CommonCircuitData serialization failed."))?;
