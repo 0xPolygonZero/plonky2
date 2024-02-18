@@ -114,6 +114,15 @@ pub mod default {
     use crate::hash::hash_types::RichField;
     use crate::util::serialization::GateSerializer;
 
+    /// A gate serializer that can be used to serialize all default gates supported
+    /// by the `plonky2` library.
+    /// Being a unit struct, it can be simply called as
+    /// ```rust
+    /// use plonky2::util::serialization::DefaultGateSerializer;
+    /// let gate_serializer = DefaultGateSerializer;
+    /// ```
+    /// Applications using custom gates should define their own serializer implementing
+    /// the `GateSerializer` trait. This can be easily done through the `impl_gate_serializer` macro.
     pub struct DefaultGateSerializer;
     impl<F: RichField + Extendable<D>, const D: usize> GateSerializer<F, D> for DefaultGateSerializer {
         impl_gate_serializer! {
