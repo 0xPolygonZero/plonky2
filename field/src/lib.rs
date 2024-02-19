@@ -5,7 +5,7 @@
 #![allow(clippy::needless_range_loop)]
 #![feature(specialization)]
 #![cfg_attr(not(test), no_std)]
-
+#![cfg(not(test))]
 extern crate alloc;
 
 pub(crate) mod arch;
