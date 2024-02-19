@@ -167,7 +167,7 @@ pub struct CtlZData<'a, F: Field> {
 }
 
 impl<'a, F: Field> CtlZData<'a, F> {
-    /// Returs new CTL data from the provided arguments.
+    /// Returns new CTL data from the provided arguments.
     pub fn new(
         helper_columns: Vec<PolynomialValues<F>>,
         z: PolynomialValues<F>,
