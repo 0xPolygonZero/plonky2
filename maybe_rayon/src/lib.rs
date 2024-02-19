@@ -16,7 +16,7 @@ use rayon::{
     prelude::*,
     slice::{
         Chunks as ParChunks, ChunksExact as ParChunksExact, ChunksExactMut as ParChunksExactMut,
-        ChunksMut as ParChunksMut, ParallelSlice, ParallelSliceMut,
+        ChunksMut as ParChunksMut,
     },
 };
 #[cfg(not(feature = "parallel"))]
