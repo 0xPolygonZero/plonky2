@@ -6,6 +6,7 @@ use crate::field::packed::PackedField;
 /// Permits us to abstract the underlying memory layout. In particular, we can make a matrix of
 /// constraints where every column is an evaluation point and every row is a constraint index, with
 /// the matrix stored in row-contiguous form.
+#[derive(Debug)]
 pub struct StridedConstraintConsumer<'a, P: PackedField> {
     // This is a particularly neat way of doing this, more so than a slice. We increase start by
     // stride at every step and terminate when it equals end.

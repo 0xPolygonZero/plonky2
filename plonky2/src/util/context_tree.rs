@@ -8,6 +8,7 @@ use alloc::{
 use log::{log, Level};
 
 /// The hierarchy of contexts, and the gate count contributed by each one. Useful for debugging.
+#[derive(Debug)]
 pub(crate) struct ContextTree {
     /// The name of this scope.
     name: String,

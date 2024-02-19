@@ -141,31 +141,31 @@ impl<F: RichField + Extendable<D>, const D: usize> CosetInterpolationGate<F, D> 
         self.start_intermediates()
     }
 
-    fn num_intermediates(&self) -> usize {
-        (self.num_points() - 2) / (self.degree() - 1)
+    const fn num_intermediates(&self) -> usize {
+        (self.num_points() - 2) / (self.degree - 1)
     }
 
     /// The wires corresponding to the i'th intermediate evaluation.
-    fn wires_intermediate_eval(&self, i: usize) -> Range<usize> {
+    const fn wires_intermediate_eval(&self, i: usize) -> Range<usize> {
         debug_assert!(i < self.num_intermediates());
         let start = self.start_intermediates() + D * i;
         start..start + D
     }
 
     /// The wires corresponding to the i'th intermediate product.
-    fn wires_intermediate_prod(&self, i: usize) -> Range<usize> {
+    const fn wires_intermediate_prod(&self, i: usize) -> Range<usize> {
         debug_assert!(i < self.num_intermediates());
         let start = self.start_intermediates() + D * (self.num_intermediates() + i);
         start..start + D
     }
 
     /// End of wire indices, exclusive.
-    fn end(&self) -> usize {
+    const fn end(&self) -> usize {
         self.start_intermediates() + D * (2 * self.num_intermediates() + 1)
     }
 
     /// Wire indices of the shifted point to evaluate the interpolant at.
-    fn wires_shifted_evaluation_point(&self) -> Range<usize> {
+    const fn wires_shifted_evaluation_point(&self) -> Range<usize> {
         let start = self.start_intermediates() + D * 2 * self.num_intermediates();
         start..start + D
     }

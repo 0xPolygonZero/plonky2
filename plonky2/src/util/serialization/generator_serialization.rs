@@ -140,7 +140,7 @@ pub mod default {
     /// Applications using custom generators should define their own serializer implementing
     /// the `WitnessGeneratorSerializer` trait. This can be easily done through the
     /// `impl_generator_serializer` macro.
-    #[derive(Default)]
+    #[derive(Debug, Default)]
     pub struct DefaultGeneratorSerializer<C: GenericConfig<D>, const D: usize> {
         pub _phantom: PhantomData<C>,
     }

@@ -545,7 +545,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D>
 }
 
 /// An iterator over the powers of a certain base element `b`: `b^0, b^1, b^2, ...`.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct PowersTarget<const D: usize> {
     base: ExtensionTarget<D>,
     current: ExtensionTarget<D>,
@@ -584,7 +584,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 }
 
 /// Represents an extension arithmetic operation in the circuit. Used to memoize results.
-#[derive(Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub(crate) struct ExtensionArithmeticOperation<F: Field64 + Extendable<D>, const D: usize> {
     const_0: F,
     const_1: F,

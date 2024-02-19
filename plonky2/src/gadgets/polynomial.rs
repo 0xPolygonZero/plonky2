@@ -40,6 +40,7 @@ impl<const D: usize> PolynomialCoeffsExtTarget<D> {
     }
 }
 
+#[derive(Debug)]
 pub struct PolynomialCoeffsExtAlgebraTarget<const D: usize>(pub Vec<ExtensionAlgebraTarget<D>>);
 
 impl<const D: usize> PolynomialCoeffsExtAlgebraTarget<D> {

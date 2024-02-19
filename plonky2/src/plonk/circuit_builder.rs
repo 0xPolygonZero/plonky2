@@ -63,6 +63,7 @@ pub const NUM_COINS_LOOKUP: usize = 4;
 /// `ChallengeB` is used for the linear combination of input and output pairs in the polynomial RE.
 /// `ChallengeAlpha` is used for the running sums: 1/(alpha - combo_i).
 /// `ChallengeDelta` is a challenge on which to evaluate the interpolated LUT function.
+#[derive(Debug)]
 pub enum LookupChallenges {
     ChallengeA = 0,
     ChallengeB = 1,
@@ -135,6 +136,7 @@ pub struct LookupWire {
 /// // Verify the proof
 /// assert!(circuit_data.verify(proof).is_ok());
 /// ```
+#[derive(Debug)]
 pub struct CircuitBuilder<F: RichField + Extendable<D>, const D: usize> {
     /// Circuit configuration to be used by this [`CircuitBuilder`].
     pub config: CircuitConfig,

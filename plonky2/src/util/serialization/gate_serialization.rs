@@ -113,7 +113,6 @@ pub mod default {
     use crate::gates::reducing_extension::ReducingExtensionGate;
     use crate::hash::hash_types::RichField;
     use crate::util::serialization::GateSerializer;
-
     /// A gate serializer that can be used to serialize all default gates supported
     /// by the `plonky2` library.
     /// Being a unit struct, it can be simply called as
@@ -123,6 +122,7 @@ pub mod default {
     /// ```
     /// Applications using custom gates should define their own serializer implementing
     /// the `GateSerializer` trait. This can be easily done through the `impl_gate_serializer` macro.
+    #[derive(Debug)]
     pub struct DefaultGateSerializer;
     impl<F: RichField + Extendable<D>, const D: usize> GateSerializer<F, D> for DefaultGateSerializer {
         impl_gate_serializer! {
