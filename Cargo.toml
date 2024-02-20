@@ -3,9 +3,9 @@ members = ["field", "maybe_rayon", "plonky2", "starky", "util"]
 resolver = "2"
 
 [workspace.dependencies]
-ahash = { version = "0.8.3", default-features = false, features = ["compile-time-rng"] } # NOTE: Be sure to keep this version the same as the dependency in `hashbrown`.
+ahash = { version = "0.8.7", default-features = false, features = ["compile-time-rng"] } # NOTE: Be sure to keep this version the same as the dependency in `hashbrown`.
 anyhow = { version = "1.0.40", default-features = false }
-hashbrown = { version = "0.14.0", default-features = false, features = ["ahash", "serde"] } # NOTE: When upgrading, see `ahash` dependency.
+hashbrown = { version = "0.14.3", default-features = false, features = ["ahash", "serde"] } # NOTE: When upgrading, see `ahash` dependency.
 itertools = { version = "0.11.0", default-features = false }
 log = { version = "0.4.14", default-features = false }
 num = { version = "0.4", default-features = false, features = ["rand"] }
