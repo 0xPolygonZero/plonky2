@@ -1,8 +1,8 @@
-use std::array::from_fn;
-use std::fmt::Debug;
+use core::array::from_fn;
+use core::fmt::Debug;
 
 use anyhow::Result;
-use ethereum_types::{BigEndianHash, H256, U256};
+use ethereum_types::{BigEndianHash, U256};
 use plonky2::field::extension::Extendable;
 use plonky2::field::types::Field;
 use plonky2::fri::witness_util::set_fri_proof_target;
@@ -31,21 +31,18 @@ use crate::config::StarkConfig;
 use crate::constraint_consumer::RecursiveConstraintConsumer;
 use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
-use crate::cross_table_lookup::{
-    CrossTableLookup, CtlCheckVarsTarget, GrandProductChallenge, GrandProductChallengeSet,
-};
+use crate::cross_table_lookup::{CrossTableLookup, CtlCheckVarsTarget, GrandProductChallengeSet};
 use crate::evaluation_frame::StarkEvaluationFrame;
-use crate::lookup::LookupCheckVarsTarget;
+use crate::lookup::{GrandProductChallenge, LookupCheckVarsTarget};
 use crate::memory::segments::Segment;
 use crate::memory::VALUE_LIMBS;
 use crate::proof::{
     BlockHashes, BlockHashesTarget, BlockMetadata, BlockMetadataTarget, ExtraBlockData,
     ExtraBlockDataTarget, PublicValues, PublicValuesTarget, StarkOpeningSetTarget, StarkProof,
-    StarkProofChallengesTarget, StarkProofTarget, StarkProofWithMetadata, TrieRoots,
-    TrieRootsTarget,
+    StarkProofChallengesTarget, StarkProofTarget, TrieRoots, TrieRootsTarget,
 };
 use crate::stark::Stark;
-use crate::util::{h256_limbs, h2u, u256_limbs, u256_to_u32, u256_to_u64};
+use crate::util::{h256_limbs, u256_limbs, u256_to_u32, u256_to_u64};
 use crate::vanishing_poly::eval_vanishing_poly_circuit;
 use crate::witness::errors::ProgramError;
 
@@ -149,7 +146,7 @@ where
 
     pub(crate) fn prove(
         &self,
-        proof_with_metadata: &StarkProofWithMetadata<F, C, D>,
+        proof: &StarkProof<F, C, D>,
         ctl_challenges: &GrandProductChallengeSet<F>,
     ) -> Result<ProofWithPublicInputs<F, C, D>> {
         let mut inputs = PartialWitness::new();
@@ -157,7 +154,7 @@ where
         set_stark_proof_target(
             &mut inputs,
             &self.stark_proof_target,
-            &proof_with_metadata.proof,
+            proof,
             self.zero_target,
         );
 
@@ -170,11 +167,6 @@ where
             inputs.set_target(challenge_target.beta, challenge.beta);
             inputs.set_target(challenge_target.gamma, challenge.gamma);
         }
-
-        inputs.set_target_arr(
-            self.init_challenger_state_target.as_ref(),
-            proof_with_metadata.init_challenger_state.as_ref(),
-        );
 
         self.circuit.prove(inputs)
     }
@@ -232,7 +224,7 @@ where
     let (total_num_helpers, num_ctl_zs, num_helpers_by_ctl) =
         CrossTableLookup::num_ctl_helpers_zs_all(
             cross_table_lookups,
-            table,
+            *table,
             inner_config.num_challenges,
             stark.constraint_degree(),
         );
@@ -266,7 +258,7 @@ where
     };
 
     let ctl_vars = CtlCheckVarsTarget::from_proof(
-        table,
+        *table,
         &proof_target,
         cross_table_lookups,
         &ctl_challenges_target,
@@ -350,7 +342,6 @@ fn verify_stark_proof_with_challenges_circuit<
         .iter()
         .map(|ctl| ctl.helper_columns.len())
         .sum::<usize>();
-    let num_ctl_z_polys = ctl_vars.len();
 
     let StarkOpeningSetTarget {
         local_values,

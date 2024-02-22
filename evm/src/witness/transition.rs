@@ -400,7 +400,7 @@ fn try_perform_instruction<F: Field>(
 
     fill_op_flag(op, &mut row);
 
-    fill_stack_fields(state, &mut row);
+    fill_stack_fields(state, &mut row)?;
 
     // Might write in general CPU columns when it shouldn't, but the correct values will
     // overwrite these ones during the op generation.

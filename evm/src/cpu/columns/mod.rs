@@ -1,7 +1,7 @@
-use std::borrow::{Borrow, BorrowMut};
-use std::fmt::Debug;
-use std::mem::{size_of, transmute};
-use std::ops::{Index, IndexMut};
+use core::borrow::{Borrow, BorrowMut};
+use core::fmt::Debug;
+use core::mem::{size_of, transmute};
+use core::ops::{Index, IndexMut};
 
 use plonky2::field::types::Field;
 

@@ -1,5 +1,5 @@
-use std::fmt::Debug;
-use std::ops::{Add, Div, Mul, Neg, Sub};
+use core::fmt::Debug;
+use core::ops::{Add, Div, Mul, Neg, Sub};
 
 use ethereum_types::{U256, U512};
 use rand::distributions::{Distribution, Standard};

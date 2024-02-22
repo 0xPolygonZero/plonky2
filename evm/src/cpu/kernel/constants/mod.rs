@@ -2,7 +2,6 @@ use std::collections::HashMap;
 
 use ethereum_types::U256;
 use hex_literal::hex;
-use static_assertions::const_assert;
 
 use crate::cpu::kernel::constants::context_metadata::ContextMetadata;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;

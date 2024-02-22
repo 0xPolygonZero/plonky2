@@ -1,6 +1,6 @@
-use std::borrow::{Borrow, BorrowMut};
-use std::mem::{size_of, transmute};
-use std::ops::{Deref, DerefMut};
+use core::borrow::{Borrow, BorrowMut};
+use core::mem::{size_of, transmute};
+use core::ops::{Deref, DerefMut};
 
 use crate::util::transmute_no_compile_time_size_checks;
 

@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use eth_trie_utils::nibbles::Nibbles;
 use eth_trie_utils::partial_trie::{HashedPartialTrie, PartialTrie};
 use ethereum_types::{Address, BigEndianHash, H256, U256};
@@ -327,8 +327,8 @@ fn sstore() -> Result<()> {
 
     // The first two elements in the stack are `success` and `leftover_gas`,
     // returned by the `sys_stop` opcode.
-    interpreter.pop();
-    interpreter.pop();
+    interpreter.pop().expect("Stack should not be empty");
+    interpreter.pop().expect("Stack should not be empty");
 
     // The code should have added an element to the storage of `to_account`. We run
     // `mpt_hash_state_trie` to check that.
