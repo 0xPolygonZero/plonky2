@@ -1,4 +1,4 @@
-use std::any::type_name;
+use core::any::type_name;
 
 use anyhow::{ensure, Result};
 use ethereum_types::{BigEndianHash, U256};
@@ -17,10 +17,10 @@ use crate::cpu::kernel::aggregator::KERNEL;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
 use crate::cross_table_lookup::{
     num_ctl_helper_columns_by_table, verify_cross_table_lookups, CtlCheckVars,
-    GrandProductChallenge, GrandProductChallengeSet,
+    GrandProductChallengeSet,
 };
 use crate::evaluation_frame::StarkEvaluationFrame;
-use crate::lookup::LookupCheckVars;
+use crate::lookup::{GrandProductChallenge, LookupCheckVars};
 use crate::memory::segments::Segment;
 use crate::memory::VALUE_LIMBS;
 use crate::proof::{
@@ -72,7 +72,7 @@ where
 
     verify_stark_proof_with_challenges(
         arithmetic_stark,
-        &all_proof.stark_proofs[Table::Arithmetic as usize].proof,
+        &all_proof.stark_proofs[Table::Arithmetic as usize],
         &stark_challenges[Table::Arithmetic as usize],
         &ctl_vars_per_table[Table::Arithmetic as usize],
         &ctl_challenges,
@@ -80,7 +80,7 @@ where
     )?;
     verify_stark_proof_with_challenges(
         byte_packing_stark,
-        &all_proof.stark_proofs[Table::BytePacking as usize].proof,
+        &all_proof.stark_proofs[Table::BytePacking as usize],
         &stark_challenges[Table::BytePacking as usize],
         &ctl_vars_per_table[Table::BytePacking as usize],
         &ctl_challenges,
@@ -88,7 +88,7 @@ where
     )?;
     verify_stark_proof_with_challenges(
         cpu_stark,
-        &all_proof.stark_proofs[Table::Cpu as usize].proof,
+        &all_proof.stark_proofs[Table::Cpu as usize],
         &stark_challenges[Table::Cpu as usize],
         &ctl_vars_per_table[Table::Cpu as usize],
         &ctl_challenges,
@@ -96,7 +96,7 @@ where
     )?;
     verify_stark_proof_with_challenges(
         keccak_stark,
-        &all_proof.stark_proofs[Table::Keccak as usize].proof,
+        &all_proof.stark_proofs[Table::Keccak as usize],
         &stark_challenges[Table::Keccak as usize],
         &ctl_vars_per_table[Table::Keccak as usize],
         &ctl_challenges,
@@ -104,7 +104,7 @@ where
     )?;
     verify_stark_proof_with_challenges(
         keccak_sponge_stark,
-        &all_proof.stark_proofs[Table::KeccakSponge as usize].proof,
+        &all_proof.stark_proofs[Table::KeccakSponge as usize],
         &stark_challenges[Table::KeccakSponge as usize],
         &ctl_vars_per_table[Table::KeccakSponge as usize],
         &ctl_challenges,
@@ -112,7 +112,7 @@ where
     )?;
     verify_stark_proof_with_challenges(
         logic_stark,
-        &all_proof.stark_proofs[Table::Logic as usize].proof,
+        &all_proof.stark_proofs[Table::Logic as usize],
         &stark_challenges[Table::Logic as usize],
         &ctl_vars_per_table[Table::Logic as usize],
         &ctl_challenges,
@@ -120,7 +120,7 @@ where
     )?;
     verify_stark_proof_with_challenges(
         memory_stark,
-        &all_proof.stark_proofs[Table::Memory as usize].proof,
+        &all_proof.stark_proofs[Table::Memory as usize],
         &stark_challenges[Table::Memory as usize],
         &ctl_vars_per_table[Table::Memory as usize],
         &ctl_challenges,
@@ -138,11 +138,11 @@ where
         .map(|i| get_memory_extra_looking_sum(&public_values, ctl_challenges.challenges[i]))
         .collect_vec();
 
-    verify_cross_table_lookups::<F, D>(
+    verify_cross_table_lookups::<F, D, NUM_TABLES>(
         cross_table_lookups,
         all_proof
             .stark_proofs
-            .map(|p| p.proof.openings.ctl_zs_first),
+            .map(|proof| proof.openings.ctl_zs_first),
         extra_looking_sums,
         config,
     )
@@ -318,7 +318,7 @@ pub(crate) fn verify_stark_proof_with_challenges<
         next_values,
         auxiliary_polys,
         auxiliary_polys_next,
-        ctl_zs_first,
+        ctl_zs_first: _,
         quotient_polys,
     } = &proof.openings;
     let vars = S::EvaluationFrame::from_values(local_values, next_values);

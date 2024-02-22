@@ -928,7 +928,7 @@ pub(crate) fn generate_exception<F: Field>(
         row.general.stack_mut().stack_inv_aux = F::ONE;
     }
 
-    fill_stack_fields(state, &mut row);
+    fill_stack_fields(state, &mut row)?;
 
     row.general.exception_mut().exc_code_bits = [
         F::from_bool(exc_code & 1 != 0),

@@ -1,9 +1,6 @@
 use anyhow::Result;
-use ethereum_types::U256;
 
 use crate::cpu::kernel::aggregator::{combined_kernel, KERNEL};
-use crate::cpu::kernel::interpreter::Interpreter;
-use crate::memory::segments::Segment;
 
 #[test]
 fn test_kernel_code_hash_consistency() -> Result<()> {

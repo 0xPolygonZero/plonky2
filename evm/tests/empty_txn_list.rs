@@ -1,5 +1,5 @@
+use core::marker::PhantomData;
 use std::collections::HashMap;
-use std::marker::PhantomData;
 use std::time::Duration;
 
 use env_logger::{try_init_from_env, Env, DEFAULT_FILTER_ENV};
