@@ -1041,12 +1041,10 @@ pub fn verify_cross_table_lookups_circuit<
     debug_assert!(ctl_zs_openings.iter_mut().all(|iter| iter.next().is_none()));
 }
 
-/// Debugging module, to assert correctness of the different CTLs of a multi-STARK system,
+/// Debugging module used to assert correctness of the different CTLs of a multi-STARK system,
 /// that can be used during the proof generation process.
 ///
-/// **Note**: this is an expensive check, hence is only available when the `debug_assertions`
-/// flag is activated, to not hinder performances with regular `release` build.
-#[cfg(debug_assertions)]
+/// **Note**: This is an expensive check.
 pub mod debug_utils {
     #[cfg(not(feature = "std"))]
     use alloc::{vec, vec::Vec};
