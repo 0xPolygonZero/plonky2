@@ -1,5 +1,5 @@
-use alloc::vec;
-use alloc::vec::Vec;
+#[cfg(not(feature = "std"))]
+use alloc::{vec, vec::Vec};
 
 use anyhow::{ensure, Result};
 use itertools::Itertools;
@@ -171,7 +171,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
 #[cfg(test)]
 mod tests {
-    use anyhow::Result;
     use rand::rngs::OsRng;
     use rand::Rng;
 
@@ -179,7 +178,6 @@ mod tests {
     use crate::field::types::Field;
     use crate::hash::merkle_tree::MerkleTree;
     use crate::iop::witness::{PartialWitness, WitnessWrite};
-    use crate::plonk::circuit_builder::CircuitBuilder;
     use crate::plonk::circuit_data::CircuitConfig;
     use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use crate::plonk::verifier::verify;

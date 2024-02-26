@@ -1,5 +1,5 @@
-use alloc::vec;
-use alloc::vec::Vec;
+#[cfg(not(feature = "std"))]
+use alloc::{vec, vec::Vec};
 
 use hashbrown::HashMap;
 use itertools::izip;
@@ -360,6 +360,7 @@ impl<F: RichField + Extendable<D>, H: Hasher<F>, const D: usize> CompressedFriPr
     }
 }
 
+#[derive(Debug)]
 pub struct FriChallenges<F: RichField + Extendable<D>, const D: usize> {
     // Scaling factor to combine polynomials.
     pub fri_alpha: F::Extension,
@@ -373,6 +374,7 @@ pub struct FriChallenges<F: RichField + Extendable<D>, const D: usize> {
     pub fri_query_indices: Vec<usize>,
 }
 
+#[derive(Debug)]
 pub struct FriChallengesTarget<const D: usize> {
     pub fri_alpha: ExtensionTarget<D>,
     pub fri_betas: Vec<ExtensionTarget<D>>,

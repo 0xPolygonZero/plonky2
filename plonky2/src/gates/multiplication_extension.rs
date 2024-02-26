@@ -1,6 +1,9 @@
-use alloc::format;
-use alloc::string::{String, ToString};
-use alloc::vec::Vec;
+#[cfg(not(feature = "std"))]
+use alloc::{
+    format,
+    string::{String, ToString},
+    vec::Vec,
+};
 use core::ops::Range;
 
 use crate::field::extension::{Extendable, FieldExtension};
@@ -37,13 +40,13 @@ impl<const D: usize> MulExtensionGate<D> {
         config.num_routed_wires / wires_per_op
     }
 
-    pub const fn wires_ith_multiplicand_0(i: usize) -> Range<usize> {
+    pub(crate) const fn wires_ith_multiplicand_0(i: usize) -> Range<usize> {
         3 * D * i..3 * D * i + D
     }
-    pub const fn wires_ith_multiplicand_1(i: usize) -> Range<usize> {
+    pub(crate) const fn wires_ith_multiplicand_1(i: usize) -> Range<usize> {
         3 * D * i + D..3 * D * i + 2 * D
     }
-    pub const fn wires_ith_output(i: usize) -> Range<usize> {
+    pub(crate) const fn wires_ith_output(i: usize) -> Range<usize> {
         3 * D * i + 2 * D..3 * D * i + 3 * D
     }
 }

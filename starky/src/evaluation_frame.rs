@@ -1,3 +1,5 @@
+//! Implementation of constraint evaluation frames for STARKs.
+
 /// A trait for viewing an evaluation frame of a STARK table.
 ///
 /// It allows to access the current and next rows at a given step
@@ -8,6 +10,7 @@ pub trait StarkEvaluationFrame<T: Copy + Clone + Default, U: Copy + Clone + Defa
 {
     /// The number of columns for the STARK table this evaluation frame views.
     const COLUMNS: usize;
+    /// The number of public inputs for the STARK.
     const PUBLIC_INPUTS: usize;
 
     /// Returns the local values (i.e. current row) for this evaluation frame.
@@ -15,6 +18,7 @@ pub trait StarkEvaluationFrame<T: Copy + Clone + Default, U: Copy + Clone + Defa
     /// Returns the next values (i.e. next row) for this evaluation frame.
     fn get_next_values(&self) -> &[T];
 
+    /// Returns the public inputs for this evaluation frame.
     fn get_public_inputs(&self) -> &[U];
     /// Outputs a new evaluation frame from the provided local and next values.
     ///
@@ -23,6 +27,9 @@ pub trait StarkEvaluationFrame<T: Copy + Clone + Default, U: Copy + Clone + Defa
     fn from_values(lv: &[T], nv: &[T], pis: &[U]) -> Self;
 }
 
+/// An evaluation frame to be used when defining constraints of a STARK system, that
+/// implements the [`StarkEvaluationFrame`] trait.
+#[derive(Debug)]
 pub struct StarkFrame<
     T: Copy + Clone + Default,
     U: Copy + Clone + Default,

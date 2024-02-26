@@ -191,7 +191,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
 #[cfg(test)]
 mod tests {
-    use alloc::sync::Arc;
+    #[cfg(not(feature = "std"))]
+    use alloc::{sync::Arc, vec};
+    #[cfg(feature = "std")]
+    use std::sync::Arc;
 
     use anyhow::Result;
     use itertools::Itertools;
@@ -205,7 +208,7 @@ mod tests {
     use crate::gates::noop::NoopGate;
     use crate::iop::witness::{PartialWitness, WitnessWrite};
     use crate::plonk::circuit_data::{CircuitConfig, VerifierOnlyCircuitData};
-    use crate::plonk::config::{GenericConfig, KeccakGoldilocksConfig, PoseidonGoldilocksConfig};
+    use crate::plonk::config::{KeccakGoldilocksConfig, PoseidonGoldilocksConfig};
     use crate::plonk::proof::{CompressedProofWithPublicInputs, ProofWithPublicInputs};
     use crate::plonk::prover::prove;
     use crate::util::timing::TimingTree;
@@ -690,12 +693,17 @@ mod tests {
         let proof_from_bytes = ProofWithPublicInputs::from_bytes(proof_bytes, common_data)?;
         assert_eq!(proof, &proof_from_bytes);
 
+        #[cfg(feature = "std")]
         let now = std::time::Instant::now();
+
         let compressed_proof = proof.clone().compress(&vd.circuit_digest, common_data)?;
         let decompressed_compressed_proof = compressed_proof
             .clone()
             .decompress(&vd.circuit_digest, common_data)?;
+
+        #[cfg(feature = "std")]
         info!("{:.4}s to compress proof", now.elapsed().as_secs_f64());
+
         assert_eq!(proof, &decompressed_compressed_proof);
 
         let compressed_proof_bytes = compressed_proof.to_bytes();

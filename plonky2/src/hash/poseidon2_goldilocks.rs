@@ -151,6 +151,9 @@ impl Poseidon2 for GoldilocksField {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(not(feature = "std"))]
+    use alloc::{vec, vec::Vec};
+
     use plonky2_field::goldilocks_field::GoldilocksField as F;
     use plonky2_field::types::{Field, PrimeField64};
 

@@ -1,6 +1,9 @@
-use alloc::format;
-use alloc::string::{String, ToString};
-use alloc::vec::Vec;
+#[cfg(not(feature = "std"))]
+use alloc::{
+    format,
+    string::{String, ToString},
+    vec::Vec,
+};
 
 use crate::field::extension::Extendable;
 use crate::field::packed::PackedField;
@@ -41,16 +44,16 @@ impl ArithmeticGate {
         config.num_routed_wires / wires_per_op
     }
 
-    pub const fn wire_ith_multiplicand_0(i: usize) -> usize {
+    pub(crate) const fn wire_ith_multiplicand_0(i: usize) -> usize {
         4 * i
     }
-    pub const fn wire_ith_multiplicand_1(i: usize) -> usize {
+    pub(crate) const fn wire_ith_multiplicand_1(i: usize) -> usize {
         4 * i + 1
     }
-    pub const fn wire_ith_addend(i: usize) -> usize {
+    pub(crate) const fn wire_ith_addend(i: usize) -> usize {
         4 * i + 2
     }
-    pub const fn wire_ith_output(i: usize) -> usize {
+    pub(crate) const fn wire_ith_output(i: usize) -> usize {
         4 * i + 3
     }
 }

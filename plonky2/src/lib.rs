@@ -1,7 +1,10 @@
 #![allow(clippy::too_many_arguments)]
 #![allow(clippy::needless_range_loop)]
+#![deny(rustdoc::broken_intra_doc_links)]
+#![deny(missing_debug_implementations)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+#[cfg(not(feature = "std"))]
 pub extern crate alloc;
 
 /// Re-export of `plonky2_field`.

@@ -1,6 +1,18 @@
 [workspace]
-members = ["evm", "field", "maybe_rayon", "plonky2", "starky", "util"]
+members = ["field", "maybe_rayon", "plonky2", "starky", "util"]
 resolver = "2"
+
+[workspace.dependencies]
+ahash = { version = "0.8.7", default-features = false, features = ["compile-time-rng"] } # NOTE: Be sure to keep this version the same as the dependency in `hashbrown`.
+anyhow = { version = "1.0.40", default-features = false }
+hashbrown = { version = "0.14.3", default-features = false, features = ["ahash", "serde"] } # NOTE: When upgrading, see `ahash` dependency.
+itertools = { version = "0.11.0", default-features = false }
+log = { version = "0.4.14", default-features = false }
+num = { version = "0.4", default-features = false, features = ["rand"] }
+rand = { version = "0.8.4", default-features = false }
+serde = { version = "1.0", default-features = false, features = ["derive"] }
+static_assertions = { version = "1.1.0", default-features = false }
+unroll = { version = "0.1.5", default-features = false }
 
 [profile.release]
 opt-level = 3
@@ -10,3 +22,11 @@ incremental = true
 
 [profile.bench]
 opt-level = 3
+
+[workspace.package]
+edition = "2021"
+license = "MIT OR Apache-2.0"
+homepage = "https://github.com/0xPolygonZero/plonky2"
+repository = "https://github.com/0xPolygonZero/plonky2"
+keywords = ["cryptography", "SNARK", "PLONK", "FRI", "plonky2"]
+categories = ["cryptography"]

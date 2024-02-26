@@ -1,6 +1,9 @@
 //! A module to help with GateRef serialization
 
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
+#[cfg(feature = "std")]
+use std::vec::Vec; // For macros below
 
 use plonky2_field::extension::Extendable;
 
@@ -76,7 +79,7 @@ macro_rules! impl_gate_serializer {
 
         fn write_gate(
             &self,
-            buf: &mut $crate::alloc::vec::Vec<u8>,
+            buf: &mut $crate::util::serialization::gate_serialization::Vec<u8>,
             gate: &$crate::gates::gate::GateRef<F, D>,
             common: &$crate::plonk::circuit_data::CommonCircuitData<F, D>,
         ) -> $crate::util::serialization::IoResult<()> {
@@ -111,7 +114,16 @@ pub mod default {
     use crate::gates::reducing_extension::ReducingExtensionGate;
     use crate::hash::hash_types::RichField;
     use crate::util::serialization::GateSerializer;
-
+    /// A gate serializer that can be used to serialize all default gates supported
+    /// by the `plonky2` library.
+    /// Being a unit struct, it can be simply called as
+    /// ```rust
+    /// use plonky2::util::serialization::DefaultGateSerializer;
+    /// let gate_serializer = DefaultGateSerializer;
+    /// ```
+    /// Applications using custom gates should define their own serializer implementing
+    /// the `GateSerializer` trait. This can be easily done through the `impl_gate_serializer` macro.
+    #[derive(Debug)]
     pub struct DefaultGateSerializer;
     impl<F: RichField + Extendable<D>, const D: usize> GateSerializer<F, D> for DefaultGateSerializer {
         impl_gate_serializer! {

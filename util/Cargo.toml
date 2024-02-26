@@ -1,7 +1,7 @@
 [package]
 name = "plonky2_util"
 description = "Utilities used by Plonky2"
-version = "0.1.1"
+version = "0.2.0"
 license = "MIT OR Apache-2.0"
 edition = "2021"
 

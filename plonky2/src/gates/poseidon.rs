@@ -1,6 +1,10 @@
-use alloc::string::{String, ToString};
-use alloc::vec::Vec;
-use alloc::{format, vec};
+#[cfg(not(feature = "std"))]
+use alloc::{
+    format,
+    string::{String, ToString},
+    vec,
+    vec::Vec,
+};
 use core::marker::PhantomData;
 
 use crate::field::extension::Extendable;
@@ -35,23 +39,23 @@ impl<F: RichField + Extendable<D>, const D: usize> PoseidonGate<F, D> {
     }
 
     /// The wire index for the `i`th input to the permutation.
-    pub const fn wire_input(i: usize) -> usize {
+    pub(crate) const fn wire_input(i: usize) -> usize {
         i
     }
 
     /// The wire index for the `i`th output to the permutation.
-    pub const fn wire_output(i: usize) -> usize {
+    pub(crate) const fn wire_output(i: usize) -> usize {
         SPONGE_WIDTH + i
     }
 
     /// If this is set to 1, the first four inputs will be swapped with the next four inputs. This
     /// is useful for ordering hashes in Merkle proofs. Otherwise, this should be set to 0.
-    pub const WIRE_SWAP: usize = 2 * SPONGE_WIDTH;
+    pub(crate) const WIRE_SWAP: usize = 2 * SPONGE_WIDTH;
 
     const START_DELTA: usize = 2 * SPONGE_WIDTH + 1;
 
     /// A wire which stores `swap * (input[i + 4] - input[i])`; used to compute the swapped inputs.
-    fn wire_delta(i: usize) -> usize {
+    const fn wire_delta(i: usize) -> usize {
         assert!(i < 4);
         Self::START_DELTA + i
     }
@@ -60,7 +64,7 @@ impl<F: RichField + Extendable<D>, const D: usize> PoseidonGate<F, D> {
 
     /// A wire which stores the input of the `i`-th S-box of the `round`-th round of the first set
     /// of full rounds.
-    fn wire_full_sbox_0(round: usize, i: usize) -> usize {
+    const fn wire_full_sbox_0(round: usize, i: usize) -> usize {
         debug_assert!(
             round != 0,
             "First round S-box inputs are not stored as wires"
@@ -74,7 +78,7 @@ impl<F: RichField + Extendable<D>, const D: usize> PoseidonGate<F, D> {
         Self::START_FULL_0 + SPONGE_WIDTH * (poseidon::HALF_N_FULL_ROUNDS - 1);
 
     /// A wire which stores the input of the S-box of the `round`-th round of the partial rounds.
-    fn wire_partial_sbox(round: usize) -> usize {
+    const fn wire_partial_sbox(round: usize) -> usize {
         debug_assert!(round < poseidon::N_PARTIAL_ROUNDS);
         Self::START_PARTIAL + round
     }
@@ -83,7 +87,7 @@ impl<F: RichField + Extendable<D>, const D: usize> PoseidonGate<F, D> {
 
     /// A wire which stores the input of the `i`-th S-box of the `round`-th round of the second set
     /// of full rounds.
-    fn wire_full_sbox_1(round: usize, i: usize) -> usize {
+    const fn wire_full_sbox_1(round: usize, i: usize) -> usize {
         debug_assert!(round < poseidon::HALF_N_FULL_ROUNDS);
         debug_assert!(i < SPONGE_WIDTH);
         Self::START_FULL_1 + SPONGE_WIDTH * round + i
@@ -533,16 +537,12 @@ impl<F: RichField + Extendable<D> + Poseidon, const D: usize> SimpleGenerator<F,
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
+    use plonky2_field::goldilocks_field::GoldilocksField;
 
-    use crate::field::goldilocks_field::GoldilocksField;
-    use crate::field::types::Field;
+    use super::*;
     use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
-    use crate::gates::poseidon::PoseidonGate;
-    use crate::hash::poseidon::{Poseidon, SPONGE_WIDTH};
     use crate::iop::generator::generate_partial_witness;
-    use crate::iop::wire::Wire;
-    use crate::iop::witness::{PartialWitness, Witness, WitnessWrite};
-    use crate::plonk::circuit_builder::CircuitBuilder;
+    use crate::iop::witness::PartialWitness;
     use crate::plonk::circuit_data::CircuitConfig;
     use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
 

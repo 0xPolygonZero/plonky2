@@ -1,20 +1,27 @@
 [package]
 name = "plonky2_field"
 description = "Finite field arithmetic"
-version = "0.1.1"
-license = "MIT OR Apache-2.0"
+version = "0.2.0"
 authors = ["Daniel Lubarov <daniel@lubarov.com>", "William Borgeaud <williamborgeaud@gmail.com>", "Jacqueline Nabaglo <j@nab.gl>", "Hamish Ivey-Law <hamish@ivey-law.name>"]
-edition = "2021"
+edition.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
 
 [dependencies]
-anyhow = { version = "1.0.40", default-features = false }
-itertools = { version = "0.11.0", default-features = false, features = ["use_alloc"] }
-num = { version = "0.4", default-features = false, features = ["alloc", "rand"] }
+anyhow = { workspace = true }
+itertools = { workspace = true, features = ["use_alloc"] }
+num = { workspace = true, features = ["alloc"] }
+rand = { workspace = true, features = ["getrandom"] }
+serde = { workspace = true, features = ["alloc"] }
+static_assertions = { workspace = true }
+unroll = { workspace = true }
+
+# Local dependencies
 plonky2_util = { path = "../util", default-features = false }
-rand = { version = "0.8.5", default-features = false, features = ["getrandom"] }
-serde = { version = "1.0", default-features = false, features = ["alloc", "derive"] }
-static_assertions = { version = "1.1.0", default-features = false }
-unroll = { version = "0.1.5", default-features = false }
+
 
 # Display math equations properly in documentation
 [package.metadata.docs.rs]
