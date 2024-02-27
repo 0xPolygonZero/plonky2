@@ -310,6 +310,7 @@ mod tests {
             trace,
             &public_inputs,
             &mut TimingTree::default(),
+            true,
         )?;
 
         verify_stark_proof(stark, proof, &config)?;
@@ -323,6 +324,7 @@ mod tests {
             trace,
             &public_inputs,
             &mut TimingTree::default(),
+            true,
         )?;
 
         verify_stark_proof(stark, proof, &config)
@@ -381,6 +383,7 @@ mod tests {
             trace,
             &public_inputs,
             &mut TimingTree::default(),
+            true,
         )?;
         verify_stark_proof(stark, proof.clone(), &config)?;
 
@@ -395,6 +398,7 @@ mod tests {
             trace,
             &public_inputs,
             &mut TimingTree::default(),
+            true,
         )?;
         verify_stark_proof(stark, proof.clone(), &config)?;
 

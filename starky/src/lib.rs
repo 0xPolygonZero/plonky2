@@ -303,6 +303,7 @@
 //!         trace,
 //!         &public_inputs,
 //!         &mut TimingTree::default(),
+//!         false,
 //!     ).expect("We should have a valid proof!");
 //!
 //!     verify_stark_proof(stark, proof, &CONFIG)

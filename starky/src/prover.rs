@@ -40,6 +40,7 @@ pub fn prove<F, C, S, const D: usize>(
     trace_poly_values: Vec<PolynomialValues<F>>,
     public_inputs: &[F],
     timing: &mut TimingTree,
+    debug_constraints: bool,
 ) -> Result<StarkProofWithPublicInputs<F, C, D>>
 where
     F: RichField + Extendable<D>,
@@ -83,6 +84,7 @@ where
         &mut challenger,
         public_inputs,
         timing,
+        debug_constraints,
     )
 }
 
@@ -103,6 +105,7 @@ pub fn prove_with_commitment<F, C, S, const D: usize>(
     challenger: &mut Challenger<F, C::Hasher>,
     public_inputs: &[F],
     timing: &mut TimingTree,
+    debug_constraints: bool,
 ) -> Result<StarkProofWithPublicInputs<F, C, D>>
 where
     F: RichField + Extendable<D>,
@@ -203,8 +206,8 @@ where
         .unwrap_or_default();
 
     // This is an expensive check, hence is only run when `debug_assertions` are enabled.
-    #[cfg(debug_assertions)]
-    {
+    if debug_constraints {
+        #[cfg(debug_assertions)]
         check_constraints(
             stark,
             trace_commitment,
