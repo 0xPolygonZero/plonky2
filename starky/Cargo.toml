@@ -31,7 +31,7 @@ plonky2_maybe_rayon = { path = "../maybe_rayon", default-features = false }
 plonky2_util = { path = "../util", default-features = false }
 
 [dev-dependencies]
-env_logger = { version = "0.10.2", default-features = false }
+env_logger = { version = "0.11.2", default-features = false }
 
 # Display math equations properly in documentation
 [package.metadata.docs.rs]
