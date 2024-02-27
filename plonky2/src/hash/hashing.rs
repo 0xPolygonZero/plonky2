@@ -1,5 +1,5 @@
 //! Concrete instantiation of a hash function.
-
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use core::fmt::Debug;
 

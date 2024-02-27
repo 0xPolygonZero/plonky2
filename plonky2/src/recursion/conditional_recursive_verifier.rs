@@ -1,3 +1,4 @@
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 
 use itertools::Itertools;
@@ -336,6 +337,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(not(feature = "std"))]
+    use alloc::vec;
+
     use anyhow::Result;
     use hashbrown::HashMap;
 
@@ -344,7 +348,7 @@ mod tests {
     use crate::gates::noop::NoopGate;
     use crate::iop::witness::{PartialWitness, WitnessWrite};
     use crate::plonk::circuit_data::CircuitConfig;
-    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
+    use crate::plonk::config::PoseidonGoldilocksConfig;
     use crate::recursion::dummy_circuit::{dummy_circuit, dummy_proof};
 
     #[test]

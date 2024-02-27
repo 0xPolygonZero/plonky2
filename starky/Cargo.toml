@@ -1,14 +1,15 @@
 [package]
 name = "starky"
 description = "Implementation of STARKs"
-version = "0.1.2"
-license = "MIT OR Apache-2.0"
+version = "0.2.0"
 authors = ["Daniel Lubarov <daniel@lubarov.com>", "William Borgeaud <williamborgeaud@gmail.com>"]
 readme = "README.md"
-repository = "https://github.com/0xPolygonZero/plonky2"
-keywords = ["cryptography", "STARK", "FRI"]
-categories = ["cryptography"]
-edition = "2021"
+edition.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
 
 [features]
 default = ["parallel", "std", "timing"]
@@ -17,11 +18,17 @@ std = ["anyhow/std", "plonky2/std"]
 timing = ["plonky2/timing"]
 
 [dependencies]
-anyhow = { version = "1.0.40", default-features = false }
-itertools = { version = "0.11.0", default-features = false }
-log = { version = "0.4.14", default-features = false }
-plonky2_maybe_rayon = { path = "../maybe_rayon", default-features = false }
+ahash = { workspace = true }
+anyhow = { workspace = true }
+hashbrown = { workspace = true }
+itertools = { workspace = true }
+log = { workspace = true }
+num-bigint = { version = "0.4.3", default-features = false }
+
+# Local dependencies
 plonky2 = { path = "../plonky2", default-features = false }
+plonky2_maybe_rayon = { path = "../maybe_rayon", default-features = false }
+plonky2_util = { path = "../util", default-features = false }
 
 [dev-dependencies]
 env_logger = { version = "0.10.0", default-features = false }

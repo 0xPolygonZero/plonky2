@@ -6,8 +6,8 @@
 //! the Poseidon hash function both internally and natively, and one
 //! mixing Poseidon internally and truncated Keccak externally.
 
-use alloc::vec;
-use alloc::vec::Vec;
+#[cfg(not(feature = "std"))]
+use alloc::{vec, vec::Vec};
 use core::fmt::Debug;
 
 use serde::de::DeserializeOwned;
@@ -107,7 +107,7 @@ pub trait GenericConfig<const D: usize>:
 }
 
 /// Configuration using Poseidon over the Goldilocks field.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, Default, Eq, PartialEq, Serialize, Deserialize)]
 pub struct PoseidonGoldilocksConfig;
 impl GenericConfig<2> for PoseidonGoldilocksConfig {
     type F = GoldilocksField;
@@ -117,7 +117,7 @@ impl GenericConfig<2> for PoseidonGoldilocksConfig {
 }
 
 /// Configuration using Poseidon2 over the Goldilocks field.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, Default, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Poseidon2GoldilocksConfig;
 impl GenericConfig<2> for Poseidon2GoldilocksConfig {
     type F = GoldilocksField;
@@ -127,7 +127,7 @@ impl GenericConfig<2> for Poseidon2GoldilocksConfig {
 }
 
 /// Configuration using truncated Keccak over the Goldilocks field.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, Default, Eq, PartialEq, Serialize, Deserialize)]
 pub struct KeccakGoldilocksConfig;
 impl GenericConfig<2> for KeccakGoldilocksConfig {
     type F = GoldilocksField;

@@ -1,11 +1,11 @@
-use alloc::string::String;
-use alloc::sync::Arc;
-use alloc::vec;
-use alloc::vec::Vec;
+#[cfg(not(feature = "std"))]
+use alloc::{string::String, sync::Arc, vec, vec::Vec};
 use core::any::Any;
 use core::fmt::{Debug, Error, Formatter};
 use core::hash::{Hash, Hasher};
 use core::ops::Range;
+#[cfg(feature = "std")]
+use std::sync::Arc;
 
 use hashbrown::HashMap;
 use serde::{Serialize, Serializer};
@@ -309,7 +309,7 @@ pub struct CurrentSlot<F: RichField + Extendable<D>, const D: usize> {
 }
 
 /// A gate along with any constants used to configure it.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct GateInstance<F: RichField + Extendable<D>, const D: usize> {
     pub gate_ref: GateRef<F, D>,
     pub constants: Vec<F>,

@@ -1,7 +1,7 @@
 //! plonky2 prover implementation.
 
-use alloc::vec::Vec;
-use alloc::{format, vec};
+#[cfg(not(feature = "std"))]
+use alloc::{format, vec, vec::Vec};
 use core::cmp::min;
 use core::mem::swap;
 

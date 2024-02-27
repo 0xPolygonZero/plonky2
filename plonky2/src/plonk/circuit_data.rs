@@ -12,10 +12,11 @@
 //! The verifier data can similarly be extracted by calling [`CircuitData::verifier_data`].
 //! This is useful to allow even small devices to verify plonky2 proofs.
 
-use alloc::collections::BTreeMap;
-use alloc::vec;
-use alloc::vec::Vec;
+#[cfg(not(feature = "std"))]
+use alloc::{collections::BTreeMap, vec, vec::Vec};
 use core::ops::{Range, RangeFrom};
+#[cfg(feature = "std")]
+use std::collections::BTreeMap;
 
 use anyhow::Result;
 use serde::Serialize;
@@ -251,6 +252,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 /// structure as succinct as we can. Thus we include various precomputed data which isn't strictly
 /// required, like LDEs of preprocessed polynomials. If more succinctness was desired, we could
 /// construct a more minimal prover structure and convert back and forth.
+#[derive(Debug)]
 pub struct ProverCircuitData<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,

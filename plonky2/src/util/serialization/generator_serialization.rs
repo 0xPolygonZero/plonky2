@@ -1,6 +1,9 @@
 //! A module to help with WitnessGeneratorRef serialization
 
-use alloc::vec::Vec;
+#[cfg(not(feature = "std"))]
+pub use alloc::vec::Vec;
+#[cfg(feature = "std")]
+pub use std::vec::Vec; // For macros below
 
 use plonky2_field::extension::Extendable;
 
@@ -80,7 +83,7 @@ macro_rules! impl_generator_serializer {
 
         fn write_generator(
             &self,
-            buf: &mut $crate::alloc::vec::Vec<u8>,
+            buf: &mut $crate::util::serialization::generator_serialization::Vec<u8>,
             generator: &$crate::iop::generator::WitnessGeneratorRef<F, D>,
             common: &$crate::plonk::circuit_data::CommonCircuitData<F, D>,
         ) -> $crate::util::serialization::IoResult<()> {
@@ -125,6 +128,20 @@ pub mod default {
     use crate::recursion::dummy_circuit::DummyProofGenerator;
     use crate::util::serialization::WitnessGeneratorSerializer;
 
+    /// A generator serializer that can be used to serialize all default generators supported
+    /// by the `plonky2` library. It can simply be called as
+    /// ```rust
+    /// use plonky2::util::serialization::DefaultGeneratorSerializer;
+    /// use plonky2::plonk::config::PoseidonGoldilocksConfig;
+    ///
+    /// const D: usize = 2;
+    /// type C = PoseidonGoldilocksConfig;
+    /// let generator_serializer = DefaultGeneratorSerializer::<C, D>::default();
+    /// ```
+    /// Applications using custom generators should define their own serializer implementing
+    /// the `WitnessGeneratorSerializer` trait. This can be easily done through the
+    /// `impl_generator_serializer` macro.
+    #[derive(Debug, Default)]
     pub struct DefaultGeneratorSerializer<C: GenericConfig<D>, const D: usize> {
         pub _phantom: PhantomData<C>,
     }

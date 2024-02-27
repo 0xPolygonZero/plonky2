@@ -4,8 +4,8 @@
 //! [`CompressedProof`] or [`CompressedProofWithPublicInputs`] formats.
 //! The latter can be directly passed to a verifier to assert its correctness.
 
-use alloc::vec;
-use alloc::vec::Vec;
+#[cfg(not(feature = "std"))]
+use alloc::{vec, vec::Vec};
 
 use anyhow::ensure;
 use plonky2_maybe_rayon::*;
@@ -256,6 +256,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     }
 }
 
+#[derive(Debug)]
 pub struct ProofChallenges<F: RichField + Extendable<D>, const D: usize> {
     /// Random values used in Plonk's permutation argument.
     pub plonk_betas: Vec<F>,
@@ -451,19 +452,23 @@ impl<const D: usize> OpeningSetTarget<D> {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(not(feature = "std"))]
     use alloc::sync::Arc;
+    #[cfg(feature = "std")]
+    use std::sync::Arc;
 
     use anyhow::Result;
     use itertools::Itertools;
+    use plonky2_field::types::Sample;
 
-    use crate::field::types::Sample;
+    use super::*;
     use crate::fri::reduction_strategies::FriReductionStrategy;
     use crate::gates::lookup_table::LookupTable;
     use crate::gates::noop::NoopGate;
     use crate::iop::witness::PartialWitness;
     use crate::plonk::circuit_builder::CircuitBuilder;
     use crate::plonk::circuit_data::CircuitConfig;
-    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
+    use crate::plonk::config::PoseidonGoldilocksConfig;
     use crate::plonk::verifier::verify;
 
     #[test]
