@@ -13,7 +13,7 @@ categories.workspace = true
 parallel = ["rayon"]
 
 [dependencies]
-rayon = { version = "1.5.3", optional = true }
+rayon = { version = "1.8.1", optional = true }
 
 # Display math equations properly in documentation
 [package.metadata.docs.rs]
