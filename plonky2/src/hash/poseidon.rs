@@ -923,7 +923,7 @@ impl<F: RichField> AlgebraicHasher<F> for PoseidonHash {
 pub(crate) mod test_helpers {
     use super::*;
 
-    pub(crate) fn check_test_vectors<F: Field>(
+    pub(crate) fn check_test_vectors<F>(
         test_vectors: Vec<([u64; SPONGE_WIDTH], [u64; SPONGE_WIDTH])>,
     ) where
         F: Poseidon,
@@ -941,7 +941,7 @@ pub(crate) mod test_helpers {
         }
     }
 
-    pub(crate) fn check_consistency<F: Field>()
+    pub(crate) fn check_consistency<F>()
     where
         F: Poseidon,
     {
