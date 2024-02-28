@@ -20,7 +20,7 @@ static_assertions = { workspace = true }
 unroll = { workspace = true }
 
 # Local dependencies
-plonky2_util = { path = "../util", default-features = false }
+plonky2_util = { version = "0.2.0", path = "../util", default-features = false }
 
 
 # Display math equations properly in documentation
