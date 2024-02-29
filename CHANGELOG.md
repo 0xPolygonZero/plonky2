@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [0.2.1] - 2024-03-01 (`starky` crate only)
+
 ### Changed
 Always compile cross_table_lookups::debug_utils ([#1540](https://github.com/0xPolygonZero/plonky2/pull/1540))
 
