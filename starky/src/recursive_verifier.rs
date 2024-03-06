@@ -349,7 +349,9 @@ pub fn set_stark_proof_target<F, C: GenericConfig<D, F = F>, W, const D: usize>(
     W: Witness<F>,
 {
     witness.set_cap_target(&proof_target.trace_cap, &proof.trace_cap);
-    witness.set_cap_target(&proof_target.quotient_polys_cap, &proof.quotient_polys_cap);
+    if let Some(quotient_polys_cap) = &proof.quotient_polys_cap {
+        witness.set_cap_target(&proof_target.quotient_polys_cap, quotient_polys_cap);
+    }
 
     witness.set_fri_openings(
         &proof_target.openings.to_fri_openings(zero),

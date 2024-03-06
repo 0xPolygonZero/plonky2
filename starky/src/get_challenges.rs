@@ -28,7 +28,7 @@ fn get_challenges<F, C, const D: usize>(
     challenges: Option<&GrandProductChallengeSet<F>>,
     trace_cap: Option<&MerkleCap<F, C::Hasher>>,
     auxiliary_polys_cap: Option<&MerkleCap<F, C::Hasher>>,
-    quotient_polys_cap: &MerkleCap<F, C::Hasher>,
+    quotient_polys_cap: Option<&MerkleCap<F, C::Hasher>>,
     openings: &StarkOpeningSet<F, D>,
     commit_phase_merkle_caps: &[MerkleCap<F, C::Hasher>],
     final_poly: &PolynomialCoeffs<F::Extension>,
@@ -60,7 +60,9 @@ where
 
     let stark_alphas = challenger.get_n_challenges(num_challenges);
 
-    challenger.observe_cap(quotient_polys_cap);
+    if let Some(quotient_polys_cap) = quotient_polys_cap {
+        challenger.observe_cap(quotient_polys_cap);
+    }
     let stark_zeta = challenger.get_extension_challenge::<D>();
 
     challenger.observe_openings(&openings.to_fri_openings());
@@ -125,7 +127,7 @@ where
             challenges,
             trace_cap,
             auxiliary_polys_cap.as_ref(),
-            quotient_polys_cap,
+            quotient_polys_cap.as_ref(),
             openings,
             commit_phase_merkle_caps,
             final_poly,

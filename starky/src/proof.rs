@@ -33,7 +33,7 @@ pub struct StarkProof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, 
     /// Optional merkle cap of LDEs of permutation Z values, if any.
     pub auxiliary_polys_cap: Option<MerkleCap<F, C::Hasher>>,
     /// Merkle cap of LDEs of trace values.
-    pub quotient_polys_cap: MerkleCap<F, C::Hasher>,
+    pub quotient_polys_cap: Option<MerkleCap<F, C::Hasher>>,
     /// Purported values of each polynomial at the challenge point.
     pub openings: StarkOpeningSet<F, D>,
     /// A batch FRI argument for all openings.
@@ -253,7 +253,7 @@ pub struct StarkOpeningSet<F: RichField + Extendable<D>, const D: usize> {
     /// Openings of cross-table lookups `Z` polynomials at `1`.
     pub ctl_zs_first: Option<Vec<F>>,
     /// Openings of quotient polynomials at `zeta`.
-    pub quotient_polys: Vec<F::Extension>,
+    pub quotient_polys: Option<Vec<F::Extension>>,
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> StarkOpeningSet<F, D> {
@@ -266,7 +266,7 @@ impl<F: RichField + Extendable<D>, const D: usize> StarkOpeningSet<F, D> {
         g: F,
         trace_commitment: &PolynomialBatch<F, C, D>,
         auxiliary_polys_commitment: Option<&PolynomialBatch<F, C, D>>,
-        quotient_commitment: &PolynomialBatch<F, C, D>,
+        quotient_commitment: Option<&PolynomialBatch<F, C, D>>,
         num_lookup_columns: usize,
         requires_ctl: bool,
         num_ctl_polys: &[usize],
@@ -298,7 +298,7 @@ impl<F: RichField + Extendable<D>, const D: usize> StarkOpeningSet<F, D> {
                 let total_num_helper_cols: usize = num_ctl_polys.iter().sum();
                 auxiliary_first.unwrap()[num_lookup_columns + total_num_helper_cols..].to_vec()
             }),
-            quotient_polys: eval_commitment(zeta, quotient_commitment),
+            quotient_polys: quotient_commitment.map(|c| eval_commitment(zeta, c)),
         }
     }
 
@@ -310,7 +310,7 @@ impl<F: RichField + Extendable<D>, const D: usize> StarkOpeningSet<F, D> {
                 .local_values
                 .iter()
                 .chain(self.auxiliary_polys.iter().flatten())
-                .chain(&self.quotient_polys)
+                .chain(self.quotient_polys.iter().flatten())
                 .copied()
                 .collect_vec(),
         };
