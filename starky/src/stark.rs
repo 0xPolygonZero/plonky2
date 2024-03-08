@@ -44,8 +44,8 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
     /// constraints over `F`.
     fn eval_packed_generic<FE, P, const D2: usize>(
         &self,
-        vars: &Self::EvaluationFrame<FE, P, D2>,
-        yield_constr: &mut ConstraintConsumer<P>,
+        _vars: &Self::EvaluationFrame<FE, P, D2>,
+        _yield_constr: &mut ConstraintConsumer<P>,
     ) where
         FE: FieldExtension<D2, BaseField = F>,
         P: PackedField<Scalar = FE>,
@@ -76,9 +76,9 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
     /// in the same order as they are given in `eval_packed_generic`.
     fn eval_ext_circuit(
         &self,
-        builder: &mut CircuitBuilder<F, D>,
-        vars: &Self::EvaluationFrameTarget,
-        yield_constr: &mut RecursiveConstraintConsumer<F, D>,
+        _builder: &mut CircuitBuilder<F, D>,
+        _vars: &Self::EvaluationFrameTarget,
+        _yield_constr: &mut RecursiveConstraintConsumer<F, D>,
     ) {
     }
 
