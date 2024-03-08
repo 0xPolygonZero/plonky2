@@ -431,7 +431,13 @@ impl<F: Field> Lookup<F> {
     pub fn num_helper_columns(&self, constraint_degree: usize) -> usize {
         // One helper column for each column batch of size `constraint_degree-1`,
         // then one column for the inverse of `table + challenge` and one for the `Z` polynomial.
-        ceil_div_usize(self.columns.len(), constraint_degree - 1) + 1
+        ceil_div_usize(
+            self.columns.len(),
+            match constraint_degree.checked_sub(1) {
+                Some(v) => v,
+                None => 1,
+            },
+        ) + 1
     }
 }
 
@@ -577,7 +583,7 @@ pub(crate) fn lookup_helper_columns<F: Field>(
     constraint_degree: usize,
 ) -> Vec<PolynomialValues<F>> {
     assert!(
-        constraint_degree == 2 || constraint_degree == 3,
+        constraint_degree == 0 || constraint_degree == 2 || constraint_degree == 3,
         "TODO: Allow other constraint degrees."
     );
 
@@ -666,9 +672,12 @@ pub(crate) fn eval_helper_columns<F, FE, P, const D: usize, const D2: usize>(
     P: PackedField<Scalar = FE>,
 {
     if !helper_columns.is_empty() {
-        for (j, chunk) in columns.chunks(constraint_degree - 1).enumerate() {
-            let fs =
-                &filter[(constraint_degree - 1) * j..(constraint_degree - 1) * j + chunk.len()];
+        for (j, chunk) in columns
+            .chunks(constraint_degree.checked_sub(1).unwrap_or(1))
+            .enumerate()
+        {
+            let fs = &filter[(constraint_degree.checked_sub(1).unwrap_or(1)) * j
+                ..(constraint_degree.checked_sub(1).unwrap_or(1)) * j + chunk.len()];
             let h = helper_columns[j];
 
             match chunk.len() {
@@ -774,11 +783,17 @@ pub(crate) fn get_helper_cols<F: Field>(
     challenge: GrandProductChallenge<F>,
     constraint_degree: usize,
 ) -> Vec<PolynomialValues<F>> {
-    let num_helper_columns = ceil_div_usize(columns_filters.len(), constraint_degree - 1);
+    let num_helper_columns = ceil_div_usize(
+        columns_filters.len(),
+        constraint_degree.checked_sub(1).unwrap_or(1),
+    );
 
     let mut helper_columns = Vec::with_capacity(num_helper_columns);
 
-    for mut cols_filts in &columns_filters.iter().chunks(constraint_degree - 1) {
+    for mut cols_filts in &columns_filters
+        .iter()
+        .chunks(constraint_degree.checked_sub(1).unwrap_or(1))
+    {
         let (first_col, first_filter) = cols_filts.next().unwrap();
 
         let mut filter_col = Vec::with_capacity(degree);
@@ -886,7 +901,7 @@ pub(crate) fn eval_packed_lookups_generic<F, FE, P, S, const D: usize, const D2:
     let next_values = vars.get_next_values();
     let degree = stark.constraint_degree();
     assert!(
-        degree == 2 || degree == 3,
+        degree == 0 || degree == 2 || degree == 3,
         "TODO: Allow other constraint degrees."
     );
     let mut start = 0;
