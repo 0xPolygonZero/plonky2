@@ -170,7 +170,7 @@ fn get_challenges_target<F, C, const D: usize>(
     challenges: Option<&GrandProductChallengeSet<Target>>,
     trace_cap: Option<&MerkleCapTarget>,
     auxiliary_polys_cap: Option<&MerkleCapTarget>,
-    quotient_polys_cap: &MerkleCapTarget,
+    quotient_polys_cap: Option<&MerkleCapTarget>,
     openings: &StarkOpeningSetTarget<D>,
     commit_phase_merkle_caps: &[MerkleCapTarget],
     final_poly: &PolynomialCoeffsExtTarget<D>,
@@ -202,7 +202,10 @@ where
 
     let stark_alphas = challenger.get_n_challenges(builder, num_challenges);
 
-    challenger.observe_cap(quotient_polys_cap);
+    if let Some(cap) = quotient_polys_cap {
+        challenger.observe_cap(cap);
+    }
+
     let stark_zeta = challenger.get_extension_challenge(builder);
 
     challenger.observe_openings(&openings.to_fri_openings(builder.zero()));
@@ -268,7 +271,7 @@ impl<const D: usize> StarkProofTarget<D> {
             challenges,
             trace_cap,
             auxiliary_polys_cap.as_ref(),
-            quotient_polys_cap,
+            quotient_polys_cap.as_ref(),
             openings,
             commit_phase_merkle_caps,
             final_poly,

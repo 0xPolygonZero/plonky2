@@ -173,7 +173,7 @@ pub fn verify_stark_proof_with_challenges_circuit<
 
     let merkle_caps = once(proof.trace_cap.clone())
         .chain(proof.auxiliary_polys_cap.clone())
-        .chain(once(proof.quotient_polys_cap.clone()))
+        .chain(proof.quotient_polys_cap.clone())
         .collect_vec();
 
     let fri_instance = stark.fri_instance_target(
@@ -264,10 +264,13 @@ pub fn add_virtual_stark_proof<F: RichField + Extendable<D>, S: Stark<F, D>, con
     let auxiliary_polys_cap = (stark.uses_lookups() || stark.requires_ctls())
         .then(|| builder.add_virtual_cap(cap_height));
 
+    let quotient_polys_cap =
+        (stark.constraint_degree() > 0).then(|| builder.add_virtual_cap(cap_height));
+
     StarkProofTarget {
         trace_cap: builder.add_virtual_cap(cap_height),
         auxiliary_polys_cap,
-        quotient_polys_cap: builder.add_virtual_cap(cap_height),
+        quotient_polys_cap,
         openings: add_virtual_stark_opening_set::<F, S, D>(
             builder,
             stark,
@@ -349,8 +352,10 @@ pub fn set_stark_proof_target<F, C: GenericConfig<D, F = F>, W, const D: usize>(
     W: Witness<F>,
 {
     witness.set_cap_target(&proof_target.trace_cap, &proof.trace_cap);
-    if let Some(quotient_polys_cap) = &proof.quotient_polys_cap {
-        witness.set_cap_target(&proof_target.quotient_polys_cap, quotient_polys_cap);
+    if let (Some(quotient_polys_cap_target), Some(quotient_polys_cap)) =
+        (&proof_target.quotient_polys_cap, &proof.quotient_polys_cap)
+    {
+        witness.set_cap_target(quotient_polys_cap_target, quotient_polys_cap);
     }
 
     witness.set_fri_openings(

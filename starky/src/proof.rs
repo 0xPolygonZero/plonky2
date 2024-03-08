@@ -61,7 +61,7 @@ pub struct StarkProofTarget<const D: usize> {
     /// Optional `Target` for the Merkle cap of lookup helper and CTL columns LDEs, if any.
     pub auxiliary_polys_cap: Option<MerkleCapTarget>,
     /// `Target` for the Merkle cap of quotient polynomial evaluations LDEs.
-    pub quotient_polys_cap: MerkleCapTarget,
+    pub quotient_polys_cap: Option<MerkleCapTarget>,
     /// `Target`s for the purported values of each polynomial at the challenge point.
     pub openings: StarkOpeningSetTarget<D>,
     /// `Target`s for the batch FRI argument for all openings.
@@ -76,7 +76,10 @@ impl<const D: usize> StarkProofTarget<D> {
         if let Some(poly) = &self.auxiliary_polys_cap {
             buffer.write_target_merkle_cap(poly)?;
         }
-        buffer.write_target_merkle_cap(&self.quotient_polys_cap)?;
+        buffer.write_bool(self.quotient_polys_cap.is_some())?;
+        if let Some(poly) = &self.quotient_polys_cap {
+            buffer.write_target_merkle_cap(poly)?;
+        }
         buffer.write_target_fri_proof(&self.opening_proof)?;
         self.openings.to_buffer(buffer)?;
         Ok(())
@@ -90,7 +93,11 @@ impl<const D: usize> StarkProofTarget<D> {
         } else {
             None
         };
-        let quotient_polys_cap = buffer.read_target_merkle_cap()?;
+        let quotient_polys_cap = if buffer.read_bool()? {
+            Some(buffer.read_target_merkle_cap()?)
+        } else {
+            None
+        };
         let opening_proof = buffer.read_target_fri_proof()?;
         let openings = StarkOpeningSetTarget::from_buffer(buffer)?;
 
