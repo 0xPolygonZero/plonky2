@@ -1,4 +1,4 @@
-use alloc::vec;
+use std::vec;
 
 use crate::field::extension::Extendable;
 use crate::hash::hash_types::{HashOutTarget, RichField};
