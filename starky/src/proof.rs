@@ -367,7 +367,7 @@ pub struct StarkOpeningSetTarget<const D: usize> {
     /// `ExtensionTarget`s for the opening of lookups and cross-table lookups `Z` polynomials at 1.
     pub ctl_zs_first: Option<Vec<Target>>,
     /// `ExtensionTarget`s for the opening of quotient polynomials at `zeta`.
-    pub quotient_polys: Vec<ExtensionTarget<D>>,
+    pub quotient_polys: Option<Vec<ExtensionTarget<D>>>,
 }
 
 impl<const D: usize> StarkOpeningSetTarget<D> {
@@ -393,7 +393,12 @@ impl<const D: usize> StarkOpeningSetTarget<D> {
         } else {
             buffer.write_bool(false)?;
         }
-        buffer.write_target_ext_vec(&self.quotient_polys)?;
+        if let Some(quotient_polys) = &self.quotient_polys {
+            buffer.write_bool(true)?;
+            buffer.write_target_ext_vec(quotient_polys)?;
+        } else {
+            buffer.write_bool(false)?;
+        }
         Ok(())
     }
 
@@ -416,7 +421,11 @@ impl<const D: usize> StarkOpeningSetTarget<D> {
         } else {
             None
         };
-        let quotient_polys = buffer.read_target_ext_vec::<D>()?;
+        let quotient_polys = if buffer.read_bool()? {
+            Some(buffer.read_target_ext_vec::<D>()?)
+        } else {
+            None
+        };
 
         Ok(Self {
             local_values,
@@ -435,7 +444,7 @@ impl<const D: usize> StarkOpeningSetTarget<D> {
                 .local_values
                 .iter()
                 .chain(self.auxiliary_polys.iter().flatten())
-                .chain(&self.quotient_polys)
+                .chain(self.quotient_polys.iter().flatten())
                 .copied()
                 .collect_vec(),
         };

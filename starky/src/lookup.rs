@@ -433,10 +433,7 @@ impl<F: Field> Lookup<F> {
         // then one column for the inverse of `table + challenge` and one for the `Z` polynomial.
         ceil_div_usize(
             self.columns.len(),
-            match constraint_degree.checked_sub(1) {
-                Some(v) => v,
-                None => 1,
-            },
+            constraint_degree.checked_sub(1).unwrap_or(1),
         ) + 1
     }
 }
@@ -728,9 +725,12 @@ pub(crate) fn eval_helper_columns_circuit<F: RichField + Extendable<D>, const D:
     consumer: &mut RecursiveConstraintConsumer<F, D>,
 ) {
     if !helper_columns.is_empty() {
-        for (j, chunk) in columns.chunks(constraint_degree - 1).enumerate() {
-            let fs =
-                &filter[(constraint_degree - 1) * j..(constraint_degree - 1) * j + chunk.len()];
+        for (j, chunk) in columns
+            .chunks(constraint_degree.checked_sub(1).unwrap_or(1))
+            .enumerate()
+        {
+            let fs = &filter[(constraint_degree.checked_sub(1).unwrap_or(1)) * j
+                ..(constraint_degree.checked_sub(1).unwrap_or(1)) * j + chunk.len()];
             let h = helper_columns[j];
 
             let one = builder.one_extension();
@@ -974,7 +974,7 @@ pub(crate) fn eval_ext_lookups_circuit<
     let local_values = vars.get_local_values();
     let next_values = vars.get_next_values();
     assert!(
-        degree == 2 || degree == 3,
+        degree == 0 || degree == 2 || degree == 3,
         "TODO: Allow other constraint degrees."
     );
     let mut start = 0;

@@ -17,10 +17,9 @@ use crate::lookup::{Column, Lookup};
 use crate::stark::Stark;
 use crate::util::trace_rows_to_poly_values;
 
-/// Similar system than above, but with extra columns to illustrate the permutation argument.
-/// Computes a Fibonacci sequence with state `[x0, x1, i, j]` using the state transition
-/// `x0' <- x1, x1' <- x0 + x1, i' <- i+1, j' <- j+1`.
-/// Note: The `i, j` columns are the columns used to test the permutation argument.
+/// Computes a sequence with state `[i, j]` using the state transition
+/// i' <- i+1, j' <- j+1`.
+/// Note: The `0, 1` columns are the columns used to test the permutation argument.
 #[derive(Copy, Clone)]
 struct PermutationStark<F: RichField + Extendable<D>, const D: usize> {
     num_rows: usize,
