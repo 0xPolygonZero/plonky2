@@ -40,11 +40,6 @@ pub fn set_fri_proof_target<F, W, H, const D: usize>(
         .iter()
         .zip_eq(&fri_proof.query_round_proofs)
     {
-        log::debug!(
-            "len trgt = {:?}, len = {:?}",
-            qt.initial_trees_proof.evals_proofs.len(),
-            q.initial_trees_proof.evals_proofs.len()
-        );
         for (at, a) in qt
             .initial_trees_proof
             .evals_proofs
