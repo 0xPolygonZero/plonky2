@@ -167,8 +167,7 @@ where
 
     for (i, chunk) in quotient_polys
         .iter()
-        .map(|x| x.chunks(stark.quotient_degree_factor()))
-        .flatten()
+        .flat_map(|x| x.chunks(stark.quotient_degree_factor()))
         .enumerate()
     {
         ensure!(

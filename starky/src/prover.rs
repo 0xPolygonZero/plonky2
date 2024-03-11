@@ -354,13 +354,13 @@ where
     C: GenericConfig<D, F = F>,
     S: Stark<F, D>,
 {
-    let degree = 1 << degree_bits;
-    let rate_bits = config.fri_config.rate_bits;
-    let total_num_helper_cols: usize = num_ctl_columns.iter().sum();
-
     if stark.quotient_degree_factor() == 0 {
         return None;
     }
+
+    let degree = 1 << degree_bits;
+    let rate_bits = config.fri_config.rate_bits;
+    let total_num_helper_cols: usize = num_ctl_columns.iter().sum();
 
     let quotient_degree_bits = log2_ceil(stark.quotient_degree_factor());
     assert!(
