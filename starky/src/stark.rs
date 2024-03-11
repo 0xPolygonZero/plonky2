@@ -202,13 +202,11 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
 
         let num_quotient_polys = self.num_quotient_polys(config);
         let quotient_info = if num_quotient_polys > 0 {
-            let quotient_polys =
-                FriPolynomialInfo::from_range(oracles.len(), 0..num_quotient_polys);
+            FriPolynomialInfo::from_range(oracles.len(), 0..num_quotient_polys);
             oracles.push(FriOracleInfo {
                 num_polys: num_quotient_polys,
                 blinding: false,
-            });
-            quotient_polys
+            })
         } else {
             vec![]
         };

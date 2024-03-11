@@ -722,12 +722,11 @@ pub(crate) fn eval_helper_columns_circuit<F: RichField + Extendable<D>, const D:
     consumer: &mut RecursiveConstraintConsumer<F, D>,
 ) {
     if !helper_columns.is_empty() {
-        for (j, chunk) in columns
-            .chunks(constraint_degree.checked_sub(1).unwrap_or(1))
-            .enumerate()
+let chunk_size = constraint_degree.checked_sub(1).unwrap_or(1);
+        for (chunk, (fs, &h)) in columns
+            .chunks(chunk_size)
+            .zip(filter.chunks(chunk_size).zip(helper_columns))
         {
-            let fs = &filter[(constraint_degree.saturating_sub(1)) * j
-                ..(constraint_degree.saturating_sub(1)) * j + chunk.len()];
             let h = helper_columns[j];
 
             let one = builder.one_extension();
