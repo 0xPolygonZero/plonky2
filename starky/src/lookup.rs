@@ -674,7 +674,7 @@ pub(crate) fn eval_helper_columns<F, FE, P, const D: usize, const D2: usize>(
             .chunks(chunk_size)
             .zip(filter.chunks(chunk_size).zip(helper_columns))
         {
-            match chunk_size {
+            match chunk.len() {
                 2 => {
                     let combin0 = challenges.combine(&chunk[0]);
                     let combin1 = challenges.combine(chunk[1].iter());
