@@ -393,11 +393,9 @@ impl<const D: usize> StarkOpeningSetTarget<D> {
         } else {
             buffer.write_bool(false)?;
         }
+        buffer.write_bool(self.quotient_polys.is_some())?;
         if let Some(quotient_polys) = &self.quotient_polys {
-            buffer.write_bool(true)?;
             buffer.write_target_ext_vec(quotient_polys)?;
-        } else {
-            buffer.write_bool(false)?;
         }
         Ok(())
     }

@@ -580,7 +580,7 @@ pub(crate) fn lookup_helper_columns<F: Field>(
     constraint_degree: usize,
 ) -> Vec<PolynomialValues<F>> {
     assert!(
-        constraint_degree == 0 || constraint_degree == 2 || constraint_degree == 3,
+        constraint_degree <= 3,
         "TODO: Allow other constraint degrees."
     );
 
@@ -901,7 +901,7 @@ pub(crate) fn eval_packed_lookups_generic<F, FE, P, S, const D: usize, const D2:
     let next_values = vars.get_next_values();
     let degree = stark.constraint_degree();
     assert!(
-        degree == 0 || degree == 2 || degree == 3,
+        degree <= 3,
         "TODO: Allow other constraint degrees."
     );
     let mut start = 0;

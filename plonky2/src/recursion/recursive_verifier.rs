@@ -1,4 +1,5 @@
-use std::vec;
+#[cfg(not(feature = "std"))]
+use alloc::vec;
 
 use crate::field::extension::Extendable;
 use crate::hash::hash_types::{HashOutTarget, RichField};
