@@ -1,6 +1,5 @@
-//! An example of generating and verifying STARK proofs for the Fibonacci sequence.
-//! The toy STARK system also includes two columns that are a permutation of the other,
-//! to highlight the use of the permutation argument with logUp.
+//! An example of generating and verifying a STARK to highlight the use of the
+//! permutation argument with logUp.
 
 #[cfg(not(feature = "std"))]
 use alloc::{vec, vec::Vec};
@@ -11,7 +10,9 @@ use plonky2::field::packed::PackedField;
 use plonky2::field::polynomial::PolynomialValues;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
+use plonky2::plonk::circuit_builder::CircuitBuilder;
 
+use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::evaluation_frame::StarkFrame;
 use crate::lookup::{Column, Lookup};
 use crate::stark::Stark;
@@ -73,6 +74,26 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for PermutationSt
             frequencies_column: Column::single(2),
             filter_columns: vec![None; 1],
         }]
+    }
+
+    // No constraints
+    fn eval_packed_generic<FE, P, const D2: usize>(
+        &self,
+        _vars: &Self::EvaluationFrame<FE, P, D2>,
+        _yield_constr: &mut ConstraintConsumer<P>,
+    ) where
+        FE: FieldExtension<D2, BaseField = F>,
+        P: PackedField<Scalar = FE>,
+    {
+    }
+
+    // No constraints
+    fn eval_ext_circuit(
+        &self,
+        _builder: &mut CircuitBuilder<F, D>,
+        _vars: &Self::EvaluationFrameTarget,
+        _yield_constr: &mut RecursiveConstraintConsumer<F, D>,
+    ) {
     }
 }
 

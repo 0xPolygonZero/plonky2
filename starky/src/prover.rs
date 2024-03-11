@@ -203,7 +203,7 @@ where
         .unwrap_or_default();
 
     // This is an expensive check, hence is only run when `debug_assertions` are enabled.
-    // #[cfg(debug_assertions)]
+    #[cfg(debug_assertions)]
     {
         check_constraints(
             stark,
@@ -358,10 +358,6 @@ where
     let rate_bits = config.fri_config.rate_bits;
     let total_num_helper_cols: usize = num_ctl_columns.iter().sum();
 
-    log::debug!(
-        "quotient degree factor = {:?}",
-        stark.quotient_degree_factor()
-    );
     if stark.quotient_degree_factor() == 0 {
         return None;
     }
@@ -531,7 +527,7 @@ where
 ///
 /// **Note**: this is an expensive check, hence is only available when the `debug_assertions`
 /// flag is activated, to not hinder performances with regular `release` build.
-// #[cfg(debug_assertions)]
+#[cfg(debug_assertions)]
 fn check_constraints<'a, F, C, S, const D: usize>(
     stark: &S,
     trace_commitment: &'a PolynomialBatch<F, C, D>,

@@ -669,15 +669,12 @@ pub(crate) fn eval_helper_columns<F, FE, P, const D: usize, const D2: usize>(
     P: PackedField<Scalar = FE>,
 {
     if !helper_columns.is_empty() {
-        for (j, chunk) in columns
-            .chunks(constraint_degree.checked_sub(1).unwrap_or(1))
-            .enumerate()
+        let chunk_size = constraint_degree.checked_sub(1).unwrap_or(1);
+        for (chunk, (fs, &h)) in columns
+            .chunks(chunk_size)
+            .zip(filter.chunks(chunk_size).zip(helper_columns))
         {
-            let fs = &filter[(constraint_degree.checked_sub(1).unwrap_or(1)) * j
-                ..(constraint_degree.checked_sub(1).unwrap_or(1)) * j + chunk.len()];
-            let h = helper_columns[j];
-
-            match chunk.len() {
+            match chunk_size {
                 2 => {
                     let combin0 = challenges.combine(&chunk[0]);
                     let combin1 = challenges.combine(chunk[1].iter());
@@ -729,8 +726,8 @@ pub(crate) fn eval_helper_columns_circuit<F: RichField + Extendable<D>, const D:
             .chunks(constraint_degree.checked_sub(1).unwrap_or(1))
             .enumerate()
         {
-            let fs = &filter[(constraint_degree.checked_sub(1).unwrap_or(1)) * j
-                ..(constraint_degree.checked_sub(1).unwrap_or(1)) * j + chunk.len()];
+            let fs = &filter[(constraint_degree.saturating_sub(1)) * j
+                ..(constraint_degree.saturating_sub(1)) * j + chunk.len()];
             let h = helper_columns[j];
 
             let one = builder.one_extension();
@@ -900,10 +897,7 @@ pub(crate) fn eval_packed_lookups_generic<F, FE, P, S, const D: usize, const D2:
     let local_values = vars.get_local_values();
     let next_values = vars.get_next_values();
     let degree = stark.constraint_degree();
-    assert!(
-        degree <= 3,
-        "TODO: Allow other constraint degrees."
-    );
+    assert!(degree <= 3, "TODO: Allow other constraint degrees.");
     let mut start = 0;
     for lookup in lookups {
         let num_helper_columns = lookup.num_helper_columns(degree);
@@ -973,10 +967,7 @@ pub(crate) fn eval_ext_lookups_circuit<
 
     let local_values = vars.get_local_values();
     let next_values = vars.get_next_values();
-    assert!(
-        degree == 0 || degree == 2 || degree == 3,
-        "TODO: Allow other constraint degrees."
-    );
+    assert!(degree <= 3, "TODO: Allow other constraint degrees.");
     let mut start = 0;
     for lookup in lookups {
         let num_helper_columns = lookup.num_helper_columns(degree);

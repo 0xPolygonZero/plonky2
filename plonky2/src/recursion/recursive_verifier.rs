@@ -157,10 +157,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             config.num_wires + salt,
             common_data.num_zs_partial_products_polys() + common_data.num_all_lookup_polys() + salt,
         ];
-        log::debug!(
-            "common_data.num_quotient_polys() = {:?}",
-            common_data.num_quotient_polys()
-        );
+
         if common_data.num_quotient_polys() > 0 {
             num_leaves_per_oracle.push(common_data.num_quotient_polys() + salt);
         }
