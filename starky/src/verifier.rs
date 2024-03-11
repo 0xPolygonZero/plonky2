@@ -164,17 +164,17 @@ where
     // where the "real" quotient polynomial is `t(X) = t_0(X) + t_1(X)*X^n + t_2(X)*X^{2n} + ...`.
     // So to reconstruct `t(zeta)` we can compute `reduce_with_powers(chunk, zeta^n)` for each
     // `quotient_degree_factor`-sized chunk of the original evaluations.
-    // TODO: this should be done only with the iterator
-    if let Some(quotient_polys) = quotient_polys {
-        for (i, chunk) in quotient_polys
-            .chunks(stark.quotient_degree_factor())
-            .enumerate()
-        {
-            ensure!(
-                vanishing_polys_zeta[i] == z_h_zeta * reduce_with_powers(chunk, zeta_pow_deg),
-                "Mismatch between evaluation and opening of quotient polynomial"
-            );
-        }
+
+    for (i, chunk) in quotient_polys
+        .iter()
+        .map(|x| x.chunks(stark.quotient_degree_factor()))
+        .flatten()
+        .enumerate()
+    {
+        ensure!(
+            vanishing_polys_zeta[i] == z_h_zeta * reduce_with_powers(chunk, zeta_pow_deg),
+            "Mismatch between evaluation and opening of quotient polynomial"
+        );
     }
 
     let merkle_caps = once(proof.trace_cap.clone())
