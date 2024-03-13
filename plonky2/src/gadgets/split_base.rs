@@ -91,7 +91,7 @@ impl<F: RichField + Extendable<D>, const B: usize, const D: usize> SimpleGenerat
     for BaseSumGenerator<B>
 {
     fn id(&self) -> String {
-        "BaseSumGenerator".to_string()
+        format!("BaseSumGenerator<{}>", B)
     }
 
     fn dependencies(&self) -> Vec<Target> {
