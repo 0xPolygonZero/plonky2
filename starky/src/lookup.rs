@@ -889,7 +889,6 @@ pub(crate) fn eval_packed_lookups_generic<F, FE, P, S, const D: usize, const D2:
     let local_values = vars.get_local_values();
     let next_values = vars.get_next_values();
     let degree = stark.constraint_degree();
-    assert!(degree <= 3, "TODO: Allow other constraint degrees.");
     let mut start = 0;
     for lookup in lookups {
         let num_helper_columns = lookup.num_helper_columns(degree);
@@ -959,7 +958,6 @@ pub(crate) fn eval_ext_lookups_circuit<
 
     let local_values = vars.get_local_values();
     let next_values = vars.get_next_values();
-    assert!(degree <= 3, "TODO: Allow other constraint degrees.");
     let mut start = 0;
     for lookup in lookups {
         let num_helper_columns = lookup.num_helper_columns(degree);
