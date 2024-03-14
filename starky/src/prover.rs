@@ -121,8 +121,8 @@ where
 
     let constraint_degree = stark.constraint_degree();
     assert!(
-        constraint_degree <= 2 << rate_bits + 1,
-        "The degree of the Stark constraints must be <= blowup_factor + 1".
+        constraint_degree <= (1 << rate_bits) + 1,
+        "The degree of the Stark constraints must be <= blowup_factor + 1"
     );
 
     // Permutation arguments.
