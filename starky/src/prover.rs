@@ -119,6 +119,12 @@ where
         "FRI total reduction arity is too large.",
     );
 
+    let constraint_degree = stark.constraint_degree();
+    assert!(
+        constraint_degree <= 2 << rate_bits + 1,
+        "The degree of the Stark constraints must be <= blowup_factor + 1".
+    );
+
     // Permutation arguments.
 
     let constraint_degree = stark.constraint_degree();

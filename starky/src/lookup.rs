@@ -579,11 +579,6 @@ pub(crate) fn lookup_helper_columns<F: Field>(
     challenge: F,
     constraint_degree: usize,
 ) -> Vec<PolynomialValues<F>> {
-    assert!(
-        constraint_degree <= 3,
-        "TODO: Allow other constraint degrees."
-    );
-
     assert_eq!(lookup.columns.len(), lookup.filter_columns.len());
 
     let num_total_logup_entries = trace_poly_values[0].values.len() * lookup.columns.len();
