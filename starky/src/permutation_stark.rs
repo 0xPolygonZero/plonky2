@@ -35,7 +35,7 @@ impl<F: RichField + Extendable<D>, const D: usize> PermutationStark<F, D> {
         }
     }
 
-    /// Generate the trace using `x0, x1, 0, 1, 1` as initial state values.
+    /// Generate the trace using `x0, x0+1, 1` as initial state values.
     fn generate_trace(&self, x0: F) -> Vec<PolynomialValues<F>> {
         let mut trace_rows = (0..self.num_rows)
             .scan([x0, x0 + F::ONE, F::ONE], |acc, _| {
@@ -46,7 +46,7 @@ impl<F: RichField + Extendable<D>, const D: usize> PermutationStark<F, D> {
                 Some(tmp)
             })
             .collect::<Vec<_>>();
-        trace_rows[self.num_rows - 1][1] = F::ZERO; // So that column 0 and 1 are permutation of one another.
+        trace_rows[self.num_rows - 1][1] = x0; // So that column 0 and 1 are permutation of one another.
         trace_rows_to_poly_values(trace_rows)
     }
 }
@@ -76,7 +76,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for PermutationSt
         }]
     }
 
-    // No constraints
+    // We don't constrain any register, for the sake of highlighting the permutation argument only.
     fn eval_packed_generic<FE, P, const D2: usize>(
         &self,
         _vars: &Self::EvaluationFrame<FE, P, D2>,
@@ -133,7 +133,6 @@ mod tests {
 
         let public_input = F::ZERO;
 
-        // Test first STARK
         let stark = S::new(num_rows);
         let trace = stark.generate_trace(public_input);
         let proof = prove::<F, C, S, D>(
@@ -183,7 +182,6 @@ mod tests {
         let num_rows = 1 << 5;
         let public_input = F::ZERO;
 
-        // Test first STARK
         let stark = S::new(num_rows);
         let trace = stark.generate_trace(public_input);
         let proof = prove::<F, C, S, D>(
