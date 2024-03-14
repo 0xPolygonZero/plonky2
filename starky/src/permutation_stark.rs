@@ -87,7 +87,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for PermutationSt
     {
     }
 
-    // No constraints
+    // We don't constrain any register, for the sake of highlighting the permutation argument only.
     fn eval_ext_circuit(
         &self,
         _builder: &mut CircuitBuilder<F, D>,
