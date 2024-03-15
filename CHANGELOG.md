@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Unreleased
 
 - Fix CTLs with exactly two looking tables ([#1555](https://github.com/0xPolygonZero/plonky2/pull/1555))
+- Make Starks without constraints provable ([#1552](https://github.com/0xPolygonZero/plonky2/pull/1552))
 
 ## [0.2.1] - 2024-03-01 (`starky` crate only)
 

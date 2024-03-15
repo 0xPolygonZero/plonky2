@@ -58,7 +58,7 @@ pub fn test_stark_low_degree<F: RichField + Extendable<D>, S: Stark<F, D>, const
         .collect::<Vec<_>>();
 
     let constraint_eval_degree = PolynomialValues::new(constraint_evals).degree();
-    let maximum_degree = WITNESS_SIZE * stark.constraint_degree() - 1;
+    let maximum_degree = (WITNESS_SIZE * stark.constraint_degree()).saturating_sub(1);
 
     ensure!(
         constraint_eval_degree <= maximum_degree,
