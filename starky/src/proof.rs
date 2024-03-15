@@ -33,7 +33,7 @@ pub struct StarkProof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, 
     /// Optional merkle cap of LDEs of permutation Z values, if any.
     pub auxiliary_polys_cap: Option<MerkleCap<F, C::Hasher>>,
     /// Merkle cap of LDEs of trace values.
-    pub quotient_polys_cap: MerkleCap<F, C::Hasher>,
+    pub quotient_polys_cap: Option<MerkleCap<F, C::Hasher>>,
     /// Purported values of each polynomial at the challenge point.
     pub openings: StarkOpeningSet<F, D>,
     /// A batch FRI argument for all openings.
@@ -61,7 +61,7 @@ pub struct StarkProofTarget<const D: usize> {
     /// Optional `Target` for the Merkle cap of lookup helper and CTL columns LDEs, if any.
     pub auxiliary_polys_cap: Option<MerkleCapTarget>,
     /// `Target` for the Merkle cap of quotient polynomial evaluations LDEs.
-    pub quotient_polys_cap: MerkleCapTarget,
+    pub quotient_polys_cap: Option<MerkleCapTarget>,
     /// `Target`s for the purported values of each polynomial at the challenge point.
     pub openings: StarkOpeningSetTarget<D>,
     /// `Target`s for the batch FRI argument for all openings.
@@ -76,7 +76,10 @@ impl<const D: usize> StarkProofTarget<D> {
         if let Some(poly) = &self.auxiliary_polys_cap {
             buffer.write_target_merkle_cap(poly)?;
         }
-        buffer.write_target_merkle_cap(&self.quotient_polys_cap)?;
+        buffer.write_bool(self.quotient_polys_cap.is_some())?;
+        if let Some(poly) = &self.quotient_polys_cap {
+            buffer.write_target_merkle_cap(poly)?;
+        }
         buffer.write_target_fri_proof(&self.opening_proof)?;
         self.openings.to_buffer(buffer)?;
         Ok(())
@@ -90,7 +93,11 @@ impl<const D: usize> StarkProofTarget<D> {
         } else {
             None
         };
-        let quotient_polys_cap = buffer.read_target_merkle_cap()?;
+        let quotient_polys_cap = if buffer.read_bool()? {
+            Some(buffer.read_target_merkle_cap()?)
+        } else {
+            None
+        };
         let opening_proof = buffer.read_target_fri_proof()?;
         let openings = StarkOpeningSetTarget::from_buffer(buffer)?;
 
@@ -253,7 +260,7 @@ pub struct StarkOpeningSet<F: RichField + Extendable<D>, const D: usize> {
     /// Openings of cross-table lookups `Z` polynomials at `1`.
     pub ctl_zs_first: Option<Vec<F>>,
     /// Openings of quotient polynomials at `zeta`.
-    pub quotient_polys: Vec<F::Extension>,
+    pub quotient_polys: Option<Vec<F::Extension>>,
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> StarkOpeningSet<F, D> {
@@ -266,7 +273,7 @@ impl<F: RichField + Extendable<D>, const D: usize> StarkOpeningSet<F, D> {
         g: F,
         trace_commitment: &PolynomialBatch<F, C, D>,
         auxiliary_polys_commitment: Option<&PolynomialBatch<F, C, D>>,
-        quotient_commitment: &PolynomialBatch<F, C, D>,
+        quotient_commitment: Option<&PolynomialBatch<F, C, D>>,
         num_lookup_columns: usize,
         requires_ctl: bool,
         num_ctl_polys: &[usize],
@@ -298,7 +305,7 @@ impl<F: RichField + Extendable<D>, const D: usize> StarkOpeningSet<F, D> {
                 let total_num_helper_cols: usize = num_ctl_polys.iter().sum();
                 auxiliary_first.unwrap()[num_lookup_columns + total_num_helper_cols..].to_vec()
             }),
-            quotient_polys: eval_commitment(zeta, quotient_commitment),
+            quotient_polys: quotient_commitment.map(|c| eval_commitment(zeta, c)),
         }
     }
 
@@ -310,7 +317,7 @@ impl<F: RichField + Extendable<D>, const D: usize> StarkOpeningSet<F, D> {
                 .local_values
                 .iter()
                 .chain(self.auxiliary_polys.iter().flatten())
-                .chain(&self.quotient_polys)
+                .chain(self.quotient_polys.iter().flatten())
                 .copied()
                 .collect_vec(),
         };
@@ -360,7 +367,7 @@ pub struct StarkOpeningSetTarget<const D: usize> {
     /// `ExtensionTarget`s for the opening of lookups and cross-table lookups `Z` polynomials at 1.
     pub ctl_zs_first: Option<Vec<Target>>,
     /// `ExtensionTarget`s for the opening of quotient polynomials at `zeta`.
-    pub quotient_polys: Vec<ExtensionTarget<D>>,
+    pub quotient_polys: Option<Vec<ExtensionTarget<D>>>,
 }
 
 impl<const D: usize> StarkOpeningSetTarget<D> {
@@ -386,7 +393,10 @@ impl<const D: usize> StarkOpeningSetTarget<D> {
         } else {
             buffer.write_bool(false)?;
         }
-        buffer.write_target_ext_vec(&self.quotient_polys)?;
+        buffer.write_bool(self.quotient_polys.is_some())?;
+        if let Some(quotient_polys) = &self.quotient_polys {
+            buffer.write_target_ext_vec(quotient_polys)?;
+        }
         Ok(())
     }
 
@@ -409,7 +419,11 @@ impl<const D: usize> StarkOpeningSetTarget<D> {
         } else {
             None
         };
-        let quotient_polys = buffer.read_target_ext_vec::<D>()?;
+        let quotient_polys = if buffer.read_bool()? {
+            Some(buffer.read_target_ext_vec::<D>()?)
+        } else {
+            None
+        };
 
         Ok(Self {
             local_values,
@@ -428,7 +442,7 @@ impl<const D: usize> StarkOpeningSetTarget<D> {
                 .local_values
                 .iter()
                 .chain(self.auxiliary_polys.iter().flatten())
-                .chain(&self.quotient_polys)
+                .chain(self.quotient_polys.iter().flatten())
                 .copied()
                 .collect_vec(),
         };

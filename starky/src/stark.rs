@@ -84,7 +84,10 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
 
     /// Outputs the maximum quotient polynomial's degree factor of this [`Stark`].
     fn quotient_degree_factor(&self) -> usize {
-        1.max(self.constraint_degree() - 1)
+        match self.constraint_degree().checked_sub(1) {
+            Some(v) => 1.max(v),
+            None => 0,
+        }
     }
 
     /// Outputs the number of quotient polynomials this [`Stark`] would require with
@@ -123,11 +126,17 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
         };
 
         let num_quotient_polys = self.num_quotient_polys(config);
-        let quotient_info = FriPolynomialInfo::from_range(oracles.len(), 0..num_quotient_polys);
-        oracles.push(FriOracleInfo {
-            num_polys: num_quotient_polys,
-            blinding: false,
-        });
+        let quotient_info = if num_quotient_polys > 0 {
+            let quotient_polys =
+                FriPolynomialInfo::from_range(oracles.len(), 0..num_quotient_polys);
+            oracles.push(FriOracleInfo {
+                num_polys: num_quotient_polys,
+                blinding: false,
+            });
+            quotient_polys
+        } else {
+            vec![]
+        };
 
         let zeta_batch = FriBatchInfo {
             point: zeta,
@@ -192,11 +201,17 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
         };
 
         let num_quotient_polys = self.num_quotient_polys(config);
-        let quotient_info = FriPolynomialInfo::from_range(oracles.len(), 0..num_quotient_polys);
-        oracles.push(FriOracleInfo {
-            num_polys: num_quotient_polys,
-            blinding: false,
-        });
+        let quotient_info = if num_quotient_polys > 0 {
+            let quotient_polys =
+                FriPolynomialInfo::from_range(oracles.len(), 0..num_quotient_polys);
+            oracles.push(FriOracleInfo {
+                num_polys: num_quotient_polys,
+                blinding: false,
+            });
+            quotient_polys
+        } else {
+            vec![]
+        };
 
         let zeta_batch = FriBatchInfoTarget {
             point: zeta,

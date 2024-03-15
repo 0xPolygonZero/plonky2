@@ -431,7 +431,10 @@ impl<F: Field> Lookup<F> {
     pub fn num_helper_columns(&self, constraint_degree: usize) -> usize {
         // One helper column for each column batch of size `constraint_degree-1`,
         // then one column for the inverse of `table + challenge` and one for the `Z` polynomial.
-        ceil_div_usize(self.columns.len(), constraint_degree - 1) + 1
+        ceil_div_usize(
+            self.columns.len(),
+            constraint_degree.checked_sub(1).unwrap_or(1),
+        ) + 1
     }
 }
 
@@ -576,11 +579,6 @@ pub(crate) fn lookup_helper_columns<F: Field>(
     challenge: F,
     constraint_degree: usize,
 ) -> Vec<PolynomialValues<F>> {
-    assert!(
-        constraint_degree == 2 || constraint_degree == 3,
-        "TODO: Allow other constraint degrees."
-    );
-
     assert_eq!(lookup.columns.len(), lookup.filter_columns.len());
 
     let num_total_logup_entries = trace_poly_values[0].values.len() * lookup.columns.len();
@@ -666,11 +664,11 @@ pub(crate) fn eval_helper_columns<F, FE, P, const D: usize, const D2: usize>(
     P: PackedField<Scalar = FE>,
 {
     if !helper_columns.is_empty() {
-        for (j, chunk) in columns.chunks(constraint_degree - 1).enumerate() {
-            let fs =
-                &filter[(constraint_degree - 1) * j..(constraint_degree - 1) * j + chunk.len()];
-            let h = helper_columns[j];
-
+        let chunk_size = constraint_degree.checked_sub(1).unwrap_or(1);
+        for (chunk, (fs, &h)) in columns
+            .chunks(chunk_size)
+            .zip(filter.chunks(chunk_size).zip(helper_columns))
+        {
             match chunk.len() {
                 2 => {
                     let combin0 = challenges.combine(&chunk[0]);
@@ -719,11 +717,11 @@ pub(crate) fn eval_helper_columns_circuit<F: RichField + Extendable<D>, const D:
     consumer: &mut RecursiveConstraintConsumer<F, D>,
 ) {
     if !helper_columns.is_empty() {
-        for (j, chunk) in columns.chunks(constraint_degree - 1).enumerate() {
-            let fs =
-                &filter[(constraint_degree - 1) * j..(constraint_degree - 1) * j + chunk.len()];
-            let h = helper_columns[j];
-
+        let chunk_size = constraint_degree.checked_sub(1).unwrap_or(1);
+        for (chunk, (fs, &h)) in columns
+            .chunks(chunk_size)
+            .zip(filter.chunks(chunk_size).zip(helper_columns))
+        {
             let one = builder.one_extension();
             match chunk.len() {
                 2 => {
@@ -774,11 +772,17 @@ pub(crate) fn get_helper_cols<F: Field>(
     challenge: GrandProductChallenge<F>,
     constraint_degree: usize,
 ) -> Vec<PolynomialValues<F>> {
-    let num_helper_columns = ceil_div_usize(columns_filters.len(), constraint_degree - 1);
+    let num_helper_columns = ceil_div_usize(
+        columns_filters.len(),
+        constraint_degree.checked_sub(1).unwrap_or(1),
+    );
 
     let mut helper_columns = Vec::with_capacity(num_helper_columns);
 
-    for mut cols_filts in &columns_filters.iter().chunks(constraint_degree - 1) {
+    for mut cols_filts in &columns_filters
+        .iter()
+        .chunks(constraint_degree.checked_sub(1).unwrap_or(1))
+    {
         let (first_col, first_filter) = cols_filts.next().unwrap();
 
         let mut filter_col = Vec::with_capacity(degree);
@@ -885,10 +889,6 @@ pub(crate) fn eval_packed_lookups_generic<F, FE, P, S, const D: usize, const D2:
     let local_values = vars.get_local_values();
     let next_values = vars.get_next_values();
     let degree = stark.constraint_degree();
-    assert!(
-        degree == 2 || degree == 3,
-        "TODO: Allow other constraint degrees."
-    );
     let mut start = 0;
     for lookup in lookups {
         let num_helper_columns = lookup.num_helper_columns(degree);
@@ -958,10 +958,6 @@ pub(crate) fn eval_ext_lookups_circuit<
 
     let local_values = vars.get_local_values();
     let next_values = vars.get_next_values();
-    assert!(
-        degree == 2 || degree == 3,
-        "TODO: Allow other constraint degrees."
-    );
     let mut start = 0;
     for lookup in lookups {
         let num_helper_columns = lookup.num_helper_columns(degree);
