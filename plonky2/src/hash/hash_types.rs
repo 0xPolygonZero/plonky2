@@ -2,7 +2,10 @@
 use alloc::vec::Vec;
 
 use anyhow::ensure;
+use itertools::Itertools;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+use num::{BigInt, FromPrimitive, Num, Zero, ToPrimitive};
 
 use crate::field::goldilocks_field::GoldilocksField;
 use crate::field::types::{Field, PrimeField64, Sample};
@@ -18,11 +21,50 @@ impl RichField for GoldilocksField {}
 pub const NUM_HASH_OUT_ELTS: usize = 4;
 
 /// Represents a ~256 bit hash output.
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
-#[serde(bound = "")]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+// #[serde(bound = "")]
 pub struct HashOut<F: Field> {
     pub elements: [F; NUM_HASH_OUT_ELTS],
 }
+
+// zk-6358: add implementation of `Serialize` and `Deserialize`
+impl<F: RichField> Serialize for HashOut<F> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer {
+        
+        let bint = self.elements.iter().rev().fold(BigInt::zero(), |acc, ele| {
+            let f_u64 = ele.to_canonical_u64();
+            
+             BigInt::from_u64(f_u64).unwrap() + (acc << 64)
+        });
+
+        serializer.serialize_str(&bint.to_string())
+    }
+}
+
+impl<'de, F: RichField> Deserialize<'de> for HashOut<F> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de> {
+        
+        let s = String::deserialize(deserializer)?;
+
+        let mut bint = BigInt::from_str_radix(&s, 10).unwrap();
+
+        let elements = (0..4).map(|_| {
+            let ele = bint.clone() & BigInt::from_u64(0xffffffffffffffff).unwrap();
+            let ele = ele.to_u64().unwrap();
+
+            bint >>= 64;
+
+            F::from_canonical_u64(ele)
+        }).collect_vec();
+
+        Ok(HashOut { elements: elements.try_into().unwrap() })
+    }
+}
+// zk-6358: add end
 
 impl<F: Field> HashOut<F> {
     pub const ZERO: Self = Self {

@@ -2,7 +2,7 @@
 use alloc::{vec, vec::Vec};
 use core::ops::Range;
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::field::extension::Extendable;
 use crate::field::polynomial::PolynomialValues;
@@ -13,10 +13,10 @@ use crate::plonk::circuit_builder::LookupWire;
 /// Placeholder value to indicate that a gate doesn't use a selector polynomial.
 pub(crate) const UNUSED_SELECTOR: usize = u32::MAX as usize;
 
-#[derive(Debug, Clone, Eq, PartialEq, Serialize)]
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct SelectorsInfo {
-    pub(crate) selector_indices: Vec<usize>,
-    pub(crate) groups: Vec<Range<usize>>,
+    pub selector_indices: Vec<usize>,
+    pub groups: Vec<Range<usize>>,
 }
 
 impl SelectorsInfo {

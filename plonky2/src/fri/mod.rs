@@ -6,7 +6,7 @@
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::fri::reduction_strategies::FriReductionStrategy;
 
@@ -22,7 +22,7 @@ pub mod verifier;
 pub mod witness_util;
 
 /// A configuration for the FRI protocol.
-#[derive(Debug, Clone, Eq, PartialEq, Serialize)]
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct FriConfig {
     /// `rate = 2^{-rate_bits}`.
     pub rate_bits: usize,
@@ -67,7 +67,7 @@ impl FriConfig {
 
 /// FRI parameters, including generated parameters which are specific to an instance size, in
 /// contrast to `FriConfig` which is user-specified and independent of instance size.
-#[derive(Debug, Clone, Eq, PartialEq, Serialize)]
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct FriParams {
     /// User-specified FRI configuration.
     pub config: FriConfig,
