@@ -126,8 +126,6 @@ where
     );
 
     // Permutation arguments.
-
-    let constraint_degree = stark.constraint_degree();
     let lookup_challenges = stark.uses_lookups().then(|| {
         if let Some(c) = ctl_challenges {
             c.challenges.iter().map(|ch| ch.beta).collect::<Vec<_>>()

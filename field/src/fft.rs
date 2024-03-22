@@ -38,11 +38,7 @@ fn fft_dispatch<F: Field>(
     zero_factor: Option<usize>,
     root_table: Option<&FftRootTable<F>>,
 ) {
-    let computed_root_table = if root_table.is_some() {
-        None
-    } else {
-        Some(fft_root_table(input.len()))
-    };
+    let computed_root_table = root_table.is_none().then(|| fft_root_table(input.len()));
     let used_root_table = root_table.or(computed_root_table.as_ref()).unwrap();
 
     fft_classic(input, zero_factor.unwrap_or(0), used_root_table);
