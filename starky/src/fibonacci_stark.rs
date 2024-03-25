@@ -3,7 +3,7 @@
 //! to highlight the use of the permutation argument with logUp.
 
 #[cfg(not(feature = "std"))]
-use alloc::{vec, vec::Vec};
+use alloc::vec::Vec;
 use core::marker::PhantomData;
 
 use plonky2::field::extension::{Extendable, FieldExtension};
