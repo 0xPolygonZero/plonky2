@@ -23,7 +23,7 @@ use rayon::{
 use {
     alloc::vec::Vec,
     core::{
-        iter::{FlatMap, IntoIterator, Iterator},
+        iter::FlatMap,
         slice::{self, Chunks, ChunksExact, ChunksExactMut, ChunksMut},
     },
 };
