@@ -1,9 +1,8 @@
-//! An example of generating and verifying STARK proofs for the Fibonacci sequence.
-//! The toy STARK system also includes two columns that are a permutation of the other,
-//! to highlight the use of the permutation argument with logUp.
+//! An example of generating and verifying a STARK to highlight the use of the
+//! permutation argument with logUp.
 
 #[cfg(not(feature = "std"))]
-use alloc::vec::Vec;
+use alloc::{vec, vec::Vec};
 use core::marker::PhantomData;
 
 use plonky2::field::extension::{Extendable, FieldExtension};
@@ -14,28 +13,21 @@ use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
-use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
+use crate::evaluation_frame::StarkFrame;
+use crate::lookup::{Column, Lookup};
 use crate::stark::Stark;
 use crate::util::trace_rows_to_poly_values;
 
-/// Toy STARK system used for testing.
-/// Computes a Fibonacci sequence with state `[x0, x1]` using the state transition
-/// `x0' <- x1, x1' <- x0 + x1.
+/// Computes a sequence with state `[i, j]` using the state transition
+/// i' <- i+1, j' <- j+1`.
+/// Note: The `0, 1` columns are the columns used to test the permutation argument.
 #[derive(Copy, Clone)]
-struct FibonacciStark<F: RichField + Extendable<D>, const D: usize> {
+struct PermutationStark<F: RichField + Extendable<D>, const D: usize> {
     num_rows: usize,
     _phantom: PhantomData<F>,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> FibonacciStark<F, D> {
-    // The first public input is `x0`.
-    const PI_INDEX_X0: usize = 0;
-    // The second public input is `x1`.
-    const PI_INDEX_X1: usize = 1;
-    // The third public input is the second element of the last row, which should be equal to the
-    // `num_rows`-th Fibonacci number.
-    const PI_INDEX_RES: usize = 2;
-
+impl<F: RichField + Extendable<D>, const D: usize> PermutationStark<F, D> {
     const fn new(num_rows: usize) -> Self {
         Self {
             num_rows,
@@ -43,91 +35,65 @@ impl<F: RichField + Extendable<D>, const D: usize> FibonacciStark<F, D> {
         }
     }
 
-    /// Generate the trace using `x0, x1` as initial state values.
-    fn generate_trace(&self, x0: F, x1: F) -> Vec<PolynomialValues<F>> {
-        let trace_rows = (0..self.num_rows)
-            .scan([x0, x1], |acc, _| {
+    /// Generate the trace using `x0, x0+1, 1` as initial state values.
+    fn generate_trace(&self, x0: F) -> Vec<PolynomialValues<F>> {
+        let mut trace_rows = (0..self.num_rows)
+            .scan([x0, x0 + F::ONE, F::ONE], |acc, _| {
                 let tmp = *acc;
-                acc[0] = tmp[1];
-                acc[1] = tmp[0] + tmp[1];
+                acc[0] = tmp[0] + F::ONE;
+                acc[1] = tmp[1] + F::ONE;
+                // acc[2] (i.e. frequency column) remains unchanged, as we're permuting a strictly monotonous sequence.
                 Some(tmp)
             })
             .collect::<Vec<_>>();
+        trace_rows[self.num_rows - 1][1] = x0; // So that column 0 and 1 are permutation of one another.
         trace_rows_to_poly_values(trace_rows)
     }
 }
 
-const FIBONACCI_COLUMNS: usize = 2;
-const FIBONACCI_PUBLIC_INPUTS: usize = 3;
+const PERM_COLUMNS: usize = 3;
+const PERM_PUBLIC_INPUTS: usize = 1;
 
-impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for FibonacciStark<F, D> {
-    type EvaluationFrame<FE, P, const D2: usize> = StarkFrame<P, P::Scalar, FIBONACCI_COLUMNS, FIBONACCI_PUBLIC_INPUTS>
+impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for PermutationStark<F, D> {
+    type EvaluationFrame<FE, P, const D2: usize> = StarkFrame<P, P::Scalar, PERM_COLUMNS, PERM_PUBLIC_INPUTS>
     where
         FE: FieldExtension<D2, BaseField = F>,
         P: PackedField<Scalar = FE>;
 
-    type EvaluationFrameTarget = StarkFrame<
-        ExtensionTarget<D>,
-        ExtensionTarget<D>,
-        FIBONACCI_COLUMNS,
-        FIBONACCI_PUBLIC_INPUTS,
-    >;
+    type EvaluationFrameTarget =
+        StarkFrame<ExtensionTarget<D>, ExtensionTarget<D>, PERM_COLUMNS, PERM_PUBLIC_INPUTS>;
 
+    fn constraint_degree(&self) -> usize {
+        0
+    }
+
+    fn lookups(&self) -> Vec<Lookup<F>> {
+        vec![Lookup {
+            columns: vec![Column::single(0)],
+            table_column: Column::single(1),
+            frequencies_column: Column::single(2),
+            filter_columns: vec![None; 1],
+        }]
+    }
+
+    // We don't constrain any register, for the sake of highlighting the permutation argument only.
     fn eval_packed_generic<FE, P, const D2: usize>(
         &self,
-        vars: &Self::EvaluationFrame<FE, P, D2>,
-        yield_constr: &mut ConstraintConsumer<P>,
+        _vars: &Self::EvaluationFrame<FE, P, D2>,
+        _yield_constr: &mut ConstraintConsumer<P>,
     ) where
         FE: FieldExtension<D2, BaseField = F>,
         P: PackedField<Scalar = FE>,
     {
-        let local_values = vars.get_local_values();
-        let next_values = vars.get_next_values();
-        let public_inputs = vars.get_public_inputs();
-
-        // Check public inputs.
-        yield_constr.constraint_first_row(local_values[0] - public_inputs[Self::PI_INDEX_X0]);
-        yield_constr.constraint_first_row(local_values[1] - public_inputs[Self::PI_INDEX_X1]);
-        yield_constr.constraint_last_row(local_values[1] - public_inputs[Self::PI_INDEX_RES]);
-
-        // x0' <- x1
-        yield_constr.constraint_transition(next_values[0] - local_values[1]);
-        // x1' <- x0 + x1
-        yield_constr.constraint_transition(next_values[1] - local_values[0] - local_values[1]);
     }
 
+    // We don't constrain any register, for the sake of highlighting the permutation argument only.
     fn eval_ext_circuit(
         &self,
-        builder: &mut CircuitBuilder<F, D>,
-        vars: &Self::EvaluationFrameTarget,
-        yield_constr: &mut RecursiveConstraintConsumer<F, D>,
+        _builder: &mut CircuitBuilder<F, D>,
+        _vars: &Self::EvaluationFrameTarget,
+        _yield_constr: &mut RecursiveConstraintConsumer<F, D>,
     ) {
-        let local_values = vars.get_local_values();
-        let next_values = vars.get_next_values();
-        let public_inputs = vars.get_public_inputs();
-        // Check public inputs.
-        let pis_constraints = [
-            builder.sub_extension(local_values[0], public_inputs[Self::PI_INDEX_X0]),
-            builder.sub_extension(local_values[1], public_inputs[Self::PI_INDEX_X1]),
-            builder.sub_extension(local_values[1], public_inputs[Self::PI_INDEX_RES]),
-        ];
-        yield_constr.constraint_first_row(builder, pis_constraints[0]);
-        yield_constr.constraint_first_row(builder, pis_constraints[1]);
-        yield_constr.constraint_last_row(builder, pis_constraints[2]);
-
-        // x0' <- x1
-        let first_col_constraint = builder.sub_extension(next_values[0], local_values[1]);
-        yield_constr.constraint_transition(builder, first_col_constraint);
-        // x1' <- x0 + x1
-        let second_col_constraint = {
-            let tmp = builder.sub_extension(next_values[1], local_values[0]);
-            builder.sub_extension(tmp, local_values[1])
-        };
-        yield_constr.constraint_transition(builder, second_col_constraint);
-    }
-
-    fn constraint_degree(&self) -> usize {
-        2
     }
 }
 
@@ -144,7 +110,7 @@ mod tests {
     use plonky2::util::timing::TimingTree;
 
     use crate::config::StarkConfig;
-    use crate::fibonacci_stark::FibonacciStark;
+    use crate::permutation_stark::PermutationStark;
     use crate::proof::StarkProofWithPublicInputs;
     use crate::prover::prove;
     use crate::recursive_verifier::{
@@ -155,28 +121,25 @@ mod tests {
     use crate::stark_testing::{test_stark_circuit_constraints, test_stark_low_degree};
     use crate::verifier::verify_stark_proof;
 
-    fn fibonacci<F: Field>(n: usize, x0: F, x1: F) -> F {
-        (0..n).fold((x0, x1), |x, _| (x.1, x.0 + x.1)).1
-    }
-
     #[test]
-    fn test_fibonacci_stark() -> Result<()> {
+    fn test_pemutations_stark() -> Result<()> {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
-        type S = FibonacciStark<F, D>;
+        type S = PermutationStark<F, D>;
 
         let config = StarkConfig::standard_fast_config();
         let num_rows = 1 << 5;
-        let public_inputs = [F::ZERO, F::ONE, fibonacci(num_rows - 1, F::ZERO, F::ONE)];
+
+        let public_input = F::ZERO;
 
         let stark = S::new(num_rows);
-        let trace = stark.generate_trace(public_inputs[0], public_inputs[1]);
+        let trace = stark.generate_trace(public_input);
         let proof = prove::<F, C, S, D>(
             stark,
             &config,
             trace,
-            &public_inputs,
+            &[public_input],
             &mut TimingTree::default(),
         )?;
 
@@ -184,11 +147,11 @@ mod tests {
     }
 
     #[test]
-    fn test_fibonacci_stark_degree() -> Result<()> {
+    fn test_permutation_stark_degree() -> Result<()> {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
-        type S = FibonacciStark<F, D>;
+        type S = PermutationStark<F, D>;
 
         let num_rows = 1 << 5;
         let stark = S::new(num_rows);
@@ -196,11 +159,11 @@ mod tests {
     }
 
     #[test]
-    fn test_fibonacci_stark_circuit() -> Result<()> {
+    fn test_permutation_stark_circuit() -> Result<()> {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
-        type S = FibonacciStark<F, D>;
+        type S = PermutationStark<F, D>;
 
         let num_rows = 1 << 5;
         let stark = S::new(num_rows);
@@ -213,20 +176,19 @@ mod tests {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
-        type S = FibonacciStark<F, D>;
+        type S = PermutationStark<F, D>;
 
         let config = StarkConfig::standard_fast_config();
         let num_rows = 1 << 5;
-        let public_inputs = [F::ZERO, F::ONE, fibonacci(num_rows - 1, F::ZERO, F::ONE)];
+        let public_input = F::ZERO;
 
-        // Test first STARK
         let stark = S::new(num_rows);
-        let trace = stark.generate_trace(public_inputs[0], public_inputs[1]);
+        let trace = stark.generate_trace(public_input);
         let proof = prove::<F, C, S, D>(
             stark,
             &config,
             trace,
-            &public_inputs,
+            &[public_input],
             &mut TimingTree::default(),
         )?;
         verify_stark_proof(stark, proof.clone(), &config)?;

@@ -162,18 +162,20 @@ pub fn verify_stark_proof_with_challenges_circuit<
 
     // Check each polynomial identity, of the form `vanishing(x) = Z_H(x) quotient(x)`, at zeta.
     let mut scale = ReducingFactorTarget::new(zeta_pow_deg);
-    for (i, chunk) in quotient_polys
-        .chunks(stark.quotient_degree_factor())
-        .enumerate()
-    {
-        let recombined_quotient = scale.reduce(chunk, builder);
-        let computed_vanishing_poly = builder.mul_extension(z_h_zeta, recombined_quotient);
-        builder.connect_extension(vanishing_polys_zeta[i], computed_vanishing_poly);
+    if let Some(quotient_polys) = quotient_polys {
+        for (i, chunk) in quotient_polys
+            .chunks(stark.quotient_degree_factor())
+            .enumerate()
+        {
+            let recombined_quotient = scale.reduce(chunk, builder);
+            let computed_vanishing_poly = builder.mul_extension(z_h_zeta, recombined_quotient);
+            builder.connect_extension(vanishing_polys_zeta[i], computed_vanishing_poly);
+        }
     }
 
     let merkle_caps = once(proof.trace_cap.clone())
         .chain(proof.auxiliary_polys_cap.clone())
-        .chain(once(proof.quotient_polys_cap.clone()))
+        .chain(proof.quotient_polys_cap.clone())
         .collect_vec();
 
     let fri_instance = stark.fri_instance_target(
@@ -259,16 +261,22 @@ pub fn add_virtual_stark_proof<F: RichField + Extendable<D>, S: Stark<F, D>, con
             (stark.uses_lookups() || stark.requires_ctls())
                 .then(|| stark.num_lookup_helper_columns(config) + num_ctl_helper_zs),
         )
-        .chain(once(stark.quotient_degree_factor() * config.num_challenges))
+        .chain(
+            (stark.quotient_degree_factor() > 0)
+                .then(|| stark.quotient_degree_factor() * config.num_challenges),
+        )
         .collect_vec();
 
     let auxiliary_polys_cap = (stark.uses_lookups() || stark.requires_ctls())
         .then(|| builder.add_virtual_cap(cap_height));
 
+    let quotient_polys_cap =
+        (stark.constraint_degree() > 0).then(|| builder.add_virtual_cap(cap_height));
+
     StarkProofTarget {
         trace_cap: builder.add_virtual_cap(cap_height),
         auxiliary_polys_cap,
-        quotient_polys_cap: builder.add_virtual_cap(cap_height),
+        quotient_polys_cap,
         openings: add_virtual_stark_opening_set::<F, S, D>(
             builder,
             stark,
@@ -303,8 +311,11 @@ fn add_virtual_stark_opening_set<F: RichField + Extendable<D>, S: Stark<F, D>, c
         ctl_zs_first: stark
             .requires_ctls()
             .then(|| builder.add_virtual_targets(num_ctl_zs)),
-        quotient_polys: builder
-            .add_virtual_extension_targets(stark.quotient_degree_factor() * config.num_challenges),
+        quotient_polys: (stark.constraint_degree() > 0).then(|| {
+            builder.add_virtual_extension_targets(
+                stark.quotient_degree_factor() * config.num_challenges,
+            )
+        }),
     }
 }
 
@@ -350,7 +361,11 @@ pub fn set_stark_proof_target<F, C: GenericConfig<D, F = F>, W, const D: usize>(
     W: Witness<F>,
 {
     witness.set_cap_target(&proof_target.trace_cap, &proof.trace_cap);
-    witness.set_cap_target(&proof_target.quotient_polys_cap, &proof.quotient_polys_cap);
+    if let (Some(quotient_polys_cap_target), Some(quotient_polys_cap)) =
+        (&proof_target.quotient_polys_cap, &proof.quotient_polys_cap)
+    {
+        witness.set_cap_target(quotient_polys_cap_target, quotient_polys_cap);
+    }
 
     witness.set_fri_openings(
         &proof_target.openings.to_fri_openings(zero),

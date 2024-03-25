@@ -88,9 +88,7 @@ impl<F: Field> PolynomialValues<F> {
     }
 
     pub fn degree(&self) -> usize {
-        self.degree_plus_one()
-            .checked_sub(1)
-            .expect("deg(0) is undefined")
+        self.degree_plus_one().saturating_sub(1)
     }
 
     pub fn degree_plus_one(&self) -> usize {
