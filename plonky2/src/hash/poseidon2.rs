@@ -613,11 +613,9 @@ pub(crate) mod test_helpers {
     #[cfg(not(feature = "std"))]
     use alloc::vec::Vec;
 
-    use plonky2_field::types::Field;
-
     use crate::hash::poseidon2::{Poseidon2, WIDTH};
 
-    pub(crate) fn check_test_vectors<F: Field>(test_vectors: Vec<([u64; WIDTH], [u64; WIDTH])>)
+    pub(crate) fn check_test_vectors<F>(test_vectors: Vec<([u64; WIDTH], [u64; WIDTH])>)
     where
         F: Poseidon2,
     {

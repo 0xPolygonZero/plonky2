@@ -7,6 +7,7 @@ use crate::iop::target::Target;
 #[derive(Debug)]
 pub struct CopyConstraint {
     pub pair: (Target, Target),
+    #[allow(dead_code)]
     pub name: String,
 }
 
