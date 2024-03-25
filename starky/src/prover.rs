@@ -119,9 +119,13 @@ where
         "FRI total reduction arity is too large.",
     );
 
-    // Permutation arguments.
-
     let constraint_degree = stark.constraint_degree();
+    assert!(
+        constraint_degree <= (1 << rate_bits) + 1,
+        "The degree of the Stark constraints must be <= blowup_factor + 1"
+    );
+
+    // Permutation arguments.
     let lookup_challenges = stark.uses_lookups().then(|| {
         if let Some(c) = ctl_challenges {
             c.challenges.iter().map(|ch| ch.beta).collect::<Vec<_>>()
@@ -238,38 +242,43 @@ where
             config,
         )
     );
-    let all_quotient_chunks = timed!(
-        timing,
-        "split quotient polys",
-        quotient_polys
-            .into_par_iter()
-            .flat_map(|mut quotient_poly| {
-                quotient_poly
-                    .trim_to_len(degree * stark.quotient_degree_factor())
-                    .expect(
-                        "Quotient has failed, the vanishing polynomial is not divisible by Z_H",
-                    );
-                // Split quotient into degree-n chunks.
-                quotient_poly.chunks(degree)
-            })
-            .collect()
-    );
-    // Commit to the quotient polynomials.
-    let quotient_commitment = timed!(
-        timing,
-        "compute quotient commitment",
-        PolynomialBatch::from_coeffs(
-            all_quotient_chunks,
-            rate_bits,
-            false,
-            config.fri_config.cap_height,
+    let (quotient_commitment, quotient_polys_cap) = if let Some(quotient_polys) = quotient_polys {
+        let all_quotient_chunks = timed!(
             timing,
-            None,
-        )
-    );
-    // Observe the quotient polynomials Merkle cap.
-    let quotient_polys_cap = quotient_commitment.merkle_tree.cap.clone();
-    challenger.observe_cap(&quotient_polys_cap);
+            "split quotient polys",
+            quotient_polys
+                .into_par_iter()
+                .flat_map(|mut quotient_poly| {
+                    quotient_poly
+                        .trim_to_len(degree * stark.quotient_degree_factor())
+                        .expect(
+                            "Quotient has failed, the vanishing polynomial is not divisible by Z_H",
+                        );
+                    // Split quotient into degree-n chunks.
+                    quotient_poly.chunks(degree)
+                })
+                .collect()
+        );
+        // Commit to the quotient polynomials.
+        let quotient_commitment = timed!(
+            timing,
+            "compute quotient commitment",
+            PolynomialBatch::from_coeffs(
+                all_quotient_chunks,
+                rate_bits,
+                false,
+                config.fri_config.cap_height,
+                timing,
+                None,
+            )
+        );
+        // Observe the quotient polynomials Merkle cap.
+        let quotient_polys_cap = quotient_commitment.merkle_tree.cap.clone();
+        challenger.observe_cap(&quotient_polys_cap);
+        (Some(quotient_commitment), Some(quotient_polys_cap))
+    } else {
+        (None, None)
+    };
 
     let zeta = challenger.get_extension_challenge::<D>();
 
@@ -288,7 +297,7 @@ where
         g,
         trace_commitment,
         auxiliary_polys_commitment.as_ref(),
-        &quotient_commitment,
+        quotient_commitment.as_ref(),
         stark.num_lookup_helper_columns(config),
         stark.requires_ctls(),
         &num_ctl_polys,
@@ -298,7 +307,7 @@ where
 
     let initial_merkle_trees = once(trace_commitment)
         .chain(&auxiliary_polys_commitment)
-        .chain(once(&quotient_commitment))
+        .chain(&quotient_commitment)
         .collect_vec();
 
     let opening_proof = timed!(
@@ -349,13 +358,17 @@ fn compute_quotient_polys<'a, F, P, C, S, const D: usize>(
     num_lookup_columns: usize,
     num_ctl_columns: &[usize],
     config: &StarkConfig,
-) -> Vec<PolynomialCoeffs<F>>
+) -> Option<Vec<PolynomialCoeffs<F>>>
 where
     F: RichField + Extendable<D>,
     P: PackedField<Scalar = F>,
     C: GenericConfig<D, F = F>,
     S: Stark<F, D>,
 {
+    if stark.quotient_degree_factor() == 0 {
+        return None;
+    }
+
     let degree = 1 << degree_bits;
     let rate_bits = config.fri_config.rate_bits;
     let total_num_helper_cols: usize = num_ctl_columns.iter().sum();
@@ -508,11 +521,13 @@ where
         })
         .collect::<Vec<_>>();
 
-    transpose(&quotient_values)
-        .into_par_iter()
-        .map(PolynomialValues::new)
-        .map(|values| values.coset_ifft(F::coset_shift()))
-        .collect()
+    Some(
+        transpose(&quotient_values)
+            .into_par_iter()
+            .map(PolynomialValues::new)
+            .map(|values| values.coset_ifft(F::coset_shift()))
+            .collect(),
+    )
 }
 
 /// Check that all constraints evaluate to zero on `H`.

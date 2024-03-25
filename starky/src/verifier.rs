@@ -164,8 +164,10 @@ where
     // where the "real" quotient polynomial is `t(X) = t_0(X) + t_1(X)*X^n + t_2(X)*X^{2n} + ...`.
     // So to reconstruct `t(zeta)` we can compute `reduce_with_powers(chunk, zeta^n)` for each
     // `quotient_degree_factor`-sized chunk of the original evaluations.
+
     for (i, chunk) in quotient_polys
-        .chunks(stark.quotient_degree_factor())
+        .iter()
+        .flat_map(|x| x.chunks(stark.quotient_degree_factor()))
         .enumerate()
     {
         ensure!(
@@ -176,7 +178,7 @@ where
 
     let merkle_caps = once(proof.trace_cap.clone())
         .chain(proof.auxiliary_polys_cap.clone())
-        .chain(once(proof.quotient_polys_cap.clone()))
+        .chain(proof.quotient_polys_cap.clone())
         .collect_vec();
 
     let num_ctl_zs = ctl_vars
@@ -246,11 +248,18 @@ where
     let cap_height = fri_params.config.cap_height;
 
     ensure!(trace_cap.height() == cap_height);
-    ensure!(quotient_polys_cap.height() == cap_height);
+    ensure!(
+        quotient_polys_cap.is_none()
+            || quotient_polys_cap.as_ref().map(|q| q.height()) == Some(cap_height)
+    );
 
     ensure!(local_values.len() == S::COLUMNS);
     ensure!(next_values.len() == S::COLUMNS);
-    ensure!(quotient_polys.len() == stark.num_quotient_polys(config));
+    ensure!(if let Some(quotient_polys) = quotient_polys {
+        quotient_polys.len() == stark.num_quotient_polys(config)
+    } else {
+        stark.num_quotient_polys(config) == 0
+    });
 
     check_lookup_options::<F, C, S, D>(
         stark,

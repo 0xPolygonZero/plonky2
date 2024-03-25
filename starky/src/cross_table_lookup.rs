@@ -123,7 +123,7 @@ impl<F: Field> CrossTableLookup<F> {
         for (i, ctl) in ctls.iter().enumerate() {
             let all_tables = once(&ctl.looked_table).chain(&ctl.looking_tables);
             let num_appearances = all_tables.filter(|twc| twc.table == table).count();
-            let is_helpers = num_appearances > 2;
+            let is_helpers = num_appearances > 1;
             if is_helpers {
                 num_helpers_by_ctl[i] = ceil_div_usize(num_appearances, constraint_degree - 1);
                 num_helpers += num_helpers_by_ctl[i];
@@ -290,8 +290,8 @@ pub(crate) fn num_ctl_helper_columns_by_table<F: Field, const N: usize>(
 
         for (table, group) in grouped_lookups.into_iter() {
             let sum = group.count();
-            if sum > 2 {
-                // We only need helper columns if there are more than 2 columns.
+            if sum > 1 {
+                // We only need helper columns if there are at least 2 columns.
                 num_by_table[table] = ceil_div_usize(sum, constraint_degree - 1);
             }
         }
@@ -426,7 +426,7 @@ fn ctl_helper_zs_cols<F: Field, const N: usize>(
 /// The initial sum `s` is 0.
 /// For each row, if the `filter_column` evaluates to 1, then the row is selected. All the column linear combinations are evaluated at said row.
 /// The evaluations of each elements of `columns` are then combined together to form a value `v`.
-/// The values `v`` are grouped together, in groups of size `constraint_degree - 1` (2 in our case). For each group, we construct a helper
+/// The values `v`` are grouped together, in groups of size `constraint_degree - 1`. For each group, we construct a helper
 /// column: h = \sum_i 1/(v_i).
 ///
 /// The sum is updated: `s += \sum h_i`, and is pushed to the vector of partial sums `z``.
@@ -455,7 +455,7 @@ fn partial_sums<F: Field>(
         z.push(z[z.len() - 1] + x);
     }
     z.reverse();
-    if columns_filters.len() > 2 {
+    if columns_filters.len() > 1 {
         helper_columns.push(z.into());
     } else {
         helper_columns = vec![z.into()];
