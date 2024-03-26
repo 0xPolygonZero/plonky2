@@ -556,6 +556,14 @@ pub trait PrimeField64: PrimeField + Field64 {
 
     fn to_noncanonical_u64(&self) -> u64;
 
+    fn to_canonical_i64(&self) -> i64 {
+        i64::try_from(self.to_canonical_u64()).unwrap_or_else(|_| {
+            i64::try_from(self.neg().to_canonical_u64())
+                .expect("This conversion should never fail.")
+                .neg()
+        })
+    }
+
     #[inline(always)]
     fn to_canonical(&self) -> Self {
         Self::from_canonical_u64(self.to_canonical_u64())
