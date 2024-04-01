@@ -8,44 +8,15 @@ use serde::{Deserialize, Serialize};
 
 use crate::hash::hash_types::RichField;
 use crate::hash::merkle_proofs::MerkleProof;
+use crate::hash::merkle_tree::MerkleCap;
 use crate::plonk::config::{GenericHashOut, Hasher};
 use crate::util::log2_strict;
 
-/// The Merkle cap of height `h` of a Merkle tree is the `h`-th layer (from the root) of the tree.
-/// It can be used in place of the root to verify Merkle paths, which are `h` elements shorter.
-#[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
-#[serde(bound = "")]
-// TODO: Change H to GenericHashOut<F>, since this only cares about the hash, not the hasher.
-pub struct MerkleCap<F: RichField, H: Hasher<F>>(pub Vec<H::Hash>);
-
-impl<F: RichField, H: Hasher<F>> Default for MerkleCap<F, H> {
-    fn default() -> Self {
-        Self(Vec::new())
-    }
-}
-
-impl<F: RichField, H: Hasher<F>> MerkleCap<F, H> {
-    pub fn len(&self) -> usize {
-        self.0.len()
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.len() == 0
-    }
-
-    pub fn height(&self) -> usize {
-        log2_strict(self.len())
-    }
-
-    pub fn flatten(&self) -> Vec<F> {
-        self.0.iter().flat_map(|&h| h.to_vec()).collect()
-    }
-}
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct MerkleTree<F: RichField, H: Hasher<F>> {
+pub struct FieldMerkleTree<F: RichField, H: Hasher<F>> {
     /// The data in the leaves of the Merkle tree.
-    pub leaves: Vec<Vec<F>>,
+    pub leaves: Vec<Vec<Vec<F>>>,
 
     /// The digests in the tree. Consists of `cap.len()` sub-trees, each corresponding to one
     /// element in `cap`. Each subtree is contiguous and located at
@@ -61,7 +32,7 @@ pub struct MerkleTree<F: RichField, H: Hasher<F>> {
     pub cap: MerkleCap<F, H>,
 }
 
-impl<F: RichField, H: Hasher<F>> Default for MerkleTree<F, H> {
+impl<F: RichField, H: Hasher<F>> Default for FieldMerkleTree<F, H> {
     fn default() -> Self {
         Self {
             leaves: Vec::new(),
@@ -71,48 +42,7 @@ impl<F: RichField, H: Hasher<F>> Default for MerkleTree<F, H> {
     }
 }
 
-pub(crate) fn capacity_up_to_mut<T>(v: &mut Vec<T>, len: usize) -> &mut [MaybeUninit<T>] {
-    assert!(v.capacity() >= len);
-    let v_ptr = v.as_mut_ptr().cast::<MaybeUninit<T>>();
-    unsafe {
-        // SAFETY: `v_ptr` is a valid pointer to a buffer of length at least `len`. Upon return, the
-        // lifetime will be bound to that of `v`. The underlying memory will not be deallocated as
-        // we hold the sole mutable reference to `v`. The contents of the slice may be
-        // uninitialized, but the `MaybeUninit` makes it safe.
-        slice::from_raw_parts_mut(v_ptr, len)
-    }
-}
-
-pub(crate) fn fill_subtree<F: RichField, H: Hasher<F>>(
-    digests_buf: &mut [MaybeUninit<H::Hash>],
-    leaves: &[Vec<F>],
-) -> H::Hash {
-    assert_eq!(leaves.len(), digests_buf.len() / 2 + 1);
-    if digests_buf.is_empty() {
-        H::hash_or_noop(&leaves[0])
-    } else {
-        // Layout is: left recursive output || left child digest
-        //             || right child digest || right recursive output.
-        // Split `digests_buf` into the two recursive outputs (slices) and two child digests
-        // (references).
-        let (left_digests_buf, right_digests_buf) = digests_buf.split_at_mut(digests_buf.len() / 2);
-        let (left_digest_mem, left_digests_buf) = left_digests_buf.split_last_mut().unwrap();
-        let (right_digest_mem, right_digests_buf) = right_digests_buf.split_first_mut().unwrap();
-        // Split `leaves` between both children.
-        let (left_leaves, right_leaves) = leaves.split_at(leaves.len() / 2);
-
-        let (left_digest, right_digest) = plonky2_maybe_rayon::join(
-            || fill_subtree::<F, H>(left_digests_buf, left_leaves),
-            || fill_subtree::<F, H>(right_digests_buf, right_leaves),
-        );
-
-        left_digest_mem.write(left_digest);
-        right_digest_mem.write(right_digest);
-        H::two_to_one(left_digest, right_digest)
-    }
-}
-
-pub(crate) fn fill_digests_buf<F: RichField, H: Hasher<F>>(
+fn fill_digests_buf<F: RichField, H: Hasher<F>>(
     digests_buf: &mut [MaybeUninit<H::Hash>],
     cap_buf: &mut [MaybeUninit<H::Hash>],
     leaves: &[Vec<F>],
@@ -148,7 +78,7 @@ pub(crate) fn fill_digests_buf<F: RichField, H: Hasher<F>>(
     );
 }
 
-impl<F: RichField, H: Hasher<F>> MerkleTree<F, H> {
+impl<F: RichField, H: Hasher<F>> FieldMerkleTree<F, H> {
     pub fn new(leaves: Vec<Vec<F>>, cap_height: usize) -> Self {
         let log2_leaves_len = log2_strict(leaves.len());
         assert!(
@@ -245,7 +175,7 @@ mod tests {
         leaves: Vec<Vec<F>>,
         cap_height: usize,
     ) -> Result<()> {
-        let tree = MerkleTree::<F, C::Hasher>::new(leaves.clone(), cap_height);
+        let tree = FieldMerkleTree::<F, C::Hasher>::new(leaves.clone(), cap_height);
         for (i, leaf) in leaves.into_iter().enumerate() {
             let proof = tree.prove(i);
             verify_merkle_proof_to_cap(leaf, i, &tree.cap, &proof)?;
@@ -264,7 +194,7 @@ mod tests {
         let cap_height = log_n + 1; // Should panic if `cap_height > len_n`.
 
         let leaves = random_data::<F>(1 << log_n, 7);
-        let _ = MerkleTree::<F, <C as GenericConfig<D>>::Hasher>::new(leaves, cap_height);
+        let _ = FieldMerkleTree::<F, <C as GenericConfig<D>>::Hasher>::new(leaves, cap_height);
     }
 
     #[test]

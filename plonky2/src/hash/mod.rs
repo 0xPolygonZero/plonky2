@@ -12,3 +12,4 @@ pub mod poseidon;
 pub mod poseidon2;
 pub mod poseidon2_goldilocks;
 pub mod poseidon_goldilocks;
+pub mod field_merkle_tree;
