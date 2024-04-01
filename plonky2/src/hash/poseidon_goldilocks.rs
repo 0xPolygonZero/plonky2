@@ -450,6 +450,22 @@ mod tests {
     use crate::field::goldilocks_field::GoldilocksField as F;
     use crate::field::types::{Field, PrimeField64};
     use crate::hash::poseidon::test_helpers::{check_consistency, check_test_vectors};
+    use crate::hash::poseidon::Poseidon;
+
+    #[test]
+    fn test_poseidon_basic() {
+        const SPONGE_RATE: usize = 8;
+        const SPONGE_CAPACITY: usize = 4;
+        const SPONGE_WIDTH: usize = SPONGE_RATE + SPONGE_CAPACITY;
+
+        let mut input = [F::ZERO; SPONGE_WIDTH];
+        for i in 0..SPONGE_WIDTH {
+            input[i] = F::from_canonical_usize(i);
+        }
+        let output = F::poseidon_naive(input);
+
+        dbg!(output);
+    }
 
     #[test]
     fn test_vectors() {
