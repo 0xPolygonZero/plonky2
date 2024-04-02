@@ -1,6 +1,5 @@
-use alloc::string::{String, ToString};
-use alloc::vec;
-use alloc::vec::Vec;
+#[cfg(not(feature = "std"))]
+use alloc::{format, string::String, vec, vec::Vec};
 use core::borrow::Borrow;
 
 use itertools::Itertools;

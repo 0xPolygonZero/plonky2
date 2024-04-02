@@ -1,6 +1,10 @@
-use alloc::string::{String, ToString};
-use alloc::vec::Vec;
-use alloc::{format, vec};
+#[cfg(not(feature = "std"))]
+use alloc::{
+    format,
+    string::{String, ToString},
+    vec,
+    vec::Vec,
+};
 use core::marker::PhantomData;
 use core::ops::Range;
 
@@ -29,23 +33,26 @@ use crate::util::serialization::{Buffer, IoResult, Read, Write};
 /// - the values that the interpolated polynomial takes on the coset
 /// - the evaluation point
 ///
-/// The evaluation strategy is based on the observation that if P(X) is the interpolant of some
-/// values over a coset and P'(X) is the interpolant of those values over the subgroup, then
-/// P(X) = P'(X `shift`^{-1}). Interpolating P'(X) is preferable because when subgroup is fixed
+/// The evaluation strategy is based on the observation that if $P(X)$ is the interpolant of some
+/// values over a coset and $P'(X)$ is the interpolant of those values over the subgroup, then
+/// $P(X) = P'(X \cdot \mathrm{shift}^{-1})$. Interpolating $P'(X)$ is preferable because when subgroup is fixed
 /// then so are the Barycentric weights and both can be hardcoded into the constraint polynomials.
 ///
 /// A full interpolation of N values corresponds to the evaluation of a degree-N polynomial. This
 /// gate can however be configured with a bounded degree of at least 2 by introducing more
-/// non-routed wires. Let x[] be the domain points, v[] be the values, w[] be the Barycentric
-/// weights and z be the evaluation point. Define the sequences
+/// non-routed wires. Let $x[]$ be the domain points, $v[]$ be the values, $w[]$ be the Barycentric
+/// weights and $z$ be the evaluation point. Define the sequences
 ///
-/// p[0] = 1
-/// p[i] = p[i - 1] * (z - x[i - 1])
-/// e[0] = 0,
-/// e[i] = e[i - 1] * (z - x[i - 1]) + w[i - 1] * v[i - 1] * p[i - 1]
+/// $p[0] = 1,$
 ///
-/// Then e[N] is the final interpolated value. The non-routed wires hold every (d - 1)'th
-/// intermediate value of p and e, starting at p[d] and e[d], where d is the gate degree.
+/// $p[i] = p[i - 1] \cdot (z - x[i - 1]),$
+///
+/// $e[0] = 0,$
+///
+/// $e[i] = e[i - 1] ] \cdot (z - x[i - 1]) + w[i - 1] \cdot v[i - 1] \cdot p[i - 1]$
+///
+/// Then $e[N]$ is the final interpolated value. The non-routed wires hold every $(d - 1)$'th
+/// intermediate value of $p$ and $e$, starting at $p[d]$ and $e[d]$, where $d$ is the gate degree.
 #[derive(Clone, Debug, Default)]
 pub struct CosetInterpolationGate<F: RichField + Extendable<D>, const D: usize> {
     pub subgroup_bits: usize,
@@ -134,31 +141,31 @@ impl<F: RichField + Extendable<D>, const D: usize> CosetInterpolationGate<F, D> 
         self.start_intermediates()
     }
 
-    fn num_intermediates(&self) -> usize {
-        (self.num_points() - 2) / (self.degree() - 1)
+    const fn num_intermediates(&self) -> usize {
+        (self.num_points() - 2) / (self.degree - 1)
     }
 
     /// The wires corresponding to the i'th intermediate evaluation.
-    fn wires_intermediate_eval(&self, i: usize) -> Range<usize> {
+    const fn wires_intermediate_eval(&self, i: usize) -> Range<usize> {
         debug_assert!(i < self.num_intermediates());
         let start = self.start_intermediates() + D * i;
         start..start + D
     }
 
     /// The wires corresponding to the i'th intermediate product.
-    fn wires_intermediate_prod(&self, i: usize) -> Range<usize> {
+    const fn wires_intermediate_prod(&self, i: usize) -> Range<usize> {
         debug_assert!(i < self.num_intermediates());
         let start = self.start_intermediates() + D * (self.num_intermediates() + i);
         start..start + D
     }
 
     /// End of wire indices, exclusive.
-    fn end(&self) -> usize {
+    const fn end(&self) -> usize {
         self.start_intermediates() + D * (2 * self.num_intermediates() + 1)
     }
 
     /// Wire indices of the shifted point to evaluate the interpolant at.
-    fn wires_shifted_evaluation_point(&self) -> Range<usize> {
+    const fn wires_shifted_evaluation_point(&self) -> Range<usize> {
         let start = self.start_intermediates() + D * 2 * self.num_intermediates();
         start..start + D
     }
@@ -637,7 +644,7 @@ mod tests {
 
     use super::*;
     use crate::field::goldilocks_field::GoldilocksField;
-    use crate::field::types::{Field, Sample};
+    use crate::field::types::Sample;
     use crate::gates::gate_testing::{test_eval_fns, test_low_degree};
     use crate::hash::hash_types::HashOut;
     use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};

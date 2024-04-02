@@ -1,11 +1,11 @@
-use alloc::string::String;
-use alloc::sync::Arc;
-use alloc::vec;
-use alloc::vec::Vec;
+#[cfg(not(feature = "std"))]
+use alloc::{string::String, sync::Arc, vec, vec::Vec};
 use core::any::Any;
 use core::fmt::{Debug, Error, Formatter};
 use core::hash::{Hash, Hasher};
 use core::ops::Range;
+#[cfg(feature = "std")]
+use std::sync::Arc;
 
 use hashbrown::HashMap;
 use serde::{Serialize, Serializer};
@@ -26,15 +26,46 @@ use crate::plonk::vars::{
 use crate::util::serialization::{Buffer, IoResult};
 
 /// A custom gate.
+///
+/// Vanilla Plonk arithmetization only supports basic fan-in 2 / fan-out 1 arithmetic gates,
+/// each of the form
+///
+/// $$ a.b \cdot q_M + a \cdot q_L + b \cdot q_R + c \cdot q_O + q_C = 0 $$
+///
+/// where:
+/// - $q_M$, $q_L$, $q_R$ and $q_O$ are boolean selectors,
+/// - $a$, $b$ and $c$ are values used as inputs and output respectively,
+/// - $q_C$ is a constant (possibly 0).
+///
+/// This allows expressing simple operations like multiplication, addition, etc. For
+/// instance, to define a multiplication, one can set $q_M=1$, $q_L=q_R=0$, $q_O = -1$ and $q_C = 0$.
+///
+/// Hence, the gate equation simplifies to $a.b - c = 0$, or equivalently to $a.b = c$.
+///
+/// However, such a gate is fairly limited for more complex computations. Hence, when a computation may
+/// require too many of these "vanilla" gates, or when a computation arises often within the same circuit,
+/// one may want to construct a tailored custom gate. These custom gates can use more selectors and are
+/// not necessarily limited to 2 inputs + 1 output = 3 wires.
+/// For instance, plonky2 supports natively a custom Poseidon hash gate that uses 135 wires.
+///
+/// Note however that extending the number of wires necessary for a custom gate comes at a price, and may
+/// impact the overall performances when generating proofs for a circuit containing them.
 pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + Sync {
+    /// Defines a unique identifier for this custom gate.
+    ///
+    /// This is used as differentiating tag in gate serializers.
     fn id(&self) -> String;
 
+    /// Serializes this custom gate to the targeted byte buffer, with the provided [`CommonCircuitData`].
     fn serialize(&self, dst: &mut Vec<u8>, common_data: &CommonCircuitData<F, D>) -> IoResult<()>;
 
+    /// Deserializes the bytes in the provided buffer into this custom gate, given some [`CommonCircuitData`].
     fn deserialize(src: &mut Buffer, common_data: &CommonCircuitData<F, D>) -> IoResult<Self>
     where
         Self: Sized;
 
+    /// Defines and evaluates the constraints that enforce the statement represented by this gate.
+    /// Constraints must be defined in the extension of this custom gate base field.
     fn eval_unfiltered(&self, vars: EvaluationVars<F, D>) -> Vec<F::Extension>;
 
     /// Like `eval_unfiltered`, but specialized for points in the base field.
@@ -88,6 +119,12 @@ pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + S
         res
     }
 
+    /// Defines the recursive constraints that enforce the statement represented by this custom gate.
+    /// This is necessary to recursively verify proofs generated from a circuit containing such gates.
+    ///
+    /// **Note**: The order of the recursive constraints output by this method should match exactly the order
+    /// of the constraints obtained by the non-recursive [`Gate::eval_unfiltered`] method, otherwise the
+    /// prover won't be able to generate proofs.
     fn eval_unfiltered_circuit(
         &self,
         builder: &mut CircuitBuilder<F, D>,
@@ -175,10 +212,20 @@ pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + S
     }
 
     /// The generators used to populate the witness.
-    /// Note: This should return exactly 1 generator per operation in the gate.
+    ///
+    /// **Note**: This should return exactly 1 generator per operation in the gate.
     fn generators(&self, row: usize, local_constants: &[F]) -> Vec<WitnessGeneratorRef<F, D>>;
 
     /// The number of wires used by this gate.
+    ///
+    /// While vanilla Plonk can only evaluate one addition/multiplication at a time, a wider
+    /// configuration may be able to accommodate several identical gates at once. This is
+    /// particularly helpful for tiny custom gates that are being used extensively in circuits.
+    ///
+    /// For instance, the [crate::gates::multiplication_extension::MulExtensionGate] takes `3*D`
+    /// wires per multiplication (where `D`` is the degree of the extension), hence for a usual
+    /// configuration of 80 routed wires with D=2, one can evaluate 13 multiplications within a
+    /// single gate.
     fn num_wires(&self) -> usize;
 
     /// The number of constants used by this gate.
@@ -187,6 +234,7 @@ pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + S
     /// The maximum degree among this gate's constraint polynomials.
     fn degree(&self) -> usize;
 
+    /// The number of constraints defined by this sole custom gate.
     fn num_constraints(&self) -> usize;
 
     /// Number of operations performed by the gate.
@@ -261,7 +309,7 @@ pub struct CurrentSlot<F: RichField + Extendable<D>, const D: usize> {
 }
 
 /// A gate along with any constants used to configure it.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct GateInstance<F: RichField + Extendable<D>, const D: usize> {
     pub gate_ref: GateRef<F, D>,
     pub constants: Vec<F>,

@@ -1,10 +1,10 @@
-use alloc::collections::BTreeMap;
-use alloc::sync::Arc;
-use alloc::vec;
-use alloc::vec::Vec;
+//! Logic for building plonky2 circuits.
+
+#[cfg(not(feature = "std"))]
+use alloc::{collections::BTreeMap, sync::Arc, vec, vec::Vec};
 use core::cmp::max;
 #[cfg(feature = "std")]
-use std::time::Instant;
+use std::{collections::BTreeMap, sync::Arc, time::Instant};
 
 use hashbrown::{HashMap, HashSet};
 use itertools::Itertools;
@@ -63,6 +63,7 @@ pub const NUM_COINS_LOOKUP: usize = 4;
 /// `ChallengeB` is used for the linear combination of input and output pairs in the polynomial RE.
 /// `ChallengeAlpha` is used for the running sums: 1/(alpha - combo_i).
 /// `ChallengeDelta` is a challenge on which to evaluate the interpolated LUT function.
+#[derive(Debug)]
 pub enum LookupChallenges {
     ChallengeA = 0,
     ChallengeB = 1,
@@ -83,7 +84,61 @@ pub struct LookupWire {
     /// Index of the first lookup table row (i.e. the last `LookupTableGate`).
     pub first_lut_gate: usize,
 }
+
+/// Structure used to construct a plonky2 circuit. It provides all the necessary toolkit that,
+/// from an initial circuit configuration, will enable one to design a circuit and its associated
+/// prover/verifier data.
+///
+/// # Usage
+///
+/// ```rust
+/// use plonky2::plonk::circuit_data::CircuitConfig;
+/// use plonky2::iop::witness::PartialWitness;
+/// use plonky2::plonk::circuit_builder::CircuitBuilder;
+/// use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
+/// use plonky2::field::types::Field;
+///
+/// // Define parameters for this circuit
+/// const D: usize = 2;
+/// type C = PoseidonGoldilocksConfig;
+/// type F = <C as GenericConfig<D>>::F;
+///
+/// let config = CircuitConfig::standard_recursion_config();
+/// let mut builder = CircuitBuilder::<F, D>::new(config);
+///
+/// // Build a circuit for the statement: "I know the 100th term
+/// // of the Fibonacci sequence, starting from 0 and 1".
+/// let initial_a = builder.constant(F::ZERO);
+/// let initial_b = builder.constant(F::ONE);
+/// let mut prev_target = initial_a;
+/// let mut cur_target = initial_b;
+/// for _ in 0..99 {
+///     // Encode an addition of the two previous terms
+///     let temp = builder.add(prev_target, cur_target);
+///     // Shift the two previous terms with the new value
+///     prev_target = cur_target;
+///     cur_target = temp;
+/// }
+///
+/// // The only public input is the result (which is generated).
+/// builder.register_public_input(cur_target);
+///
+/// // Build the circuit
+/// let circuit_data = builder.build::<C>();
+///
+/// // Now compute the witness and generate a proof
+/// let mut pw = PartialWitness::new();
+///
+/// // There are no public inputs to register, as the only one
+/// // will be generated while proving the statement.
+/// let proof = circuit_data.prove(pw).unwrap();
+///
+/// // Verify the proof
+/// assert!(circuit_data.verify(proof).is_ok());
+/// ```
+#[derive(Debug)]
 pub struct CircuitBuilder<F: RichField + Extendable<D>, const D: usize> {
+    /// Circuit configuration to be used by this [`CircuitBuilder`].
     pub config: CircuitConfig,
 
     /// A domain separator, which is included in the initial Fiat-Shamir seed. This is generally not
@@ -126,7 +181,8 @@ pub struct CircuitBuilder<F: RichField + Extendable<D>, const D: usize> {
     /// List of constant generators used to fill the constant wires.
     constant_generators: Vec<ConstantGenerator<F>>,
 
-    /// Rows for each LUT: LookupWire contains: first `LookupGate`, first `LookupTableGate`, last `LookupTableGate`.
+    /// Rows for each LUT: [`LookupWire`] contains: first [`LookupGate`], first and last
+    /// [LookupTableGate](crate::gates::lookup_table::LookupTableGate).
     lookup_rows: Vec<LookupWire>,
 
     /// For each LUT index, vector of `(looking_in, looking_out)` pairs.
@@ -146,6 +202,10 @@ pub struct CircuitBuilder<F: RichField + Extendable<D>, const D: usize> {
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
+    /// Given a [`CircuitConfig`], generate a new [`CircuitBuilder`] instance.
+    /// It will also check that the configuration provided is consistent, i.e.
+    /// that the different parameters provided can achieve the targeted security
+    /// level.
     pub fn new(config: CircuitConfig) -> Self {
         let builder = CircuitBuilder {
             config,
@@ -173,6 +233,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         builder
     }
 
+    /// Assert that the configuration used to create this `CircuitBuilder` is consistent,
+    /// i.e. that the different parameters meet the targeted security level.
     fn check_config(&self) {
         let &CircuitConfig {
             security_bits,
@@ -201,6 +263,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.domain_separator = Some(separator);
     }
 
+    /// Outputs the number of gates in this circuit.
     pub fn num_gates(&self) -> usize {
         self.gate_instances.len()
     }
@@ -215,6 +278,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         targets.iter().for_each(|&t| self.register_public_input(t));
     }
 
+    /// Outputs the number of public inputs in this circuit.
     pub fn num_public_inputs(&self) -> usize {
         self.public_inputs.len()
     }
@@ -244,10 +308,13 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.lut_to_lookups[lut_index].push((looking_in, looking_out));
     }
 
+    /// Outputs the number of lookup tables in this circuit.
     pub fn num_luts(&self) -> usize {
         self.lut_to_lookups.len()
     }
 
+    /// Given an index, outputs the corresponding looking table in the set of tables
+    /// used in this circuit, as a sequence of target tuples `(input, output)`.
     pub fn get_lut_lookups(&self, lut_index: usize) -> &[(Target, Target)] {
         &self.lut_to_lookups[lut_index]
     }
@@ -262,24 +329,42 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         Target::VirtualTarget { index }
     }
 
+    /// Adds `n` new "virtual" targets.
     pub fn add_virtual_targets(&mut self, n: usize) -> Vec<Target> {
         (0..n).map(|_i| self.add_virtual_target()).collect()
     }
 
+    /// Adds `N` new "virtual" targets, arranged as an array.
     pub fn add_virtual_target_arr<const N: usize>(&mut self) -> [Target; N] {
         [0; N].map(|_| self.add_virtual_target())
     }
 
+    /// Adds a new `HashOutTarget`.
     pub fn add_virtual_hash(&mut self) -> HashOutTarget {
-        HashOutTarget::from_vec(self.add_virtual_targets(4))
+        HashOutTarget::from(self.add_virtual_target_arr::<4>())
     }
 
+    /// Registers a new `HashOutTarget` as a public input, adding
+    /// internally `NUM_HASH_OUT_ELTS` virtual targets.
+    pub fn add_virtual_hash_public_input(&mut self) -> HashOutTarget {
+        HashOutTarget::from(self.add_virtual_public_input_arr::<4>())
+    }
+
+    /// Adds a new `MerkleCapTarget`, consisting in `1 << cap_height` `HashOutTarget`.
     pub fn add_virtual_cap(&mut self, cap_height: usize) -> MerkleCapTarget {
         MerkleCapTarget(self.add_virtual_hashes(1 << cap_height))
     }
 
+    /// Adds `n` new `HashOutTarget` in a vector fashion.
     pub fn add_virtual_hashes(&mut self, n: usize) -> Vec<HashOutTarget> {
         (0..n).map(|_i| self.add_virtual_hash()).collect()
+    }
+
+    /// Registers `n` new `HashOutTarget` as public inputs, in a vector fashion.
+    pub fn add_virtual_hashes_public_input(&mut self, n: usize) -> Vec<HashOutTarget> {
+        (0..n)
+            .map(|_i| self.add_virtual_hash_public_input())
+            .collect()
     }
 
     pub(crate) fn add_virtual_merkle_proof(&mut self, len: usize) -> MerkleProofTarget {
@@ -337,7 +422,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     /// Add a virtual verifier data, register it as a public input and set it to `self.verifier_data_public_input`.
-    /// WARNING: Do not register any public input after calling this! TODO: relax this
+    ///
+    /// **WARNING**: Do not register any public input after calling this!
+    // TODO: relax this
     pub fn add_verifier_data_public_inputs(&mut self) -> VerifierCircuitTarget {
         assert!(
             self.verifier_data_public_input.is_none(),
@@ -410,14 +497,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         );
     }
 
+    /// Adds a gate type to the set of gates to be used in this circuit. This can be useful
+    /// in conditional recursion to uniformize the set of gates of the different circuits.
     pub fn add_gate_to_gate_set(&mut self, gate: GateRef<F, D>) {
         self.gates.insert(gate);
-    }
-
-    pub fn connect_extension(&mut self, src: ExtensionTarget<D>, dst: ExtensionTarget<D>) {
-        for i in 0..D {
-            self.connect(src.0[i], dst.0[i]);
-        }
     }
 
     /// Adds a generator which will copy `src` to `dst`.
@@ -427,6 +510,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
     /// Uses Plonk's permutation argument to require that two elements be equal.
     /// Both elements must be routable, otherwise this method will panic.
+    ///
+    /// For an example of usage, see [`CircuitBuilder::assert_one()`].
     pub fn connect(&mut self, x: Target, y: Target) {
         assert!(
             x.is_routable(&self.config),
@@ -440,11 +525,34 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             .push(CopyConstraint::new((x, y), self.context_log.open_stack()));
     }
 
+    /// Enforces that two [`ExtensionTarget<D>`] underlying values are equal.
+    pub fn connect_extension(&mut self, src: ExtensionTarget<D>, dst: ExtensionTarget<D>) {
+        for i in 0..D {
+            self.connect(src.0[i], dst.0[i]);
+        }
+    }
+
+    /// Enforces that a routable `Target` value is 0, using Plonk's permutation argument.
     pub fn assert_zero(&mut self, x: Target) {
         let zero = self.zero();
         self.connect(x, zero);
     }
 
+    /// Enforces that a routable `Target` value is 1, using Plonk's permutation argument.
+    ///
+    /// # Example
+    ///
+    /// Let say the circuit contains a target `a`, and a target `b` as public input so that the
+    /// prover can non-deterministically compute the multiplicative inverse of `a` when generating
+    /// a proof.
+    ///
+    /// One can then add the following constraint in the circuit to enforce that the value provided
+    /// by the prover is correct:
+    ///
+    /// ```ignore
+    /// let c = builder.mul(a, b);
+    /// builder.assert_one(c);
+    /// ```
     pub fn assert_one(&mut self, x: Target) {
         let one = self.one();
         self.connect(x, one);
@@ -479,10 +587,12 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.constant(F::NEG_ONE)
     }
 
+    /// Returns a routable boolean target set to false.
     pub fn _false(&mut self) -> BoolTarget {
         BoolTarget::new_unsafe(self.zero())
     }
 
+    /// Returns a routable boolean target set to true.
     pub fn _true(&mut self) -> BoolTarget {
         BoolTarget::new_unsafe(self.one())
     }
@@ -501,10 +611,12 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         target
     }
 
+    /// Returns a vector of routable targets with the given constant values.
     pub fn constants(&mut self, constants: &[F]) -> Vec<Target> {
         constants.iter().map(|&c| self.constant(c)).collect()
     }
 
+    /// Returns a routable target with the given constant boolean value.
     pub fn constant_bool(&mut self, b: bool) -> BoolTarget {
         if b {
             self._true()
@@ -513,12 +625,14 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
+    /// Returns a routable [`HashOutTarget`].
     pub fn constant_hash(&mut self, h: HashOut<F>) -> HashOutTarget {
         HashOutTarget {
             elements: h.elements.map(|x| self.constant(x)),
         }
     }
 
+    /// Returns a routable [`MerkleCapTarget`].
     pub fn constant_merkle_cap<H: Hasher<F, Hash = HashOut<F>>>(
         &mut self,
         cap: &MerkleCap<F, H>,
@@ -545,7 +659,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.targets_to_constants.get(&target).cloned()
     }
 
-    /// If the given `ExtensionTarget` is a constant (i.e. it was created by the
+    /// If the given [`ExtensionTarget`] is a constant (i.e. it was created by the
     /// `constant_extension(F)` method), returns its constant value. Otherwise, returns `None`.
     pub fn target_as_constant_ext(&self, target: ExtensionTarget<D>) -> Option<F::Extension> {
         // Get a Vec of any coefficients that are constant. If we end up with exactly D of them,
@@ -906,7 +1020,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// In PLONK's permutation argument, there's a slight chance of division by zero. We can
     /// mitigate this by randomizing some unused witness elements, so if proving fails with
     /// division by zero, the next attempt will have an (almost) independent chance of success.
-    /// See https://github.com/0xPolygonZero/plonky2/issues/456
+    /// See <https://github.com/0xPolygonZero/plonky2/issues/456>.
     fn randomize_unused_pi_wires(&mut self, pi_gate: usize) {
         for wire in PublicInputGate::wires_public_inputs_hash().end..self.config.num_wires {
             self.add_simple_generator(RandomValueGenerator {
@@ -1178,6 +1292,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         )
     }
 
+    /// Builds a "full circuit", with both prover and verifier data.
     pub fn build<C: GenericConfig<D, F = F>>(self) -> CircuitData<F, C, D> {
         self.build_with_options(true)
     }

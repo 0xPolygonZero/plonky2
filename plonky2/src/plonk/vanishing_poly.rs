@@ -1,5 +1,5 @@
-use alloc::vec::Vec;
-use alloc::{format, vec};
+#[cfg(not(feature = "std"))]
+use alloc::{format, vec, vec::Vec};
 use core::cmp::min;
 
 use plonky2_field::polynomial::PolynomialCoeffs;
@@ -323,8 +323,8 @@ pub(crate) fn eval_vanishing_poly_base_batch<F: RichField + Extendable<D>, const
     res_batch
 }
 
-/// Evaluates all lookup constraints, based on the logarithmic derivatives paper (https://eprint.iacr.org/2022/1530.pdf),
-/// following the Tip5 paper's implementation (https://eprint.iacr.org/2023/107.pdf).
+/// Evaluates all lookup constraints, based on the logarithmic derivatives paper (<https://eprint.iacr.org/2022/1530.pdf>),
+/// following the Tip5 paper's implementation (<https://eprint.iacr.org/2023/107.pdf>).
 ///
 /// There are three polynomials to check:
 /// - RE ensures the well formation of lookup tables;

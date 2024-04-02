@@ -1,10 +1,10 @@
-#[cfg(feature = "timing")]
-use std::time::{Duration, Instant};
-
 use log::{log, Level};
+#[cfg(feature = "timing")]
+use web_time::{Duration, Instant};
 
 /// The hierarchy of scopes, and the time consumed by each one. Useful for profiling.
 #[cfg(feature = "timing")]
+#[derive(Debug)]
 pub struct TimingTree {
     /// The name of this scope.
     name: String,
@@ -19,6 +19,7 @@ pub struct TimingTree {
 }
 
 #[cfg(not(feature = "timing"))]
+#[derive(Debug)]
 pub struct TimingTree(Level);
 
 #[cfg(feature = "timing")]

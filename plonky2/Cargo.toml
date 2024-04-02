@@ -1,39 +1,43 @@
 [package]
 name = "plonky2"
 description = "Recursive SNARKs based on PLONK and FRI"
-version = "0.1.4"
-license = "MIT OR Apache-2.0"
+version = "0.2.1"
 authors = ["Daniel Lubarov <daniel@lubarov.com>", "William Borgeaud <williamborgeaud@gmail.com>", "Nicholas Ward <npward@berkeley.edu>"]
 readme = "README.md"
-repository = "https://github.com/0xPolygonZero/plonky2"
-keywords = ["cryptography", "SNARK", "PLONK", "FRI"]
-categories = ["cryptography"]
-edition = "2021"
+edition.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
 
 [features]
 default = ["gate_testing", "parallel", "rand_chacha", "std", "timing"]
 gate_testing = []
 parallel = ["hashbrown/rayon", "plonky2_maybe_rayon/parallel"]
 std = ["anyhow/std", "rand/std", "itertools/use_std"]
-timing = ["std"]
+timing = ["std", "dep:web-time"]
 
 [dependencies]
-ahash = { version = "0.8.3", default-features = false, features = ["compile-time-rng"] } # NOTE: Be sure to keep this version the same as the dependency in `hashbrown`.
-anyhow = { version = "1.0.40", default-features = false }
-hashbrown = { version = "0.14.0", default-features = false, features = ["ahash", "serde"] } # NOTE: When upgrading, see `ahash` dependency.
-itertools = { version = "0.11.0", default-features = false }
+ahash = { workspace = true }
+anyhow = { workspace = true }
+hashbrown = { workspace = true }
+itertools = { workspace = true }
 keccak-hash = { version = "0.8.0", default-features = false }
-log = { version = "0.4.14", default-features = false }
-plonky2_maybe_rayon = { path = "../maybe_rayon", default-features = false }
-num = { version = "0.4", default-features = false, features = ["rand"] }
-plonky2_field = { path = "../field", default-features = false }
-plonky2_util = { path = "../util", default-features = false }
-rand = { version = "0.8.4", default-features = false }
+log = { workspace = true }
+num = { workspace = true }
+rand = { workspace = true }
 rand_chacha = { version = "0.3.1", optional = true, default-features = false }
-serde = { version = "1.0", default-features = false, features = ["derive", "rc"] }
-serde_json = "1.0"
-static_assertions = { version = "1.1.0", default-features = false }
-unroll = { version = "0.1.5", default-features = false }
+serde = { workspace = true, features = ["rc"] }
+static_assertions = { workspace = true }
+unroll = { workspace = true }
+web-time = { version = "1.0.0", optional = true }
+
+# Local dependencies
+plonky2_field = { version = "0.2.1", path = "../field", default-features = false }
+plonky2_maybe_rayon = { version = "0.2.0", path = "../maybe_rayon", default-features = false }
+plonky2_util = { version = "0.2.0", path = "../util", default-features = false }
+
 
 [target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dependencies]
 getrandom = { version = "0.2", default-features = false, features = ["js"] }
@@ -42,9 +46,10 @@ getrandom = { version = "0.2", default-features = false, features = ["js"] }
 criterion = { version = "0.5.1", default-features = false }
 env_logger = { version = "0.9.0", default-features = false }
 num_cpus = { version = "1.14.0", default-features = false }
-rand = { version = "0.8.4", default-features = false, features = ["getrandom"] }
+rand = { workspace = true, features = ["getrandom"] }
 rand_chacha = { version = "0.3.1", default-features = false }
 serde_cbor = { version = "0.11.2" }
+serde_json = { version = "1.0" }
 structopt = { version = "0.3.26", default-features = false }
 tynm = { version = "0.1.6", default-features = false }
 
@@ -78,3 +83,7 @@ harness = false
 [[bench]]
 name = "reverse_index_bits"
 harness = false
+
+# Display math equations properly in documentation
+[package.metadata.docs.rs]
+rustdoc-args = ["--html-in-header", ".cargo/katex-header.html"]

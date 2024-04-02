@@ -1,5 +1,5 @@
-use alloc::vec;
-use alloc::vec::Vec;
+#[cfg(not(feature = "std"))]
+use alloc::{vec, vec::Vec};
 
 use hashbrown::HashMap;
 use itertools::{zip_eq, Itertools};
@@ -14,7 +14,7 @@ use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::target::{BoolTarget, Target};
 use crate::iop::wire::Wire;
 use crate::plonk::circuit_data::{VerifierCircuitTarget, VerifierOnlyCircuitData};
-use crate::plonk::config::{AlgebraicHasher, GenericConfig, Hasher};
+use crate::plonk::config::{AlgebraicHasher, GenericConfig};
 use crate::plonk::proof::{Proof, ProofTarget, ProofWithPublicInputs, ProofWithPublicInputsTarget};
 
 pub trait WitnessWrite<F: Field> {
@@ -222,7 +222,7 @@ pub trait Witness<F: Field>: WitnessWrite<F> {
         }
     }
 
-    fn get_merkle_cap_target<H: Hasher<F>>(&self, cap_target: MerkleCapTarget) -> MerkleCap<F, H>
+    fn get_merkle_cap_target<H>(&self, cap_target: MerkleCapTarget) -> MerkleCap<F, H>
     where
         F: RichField,
         H: AlgebraicHasher<F>,
@@ -297,7 +297,7 @@ impl<F: Field> Witness<F> for PartialWitness<F> {
 
 /// `PartitionWitness` holds a disjoint-set forest of the targets respecting a circuit's copy constraints.
 /// The value of a target is defined to be the value of its root in the forest.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct PartitionWitness<'a, F: Field> {
     pub values: Vec<Option<F>>,
     pub representative_map: &'a [usize],

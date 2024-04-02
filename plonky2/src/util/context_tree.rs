@@ -1,10 +1,14 @@
-use alloc::string::{String, ToString};
-use alloc::vec;
-use alloc::vec::Vec;
+#[cfg(not(feature = "std"))]
+use alloc::{
+    string::{String, ToString},
+    vec,
+    vec::Vec,
+};
 
 use log::{log, Level};
 
 /// The hierarchy of contexts, and the gate count contributed by each one. Useful for debugging.
+#[derive(Debug)]
 pub(crate) struct ContextTree {
     /// The name of this scope.
     name: String,

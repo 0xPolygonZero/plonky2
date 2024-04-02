@@ -66,6 +66,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D>
     }
 }
 
+#[derive(Default)]
 pub struct CustomGeneratorSerializer<C: GenericConfig<D>, const D: usize> {
     pub _phantom: PhantomData<C>,
 }
@@ -131,9 +132,7 @@ fn main() -> Result<()> {
     // Test serialization
     {
         let gate_serializer = DefaultGateSerializer;
-        let generator_serializer = CustomGeneratorSerializer {
-            _phantom: PhantomData::<C>,
-        };
+        let generator_serializer = CustomGeneratorSerializer::<C, D>::default();
 
         let data_bytes = data
             .to_bytes(&gate_serializer, &generator_serializer)

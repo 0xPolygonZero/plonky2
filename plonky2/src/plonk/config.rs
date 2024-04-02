@@ -1,5 +1,13 @@
-use alloc::vec;
-use alloc::vec::Vec;
+//! Hashing configuration to be used when building a circuit.
+//!
+//! This module defines a [`Hasher`] trait as well as its recursive
+//! counterpart [`AlgebraicHasher`] for in-circuit hashing. It also
+//! provides concrete configurations, one fully recursive leveraging
+//! the Poseidon hash function both internally and natively, and one
+//! mixing Poseidon internally and truncated Keccak externally.
+
+#[cfg(not(feature = "std"))]
+use alloc::{vec, vec::Vec};
 use core::fmt::Debug;
 
 use serde::de::DeserializeOwned;
@@ -98,7 +106,7 @@ pub trait GenericConfig<const D: usize>:
 }
 
 /// Configuration using Poseidon over the Goldilocks field.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize)]
+#[derive(Debug, Copy, Clone, Default, Eq, PartialEq, Serialize)]
 pub struct PoseidonGoldilocksConfig;
 impl GenericConfig<2> for PoseidonGoldilocksConfig {
     type F = GoldilocksField;
@@ -108,7 +116,7 @@ impl GenericConfig<2> for PoseidonGoldilocksConfig {
 }
 
 /// Configuration using truncated Keccak over the Goldilocks field.
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Default, Eq, PartialEq)]
 pub struct KeccakGoldilocksConfig;
 impl GenericConfig<2> for KeccakGoldilocksConfig {
     type F = GoldilocksField;

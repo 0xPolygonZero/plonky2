@@ -1,6 +1,10 @@
-use alloc::string::{String, ToString};
-use alloc::vec::Vec;
-use alloc::{format, vec};
+#[cfg(not(feature = "std"))]
+use alloc::{
+    format,
+    string::{String, ToString},
+    vec,
+    vec::Vec,
+};
 use core::usize;
 
 use itertools::Itertools;
