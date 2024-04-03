@@ -5,20 +5,24 @@ use alloc::vec::Vec;
 
 use crate::hash::hash_types::RichField;
 use crate::hash::merkle_proofs::MerkleProof;
-use crate::hash::merkle_tree::{capacity_up_to_mut, fill_digests_buf, MerkleCap};
+use crate::hash::merkle_tree::{
+    capacity_up_to_mut, fill_digests_buf, merkle_tree_prove, MerkleCap,
+};
 use crate::plonk::config::{GenericHashOut, Hasher};
 use crate::util::log2_strict;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct FieldMerkleTree<F: RichField, H: Hasher<F>> {
-    /// The data in the leaves of the Merkle tree.
+    /// The data stored in the Merkle tree leaves.
     pub leaves: Vec<Vec<Vec<F>>>,
 
-    /// Same as the `digests` in `MerkleTree`.
+    /// Merkle tree node hashes, analogous to `digests` in `MerkleTree`.
     pub digests: Vec<H::Hash>,
 
-    /// The Merkle cap.
+    /// Represents the roots of the Merkle tree. This allows for using any layer as the root of the tree.
     pub cap: MerkleCap<F, H>,
+
+    cap_heights: Vec<usize>,
 }
 
 impl<F: RichField, H: Hasher<F>> Default for FieldMerkleTree<F, H> {
@@ -27,6 +31,7 @@ impl<F: RichField, H: Hasher<F>> Default for FieldMerkleTree<F, H> {
             leaves: Vec::new(),
             digests: Vec::new(),
             cap: MerkleCap::default(),
+            cap_heights: Vec::new(),
         }
     }
 }
@@ -50,6 +55,8 @@ impl<F: RichField, H: Hasher<F>> FieldMerkleTree<F, H> {
             log2_leaves_len
         );
 
+        let mut cap_heights = vec![];
+
         let num_digests = 2 * (leaves[0].len() - (1 << cap_height));
         let mut digests = Vec::with_capacity(num_digests);
         let digests_buf = capacity_up_to_mut(&mut digests, num_digests);
@@ -62,17 +69,21 @@ impl<F: RichField, H: Hasher<F>> FieldMerkleTree<F, H> {
             let cur = &window[0];
             let next = &window[1];
 
-            let len_next_cap = next.len();
-            let num_tmp_digests = 2 * (cur.len() - len_next_cap);
+            let next_cap_len = next.len();
+            let next_cap_height = log2_strict(next_cap_len);
+
+            cap_heights.push(next_cap_height);
+
+            let num_tmp_digests = 2 * (cur.len() - next_cap_len);
 
             if cur.len() == leaves[0].len() {
-                cap = Vec::with_capacity(len_next_cap);
-                let tmp_cap_buf = capacity_up_to_mut(&mut cap, len_next_cap);
+                cap = Vec::with_capacity(next_cap_len);
+                let tmp_cap_buf = capacity_up_to_mut(&mut cap, next_cap_len);
                 fill_digests_buf::<F, H>(
                     &mut digests_buf[digests_buf_pos..(digests_buf_pos + num_tmp_digests)],
                     tmp_cap_buf,
                     &cur[..],
-                    log2_strict(next.len()),
+                    next_cap_height,
                 );
             } else {
                 //TODO: try to optimize it?
@@ -82,21 +93,21 @@ impl<F: RichField, H: Hasher<F>> FieldMerkleTree<F, H> {
                     tmp_leaf.extend_from_slice(cur_leaf);
                     new_leaves.push(tmp_leaf);
                 }
-                cap = Vec::with_capacity(len_next_cap);
-                let tmp_cap_buf = capacity_up_to_mut(&mut cap, len_next_cap);
+                cap = Vec::with_capacity(next_cap_len);
+                let tmp_cap_buf = capacity_up_to_mut(&mut cap, next_cap_len);
                 fill_digests_buf::<F, H>(
                     &mut digests_buf[digests_buf_pos..(digests_buf_pos + num_tmp_digests)],
                     tmp_cap_buf,
                     &new_leaves[..],
-                    log2_strict(next.len()),
+                    next_cap_height,
                 );
             }
 
             unsafe {
-                cap.set_len(len_next_cap);
+                cap.set_len(next_cap_len);
             }
 
-            digests_buf_pos = digests_buf_pos + num_tmp_digests;
+            digests_buf_pos += num_tmp_digests;
         }
 
         unsafe {
@@ -109,6 +120,7 @@ impl<F: RichField, H: Hasher<F>> FieldMerkleTree<F, H> {
             leaves,
             digests,
             cap: MerkleCap(cap),
+            cap_heights,
         }
     }
 
@@ -117,45 +129,24 @@ impl<F: RichField, H: Hasher<F>> FieldMerkleTree<F, H> {
     }
 
     /// Create a Merkle proof from a leaf index.
-    pub fn open_batch(&self, _leaf_index: usize) -> MerkleProof<F, H> {
-        // let cap_height = log2_strict(self.cap.len());
-        // let num_layers = log2_strict(self.leaves.len()) - cap_height;
-        // debug_assert_eq!(leaf_index >> (cap_height + num_layers), 0);
-        //
-        // let digest_tree = {
-        //     let tree_index = leaf_index >> num_layers;
-        //     let tree_len = self.digests.len() >> cap_height;
-        //     &self.digests[tree_len * tree_index..tree_len * (tree_index + 1)]
-        // };
-        //
-        // // Mask out high bits to get the index within the sub-tree.
-        // let mut pair_index = leaf_index & ((1 << num_layers) - 1);
-        // let siblings = (0..num_layers)
-        //     .map(|i| {
-        //         let parity = pair_index & 1;
-        //         pair_index >>= 1;
-        //
-        //         // The layers' data is interleaved as follows:
-        //         // [layer 0, layer 1, layer 0, layer 2, layer 0, layer 1, layer 0, layer 3, ...].
-        //         // Each of the above is a pair of siblings.
-        //         // `pair_index` is the index of the pair within layer `i`.
-        //         // The index of that the pair within `digests` is
-        //         // `pair_index * 2 ** (i + 1) + (2 ** i - 1)`.
-        //         let siblings_index = (pair_index << (i + 1)) + (1 << i) - 1;
-        //         // We have an index for the _pair_, but we want the index of the _sibling_.
-        //         // Double the pair index to get the index of the left sibling. Conditionally add `1`
-        //         // if we are to retrieve the right sibling.
-        //         let sibling_index = 2 * siblings_index + (1 - parity);
-        //         digest_tree[sibling_index]
-        //     })
-        //     .collect();
+    pub fn open_batch(&self, leaf_index: usize) -> MerkleProof<F, H> {
+        let mut digests_buf_pos = 0;
+        let leaves_cap_height = log2_strict(self.leaves[0].len());
+        let mut cur_cap_height = leaves_cap_height;
+        let mut siblings = vec![];
+        for cap_height in &self.cap_heights {
+            let num_digests = 2 * ((1 << cur_cap_height) - (1 - cap_height));
+            siblings.extend::<Vec<_>>(merkle_tree_prove::<F, H>(
+                leaf_index >> (leaves_cap_height - cur_cap_height),
+                1 << cur_cap_height,
+                *cap_height,
+                &self.digests[digests_buf_pos..digests_buf_pos + num_digests],
+            ));
+            digests_buf_pos += num_digests;
+            cur_cap_height = *cap_height;
+        }
 
-        // MerkleProof { siblings }
-        todo!()
-    }
-
-    pub fn verify_batch() -> anyhow::Result<()> {
-        Ok(())
+        MerkleProof { siblings }
     }
 }
 
@@ -207,6 +198,8 @@ mod tests {
         assert_eq!(layer_1, fmt.digests[2..4]);
         let root = H::two_to_one(layer_1[0], layer_1[1]);
         assert_eq!(fmt.cap.flatten(), root.to_vec());
+
+        let _ = fmt.open_batch(2);
 
         Ok(())
     }

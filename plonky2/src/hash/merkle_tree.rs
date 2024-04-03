@@ -148,6 +148,47 @@ pub(crate) fn fill_digests_buf<F: RichField, H: Hasher<F>>(
     );
 }
 
+pub fn merkle_tree_prove<F: RichField, H: Hasher<F>>(
+    leaf_index: usize,
+    leaves_len: usize,
+    cap_height: usize,
+    digests: &[H::Hash],
+) -> Vec<H::Hash> {
+    let num_layers = log2_strict(leaves_len) - cap_height;
+    debug_assert_eq!(leaf_index >> (cap_height + num_layers), 0);
+
+    let digest_len = 2 * (leaves_len - (1 << cap_height));
+    assert_eq!(digest_len, digests.len());
+
+    let digest_tree: &[H::Hash] = {
+        let tree_index = leaf_index >> num_layers;
+        let tree_len = digest_len >> cap_height;
+        &digests[tree_len * tree_index..tree_len * (tree_index + 1)]
+    };
+
+    // Mask out high bits to get the index within the sub-tree.
+    let mut pair_index = leaf_index & ((1 << num_layers) - 1);
+    (0..num_layers)
+        .map(|i| {
+            let parity = pair_index & 1;
+            pair_index >>= 1;
+
+            // The layers' data is interleaved as follows:
+            // [layer 0, layer 1, layer 0, layer 2, layer 0, layer 1, layer 0, layer 3, ...].
+            // Each of the above is a pair of siblings.
+            // `pair_index` is the index of the pair within layer `i`.
+            // The index of that the pair within `digests` is
+            // `pair_index * 2 ** (i + 1) + (2 ** i - 1)`.
+            let siblings_index = (pair_index << (i + 1)) + (1 << i) - 1;
+            // We have an index for the _pair_, but we want the index of the _sibling_.
+            // Double the pair index to get the index of the left sibling. Conditionally add `1`
+            // if we are to retrieve the right sibling.
+            let sibling_index = 2 * siblings_index + (1 - parity);
+            digest_tree[sibling_index]
+        })
+        .collect()
+}
+
 impl<F: RichField, H: Hasher<F>> MerkleTree<F, H> {
     pub fn new(leaves: Vec<Vec<F>>, cap_height: usize) -> Self {
         let log2_leaves_len = log2_strict(leaves.len());
@@ -189,36 +230,8 @@ impl<F: RichField, H: Hasher<F>> MerkleTree<F, H> {
     /// Create a Merkle proof from a leaf index.
     pub fn prove(&self, leaf_index: usize) -> MerkleProof<F, H> {
         let cap_height = log2_strict(self.cap.len());
-        let num_layers = log2_strict(self.leaves.len()) - cap_height;
-        debug_assert_eq!(leaf_index >> (cap_height + num_layers), 0);
-
-        let digest_tree = {
-            let tree_index = leaf_index >> num_layers;
-            let tree_len = self.digests.len() >> cap_height;
-            &self.digests[tree_len * tree_index..tree_len * (tree_index + 1)]
-        };
-
-        // Mask out high bits to get the index within the sub-tree.
-        let mut pair_index = leaf_index & ((1 << num_layers) - 1);
-        let siblings = (0..num_layers)
-            .map(|i| {
-                let parity = pair_index & 1;
-                pair_index >>= 1;
-
-                // The layers' data is interleaved as follows:
-                // [layer 0, layer 1, layer 0, layer 2, layer 0, layer 1, layer 0, layer 3, ...].
-                // Each of the above is a pair of siblings.
-                // `pair_index` is the index of the pair within layer `i`.
-                // The index of that the pair within `digests` is
-                // `pair_index * 2 ** (i + 1) + (2 ** i - 1)`.
-                let siblings_index = (pair_index << (i + 1)) + (1 << i) - 1;
-                // We have an index for the _pair_, but we want the index of the _sibling_.
-                // Double the pair index to get the index of the left sibling. Conditionally add `1`
-                // if we are to retrieve the right sibling.
-                let sibling_index = 2 * siblings_index + (1 - parity);
-                digest_tree[sibling_index]
-            })
-            .collect();
+        let siblings =
+            merkle_tree_prove::<F, H>(leaf_index, self.leaves.len(), cap_height, &self.digests);
 
         MerkleProof { siblings }
     }
