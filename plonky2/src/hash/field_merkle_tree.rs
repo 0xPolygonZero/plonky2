@@ -171,10 +171,6 @@ mod tests {
     use super::*;
     use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
 
-    fn random_data<F: RichField>(n: usize, k: usize) -> Vec<Vec<F>> {
-        (0..n).map(|_| F::rand_vec(k)).collect()
-    }
-
     #[test]
     fn commit_single() -> Result<()> {
         const D: usize = 2;
@@ -204,7 +200,7 @@ mod tests {
         ];
         assert_eq!(mat_1_leaf_hashes[0..2], fmt.digests[0..2]);
         assert_eq!(mat_1_leaf_hashes[2..4], fmt.digests[4..6]);
-        let mut layer_1 = [
+        let layer_1 = [
             H::two_to_one(mat_1_leaf_hashes[0], mat_1_leaf_hashes[1]),
             H::two_to_one(mat_1_leaf_hashes[2], mat_1_leaf_hashes[3]),
         ];
@@ -250,7 +246,7 @@ mod tests {
             H::hash_or_noop(&[F::ZERO, F::ZERO]),
         ];
         assert_eq!(mat_1_leaf_hashes, fmt.digests[0..4]);
-        let mut hidden_layer = [
+        let hidden_layer = [
             H::two_to_one(mat_1_leaf_hashes[0], mat_1_leaf_hashes[1]).to_vec(),
             H::two_to_one(mat_1_leaf_hashes[2], mat_1_leaf_hashes[3]).to_vec(),
         ];
