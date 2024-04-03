@@ -38,9 +38,9 @@ impl<F: RichField, H: Hasher<F>> FieldMerkleTree<F, H> {
     /// The vector of `leaves` should be sorted by height, from tallest to shortest.
     pub fn new(mut leaves: Vec<Vec<Vec<F>>>, cap_height: usize) -> Self {
         assert!(leaves.iter().all(|leaf| leaf.len().is_power_of_two()));
-        assert!(leaves.windows(2).all(|pair| {
-            pair[0].len() > pair[1].len()
-        }));
+        assert!(leaves
+            .windows(2)
+            .all(|pair| { pair[0].len() > pair[1].len() }));
 
         let log2_leaves_len = log2_strict(leaves[0].len());
         assert!(
@@ -68,7 +68,12 @@ impl<F: RichField, H: Hasher<F>> FieldMerkleTree<F, H> {
             if cur.len() == leaves[0].len() {
                 cap = Vec::with_capacity(len_next_cap);
                 let tmp_cap_buf = capacity_up_to_mut(&mut cap, len_next_cap);
-                fill_digests_buf::<F, H>(&mut digests_buf[digests_buf_pos..(digests_buf_pos + num_tmp_digests)], tmp_cap_buf, &cur[..], log2_strict(next.len()));
+                fill_digests_buf::<F, H>(
+                    &mut digests_buf[digests_buf_pos..(digests_buf_pos + num_tmp_digests)],
+                    tmp_cap_buf,
+                    &cur[..],
+                    log2_strict(next.len()),
+                );
             } else {
                 //TODO: try to optimize it?
                 let mut new_leaves: Vec<Vec<F>> = Vec::with_capacity(cur.len());
@@ -79,7 +84,12 @@ impl<F: RichField, H: Hasher<F>> FieldMerkleTree<F, H> {
                 }
                 cap = Vec::with_capacity(len_next_cap);
                 let tmp_cap_buf = capacity_up_to_mut(&mut cap, len_next_cap);
-                fill_digests_buf::<F, H>(&mut digests_buf[digests_buf_pos..(digests_buf_pos + num_tmp_digests)], tmp_cap_buf, &new_leaves[..], log2_strict(next.len()));
+                fill_digests_buf::<F, H>(
+                    &mut digests_buf[digests_buf_pos..(digests_buf_pos + num_tmp_digests)],
+                    tmp_cap_buf,
+                    &new_leaves[..],
+                    log2_strict(next.len()),
+                );
             }
 
             unsafe {
@@ -153,6 +163,7 @@ impl<F: RichField, H: Hasher<F>> FieldMerkleTree<F, H> {
 mod tests {
     #[cfg(not(feature = "std"))]
     use alloc::vec;
+
     use anyhow::Result;
     use plonky2_field::goldilocks_field::GoldilocksField;
     use plonky2_field::types::Field;
@@ -198,7 +209,7 @@ mod tests {
             H::two_to_one(mat_1_leaf_hashes[2], mat_1_leaf_hashes[3]),
         ];
         assert_eq!(layer_1, fmt.digests[2..4]);
-        let root = H::two_to_one(layer_1[0],layer_1[1]);
+        let root = H::two_to_one(layer_1[0], layer_1[1]);
         assert_eq!(fmt.cap.flatten(), root.to_vec());
 
         Ok(())
@@ -228,12 +239,10 @@ mod tests {
         //   1 2 1
         //   0 2 2
         // ]
-        let mat_2 = vec![
-            vec![F::ONE, F::TWO, F::ONE],
-            vec![F::ZERO, F::TWO, F::TWO],
-        ];
+        let mat_2 = vec![vec![F::ONE, F::TWO, F::ONE], vec![F::ZERO, F::TWO, F::TWO]];
 
-        let fmt: FieldMerkleTree<GoldilocksField, H> = FieldMerkleTree::new(vec![mat_1, mat_2.clone()], 0);
+        let fmt: FieldMerkleTree<GoldilocksField, H> =
+            FieldMerkleTree::new(vec![mat_1, mat_2.clone()], 0);
         let mat_1_leaf_hashes = [
             H::hash_or_noop(&[F::ZERO, F::ONE]),
             H::hash_or_noop(&[F::TWO, F::ONE]),
@@ -245,17 +254,21 @@ mod tests {
             H::two_to_one(mat_1_leaf_hashes[0], mat_1_leaf_hashes[1]).to_vec(),
             H::two_to_one(mat_1_leaf_hashes[2], mat_1_leaf_hashes[3]).to_vec(),
         ];
-        let new_leaves = hidden_layer.iter().zip(mat_2.iter()).map(|(row1, row2)| {
-            let mut new_row = row1.clone();
-            new_row.extend_from_slice(row2);
-            new_row
-        }).collect::<Vec<Vec<F>>>();
+        let new_leaves = hidden_layer
+            .iter()
+            .zip(mat_2.iter())
+            .map(|(row1, row2)| {
+                let mut new_row = row1.clone();
+                new_row.extend_from_slice(row2);
+                new_row
+            })
+            .collect::<Vec<Vec<F>>>();
         let layer_1 = [
             H::hash_or_noop(&new_leaves[0]),
             H::hash_or_noop(&new_leaves[1]),
         ];
         assert_eq!(layer_1, fmt.digests[4..]);
-        let root = H::two_to_one(layer_1[0],layer_1[1]);
+        let root = H::two_to_one(layer_1[0], layer_1[1]);
         assert_eq!(fmt.cap.flatten(), root.to_vec());
 
         Ok(())
