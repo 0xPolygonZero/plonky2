@@ -3,6 +3,8 @@ use alloc::vec;
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 
+use itertools::Itertools;
+
 use crate::hash::hash_types::RichField;
 use crate::hash::merkle_proofs::MerkleProof;
 use crate::hash::merkle_tree::{
@@ -22,7 +24,8 @@ pub struct FieldMerkleTree<F: RichField, H: Hasher<F>> {
     /// Represents the roots of the Merkle tree. This allows for using any layer as the root of the tree.
     pub cap: MerkleCap<F, H>,
 
-    cap_heights: Vec<usize>,
+    /// Represents the heights at which leaves reside within the tree.
+    pub leaf_heights: Vec<usize>,
 }
 
 impl<F: RichField, H: Hasher<F>> Default for FieldMerkleTree<F, H> {
@@ -31,7 +34,7 @@ impl<F: RichField, H: Hasher<F>> Default for FieldMerkleTree<F, H> {
             leaves: Vec::new(),
             digests: Vec::new(),
             cap: MerkleCap::default(),
-            cap_heights: Vec::new(),
+            leaf_heights: Vec::new(),
         }
     }
 }
@@ -47,7 +50,8 @@ impl<F: RichField, H: Hasher<F>> FieldMerkleTree<F, H> {
             .windows(2)
             .all(|pair| { pair[0].len() > pair[1].len() }));
 
-        let log2_leaves_len = log2_strict(leaves[0].len());
+        let leaves_len = leaves[0].len();
+        let log2_leaves_len = log2_strict(leaves_len);
         assert!(
             cap_height <= log2_leaves_len,
             "cap_height={} should be at most log2(leaves.len())={}",
@@ -55,9 +59,9 @@ impl<F: RichField, H: Hasher<F>> FieldMerkleTree<F, H> {
             log2_leaves_len
         );
 
-        let mut cap_heights = vec![];
+        let mut leaf_heights = vec![];
 
-        let num_digests = 2 * (leaves[0].len() - (1 << cap_height));
+        let num_digests = 2 * (leaves_len - (1 << cap_height));
         let mut digests = Vec::with_capacity(num_digests);
         let digests_buf = capacity_up_to_mut(&mut digests, num_digests);
         let mut digests_buf_pos = 0;
@@ -69,14 +73,15 @@ impl<F: RichField, H: Hasher<F>> FieldMerkleTree<F, H> {
             let cur = &window[0];
             let next = &window[1];
 
+            let cur_leaf_len = cur.len();
             let next_cap_len = next.len();
             let next_cap_height = log2_strict(next_cap_len);
 
-            cap_heights.push(next_cap_height);
+            leaf_heights.push(log2_strict(cur_leaf_len));
 
-            let num_tmp_digests = 2 * (cur.len() - next_cap_len);
+            let num_tmp_digests = 2 * (cur_leaf_len - next_cap_len);
 
-            if cur.len() == leaves[0].len() {
+            if cur_leaf_len == leaves_len {
                 cap = Vec::with_capacity(next_cap_len);
                 let tmp_cap_buf = capacity_up_to_mut(&mut cap, next_cap_len);
                 fill_digests_buf::<F, H>(
@@ -86,8 +91,8 @@ impl<F: RichField, H: Hasher<F>> FieldMerkleTree<F, H> {
                     next_cap_height,
                 );
             } else {
-                //TODO: try to optimize it?
-                let mut new_leaves: Vec<Vec<F>> = Vec::with_capacity(cur.len());
+                //TODO: how to optimize it?
+                let mut new_leaves: Vec<Vec<F>> = Vec::with_capacity(cur_leaf_len);
                 for (i, cur_leaf) in cur.iter().enumerate() {
                     let mut tmp_leaf = cap[i].to_vec();
                     tmp_leaf.extend_from_slice(cur_leaf);
@@ -120,7 +125,7 @@ impl<F: RichField, H: Hasher<F>> FieldMerkleTree<F, H> {
             leaves,
             digests,
             cap: MerkleCap(cap),
-            cap_heights,
+            leaf_heights,
         }
     }
 
@@ -132,21 +137,35 @@ impl<F: RichField, H: Hasher<F>> FieldMerkleTree<F, H> {
     pub fn open_batch(&self, leaf_index: usize) -> MerkleProof<F, H> {
         let mut digests_buf_pos = 0;
         let leaves_cap_height = log2_strict(self.leaves[0].len());
-        let mut cur_cap_height = leaves_cap_height;
         let mut siblings = vec![];
-        for cap_height in &self.cap_heights {
-            let num_digests: usize = 2 * ((1 << cur_cap_height) - (1 << cap_height));
+        let mut cap_heights = self.leaf_heights.clone();
+        cap_heights.push(log2_strict(self.cap.len()));
+        for window in cap_heights.windows(2) {
+            let cur_cap_height = window[0];
+            let next_cap_height = window[1];
+            let num_digests: usize = 2 * ((1 << cur_cap_height) - (1 << next_cap_height));
             siblings.extend::<Vec<_>>(merkle_tree_prove::<F, H>(
                 leaf_index >> (leaves_cap_height - cur_cap_height),
                 1 << cur_cap_height,
-                *cap_height,
+                next_cap_height,
                 &self.digests[digests_buf_pos..digests_buf_pos + num_digests],
             ));
             digests_buf_pos += num_digests;
-            cur_cap_height = *cap_height;
         }
 
         MerkleProof { siblings }
+    }
+
+    pub fn values(&self, leaf_index: usize) -> Vec<Vec<F>> {
+        let leaves_cap_height = log2_strict(self.leaves[0].len());
+        self.leaves
+            .iter()
+            .zip(&self.leaf_heights)
+            .map(|(leaves, cap_height)| {
+                let res = leaves[leaf_index >> (leaves_cap_height - cap_height)].clone();
+                res
+            })
+            .collect_vec()
     }
 }
 
@@ -160,6 +179,7 @@ mod tests {
     use plonky2_field::types::Field;
 
     use super::*;
+    use crate::hash::merkle_proofs::verify_field_merkle_proof_to_cap;
     use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
 
     #[test]
@@ -201,6 +221,9 @@ mod tests {
 
         let proof = fmt.open_batch(2);
         assert_eq!(proof.siblings, [mat_1_leaf_hashes[3], layer_1[0]]);
+
+        let opened_values = fmt.values(2);
+        assert_eq!(opened_values, [vec![F::TWO, F::TWO]]);
 
         Ok(())
     }
@@ -263,6 +286,14 @@ mod tests {
 
         let proof = fmt.open_batch(1);
         assert_eq!(proof.siblings, [mat_1_leaf_hashes[0], layer_1[1]]);
+
+        let opened_values = fmt.values(1);
+        assert_eq!(
+            opened_values,
+            [vec![F::TWO, F::ONE], vec![F::ONE, F::TWO, F::ONE]]
+        );
+
+        verify_field_merkle_proof_to_cap(opened_values, fmt.leaf_heights, 1, &fmt.cap, &proof)?;
 
         Ok(())
     }
