@@ -135,7 +135,7 @@ impl<F: RichField, H: Hasher<F>> FieldMerkleTree<F, H> {
         let mut cur_cap_height = leaves_cap_height;
         let mut siblings = vec![];
         for cap_height in &self.cap_heights {
-            let num_digests = 2 * ((1 << cur_cap_height) - (1 - cap_height));
+            let num_digests: usize = 2 * ((1 << cur_cap_height) - (1 << cap_height));
             siblings.extend::<Vec<_>>(merkle_tree_prove::<F, H>(
                 leaf_index >> (leaves_cap_height - cur_cap_height),
                 1 << cur_cap_height,
@@ -199,7 +199,8 @@ mod tests {
         let root = H::two_to_one(layer_1[0], layer_1[1]);
         assert_eq!(fmt.cap.flatten(), root.to_vec());
 
-        let _ = fmt.open_batch(2);
+        let proof = fmt.open_batch(2);
+        assert_eq!(proof.siblings, [mat_1_leaf_hashes[3], layer_1[0]]);
 
         Ok(())
     }
@@ -259,6 +260,9 @@ mod tests {
         assert_eq!(layer_1, fmt.digests[4..]);
         let root = H::two_to_one(layer_1[0], layer_1[1]);
         assert_eq!(fmt.cap.flatten(), root.to_vec());
+
+        let proof = fmt.open_batch(1);
+        assert_eq!(proof.siblings, [mat_1_leaf_hashes[0], layer_1[1]]);
 
         Ok(())
     }
