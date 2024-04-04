@@ -79,8 +79,8 @@ pub fn verify_merkle_proof_to_cap<F: RichField, H: Hasher<F>>(
 /// Verifies that the given leaf data is present at the given index in the Field Merkle tree with the
 /// given cap.
 pub fn verify_field_merkle_proof_to_cap<F: RichField, H: Hasher<F>>(
-    leaf_data: Vec<Vec<F>>,
-    leaf_heights: Vec<usize>,
+    leaf_data: &[Vec<F>],
+    leaf_heights: &[usize],
     mut leaf_index: usize,
     merkle_cap: &MerkleCap<F, H>,
     proof: &MerkleProof<F, H>,

@@ -238,7 +238,7 @@ impl<F: RichField, H: Hasher<F>> MerkleTree<F, H> {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use anyhow::Result;
 
     use super::*;
@@ -246,7 +246,7 @@ mod tests {
     use crate::hash::merkle_proofs::verify_merkle_proof_to_cap;
     use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
 
-    fn random_data<F: RichField>(n: usize, k: usize) -> Vec<Vec<F>> {
+    pub(crate) fn random_data<F: RichField>(n: usize, k: usize) -> Vec<Vec<F>> {
         (0..n).map(|_| F::rand_vec(k)).collect()
     }
 

@@ -162,8 +162,7 @@ impl<F: RichField, H: Hasher<F>> FieldMerkleTree<F, H> {
             .iter()
             .zip(&self.leaf_heights)
             .map(|(leaves, cap_height)| {
-                let res = leaves[leaf_index >> (leaves_cap_height - cap_height)].clone();
-                res
+                leaves[leaf_index >> (leaves_cap_height - cap_height)].clone()
             })
             .collect_vec()
     }
@@ -182,13 +181,13 @@ mod tests {
     use crate::hash::merkle_proofs::verify_field_merkle_proof_to_cap;
     use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
 
+    const D: usize = 2;
+    type C = PoseidonGoldilocksConfig;
+    type F = <C as GenericConfig<D>>::F;
+    type H = <C as GenericConfig<D>>::Hasher;
+
     #[test]
     fn commit_single() -> Result<()> {
-        const D: usize = 2;
-        type C = PoseidonGoldilocksConfig;
-        type F = <C as GenericConfig<D>>::F;
-        type H = <C as GenericConfig<D>>::Hasher;
-
         // mat_1 = [
         //   0 1
         //   2 1
@@ -201,8 +200,8 @@ mod tests {
             vec![F::TWO, F::TWO],
             vec![F::ZERO, F::ZERO],
         ];
-
         let fmt: FieldMerkleTree<GoldilocksField, H> = FieldMerkleTree::new(vec![mat_1], 0);
+
         let mat_1_leaf_hashes = [
             H::hash_or_noop(&[F::ZERO, F::ONE]),
             H::hash_or_noop(&[F::TWO, F::ONE]),
@@ -211,11 +210,13 @@ mod tests {
         ];
         assert_eq!(mat_1_leaf_hashes[0..2], fmt.digests[0..2]);
         assert_eq!(mat_1_leaf_hashes[2..4], fmt.digests[4..6]);
+
         let layer_1 = [
             H::two_to_one(mat_1_leaf_hashes[0], mat_1_leaf_hashes[1]),
             H::two_to_one(mat_1_leaf_hashes[2], mat_1_leaf_hashes[3]),
         ];
         assert_eq!(layer_1, fmt.digests[2..4]);
+
         let root = H::two_to_one(layer_1[0], layer_1[1]);
         assert_eq!(fmt.cap.flatten(), root.to_vec());
 
@@ -225,16 +226,12 @@ mod tests {
         let opened_values = fmt.values(2);
         assert_eq!(opened_values, [vec![F::TWO, F::TWO]]);
 
+        verify_field_merkle_proof_to_cap(&opened_values, &fmt.leaf_heights, 2, &fmt.cap, &proof)?;
         Ok(())
     }
 
     #[test]
     fn commit_mixed() -> Result<()> {
-        const D: usize = 2;
-        type C = PoseidonGoldilocksConfig;
-        type F = <C as GenericConfig<D>>::F;
-        type H = <C as GenericConfig<D>>::Hasher;
-
         // mat_1 = [
         //   0 1
         //   2 1
@@ -256,6 +253,7 @@ mod tests {
 
         let fmt: FieldMerkleTree<GoldilocksField, H> =
             FieldMerkleTree::new(vec![mat_1, mat_2.clone()], 0);
+
         let mat_1_leaf_hashes = [
             H::hash_or_noop(&[F::ZERO, F::ONE]),
             H::hash_or_noop(&[F::TWO, F::ONE]),
@@ -263,6 +261,7 @@ mod tests {
             H::hash_or_noop(&[F::ZERO, F::ZERO]),
         ];
         assert_eq!(mat_1_leaf_hashes, fmt.digests[0..4]);
+
         let hidden_layer = [
             H::two_to_one(mat_1_leaf_hashes[0], mat_1_leaf_hashes[1]).to_vec(),
             H::two_to_one(mat_1_leaf_hashes[2], mat_1_leaf_hashes[3]).to_vec(),
@@ -281,6 +280,7 @@ mod tests {
             H::hash_or_noop(&new_leaves[1]),
         ];
         assert_eq!(layer_1, fmt.digests[4..]);
+
         let root = H::two_to_one(layer_1[0], layer_1[1]);
         assert_eq!(fmt.cap.flatten(), root.to_vec());
 
@@ -293,7 +293,29 @@ mod tests {
             [vec![F::TWO, F::ONE], vec![F::ONE, F::TWO, F::ONE]]
         );
 
-        verify_field_merkle_proof_to_cap(opened_values, fmt.leaf_heights, 1, &fmt.cap, &proof)?;
+        verify_field_merkle_proof_to_cap(&opened_values, &fmt.leaf_heights, 1, &fmt.cap, &proof)?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_field_merkle_trees() -> Result<()> {
+        let leaves_1 = crate::hash::merkle_tree::tests::random_data::<F>(1024, 7);
+        let leaves_2 = crate::hash::merkle_tree::tests::random_data::<F>(64, 3);
+        let leaves_3 = crate::hash::merkle_tree::tests::random_data::<F>(32, 100);
+
+        let fmt: FieldMerkleTree<GoldilocksField, H> =
+            FieldMerkleTree::new(vec![leaves_1, leaves_2, leaves_3], 3);
+        for index in [0, 1023, 512, 255] {
+            let proof = fmt.open_batch(index);
+            let opened_values = fmt.values(index);
+            verify_field_merkle_proof_to_cap(
+                &opened_values,
+                &fmt.leaf_heights,
+                index,
+                &fmt.cap,
+                &proof,
+            )?;
+        }
 
         Ok(())
     }
