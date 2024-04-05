@@ -4,8 +4,9 @@ use alloc::vec;
 use alloc::vec::Vec;
 
 use itertools::Itertools;
+use plonky2_maybe_rayon::*;
 
-use crate::hash::hash_types::RichField;
+use crate::hash::hash_types::{RichField, NUM_HASH_OUT_ELTS};
 use crate::hash::merkle_proofs::MerkleProof;
 use crate::hash::merkle_tree::{
     capacity_up_to_mut, fill_digests_buf, merkle_tree_prove, MerkleCap,
@@ -94,13 +95,16 @@ impl<F: RichField, H: Hasher<F>> FieldMerkleTree<F, H> {
                 );
             } else {
                 // The rest leaf layers
-                //TODO: how to optimize it?
-                let mut new_leaves: Vec<Vec<F>> = Vec::with_capacity(cur_leaf_len);
-                for (i, cur_leaf) in cur.iter().enumerate() {
-                    let mut tmp_leaf = cap[i].to_vec();
-                    tmp_leaf.extend_from_slice(cur_leaf);
-                    new_leaves.push(tmp_leaf);
-                }
+                let new_leaves: Vec<Vec<F>> = cap
+                    .par_iter()
+                    .enumerate()
+                    .map(|(i, cap_hash)| {
+                        let mut new_hash = Vec::with_capacity(NUM_HASH_OUT_ELTS + cur[i].len());
+                        new_hash.extend(&cap_hash.to_vec()); // Or directly use extend
+                        new_hash.extend(&cur[i]);
+                        new_hash
+                    })
+                    .collect();
                 cap.clear();
                 cap.reserve_exact(next_cap_len);
                 let tmp_cap_buf = capacity_up_to_mut(&mut cap, next_cap_len);
