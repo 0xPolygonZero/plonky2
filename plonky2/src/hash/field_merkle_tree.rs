@@ -100,7 +100,7 @@ impl<F: RichField, H: Hasher<F>> FieldMerkleTree<F, H> {
                     .enumerate()
                     .map(|(i, cap_hash)| {
                         let mut new_hash = Vec::with_capacity(NUM_HASH_OUT_ELTS + cur[i].len());
-                        new_hash.extend(&cap_hash.to_vec()); // Or directly use extend
+                        new_hash.extend(&cap_hash.to_vec());
                         new_hash.extend(&cur[i]);
                         new_hash
                     })
