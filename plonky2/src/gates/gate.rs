@@ -265,8 +265,11 @@ impl<T: Gate<F, D>, F: RichField + Extendable<D>, const D: usize> AnyGate<F, D> 
 }
 
 /// A wrapper around an `Arc<AnyGate>` which implements `PartialEq`, `Eq` and `Hash` based on gate IDs.
-#[derive(Clone)]
-pub struct GateRef<F: RichField + Extendable<D>, const D: usize>(pub Arc<dyn AnyGate<F, D>>);
+#[derive(Clone, derivative::Derivative)]
+#[derivative(Eq)]
+pub struct GateRef<F: RichField + Extendable<D>, const D: usize>(
+    #[derivative(Eq(bound = ""))] pub Arc<dyn AnyGate<F, D>>,
+);
 
 impl<F: RichField + Extendable<D>, const D: usize> GateRef<F, D> {
     pub fn new<G: Gate<F, D>>(gate: G) -> GateRef<F, D> {
@@ -285,8 +288,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Hash for GateRef<F, D> {
         self.0.id().hash(state)
     }
 }
-
-impl<F: RichField + Extendable<D>, const D: usize> Eq for GateRef<F, D> {}
 
 impl<F: RichField + Extendable<D>, const D: usize> Debug for GateRef<F, D> {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {

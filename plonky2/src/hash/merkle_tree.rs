@@ -15,14 +15,10 @@ use crate::util::log2_strict;
 /// It can be used in place of the root to verify Merkle paths, which are `h` elements shorter.
 #[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
 #[serde(bound = "")]
+#[derive(derivative::Derivative)]
+#[derivative(Default)]
 // TODO: Change H to GenericHashOut<F>, since this only cares about the hash, not the hasher.
 pub struct MerkleCap<F: RichField, H: Hasher<F>>(pub Vec<H::Hash>);
-
-impl<F: RichField, H: Hasher<F>> Default for MerkleCap<F, H> {
-    fn default() -> Self {
-        Self(Vec::new())
-    }
-}
 
 impl<F: RichField, H: Hasher<F>> MerkleCap<F, H> {
     pub fn len(&self) -> usize {
@@ -42,7 +38,8 @@ impl<F: RichField, H: Hasher<F>> MerkleCap<F, H> {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, derivative::Derivative)]
+#[derivative(Default(bound = ""))]
 pub struct MerkleTree<F: RichField, H: Hasher<F>> {
     /// The data in the leaves of the Merkle tree.
     pub leaves: Vec<Vec<F>>,
@@ -59,16 +56,6 @@ pub struct MerkleTree<F: RichField, H: Hasher<F>> {
 
     /// The Merkle cap.
     pub cap: MerkleCap<F, H>,
-}
-
-impl<F: RichField, H: Hasher<F>> Default for MerkleTree<F, H> {
-    fn default() -> Self {
-        Self {
-            leaves: Vec::new(),
-            digests: Vec::new(),
-            cap: MerkleCap::default(),
-        }
-    }
 }
 
 fn capacity_up_to_mut<T>(v: &mut Vec<T>, len: usize) -> &mut [MaybeUninit<T>] {

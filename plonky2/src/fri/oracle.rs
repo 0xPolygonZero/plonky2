@@ -26,7 +26,8 @@ use crate::util::{log2_strict, reverse_bits, reverse_index_bits_in_place, transp
 pub const SALT_SIZE: usize = 4;
 
 /// Represents a FRI oracle, i.e. a batch of polynomials which have been Merklized.
-#[derive(Eq, PartialEq, Debug)]
+#[derive(Eq, PartialEq, Debug, derivative::Derivative)]
+#[derivative(Default)]
 pub struct PolynomialBatch<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 {
     pub polynomials: Vec<PolynomialCoeffs<F>>,
@@ -34,20 +35,6 @@ pub struct PolynomialBatch<F: RichField + Extendable<D>, C: GenericConfig<D, F =
     pub degree_log: usize,
     pub rate_bits: usize,
     pub blinding: bool,
-}
-
-impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> Default
-    for PolynomialBatch<F, C, D>
-{
-    fn default() -> Self {
-        PolynomialBatch {
-            polynomials: Vec::new(),
-            merkle_tree: MerkleTree::default(),
-            degree_log: 0,
-            rate_bits: 0,
-            blinding: false,
-        }
-    }
 }
 
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
