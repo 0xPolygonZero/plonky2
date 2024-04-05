@@ -43,6 +43,7 @@ impl<F: RichField, H: Hasher<F>> FieldMerkleTree<F, H> {
     /// Each element in the `leaves` vector represents a matrix (a vector of vectors).
     /// The height of each matrix should be a power of two.
     /// The `leaves` vector should be sorted by matrix height, from tallest to shortest, with no duplicate heights.
+    // TODO: FieldMerkleTree does not handle duplicates; this is deferred to the caller.  Revisit when implementing catch FRI to potentially optimize.
     pub fn new(mut leaves: Vec<Vec<Vec<F>>>, cap_height: usize) -> Self {
         assert!(!leaves.is_empty());
         assert!(leaves.iter().all(|leaf| leaf.len().is_power_of_two()));
