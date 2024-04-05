@@ -5,7 +5,7 @@ use alloc::vec::Vec;
 
 use itertools::Itertools;
 
-use crate::hash::hash_types::RichField;
+use crate::hash::hash_types::{RichField, NUM_HASH_OUT_ELTS};
 use crate::hash::merkle_proofs::MerkleProof;
 use crate::hash::merkle_tree::{
     capacity_up_to_mut, fill_digests_buf, merkle_tree_prove, MerkleCap,
@@ -43,6 +43,7 @@ impl<F: RichField, H: Hasher<F>> FieldMerkleTree<F, H> {
     /// Each element in the `leaves` vector represents a matrix (a vector of vectors).
     /// The height of each matrix should be a power of two.
     /// The `leaves` vector should be sorted by matrix height, from tallest to shortest, with no duplicate heights.
+    // TODO: FieldMerkleTree does not handle duplicates; this is deferred to the caller.  Revisit when implementing batch FRI to potentially optimize.
     pub fn new(mut leaves: Vec<Vec<Vec<F>>>, cap_height: usize) -> Self {
         assert!(!leaves.is_empty());
         assert!(leaves.iter().all(|leaf| leaf.len().is_power_of_two()));
@@ -82,6 +83,7 @@ impl<F: RichField, H: Hasher<F>> FieldMerkleTree<F, H> {
             let num_tmp_digests = 2 * (cur_leaf_len - next_cap_len);
 
             if cur_leaf_len == leaves_len {
+                // The bottom leaf layer
                 cap = Vec::with_capacity(next_cap_len);
                 let tmp_cap_buf = capacity_up_to_mut(&mut cap, next_cap_len);
                 fill_digests_buf::<F, H>(
@@ -91,14 +93,19 @@ impl<F: RichField, H: Hasher<F>> FieldMerkleTree<F, H> {
                     next_cap_height,
                 );
             } else {
-                //TODO: how to optimize it?
-                let mut new_leaves: Vec<Vec<F>> = Vec::with_capacity(cur_leaf_len);
-                for (i, cur_leaf) in cur.iter().enumerate() {
-                    let mut tmp_leaf = cap[i].to_vec();
-                    tmp_leaf.extend_from_slice(cur_leaf);
-                    new_leaves.push(tmp_leaf);
-                }
-                cap = Vec::with_capacity(next_cap_len);
+                // The rest leaf layers
+                let new_leaves: Vec<Vec<F>> = cap
+                    .iter()
+                    .enumerate()
+                    .map(|(i, cap_hash)| {
+                        let mut new_hash = Vec::with_capacity(NUM_HASH_OUT_ELTS + cur[i].len());
+                        new_hash.extend(&cap_hash.to_vec());
+                        new_hash.extend(&cur[i]);
+                        new_hash
+                    })
+                    .collect();
+                cap.clear();
+                cap.reserve_exact(next_cap_len);
                 let tmp_cap_buf = capacity_up_to_mut(&mut cap, next_cap_len);
                 fill_digests_buf::<F, H>(
                     &mut digests_buf[digests_buf_pos..(digests_buf_pos + num_tmp_digests)],
