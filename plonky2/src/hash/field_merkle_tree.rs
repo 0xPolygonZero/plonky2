@@ -83,6 +83,7 @@ impl<F: RichField, H: Hasher<F>> FieldMerkleTree<F, H> {
             let num_tmp_digests = 2 * (cur_leaf_len - next_cap_len);
 
             if cur_leaf_len == leaves_len {
+                // The bottom leaf layer
                 cap = Vec::with_capacity(next_cap_len);
                 let tmp_cap_buf = capacity_up_to_mut(&mut cap, next_cap_len);
                 fill_digests_buf::<F, H>(
@@ -92,6 +93,7 @@ impl<F: RichField, H: Hasher<F>> FieldMerkleTree<F, H> {
                     next_cap_height,
                 );
             } else {
+                // The rest leaf layers
                 //TODO: how to optimize it?
                 let mut new_leaves: Vec<Vec<F>> = Vec::with_capacity(cur_leaf_len);
                 for (i, cur_leaf) in cur.iter().enumerate() {
@@ -99,7 +101,8 @@ impl<F: RichField, H: Hasher<F>> FieldMerkleTree<F, H> {
                     tmp_leaf.extend_from_slice(cur_leaf);
                     new_leaves.push(tmp_leaf);
                 }
-                cap = Vec::with_capacity(next_cap_len);
+                cap.clear();
+                cap.reserve_exact(next_cap_len);
                 let tmp_cap_buf = capacity_up_to_mut(&mut cap, next_cap_len);
                 fill_digests_buf::<F, H>(
                     &mut digests_buf[digests_buf_pos..(digests_buf_pos + num_tmp_digests)],
