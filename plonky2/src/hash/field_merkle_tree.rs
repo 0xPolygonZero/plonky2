@@ -136,10 +136,6 @@ impl<F: RichField, H: Hasher<F>> FieldMerkleTree<F, H> {
         }
     }
 
-    pub fn get(&self, table_index: usize, leaf_index: usize) -> &[F] {
-        &self.leaves[table_index][leaf_index]
-    }
-
     /// Create a Merkle proof from a leaf index.
     pub fn open_batch(&self, leaf_index: usize) -> MerkleProof<F, H> {
         let mut digests_buf_pos = 0;
