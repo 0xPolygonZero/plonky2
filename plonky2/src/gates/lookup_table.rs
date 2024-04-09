@@ -6,7 +6,6 @@ use alloc::{
     vec,
     vec::Vec,
 };
-use core::usize;
 #[cfg(feature = "std")]
 use std::sync::Arc;
 

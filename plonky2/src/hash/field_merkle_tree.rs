@@ -13,7 +13,7 @@ use crate::hash::merkle_tree::{
 use crate::plonk::config::{GenericHashOut, Hasher};
 use crate::util::log2_strict;
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct FieldMerkleTree<F: RichField, H: Hasher<F>> {
     /// The data stored in the Merkle tree leaves.
     pub leaves: Vec<Vec<Vec<F>>>,
@@ -26,17 +26,6 @@ pub struct FieldMerkleTree<F: RichField, H: Hasher<F>> {
 
     /// Represents the heights at which leaves reside within the tree.
     pub leaf_heights: Vec<usize>,
-}
-
-impl<F: RichField, H: Hasher<F>> Default for FieldMerkleTree<F, H> {
-    fn default() -> Self {
-        Self {
-            leaves: Vec::new(),
-            digests: Vec::new(),
-            cap: MerkleCap::default(),
-            leaf_heights: Vec::new(),
-        }
-    }
 }
 
 impl<F: RichField, H: Hasher<F>> FieldMerkleTree<F, H> {
