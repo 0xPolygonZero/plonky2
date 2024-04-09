@@ -56,8 +56,6 @@ pub fn verify_stark_proof_circuit<
         proof_with_pis.get_challenges::<F, C>(builder, &mut challenger, None, false, inner_config)
     );
 
-    builder.constant_hash()
-
     verify_stark_proof_with_challenges_circuit::<F, C, S, D>(
         builder,
         &stark,
