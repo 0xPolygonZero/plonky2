@@ -62,7 +62,7 @@ pub fn fri_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const
     }
 }
 
-type FriCommitedTrees<F, C, const D: usize> = (
+pub(crate) type FriCommitedTrees<F, C, const D: usize> = (
     Vec<MerkleTree<F, <C as GenericConfig<D>>::Hasher>>,
     PolynomialCoeffs<<F as Extendable<D>>::Extension>,
 );

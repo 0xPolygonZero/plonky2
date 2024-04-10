@@ -3,40 +3,46 @@ use alloc::vec;
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 
+use plonky2_field::extension::flatten;
 use plonky2_maybe_rayon::*;
+use plonky2_util::reverse_index_bits_in_place;
 
 use crate::field::extension::{unflatten, Extendable};
 use crate::field::polynomial::{PolynomialCoeffs, PolynomialValues};
 use crate::fri::proof::{FriInitialTreeProof, FriProof, FriQueryRound, FriQueryStep};
-use crate::fri::prover::{fri_committed_trees, fri_proof_of_work};
+use crate::fri::prover::fri_proof_of_work;
 use crate::fri::FriParams;
 use crate::hash::field_merkle_tree::FieldMerkleTree;
 use crate::hash::hash_types::RichField;
 use crate::hash::merkle_tree::MerkleTree;
 use crate::iop::challenger::Challenger;
 use crate::plonk::config::GenericConfig;
+use crate::plonk::plonk_common::reduce_with_powers;
 use crate::timed;
 use crate::util::timing::TimingTree;
 
 /// Builds a batch FRI proof.
 pub fn batch_fri_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
     initial_merkle_trees: &FieldMerkleTree<F, C::Hasher>,
-    // Coefficients of the polynomial on which the LDT is performed. Only the first `1/rate` coefficients are non-zero.
-    lde_polynomial_coeffs: PolynomialCoeffs<F::Extension>,
-    // Evaluation of the polynomial on the large domain.
+    lde_polynomial_coeffs: &mut Vec<PolynomialCoeffs<F::Extension>>,
+    // lde_polynomial_values: &mut Vec<PolynomialValues<F::Extension>>,
     lde_polynomial_values: PolynomialValues<F::Extension>,
     challenger: &mut Challenger<F, C::Hasher>,
     fri_params: &FriParams,
     timing: &mut TimingTree,
 ) -> FriProof<F, C::Hasher, D> {
     let n = lde_polynomial_values.len();
-    assert_eq!(lde_polynomial_coeffs.len(), n);
+    assert_eq!(lde_polynomial_coeffs[0].len(), n);
+    // The polynomial vectors should be sorted by degree, from largest to smallest, with no duplicate degrees.
+    assert!(lde_polynomial_coeffs
+        .windows(2)
+        .all(|pair| { pair[0].len() > pair[1].len() }));
 
     // Commit phase
     let (trees, final_coeffs) = timed!(
         timing,
         "fold codewords in the commitment phase",
-        fri_committed_trees::<F, C, D>(
+        batch_fri_committed_trees::<F, C, D>(
             lde_polynomial_coeffs,
             lde_polynomial_values,
             challenger,
@@ -66,6 +72,75 @@ pub fn batch_fri_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>,
         final_poly: final_coeffs,
         pow_witness,
     }
+}
+
+pub(crate) fn batch_fri_committed_trees<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
+    coeffs: &mut Vec<PolynomialCoeffs<F::Extension>>,
+    mut values: PolynomialValues<F::Extension>,
+    challenger: &mut Challenger<F, C::Hasher>,
+    fri_params: &FriParams,
+) -> crate::fri::prover::FriCommitedTrees<F, C, D> {
+    let mut trees = Vec::with_capacity(fri_params.reduction_arity_bits.len());
+    let mut shift = F::MULTIPLICATIVE_GROUP_GENERATOR;
+    let mut polynomial_index = 0;
+    let mut final_coeffs = PolynomialCoeffs { coeffs: vec![] };
+    // let mut final_values = PolynomialValues::new(vec![F::Extension::ZERO; next_fold_degree]);
+    // let mut beta = F::Extension::ONE;
+    for arity_bits in &fri_params.reduction_arity_bits {
+        let arity = 1 << arity_bits;
+
+        // if next_fold_degree == degree {
+        //     final_values.add_assign_scaled(&values[polynomial_index], beta * beta);
+        // }
+
+        reverse_index_bits_in_place(&mut values.values);
+        let chunked_values = values
+            .values
+            .par_chunks(arity)
+            .map(|chunk: &[F::Extension]| flatten(chunk))
+            .collect();
+        let tree = MerkleTree::<F, C::Hasher>::new(chunked_values, fri_params.config.cap_height);
+
+        challenger.observe_cap(&tree.cap);
+        trees.push(tree);
+
+        let beta = challenger.get_extension_challenge::<D>();
+        // P(x) = sum_{i<r} x^i * P_i(x^r) becomes sum_{i<r} beta^i * P_i(x).
+        final_coeffs = PolynomialCoeffs::new(
+            final_coeffs
+                .coeffs
+                .par_chunks_exact(arity)
+                .map(|chunk| reduce_with_powers(chunk, beta))
+                .collect::<Vec<_>>(),
+        );
+        if final_coeffs.len() == coeffs[polynomial_index].len() {
+            final_coeffs = PolynomialCoeffs::new(
+                final_coeffs
+                    .coeffs
+                    .iter()
+                    .zip(&coeffs[polynomial_index].coeffs)
+                    .map(|(&f, &c)| f * beta + c)
+                    .collect::<Vec<_>>(),
+            );
+            polynomial_index += 1;
+        }
+
+        shift = shift.exp_u64(arity as u64);
+        values = final_coeffs.coset_fft(shift.into());
+    }
+    assert_eq!(polynomial_index, coeffs.len());
+
+    // The coefficients being removed here should always be zero.
+    final_coeffs
+        .coeffs
+        .truncate(final_coeffs.len() >> fri_params.config.rate_bits);
+
+    challenger.observe_extension_elements(&final_coeffs.coeffs);
+    (trees, final_coeffs)
 }
 
 fn batch_fri_prover_query_rounds<
