@@ -1,12 +1,15 @@
 use anyhow::ensure;
-use plonky2_field::extension::{Extendable, FieldExtension, flatten};
+use plonky2_field::extension::{flatten, Extendable, FieldExtension};
 use plonky2_field::types::Field;
 use plonky2_util::log2_strict;
-use crate::fri::FriParams;
+
 use crate::fri::proof::{FriChallenges, FriInitialTreeProof, FriProof, FriQueryRound};
 use crate::fri::structure::{FriBatchInfo, FriInstanceInfo, FriOpenings};
 use crate::fri::validate_shape::{validate_batch_fri_proof_shape, validate_fri_proof_shape};
-use crate::fri::verifier::{compute_evaluation, fri_combine_initial, fri_verify_proof_of_work, PrecomputedReducedOpenings};
+use crate::fri::verifier::{
+    compute_evaluation, fri_combine_initial, fri_verify_proof_of_work, PrecomputedReducedOpenings,
+};
+use crate::fri::FriParams;
 use crate::hash::hash_types::RichField;
 use crate::hash::merkle_proofs::{verify_field_merkle_proof_to_cap, verify_merkle_proof_to_cap};
 use crate::hash::merkle_tree::MerkleCap;

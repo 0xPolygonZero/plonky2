@@ -94,7 +94,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
                 reverse_index_bits_in_place(&mut leaf_group);
                 leaves.push(leaf_group);
 
-                group_start = i;
+                group_start = i + 1;
             }
         }
 

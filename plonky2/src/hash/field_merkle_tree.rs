@@ -117,6 +117,9 @@ impl<F: RichField, H: Hasher<F>> FieldMerkleTree<F, H> {
             digests.set_len(num_digests);
         }
 
+        // remove dummy leaves
+        leaves.pop();
+
         Self {
             leaves,
             digests,
