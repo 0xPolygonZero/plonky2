@@ -117,7 +117,8 @@ pub(crate) fn batch_fri_committed_trees<
                 .map(|chunk| reduce_with_powers(chunk, beta))
                 .collect::<Vec<_>>(),
         );
-        if polynomial_index != coeffs.len() && final_coeffs.len() == coeffs[polynomial_index].len() {
+        if polynomial_index != coeffs.len() && final_coeffs.len() == coeffs[polynomial_index].len()
+        {
             final_coeffs = PolynomialCoeffs::new(
                 final_coeffs
                     .coeffs
