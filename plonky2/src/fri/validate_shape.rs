@@ -71,9 +71,9 @@ pub(crate) fn validate_batch_fri_proof_shape<F, C, const D: usize>(
     instance: &[FriInstanceInfo<F, D>],
     params: &FriParams,
 ) -> anyhow::Result<()>
-    where
-        F: RichField + Extendable<D>,
-        C: GenericConfig<D, F = F>,
+where
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
 {
     let FriProof {
         commit_phase_merkle_caps,

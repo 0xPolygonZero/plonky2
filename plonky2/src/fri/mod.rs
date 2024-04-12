@@ -10,7 +10,9 @@ use serde::Serialize;
 
 use crate::fri::reduction_strategies::FriReductionStrategy;
 
+pub mod batch_oracle;
 pub mod batch_prover;
+pub mod batch_verifier;
 mod challenges;
 pub mod oracle;
 pub mod proof;
@@ -21,7 +23,6 @@ pub mod structure;
 mod validate_shape;
 pub mod verifier;
 pub mod witness_util;
-pub mod batch_verifier;
 
 /// A configuration for the FRI protocol.
 #[derive(Debug, Clone, Eq, PartialEq, Serialize)]
