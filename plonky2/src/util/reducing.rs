@@ -24,7 +24,7 @@ use crate::plonk::circuit_builder::CircuitBuilder;
 #[derive(Debug, Clone)]
 pub struct ReducingFactor<F: Field> {
     base: F,
-    count: u64,
+    pub count: u64,
 }
 
 impl<F: Field> ReducingFactor<F> {

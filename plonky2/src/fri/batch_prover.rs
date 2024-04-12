@@ -208,3 +208,161 @@ fn batch_fri_prover_query_round<
         steps: query_steps,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    #[cfg(not(feature = "std"))]
+    use alloc::vec;
+
+    use anyhow::{ensure, Result};
+    use itertools::Itertools;
+    use log::info;
+    use plonky2_field::extension::quadratic::QuadraticExtension;
+    use plonky2_field::goldilocks_field::GoldilocksField;
+    use plonky2_field::ops::Square;
+    use plonky2_field::types::{Field, Field64, Sample};
+    use plonky2_util::log2_strict;
+
+    use super::*;
+    use crate::field::extension::{Extendable, FieldExtension};
+    use crate::fri::oracle::PolynomialBatch;
+    use crate::fri::prover::fri_proof;
+    use crate::fri::reduction_strategies::FriReductionStrategy;
+    use crate::fri::structure::{
+        FriBatchInfo, FriInstanceInfo, FriOpeningBatch, FriOpenings, FriOracleInfo,
+        FriPolynomialInfo,
+    };
+    use crate::fri::verifier::verify_fri_proof;
+    use crate::fri::FriConfig;
+    use crate::hash::merkle_proofs::verify_field_merkle_proof_to_cap;
+    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
+    use crate::util::reducing::ReducingFactor;
+
+    const D: usize = 2;
+
+    type C = PoseidonGoldilocksConfig;
+    type F = <C as GenericConfig<D>>::F;
+    type H = <C as GenericConfig<D>>::Hasher;
+
+    #[test]
+    fn batch_fri_prove() -> Result<()> {
+        let _ = env_logger::builder().format_timestamp(None).try_init();
+
+        let mut timing = TimingTree::default();
+
+        let k0 = 9;
+        let k1 = 8;
+        let k2 = 6;
+        let reduction_arity_bits = vec![1, 2, 1];
+        let fri_params = FriParams {
+            config: FriConfig {
+                rate_bits: 1,
+                cap_height: 5,
+                proof_of_work_bits: 0,
+                reduction_strategy: FriReductionStrategy::Fixed(reduction_arity_bits.clone()),
+                num_query_rounds: 10,
+            },
+            hiding: false,
+            degree_bits: k0,
+            reduction_arity_bits,
+        };
+
+        let n0 = 1 << k0;
+        let n1 = 1 << k1;
+        let n2 = 1 << k2;
+        let trace00 =
+            PolynomialValues::new((1..n0 + 1).map(|i| F::from_canonical_i64(i)).collect_vec());
+        // let trace01 = PolynomialCoeffs::new(F::rand_vec(n0));
+        // let trace1 = PolynomialCoeffs::new(F::rand_vec(n1));
+        // let trace2 = PolynomialCoeffs::new(F::rand_vec(n2));
+
+        let polynomial_batch: PolynomialBatch<GoldilocksField, C, D> = PolynomialBatch::from_values(
+            vec![trace00.clone()],
+            fri_params.config.rate_bits,
+            fri_params.hiding,
+            fri_params.config.cap_height,
+            &mut timing,
+            None,
+        );
+        let poly = &polynomial_batch.polynomials[0];
+        let mut challenger = Challenger::<F, H>::new();
+        challenger.observe_cap(&polynomial_batch.merkle_tree.cap);
+        let _alphas = challenger.get_n_challenges(2);
+        let zeta = challenger.get_extension_challenge::<D>();
+        let g = F::primitive_root_of_unity(k0);
+        let zeta_next =
+            <QuadraticExtension<GoldilocksField> as FieldExtension<D>>::scalar_mul(&zeta, g);
+        challenger.observe_extension_element::<D>(&poly.to_extension::<D>().eval(zeta));
+        challenger.observe_extension_element::<D>(&poly.to_extension::<D>().eval(zeta_next));
+        let mut verfier_challenger = challenger.clone();
+
+        let fri_instance: FriInstanceInfo<F, D> = FriInstanceInfo {
+            oracles: vec![FriOracleInfo {
+                num_polys: 1,
+                blinding: false,
+            }],
+            batches: vec![
+                FriBatchInfo {
+                    point: zeta,
+                    polynomials: vec![FriPolynomialInfo {
+                        oracle_index: 0,
+                        polynomial_index: 0,
+                    }],
+                },
+                FriBatchInfo {
+                    point: zeta_next,
+                    polynomials: vec![FriPolynomialInfo {
+                        oracle_index: 0,
+                        polynomial_index: 0,
+                    }],
+                },
+            ],
+        };
+        let alpha = challenger.get_extension_challenge::<D>();
+        let mut alpha = ReducingFactor::new(alpha);
+
+        let mut final_poly = PolynomialCoeffs::empty();
+        for point in vec![zeta, zeta_next] {
+            let composition_poly = poly
+                .mul_extension::<D>(<F as Extendable<D>>::Extension::ONE);
+            let mut quotient = composition_poly.divide_by_linear(point);
+            quotient.coeffs.push(<F as Extendable<D>>::Extension::ZERO);
+            alpha.count += 1;
+            alpha.shift_poly(&mut final_poly);
+            final_poly += quotient;
+        }
+
+        let lde_final_poly = final_poly.lde(fri_params.config.rate_bits);
+        let lde_final_values = lde_final_poly.coset_fft(F::coset_shift().into());
+
+        let proof = fri_proof::<F, C, D>(
+            &vec![&polynomial_batch.merkle_tree],
+            lde_final_poly,
+            lde_final_values,
+            &mut challenger,
+            &fri_params,
+            &mut timing,
+        );
+
+        let fri_challenges = verfier_challenger.fri_challenges::<C, D>(
+            &proof.commit_phase_merkle_caps,
+            &proof.final_poly,
+            proof.pow_witness,
+            k0,
+            &fri_params.config,
+        );
+        // info!("{:?}", fri_challenges);
+        let fri_opening_batch_0 = FriOpeningBatch { values: vec![poly.to_extension::<D>().eval(zeta)] };
+        let fri_opening_batch_1 = FriOpeningBatch { values: vec![poly.to_extension::<D>().eval(zeta_next)] };
+        verify_fri_proof::<GoldilocksField, C, 2>(
+            &fri_instance,
+            &FriOpenings {
+                batches: vec![fri_opening_batch_0, fri_opening_batch_1],
+            },
+            &fri_challenges,
+            &[polynomial_batch.merkle_tree.cap],
+            &proof,
+            &fri_params,
+        )
+    }
+}
