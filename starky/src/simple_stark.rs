@@ -28,6 +28,7 @@ struct SimpleStark<F: RichField + Extendable<D>, const D: usize> {
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> SimpleStark<F, D> {
+    #[allow(dead_code)]
     const fn new(num_rows: usize) -> Self {
         Self {
             num_rows,
@@ -36,6 +37,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleStark<F, D> {
     }
 
     /// Generate the trace using `x0, x1` as initial state values.
+    #[allow(dead_code)]
     fn generate_trace(&self, x: F) -> Vec<PolynomialValues<F>> {
         let trace_rows = (0..self.num_rows)
             .scan([x], |acc, _| {
@@ -95,7 +97,7 @@ mod tests {
     use crate::verifier::verify_stark_proof;
 
     #[test]
-    fn test_fibonacci_stark() -> Result<()> {
+    fn test_simple_stark() -> Result<()> {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;

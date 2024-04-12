@@ -79,7 +79,7 @@ pub(crate) fn batch_fri_committed_trees<
     C: GenericConfig<D, F = F>,
     const D: usize,
 >(
-    coeffs: &mut Vec<PolynomialCoeffs<F::Extension>>,
+    coeffs: &mut [PolynomialCoeffs<F::Extension>],
     mut values: PolynomialValues<F::Extension>,
     challenger: &mut Challenger<F, C::Hasher>,
     fri_params: &FriParams,
@@ -239,8 +239,103 @@ mod tests {
     type H = <C as GenericConfig<D>>::Hasher;
 
     #[test]
-    fn batch_fri_prove() -> Result<()> {
-        let _ = env_logger::builder().format_timestamp(None).try_init();
+    fn single_polynomial() -> Result<()> {
+        // let _ = env_logger::builder().format_timestamp(None).try_init();
+
+        let mut timing = TimingTree::default();
+
+        let k0 = 9;
+        let reduction_arity_bits = vec![1, 2, 1];
+        let fri_params = FriParams {
+            config: FriConfig {
+                rate_bits: 1,
+                cap_height: 5,
+                proof_of_work_bits: 0,
+                reduction_strategy: FriReductionStrategy::Fixed(reduction_arity_bits.clone()),
+                num_query_rounds: 10,
+            },
+            hiding: false,
+            degree_bits: k0,
+            reduction_arity_bits,
+        };
+
+        let n0 = 1 << k0;
+        let trace00 =
+            PolynomialValues::new((1..n0 + 1).map(|i| F::from_canonical_i64(i)).collect_vec());
+
+        let polynomial_batch: PolynomialBatch<GoldilocksField, C, D> = PolynomialBatch::from_values(
+            vec![trace00.clone()],
+            fri_params.config.rate_bits,
+            fri_params.hiding,
+            fri_params.config.cap_height,
+            &mut timing,
+            None,
+        );
+        let poly = &polynomial_batch.polynomials[0];
+        let mut challenger = Challenger::<F, H>::new();
+        challenger.observe_cap(&polynomial_batch.merkle_tree.cap);
+        let _alphas = challenger.get_n_challenges(2);
+        let zeta = challenger.get_extension_challenge::<D>();
+        challenger.observe_extension_element::<D>(&poly.to_extension::<D>().eval(zeta));
+        let mut verfier_challenger = challenger.clone();
+
+        let fri_instance: FriInstanceInfo<F, D> = FriInstanceInfo {
+            oracles: vec![FriOracleInfo {
+                num_polys: 1,
+                blinding: false,
+            }],
+            batches: vec![FriBatchInfo {
+                point: zeta,
+                polynomials: vec![FriPolynomialInfo {
+                    oracle_index: 0,
+                    polynomial_index: 0,
+                }],
+            }],
+        };
+        let _alpha = challenger.get_extension_challenge::<D>();
+
+        let composition_poly = poly.mul_extension::<D>(<F as Extendable<D>>::Extension::ONE);
+        let mut quotient = composition_poly.divide_by_linear(zeta);
+        quotient.coeffs.push(<F as Extendable<D>>::Extension::ZERO);
+
+        let lde_final_poly = quotient.lde(fri_params.config.rate_bits);
+        let lde_final_values = lde_final_poly.coset_fft(F::coset_shift().into());
+
+        let proof = fri_proof::<F, C, D>(
+            &vec![&polynomial_batch.merkle_tree],
+            lde_final_poly,
+            lde_final_values,
+            &mut challenger,
+            &fri_params,
+            &mut timing,
+        );
+
+        let fri_challenges = verfier_challenger.fri_challenges::<C, D>(
+            &proof.commit_phase_merkle_caps,
+            &proof.final_poly,
+            proof.pow_witness,
+            k0,
+            &fri_params.config,
+        );
+
+        let fri_opening_batch = FriOpeningBatch {
+            values: vec![poly.to_extension::<D>().eval(zeta)],
+        };
+        verify_fri_proof::<GoldilocksField, C, 2>(
+            &fri_instance,
+            &FriOpenings {
+                batches: vec![fri_opening_batch],
+            },
+            &fri_challenges,
+            &[polynomial_batch.merkle_tree.cap],
+            &proof,
+            &fri_params,
+        )
+    }
+
+    #[test]
+    fn multiple_polynomials() -> Result<()> {
+        // let _ = env_logger::builder().format_timestamp(None).try_init();
 
         let mut timing = TimingTree::default();
 
