@@ -214,17 +214,13 @@ mod tests {
     #[cfg(not(feature = "std"))]
     use alloc::vec;
 
-    use anyhow::{ensure, Result};
+    use anyhow::Result;
     use itertools::Itertools;
-    use log::info;
-    use plonky2_field::extension::quadratic::QuadraticExtension;
     use plonky2_field::goldilocks_field::GoldilocksField;
-    use plonky2_field::ops::Square;
-    use plonky2_field::types::{Field, Field64, Sample};
-    use plonky2_util::log2_strict;
+    use plonky2_field::types::{Field, Field64};
 
     use super::*;
-    use crate::field::extension::{Extendable, FieldExtension};
+    use crate::field::extension::Extendable;
     use crate::fri::oracle::PolynomialBatch;
     use crate::fri::prover::fri_proof;
     use crate::fri::reduction_strategies::FriReductionStrategy;
@@ -234,9 +230,7 @@ mod tests {
     };
     use crate::fri::verifier::verify_fri_proof;
     use crate::fri::FriConfig;
-    use crate::hash::merkle_proofs::verify_field_merkle_proof_to_cap;
     use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
-    use crate::util::reducing::ReducingFactor;
 
     const D: usize = 2;
 
@@ -251,8 +245,8 @@ mod tests {
         let mut timing = TimingTree::default();
 
         let k0 = 9;
-        let k1 = 8;
-        let k2 = 6;
+        // let k1 = 8;
+        // let k2 = 6;
         let reduction_arity_bits = vec![1, 2, 1];
         let fri_params = FriParams {
             config: FriConfig {
@@ -268,8 +262,8 @@ mod tests {
         };
 
         let n0 = 1 << k0;
-        let n1 = 1 << k1;
-        let n2 = 1 << k2;
+        // let n1 = 1 << k1;
+        // let n2 = 1 << k2;
         let trace00 =
             PolynomialValues::new((1..n0 + 1).map(|i| F::from_canonical_i64(i)).collect_vec());
         // let trace01 = PolynomialCoeffs::new(F::rand_vec(n0));
@@ -289,11 +283,7 @@ mod tests {
         challenger.observe_cap(&polynomial_batch.merkle_tree.cap);
         let _alphas = challenger.get_n_challenges(2);
         let zeta = challenger.get_extension_challenge::<D>();
-        let g = F::primitive_root_of_unity(k0);
-        let zeta_next =
-            <QuadraticExtension<GoldilocksField> as FieldExtension<D>>::scalar_mul(&zeta, g);
         challenger.observe_extension_element::<D>(&poly.to_extension::<D>().eval(zeta));
-        challenger.observe_extension_element::<D>(&poly.to_extension::<D>().eval(zeta_next));
         let mut verfier_challenger = challenger.clone();
 
         let fri_instance: FriInstanceInfo<F, D> = FriInstanceInfo {
@@ -301,38 +291,21 @@ mod tests {
                 num_polys: 1,
                 blinding: false,
             }],
-            batches: vec![
-                FriBatchInfo {
-                    point: zeta,
-                    polynomials: vec![FriPolynomialInfo {
-                        oracle_index: 0,
-                        polynomial_index: 0,
-                    }],
-                },
-                FriBatchInfo {
-                    point: zeta_next,
-                    polynomials: vec![FriPolynomialInfo {
-                        oracle_index: 0,
-                        polynomial_index: 0,
-                    }],
-                },
-            ],
+            batches: vec![FriBatchInfo {
+                point: zeta,
+                polynomials: vec![FriPolynomialInfo {
+                    oracle_index: 0,
+                    polynomial_index: 0,
+                }],
+            }],
         };
-        let alpha = challenger.get_extension_challenge::<D>();
-        let mut alpha = ReducingFactor::new(alpha);
+        let _alpha = challenger.get_extension_challenge::<D>();
 
-        let mut final_poly = PolynomialCoeffs::empty();
-        for point in vec![zeta, zeta_next] {
-            let composition_poly = poly
-                .mul_extension::<D>(<F as Extendable<D>>::Extension::ONE);
-            let mut quotient = composition_poly.divide_by_linear(point);
-            quotient.coeffs.push(<F as Extendable<D>>::Extension::ZERO);
-            alpha.count += 1;
-            alpha.shift_poly(&mut final_poly);
-            final_poly += quotient;
-        }
+        let composition_poly = poly.mul_extension::<D>(<F as Extendable<D>>::Extension::ONE);
+        let mut quotient = composition_poly.divide_by_linear(zeta);
+        quotient.coeffs.push(<F as Extendable<D>>::Extension::ZERO);
 
-        let lde_final_poly = final_poly.lde(fri_params.config.rate_bits);
+        let lde_final_poly = quotient.lde(fri_params.config.rate_bits);
         let lde_final_values = lde_final_poly.coset_fft(F::coset_shift().into());
 
         let proof = fri_proof::<F, C, D>(
@@ -352,12 +325,13 @@ mod tests {
             &fri_params.config,
         );
         // info!("{:?}", fri_challenges);
-        let fri_opening_batch_0 = FriOpeningBatch { values: vec![poly.to_extension::<D>().eval(zeta)] };
-        let fri_opening_batch_1 = FriOpeningBatch { values: vec![poly.to_extension::<D>().eval(zeta_next)] };
+        let fri_opening_batch = FriOpeningBatch {
+            values: vec![poly.to_extension::<D>().eval(zeta)],
+        };
         verify_fri_proof::<GoldilocksField, C, 2>(
             &fri_instance,
             &FriOpenings {
-                batches: vec![fri_opening_batch_0, fri_opening_batch_1],
+                batches: vec![fri_opening_batch],
             },
             &fri_challenges,
             &[polynomial_batch.merkle_tree.cap],

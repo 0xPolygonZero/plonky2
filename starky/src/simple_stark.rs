@@ -14,7 +14,7 @@ use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
-use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
+use crate::evaluation_frame::StarkFrame;
 use crate::stark::Stark;
 use crate::util::trace_rows_to_poly_values;
 
@@ -84,26 +84,14 @@ mod tests {
     use alloc::vec;
 
     use anyhow::Result;
-    use plonky2::field::extension::Extendable;
     use plonky2::field::types::Field;
     use plonky2::fri::reduction_strategies::FriReductionStrategy;
-    use plonky2::hash::hash_types::RichField;
-    use plonky2::iop::witness::PartialWitness;
-    use plonky2::plonk::circuit_builder::CircuitBuilder;
-    use plonky2::plonk::circuit_data::CircuitConfig;
-    use plonky2::plonk::config::{AlgebraicHasher, GenericConfig, PoseidonGoldilocksConfig};
+    use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
     use plonky2::util::timing::TimingTree;
 
     use crate::config::StarkConfig;
-    use crate::proof::StarkProofWithPublicInputs;
     use crate::prover::prove;
-    use crate::recursive_verifier::{
-        add_virtual_stark_proof_with_pis, set_stark_proof_with_pis_target,
-        verify_stark_proof_circuit,
-    };
     use crate::simple_stark::SimpleStark;
-    use crate::stark::Stark;
-    use crate::stark_testing::{test_stark_circuit_constraints, test_stark_low_degree};
     use crate::verifier::verify_stark_proof;
 
     #[test]

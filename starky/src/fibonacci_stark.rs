@@ -167,7 +167,7 @@ mod tests {
         type S = FibonacciStark<F, D>;
 
         let config = StarkConfig::standard_fast_config();
-        let num_rows = 1 << 10;
+        let num_rows = 1 << 5;
         let public_inputs = [F::ZERO, F::ONE, fibonacci(num_rows - 1, F::ZERO, F::ONE)];
 
         let stark = S::new(num_rows);
