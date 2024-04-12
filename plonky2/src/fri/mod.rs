@@ -21,6 +21,7 @@ pub mod structure;
 mod validate_shape;
 pub mod verifier;
 pub mod witness_util;
+pub mod batch_verifier;
 
 /// A configuration for the FRI protocol.
 #[derive(Debug, Clone, Eq, PartialEq, Serialize)]

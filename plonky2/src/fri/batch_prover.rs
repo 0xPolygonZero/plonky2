@@ -24,7 +24,7 @@ use crate::util::timing::TimingTree;
 /// Builds a batch FRI proof.
 pub fn batch_fri_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
     initial_merkle_trees: &FieldMerkleTree<F, C::Hasher>,
-    lde_polynomial_coeffs: &mut Vec<PolynomialCoeffs<F::Extension>>,
+    lde_polynomial_coeffs: &mut [PolynomialCoeffs<F::Extension>],
     // lde_polynomial_values: &mut Vec<PolynomialValues<F::Extension>>,
     lde_polynomial_values: PolynomialValues<F::Extension>,
     challenger: &mut Challenger<F, C::Hasher>,
