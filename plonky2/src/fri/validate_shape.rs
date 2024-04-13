@@ -68,7 +68,7 @@ where
 
 pub(crate) fn validate_batch_fri_proof_shape<F, C, const D: usize>(
     proof: &FriProof<F, C::Hasher, D>,
-    instance: &[FriInstanceInfo<F, D>],
+    instance: &[&FriInstanceInfo<F, D>],
     params: &FriParams,
 ) -> anyhow::Result<()>
 where

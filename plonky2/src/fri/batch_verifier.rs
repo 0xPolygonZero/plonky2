@@ -26,8 +26,8 @@ pub fn verify_batch_fri_proof<
     C: GenericConfig<D, F = F>,
     const D: usize,
 >(
-    instance: &[FriInstanceInfo<F, D>],
-    openings: &[FriOpenings<F, D>],
+    instance: &[&FriInstanceInfo<F, D>],
+    openings: &[&FriOpenings<F, D>],
     challenges: &FriChallenges<F, D>,
     initial_merkle_cap: &[MerkleCap<F, C::Hasher>],
     proof: &FriProof<F, C::Hasher, D>,
@@ -131,7 +131,7 @@ fn batch_fri_verifier_query_round<
     C: GenericConfig<D, F = F>,
     const D: usize,
 >(
-    instance: &[FriInstanceInfo<F, D>],
+    instance: &[&FriInstanceInfo<F, D>],
     challenges: &FriChallenges<F, D>,
     precomputed_reduced_evals: &[PrecomputedReducedOpenings<F, D>],
     initial_merkle_caps: &[MerkleCap<F, C::Hasher>],
