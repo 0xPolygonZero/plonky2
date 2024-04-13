@@ -223,6 +223,7 @@ mod tests {
     use super::*;
     use crate::field::extension::Extendable;
     use crate::fri::batch_oracle::BatchFriOracle;
+    use crate::fri::batch_verifier::verify_batch_fri_proof;
     use crate::fri::oracle::PolynomialBatch;
     use crate::fri::prover::fri_proof;
     use crate::fri::reduction_strategies::FriReductionStrategy;
@@ -371,7 +372,7 @@ mod tests {
             fri_params.hiding,
             fri_params.config.cap_height,
             &mut timing,
-            &[None; 32],
+            &[None; 3],
         );
 
         let mut challenger = Challenger::<F, H>::new();
@@ -386,35 +387,6 @@ mod tests {
         challenger.observe_extension_element::<D>(&poly2.to_extension::<D>().eval(zeta));
         let mut verfier_challenger = challenger.clone();
 
-        let fri_instance: FriInstanceInfo<F, D> = FriInstanceInfo {
-            oracles: vec![FriOracleInfo {
-                num_polys: 3,
-                blinding: false,
-            }],
-            batches: vec![
-                FriBatchInfo {
-                    point: zeta,
-                    polynomials: vec![FriPolynomialInfo {
-                        oracle_index: 0,
-                        polynomial_index: 0,
-                    }],
-                },
-                FriBatchInfo {
-                    point: zeta,
-                    polynomials: vec![FriPolynomialInfo {
-                        oracle_index: 0,
-                        polynomial_index: 1,
-                    }],
-                },
-                FriBatchInfo {
-                    point: zeta,
-                    polynomials: vec![FriPolynomialInfo {
-                        oracle_index: 0,
-                        polynomial_index: 2,
-                    }],
-                },
-            ],
-        };
         let _alpha = challenger.get_extension_challenge::<D>();
 
         let composition_poly = poly0.mul_extension::<D>(<F as Extendable<D>>::Extension::ONE);
@@ -442,28 +414,57 @@ mod tests {
             &mut timing,
         );
 
-        Ok(())
-        //
-        // let fri_challenges = verfier_challenger.fri_challenges::<C, D>(
-        //     &proof.commit_phase_merkle_caps,
-        //     &proof.final_poly,
-        //     proof.pow_witness,
-        //     k0,
-        //     &fri_params.config,
-        // );
-        // // info!("{:?}", fri_challenges);
-        // let fri_opening_batch = FriOpeningBatch {
-        //     values: vec![poly.to_extension::<D>().eval(zeta)],
-        // };
-        // verify_fri_proof::<GoldilocksField, C, 2>(
-        //     &fri_instance,
-        //     &FriOpenings {
-        //         batches: vec![fri_opening_batch],
-        //     },
-        //     &fri_challenges,
-        //     &[polynomial_batch.merkle_tree.cap],
-        //     &proof,
-        //     &fri_params,
-        // )
+        let fri_instance = &FriInstanceInfo {
+            oracles: vec![FriOracleInfo {
+                num_polys: 1,
+                blinding: false,
+            }],
+            batches: vec![FriBatchInfo {
+                point: zeta,
+                polynomials: vec![FriPolynomialInfo {
+                    oracle_index: 0,
+                    polynomial_index: 0,
+                }],
+            }],
+        };
+        let mut fri_instances = vec![];
+        fri_instances.push(fri_instance);
+        fri_instances.push(fri_instance);
+        fri_instances.push(fri_instance);
+        let fri_challenges = verfier_challenger.fri_challenges::<C, D>(
+            &proof.commit_phase_merkle_caps,
+            &proof.final_poly,
+            proof.pow_witness,
+            k0,
+            &fri_params.config,
+        );
+        let fri_opening_batch_0 = &FriOpenings {
+            batches: vec![FriOpeningBatch {
+                values: vec![poly0.to_extension::<D>().eval(zeta)],
+            }],
+        };
+        let fri_opening_batch_1 = &FriOpenings {
+            batches: vec![FriOpeningBatch {
+                values: vec![poly1.to_extension::<D>().eval(zeta)],
+            }],
+        };
+        let fri_opening_batch_2 = &FriOpenings {
+            batches: vec![FriOpeningBatch {
+                values: vec![poly2.to_extension::<D>().eval(zeta)],
+            }],
+        };
+        let mut fri_openings = vec![];
+        fri_openings.push(fri_opening_batch_0);
+        fri_openings.push(fri_opening_batch_1);
+        fri_openings.push(fri_opening_batch_2);
+
+        verify_batch_fri_proof::<GoldilocksField, C, 2>(
+            &fri_instances,
+            &fri_openings,
+            &fri_challenges,
+            &[trace_oracle.field_merkle_tree.cap],
+            &proof,
+            &fri_params,
+        )
     }
 }

@@ -40,7 +40,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         blinding: bool,
         cap_height: usize,
         timing: &mut TimingTree,
-        fft_root_table: &[Option<&FftRootTable<F>>; 32],
+        fft_root_table: &[Option<&FftRootTable<F>>],
     ) -> Self {
         let coeffs = timed!(
             timing,
@@ -65,7 +65,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         blinding: bool,
         cap_height: usize,
         timing: &mut TimingTree,
-        fft_root_table: &[Option<&FftRootTable<F>>; 32],
+        fft_root_table: &[Option<&FftRootTable<F>>],
     ) -> Self {
         let degree_logs = polynomials
             .iter()
@@ -86,7 +86,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
                         &polynomials[group_start..i + 1],
                         rate_bits,
                         blinding,
-                        fft_root_table[*d]
+                        fft_root_table[i]
                     )
                 );
 
