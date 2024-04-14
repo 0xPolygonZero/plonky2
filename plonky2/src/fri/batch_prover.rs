@@ -4,6 +4,7 @@ use alloc::vec;
 use alloc::vec::Vec;
 
 use plonky2_field::extension::flatten;
+use plonky2_field::types::Field;
 use plonky2_maybe_rayon::*;
 use plonky2_util::reverse_index_bits_in_place;
 
@@ -124,7 +125,7 @@ pub(crate) fn batch_fri_committed_trees<
                     .coeffs
                     .iter()
                     .zip(&coeffs[polynomial_index].coeffs)
-                    .map(|(&f, &c)| f * beta + c)
+                    .map(|(&f, &c)| f + c * beta.exp_power_of_2(*arity_bits))
                     .collect::<Vec<_>>(),
             );
             polynomial_index += 1;
@@ -459,6 +460,7 @@ mod tests {
         fri_openings.push(fri_opening_batch_2);
 
         verify_batch_fri_proof::<GoldilocksField, C, 2>(
+            &[k0, k1, k2],
             &fri_instances,
             &fri_openings,
             &fri_challenges,

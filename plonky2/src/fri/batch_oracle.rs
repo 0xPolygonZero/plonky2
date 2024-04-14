@@ -10,7 +10,7 @@ use plonky2_field::polynomial::{PolynomialCoeffs, PolynomialValues};
 use plonky2_maybe_rayon::*;
 use plonky2_util::{log2_strict, reverse_index_bits_in_place};
 
-use crate::fri::oracle::{PolynomialBatch, SALT_SIZE};
+use crate::fri::oracle::PolynomialBatch;
 use crate::hash::field_merkle_tree::FieldMerkleTree;
 use crate::hash::hash_types::RichField;
 use crate::plonk::config::GenericConfig;
