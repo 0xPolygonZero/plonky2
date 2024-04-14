@@ -225,14 +225,11 @@ mod tests {
     use crate::field::extension::Extendable;
     use crate::fri::batch_oracle::BatchFriOracle;
     use crate::fri::batch_verifier::verify_batch_fri_proof;
-    use crate::fri::oracle::PolynomialBatch;
-    use crate::fri::prover::fri_proof;
     use crate::fri::reduction_strategies::FriReductionStrategy;
     use crate::fri::structure::{
         FriBatchInfo, FriInstanceInfo, FriOpeningBatch, FriOpenings, FriOracleInfo,
         FriPolynomialInfo,
     };
-    use crate::fri::verifier::verify_fri_proof;
     use crate::fri::FriConfig;
     use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
 
@@ -267,17 +264,17 @@ mod tests {
         let trace00 =
             PolynomialValues::new((1..n0 + 1).map(|i| F::from_canonical_i64(i)).collect_vec());
 
-        let polynomial_batch: PolynomialBatch<GoldilocksField, C, D> = PolynomialBatch::from_values(
+        let polynomial_batch: BatchFriOracle<GoldilocksField, C, D> = BatchFriOracle::from_values(
             vec![trace00.clone()],
             fri_params.config.rate_bits,
             fri_params.hiding,
             fri_params.config.cap_height,
             &mut timing,
-            None,
+            &[None],
         );
         let poly = &polynomial_batch.polynomials[0];
         let mut challenger = Challenger::<F, H>::new();
-        challenger.observe_cap(&polynomial_batch.merkle_tree.cap);
+        challenger.observe_cap(&polynomial_batch.field_merkle_tree.cap);
         let _alphas = challenger.get_n_challenges(2);
         let zeta = challenger.get_extension_challenge::<D>();
         challenger.observe_extension_element::<D>(&poly.to_extension::<D>().eval(zeta));
@@ -305,9 +302,9 @@ mod tests {
         let lde_final_poly = quotient.lde(fri_params.config.rate_bits);
         let lde_final_values = lde_final_poly.coset_fft(F::coset_shift().into());
 
-        let proof = fri_proof::<F, C, D>(
-            &vec![&polynomial_batch.merkle_tree],
-            lde_final_poly,
+        let proof = batch_fri_proof::<F, C, D>(
+            &polynomial_batch.field_merkle_tree,
+            &mut [lde_final_poly],
             lde_final_values,
             &mut challenger,
             &fri_params,
@@ -325,13 +322,14 @@ mod tests {
         let fri_opening_batch = FriOpeningBatch {
             values: vec![poly.to_extension::<D>().eval(zeta)],
         };
-        verify_fri_proof::<GoldilocksField, C, 2>(
-            &fri_instance,
-            &FriOpenings {
+        verify_batch_fri_proof::<GoldilocksField, C, 2>(
+            &[k0],
+            &[&fri_instance],
+            &[&FriOpenings {
                 batches: vec![fri_opening_batch],
-            },
+            }],
             &fri_challenges,
-            &[polynomial_batch.merkle_tree.cap],
+            &[polynomial_batch.field_merkle_tree.cap],
             &proof,
             &fri_params,
         )

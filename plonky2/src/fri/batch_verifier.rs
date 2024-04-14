@@ -76,8 +76,12 @@ fn batch_fri_verify_initial_proof<F: RichField + Extendable<D>, H: Hasher<F>, co
     proof: &FriInitialTreeProof<F, H>,
     initial_merkle_caps: &[MerkleCap<F, H>],
 ) -> anyhow::Result<()> {
-    let mut oracle_index = 0;
-    for ((evals, merkle_proof), cap) in proof.evals_proofs.iter().zip(initial_merkle_caps) {
+    for (oracle_index, ((evals, merkle_proof), cap)) in proof
+        .evals_proofs
+        .iter()
+        .zip(initial_merkle_caps)
+        .enumerate()
+    {
         let mut leaf_index = 0;
         let leaves = instance
             .iter()
@@ -92,7 +96,6 @@ fn batch_fri_verify_initial_proof<F: RichField + Extendable<D>, H: Hasher<F>, co
             })
             .collect::<Vec<_>>();
         verify_field_merkle_proof_to_cap::<F, H>(&leaves, degree_logs, x_index, cap, merkle_proof)?;
-        oracle_index += 1;
     }
 
     Ok(())
