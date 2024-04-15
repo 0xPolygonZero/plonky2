@@ -10,7 +10,7 @@ use plonky2_util::reverse_index_bits_in_place;
 use crate::field::extension::{unflatten, Extendable};
 use crate::field::polynomial::{PolynomialCoeffs, PolynomialValues};
 use crate::fri::proof::{FriInitialTreeProof, FriProof, FriQueryRound, FriQueryStep};
-use crate::fri::prover::fri_proof_of_work;
+use crate::fri::prover::{fri_proof_of_work, FriCommitedTrees};
 use crate::fri::FriParams;
 use crate::hash::field_merkle_tree::FieldMerkleTree;
 use crate::hash::hash_types::RichField;
@@ -82,7 +82,7 @@ pub(crate) fn batch_fri_committed_trees<
     values: &[PolynomialValues<F::Extension>],
     challenger: &mut Challenger<F, C::Hasher>,
     fri_params: &FriParams,
-) -> crate::fri::prover::FriCommitedTrees<F, C, D> {
+) -> FriCommitedTrees<F, C, D> {
     let mut trees = Vec::with_capacity(fri_params.reduction_arity_bits.len());
     let mut shift = F::MULTIPLICATIVE_GROUP_GENERATOR;
     let mut polynomial_index = 1;
@@ -124,6 +124,7 @@ pub(crate) fn batch_fri_committed_trees<
             );
             polynomial_index += 1;
         }
+        //TODO: optimize the folding process.
         final_coeffs = final_values.clone().coset_ifft(shift.into());
     }
     assert_eq!(polynomial_index, values.len());
@@ -150,7 +151,7 @@ fn batch_fri_prover_query_rounds<
 ) -> Vec<FriQueryRound<F, C::Hasher, D>> {
     challenger
         .get_n_challenges(fri_params.config.num_query_rounds)
-        .into_iter()
+        .into_par_iter()
         .map(|rand| {
             let x_index = rand.to_canonical_u64() as usize % n;
             batch_fri_prover_query_round::<F, C, D>(
@@ -237,11 +238,9 @@ mod tests {
 
     #[test]
     fn single_polynomial() -> Result<()> {
-        // let _ = env_logger::builder().format_timestamp(None).try_init();
-
         let mut timing = TimingTree::default();
 
-        let k0 = 9;
+        let k = 9;
         let reduction_arity_bits = vec![1, 2, 1];
         let fri_params = FriParams {
             config: FriConfig {
@@ -252,15 +251,15 @@ mod tests {
                 num_query_rounds: 10,
             },
             hiding: false,
-            degree_bits: k0,
+            degree_bits: k,
             reduction_arity_bits,
         };
 
-        let n0 = 1 << k0;
-        let trace00 = PolynomialValues::new((1..n0 + 1).map(F::from_canonical_i64).collect_vec());
+        let n = 1 << k;
+        let trace = PolynomialValues::new((1..n + 1).map(F::from_canonical_i64).collect_vec());
 
         let polynomial_batch: BatchFriOracle<GoldilocksField, C, D> = BatchFriOracle::from_values(
-            vec![trace00.clone()],
+            vec![trace.clone()],
             fri_params.config.rate_bits,
             fri_params.hiding,
             fri_params.config.cap_height,
@@ -310,7 +309,7 @@ mod tests {
             &proof.commit_phase_merkle_caps,
             &proof.final_poly,
             proof.pow_witness,
-            k0,
+            k,
             &fri_params.config,
         );
 
@@ -318,7 +317,7 @@ mod tests {
             values: vec![poly.to_extension::<D>().eval(zeta)],
         };
         verify_batch_fri_proof::<GoldilocksField, C, 2>(
-            &[k0],
+            &[k],
             &[&fri_instance],
             &[&FriOpenings {
                 batches: vec![fri_opening_batch],
@@ -332,8 +331,6 @@ mod tests {
 
     #[test]
     fn multiple_polynomials() -> Result<()> {
-        // let _ = env_logger::builder().format_timestamp(None).try_init();
-
         let mut timing = TimingTree::default();
 
         let k0 = 9;
