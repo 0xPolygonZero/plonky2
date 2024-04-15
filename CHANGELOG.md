@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 - Code refactoring ([#1558](https://github.com/0xPolygonZero/plonky2/pull/1558))
+- Simplify types: remove option from CTL filters ([#1567](https://github.com/0xPolygonZero/plonky2/pull/1567))
 
 ## [0.2.2] - 2024-03-21
 
