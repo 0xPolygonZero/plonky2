@@ -215,7 +215,7 @@ mod tests {
     use anyhow::Result;
     use itertools::Itertools;
     use plonky2_field::goldilocks_field::GoldilocksField;
-    use plonky2_field::types::{Field, Field64};
+    use plonky2_field::types::{Field, Field64, Sample};
 
     use super::*;
     use crate::field::extension::Extendable;
@@ -257,8 +257,7 @@ mod tests {
         };
 
         let n0 = 1 << k0;
-        let trace00 =
-            PolynomialValues::new((1..n0 + 1).map(|i| F::from_canonical_i64(i)).collect_vec());
+        let trace00 = PolynomialValues::new((1..n0 + 1).map(F::from_canonical_i64).collect_vec());
 
         let polynomial_batch: BatchFriOracle<GoldilocksField, C, D> = BatchFriOracle::from_values(
             vec![trace00.clone()],
@@ -357,15 +356,9 @@ mod tests {
         let n0 = 1 << k0;
         let n1 = 1 << k1;
         let n2 = 1 << k2;
-        // let trace0 = PolynomialValues::new(F::rand_vec(n0));
-        // let trace1 = PolynomialValues::new(F::rand_vec(n1));
-        // let trace2 = PolynomialValues::new(F::rand_vec(n2));
-        let trace0 =
-            PolynomialValues::new((1..n0 + 1).map(|i| F::from_canonical_i64(i)).collect_vec());
-        let trace1 =
-            PolynomialValues::new((1..n1 + 1).map(|i| F::from_canonical_i64(i)).collect_vec());
-        let trace2 =
-            PolynomialValues::new((1..n2 + 1).map(|i| F::from_canonical_i64(i)).collect_vec());
+        let trace0 = PolynomialValues::new(F::rand_vec(n0));
+        let trace1 = PolynomialValues::new(F::rand_vec(n1));
+        let trace2 = PolynomialValues::new(F::rand_vec(n2));
 
         let trace_oracle: BatchFriOracle<GoldilocksField, C, D> = BatchFriOracle::from_values(
             vec![trace0.clone(), trace1.clone(), trace2.clone()],
@@ -430,10 +423,7 @@ mod tests {
                 }],
             }],
         };
-        let mut fri_instances = vec![];
-        fri_instances.push(fri_instance);
-        fri_instances.push(fri_instance);
-        fri_instances.push(fri_instance);
+        let fri_instances = vec![fri_instance, fri_instance, fri_instance];
         let fri_challenges = verfier_challenger.fri_challenges::<C, D>(
             &proof.commit_phase_merkle_caps,
             &proof.final_poly,
@@ -456,10 +446,11 @@ mod tests {
                 values: vec![poly2.to_extension::<D>().eval(zeta)],
             }],
         };
-        let mut fri_openings = vec![];
-        fri_openings.push(fri_opening_batch_0);
-        fri_openings.push(fri_opening_batch_1);
-        fri_openings.push(fri_opening_batch_2);
+        let fri_openings = vec![
+            fri_opening_batch_0,
+            fri_opening_batch_1,
+            fri_opening_batch_2,
+        ];
 
         verify_batch_fri_proof::<GoldilocksField, C, 2>(
             &[k0, k1, k2],
