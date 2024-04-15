@@ -5,7 +5,6 @@ use alloc::{
     vec,
     vec::Vec,
 };
-use core::usize;
 
 use itertools::Itertools;
 use keccak_hash::keccak;
