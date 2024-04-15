@@ -169,24 +169,16 @@ fn batch_fri_verifier_query_round<
         &round_proof.initial_trees_proof,
         initial_merkle_caps,
     )?;
-    let mut n = degree_logs[0];
+    let mut n = degree_logs[0] + params.config.rate_bits;
     // `subgroup_x` is `subgroup[x_index]`, i.e., the actual field element in the domain.
     let mut subgroup_x = F::MULTIPLICATIVE_GROUP_GENERATOR
         * F::primitive_root_of_unity(n).exp_u64(reverse_bits(x_index, n) as u64);
 
     // old_eval is the last derived evaluation; it will be checked for consistency with its
     // committed "parent" value in the next iteration.
-    let mut old_eval = batch_fri_combine_initial::<F, C, D>(
-        instance,
-        0,
-        &round_proof.initial_trees_proof,
-        challenges.fri_alpha,
-        subgroup_x,
-        &precomputed_reduced_evals[0],
-        params,
-    );
+    let mut old_eval = F::Extension::ZERO;
 
-    let mut batch_index = 1;
+    let mut batch_index = 0;
     for (i, &arity_bits) in params.reduction_arity_bits.iter().enumerate() {
         let arity = 1 << arity_bits;
         let evals = &round_proof.steps[i].evals;
@@ -194,6 +186,22 @@ fn batch_fri_verifier_query_round<
         // Split x_index into the index of the coset x is in, and the index of x within that coset.
         let coset_index = x_index >> arity_bits;
         let x_index_within_coset = x_index & (arity - 1);
+
+        if batch_index < degree_logs.len()
+            && n == degree_logs[batch_index] + params.config.rate_bits
+        {
+            let eval = batch_fri_combine_initial::<F, C, D>(
+                instance,
+                batch_index,
+                &round_proof.initial_trees_proof,
+                challenges.fri_alpha,
+                subgroup_x,
+                &precomputed_reduced_evals[batch_index],
+                params,
+            );
+            old_eval += eval; // * challenges.fri_betas[i].exp_power_of_2(arity_bits);
+            batch_index += 1;
+        }
 
         // Check consistency with our old evaluation from the previous round.
         ensure!(evals[x_index_within_coset] == old_eval);
@@ -205,21 +213,6 @@ fn batch_fri_verifier_query_round<
             evals,
             challenges.fri_betas[i],
         );
-        if batch_index < degree_logs.len() && n == degree_logs[batch_index] {
-            let eval = batch_fri_combine_initial::<F, C, D>(
-                instance,
-                batch_index,
-                &round_proof.initial_trees_proof,
-                challenges.fri_alpha,
-                subgroup_x,
-                &precomputed_reduced_evals[batch_index],
-                params,
-            );
-            old_eval -= eval * challenges.fri_betas[i].exp_power_of_2(arity_bits);
-            batch_index += 1;
-        }
-        n -= arity_bits;
-
         verify_merkle_proof_to_cap::<F, C::Hasher>(
             flatten(evals),
             coset_index,
@@ -231,6 +224,8 @@ fn batch_fri_verifier_query_round<
         subgroup_x = subgroup_x.exp_power_of_2(arity_bits);
 
         x_index = coset_index;
+
+        n -= arity_bits;
     }
 
     // Final check of FRI. After all the reductions, we check that the final polynomial is equal
