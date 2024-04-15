@@ -25,13 +25,13 @@ use crate::util::timing::TimingTree;
 /// Builds a batch FRI proof.
 pub fn batch_fri_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
     initial_merkle_trees: &[&FieldMerkleTree<F, C::Hasher>],
-    lde_polynomial_coeffs: PolynomialCoeffs<F::Extension>,
+    lde_polynomial_coeffs: &mut [PolynomialCoeffs<F::Extension>],
     lde_polynomial_values: &mut [PolynomialValues<F::Extension>],
     challenger: &mut Challenger<F, C::Hasher>,
     fri_params: &FriParams,
     timing: &mut TimingTree,
 ) -> FriProof<F, C::Hasher, D> {
-    let n = lde_polynomial_coeffs.len();
+    let n = lde_polynomial_coeffs[0].len();
     assert_eq!(lde_polynomial_values[0].len(), n);
     // The polynomial vectors should be sorted by degree, from largest to smallest, with no duplicate degrees.
     assert!(lde_polynomial_values
@@ -79,7 +79,7 @@ pub(crate) fn batch_fri_committed_trees<
     C: GenericConfig<D, F = F>,
     const D: usize,
 >(
-    mut coeffs: PolynomialCoeffs<F::Extension>,
+    mut coeffs: &mut [PolynomialCoeffs<F::Extension>],
     mut values: &mut [PolynomialValues<F::Extension>],
     challenger: &mut Challenger<F, C::Hasher>,
     fri_params: &FriParams,
@@ -88,6 +88,7 @@ pub(crate) fn batch_fri_committed_trees<
     let mut shift = F::MULTIPLICATIVE_GROUP_GENERATOR;
     let mut polynomial_index = 1;
     let mut final_values = values[0].clone();
+    let mut final_coeffs = coeffs[0].clone();
     for arity_bits in &fri_params.reduction_arity_bits {
         let arity = 1 << arity_bits;
 
@@ -104,16 +105,28 @@ pub(crate) fn batch_fri_committed_trees<
 
         let beta = challenger.get_extension_challenge::<D>();
         // P(x) = sum_{i<r} x^i * P_i(x^r) becomes sum_{i<r} beta^i * P_i(x).
-        coeffs = PolynomialCoeffs::new(
-            coeffs
+        final_coeffs = PolynomialCoeffs::new(
+            final_coeffs
                 .coeffs
                 .par_chunks_exact(arity)
                 .map(|chunk| reduce_with_powers(chunk, beta))
                 .collect::<Vec<_>>(),
         );
+        // if polynomial_index != values.len() && final_values.len() == values[polynomial_index].len()
+        // {
+        //     final_coeffs = PolynomialCoeffs::new(
+        //         final_coeffs
+        //             .coeffs
+        //             .iter()
+        //             .zip(&coeffs[polynomial_index].coeffs)
+        //             .map(|(&f, &v)| f + v)
+        //             .collect::<Vec<_>>(),
+        //     );
+        //     polynomial_index += 1;
+        // }
 
         shift = shift.exp_u64(arity as u64);
-        final_values = coeffs.coset_fft(shift.into());
+        final_values = final_coeffs.coset_fft(shift.into());
         if polynomial_index != values.len() && final_values.len() == values[polynomial_index].len()
         {
             final_values = PolynomialValues::new(
@@ -126,16 +139,17 @@ pub(crate) fn batch_fri_committed_trees<
             );
             polynomial_index += 1;
         }
+        final_coeffs = final_values.clone().coset_ifft(shift.into());
     }
     assert_eq!(polynomial_index, values.len());
 
     // The coefficients being removed here should always be zero.
-    coeffs
+    final_coeffs
         .coeffs
-        .truncate(coeffs.len() >> fri_params.config.rate_bits);
+        .truncate(final_coeffs.len() >> fri_params.config.rate_bits);
 
-    challenger.observe_extension_elements(&coeffs.coeffs);
-    (trees, coeffs)
+    challenger.observe_extension_elements(&final_coeffs.coeffs);
+    (trees, final_coeffs)
 }
 
 fn batch_fri_prover_query_rounds<
@@ -399,7 +413,7 @@ mod tests {
 
         let proof = batch_fri_proof::<F, C, D>(
             &[&polynomial_batch.field_merkle_tree],
-            lde_final_poly,
+            &mut [lde_final_poly],
             &mut [lde_final_values],
             &mut challenger,
             &fri_params,
@@ -509,7 +523,7 @@ mod tests {
 
         let proof = batch_fri_proof::<F, C, D>(
             &[&trace_oracle.field_merkle_tree],
-            lde_final_poly_0,
+            &mut [lde_final_poly_0, lde_final_poly_1, lde_final_poly_2],
             &mut [lde_final_values_0, lde_final_values_1, lde_final_values_2],
             &mut challenger,
             &fri_params,
@@ -647,7 +661,7 @@ mod tests {
 
         let proof = batch_fri_proof::<F, C, D>(
             &[&trace_oracle.field_merkle_tree],
-            lde_final_poly_0,
+            &mut [lde_final_poly_0, lde_final_poly_1, lde_final_poly_2],
             &mut [lde_final_values_0, lde_final_values_1, lde_final_values_2],
             &mut challenger,
             &fri_params,
