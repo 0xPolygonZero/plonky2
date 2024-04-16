@@ -217,10 +217,9 @@ mod tests {
     use anyhow::Result;
     use itertools::Itertools;
     use plonky2_field::goldilocks_field::GoldilocksField;
-    use plonky2_field::types::{Field, Field64, Sample};
+    use plonky2_field::types::{Field64, Sample};
 
     use super::*;
-    use crate::field::extension::Extendable;
     use crate::fri::batch_oracle::BatchFriOracle;
     use crate::fri::batch_verifier::verify_batch_fri_proof;
     use crate::fri::reduction_strategies::FriReductionStrategy;
@@ -229,7 +228,7 @@ mod tests {
         FriPolynomialInfo,
     };
     use crate::fri::FriConfig;
-    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
+    use crate::plonk::config::PoseidonGoldilocksConfig;
 
     const D: usize = 2;
 
