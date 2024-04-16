@@ -3,12 +3,11 @@ use alloc::{vec, vec::Vec};
 use core::mem::size_of;
 
 use itertools::Itertools;
-use keccak_hash::keccak;
+use tiny_keccak::{Hasher as KeccakHasher, Keccak};
 
 use crate::hash::hash_types::{BytesHash, RichField};
 use crate::hash::hashing::PlonkyPermutation;
 use crate::plonk::config::Hasher;
-use crate::util::serialization::Write;
 
 pub const SPONGE_RATE: usize = 8;
 pub const SPONGE_CAPACITY: usize = 4;
@@ -68,7 +67,7 @@ impl<F: RichField> PlonkyPermutation<F> for KeccakPermutation<F> {
         }
 
         let hash_onion = core::iter::repeat_with(|| {
-            let output = keccak(state_bytes.clone()).to_fixed_bytes();
+            let output = keccak(state_bytes.clone()).0;
             state_bytes = output.to_vec();
             output
         });
@@ -107,20 +106,39 @@ impl<F: RichField, const N: usize> Hasher<F> for KeccakHash<N> {
     type Permutation = KeccakPermutation<F>;
 
     fn hash_no_pad(input: &[F]) -> Self::Hash {
-        let mut buffer = Vec::with_capacity(input.len());
-        buffer.write_field_vec(input).unwrap();
+        let mut keccak256 = Keccak::v256();
+        for x in input.iter() {
+            let b = x.to_canonical_u64().to_le_bytes();
+            keccak256.update(&b);
+        }
+        let mut hash_bytes = [0u8; 32];
+        keccak256.finalize(&mut hash_bytes);
+
         let mut arr = [0; N];
-        let hash_bytes = keccak(buffer).0;
         arr.copy_from_slice(&hash_bytes[..N]);
         BytesHash(arr)
     }
 
     fn two_to_one(left: Self::Hash, right: Self::Hash) -> Self::Hash {
-        let mut v = vec![0; N * 2];
-        v[0..N].copy_from_slice(&left.0);
-        v[N..].copy_from_slice(&right.0);
+        let mut keccak256 = Keccak::v256();
+        keccak256.update(&left.0);
+        keccak256.update(&right.0);
+
+        let mut hash_bytes = [0u8; 32];
+        keccak256.finalize(&mut hash_bytes);
+
         let mut arr = [0; N];
-        arr.copy_from_slice(&keccak(v).0[..N]);
+        arr.copy_from_slice(&hash_bytes[..N]);
         BytesHash(arr)
     }
+}
+
+pub fn keccak<T: AsRef<[u8]>>(s: T) -> BytesHash<32> {
+    let mut keccak256 = Keccak::v256();
+    keccak256.update(s.as_ref());
+
+    let mut hash_bytes = [0u8; 32];
+    keccak256.finalize(&mut hash_bytes);
+
+    BytesHash(hash_bytes)
 }
