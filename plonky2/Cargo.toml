@@ -65,6 +65,10 @@ name = "field_arithmetic"
 harness = false
 
 [[bench]]
+name = "field_merkle_tree"
+harness = false
+
+[[bench]]
 name = "ffts"
 harness = false
 
