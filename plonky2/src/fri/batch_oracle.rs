@@ -1,6 +1,4 @@
 #[cfg(not(feature = "std"))]
-use alloc::vec;
-#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 
 use itertools::Itertools;
@@ -19,7 +17,7 @@ use crate::util::timing::TimingTree;
 use crate::util::transpose;
 
 /// Represents a batch FRI oracle, i.e. a batch of polynomials with different degrees which have
-/// been Merklized in a Field Merkle Tree.
+/// been Merkle-ized in a Field Merkle Tree.
 #[derive(Eq, PartialEq, Debug)]
 pub struct BatchFriOracle<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 {
@@ -75,7 +73,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 
         let num_polynomials = polynomials.len();
         let mut group_start = 0;
-        let mut leaves = vec![];
+        let mut leaves = Vec::new();
 
         for (i, d) in degree_logs.iter().enumerate() {
             if i == num_polynomials - 1 || *d > degree_logs[i + 1] {

@@ -43,7 +43,7 @@ pub fn verify_batch_fri_proof<
         "Number of query rounds does not match config."
     );
 
-    let mut precomputed_reduced_evals = Vec::new();
+    let mut precomputed_reduced_evals = Vec::with_capacity(openings.len());
     for opn in openings.iter() {
         let pre = PrecomputedReducedOpenings::from_os_and_alpha(opn, challenges.fri_alpha);
         precomputed_reduced_evals.push(pre);

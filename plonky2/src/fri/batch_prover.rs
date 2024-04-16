@@ -1,6 +1,4 @@
 #[cfg(not(feature = "std"))]
-use alloc::vec;
-#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 
 use plonky2_field::extension::flatten;
@@ -92,11 +90,7 @@ pub(crate) fn batch_fri_committed_trees<
         let arity = 1 << arity_bits;
 
         reverse_index_bits_in_place(&mut final_values.values);
-        let chunked_values = final_values
-            .values
-            .par_chunks(arity)
-            .map(|chunk: &[F::Extension]| flatten(chunk))
-            .collect();
+        let chunked_values = final_values.values.par_chunks(arity).map(flatten).collect();
         let tree = MerkleTree::<F, C::Hasher>::new(chunked_values, fri_params.config.cap_height);
 
         challenger.observe_cap(&tree.cap);
@@ -175,7 +169,7 @@ fn batch_fri_prover_query_round<
     mut x_index: usize,
     fri_params: &FriParams,
 ) -> FriQueryRound<F, C::Hasher, D> {
-    let mut query_steps = Vec::new();
+    let mut query_steps = Vec::with_capacity(trees.len());
     let initial_proof = initial_merkle_trees
         .iter()
         .map(|t| {
