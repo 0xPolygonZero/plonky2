@@ -2,6 +2,7 @@
 use alloc::{vec, vec::Vec};
 use core::borrow::Borrow;
 
+use plonky2_maybe_rayon::rayon::iter::IntoParallelIterator;
 use plonky2_maybe_rayon::*;
 
 use crate::field::extension::{Extendable, FieldExtension};
@@ -84,15 +85,19 @@ impl<F: Field> ReducingFactor<F> {
 
     pub fn reduce_polys_base<BF: Extendable<D, Extension = F>, const D: usize>(
         &mut self,
-        polys: Vec<&PolynomialCoeffs<BF>>,
+        polys: impl IntoParallelIterator<
+            Iter = impl IndexedParallelIterator<Item = impl Borrow<PolynomialCoeffs<BF>>>,
+        >,
     ) -> PolynomialCoeffs<F> {
+        let polys = polys.into_par_iter();
         self.count += polys.len() as u64;
         self.base
             .powers()
-            .zip(polys)
+            .take(polys.len())
             .collect::<Vec<_>>()
             .par_iter()
-            .map(|(base_power, poly)| poly.mul_extension(*base_power))
+            .zip(polys)
+            .map(|(base_power, poly)| poly.borrow().mul_extension(*base_power))
             .sum()
     }
 
