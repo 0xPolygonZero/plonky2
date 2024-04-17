@@ -195,7 +195,7 @@ where
 impl<T> MaybeIntoExactSizeParIter for T
 where
     T: IntoIterator,
-    T::Iter: ExactSizeIterator,
+    T::IntoIter: ExactSizeIterator,
 {
     type Item = T::Item;
     type Iter = T::IntoIter;
