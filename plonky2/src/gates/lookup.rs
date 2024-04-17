@@ -4,7 +4,6 @@ use alloc::{format, vec};
 use core::usize;
 
 use itertools::Itertools;
-use keccak_hash::keccak;
 
 use super::lookup_table::LookupTable;
 use crate::field::extension::Extendable;
@@ -13,6 +12,7 @@ use crate::gates::gate::Gate;
 use crate::gates::packed_util::PackedEvaluableBase;
 use crate::gates::util::StridedConstraintConsumer;
 use crate::hash::hash_types::RichField;
+use crate::hash::keccak::keccak;
 use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGeneratorRef};
 use crate::iop::target::Target;
