@@ -374,7 +374,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     pub fn add_virtual_extension_target(&mut self) -> ExtensionTarget<D> {
-        ExtensionTarget(self.add_virtual_targets(D).try_into().unwrap())
+        ExtensionTarget(self.add_virtual_target_arr::<D>())
     }
 
     pub fn add_virtual_extension_targets(&mut self, n: usize) -> Vec<ExtensionTarget<D>> {
@@ -662,16 +662,19 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// If the given [`ExtensionTarget`] is a constant (i.e. it was created by the
     /// `constant_extension(F)` method), returns its constant value. Otherwise, returns `None`.
     pub fn target_as_constant_ext(&self, target: ExtensionTarget<D>) -> Option<F::Extension> {
-        // Get a Vec of any coefficients that are constant. If we end up with exactly D of them,
+        // Get any coefficients that are constant. If we end up with exactly D of them,
         // then the `ExtensionTarget` as a whole is constant.
-        let const_coeffs: Vec<F> = target
+        let mut const_coeffs = target
             .0
-            .iter()
-            .filter_map(|&t| self.target_as_constant(t))
-            .collect();
+            .into_iter()
+            .filter_map(|t| self.target_as_constant(t));
 
-        if let Ok(d_const_coeffs) = const_coeffs.try_into() {
-            Some(F::Extension::from_basefield_array(d_const_coeffs))
+        if let Some(d_const_coeffs) = core::array::try_from_fn(|_| const_coeffs.next()) {
+            if const_coeffs.next().is_some() {
+                None
+            } else {
+                Some(F::Extension::from_basefield_array(d_const_coeffs))
+            }
         } else {
             None
         }

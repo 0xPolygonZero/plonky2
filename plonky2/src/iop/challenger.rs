@@ -249,12 +249,7 @@ impl<F: RichField + Extendable<D>, H: AlgebraicHasher<F>, const D: usize>
 
     pub fn get_hash(&mut self, builder: &mut CircuitBuilder<F, D>) -> HashOutTarget {
         HashOutTarget {
-            elements: [
-                self.get_challenge(builder),
-                self.get_challenge(builder),
-                self.get_challenge(builder),
-                self.get_challenge(builder),
-            ],
+            elements: core::array::from_fn(|_| self.get_challenge(builder)),
         }
     }
 
@@ -262,7 +257,7 @@ impl<F: RichField + Extendable<D>, H: AlgebraicHasher<F>, const D: usize>
         &mut self,
         builder: &mut CircuitBuilder<F, D>,
     ) -> ExtensionTarget<D> {
-        self.get_n_challenges(builder, D).try_into().unwrap()
+        ExtensionTarget(core::array::from_fn(|_| self.get_challenge(builder)))
     }
 
     /// Absorb any buffered inputs. After calling this, the input buffer will be empty, and the

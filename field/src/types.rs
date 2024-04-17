@@ -37,10 +37,7 @@ pub trait Sample: Sized {
     /// Samples an array of values of length `N` using [`OsRng`].
     #[inline]
     fn rand_array<const N: usize>() -> [Self; N] {
-        Self::rand_vec(N)
-            .try_into()
-            .ok()
-            .expect("This conversion can never fail.")
+        core::array::from_fn(|_| Self::rand())
     }
 }
 
@@ -178,7 +175,7 @@ pub trait Field:
         let mut buf: Vec<Self> = Vec::with_capacity(n);
         // cumul_prod holds the last WIDTH elements of buf. This is redundant, but it's how we
         // convince LLVM to keep the values in the registers.
-        let mut cumul_prod: [Self; WIDTH] = x[..WIDTH].try_into().unwrap();
+        let mut cumul_prod: [Self; WIDTH] = *x.first_chunk().unwrap();
         buf.extend(cumul_prod);
         for (i, &xi) in x[WIDTH..].iter().enumerate() {
             cumul_prod[i % WIDTH] *= xi;

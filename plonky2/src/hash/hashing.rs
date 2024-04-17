@@ -109,7 +109,7 @@ pub fn compress<F: Field, P: PlonkyPermutation<F>>(x: HashOut<F>, y: HashOut<F>)
     perm.permute();
 
     HashOut {
-        elements: perm.squeeze()[..NUM_HASH_OUT_ELTS].try_into().unwrap(),
+        elements: *perm.squeeze().first_chunk().unwrap(),
     }
 }
 

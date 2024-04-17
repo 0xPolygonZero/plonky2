@@ -2,6 +2,8 @@
 use alloc::vec::Vec;
 use core::ops::Range;
 
+use iter_fixed::IntoIteratorFixed;
+
 use crate::field::extension::algebra::ExtensionAlgebra;
 use crate::field::extension::{Extendable, FieldExtension, OEF};
 use crate::field::types::Field;
@@ -49,23 +51,22 @@ impl<const D: usize> ExtensionTarget<D> {
         let k = (F::order() - 1u32) / (D as u64);
         let z0 = F::Extension::W.exp_biguint(&(k * count as u64));
         #[allow(clippy::needless_collect)]
-        let zs = z0
-            .powers()
-            .take(D)
-            .map(|z| builder.constant(z))
-            .collect::<Vec<_>>();
+        let mut zs = z0.powers();
+        let zs: [_; D] = core::array::from_fn(|_| builder.constant(zs.next().unwrap()));
 
-        let mut res = Vec::with_capacity(D);
-        for (z, a) in zs.into_iter().zip(arr) {
-            res.push(builder.mul(z, a));
-        }
-
-        res.try_into().unwrap()
+        Self(
+            zs.into_iter_fixed()
+                .zip(arr)
+                .map(|(z, a)| builder.mul(z, a))
+                .collect(),
+        )
     }
 
     pub fn from_range(row: usize, range: Range<usize>) -> Self {
         debug_assert_eq!(range.end - range.start, D);
-        Target::wires_from_range(row, range).try_into().unwrap()
+
+        let mut wires = range.map(|i| Target::wire(row, i));
+        Self(core::array::from_fn(|_| wires.next().unwrap()))
     }
 }
 
@@ -152,7 +153,8 @@ pub fn flatten_target<const D: usize>(l: &[ExtensionTarget<D>]) -> Vec<Target> {
 /// Batch every D-sized chunks into extension targets.
 pub fn unflatten_target<const D: usize>(l: &[Target]) -> Vec<ExtensionTarget<D>> {
     debug_assert_eq!(l.len() % D, 0);
-    l.chunks_exact(D)
-        .map(|c| c.to_vec().try_into().unwrap())
+    l.array_chunks::<D>()
+        .copied()
+        .map(ExtensionTarget)
         .collect()
 }

@@ -61,9 +61,10 @@ impl<F: RichField> PlonkyPermutation<F> for KeccakPermutation<F> {
     }
 
     fn permute(&mut self) {
-        let mut state_bytes = vec![0u8; SPONGE_WIDTH * size_of::<u64>()];
+        const STRIDE: usize = size_of::<u64>();
+        let mut state_bytes = vec![0u8; SPONGE_WIDTH * STRIDE];
         for i in 0..SPONGE_WIDTH {
-            state_bytes[i * size_of::<u64>()..(i + 1) * size_of::<u64>()]
+            state_bytes[i * STRIDE..(i + 1) * STRIDE]
                 .copy_from_slice(&self.state[i].to_canonical_u64().to_le_bytes());
         }
 
@@ -75,22 +76,19 @@ impl<F: RichField> PlonkyPermutation<F> for KeccakPermutation<F> {
 
         let hash_onion_u64s = hash_onion.flat_map(|output| {
             output
-                .chunks_exact(size_of::<u64>())
-                .map(|word| u64::from_le_bytes(word.try_into().unwrap()))
+                .array_chunks::<STRIDE>()
+                .copied()
+                .map(u64::from_le_bytes)
                 .collect_vec()
         });
 
         // Parse field elements from u64 stream, using rejection sampling such that words that don't
         // fit in F are ignored.
-        let hash_onion_elems = hash_onion_u64s
+        let mut hash_onion_elems = hash_onion_u64s
             .filter(|&word| word < F::ORDER)
             .map(F::from_canonical_u64);
 
-        self.state = hash_onion_elems
-            .take(SPONGE_WIDTH)
-            .collect_vec()
-            .try_into()
-            .unwrap();
+        self.state = core::array::from_fn(|_| hash_onion_elems.next().unwrap());
     }
 
     fn squeeze(&self) -> &[F] {

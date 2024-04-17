@@ -90,14 +90,10 @@ impl<F: RichField> GenericHashOut<F> for HashOut<F> {
     }
 
     fn from_bytes(bytes: &[u8]) -> Self {
+        let bytes = bytes.as_chunks::<8>().0.first_chunk().unwrap();
+
         HashOut {
-            elements: bytes
-                .chunks(8)
-                .take(NUM_HASH_OUT_ELTS)
-                .map(|x| F::from_canonical_u64(u64::from_le_bytes(x.try_into().unwrap())))
-                .collect::<Vec<_>>()
-                .try_into()
-                .unwrap(),
+            elements: bytes.map(u64::from_le_bytes).map(F::from_canonical_u64),
         }
     }
 

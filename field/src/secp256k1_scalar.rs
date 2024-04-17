@@ -1,4 +1,3 @@
-use alloc::vec::Vec;
 use core::fmt::{self, Debug, Display, Formatter};
 use core::hash::{Hash, Hasher};
 use core::iter::{Product, Sum};
@@ -126,14 +125,10 @@ impl Field for Secp256K1Scalar {
     }
 
     fn from_noncanonical_biguint(val: BigUint) -> Self {
-        Self(
-            val.to_u64_digits()
-                .into_iter()
-                .pad_using(4, |_| 0)
-                .collect::<Vec<_>>()[..]
-                .try_into()
-                .expect("error converting to u64 array"),
-        )
+        let mut vals = val.to_u64_digits().into_iter().pad_using(4, |_| 0);
+        Self(core::array::from_fn(|_| {
+            vals.next().expect("error converting to u64 array")
+        }))
     }
 
     #[inline]
