@@ -1,4 +1,5 @@
 // Handlers for call-like operations, namely CALL, CALLCODE, STATICCALL and DELEGATECALL.
+// Reminder: All context metadata hardcoded offsets are already scaled by `Segment::ContextMetadata`.
 
 // Creates a new sub context and executes the code of the given account.
 global sys_call:
@@ -11,37 +12,44 @@ global sys_call:
     MUL // Cheaper than AND
     %jumpi(fault_exception)
 
+    %stack (kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size) ->
+        (args_size, args_offset, kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size)
+    %checked_mem_expansion
+    %stack (kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size) ->
+        (ret_size, ret_offset, kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size)
+    %checked_mem_expansion
+
     SWAP2
     // stack: address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size
     %u256_to_addr // Truncate to 160 bits
     DUP1 %insert_accessed_addresses
 
-    %call_charge_gas
+    %call_charge_gas(1, 1)
+    %check_depth
 
-    %stack (kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size) ->
-        (args_size, args_offset, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size)
-    %checked_mem_expansion
-    %stack (kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size) ->
-        (ret_size, ret_offset, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size)
-    %checked_mem_expansion
+    %checkpoint // Checkpoint
+    DUP3 %insert_touched_addresses
 
     %create_context
     // stack: new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size
-    // TODO: Consider call depth
 
     %stack (new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size) ->
           (new_ctx, args_offset, args_size, new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size)
     %copy_mem_to_calldata
     // stack: new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size
-    DUP5 DUP5 %address %transfer_eth %jumpi(panic) // TODO: Fix this panic.
+    DUP5 DUP5 %address %transfer_eth %jumpi(call_insufficient_balance)
+    DUP5 DUP5 %address %journal_add_balance_transfer
     DUP3 %set_new_ctx_gas_limit
-    %set_new_ctx_parent_pc(after_call_instruction)
-    DUP9 DUP9 DUP4 DUP4 DUP8 // Duplicate address, new_ctx, kexit_info, ret_offset, and ret_size.
-    // stack: address, new_ctx, kexit_info, ret_offset, ret_size, ...
+    // stack: new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size
+    DUP4
+    // stack: address, new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size
     %handle_precompiles
+    // stack: new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size
+    %set_new_ctx_parent_pc(after_call_instruction)
     // stack: new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size
 
     // Each line in the block below does not change the stack.
+    %set_static
     DUP4 %set_new_ctx_addr
     %address %set_new_ctx_caller
     DUP5 %set_new_ctx_value
@@ -55,20 +63,25 @@ global sys_call:
 // Creates a new sub context as if calling itself, but with the code of the
 // given account. In particular the storage remains the same.
 global sys_callcode:
+
     // stack: kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size
+    %stack (kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size) ->
+        (args_size, args_offset, kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size)
+    %checked_mem_expansion
+    %stack (kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size) ->
+        (ret_size, ret_offset, kexit_info, gas, address, value, args_offset, args_size, ret_offset, ret_size)
+    %checked_mem_expansion
+
     SWAP2
     // stack: address, gas, kexit_info, value, args_offset, args_size, ret_offset, ret_size
     %u256_to_addr // Truncate to 160 bits
     DUP1 %insert_accessed_addresses
 
-    %call_charge_gas
+    %call_charge_gas(1, 0)
+    %check_depth
 
-    %stack (kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size) ->
-        (args_size, args_offset, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size)
-    %checked_mem_expansion
-    %stack (kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size) ->
-        (ret_size, ret_offset, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size)
-    %checked_mem_expansion
+    %checkpoint // Checkpoint
+    %address %insert_touched_addresses
 
     // stack: kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size
     %create_context
@@ -78,14 +91,18 @@ global sys_callcode:
           (new_ctx, args_offset, args_size, new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size)
     %copy_mem_to_calldata
     // stack: new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size
+    DUP5 %address %address %transfer_eth %jumpi(call_insufficient_balance)
+    // stack: new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size
     DUP3 %set_new_ctx_gas_limit
-    %set_new_ctx_parent_pc(after_call_instruction)
-    DUP9 DUP9 DUP4 DUP4 DUP8 // Duplicate address, new_ctx, kexit_info, ret_offset, and ret_size.
-    // stack: address, new_ctx, kexit_info, ret_offset, ret_size, ...
+    // stack: new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size
+    DUP4
+    // stack: address, new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size
     %handle_precompiles
     // stack: new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size
+    %set_new_ctx_parent_pc(after_call_instruction)
 
     // Each line in the block below does not change the stack.
+    %set_static
     %address %set_new_ctx_addr
     %address %set_new_ctx_caller
     DUP5 %set_new_ctx_value
@@ -104,6 +121,13 @@ global sys_callcode:
 // CALL if the value sent is not 0.
 global sys_staticcall:
     // stack: kexit_info, gas, address, args_offset, args_size, ret_offset, ret_size
+    %stack (kexit_info, gas, address, args_offset, args_size, ret_offset, ret_size) ->
+        (args_size, args_offset, kexit_info, gas, address, args_offset, args_size, ret_offset, ret_size)
+    %checked_mem_expansion
+    %stack (kexit_info, gas, address, args_offset, args_size, ret_offset, ret_size) ->
+        (ret_size, ret_offset, kexit_info, gas, address, args_offset, args_size, ret_offset, ret_size)
+    %checked_mem_expansion
+
     SWAP2
     // stack: address, gas, kexit_info, args_offset, args_size, ret_offset, ret_size
     %u256_to_addr // Truncate to 160 bits
@@ -111,14 +135,11 @@ global sys_staticcall:
 
     // Add a value of 0 to the stack. Slightly inefficient but that way we can reuse %call_charge_gas.
     %stack (cold_access, address, gas, kexit_info) -> (cold_access, address, gas, kexit_info, 0)
-    %call_charge_gas
+    %call_charge_gas(0, 1)
+    %check_depth
 
-    %stack (kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size) ->
-        (args_size, args_offset, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size)
-    %checked_mem_expansion
-    %stack (kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size) ->
-        (ret_size, ret_offset, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size)
-    %checked_mem_expansion
+    %checkpoint // Checkpoint
+    DUP3 %insert_touched_addresses
 
     // stack: kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size
     %create_context
@@ -129,10 +150,12 @@ global sys_staticcall:
     %copy_mem_to_calldata
     // stack: new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size
     DUP3 %set_new_ctx_gas_limit
-    %set_new_ctx_parent_pc(after_call_instruction)
-    DUP9 DUP9 DUP4 DUP4 DUP8 // Duplicate address, new_ctx, kexit_info, ret_offset, and ret_size.
-    // stack: address, new_ctx, kexit_info, ret_offset, ret_size, ...
+    // stack: new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size
+    DUP4
+    // stack: address, new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size
     %handle_precompiles
+    // stack: new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size
+    %set_new_ctx_parent_pc(after_call_instruction)
     // stack: new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size
 
     // Each line in the block below does not change the stack.
@@ -151,7 +174,15 @@ global sys_staticcall:
 // given account. In particular the storage, the current sender and the current
 // value remain the same.
 global sys_delegatecall:
+
     // stack: kexit_info, gas, address, args_offset, args_size, ret_offset, ret_size
+    %stack (kexit_info, gas, address, args_offset, args_size, ret_offset, ret_size) ->
+        (args_size, args_offset, kexit_info, gas, address, args_offset, args_size, ret_offset, ret_size)
+    %checked_mem_expansion
+    %stack (kexit_info, gas, address, args_offset, args_size, ret_offset, ret_size) ->
+        (ret_size, ret_offset, kexit_info, gas, address, args_offset, args_size, ret_offset, ret_size)
+    %checked_mem_expansion
+
     SWAP2
     // stack: address, gas, kexit_info, args_offset, args_size, ret_offset, ret_size
     %u256_to_addr // Truncate to 160 bits
@@ -159,14 +190,11 @@ global sys_delegatecall:
 
     // Add a value of 0 to the stack. Slightly inefficient but that way we can reuse %call_charge_gas.
     %stack (cold_access, address, gas, kexit_info) -> (cold_access, address, gas, kexit_info, 0)
-    %call_charge_gas
+    %call_charge_gas(0, 0)
+    %check_depth
 
-    %stack (kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size) ->
-        (args_size, args_offset, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size)
-    %checked_mem_expansion
-    %stack (kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size) ->
-        (ret_size, ret_offset, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size)
-    %checked_mem_expansion
+    %checkpoint // Checkpoint
+    %address %insert_touched_addresses
 
     // stack: kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size
     %create_context
@@ -177,26 +205,32 @@ global sys_delegatecall:
     %copy_mem_to_calldata
     // stack: new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size
     DUP3 %set_new_ctx_gas_limit
-    %set_new_ctx_parent_pc(after_call_instruction)
-    DUP9 DUP9 DUP4 DUP4 DUP8 // Duplicate address, new_ctx, kexit_info, ret_offset, and ret_size.
-    // stack: address, new_ctx, kexit_info, ret_offset, ret_size, ...
+    // stack: new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size
+    DUP4
+    // stack: address, new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size
     %handle_precompiles
+    // stack: new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size
+    %set_new_ctx_parent_pc(after_call_instruction)
     // stack: new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size
 
     // Each line in the block below does not change the stack.
+    %set_static
     %address %set_new_ctx_addr
     %caller %set_new_ctx_caller
     %callvalue %set_new_ctx_value
     %set_new_ctx_parent_pc(after_call_instruction)
     DUP4 %set_new_ctx_code
 
-    %stack (new_ctx, kexit_info, callgas, address, args_offset, args_size, ret_offset, ret_size)
+    %stack (new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size)
         -> (new_ctx, kexit_info, ret_offset, ret_size)
     %enter_new_ctx
 
 // We go here after any CALL type instruction (but not after the special call by the transaction originator).
 global after_call_instruction:
     // stack: success, leftover_gas, new_ctx, kexit_info, ret_offset, ret_size
+    DUP1 ISZERO %jumpi(after_call_instruction_failed)
+    %pop_checkpoint
+after_call_instruction_contd:
     SWAP3
     // stack: kexit_info, leftover_gas, new_ctx, success, ret_offset, ret_size
     // Add the leftover gas into the appropriate bits of kexit_info.
@@ -207,84 +241,139 @@ global after_call_instruction:
     %copy_returndata_to_mem
     EXIT_KERNEL
 
+after_call_instruction_failed:
+    // stack: success, leftover_gas, new_ctx, kexit_info, ret_offset, ret_size
+    %revert_checkpoint
+    %jump(after_call_instruction_contd)
+
+call_insufficient_balance:
+    %stack (new_ctx, kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size) ->
+        (callgas, kexit_info, 0)
+    %shl_const(192) SWAP1 SUB
+    // stack: kexit_info', 0
+    %mstore_context_metadata(@CTX_METADATA_RETURNDATA_SIZE, 0)
+    EXIT_KERNEL
+
+%macro check_depth
+    %call_depth
+    %gt_const(@CALL_STACK_LIMIT)
+    %jumpi(call_too_deep)
+%endmacro
+
+call_too_deep:
+    %stack (kexit_info, callgas, address, value, args_offset, args_size, ret_offset, ret_size) ->
+        (callgas, kexit_info, 0)
+    %shl_const(192) SWAP1 SUB
+    // stack: kexit_info', 0
+    %mstore_context_metadata(@CTX_METADATA_RETURNDATA_SIZE, 0)
+    EXIT_KERNEL
+
 // Set @CTX_METADATA_STATIC to 1. Note that there is no corresponding set_static_false routine
 // because it will already be 0 by default.
 %macro set_static_true
     // stack: new_ctx
-    %stack (new_ctx) -> (new_ctx, @SEGMENT_CONTEXT_METADATA, @CTX_METADATA_STATIC, 1, new_ctx)
+    DUP1
+    %build_address_with_ctx_no_segment(@CTX_METADATA_STATIC)
+    PUSH 1
+    // stack: 1, addr, new_ctx
+    MSTORE_GENERAL
+    // stack: new_ctx
+%endmacro
+
+// Set @CTX_METADATA_STATIC of the next context to the current value.
+%macro set_static
+    // stack: new_ctx
+    DUP1
+    %build_address_with_ctx_no_segment(@CTX_METADATA_STATIC)
+    %mload_context_metadata(@CTX_METADATA_STATIC)
+    // stack: is_static, addr, new_ctx
     MSTORE_GENERAL
     // stack: new_ctx
 %endmacro
 
 %macro set_new_ctx_addr
     // stack: called_addr, new_ctx
-    %stack (called_addr, new_ctx)
-        -> (new_ctx, @SEGMENT_CONTEXT_METADATA, @CTX_METADATA_ADDRESS, called_addr, new_ctx)
+    DUP2
+    %build_address_with_ctx_no_segment(@CTX_METADATA_ADDRESS)
+    SWAP1
+    // stack: called_addr, addr, new_ctx
     MSTORE_GENERAL
     // stack: new_ctx
 %endmacro
 
 %macro set_new_ctx_caller
     // stack: sender, new_ctx
-    %stack (sender, new_ctx)
-        -> (new_ctx, @SEGMENT_CONTEXT_METADATA, @CTX_METADATA_CALLER, sender, new_ctx)
+    DUP2
+    %build_address_with_ctx_no_segment(@CTX_METADATA_CALLER)
+    SWAP1
+    // stack: sender, addr, new_ctx
     MSTORE_GENERAL
     // stack: new_ctx
 %endmacro
 
 %macro set_new_ctx_value
     // stack: value, new_ctx
-    %stack (value, new_ctx)
-        -> (new_ctx, @SEGMENT_CONTEXT_METADATA, @CTX_METADATA_CALL_VALUE, value, new_ctx)
+    DUP2
+    %build_address_with_ctx_no_segment(@CTX_METADATA_CALL_VALUE)
+    SWAP1
+    // stack: value, addr, new_ctx
     MSTORE_GENERAL
     // stack: new_ctx
 %endmacro
 
 %macro set_new_ctx_code_size
     // stack: code_size, new_ctx
-    %stack (code_size, new_ctx)
-        -> (new_ctx, @SEGMENT_CONTEXT_METADATA, @CTX_METADATA_CODE_SIZE, code_size, new_ctx)
+    DUP2
+    %build_address_with_ctx_no_segment(@CTX_METADATA_CODE_SIZE)
+    SWAP1
+    // stack: code_size, addr, new_ctx
     MSTORE_GENERAL
     // stack: new_ctx
 %endmacro
 
 %macro set_new_ctx_calldata_size
     // stack: calldata_size, new_ctx
-    %stack (calldata_size, new_ctx)
-        -> (new_ctx, @SEGMENT_CONTEXT_METADATA, @CTX_METADATA_CALLDATA_SIZE, calldata_size, new_ctx)
+    DUP2
+    %build_address_with_ctx_no_segment(@CTX_METADATA_CALLDATA_SIZE)
+    SWAP1
+    // stack: calldata_size, addr, new_ctx
     MSTORE_GENERAL
     // stack: new_ctx
 %endmacro
 
 %macro set_new_ctx_gas_limit
     // stack: gas_limit, new_ctx
-    %stack (gas_limit, new_ctx)
-        -> (new_ctx, @SEGMENT_CONTEXT_METADATA, @CTX_METADATA_GAS_LIMIT, gas_limit, new_ctx)
+    DUP2
+    %build_address_with_ctx_no_segment(@CTX_METADATA_GAS_LIMIT)
+    SWAP1
+    // stack: gas_limit, addr, new_ctx
     MSTORE_GENERAL
     // stack: new_ctx
 %endmacro
 
 %macro set_new_ctx_parent_ctx
     // stack: new_ctx
+    DUP1
+    %build_address_with_ctx_no_segment(@CTX_METADATA_PARENT_CONTEXT)
     GET_CONTEXT
-    PUSH @CTX_METADATA_PARENT_CONTEXT
-    PUSH @SEGMENT_CONTEXT_METADATA
-    DUP4 // new_ctx
+    // stack: ctx, addr, new_ctx
     MSTORE_GENERAL
     // stack: new_ctx
 %endmacro
 
 %macro set_new_ctx_parent_pc(label)
     // stack: new_ctx
-    %stack (new_ctx)
-        -> (new_ctx, @SEGMENT_CONTEXT_METADATA, @CTX_METADATA_PARENT_PC, $label, new_ctx)
+    DUP1
+    %build_address_with_ctx_no_segment(@CTX_METADATA_PARENT_PC)
+    PUSH $label
+    // stack: label, addr, new_ctx
     MSTORE_GENERAL
     // stack: new_ctx
 %endmacro
 
 %macro set_new_ctx_code
-    %stack (address, new_ctx) -> (address, new_ctx, @SEGMENT_CODE, %%after, new_ctx)
-    %jump(load_code)
+    %stack (address, new_ctx) -> (address, new_ctx, %%after, new_ctx)
+    %jump(load_code_padded)
 %%after:
     %set_new_ctx_code_size
     // stack: new_ctx
@@ -295,6 +384,15 @@ global after_call_instruction:
     // Switch to the new context and go to usermode with PC=0.
     DUP1 // new_ctx
     SET_CONTEXT
+    %checkpoint // Checkpoint
+    %increment_call_depth
+    // Perform jumpdest analyis
+    PUSH %%after
+    %mload_context_metadata(@CTX_METADATA_CODE_SIZE)
+    GET_CONTEXT
+    // stack: ctx, code_size, retdest
+    %jump(jumpdest_analysis)
+%%after:
     PUSH 0 // jump dest
     EXIT_KERNEL
     // (Old context) stack: new_ctx
@@ -303,17 +401,18 @@ global after_call_instruction:
 %macro copy_mem_to_calldata
     // stack: new_ctx, args_offset, args_size
     GET_CONTEXT
-    %stack (ctx, new_ctx, args_offset, args_size) ->
-        (
-            new_ctx, @SEGMENT_CALLDATA, 0,          // DST
-            ctx, @SEGMENT_MAIN_MEMORY, args_offset, // SRC
-            args_size, %%after,                     // count, retdest
-            new_ctx, args_size
-        )
-    %jump(memcpy)
+    %stack(ctx, new_ctx, args_offset, args_size) -> (ctx, @SEGMENT_MAIN_MEMORY, args_offset, args_size, %%after, new_ctx, args_size)
+    %build_address
+    // stack: SRC, args_size, %%after, new_ctx, args_size
+    DUP4
+    %build_address_with_ctx_no_offset(@SEGMENT_CALLDATA)
+    // stack: DST, SRC, args_size, %%after, new_ctx, args_size
+    %jump(memcpy_bytes)
 %%after:
-    %stack (new_ctx, args_size) ->
-        (new_ctx, @SEGMENT_CONTEXT_METADATA, @CTX_METADATA_CALLDATA_SIZE, args_size)
+    // stack: new_ctx, args_size
+    %build_address_with_ctx_no_segment(@CTX_METADATA_CALLDATA_SIZE)
+    // stack: addr, args_size
+    SWAP1
     MSTORE_GENERAL
     // stack: (empty)
 %endmacro
@@ -325,76 +424,14 @@ global after_call_instruction:
     // stack: returndata_size, ret_size, new_ctx, success, ret_offset, kexit_info
     %min
     GET_CONTEXT
-    %stack (ctx, n, new_ctx, success, ret_offset, kexit_info) ->
-        (
-            ctx, @SEGMENT_MAIN_MEMORY, ret_offset, // DST
-            ctx, @SEGMENT_RETURNDATA, 0,           // SRC
-            n, %%after,                     // count, retdest
-            kexit_info, success
-        )
-    %jump(memcpy)
+    %stack (ctx, n, new_ctx, success, ret_offset, kexit_info) -> (ctx, @SEGMENT_RETURNDATA, @SEGMENT_MAIN_MEMORY, ret_offset, ctx, n, %%after, kexit_info, success)
+    %build_address_no_offset
+    // stack: SRC, @SEGMENT_MAIN_MEMORY, ret_offset, ctx, n, %%after, kexit_info, success
+    SWAP3
+    %build_address
+    // stack: DST, SRC, n, %%after, kexit_info, success
+    %jump(memcpy_bytes)
 %%after:
-%endmacro
-
-// Charge gas for *call opcodes and return the sub-context gas limit.
-// Doesn't include memory expansion costs.
-%macro call_charge_gas
-    // Compute C_aaccess
-    // stack: cold_access, address, gas, kexit_info, value
-    %mul_const(@GAS_COLDACCOUNTACCESS_MINUS_WARMACCESS)
-    %add_const(@GAS_WARMACCESS)
-
-    // Compute C_xfer
-    // stack: Caaccess, address, gas, kexit_info, value
-    DUP5 ISZERO %not_bit
-    // stack: value≠0, Caaccess, address, gas, kexit_info, value
-    DUP1
-    %mul_const(@GAS_CALLVALUE)
-
-    // Compute C_new
-    // stack: Cxfer, value≠0, Caaccess, address, gas, kexit_info, value
-    SWAP1
-    // stack: value≠0, Cxfer, Caaccess, address, gas, kexit_info, value
-    DUP4 %is_dead MUL
-    // stack: is_dead(address) and value≠0, Cxfer, Caaccess, address, gas, kexit_info, value
-    %mul_const(@GAS_NEWACCOUNT)
-    // stack: Cnew, Cxfer, Caaccess, address, gas, kexit_info, value
-
-    // Compute C_extra
-    ADD ADD
-
-    // Compute C_gascap
-    // stack: Cextra, address, gas, kexit_info, value
-    DUP4 %leftover_gas
-    // stack: leftover_gas, Cextra, address, gas, kexit_info, value
-    DUP2 DUP2 LT
-    // stack: leftover_gas<Cextra, leftover_gas, Cextra, address, gas, kexit_info, value
-    DUP5 DUP2 MUL
-    // stack: (leftover_gas<Cextra)*gas, leftover_gas<Cextra, leftover_gas, Cextra, address, gas, kexit_info, value
-    SWAP1 %not_bit
-    // stack: leftover_gas>=Cextra, (leftover_gas<Cextra)*gas, leftover_gas, Cextra, address, gas, kexit_info, value
-    DUP4 DUP4 SUB
-    // stack: leftover_gas - Cextra, leftover_gas>=Cextra, (leftover_gas<Cextra)*gas, leftover_gas, Cextra, address, gas, kexit_info, value
-    %all_but_one_64th
-    // stack: L(leftover_gas - Cextra), leftover_gas>=Cextra, (leftover_gas<Cextra)*gas, leftover_gas, Cextra, address, gas, kexit_info, value
-    DUP7 %min MUL ADD
-    // stack: Cgascap, leftover_gas, Cextra, address, gas, kexit_info, value
-
-    // Compute C_call and charge for it.
-    %stack (Cgascap, leftover_gas, Cextra) -> (Cextra, Cgascap, Cgascap)
-    ADD
-    %stack (C_call, Cgascap, address, gas, kexit_info, value) ->
-        (C_call, kexit_info, Cgascap, address, gas, value)
-    %charge_gas
-
-    // Compute C_callgas
-    %stack (kexit_info, Cgascap, address, gas, value) ->
-        (Cgascap, address, gas, kexit_info, value)
-    DUP5 ISZERO %not_bit
-    // stack: value!=0, Cgascap, address, gas, kexit_info, value
-    %mul_const(@GAS_CALLSTIPEND) ADD
-    %stack (C_callgas, address, gas, kexit_info, value) ->
-        (kexit_info, C_callgas, address, value)
 %endmacro
 
 // Checked memory expansion.

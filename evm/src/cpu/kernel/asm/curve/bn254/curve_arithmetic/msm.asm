@@ -42,31 +42,31 @@ bn_msm_loop_add_b_nonzero:
 
 %macro bn_mload_wnaf_a
     // stack: i
-    %mload_kernel(@SEGMENT_KERNEL_BN_WNAF_A)
+    %mload_current(@SEGMENT_BN_WNAF_A)
 %endmacro
 
 %macro bn_mload_wnaf_b
     // stack: i
-    %mload_kernel(@SEGMENT_KERNEL_BN_WNAF_B)
+    %mload_current(@SEGMENT_BN_WNAF_B)
 %endmacro
 
 %macro bn_mload_point_a
     // stack: w
     DUP1
-    %mload_kernel(@SEGMENT_KERNEL_BN_TABLE_Q)
+    %mload_current(@SEGMENT_BN_TABLE_Q)
     //stack: Gy, w
-    SWAP1 %decrement %mload_kernel(@SEGMENT_KERNEL_BN_TABLE_Q)
+    SWAP1 %decrement %mload_current(@SEGMENT_BN_TABLE_Q)
     //stack: Gx, Gy
 %endmacro
 
 %macro bn_mload_point_b
     // stack: w
     DUP1
-    %mload_kernel(@SEGMENT_KERNEL_BN_TABLE_Q)
-    PUSH @BN_BNEG_LOC %mload_kernel(@SEGMENT_KERNEL_BN_TABLE_Q)
+    %mload_current(@SEGMENT_BN_TABLE_Q)
+    PUSH @BN_BNEG_LOC %mload_current(@SEGMENT_BN_TABLE_Q)
     %stack (bneg, Gy, w) -> (@BN_BASE, Gy, bneg, bneg, Gy, w)
     SUB SWAP1 ISZERO MUL SWAP2 MUL ADD
-    SWAP1 %decrement %mload_kernel(@SEGMENT_KERNEL_BN_TABLE_Q)
+    SWAP1 %decrement %mload_current(@SEGMENT_BN_TABLE_Q)
     //stack: Gx, Gy
     PUSH @BN_GLV_BETA
     MULFP254

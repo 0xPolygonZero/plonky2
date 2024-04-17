@@ -16,6 +16,7 @@ use plonky2::with_context;
 
 use crate::config::StarkConfig;
 use crate::constraint_consumer::RecursiveConstraintConsumer;
+use crate::evaluation_frame::StarkEvaluationFrame;
 use crate::permutation::PermutationCheckDataTarget;
 use crate::proof::{
     StarkOpeningSetTarget, StarkProof, StarkProofChallengesTarget, StarkProofTarget,
@@ -23,7 +24,6 @@ use crate::proof::{
 };
 use crate::stark::Stark;
 use crate::vanishing_poly::eval_vanishing_poly_circuit;
-use crate::vars::StarkEvaluationTargets;
 
 pub fn verify_stark_proof_circuit<
     F: RichField + Extendable<D>,
@@ -37,8 +37,6 @@ pub fn verify_stark_proof_circuit<
     inner_config: &StarkConfig,
 ) where
     C::Hasher: AlgebraicHasher<F>,
-    [(); S::COLUMNS]:,
-    [(); S::PUBLIC_INPUTS]:,
 {
     assert_eq!(proof_with_pis.public_inputs.len(), S::PUBLIC_INPUTS);
     let degree_bits = proof_with_pis.proof.recover_degree_bits(inner_config);
@@ -73,8 +71,6 @@ fn verify_stark_proof_with_challenges_circuit<
     degree_bits: usize,
 ) where
     C::Hasher: AlgebraicHasher<F>,
-    [(); S::COLUMNS]:,
-    [(); S::PUBLIC_INPUTS]:,
 {
     check_permutation_options(&stark, &proof_with_pis, &challenges).unwrap();
     let one = builder.one_extension();
@@ -90,16 +86,15 @@ fn verify_stark_proof_with_challenges_circuit<
         permutation_zs_next,
         quotient_polys,
     } = &proof.openings;
-    let vars = StarkEvaluationTargets {
-        local_values: &local_values.to_vec().try_into().unwrap(),
-        next_values: &next_values.to_vec().try_into().unwrap(),
-        public_inputs: &public_inputs
+
+    let vars = S::EvaluationFrameTarget::from_values(
+        local_values,
+        next_values,
+        &public_inputs
             .into_iter()
             .map(|t| builder.convert_to_ext(t))
-            .collect::<Vec<_>>()
-            .try_into()
-            .unwrap(),
-    };
+            .collect::<Vec<_>>(),
+    );
 
     let zeta_pow_deg = builder.exp_power_of_2_extension(challenges.stark_zeta, degree_bits);
     let z_h_zeta = builder.sub_extension(zeta_pow_deg, one);
@@ -132,7 +127,7 @@ fn verify_stark_proof_with_challenges_circuit<
             builder,
             &stark,
             inner_config,
-            vars,
+            &vars,
             permutation_data,
             &mut consumer,
         )

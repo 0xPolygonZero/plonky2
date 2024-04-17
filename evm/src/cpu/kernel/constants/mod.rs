@@ -2,21 +2,24 @@ use std::collections::HashMap;
 
 use ethereum_types::U256;
 use hex_literal::hex;
+use static_assertions::const_assert;
 
-use crate::cpu::decode::invalid_opcodes_user;
 use crate::cpu::kernel::constants::context_metadata::ContextMetadata;
 use crate::cpu::kernel::constants::global_metadata::GlobalMetadata;
+use crate::cpu::kernel::constants::journal_entry::JournalEntry;
 use crate::cpu::kernel::constants::trie_type::PartialTrieType;
 use crate::cpu::kernel::constants::txn_fields::NormalizedTxnField;
 use crate::memory::segments::Segment;
 
 pub(crate) mod context_metadata;
+mod exc_bitfields;
 pub(crate) mod global_metadata;
+pub(crate) mod journal_entry;
 pub(crate) mod trie_type;
 pub(crate) mod txn_fields;
 
 /// Constants that are accessible to our kernel assembly code.
-pub fn evm_constants() -> HashMap<String, U256> {
+pub(crate) fn evm_constants() -> HashMap<String, U256> {
     let mut c = HashMap::new();
 
     let hex_constants = MISC_CONSTANTS
@@ -29,6 +32,10 @@ pub fn evm_constants() -> HashMap<String, U256> {
     }
 
     for (name, value) in GAS_CONSTANTS {
+        c.insert(name.into(), U256::from(value));
+    }
+
+    for (name, value) in REFUND_CONSTANTS {
         c.insert(name.into(), U256::from(value));
     }
 
@@ -48,33 +55,57 @@ pub fn evm_constants() -> HashMap<String, U256> {
         c.insert(name.into(), U256::from(value));
     }
 
+    c.insert(MAX_NONCE.0.into(), U256::from(MAX_NONCE.1));
+    c.insert(CALL_STACK_LIMIT.0.into(), U256::from(CALL_STACK_LIMIT.1));
+
     for segment in Segment::all() {
-        c.insert(segment.var_name().into(), (segment as u32).into());
+        c.insert(segment.var_name().into(), (segment as usize).into());
     }
     for txn_field in NormalizedTxnField::all() {
-        c.insert(txn_field.var_name().into(), (txn_field as u32).into());
+        // These offsets are already scaled by their respective segment.
+        c.insert(txn_field.var_name().into(), (txn_field as usize).into());
     }
     for txn_field in GlobalMetadata::all() {
-        c.insert(txn_field.var_name().into(), (txn_field as u32).into());
+        // These offsets are already scaled by their respective segment.
+        c.insert(txn_field.var_name().into(), (txn_field as usize).into());
     }
     for txn_field in ContextMetadata::all() {
-        c.insert(txn_field.var_name().into(), (txn_field as u32).into());
+        // These offsets are already scaled by their respective segment.
+        c.insert(txn_field.var_name().into(), (txn_field as usize).into());
     }
     for trie_type in PartialTrieType::all() {
         c.insert(trie_type.var_name().into(), (trie_type as u32).into());
     }
+    for entry in JournalEntry::all() {
+        c.insert(entry.var_name().into(), (entry as u32).into());
+    }
     c.insert(
         "INVALID_OPCODES_USER".into(),
-        U256::from_little_endian(&invalid_opcodes_user()),
+        exc_bitfields::INVALID_OPCODES_USER,
+    );
+    c.insert(
+        "STACK_LENGTH_INCREASING_OPCODES_USER".into(),
+        exc_bitfields::STACK_LENGTH_INCREASING_OPCODES_USER,
     );
     c
 }
 
-const MISC_CONSTANTS: [(&str, [u8; 32]); 1] = [
+const MISC_CONSTANTS: [(&str, [u8; 32]); 3] = [
     // Base for limbs used in bignum arithmetic.
     (
         "BIGNUM_LIMB_BASE",
         hex!("0000000000000000000000000000000100000000000000000000000000000000"),
+    ),
+    // Position in SEGMENT_RLP_RAW where the empty node encoding is stored. It is
+    // equal to u32::MAX + @SEGMENT_RLP_RAW so that all rlp pointers are much smaller than that.
+    (
+        "ENCODED_EMPTY_NODE_POS",
+        hex!("0000000000000000000000000000000000000000000000000000000CFFFFFFFF"),
+    ),
+    // 0x10000 = 2^16 bytes, much larger than any RLP blob the EVM could possibly create.
+    (
+        "MAX_RLP_BLOB_SIZE",
+        hex!("0000000000000000000000000000000000000000000000000000000000010000"),
     ),
 ];
 
@@ -138,7 +169,7 @@ const EC_CONSTANTS: [(&str, [u8; 32]); 20] = [
     ),
     (
         "BN_BNEG_LOC",
-        // This just needs to be large enough to not interfere with anything else in SEGMENT_KERNEL_BN_TABLE_Q.
+        // This just needs to be large enough to not interfere with anything else in SEGMENT_BN_TABLE_Q.
         hex!("0000000000000000000000000000000000000000000000000000000000001337"),
     ),
     (
@@ -175,7 +206,7 @@ const EC_CONSTANTS: [(&str, [u8; 32]); 20] = [
     ),
 ];
 
-const GAS_CONSTANTS: [(&str, u16); 38] = [
+const GAS_CONSTANTS: [(&str, u16); 36] = [
     ("GAS_ZERO", 0),
     ("GAS_JUMPDEST", 1),
     ("GAS_BASE", 2),
@@ -192,8 +223,6 @@ const GAS_CONSTANTS: [(&str, u16); 38] = [
     ("GAS_COLDSLOAD_MINUS_WARMACCESS", 2_000),
     ("GAS_SSET", 20_000),
     ("GAS_SRESET", 2_900),
-    ("REFUND_SCLEAR", 15_000),
-    ("REFUND_SELFDESTRUCT", 24_000),
     ("GAS_SELFDESTRUCT", 5_000),
     ("GAS_CREATE", 32_000),
     ("GAS_CODEDEPOSIT", 200),
@@ -215,6 +244,8 @@ const GAS_CONSTANTS: [(&str, u16); 38] = [
     ("GAS_COPY", 3),
     ("GAS_BLOCKHASH", 20),
 ];
+
+const REFUND_CONSTANTS: [(&str, u16); 2] = [("REFUND_SCLEAR", 4_800), ("MAX_REFUND_QUOTIENT", 5)];
 
 const PRECOMPILES: [(&str, u16); 9] = [
     ("ECREC", 1),
@@ -251,3 +282,6 @@ const CODE_SIZE_LIMIT: [(&str, u64); 3] = [
     ("MAX_INITCODE_SIZE", 0xc000),
     ("INITCODE_WORD_COST", 2),
 ];
+
+const MAX_NONCE: (&str, u64) = ("MAX_NONCE", 0xffffffffffffffff);
+const CALL_STACK_LIMIT: (&str, u64) = ("CALL_STACK_LIMIT", 1024);

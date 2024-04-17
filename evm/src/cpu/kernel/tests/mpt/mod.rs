@@ -5,6 +5,7 @@ use ethereum_types::{BigEndianHash, H256, U256};
 use crate::generation::mpt::AccountRlp;
 use crate::Node;
 
+mod delete;
 mod hash;
 mod hex_prefix;
 mod insert;
@@ -12,13 +13,19 @@ mod load;
 mod read;
 
 pub(crate) fn nibbles_64<T: Into<U256>>(v: T) -> Nibbles {
-    let packed = v.into();
-    Nibbles { count: 64, packed }
+    let packed: U256 = v.into();
+    Nibbles {
+        count: 64,
+        packed: packed.into(),
+    }
 }
 
 pub(crate) fn nibbles_count<T: Into<U256>>(v: T, count: usize) -> Nibbles {
-    let packed = v.into();
-    Nibbles { count, packed }
+    let packed: U256 = v.into();
+    Nibbles {
+        count,
+        packed: packed.into(),
+    }
 }
 
 pub(crate) fn test_account_1() -> AccountRlp {

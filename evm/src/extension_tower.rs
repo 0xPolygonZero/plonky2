@@ -21,7 +21,7 @@ pub trait FieldExt:
     fn inv(self) -> Self;
 }
 
-pub const BN_BASE: U256 = U256([
+pub(crate) const BN_BASE: U256 = U256([
     0x3c208c16d87cfd47,
     0x97816a916871ca8d,
     0xb85045b68181585d,
@@ -29,7 +29,7 @@ pub const BN_BASE: U256 = U256([
 ]);
 
 #[derive(Debug, Copy, Clone, PartialEq)]
-pub struct BN254 {
+pub(crate) struct BN254 {
     pub val: U256,
 }
 
@@ -114,7 +114,7 @@ impl Div for BN254 {
     }
 }
 
-pub const BLS_BASE: U512 = U512([
+pub(crate) const BLS_BASE: U512 = U512([
     0xb9feffffffffaaab,
     0x1eabfffeb153ffff,
     0x6730d2a0f6b0f624,
@@ -126,16 +126,16 @@ pub const BLS_BASE: U512 = U512([
 ]);
 
 #[derive(Debug, Copy, Clone, PartialEq)]
-pub struct BLS381 {
+pub(crate) struct BLS381 {
     pub val: U512,
 }
 
 impl BLS381 {
-    pub fn lo(self) -> U256 {
+    pub(crate) fn lo(self) -> U256 {
         U256(self.val.0[..4].try_into().unwrap())
     }
 
-    pub fn hi(self) -> U256 {
+    pub(crate) fn hi(self) -> U256 {
         U256(self.val.0[4..].try_into().unwrap())
     }
 }
@@ -260,7 +260,7 @@ impl Div for BLS381 {
 /// The degree 2 field extension Fp2 is given by adjoining i, the square root of -1, to BN254
 /// The arithmetic in this extension is standard complex arithmetic
 #[derive(Debug, Copy, Clone, PartialEq)]
-pub struct Fp2<T>
+pub(crate) struct Fp2<T>
 where
     T: FieldExt,
 {
@@ -812,7 +812,7 @@ impl Adj for Fp2<BLS381> {
 /// The degree 3 field extension Fp6 over Fp2 is given by adjoining t, where t^3 = 1 + i
 /// Fp6 has basis 1, t, t^2 over Fp2
 #[derive(Debug, Copy, Clone, PartialEq)]
-pub struct Fp6<T>
+pub(crate) struct Fp6<T>
 where
     T: FieldExt,
     Fp2<T>: Adj,
@@ -944,7 +944,7 @@ where
     /// while the values of
     ///     t^(p^n) and t^(2p^n)
     /// are precomputed in the constant arrays FROB_T1 and FROB_T2
-    pub fn frob(self, n: usize) -> Fp6<T> {
+    pub(crate) fn frob(self, n: usize) -> Fp6<T> {
         let n = n % 6;
         let frob_t1 = Fp2::<T>::FROB_T[0][n];
         let frob_t2 = Fp2::<T>::FROB_T[1][n];
@@ -1031,7 +1031,7 @@ where
 /// The degree 2 field extension Fp12 over Fp6 is given by
 /// adjoining z, where z^2 = t. It thus has basis 1, z over Fp6
 #[derive(Debug, Copy, Clone, PartialEq)]
-pub struct Fp12<T>
+pub(crate) struct Fp12<T>
 where
     T: FieldExt,
     Fp2<T>: Adj,
@@ -1068,7 +1068,7 @@ where
     ///     (Prod_{i=1}^11 x_i) / phi
     /// The 6th Frob map is nontrivial but leaves Fp6 fixed and hence must be the conjugate:
     ///     x_6 = (a + bz)_6 = a - bz = x.conj()
-    /// Letting prod_17 = x_1 * x_7, the remaining factors in the numerator can be expresed as:
+    /// Letting prod_17 = x_1 * x_7, the remaining factors in the numerator can be expressed as:
     ///     [(prod_17) * (prod_17)_2] * (prod_17)_4 * [(prod_17) * (prod_17)_2]_1
     /// By Galois theory, both the following are in Fp2 and are complex conjugates
     ///     prod_odds,  prod_evens
@@ -1200,7 +1200,7 @@ where
     /// which sends a + bz: Fp12 to
     ///     a^(p^n) + b^(p^n) * z^(p^n)
     /// where the values of z^(p^n) are precomputed in the constant array FROB_Z
-    pub fn frob(self, n: usize) -> Fp12<T> {
+    pub(crate) fn frob(self, n: usize) -> Fp12<T> {
         let n = n % 12;
         Fp12 {
             z0: self.z0.frob(n),
@@ -1223,42 +1223,78 @@ where
 }
 
 pub trait Stack {
-    fn on_stack(self) -> Vec<U256>;
+    const SIZE: usize;
+
+    fn to_stack(&self) -> Vec<U256>;
+
+    fn from_stack(stack: &[U256]) -> Self;
 }
 
 impl Stack for BN254 {
-    fn on_stack(self) -> Vec<U256> {
+    const SIZE: usize = 1;
+
+    fn to_stack(&self) -> Vec<U256> {
         vec![self.val]
+    }
+
+    fn from_stack(stack: &[U256]) -> BN254 {
+        BN254 { val: stack[0] }
     }
 }
 
 impl Stack for BLS381 {
-    fn on_stack(self) -> Vec<U256> {
+    const SIZE: usize = 2;
+
+    fn to_stack(&self) -> Vec<U256> {
         vec![self.lo(), self.hi()]
+    }
+
+    fn from_stack(stack: &[U256]) -> BLS381 {
+        let mut val = [0u64; 8];
+        val[..4].copy_from_slice(&stack[0].0);
+        val[4..].copy_from_slice(&stack[1].0);
+        BLS381 { val: U512(val) }
     }
 }
 
-impl<T> Stack for Fp2<T>
-where
-    T: FieldExt + Stack,
-{
-    fn on_stack(self) -> Vec<U256> {
-        let mut stack = self.re.on_stack();
-        stack.extend(self.im.on_stack());
+impl<T: FieldExt + Stack> Stack for Fp2<T> {
+    const SIZE: usize = 2 * T::SIZE;
+
+    fn to_stack(&self) -> Vec<U256> {
+        let mut stack = self.re.to_stack();
+        stack.extend(self.im.to_stack());
         stack
+    }
+
+    fn from_stack(stack: &[U256]) -> Fp2<T> {
+        let field_size = T::SIZE;
+        let re = T::from_stack(&stack[0..field_size]);
+        let im = T::from_stack(&stack[field_size..2 * field_size]);
+        Fp2 { re, im }
     }
 }
 
 impl<T> Stack for Fp6<T>
 where
     T: FieldExt,
-    Fp2<T>: Adj + Stack,
+    Fp2<T>: Adj,
+    Fp2<T>: Stack,
 {
-    fn on_stack(self) -> Vec<U256> {
-        let mut stack = self.t0.on_stack();
-        stack.extend(self.t1.on_stack());
-        stack.extend(self.t2.on_stack());
+    const SIZE: usize = 3 * Fp2::<T>::SIZE;
+
+    fn to_stack(&self) -> Vec<U256> {
+        let mut stack = self.t0.to_stack();
+        stack.extend(self.t1.to_stack());
+        stack.extend(self.t2.to_stack());
         stack
+    }
+
+    fn from_stack(stack: &[U256]) -> Self {
+        let field_size = Fp2::<T>::SIZE;
+        let t0 = Fp2::<T>::from_stack(&stack[0..field_size]);
+        let t1 = Fp2::<T>::from_stack(&stack[field_size..2 * field_size]);
+        let t2 = Fp2::<T>::from_stack(&stack[2 * field_size..3 * field_size]);
+        Fp6 { t0, t1, t2 }
     }
 }
 
@@ -1268,9 +1304,18 @@ where
     Fp2<T>: Adj,
     Fp6<T>: Stack,
 {
-    fn on_stack(self) -> Vec<U256> {
-        let mut stack = self.z0.on_stack();
-        stack.extend(self.z1.on_stack());
+    const SIZE: usize = 2 * Fp6::<T>::SIZE;
+
+    fn to_stack(&self) -> Vec<U256> {
+        let mut stack = self.z0.to_stack();
+        stack.extend(self.z1.to_stack());
         stack
+    }
+
+    fn from_stack(stack: &[U256]) -> Self {
+        let field_size = Fp6::<T>::SIZE;
+        let z0 = Fp6::<T>::from_stack(&stack[0..field_size]);
+        let z1 = Fp6::<T>::from_stack(&stack[field_size..2 * field_size]);
+        Fp12 { z0, z1 }
     }
 }

@@ -137,14 +137,14 @@ impl WirePartition {
         // other words, find the next wire in the given wire's partition. If the given wire is last in
         // its partition, this will loop around. If the given wire has a partition all to itself, it
         // is considered its own neighbor.
-        let mut neighbors = HashMap::new();
+        let mut neighbors = HashMap::with_capacity(self.partition.len());
         for subset in &self.partition {
             for n in 0..subset.len() {
                 neighbors.insert(subset[n], subset[(n + 1) % subset.len()]);
             }
         }
 
-        let mut sigma = Vec::new();
+        let mut sigma = Vec::with_capacity(num_routed_wires * degree);
         for column in 0..num_routed_wires {
             for row in 0..degree {
                 let wire = Wire { row, column };

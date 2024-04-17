@@ -29,7 +29,7 @@ pub struct ConstraintConsumer<P: PackedField> {
 }
 
 impl<P: PackedField> ConstraintConsumer<P> {
-    pub fn new(
+    pub(crate) fn new(
         alphas: Vec<P::Scalar>,
         z_last: P,
         lagrange_basis_first: P,
@@ -44,17 +44,17 @@ impl<P: PackedField> ConstraintConsumer<P> {
         }
     }
 
-    pub fn accumulators(self) -> Vec<P> {
+    pub(crate) fn accumulators(self) -> Vec<P> {
         self.constraint_accs
     }
 
     /// Add one constraint valid on all rows except the last.
-    pub fn constraint_transition(&mut self, constraint: P) {
+    pub(crate) fn constraint_transition(&mut self, constraint: P) {
         self.constraint(constraint * self.z_last);
     }
 
     /// Add one constraint on all rows.
-    pub fn constraint(&mut self, constraint: P) {
+    pub(crate) fn constraint(&mut self, constraint: P) {
         for (&alpha, acc) in self.alphas.iter().zip(&mut self.constraint_accs) {
             *acc *= alpha;
             *acc += constraint;
@@ -63,13 +63,13 @@ impl<P: PackedField> ConstraintConsumer<P> {
 
     /// Add one constraint, but first multiply it by a filter such that it will only apply to the
     /// first row of the trace.
-    pub fn constraint_first_row(&mut self, constraint: P) {
+    pub(crate) fn constraint_first_row(&mut self, constraint: P) {
         self.constraint(constraint * self.lagrange_basis_first);
     }
 
     /// Add one constraint, but first multiply it by a filter such that it will only apply to the
     /// last row of the trace.
-    pub fn constraint_last_row(&mut self, constraint: P) {
+    pub(crate) fn constraint_last_row(&mut self, constraint: P) {
         self.constraint(constraint * self.lagrange_basis_last);
     }
 }
@@ -96,7 +96,7 @@ pub struct RecursiveConstraintConsumer<F: RichField + Extendable<D>, const D: us
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> RecursiveConstraintConsumer<F, D> {
-    pub fn new(
+    pub(crate) fn new(
         zero: ExtensionTarget<D>,
         alphas: Vec<Target>,
         z_last: ExtensionTarget<D>,
@@ -113,12 +113,12 @@ impl<F: RichField + Extendable<D>, const D: usize> RecursiveConstraintConsumer<F
         }
     }
 
-    pub fn accumulators(self) -> Vec<ExtensionTarget<D>> {
+    pub(crate) fn accumulators(self) -> Vec<ExtensionTarget<D>> {
         self.constraint_accs
     }
 
     /// Add one constraint valid on all rows except the last.
-    pub fn constraint_transition(
+    pub(crate) fn constraint_transition(
         &mut self,
         builder: &mut CircuitBuilder<F, D>,
         constraint: ExtensionTarget<D>,
@@ -128,7 +128,7 @@ impl<F: RichField + Extendable<D>, const D: usize> RecursiveConstraintConsumer<F
     }
 
     /// Add one constraint valid on all rows.
-    pub fn constraint(
+    pub(crate) fn constraint(
         &mut self,
         builder: &mut CircuitBuilder<F, D>,
         constraint: ExtensionTarget<D>,
@@ -140,7 +140,7 @@ impl<F: RichField + Extendable<D>, const D: usize> RecursiveConstraintConsumer<F
 
     /// Add one constraint, but first multiply it by a filter such that it will only apply to the
     /// first row of the trace.
-    pub fn constraint_first_row(
+    pub(crate) fn constraint_first_row(
         &mut self,
         builder: &mut CircuitBuilder<F, D>,
         constraint: ExtensionTarget<D>,
@@ -151,7 +151,7 @@ impl<F: RichField + Extendable<D>, const D: usize> RecursiveConstraintConsumer<F
 
     /// Add one constraint, but first multiply it by a filter such that it will only apply to the
     /// last row of the trace.
-    pub fn constraint_last_row(
+    pub(crate) fn constraint_last_row(
         &mut self,
         builder: &mut CircuitBuilder<F, D>,
         constraint: ExtensionTarget<D>,

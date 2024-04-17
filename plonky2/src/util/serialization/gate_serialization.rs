@@ -1,22 +1,36 @@
+//! A module to help with GateRef serialization
+
+use alloc::vec::Vec;
+
 use plonky2_field::extension::Extendable;
 
 use crate::gates::gate::GateRef;
 use crate::hash::hash_types::RichField;
+use crate::plonk::circuit_data::CommonCircuitData;
 use crate::util::serialization::{Buffer, IoResult};
 
 pub trait GateSerializer<F: RichField + Extendable<D>, const D: usize> {
-    fn read_gate(&self, buf: &mut Buffer) -> IoResult<GateRef<F, D>>;
-    fn write_gate(&self, buf: &mut Vec<u8>, gate: &GateRef<F, D>) -> IoResult<()>;
+    fn read_gate(
+        &self,
+        buf: &mut Buffer,
+        common_data: &CommonCircuitData<F, D>,
+    ) -> IoResult<GateRef<F, D>>;
+    fn write_gate(
+        &self,
+        buf: &mut Vec<u8>,
+        gate: &GateRef<F, D>,
+        common_data: &CommonCircuitData<F, D>,
+    ) -> IoResult<()>;
 }
 
 #[macro_export]
 macro_rules! read_gate_impl {
-    ($buf:expr, $tag:expr, $($gate_types:ty),+) => {{
+    ($buf:expr, $tag:expr, $common:expr, $($gate_types:ty),+) => {{
         let tag = $tag;
         let buf = $buf;
         let mut i = 0..;
         $(if tag == i.next().unwrap() {
-            let gate = <$gate_types as $crate::gates::gate::Gate<F, D>>::deserialize(buf)?;
+            let gate = <$gate_types as $crate::gates::gate::Gate<F, D>>::deserialize(buf, $common)?;
             Ok($crate::gates::gate::GateRef::<F, D>::new(gate))
         } else)*
         {
@@ -34,7 +48,11 @@ macro_rules! get_gate_tag_impl {
             Ok(tag)
         } else)*
         {
-            log::log!(log::Level::Error, "attempted to serialize gate with id `{}` which is unsupported by this gate serializer", $gate.0.id());
+            log::log!(
+                log::Level::Error,
+                "attempted to serialize gate with id `{}` which is unsupported by this gate serializer",
+                $gate.0.id()
+            );
             Err($crate::util::serialization::IoError)
         }
     }};
@@ -47,16 +65,25 @@ macro_rules! get_gate_tag_impl {
 /// this as first argument, followed by all the targeted gates.
 macro_rules! impl_gate_serializer {
     ($target:ty, $($gate_types:ty),+) => {
-        fn read_gate(&self, buf: &mut $crate::util::serialization::Buffer) -> $crate::util::serialization::IoResult<$crate::gates::gate::GateRef<F, D>> {
+        fn read_gate(
+            &self,
+            buf: &mut $crate::util::serialization::Buffer,
+            common: &$crate::plonk::circuit_data::CommonCircuitData<F, D>,
+        ) -> $crate::util::serialization::IoResult<$crate::gates::gate::GateRef<F, D>> {
             let tag = $crate::util::serialization::Read::read_u32(buf)?;
-            read_gate_impl!(buf, tag, $($gate_types),+)
+            read_gate_impl!(buf, tag, common, $($gate_types),+)
         }
 
-        fn write_gate(&self, buf: &mut Vec<u8>, gate: &$crate::gates::gate::GateRef<F, D>) -> $crate::util::serialization::IoResult<()> {
+        fn write_gate(
+            &self,
+            buf: &mut $crate::alloc::vec::Vec<u8>,
+            gate: &$crate::gates::gate::GateRef<F, D>,
+            common: &$crate::plonk::circuit_data::CommonCircuitData<F, D>,
+        ) -> $crate::util::serialization::IoResult<()> {
             let tag = get_gate_tag_impl!(gate, $($gate_types),+)?;
 
             $crate::util::serialization::Write::write_u32(buf, tag)?;
-            gate.0.serialize(buf)?;
+            gate.0.serialize(buf, common)?;
             Ok(())
         }
     };
@@ -71,6 +98,8 @@ pub mod default {
     use crate::gates::constant::ConstantGate;
     use crate::gates::coset_interpolation::CosetInterpolationGate;
     use crate::gates::exponentiation::ExponentiationGate;
+    use crate::gates::lookup::LookupGate;
+    use crate::gates::lookup_table::LookupTableGate;
     use crate::gates::multiplication_extension::MulExtensionGate;
     use crate::gates::noop::NoopGate;
     use crate::gates::poseidon::PoseidonGate;
@@ -92,6 +121,8 @@ pub mod default {
             ConstantGate,
             CosetInterpolationGate<F, D>,
             ExponentiationGate<F, D>,
+            LookupGate,
+            LookupTableGate,
             MulExtensionGate<D>,
             NoopGate,
             PoseidonMdsGate<F, D>,

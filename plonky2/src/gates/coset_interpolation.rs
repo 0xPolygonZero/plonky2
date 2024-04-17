@@ -1,4 +1,4 @@
-use alloc::string::String;
+use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use alloc::{format, vec};
 use core::marker::PhantomData;
@@ -17,6 +17,7 @@ use crate::iop::target::Target;
 use crate::iop::wire::Wire;
 use crate::iop::witness::{PartitionWitness, Witness, WitnessWrite};
 use crate::plonk::circuit_builder::CircuitBuilder;
+use crate::plonk::circuit_data::CommonCircuitData;
 use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 use crate::util::serialization::{Buffer, IoResult, Read, Write};
 
@@ -85,16 +86,16 @@ impl<F: RichField + Extendable<D>, const D: usize> CosetInterpolationGate<F, D> 
         }
     }
 
-    fn num_points(&self) -> usize {
+    const fn num_points(&self) -> usize {
         1 << self.subgroup_bits
     }
 
     /// Wire index of the coset shift.
-    pub(crate) fn wire_shift(&self) -> usize {
+    pub(crate) const fn wire_shift(&self) -> usize {
         0
     }
 
-    fn start_values(&self) -> usize {
+    const fn start_values(&self) -> usize {
         1
     }
 
@@ -105,31 +106,31 @@ impl<F: RichField + Extendable<D>, const D: usize> CosetInterpolationGate<F, D> 
         start..start + D
     }
 
-    fn start_evaluation_point(&self) -> usize {
+    const fn start_evaluation_point(&self) -> usize {
         self.start_values() + self.num_points() * D
     }
 
     /// Wire indices of the point to evaluate the interpolant at.
-    pub(crate) fn wires_evaluation_point(&self) -> Range<usize> {
+    pub(crate) const fn wires_evaluation_point(&self) -> Range<usize> {
         let start = self.start_evaluation_point();
         start..start + D
     }
 
-    fn start_evaluation_value(&self) -> usize {
+    const fn start_evaluation_value(&self) -> usize {
         self.start_evaluation_point() + D
     }
 
     /// Wire indices of the interpolated value.
-    pub(crate) fn wires_evaluation_value(&self) -> Range<usize> {
+    pub(crate) const fn wires_evaluation_value(&self) -> Range<usize> {
         let start = self.start_evaluation_value();
         start..start + D
     }
 
-    fn start_intermediates(&self) -> usize {
+    const fn start_intermediates(&self) -> usize {
         self.start_evaluation_value() + D
     }
 
-    pub fn num_routed_wires(&self) -> usize {
+    pub const fn num_routed_wires(&self) -> usize {
         self.start_intermediates()
     }
 
@@ -168,14 +169,14 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for CosetInterpola
         format!("{self:?}<D={D}>")
     }
 
-    fn serialize(&self, dst: &mut Vec<u8>) -> IoResult<()> {
+    fn serialize(&self, dst: &mut Vec<u8>, _common_data: &CommonCircuitData<F, D>) -> IoResult<()> {
         dst.write_usize(self.subgroup_bits)?;
         dst.write_usize(self.degree)?;
         dst.write_usize(self.barycentric_weights.len())?;
         dst.write_field_vec(&self.barycentric_weights)
     }
 
-    fn deserialize(src: &mut Buffer) -> IoResult<Self> {
+    fn deserialize(src: &mut Buffer, _common_data: &CommonCircuitData<F, D>) -> IoResult<Self> {
         let subgroup_bits = src.read_usize()?;
         let degree = src.read_usize()?;
         let length = src.read_usize()?;
@@ -362,7 +363,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for CosetInterpola
         constraints
     }
 
-    fn generators(&self, row: usize, _local_constants: &[F]) -> Vec<WitnessGeneratorRef<F>> {
+    fn generators(&self, row: usize, _local_constants: &[F]) -> Vec<WitnessGeneratorRef<F, D>> {
         let gen = InterpolationGenerator::<F, D>::new(row, self.clone());
         vec![WitnessGeneratorRef::new(gen.adapter())]
     }
@@ -406,7 +407,7 @@ impl<F: RichField + Extendable<D>, const D: usize> InterpolationGenerator<F, D> 
     }
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
+impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D>
     for InterpolationGenerator<F, D>
 {
     fn id(&self) -> String {
@@ -496,14 +497,14 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
         out_buffer.set_ext_wires(evaluation_value_wires, computed_eval);
     }
 
-    fn serialize(&self, dst: &mut Vec<u8>) -> IoResult<()> {
+    fn serialize(&self, dst: &mut Vec<u8>, _common_data: &CommonCircuitData<F, D>) -> IoResult<()> {
         dst.write_usize(self.row)?;
-        self.gate.serialize(dst)
+        self.gate.serialize(dst, _common_data)
     }
 
-    fn deserialize(src: &mut Buffer) -> IoResult<Self> {
+    fn deserialize(src: &mut Buffer, _common_data: &CommonCircuitData<F, D>) -> IoResult<Self> {
         let row = src.read_usize()?;
-        let gate = CosetInterpolationGate::deserialize(src)?;
+        let gate = CosetInterpolationGate::deserialize(src, _common_data)?;
         Ok(Self::new(row, gate))
     }
 }
@@ -630,8 +631,6 @@ fn partial_interpolate_ext_algebra_target<F: RichField + Extendable<D>, const D:
 
 #[cfg(test)]
 mod tests {
-    use core::iter::repeat_with;
-
     use anyhow::Result;
     use plonky2_field::polynomial::PolynomialValues;
     use plonky2_util::log2_strict;
@@ -831,7 +830,7 @@ mod tests {
 
         // Get a working row for InterpolationGate.
         let shift = F::rand();
-        let values = PolynomialValues::new(repeat_with(FF::rand).take(4).collect());
+        let values = PolynomialValues::new(core::iter::repeat_with(FF::rand).take(4).collect());
         let eval_point = FF::rand();
         let gate = CosetInterpolationGate::<F, D>::with_max_degree(2, 3);
         let vars = EvaluationVars {

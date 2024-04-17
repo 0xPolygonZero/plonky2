@@ -8,15 +8,29 @@ global panic:
     %jumpi(panic)
 %endmacro
 
+%macro assert_zero(ret)
+    %jumpi($ret)
+%endmacro
+
 // Consumes the top element and asserts that it is nonzero.
 %macro assert_nonzero
     ISZERO
     %jumpi(panic)
 %endmacro
 
+%macro assert_nonzero(ret)
+    ISZERO
+    %jumpi($ret)
+%endmacro
+
 %macro assert_eq
-    EQ
-    %assert_nonzero
+    SUB
+    %jumpi(panic)
+%endmacro
+
+%macro assert_eq(ret)
+    SUB
+    %jumpi($ret)
 %endmacro
 
 %macro assert_lt
@@ -26,11 +40,21 @@ global panic:
     %assert_zero
 %endmacro
 
+%macro assert_lt(ret)
+    GE
+    %assert_zero($ret)
+%endmacro
+
 %macro assert_le
     // %assert_zero is cheaper than %assert_nonzero, so we will leverage the
     // fact that (x <= y) == !(x > y).
     GT
     %assert_zero
+%endmacro
+
+%macro assert_le(ret)
+    GT
+    %assert_zero($ret)
 %endmacro
 
 %macro assert_gt
@@ -40,6 +64,11 @@ global panic:
     %assert_zero
 %endmacro
 
+%macro assert_gt(ret)
+    LE
+    %assert_zero($ret)
+%endmacro
+
 %macro assert_ge
     // %assert_zero is cheaper than %assert_nonzero, so we will leverage the
     // fact that (x >= y) == !(x < y).
@@ -47,9 +76,15 @@ global panic:
     %assert_zero
 %endmacro
 
+%macro assert_ge(ret)
+    LT
+    %assert_zero($ret)
+%endmacro
+
 %macro assert_eq_const(c)
-    %eq_const($c)
-    %assert_nonzero
+    PUSH $c
+    SUB
+    %jumpi(panic)
 %endmacro
 
 %macro assert_lt_const(c)

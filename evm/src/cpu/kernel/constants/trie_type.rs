@@ -26,7 +26,7 @@ impl PartialTrieType {
         }
     }
 
-    pub(crate) fn all() -> [Self; Self::COUNT] {
+    pub(crate) const fn all() -> [Self; Self::COUNT] {
         [
             Self::Empty,
             Self::Hash,
@@ -37,7 +37,7 @@ impl PartialTrieType {
     }
 
     /// The variable name that gets passed into kernel assembly code.
-    pub(crate) fn var_name(&self) -> &'static str {
+    pub(crate) const fn var_name(&self) -> &'static str {
         match self {
             Self::Empty => "MPT_NODE_EMPTY",
             Self::Hash => "MPT_NODE_HASH",

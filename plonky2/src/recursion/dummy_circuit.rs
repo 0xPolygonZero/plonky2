@@ -1,3 +1,4 @@
+use alloc::string::{String, ToString};
 use alloc::vec;
 use alloc::vec::Vec;
 
@@ -215,30 +216,7 @@ where
     }
 }
 
-impl<F, C, const D: usize> DummyProofGenerator<F, C, D>
-where
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F> + 'static,
-    C::Hasher: AlgebraicHasher<F>,
-{
-    pub fn deserialize_with_circuit_data(
-        src: &mut Buffer,
-        cd: &CommonCircuitData<F, D>,
-    ) -> IoResult<Self> {
-        let proof_with_pis_target = src.read_target_proof_with_public_inputs()?;
-        let proof_with_pis = src.read_proof_with_public_inputs(cd)?;
-        let verifier_data_target = src.read_target_verifier_circuit()?;
-        let verifier_data = src.read_verifier_only_circuit_data()?;
-        Ok(Self {
-            proof_with_pis_target,
-            proof_with_pis,
-            verifier_data_target,
-            verifier_data,
-        })
-    }
-}
-
-impl<F, C, const D: usize> SimpleGenerator<F> for DummyProofGenerator<F, C, D>
+impl<F, C, const D: usize> SimpleGenerator<F, D> for DummyProofGenerator<F, C, D>
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F> + 'static,
@@ -257,14 +235,23 @@ where
         out_buffer.set_verifier_data_target(&self.verifier_data_target, &self.verifier_data);
     }
 
-    fn serialize(&self, dst: &mut Vec<u8>) -> IoResult<()> {
+    fn serialize(&self, dst: &mut Vec<u8>, _common_data: &CommonCircuitData<F, D>) -> IoResult<()> {
         dst.write_target_proof_with_public_inputs(&self.proof_with_pis_target)?;
         dst.write_proof_with_public_inputs(&self.proof_with_pis)?;
         dst.write_target_verifier_circuit(&self.verifier_data_target)?;
         dst.write_verifier_only_circuit_data(&self.verifier_data)
     }
 
-    fn deserialize(_src: &mut Buffer) -> IoResult<Self> {
-        panic!()
+    fn deserialize(src: &mut Buffer, common_data: &CommonCircuitData<F, D>) -> IoResult<Self> {
+        let proof_with_pis_target = src.read_target_proof_with_public_inputs()?;
+        let proof_with_pis = src.read_proof_with_public_inputs(common_data)?;
+        let verifier_data_target = src.read_target_verifier_circuit()?;
+        let verifier_data = src.read_verifier_only_circuit_data()?;
+        Ok(Self {
+            proof_with_pis_target,
+            proof_with_pis,
+            verifier_data_target,
+            verifier_data,
+        })
     }
 }

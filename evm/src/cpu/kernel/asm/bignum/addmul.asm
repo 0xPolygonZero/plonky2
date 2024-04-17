@@ -14,7 +14,7 @@ addmul_loop:
     // stack: carry_limb, i, a_cur_loc, b_cur_loc, val, retdest
     DUP4
     // stack: b_cur_loc, carry_limb, i, a_cur_loc, b_cur_loc, val, retdest
-    %mload_kernel_general
+    %mload_current_general
     // stack: b[cur], carry_limb, i, a_cur_loc, b_cur_loc, val, retdest
     DUP6
     // stack: val, b[cur], carry_limb, i, a_cur_loc, b_cur_loc, val, retdest
@@ -31,7 +31,7 @@ addmul_loop:
     // stack: prod_lo = val * b[cur] % 2^128, prod_hi = (val * b[cur]) // 2^128, carry_limb, i, a_cur_loc, b_cur_loc, val, retdest
     DUP5
     // stack: a_cur_loc, prod_lo, prod_hi, carry_limb, i, a_cur_loc, b_cur_loc, val, retdest
-    %mload_kernel_general
+    %mload_current_general
     // stack: a[cur], prod_lo, prod_hi, carry_limb, i, a_cur_loc, b_cur_loc, val, retdest
     DUP1
     // stack: a[cur], a[cur], prod_lo, prod_hi, carry_limb, i, a_cur_loc, b_cur_loc, val, retdest
@@ -75,7 +75,7 @@ addmul_loop:
     // stack: to_write, carry_limb, i, a_cur_loc, b_cur_loc, val, retdest
     DUP4
     // stack: a_cur_loc, to_write, carry_limb, i, a_cur_loc, b_cur_loc, val, retdest
-    %mstore_kernel_general
+    %mstore_current_general
     // stack: carry_limb, i, a_cur_loc, b_cur_loc, val, retdest
     SWAP1
     // stack: i, carry_limb, a_cur_loc, b_cur_loc, val, retdest

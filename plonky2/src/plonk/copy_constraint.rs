@@ -18,7 +18,7 @@ impl From<(Target, Target)> for CopyConstraint {
 }
 
 impl CopyConstraint {
-    pub fn new(pair: (Target, Target), name: String) -> Self {
+    pub const fn new(pair: (Target, Target), name: String) -> Self {
         Self { pair, name }
     }
 }

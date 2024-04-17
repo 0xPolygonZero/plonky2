@@ -22,7 +22,7 @@ use crate::plonk::circuit_builder::CircuitBuilder;
 /// scale the second one by `a^(r-1-k)`, and add them up.
 /// This struct abstract away these operations by implementing Horner's method and keeping track
 /// of the number of multiplications by `a` to compute the scaling factor.
-/// See <https://github.com/mir-protocol/plonky2/pull/69> for more details and discussions.
+/// See <https://github.com/0xPolygonZero/plonky2/pull/69> for more details and discussions.
 #[derive(Debug, Clone)]
 pub struct ReducingFactor<F: Field> {
     base: F,
@@ -30,7 +30,7 @@ pub struct ReducingFactor<F: Field> {
 }
 
 impl<F: Field> ReducingFactor<F> {
-    pub fn new(base: F) -> Self {
+    pub const fn new(base: F) -> Self {
         Self { base, count: 0 }
     }
 
@@ -119,7 +119,7 @@ pub struct ReducingFactorTarget<const D: usize> {
 }
 
 impl<const D: usize> ReducingFactorTarget<D> {
-    pub fn new(base: ExtensionTarget<D>) -> Self {
+    pub const fn new(base: ExtensionTarget<D>) -> Self {
         Self { base, count: 0 }
     }
 

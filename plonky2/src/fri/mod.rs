@@ -15,6 +15,7 @@ mod validate_shape;
 pub mod verifier;
 pub mod witness_util;
 
+/// A configuration for the FRI protocol.
 #[derive(Debug, Clone, Eq, PartialEq, Serialize)]
 pub struct FriConfig {
     /// `rate = 2^{-rate_bits}`.
@@ -23,8 +24,10 @@ pub struct FriConfig {
     /// Height of Merkle tree caps.
     pub cap_height: usize,
 
+    /// Number of bits used for grinding.
     pub proof_of_work_bits: u32,
 
+    /// The reduction strategy to be applied at each layer during the commit phase.
     pub reduction_strategy: FriReductionStrategy,
 
     /// Number of query rounds to perform.
@@ -51,7 +54,7 @@ impl FriConfig {
         }
     }
 
-    pub fn num_cap_elements(&self) -> usize {
+    pub const fn num_cap_elements(&self) -> usize {
         1 << self.cap_height
     }
 }
@@ -85,11 +88,11 @@ impl FriParams {
         self.reduction_arity_bits.iter().copied().max()
     }
 
-    pub fn lde_bits(&self) -> usize {
+    pub const fn lde_bits(&self) -> usize {
         self.degree_bits + self.config.rate_bits
     }
 
-    pub fn lde_size(&self) -> usize {
+    pub const fn lde_size(&self) -> usize {
         1 << self.lde_bits()
     }
 

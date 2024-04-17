@@ -3,11 +3,11 @@ use core::hash::{Hash, Hasher};
 use core::iter::{Product, Sum};
 use core::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
-use num::{BigUint, Integer};
+use num::{BigUint, Integer, ToPrimitive};
 use plonky2_util::{assume, branch_hint};
 use serde::{Deserialize, Serialize};
 
-use crate::inversion::try_inverse_u64;
+use crate::ops::Square;
 use crate::types::{Field, Field64, PrimeField, PrimeField64, Sample};
 
 const EPSILON: u64 = (1 << 32) - 1;
@@ -95,13 +95,59 @@ impl Field for GoldilocksField {
         Self::order()
     }
 
-    #[inline(always)]
+    /// Returns the inverse of the field element, using Fermat's little theorem.
+    /// The inverse of `a` is computed as `a^(p-2)`, where `p` is the prime order of the field.
+    ///
+    /// Mathematically, this is equivalent to:
+    ///                $a^(p-1)     = 1 (mod p)$
+    ///                $a^(p-2) * a = 1 (mod p)$
+    /// Therefore      $a^(p-2)     = a^-1 (mod p)$
+    ///
+    /// The following code has been adapted from winterfell/math/src/field/f64/mod.rs
+    /// located at <https://github.com/facebook/winterfell>.
     fn try_inverse(&self) -> Option<Self> {
-        try_inverse_u64(self)
+        if self.is_zero() {
+            return None;
+        }
+
+        // compute base^(P - 2) using 72 multiplications
+        // The exponent P - 2 is represented in binary as:
+        // 0b1111111111111111111111111111111011111111111111111111111111111111
+
+        // compute base^11
+        let t2 = self.square() * *self;
+
+        // compute base^111
+        let t3 = t2.square() * *self;
+
+        // compute base^111111 (6 ones)
+        // repeatedly square t3 3 times and multiply by t3
+        let t6 = exp_acc::<3>(t3, t3);
+
+        // compute base^111111111111 (12 ones)
+        // repeatedly square t6 6 times and multiply by t6
+        let t12 = exp_acc::<6>(t6, t6);
+
+        // compute base^111111111111111111111111 (24 ones)
+        // repeatedly square t12 12 times and multiply by t12
+        let t24 = exp_acc::<12>(t12, t12);
+
+        // compute base^1111111111111111111111111111111 (31 ones)
+        // repeatedly square t24 6 times and multiply by t6 first. then square t30 and
+        // multiply by base
+        let t30 = exp_acc::<6>(t24, t6);
+        let t31 = t30.square() * *self;
+
+        // compute base^111111111111111111111111111111101111111111111111111111111111111
+        // repeatedly square t31 32 times and multiply by t31
+        let t63 = exp_acc::<32>(t31, t31);
+
+        // compute base^1111111111111111111111111111111011111111111111111111111111111111
+        Some(t63.square() * *self)
     }
 
     fn from_noncanonical_biguint(n: BigUint) -> Self {
-        Self(n.mod_floor(&Self::order()).to_u64_digits()[0])
+        Self(n.mod_floor(&Self::order()).to_u64().unwrap())
     }
 
     #[inline(always)]
@@ -119,22 +165,6 @@ impl Field for GoldilocksField {
     }
 
     #[inline]
-    fn multiply_accumulate(&self, x: Self, y: Self) -> Self {
-        // u64 + u64 * u64 cannot overflow.
-        reduce128((self.0 as u128) + (x.0 as u128) * (y.0 as u128))
-    }
-}
-
-impl PrimeField for GoldilocksField {
-    fn to_canonical_biguint(&self) -> BigUint {
-        self.to_canonical_u64().into()
-    }
-}
-
-impl Field64 for GoldilocksField {
-    const ORDER: u64 = 0xFFFFFFFF00000001;
-
-    #[inline]
     fn from_noncanonical_u64(n: u64) -> Self {
         Self(n)
     }
@@ -150,6 +180,22 @@ impl Field64 for GoldilocksField {
             n as u64
         })
     }
+
+    #[inline]
+    fn multiply_accumulate(&self, x: Self, y: Self) -> Self {
+        // u64 + u64 * u64 cannot overflow.
+        reduce128((self.0 as u128) + (x.0 as u128) * (y.0 as u128))
+    }
+}
+
+impl PrimeField for GoldilocksField {
+    fn to_canonical_biguint(&self) -> BigUint {
+        self.to_canonical_u64().into()
+    }
+}
+
+impl Field64 for GoldilocksField {
+    const ORDER: u64 = 0xFFFFFFFF00000001;
 
     #[inline]
     unsafe fn add_canonical_u64(&self, rhs: u64) -> Self {
@@ -335,7 +381,7 @@ unsafe fn add_no_canonicalize_trashing_input(x: u64, y: u64) -> u64 {
 
 #[inline(always)]
 #[cfg(not(target_arch = "x86_64"))]
-unsafe fn add_no_canonicalize_trashing_input(x: u64, y: u64) -> u64 {
+const unsafe fn add_no_canonicalize_trashing_input(x: u64, y: u64) -> u64 {
     let (res_wrapped, carry) = x.overflowing_add(y);
     // Below cannot overflow unless the assumption if x + y < 2**64 + ORDER is incorrect.
     res_wrapped + EPSILON * (carry as u64)
@@ -369,7 +415,7 @@ fn reduce128(x: u128) -> GoldilocksField {
 }
 
 #[inline]
-fn split(x: u128) -> (u64, u64) {
+const fn split(x: u128) -> (u64, u64) {
     (x as u64, (x >> 64) as u64)
 }
 
@@ -400,6 +446,12 @@ pub(crate) unsafe fn reduce160(x_lo: u128, x_hi: u32) -> GoldilocksField {
     // add, sbb, add
     let t2 = add_no_canonicalize_trashing_input(t0, t1);
     GoldilocksField(t2)
+}
+
+/// Squares the base N number of times and multiplies the result by the tail value.
+#[inline(always)]
+fn exp_acc<const N: usize>(base: GoldilocksField, tail: GoldilocksField) -> GoldilocksField {
+    base.exp_power_of_2(N) * tail
 }
 
 #[cfg(test)]

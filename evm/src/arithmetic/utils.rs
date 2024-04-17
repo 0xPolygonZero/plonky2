@@ -227,17 +227,6 @@ where
     zero_extend
 }
 
-pub(crate) fn pol_extend_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
-    builder: &mut CircuitBuilder<F, D>,
-    a: [ExtensionTarget<D>; N_LIMBS],
-) -> [ExtensionTarget<D>; 2 * N_LIMBS - 1] {
-    let zero = builder.zero_extension();
-    let mut zero_extend = [zero; 2 * N_LIMBS - 1];
-
-    zero_extend[..N_LIMBS].copy_from_slice(&a);
-    zero_extend
-}
-
 /// Given polynomial a(x) = \sum_{i=0}^{N-2} a[i] x^i and an element
 /// `root`, return b = (x - root) * a(x).
 pub(crate) fn pol_adjoin_root<T, U, const N: usize>(a: [T; N], root: U) -> [T; N]
@@ -330,6 +319,7 @@ pub(crate) fn read_value_i64_limbs<const N: usize, F: PrimeField64>(
 }
 
 #[inline]
+/// Turn a 64-bit integer into 4 16-bit limbs and convert them to field elements.
 fn u64_to_array<F: Field>(out: &mut [F], x: u64) {
     const_assert!(LIMB_BITS == 16);
     debug_assert!(out.len() == 4);
@@ -340,6 +330,7 @@ fn u64_to_array<F: Field>(out: &mut [F], x: u64) {
     out[3] = F::from_canonical_u16((x >> 48) as u16);
 }
 
+/// Turn a 256-bit integer into 16 16-bit limbs and convert them to field elements.
 // TODO: Refactor/replace u256_limbs in evm/src/util.rs
 pub(crate) fn u256_to_array<F: Field>(out: &mut [F], x: U256) {
     const_assert!(N_LIMBS == 16);

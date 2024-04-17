@@ -80,11 +80,11 @@ impl<'a, F: Field> EvaluationVarsBaseBatch<'a, F> {
         self.local_constants = &self.local_constants[num_selectors * self.len()..];
     }
 
-    pub fn len(&self) -> usize {
+    pub const fn len(&self) -> usize {
         self.batch_size
     }
 
-    pub fn is_empty(&self) -> bool {
+    pub const fn is_empty(&self) -> bool {
         self.len() == 0
     }
 
@@ -100,7 +100,7 @@ impl<'a, F: Field> EvaluationVarsBaseBatch<'a, F> {
         }
     }
 
-    pub fn iter(&self) -> EvaluationVarsBaseBatchIter<'a, F> {
+    pub const fn iter(&self) -> EvaluationVarsBaseBatchIter<'a, F> {
         EvaluationVarsBaseBatchIter::new(*self)
     }
 
@@ -136,7 +136,7 @@ pub struct EvaluationVarsBaseBatchIter<'a, F: Field> {
 }
 
 impl<'a, F: Field> EvaluationVarsBaseBatchIter<'a, F> {
-    pub fn new(vars_batch: EvaluationVarsBaseBatch<'a, F>) -> Self {
+    pub const fn new(vars_batch: EvaluationVarsBaseBatch<'a, F>) -> Self {
         EvaluationVarsBaseBatchIter { i: 0, vars_batch }
     }
 }

@@ -1,29 +1,28 @@
-#![allow(clippy::upper_case_acronyms)]
-
 use std::collections::HashMap;
+use std::str::FromStr;
 use std::time::Duration;
 
 use env_logger::{try_init_from_env, Env, DEFAULT_FILTER_ENV};
 use eth_trie_utils::nibbles::Nibbles;
 use eth_trie_utils::partial_trie::{HashedPartialTrie, PartialTrie};
-use ethereum_types::{Address, U256};
+use ethereum_types::{Address, BigEndianHash, H256, U256};
 use hex_literal::hex;
 use keccak_hash::keccak;
 use plonky2::field::goldilocks_field::GoldilocksField;
-use plonky2::plonk::config::PoseidonGoldilocksConfig;
+use plonky2::plonk::config::KeccakGoldilocksConfig;
 use plonky2::util::timing::TimingTree;
 use plonky2_evm::all_stark::AllStark;
 use plonky2_evm::config::StarkConfig;
-use plonky2_evm::generation::mpt::AccountRlp;
+use plonky2_evm::generation::mpt::{AccountRlp, LegacyReceiptRlp};
 use plonky2_evm::generation::{GenerationInputs, TrieInputs};
-use plonky2_evm::proof::BlockMetadata;
+use plonky2_evm::proof::{BlockHashes, BlockMetadata, TrieRoots};
 use plonky2_evm::prover::prove;
 use plonky2_evm::verifier::verify_proof;
 use plonky2_evm::Node;
 
 type F = GoldilocksField;
 const D: usize = 2;
-type C = PoseidonGoldilocksConfig;
+type C = KeccakGoldilocksConfig;
 
 /// Test a simple token transfer to a new address.
 #[test]
@@ -37,15 +36,12 @@ fn test_simple_transfer() -> anyhow::Result<()> {
     let sender = hex!("2c7536e3605d9c16a7a3d7b1898e529396a65c23");
     let to = hex!("a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0");
 
-    let beneficiary_state_key = keccak(beneficiary);
     let sender_state_key = keccak(sender);
     let to_state_key = keccak(to);
 
-    let beneficiary_nibbles = Nibbles::from_bytes_be(beneficiary_state_key.as_bytes()).unwrap();
     let sender_nibbles = Nibbles::from_bytes_be(sender_state_key.as_bytes()).unwrap();
     let to_nibbles = Nibbles::from_bytes_be(to_state_key.as_bytes()).unwrap();
 
-    let beneficiary_account_before = AccountRlp::default();
     let sender_account_before = AccountRlp {
         nonce: 5.into(),
         balance: eth_to_wei(100_000.into()),
@@ -59,6 +55,7 @@ fn test_simple_transfer() -> anyhow::Result<()> {
         value: rlp::encode(&sender_account_before).to_vec(),
     }
     .into();
+
     let tries_before = TrieInputs {
         state_trie: state_trie_before,
         transactions_trie: HashedPartialTrie::from(Node::Empty),
@@ -72,32 +69,24 @@ fn test_simple_transfer() -> anyhow::Result<()> {
 
     let block_metadata = BlockMetadata {
         block_beneficiary: Address::from(beneficiary),
-        ..BlockMetadata::default()
+        block_timestamp: 0x03e8.into(),
+        block_number: 1.into(),
+        block_difficulty: 0x020000.into(),
+        block_random: H256::from_uint(&0x020000.into()),
+        block_gaslimit: 0xff112233u32.into(),
+        block_chain_id: 1.into(),
+        block_base_fee: 0xa.into(),
+        block_gas_used: 21032.into(),
+        block_bloom: [0.into(); 8],
     };
 
     let mut contract_code = HashMap::new();
     contract_code.insert(keccak(vec![]), vec![]);
 
-    let inputs = GenerationInputs {
-        signed_txns: vec![txn.to_vec()],
-        tries: tries_before,
-        contract_code,
-        block_metadata,
-        addresses: vec![],
-    };
-
-    let mut timing = TimingTree::new("prove", log::Level::Debug);
-    let proof = prove::<F, C, D>(&all_stark, &config, inputs, &mut timing)?;
-    timing.filter(Duration::from_millis(100)).print();
-
     let expected_state_trie_after: HashedPartialTrie = {
         let txdata_gas = 2 * 16;
         let gas_used = 21_000 + txdata_gas;
 
-        let beneficiary_account_after = AccountRlp {
-            balance: beneficiary_account_before.balance + gas_used * 10,
-            ..beneficiary_account_before
-        };
         let sender_account_after = AccountRlp {
             balance: sender_account_before.balance - value - gas_used * 10,
             nonce: sender_account_before.nonce + 1,
@@ -109,11 +98,6 @@ fn test_simple_transfer() -> anyhow::Result<()> {
         };
 
         let mut children = core::array::from_fn(|_| Node::Empty.into());
-        children[beneficiary_nibbles.get_nibble(0) as usize] = Node::Leaf {
-            nibbles: beneficiary_nibbles.truncate_n_nibbles_front(1),
-            value: rlp::encode(&beneficiary_account_after).to_vec(),
-        }
-        .into();
         children[sender_nibbles.get_nibble(0) as usize] = Node::Leaf {
             nibbles: sender_nibbles.truncate_n_nibbles_front(1),
             value: rlp::encode(&sender_account_after).to_vec(),
@@ -131,10 +115,48 @@ fn test_simple_transfer() -> anyhow::Result<()> {
         .into()
     };
 
-    assert_eq!(
-        proof.public_values.trie_roots_after.state_root,
-        expected_state_trie_after.hash()
+    let receipt_0 = LegacyReceiptRlp {
+        status: true,
+        cum_gas_used: 21032.into(),
+        bloom: vec![0; 256].into(),
+        logs: vec![],
+    };
+    let mut receipts_trie = HashedPartialTrie::from(Node::Empty);
+    receipts_trie.insert(
+        Nibbles::from_str("0x80").unwrap(),
+        rlp::encode(&receipt_0).to_vec(),
     );
+    let transactions_trie: HashedPartialTrie = Node::Leaf {
+        nibbles: Nibbles::from_str("0x80").unwrap(),
+        value: txn.to_vec(),
+    }
+    .into();
+
+    let trie_roots_after = TrieRoots {
+        state_root: expected_state_trie_after.hash(),
+        transactions_root: transactions_trie.hash(),
+        receipts_root: receipts_trie.hash(),
+    };
+    let inputs = GenerationInputs {
+        signed_txn: Some(txn.to_vec()),
+        withdrawals: vec![],
+        tries: tries_before,
+        trie_roots_after,
+        contract_code,
+        checkpoint_state_trie_root: HashedPartialTrie::from(Node::Empty).hash(),
+        block_metadata,
+        txn_number_before: 0.into(),
+        gas_used_before: 0.into(),
+        gas_used_after: 21032.into(),
+        block_hashes: BlockHashes {
+            prev_hashes: vec![H256::default(); 256],
+            cur_hash: H256::default(),
+        },
+    };
+
+    let mut timing = TimingTree::new("prove", log::Level::Debug);
+    let proof = prove::<F, C, D>(&all_stark, &config, inputs, &mut timing, None)?;
+    timing.filter(Duration::from_millis(100)).print();
 
     verify_proof(&all_stark, proof, &config)
 }

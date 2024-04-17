@@ -78,14 +78,14 @@ bn254_input_check:
 
 bn_pairing_invalid_input:
     // stack:  inp_j, j, k, inp, out, retdest
-    %stack (inp_j, j, k, inp, out, retdest) -> (retdest, inp_j)
+    %stack (inp_j, j, k, inp, out, retdest) -> (retdest, @U256_MAX)
     JUMP
 
 bn254_pairing_start:
     // stack:      0, k, inp, out,                   retdest
     %stack (j, k, inp, out) -> (out, 1, k, inp, out, bn254_pairing_output_validation, out)
     // stack: out, 1, k, inp, out, bn254_pairing_output_validation, out, retdest
-    %mstore_kernel_bn254_pairing
+    %mstore_bn254_pairing
     // stack:         k, inp, out, bn254_pairing_output_validation, out, retdest
 
 bn254_pairing_loop:
@@ -147,7 +147,7 @@ bn254_pairing_output_validation:
     // stack:          check, out
     DUP2
     // stack:    out0, check, out
-    %mload_kernel_bn254_pairing
+    %mload_bn254_pairing
     // stack:      f0, check, out
     %eq_const(1)
     // stack:  check0, check, out
@@ -160,7 +160,7 @@ bn254_pairing_output_validation:
     DUP2
     %add_const($j)
     // stack:    outj, check, out
-    %mload_kernel_bn254_pairing
+    %mload_bn254_pairing
     // stack:      fj, check, out
     ISZERO
     // stack:  checkj, check, out

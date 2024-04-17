@@ -1,9 +1,8 @@
 #![allow(clippy::too_many_arguments)]
 #![allow(clippy::needless_range_loop)]
-#![allow(clippy::upper_case_acronyms)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-extern crate alloc;
+pub extern crate alloc;
 
 #[doc(inline)]
 pub use plonky2_field as field;
@@ -16,3 +15,6 @@ pub mod iop;
 pub mod plonk;
 pub mod recursion;
 pub mod util;
+
+#[cfg(test)]
+mod lookup_test;

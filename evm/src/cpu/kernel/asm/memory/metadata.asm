@@ -1,62 +1,104 @@
 // Load the given global metadata field from memory.
 %macro mload_global_metadata(field)
+    // Global metadata are already scaled by their corresponding segment,
+    // effectively making them the direct memory position to read from /
+    // write to.
+
     // stack: (empty)
     PUSH $field
-    // stack: offset
-    %mload_kernel(@SEGMENT_GLOBAL_METADATA)
+    MLOAD_GENERAL
     // stack: value
 %endmacro
 
 // Store the given global metadata field to memory.
 %macro mstore_global_metadata(field)
+    // Global metadata are already scaled by their corresponding segment,
+    // effectively making them the direct memory position to read from /
+    // write to.
+
     // stack: value
     PUSH $field
-    // stack: offset, value
-    %mstore_kernel(@SEGMENT_GLOBAL_METADATA)
+    SWAP1
+    MSTORE_GENERAL
     // stack: (empty)
 %endmacro
 
 // Load the given context metadata field from memory.
 %macro mload_context_metadata(field)
+    // Context metadata are already scaled by their corresponding segment,
+    // effectively making them the direct memory position to read from /
+    // write to.
+
     // stack: (empty)
     PUSH $field
-    // stack: offset
-    %mload_current(@SEGMENT_CONTEXT_METADATA)
+    GET_CONTEXT
+    ADD 
+    // stack: addr
+    MLOAD_GENERAL
     // stack: value
 %endmacro
 
 // Store the given context metadata field to memory.
 %macro mstore_context_metadata(field)
+    // Context metadata are already scaled by their corresponding segment,
+    // effectively making them the direct memory position to read from /
+    // write to.
+
     // stack: value
     PUSH $field
-    // stack: offset, value
-    %mstore_current(@SEGMENT_CONTEXT_METADATA)
+    GET_CONTEXT
+    ADD 
+    // stack: addr, value
+    SWAP1
+    MSTORE_GENERAL
     // stack: (empty)
 %endmacro
 
 // Store the given context metadata field to memory.
 %macro mstore_context_metadata(field, value)
-    PUSH $value
+    // Context metadata are already scaled by their corresponding segment,
+    // effectively making them the direct memory position to read from /
+    // write to.
+
     PUSH $field
-    // stack: offset, value
-    %mstore_current(@SEGMENT_CONTEXT_METADATA)
+    GET_CONTEXT
+    ADD 
+    // stack: addr
+    PUSH $value
+    // stack: value, addr
+    MSTORE_GENERAL
     // stack: (empty)
 %endmacro
 
 %macro mstore_parent_context_metadata(field)
+    // Context metadata are already scaled by their corresponding segment,
+    // effectively making them the direct memory position to read from /
+    // write to.
+
     // stack: value
     %mload_context_metadata(@CTX_METADATA_PARENT_CONTEXT)
-    %stack (parent_ctx, value) ->
-        (parent_ctx, @SEGMENT_CONTEXT_METADATA, $field, value)
+
+    // stack: parent_ctx, value
+    PUSH $field ADD
+    // stack: addr, value
+    SWAP1
     MSTORE_GENERAL
     // stack: (empty)
 %endmacro
 
 %macro mstore_parent_context_metadata(field, value)
+    // Context metadata are already scaled by their corresponding segment,
+    // effectively making them the direct memory position to read from /
+    // write to.
+
     // stack: (empty)
     %mload_context_metadata(@CTX_METADATA_PARENT_CONTEXT)
-    %stack (parent_ctx) ->
-        (parent_ctx, @SEGMENT_CONTEXT_METADATA, $field, $value)
+
+    // stack: parent_ctx
+    PUSH $field ADD
+    // stack: addr
+    PUSH $value
+    // stack: value, addr
     MSTORE_GENERAL
     // stack: (empty)
 %endmacro
@@ -235,6 +277,49 @@ global sys_basefee:
     SWAP1
     EXIT_KERNEL
 
+global sys_blockhash:
+    // stack: kexit_info, block_number
+    %charge_gas_const(@GAS_BLOCKHASH)
+    SWAP1
+    // stack: block_number, kexit_info
+    %blockhash
+    // stack: blockhash, kexit_info
+    SWAP1
+    EXIT_KERNEL
+
+global blockhash:
+    // stack: block_number, retdest
+    %mload_global_metadata(@GLOBAL_METADATA_BLOCK_NUMBER)
+    // stack: cur_block_number, block_number, retdest
+    // Check for an overflow, since we're incrementing `block_number` afterwards.
+    DUP2 %eq_const(@U256_MAX) %jumpi(zero_hash)
+    // stack: cur_block_number, block_number, retdest
+    DUP1 DUP3 %increment GT %jumpi(zero_hash) // if block_number >= cur_block_number
+    // stack: cur_block_number, block_number, retdest
+    DUP2 PUSH 256 ADD
+    // stack: block_number+256, cur_block_number, block_number, retdest
+    DUP2 GT %jumpi(zero_hash) // if cur_block_number > block_number + 256
+    // If we are here, the provided block number is correct
+    SUB
+    // stack: cur_block_number - block_number, retdest
+    PUSH 256 SUB
+    // stack: block_hash_number, retdest
+    %mload_kernel(@SEGMENT_BLOCK_HASHES)
+    SWAP1 JUMP
+
+%macro blockhash
+    // stack: block_number
+    %stack (block_number) -> (block_number, %%after)
+    %jump(blockhash)
+%%after:
+%endmacro
+
+zero_hash:
+    // stack: cur_block_number, block_number, retdest
+    %pop2
+    PUSH 0 SWAP1
+    JUMP
+
 %macro update_mem_words
     // stack: num_words, kexit_info
     %mem_words
@@ -325,3 +410,26 @@ global sys_basefee:
     %jumpi(fault_exception)
     // stack: sum
 %endmacro
+
+%macro call_depth
+    %mload_global_metadata(@GLOBAL_METADATA_CALL_STACK_DEPTH)
+%endmacro
+
+%macro increment_call_depth
+    %mload_global_metadata(@GLOBAL_METADATA_CALL_STACK_DEPTH)
+    %increment
+    %mstore_global_metadata(@GLOBAL_METADATA_CALL_STACK_DEPTH)
+%endmacro
+
+%macro decrement_call_depth
+    %mload_global_metadata(@GLOBAL_METADATA_CALL_STACK_DEPTH)
+    %decrement
+    %mstore_global_metadata(@GLOBAL_METADATA_CALL_STACK_DEPTH)
+%endmacro
+
+global sys_prevrandao:
+    // stack: kexit_info
+    %charge_gas_const(@GAS_BASE)
+    %mload_global_metadata(@GLOBAL_METADATA_BLOCK_RANDOM)
+    %stack (random, kexit_info) -> (kexit_info, random)
+    EXIT_KERNEL

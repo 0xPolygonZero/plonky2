@@ -11,7 +11,7 @@
 %macro next_context_id
     // stack: (empty)
     %mload_global_metadata(@GLOBAL_METADATA_LARGEST_CONTEXT)
-    %increment
+    %add_const(0x10000000000000000) // scale each context by 2^64
     // stack: new_ctx
     DUP1
     %mstore_global_metadata(@GLOBAL_METADATA_LARGEST_CONTEXT)
@@ -21,11 +21,7 @@
 // Returns whether the current transaction is a contract creation transaction.
 %macro is_contract_creation
     // stack: (empty)
-    %mload_txn_field(@TXN_FIELD_TO)
-    // stack: to
-    ISZERO
-    // If there is no "to" field, then this is a contract creation.
-    // stack: to == 0
+    %mload_global_metadata(@GLOBAL_METADATA_CONTRACT_CREATION)
 %endmacro
 
 %macro is_precompile
@@ -38,14 +34,7 @@
 // Returns 1 if the account is non-existent, 0 otherwise.
 %macro is_non_existent
     // stack: addr
-    DUP1
-    // stack: addr, addr
     %mpt_read_state_trie ISZERO
-    SWAP1
-    // stack: addr, zero_state_trie
-    %is_precompile ISZERO
-    // stack: not_precompile, zero_state_trie
-    MUL // Cheaper than AND
 %endmacro
 
 // Returns 1 if the account is empty, 0 otherwise.
@@ -79,4 +68,21 @@
     DUP1 %is_non_existent
     SWAP1 %is_empty
     OR
+%endmacro
+
+// Gets the size of the stack _before_ the macro is run
+// WARNING: this macro is side-effecting. It writes the current stack length to offset
+// `CTX_METADATA_STACK_SIZE`, segment `SEGMENT_CONTEXT_METADATA` in the current context. But I can't
+// imagine it being an issue unless someone's doing something dumb.
+%macro stack_length
+    // stack: (empty)
+    GET_CONTEXT
+    // stack: current_ctx
+    // It seems odd to switch to the context that we are already in. We do this because SET_CONTEXT
+    // saves the stack length of the context we are leaving in its metadata segment.
+    SET_CONTEXT
+    // stack: (empty)
+    // We can now read this stack length from memory.
+    %mload_context_metadata(@CTX_METADATA_STACK_SIZE)
+    // stack: stack_length
 %endmacro

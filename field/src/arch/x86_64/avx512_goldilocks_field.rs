@@ -402,7 +402,7 @@ mod tests {
     use crate::goldilocks_field::GoldilocksField;
     use crate::ops::Square;
     use crate::packed::PackedField;
-    use crate::types::Field64;
+    use crate::types::Field;
 
     fn test_vals_a() -> [GoldilocksField; 8] {
         [

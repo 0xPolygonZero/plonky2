@@ -19,6 +19,7 @@ use crate::hash::hash_types::RichField;
 use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::generator::WitnessGeneratorRef;
 use crate::plonk::circuit_builder::CircuitBuilder;
+use crate::plonk::circuit_data::CommonCircuitData;
 use crate::plonk::vars::{
     EvaluationTargets, EvaluationVars, EvaluationVarsBase, EvaluationVarsBaseBatch,
 };
@@ -28,9 +29,9 @@ use crate::util::serialization::{Buffer, IoResult};
 pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + Sync {
     fn id(&self) -> String;
 
-    fn serialize(&self, dst: &mut Vec<u8>) -> IoResult<()>;
+    fn serialize(&self, dst: &mut Vec<u8>, common_data: &CommonCircuitData<F, D>) -> IoResult<()>;
 
-    fn deserialize(src: &mut Buffer) -> IoResult<Self>
+    fn deserialize(src: &mut Buffer, common_data: &CommonCircuitData<F, D>) -> IoResult<Self>
     where
         Self: Sized;
 
@@ -100,6 +101,7 @@ pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + S
         selector_index: usize,
         group_range: Range<usize>,
         num_selectors: usize,
+        num_lookup_selectors: usize,
     ) -> Vec<F::Extension> {
         let filter = compute_filter(
             row,
@@ -108,6 +110,7 @@ pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + S
             num_selectors > 1,
         );
         vars.remove_prefix(num_selectors);
+        vars.remove_prefix(num_lookup_selectors);
         self.eval_unfiltered(vars)
             .into_iter()
             .map(|c| filter * c)
@@ -123,6 +126,7 @@ pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + S
         selector_index: usize,
         group_range: Range<usize>,
         num_selectors: usize,
+        num_lookup_selectors: usize,
     ) -> Vec<F> {
         let filters: Vec<_> = vars_batch
             .iter()
@@ -135,7 +139,7 @@ pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + S
                 )
             })
             .collect();
-        vars_batch.remove_prefix(num_selectors);
+        vars_batch.remove_prefix(num_selectors + num_lookup_selectors);
         let mut res_batch = self.eval_unfiltered_base_batch(vars_batch);
         for res_chunk in res_batch.chunks_exact_mut(filters.len()) {
             batch_multiply_inplace(res_chunk, &filters);
@@ -152,6 +156,7 @@ pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + S
         selector_index: usize,
         group_range: Range<usize>,
         num_selectors: usize,
+        num_lookup_selectors: usize,
         combined_gate_constraints: &mut [ExtensionTarget<D>],
     ) {
         let filter = compute_filter_circuit(
@@ -162,6 +167,7 @@ pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + S
             num_selectors > 1,
         );
         vars.remove_prefix(num_selectors);
+        vars.remove_prefix(num_lookup_selectors);
         let my_constraints = self.eval_unfiltered_circuit(builder, vars);
         for (acc, c) in combined_gate_constraints.iter_mut().zip(my_constraints) {
             *acc = builder.mul_add_extension(filter, c, *acc);
@@ -170,7 +176,7 @@ pub trait Gate<F: RichField + Extendable<D>, const D: usize>: 'static + Send + S
 
     /// The generators used to populate the witness.
     /// Note: This should return exactly 1 generator per operation in the gate.
-    fn generators(&self, row: usize, local_constants: &[F]) -> Vec<WitnessGeneratorRef<F>>;
+    fn generators(&self, row: usize, local_constants: &[F]) -> Vec<WitnessGeneratorRef<F, D>>;
 
     /// The number of wires used by this gate.
     fn num_wires(&self) -> usize;
@@ -212,7 +218,7 @@ impl<T: Gate<F, D>, F: RichField + Extendable<D>, const D: usize> AnyGate<F, D> 
 
 /// A wrapper around an `Arc<AnyGate>` which implements `PartialEq`, `Eq` and `Hash` based on gate IDs.
 #[derive(Clone)]
-pub struct GateRef<F: RichField + Extendable<D>, const D: usize>(pub(crate) Arc<dyn AnyGate<F, D>>);
+pub struct GateRef<F: RichField + Extendable<D>, const D: usize>(pub Arc<dyn AnyGate<F, D>>);
 
 impl<F: RichField + Extendable<D>, const D: usize> GateRef<F, D> {
     pub fn new<G: Gate<F, D>>(gate: G) -> GateRef<F, D> {

@@ -67,15 +67,8 @@ use crate::arithmetic::columns::*;
 use crate::arithmetic::utils::*;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 
-pub fn generate<F: PrimeField64>(lv: &mut [F], left_in: U256, right_in: U256) {
-    // TODO: It would probably be clearer/cleaner to read the U256
-    // into an [i64;N] and then copy that to the lv table.
-    u256_to_array(&mut lv[MUL_INPUT_0], left_in);
-    u256_to_array(&mut lv[MUL_INPUT_1], right_in);
-
-    let input0 = read_value_i64_limbs(lv, MUL_INPUT_0);
-    let input1 = read_value_i64_limbs(lv, MUL_INPUT_1);
-
+/// Given the two limbs of `left_in` and `right_in`, computes `left_in * right_in`.
+pub(crate) fn generate_mul<F: PrimeField64>(lv: &mut [F], left_in: [i64; 16], right_in: [i64; 16]) {
     const MASK: i64 = (1i64 << LIMB_BITS) - 1i64;
 
     // Input and output have 16-bit limbs
@@ -85,7 +78,7 @@ pub fn generate<F: PrimeField64>(lv: &mut [F], left_in: U256, right_in: U256) {
     // First calculate the coefficients of a(x)*b(x) (in unreduced_prod),
     // then do carry propagation to obtain C = c(β) = a(β)*b(β).
     let mut cy = 0i64;
-    let mut unreduced_prod = pol_mul_lo(input0, input1);
+    let mut unreduced_prod = pol_mul_lo(left_in, right_in);
     for col in 0..N_LIMBS {
         let t = unreduced_prod[col] + cy;
         cy = t >> LIMB_BITS;
@@ -96,7 +89,7 @@ pub fn generate<F: PrimeField64>(lv: &mut [F], left_in: U256, right_in: U256) {
     // aux_limbs to handle the fact that unreduced_prod will
     // inevitably contain one digit's worth that is > 2^256.
 
-    lv[MUL_OUTPUT].copy_from_slice(&output_limbs.map(|c| F::from_canonical_i64(c)));
+    lv[OUTPUT_REGISTER].copy_from_slice(&output_limbs.map(|c| F::from_canonical_i64(c)));
     pol_sub_assign(&mut unreduced_prod, &output_limbs);
 
     let mut aux_limbs = pol_remove_root_2exp::<LIMB_BITS, _, N_LIMBS>(unreduced_prod);
@@ -114,16 +107,29 @@ pub fn generate<F: PrimeField64>(lv: &mut [F], left_in: U256, right_in: U256) {
         .copy_from_slice(&aux_limbs.map(|c| F::from_canonical_u16((c >> 16) as u16)));
 }
 
-pub fn eval_packed_generic<P: PackedField>(
+pub(crate) fn generate<F: PrimeField64>(lv: &mut [F], left_in: U256, right_in: U256) {
+    // TODO: It would probably be clearer/cleaner to read the U256
+    // into an [i64;N] and then copy that to the lv table.
+    u256_to_array(&mut lv[INPUT_REGISTER_0], left_in);
+    u256_to_array(&mut lv[INPUT_REGISTER_1], right_in);
+    u256_to_array(&mut lv[INPUT_REGISTER_2], U256::zero());
+
+    let input0 = read_value_i64_limbs(lv, INPUT_REGISTER_0);
+    let input1 = read_value_i64_limbs(lv, INPUT_REGISTER_1);
+
+    generate_mul(lv, input0, input1);
+}
+
+pub(crate) fn eval_packed_generic_mul<P: PackedField>(
     lv: &[P; NUM_ARITH_COLUMNS],
+    filter: P,
+    left_in_limbs: [P; 16],
+    right_in_limbs: [P; 16],
     yield_constr: &mut ConstraintConsumer<P>,
 ) {
-    let base = P::Scalar::from_canonical_u64(1 << LIMB_BITS);
+    let output_limbs = read_value::<N_LIMBS, _>(lv, OUTPUT_REGISTER);
 
-    let is_mul = lv[IS_MUL];
-    let input0_limbs = read_value::<N_LIMBS, _>(lv, MUL_INPUT_0);
-    let input1_limbs = read_value::<N_LIMBS, _>(lv, MUL_INPUT_1);
-    let output_limbs = read_value::<N_LIMBS, _>(lv, MUL_OUTPUT);
+    let base = P::Scalar::from_canonical_u64(1 << LIMB_BITS);
 
     let aux_limbs = {
         // MUL_AUX_INPUT was offset by 2^20 in generation, so we undo
@@ -152,7 +158,7 @@ pub fn eval_packed_generic<P: PackedField>(
     //
     //   s(x) = \sum_i aux_limbs[i] * x^i
     //
-    let mut constr_poly = pol_mul_lo(input0_limbs, input1_limbs);
+    let mut constr_poly = pol_mul_lo(left_in_limbs, right_in_limbs);
     pol_sub_assign(&mut constr_poly, &output_limbs);
 
     // This subtracts (x - β) * s(x) from constr_poly.
@@ -163,21 +169,34 @@ pub fn eval_packed_generic<P: PackedField>(
     // multiplication is valid if and only if all of those
     // coefficients are zero.
     for &c in &constr_poly {
-        yield_constr.constraint(is_mul * c);
+        yield_constr.constraint(filter * c);
     }
 }
 
-pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
-    builder: &mut CircuitBuilder<F, D>,
-    lv: &[ExtensionTarget<D>; NUM_ARITH_COLUMNS],
-    yield_constr: &mut RecursiveConstraintConsumer<F, D>,
+pub(crate) fn eval_packed_generic<P: PackedField>(
+    lv: &[P; NUM_ARITH_COLUMNS],
+    yield_constr: &mut ConstraintConsumer<P>,
 ) {
     let is_mul = lv[IS_MUL];
-    let input0_limbs = read_value::<N_LIMBS, _>(lv, MUL_INPUT_0);
-    let input1_limbs = read_value::<N_LIMBS, _>(lv, MUL_INPUT_1);
-    let output_limbs = read_value::<N_LIMBS, _>(lv, MUL_OUTPUT);
+    let input0_limbs = read_value::<N_LIMBS, _>(lv, INPUT_REGISTER_0);
+    let input1_limbs = read_value::<N_LIMBS, _>(lv, INPUT_REGISTER_1);
+
+    eval_packed_generic_mul(lv, is_mul, input0_limbs, input1_limbs, yield_constr);
+}
+
+pub(crate) fn eval_ext_mul_circuit<F: RichField + Extendable<D>, const D: usize>(
+    builder: &mut CircuitBuilder<F, D>,
+    lv: &[ExtensionTarget<D>; NUM_ARITH_COLUMNS],
+    filter: ExtensionTarget<D>,
+    left_in_limbs: [ExtensionTarget<D>; 16],
+    right_in_limbs: [ExtensionTarget<D>; 16],
+    yield_constr: &mut RecursiveConstraintConsumer<F, D>,
+) {
+    let output_limbs = read_value::<N_LIMBS, _>(lv, OUTPUT_REGISTER);
 
     let aux_limbs = {
+        // MUL_AUX_INPUT was offset by 2^20 in generation, so we undo
+        // that here
         let base = builder.constant_extension(F::Extension::from_canonical_u64(1 << LIMB_BITS));
         let offset =
             builder.constant_extension(F::Extension::from_canonical_u64(AUX_COEFF_ABS_MAX as u64));
@@ -191,17 +210,41 @@ pub fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
         aux_limbs
     };
 
-    let mut constr_poly = pol_mul_lo_ext_circuit(builder, input0_limbs, input1_limbs);
+    let mut constr_poly = pol_mul_lo_ext_circuit(builder, left_in_limbs, right_in_limbs);
     pol_sub_assign_ext_circuit(builder, &mut constr_poly, &output_limbs);
 
+    // This subtracts (x - β) * s(x) from constr_poly.
     let base = builder.constant_extension(F::Extension::from_canonical_u64(1 << LIMB_BITS));
     let rhs = pol_adjoin_root_ext_circuit(builder, aux_limbs, base);
     pol_sub_assign_ext_circuit(builder, &mut constr_poly, &rhs);
 
+    // At this point constr_poly holds the coefficients of the
+    // polynomial a(x)b(x) - c(x) - (x - β)*s(x). The
+    // multiplication is valid if and only if all of those
+    // coefficients are zero.
     for &c in &constr_poly {
-        let filter = builder.mul_extension(is_mul, c);
+        let filter = builder.mul_extension(filter, c);
         yield_constr.constraint(builder, filter);
     }
+}
+
+pub(crate) fn eval_ext_circuit<F: RichField + Extendable<D>, const D: usize>(
+    builder: &mut CircuitBuilder<F, D>,
+    lv: &[ExtensionTarget<D>; NUM_ARITH_COLUMNS],
+    yield_constr: &mut RecursiveConstraintConsumer<F, D>,
+) {
+    let is_mul = lv[IS_MUL];
+    let input0_limbs = read_value::<N_LIMBS, _>(lv, INPUT_REGISTER_0);
+    let input1_limbs = read_value::<N_LIMBS, _>(lv, INPUT_REGISTER_1);
+
+    eval_ext_mul_circuit(
+        builder,
+        lv,
+        is_mul,
+        input0_limbs,
+        input1_limbs,
+        yield_constr,
+    );
 }
 
 #[cfg(test)]
@@ -253,7 +296,7 @@ mod tests {
 
         for _i in 0..N_RND_TESTS {
             // set inputs to random values
-            for (ai, bi) in MUL_INPUT_0.zip(MUL_INPUT_1) {
+            for (ai, bi) in INPUT_REGISTER_0.zip(INPUT_REGISTER_1) {
                 lv[ai] = F::from_canonical_u16(rng.gen());
                 lv[bi] = F::from_canonical_u16(rng.gen());
             }

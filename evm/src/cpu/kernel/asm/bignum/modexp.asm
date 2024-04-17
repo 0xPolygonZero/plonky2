@@ -65,14 +65,14 @@ e_zero_return:
     DUP3
     DUP8
     // stack: s1, b_loc, len, len, b_loc, e_loc, m_loc, out_loc, s1, s2, s3, s4, s5, retdest
-    %memcpy_kernel_general
+    %memcpy_current_general
     // stack: len, b_loc, e_loc, m_loc, out_loc, s1, s2, s3, s4, s5, retdest
 
     // We store the accumulated output value x_i in output_loc, starting with x_0=1.
     PUSH 1
     DUP6
     // stack: out_loc, 1, len, b_loc, e_loc, m_loc, out_loc, s1, s2, s3, s4, s5,  retdest
-    %mstore_kernel_general
+    %mstore_current_general
 
 modexp_loop:
     // stack: len, b_loc, e_loc, m_loc, out_loc, s1, s2, s3, s4, s5, retdest
@@ -80,7 +80,7 @@ modexp_loop:
     // y := e % 2
     DUP3
     // stack: e_loc, len, b_loc, e_loc, m_loc, out_loc, s1, s2, s3, s4, s5, retdest
-    %mload_kernel_general
+    %mload_current_general
     // stack: e_first, len, b_loc, e_loc, m_loc, out_loc, s1, s2, s3, s4, s5, retdest
     %mod_const(2)
     // stack: y = e_first % 2 = e % 2, len, b_loc, e_loc, m_loc, out_loc, s1, s2, s3, s4, s5, retdest
@@ -108,7 +108,7 @@ modexp_mul_return:
     DUP11
     DUP7
     // stack: out_loc, s5, len, len, b_loc, e_loc, m_loc, out_loc, s1, s2, s3, s4, s5, retdest
-    %memcpy_kernel_general
+    %memcpy_current_general
     // stack: len, b_loc, e_loc, m_loc, out_loc, s1, s2, s3, s4, s5, retdest
 
     // Zero out scratch_2..scratch_5.
@@ -116,7 +116,7 @@ modexp_mul_return:
     %mul_const(8)
     DUP8
     // stack: s2, 8 * len, len, b_loc, e_loc, m_loc, out_loc, s1, s2, s3, s4, s5, retdest
-    %clear_kernel_general
+    %clear_current_general
     // stack: len, b_loc, e_loc, m_loc, out_loc, s1, s2, s3, s4, s5, retdest
 
 modexp_y_0:
@@ -142,7 +142,7 @@ modexp_square_return:
     DUP11
     DUP8
     // stack: s1, s5, len, len, b_loc, e_loc, m_loc, out_loc, s1, s2, s3, s4, s5, retdest
-    %memcpy_kernel_general
+    %memcpy_current_general
     // stack: len, b_loc, e_loc, m_loc, out_loc, s1, s2, s3, s4, s5, retdest
 
     // Zero out scratch_2..scratch_5.
@@ -150,7 +150,7 @@ modexp_square_return:
     %mul_const(8)
     DUP8
     // stack: s2, 8 * len, len, b_loc, e_loc, m_loc, out_loc, s1, s2, s3, s4, s5, retdest
-    %clear_kernel_general
+    %clear_current_general
     // stack: len, b_loc, e_loc, m_loc, out_loc, s1, s2, s3, s4, s5, retdest
 
     // e //= 2 (with shr_bignum)
@@ -186,7 +186,7 @@ b_and_e_zero:
     // stack: len, b_loc, e_loc, m_loc, out_loc, s1, s2, s3, s4, s5, retdest
     PUSH 1
     DUP6
-    %mstore_kernel_general
+    %mstore_current_general
     %pop10
     // stack: retdest
     JUMP

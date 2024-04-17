@@ -7,40 +7,49 @@ use plonky2::field::packed::PackedField;
 use plonky2::field::polynomial::PolynomialValues;
 use plonky2::field::types::Field;
 use plonky2::hash::hash_types::RichField;
+use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::timed;
 use plonky2::util::timing::TimingTree;
 use plonky2_util::ceil_div_usize;
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
-use crate::cross_table_lookup::Column;
+use crate::cross_table_lookup::{Column, Filter};
+use crate::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
 use crate::logic::columns::NUM_COLUMNS;
 use crate::stark::Stark;
 use crate::util::{limb_from_bits_le, limb_from_bits_le_recursive, trace_rows_to_poly_values};
-use crate::vars::{StarkEvaluationTargets, StarkEvaluationVars};
 
-// Total number of bits per input/output.
+/// Total number of bits per input/output.
 const VAL_BITS: usize = 256;
-// Number of bits stored per field element. Ensure that this fits; it is not checked.
+/// Number of bits stored per field element. Ensure that this fits; it is not checked.
 pub(crate) const PACKED_LIMB_BITS: usize = 32;
-// Number of field elements needed to store each input/output at the specified packing.
+/// Number of field elements needed to store each input/output at the specified packing.
 const PACKED_LEN: usize = ceil_div_usize(VAL_BITS, PACKED_LIMB_BITS);
 
+/// `LogicStark` columns.
 pub(crate) mod columns {
     use std::cmp::min;
     use std::ops::Range;
 
     use super::{PACKED_LEN, PACKED_LIMB_BITS, VAL_BITS};
 
-    pub const IS_AND: usize = 0;
-    pub const IS_OR: usize = IS_AND + 1;
-    pub const IS_XOR: usize = IS_OR + 1;
-    // The inputs are decomposed into bits.
-    pub const INPUT0: Range<usize> = (IS_XOR + 1)..(IS_XOR + 1) + VAL_BITS;
-    pub const INPUT1: Range<usize> = INPUT0.end..INPUT0.end + VAL_BITS;
-    // The result is packed in limbs of `PACKED_LIMB_BITS` bits.
-    pub const RESULT: Range<usize> = INPUT1.end..INPUT1.end + PACKED_LEN;
+    /// 1 if this is an AND operation, 0 otherwise.
+    pub(crate) const IS_AND: usize = 0;
+    /// 1 if this is an OR operation, 0 otherwise.
+    pub(crate) const IS_OR: usize = IS_AND + 1;
+    /// 1 if this is a XOR operation, 0 otherwise.
+    pub(crate) const IS_XOR: usize = IS_OR + 1;
+    /// First input, decomposed into bits.
+    pub(crate) const INPUT0: Range<usize> = (IS_XOR + 1)..(IS_XOR + 1) + VAL_BITS;
+    /// Second input, decomposed into bits.
+    pub(crate) const INPUT1: Range<usize> = INPUT0.end..INPUT0.end + VAL_BITS;
+    /// The result is packed in limbs of `PACKED_LIMB_BITS` bits.
+    pub(crate) const RESULT: Range<usize> = INPUT1.end..INPUT1.end + PACKED_LEN;
 
-    pub fn limb_bit_cols_for_input(input_bits: Range<usize>) -> impl Iterator<Item = Range<usize>> {
+    /// Returns the column range for each 32 bit chunk in the input.
+    pub(crate) fn limb_bit_cols_for_input(
+        input_bits: Range<usize>,
+    ) -> impl Iterator<Item = Range<usize>> {
         (0..PACKED_LEN).map(move |i| {
             let start = input_bits.start + i * PACKED_LIMB_BITS;
             let end = min(start + PACKED_LIMB_BITS, input_bits.end);
@@ -48,30 +57,43 @@ pub(crate) mod columns {
         })
     }
 
-    pub const NUM_COLUMNS: usize = RESULT.end;
+    /// Number of columns in `LogicStark`.
+    pub(crate) const NUM_COLUMNS: usize = RESULT.end;
 }
 
-pub fn ctl_data<F: Field>() -> Vec<Column<F>> {
-    let mut res = vec![
-        Column::single(columns::IS_AND),
-        Column::single(columns::IS_OR),
-        Column::single(columns::IS_XOR),
-    ];
+/// Creates the vector of `Columns` corresponding to the opcode, the two inputs and the output of the logic operation.
+pub(crate) fn ctl_data<F: Field>() -> Vec<Column<F>> {
+    // We scale each filter flag with the associated opcode value.
+    // If a logic operation is happening on the CPU side, the CTL
+    // will enforce that the reconstructed opcode value from the
+    // opcode bits matches.
+    let mut res = vec![Column::linear_combination([
+        (columns::IS_AND, F::from_canonical_u8(0x16)),
+        (columns::IS_OR, F::from_canonical_u8(0x17)),
+        (columns::IS_XOR, F::from_canonical_u8(0x18)),
+    ])];
     res.extend(columns::limb_bit_cols_for_input(columns::INPUT0).map(Column::le_bits));
     res.extend(columns::limb_bit_cols_for_input(columns::INPUT1).map(Column::le_bits));
     res.extend(columns::RESULT.map(Column::single));
     res
 }
 
-pub fn ctl_filter<F: Field>() -> Column<F> {
-    Column::sum([columns::IS_AND, columns::IS_OR, columns::IS_XOR])
+/// CTL filter for logic operations.
+pub(crate) fn ctl_filter<F: Field>() -> Filter<F> {
+    Filter::new_simple(Column::sum([
+        columns::IS_AND,
+        columns::IS_OR,
+        columns::IS_XOR,
+    ]))
 }
 
+/// Structure representing the Logic STARK, which computes all logic operations.
 #[derive(Copy, Clone, Default)]
-pub struct LogicStark<F, const D: usize> {
+pub(crate) struct LogicStark<F, const D: usize> {
     pub f: PhantomData<F>,
 }
 
+/// Logic operations.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub(crate) enum Op {
     And,
@@ -80,6 +102,7 @@ pub(crate) enum Op {
 }
 
 impl Op {
+    /// Returns the output of the current Logic operation.
     pub(crate) fn result(&self, a: U256, b: U256) -> U256 {
         match self {
             Op::And => a & b,
@@ -89,6 +112,8 @@ impl Op {
     }
 }
 
+/// A logic operation over `U256`` words. It contains an operator,
+/// either `AND`, `OR` or `XOR`, two inputs and its expected result.
 #[derive(Debug)]
 pub(crate) struct Operation {
     operator: Op,
@@ -98,6 +123,8 @@ pub(crate) struct Operation {
 }
 
 impl Operation {
+    /// Computes the expected result of an operator with the two provided inputs,
+    /// and returns the associated logic `Operation`.
     pub(crate) fn new(operator: Op, input0: U256, input1: U256) -> Self {
         let result = operator.result(input0, input1);
         Operation {
@@ -108,6 +135,7 @@ impl Operation {
         }
     }
 
+    /// Given an `Operation`, fills a row with the corresponding flag, inputs and output.
     fn into_row<F: Field>(self) -> [F; NUM_COLUMNS] {
         let Operation {
             operator,
@@ -135,17 +163,20 @@ impl Operation {
 }
 
 impl<F: RichField, const D: usize> LogicStark<F, D> {
+    /// Generates the trace polynomials for `LogicStark`.
     pub(crate) fn generate_trace(
         &self,
         operations: Vec<Operation>,
         min_rows: usize,
         timing: &mut TimingTree,
     ) -> Vec<PolynomialValues<F>> {
+        // First, turn all provided operations into rows in `LogicStark`, and pad if necessary.
         let trace_rows = timed!(
             timing,
             "generate trace rows",
             self.generate_trace_rows(operations, min_rows)
         );
+        // Generate the trace polynomials from the trace values.
         let trace_polys = timed!(
             timing,
             "convert to PolynomialValues",
@@ -154,6 +185,8 @@ impl<F: RichField, const D: usize> LogicStark<F, D> {
         trace_polys
     }
 
+    /// Generate the `LogicStark` traces based on the provided vector of operations.
+    /// The trace is padded to a power of two with all-zero rows.
     fn generate_trace_rows(
         &self,
         operations: Vec<Operation>,
@@ -177,17 +210,22 @@ impl<F: RichField, const D: usize> LogicStark<F, D> {
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for LogicStark<F, D> {
-    const COLUMNS: usize = NUM_COLUMNS;
+    type EvaluationFrame<FE, P, const D2: usize> = StarkFrame<P, NUM_COLUMNS>
+    where
+        FE: FieldExtension<D2, BaseField = F>,
+        P: PackedField<Scalar = FE>;
+
+    type EvaluationFrameTarget = StarkFrame<ExtensionTarget<D>, NUM_COLUMNS>;
 
     fn eval_packed_generic<FE, P, const D2: usize>(
         &self,
-        vars: StarkEvaluationVars<FE, P, { Self::COLUMNS }>,
+        vars: &Self::EvaluationFrame<FE, P, D2>,
         yield_constr: &mut ConstraintConsumer<P>,
     ) where
         FE: FieldExtension<D2, BaseField = F>,
         P: PackedField<Scalar = FE>,
     {
-        let lv = &vars.local_values;
+        let lv = vars.get_local_values();
 
         // IS_AND, IS_OR, and IS_XOR come from the CPU table, so we assume they're valid.
         let is_and = lv[columns::IS_AND];
@@ -233,10 +271,10 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for LogicStark<F,
     fn eval_ext_circuit(
         &self,
         builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
-        vars: StarkEvaluationTargets<D, { Self::COLUMNS }>,
+        vars: &Self::EvaluationFrameTarget,
         yield_constr: &mut RecursiveConstraintConsumer<F, D>,
     ) {
-        let lv = &vars.local_values;
+        let lv = vars.get_local_values();
 
         // IS_AND, IS_OR, and IS_XOR come from the CPU table, so we assume they're valid.
         let is_and = lv[columns::IS_AND];

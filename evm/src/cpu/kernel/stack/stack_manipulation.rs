@@ -135,7 +135,9 @@ fn shortest_path(
 
             let cost = node.cost + op.cost();
             let entry = node_info.entry(neighbor.clone());
-            if let Occupied(e) = &entry && e.get().0 <= cost {
+            if let Occupied(e) = &entry
+                && e.get().0 <= cost
+            {
                 // We already found a better or equal path.
                 continue;
             }
@@ -202,9 +204,11 @@ fn next_ops(
     dst: &[StackItem],
     unique_push_targets: &[PushTarget],
 ) -> Vec<StackOp> {
-    if let Some(top) = src.last() && !dst.contains(top) {
+    if let Some(top) = src.last()
+        && !dst.contains(top)
+    {
         // If the top of src doesn't appear in dst, don't bother with anything other than a POP.
-        return vec![StackOp::Pop]
+        return vec![StackOp::Pop];
     }
 
     if is_permutation(src, dst) {
@@ -282,15 +286,15 @@ impl StackOp {
                         panic!("Target should have been expanded already: {target:?}")
                     }
                 };
-                // This is just a rough estimate; we can update it after implementing PUSH.
-                (bytes, bytes)
+                // A PUSH takes one cycle, and 1 memory read per byte.
+                (1, bytes + 1)
             }
-            // A POP takes one cycle, and doesn't involve memory, it just decrements a pointer.
-            Pop => (1, 0),
+            // A POP takes one cycle, and most of the time a read to update the top of the stack.
+            Pop => (1, 1),
             // A DUP takes one cycle, and a read and a write.
             StackOp::Dup(_) => (1, 2),
-            // A SWAP takes one cycle with four memory ops, to read both values then write to them.
-            StackOp::Swap(_) => (1, 4),
+            // A SWAP takes one cycle with three memory ops, to read both values then write to them.
+            StackOp::Swap(_) => (1, 3),
         };
 
         let cpu_cost = cpu_rows * NUM_CPU_COLUMNS as u32;

@@ -1,12 +1,14 @@
 use alloc::vec::Vec;
 use core::ops::Range;
 
+use serde::{Deserialize, Serialize};
+
 use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::wire::Wire;
 use crate::plonk::circuit_data::CircuitConfig;
 
 /// A location in the witness.
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize)]
 pub enum Target {
     Wire(Wire),
     /// A target that doesn't have any inherent location in the witness (but it can be copied to
@@ -24,11 +26,11 @@ impl Default for Target {
 }
 
 impl Target {
-    pub fn wire(row: usize, column: usize) -> Self {
+    pub const fn wire(row: usize, column: usize) -> Self {
         Self::Wire(Wire { row, column })
     }
 
-    pub fn is_routable(&self, config: &CircuitConfig) -> bool {
+    pub const fn is_routable(&self, config: &CircuitConfig) -> bool {
         match self {
             Target::Wire(wire) => wire.is_routable(config),
             Target::VirtualTarget { .. } => true,
@@ -47,7 +49,7 @@ impl Target {
     }
 
     /// Conversion to an `ExtensionTarget`.
-    pub fn to_ext_target<const D: usize>(self, zero: Self) -> ExtensionTarget<D> {
+    pub const fn to_ext_target<const D: usize>(self, zero: Self) -> ExtensionTarget<D> {
         let mut arr = [zero; D];
         arr[0] = self;
         ExtensionTarget(arr)
@@ -64,7 +66,7 @@ pub struct BoolTarget {
 }
 
 impl BoolTarget {
-    pub fn new_unsafe(target: Target) -> BoolTarget {
+    pub const fn new_unsafe(target: Target) -> BoolTarget {
         BoolTarget {
             target,
             _private: (),

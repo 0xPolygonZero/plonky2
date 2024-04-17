@@ -1,4 +1,4 @@
-use alloc::string::String;
+use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use alloc::{format, vec};
 use core::marker::PhantomData;
@@ -17,7 +17,7 @@ use crate::iop::target::Target;
 use crate::iop::wire::Wire;
 use crate::iop::witness::{PartitionWitness, Witness, WitnessWrite};
 use crate::plonk::circuit_builder::CircuitBuilder;
-use crate::plonk::circuit_data::CircuitConfig;
+use crate::plonk::circuit_data::{CircuitConfig, CommonCircuitData};
 use crate::plonk::vars::{
     EvaluationTargets, EvaluationVars, EvaluationVarsBase, EvaluationVarsBaseBatch,
     EvaluationVarsBasePacked,
@@ -32,7 +32,7 @@ pub struct ExponentiationGate<F: RichField + Extendable<D>, const D: usize> {
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> ExponentiationGate<F, D> {
-    pub fn new(num_power_bits: usize) -> Self {
+    pub const fn new(num_power_bits: usize) -> Self {
         Self {
             num_power_bits,
             _phantom: PhantomData,
@@ -51,7 +51,7 @@ impl<F: RichField + Extendable<D>, const D: usize> ExponentiationGate<F, D> {
         max_for_routed_wires.min(max_for_wires)
     }
 
-    pub fn wire_base(&self) -> usize {
+    pub const fn wire_base(&self) -> usize {
         0
     }
 
@@ -61,7 +61,7 @@ impl<F: RichField + Extendable<D>, const D: usize> ExponentiationGate<F, D> {
         1 + i
     }
 
-    pub fn wire_output(&self) -> usize {
+    pub const fn wire_output(&self) -> usize {
         1 + self.num_power_bits
     }
 
@@ -76,11 +76,11 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for Exponentiation
         format!("{self:?}<D={D}>")
     }
 
-    fn serialize(&self, dst: &mut Vec<u8>) -> IoResult<()> {
+    fn serialize(&self, dst: &mut Vec<u8>, _common_data: &CommonCircuitData<F, D>) -> IoResult<()> {
         dst.write_usize(self.num_power_bits)
     }
 
-    fn deserialize(src: &mut Buffer) -> IoResult<Self> {
+    fn deserialize(src: &mut Buffer, _common_data: &CommonCircuitData<F, D>) -> IoResult<Self> {
         let num_power_bits = src.read_usize()?;
         Ok(Self::new(num_power_bits))
     }
@@ -173,7 +173,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for Exponentiation
         constraints
     }
 
-    fn generators(&self, row: usize, _local_constants: &[F]) -> Vec<WitnessGeneratorRef<F>> {
+    fn generators(&self, row: usize, _local_constants: &[F]) -> Vec<WitnessGeneratorRef<F, D>> {
         let gen = ExponentiationGenerator::<F, D> {
             row,
             gate: self.clone(),
@@ -243,7 +243,7 @@ pub struct ExponentiationGenerator<F: RichField + Extendable<D>, const D: usize>
     gate: ExponentiationGate<F, D>,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
+impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D>
     for ExponentiationGenerator<F, D>
 {
     fn id(&self) -> String {
@@ -275,7 +275,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
         let power_bits = (0..num_power_bits)
             .map(|i| get_local_wire(self.gate.wire_power_bit(i)))
             .collect::<Vec<_>>();
-        let mut intermediate_values = Vec::new();
+        let mut intermediate_values = Vec::with_capacity(num_power_bits);
 
         let mut current_intermediate_value = F::ONE;
         for i in 0..num_power_bits {
@@ -295,14 +295,14 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
         out_buffer.set_wire(output_wire, intermediate_values[num_power_bits - 1]);
     }
 
-    fn serialize(&self, dst: &mut Vec<u8>) -> IoResult<()> {
+    fn serialize(&self, dst: &mut Vec<u8>, _common_data: &CommonCircuitData<F, D>) -> IoResult<()> {
         dst.write_usize(self.row)?;
-        self.gate.serialize(dst)
+        self.gate.serialize(dst, _common_data)
     }
 
-    fn deserialize(src: &mut Buffer) -> IoResult<Self> {
+    fn deserialize(src: &mut Buffer, _common_data: &CommonCircuitData<F, D>) -> IoResult<Self> {
         let row = src.read_usize()?;
-        let gate = ExponentiationGate::deserialize(src)?;
+        let gate = ExponentiationGate::deserialize(src, _common_data)?;
         Ok(Self { row, gate })
     }
 }

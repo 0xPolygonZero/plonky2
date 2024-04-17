@@ -5,6 +5,7 @@
 
 global sys_sstore:
     %check_static
+    DUP1 %leftover_gas %le_const(@GAS_CALLSTIPEND) %jumpi(fault_exception)
     %stack (kexit_info, slot, value) -> (slot, kexit_info, slot, value)
     %sload_current
     %address
@@ -35,15 +36,65 @@ sstore_warm:
     %add_const(@GAS_WARMACCESS)
 
 sstore_charge_gas:
-    %stack (gas, original_value, current_value, kexit_info, slot, value) -> (gas, kexit_info, current_value, slot, value)
+    %stack (gas, original_value, current_value, kexit_info, slot, value) -> (gas, kexit_info, current_value, value, original_value, slot)
     %charge_gas
 
+sstore_refund:
+    %stack (kexit_info, current_value, value, original_value, slot) -> (current_value, value, current_value, value, original_value, slot, kexit_info)
+    EQ %jumpi(sstore_no_refund)
+    %stack (current_value, value, original_value, slot, kexit_info) -> (current_value, original_value, current_value, value, original_value, slot, kexit_info)
+    EQ %jumpi(sstore_refund_original)
+    %stack (current_value, value, original_value, slot, kexit_info) -> (original_value, current_value, value, original_value, slot, kexit_info)
+    ISZERO %jumpi(sstore_dirty_reset)
+    %stack (current_value, value, original_value, slot, kexit_info) -> (current_value, current_value, value, original_value, slot, kexit_info)
+    ISZERO %jumpi(sstore_dirty_clear1)
+    %stack (current_value, value, original_value, slot, kexit_info) -> (value, current_value, value, original_value, slot, kexit_info)
+    ISZERO %jumpi(sstore_dirty_clear2)
+    %jump(sstore_dirty_reset)
+
+sstore_dirty_clear1:
+    PUSH @REFUND_SCLEAR PUSH 0 SUB %refund_gas
+    %jump(sstore_dirty_reset)
+
+sstore_dirty_clear2:
+    PUSH @REFUND_SCLEAR %refund_gas
+
+sstore_dirty_reset:
+    %stack (current_value, value, original_value, slot, kexit_info) -> (original_value, value, current_value, value, original_value, slot, kexit_info)
+    EQ %jumpi(sstore_dirty_reset2)
+    %jump(sstore_no_refund)
+sstore_dirty_reset2:
+    %stack (current_value, value, original_value, slot, kexit_info) -> (original_value, current_value, value, original_value, slot, kexit_info)
+    ISZERO %jumpi(sstore_dirty_reset_sset)
+    PUSH @GAS_WARMACCESS PUSH @GAS_SRESET SUB %refund_gas
+    %jump(sstore_no_refund)
+sstore_dirty_reset_sset:
+    PUSH @GAS_WARMACCESS PUSH @GAS_SSET SUB %refund_gas
+    %jump(sstore_no_refund)
+
+sstore_refund_original:
+    %stack (current_value, value, original_value, slot, kexit_info) -> (value, current_value, value, original_value, slot, kexit_info)
+    ISZERO %jumpi(sstore_sclear)
+    %jump(sstore_no_refund)
+sstore_sclear:
+    PUSH @REFUND_SCLEAR %refund_gas
+    %jump(sstore_no_refund)
+
+sstore_no_refund:
+    %stack (current_value, value, original_value, slot, kexit_info) -> (kexit_info, current_value, slot, value)
+sstore_after_refund:
+    // stack: kexit_info, current_value, slot, value
     // Check if `value` is equal to `current_value`, and if so exit the kernel early.
-    %stack (kexit_info, current_value, slot, value) -> (value, current_value, slot, value, kexit_info)
+    %stack (kexit_info, current_value, slot, value) -> (value, current_value, current_value, slot, value, kexit_info)
     EQ %jumpi(sstore_noop)
 
-    // TODO: If value = 0, delete the key instead of inserting 0.
+    // stack: current_value, slot, value, kexit_info
+    DUP2 %address %journal_add_storage_change
     // stack: slot, value, kexit_info
+
+    // If the value is zero, delete the slot from the storage trie.
+    // stack: slot, value, kexit_info
+    DUP2 ISZERO %jumpi(sstore_delete)
 
     // First we write the value to MPT data, and get a pointer to it.
     %get_trie_data_size
@@ -65,28 +116,29 @@ sstore_charge_gas:
 after_storage_insert:
     // stack: new_storage_root_ptr, kexit_info
     %current_account_data
-    // stack: old_account_ptr, new_storage_root_ptr, kexit_info
-    %make_account_copy
-    // stack: new_account_ptr, new_storage_root_ptr, kexit_info
+    // stack: account_ptr, new_storage_root_ptr, kexit_info
 
     // Update the copied account with our new storage root pointer.
-    %stack (new_account_ptr, new_storage_root_ptr) -> (new_account_ptr, new_storage_root_ptr, new_account_ptr)
     %add_const(2)
-    // stack: new_account_storage_root_ptr_ptr, new_storage_root_ptr, new_account_ptr, kexit_info
+    // stack: account_storage_root_ptr_ptr, new_storage_root_ptr, kexit_info
     %mstore_trie_data
-    // stack: new_account_ptr, kexit_info
-
-    // Save this updated account to the state trie.
-    %stack (new_account_ptr) -> (new_account_ptr, after_state_insert)
-    %address %addr_to_state_key
-    // stack: state_key, new_account_ptr, after_state_insert, kexit_info
-    %jump(mpt_insert_state_trie)
-
-after_state_insert:
     // stack: kexit_info
     EXIT_KERNEL
 
 sstore_noop:
-    // stack: slot, value, kexit_info
-    %pop2
+    // stack: current_value, slot, value, kexit_info
+    %pop3
     EXIT_KERNEL
+
+// Delete the slot from the storage trie.
+sstore_delete:
+    // stack: slot, value, kexit_info
+    SWAP1 POP
+    PUSH after_storage_insert SWAP1
+    // stack: slot, after_storage_insert, kexit_info
+    %slot_to_storage_key
+    // stack: storage_key, after_storage_insert, kexit_info
+    PUSH 64 // storage_key has 64 nibbles
+    %current_storage_trie
+    // stack: storage_root_ptr, 64, storage_key, after_storage_insert, kexit_info
+    %jump(mpt_delete)

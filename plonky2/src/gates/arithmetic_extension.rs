@@ -1,5 +1,5 @@
 use alloc::format;
-use alloc::string::String;
+use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use core::ops::Range;
 
@@ -12,7 +12,7 @@ use crate::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGeneratorRe
 use crate::iop::target::Target;
 use crate::iop::witness::{PartitionWitness, Witness, WitnessWrite};
 use crate::plonk::circuit_builder::CircuitBuilder;
-use crate::plonk::circuit_data::CircuitConfig;
+use crate::plonk::circuit_data::{CircuitConfig, CommonCircuitData};
 use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 use crate::util::serialization::{Buffer, IoResult, Read, Write};
 
@@ -25,28 +25,28 @@ pub struct ArithmeticExtensionGate<const D: usize> {
 }
 
 impl<const D: usize> ArithmeticExtensionGate<D> {
-    pub fn new_from_config(config: &CircuitConfig) -> Self {
+    pub const fn new_from_config(config: &CircuitConfig) -> Self {
         Self {
             num_ops: Self::num_ops(config),
         }
     }
 
     /// Determine the maximum number of operations that can fit in one gate for the given config.
-    pub(crate) fn num_ops(config: &CircuitConfig) -> usize {
+    pub(crate) const fn num_ops(config: &CircuitConfig) -> usize {
         let wires_per_op = 4 * D;
         config.num_routed_wires / wires_per_op
     }
 
-    pub fn wires_ith_multiplicand_0(i: usize) -> Range<usize> {
+    pub const fn wires_ith_multiplicand_0(i: usize) -> Range<usize> {
         4 * D * i..4 * D * i + D
     }
-    pub fn wires_ith_multiplicand_1(i: usize) -> Range<usize> {
+    pub const fn wires_ith_multiplicand_1(i: usize) -> Range<usize> {
         4 * D * i + D..4 * D * i + 2 * D
     }
-    pub fn wires_ith_addend(i: usize) -> Range<usize> {
+    pub const fn wires_ith_addend(i: usize) -> Range<usize> {
         4 * D * i + 2 * D..4 * D * i + 3 * D
     }
-    pub fn wires_ith_output(i: usize) -> Range<usize> {
+    pub const fn wires_ith_output(i: usize) -> Range<usize> {
         4 * D * i + 3 * D..4 * D * i + 4 * D
     }
 }
@@ -56,11 +56,11 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ArithmeticExte
         format!("{self:?}")
     }
 
-    fn serialize(&self, dst: &mut Vec<u8>) -> IoResult<()> {
+    fn serialize(&self, dst: &mut Vec<u8>, _common_data: &CommonCircuitData<F, D>) -> IoResult<()> {
         dst.write_usize(self.num_ops)
     }
 
-    fn deserialize(src: &mut Buffer) -> IoResult<Self> {
+    fn deserialize(src: &mut Buffer, _common_data: &CommonCircuitData<F, D>) -> IoResult<Self> {
         let num_ops = src.read_usize()?;
         Ok(Self { num_ops })
     }
@@ -69,7 +69,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ArithmeticExte
         let const_0 = vars.local_constants[0];
         let const_1 = vars.local_constants[1];
 
-        let mut constraints = Vec::new();
+        let mut constraints = Vec::with_capacity(self.num_ops * D);
         for i in 0..self.num_ops {
             let multiplicand_0 = vars.get_local_ext_algebra(Self::wires_ith_multiplicand_0(i));
             let multiplicand_1 = vars.get_local_ext_algebra(Self::wires_ith_multiplicand_1(i));
@@ -112,7 +112,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ArithmeticExte
         let const_0 = vars.local_constants[0];
         let const_1 = vars.local_constants[1];
 
-        let mut constraints = Vec::new();
+        let mut constraints = Vec::with_capacity(self.num_ops * D);
         for i in 0..self.num_ops {
             let multiplicand_0 = vars.get_local_ext_algebra(Self::wires_ith_multiplicand_0(i));
             let multiplicand_1 = vars.get_local_ext_algebra(Self::wires_ith_multiplicand_1(i));
@@ -131,7 +131,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for ArithmeticExte
         constraints
     }
 
-    fn generators(&self, row: usize, local_constants: &[F]) -> Vec<WitnessGeneratorRef<F>> {
+    fn generators(&self, row: usize, local_constants: &[F]) -> Vec<WitnessGeneratorRef<F, D>> {
         (0..self.num_ops)
             .map(|i| {
                 WitnessGeneratorRef::new(
@@ -172,7 +172,7 @@ pub struct ArithmeticExtensionGenerator<F: RichField + Extendable<D>, const D: u
     i: usize,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
+impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D>
     for ArithmeticExtensionGenerator<F, D>
 {
     fn id(&self) -> String {
@@ -214,14 +214,14 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F>
         out_buffer.set_extension_target(output_target, computed_output)
     }
 
-    fn serialize(&self, dst: &mut Vec<u8>) -> IoResult<()> {
+    fn serialize(&self, dst: &mut Vec<u8>, _common_data: &CommonCircuitData<F, D>) -> IoResult<()> {
         dst.write_usize(self.row)?;
         dst.write_field(self.const_0)?;
         dst.write_field(self.const_1)?;
         dst.write_usize(self.i)
     }
 
-    fn deserialize(src: &mut Buffer) -> IoResult<Self> {
+    fn deserialize(src: &mut Buffer, _common_data: &CommonCircuitData<F, D>) -> IoResult<Self> {
         let row = src.read_usize()?;
         let const_0 = src.read_field()?;
         let const_1 = src.read_field()?;

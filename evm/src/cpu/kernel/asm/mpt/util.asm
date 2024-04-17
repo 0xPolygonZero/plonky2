@@ -10,6 +10,12 @@
     // stack: (empty)
 %endmacro
 
+%macro initialize_rlp_segment
+    PUSH @ENCODED_EMPTY_NODE_POS
+    PUSH 0x80
+    MSTORE_GENERAL
+%endmacro
+
 %macro alloc_rlp_block
     // stack: (empty)
     %mload_global_metadata(@GLOBAL_METADATA_RLP_DATA_SIZE)
@@ -17,7 +23,7 @@
     // In our model it's fine to use memory in a sparse way, as long as the gaps aren't larger than
     // 2^16 or so. So instead of the caller specifying the size of the block they need, we'll just
     // allocate 0x10000 = 2^16 bytes, much larger than any RLP blob the EVM could possibly create.
-    DUP1 %add_const(0x10000)
+    DUP1 %add_const(@MAX_RLP_BLOB_SIZE)
     // stack: block_end, block_start
     %mstore_global_metadata(@GLOBAL_METADATA_RLP_DATA_SIZE)
     // stack: block_start
@@ -88,6 +94,26 @@
     // stack: junk, first_nibble, num_nibbles, key
     POP
     // stack: first_nibble, num_nibbles, key
+%endmacro
+
+// Remove the first `k` nibbles from a key part.
+// def truncate_nibbles(k, num_nibbles, key):
+//     num_nibbles -= k
+//     num_nibbles_x4 = num_nibbles * 4
+//     lead_nibbles = key >> num_nibbles_x4
+//     key -= (lead_nibbles << num_nibbles_x4)
+//     return (num_nibbles, key)
+%macro truncate_nibbles
+    // stack: k, num_nibbles, key
+    SWAP1 SUB
+    // stack: num_nibbles, key
+    DUP1 %mul_const(4)
+    %stack (num_nibbles_x4, num_nibbles, key) -> (num_nibbles_x4, key, num_nibbles_x4, num_nibbles, key)
+    SHR
+    %stack (lead_nibbles, num_nibbles_x4, num_nibbles, key) -> (num_nibbles_x4, lead_nibbles, key, num_nibbles)
+    SHL SWAP1 SUB
+    // stack: key, num_nibbles
+    SWAP1
 %endmacro
 
 // Split off the common prefix among two key parts.
@@ -181,6 +207,17 @@
     SWAP2 %div_const(4) SWAP2 // bits_1 -> len_1 (in nibbles)
     SWAP4 %div_const(4) SWAP4 // bits_2 -> len_2 (in nibbles)
     // stack: len_common, key_common, len_1, key_1, len_2, key_2
+%endmacro
+
+// Remove the first `k` nibbles from a key part.
+// def merge_nibbles(front_len, front_key, back_len, back_key):
+//     return (front_len + back_len, (front_key<<(back_len*4)) + back_key)
+%macro merge_nibbles
+    // stack: front_len, front_key, back_len, back_key
+    %stack (front_len, front_key, back_len, back_key) -> (back_len, front_key, back_key, back_len, front_len)
+    %mul_const(4) SHL ADD
+    // stack: new_key, back_len, front_len
+    SWAP2 ADD
 %endmacro
 
 // Computes state_key = Keccak256(addr). Clobbers @SEGMENT_KERNEL_GENERAL.

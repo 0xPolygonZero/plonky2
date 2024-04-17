@@ -30,7 +30,7 @@ pub struct Challenger<F: RichField, H: Hasher<F>> {
 impl<F: RichField, H: Hasher<F>> Challenger<F, H> {
     pub fn new() -> Challenger<F, H> {
         Challenger {
-            sponge_state: H::Permutation::new(std::iter::repeat(F::ZERO)),
+            sponge_state: H::Permutation::new(core::iter::repeat(F::ZERO)),
             input_buffer: Vec::with_capacity(H::Permutation::RATE),
             output_buffer: Vec::with_capacity(H::Permutation::RATE),
         }
@@ -175,7 +175,7 @@ impl<F: RichField + Extendable<D>, H: AlgebraicHasher<F>, const D: usize>
     pub fn new(builder: &mut CircuitBuilder<F, D>) -> Self {
         let zero = builder.zero();
         Self {
-            sponge_state: H::AlgebraicPermutation::new(std::iter::repeat(zero)),
+            sponge_state: H::AlgebraicPermutation::new(core::iter::repeat(zero)),
             input_buffer: Vec::new(),
             output_buffer: Vec::new(),
             __: PhantomData,
@@ -191,7 +191,7 @@ impl<F: RichField + Extendable<D>, H: AlgebraicHasher<F>, const D: usize>
         }
     }
 
-    pub(crate) fn observe_element(&mut self, target: Target) {
+    pub fn observe_element(&mut self, target: Target) {
         // Any buffered outputs are now invalid, since they wouldn't reflect this input.
         self.output_buffer.clear();
 
@@ -332,8 +332,8 @@ mod tests {
 
         // These are mostly arbitrary, but we want to test some rounds with enough inputs/outputs to
         // trigger multiple absorptions/squeezes.
-        let num_inputs_per_round = vec![2, 5, 3];
-        let num_outputs_per_round = vec![1, 2, 4];
+        let num_inputs_per_round = [2, 5, 3];
+        let num_outputs_per_round = [1, 2, 4];
 
         // Generate random input messages.
         let inputs_per_round: Vec<Vec<F>> = num_inputs_per_round

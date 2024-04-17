@@ -17,7 +17,7 @@ iszero_loop:
     // stack: cur_loc, end_loc, retdest
     DUP1
     // stack: cur_loc, cur_loc, end_loc, retdest
-    %mload_kernel_general
+    %mload_current_general
     // stack: cur_val, cur_loc, end_loc, retdest
     %jumpi(neqzero)
     // stack: cur_loc, end_loc, retdest

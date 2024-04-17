@@ -1,6 +1,3 @@
-// TODO: remove when possible.
-#![allow(dead_code)]
-
 use std::borrow::{Borrow, BorrowMut};
 use std::fmt::Debug;
 use std::mem::{size_of, transmute};
@@ -15,35 +12,48 @@ use crate::memory;
 use crate::util::{indices_arr, transmute_no_compile_time_size_checks};
 
 mod general;
+/// Cpu operation flags.
 pub(crate) mod ops;
 
+/// 32-bit limbs of the value stored in the current memory channel.
 pub type MemValue<T> = [T; memory::VALUE_LIMBS];
 
+/// View of the columns required for one memory channel.
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct MemoryChannelView<T: Copy> {
+pub(crate) struct MemoryChannelView<T: Copy> {
     /// 1 if this row includes a memory operation in the `i`th channel of the memory bus, otherwise
     /// 0.
+    pub used: T,
+    /// 1 if a read is performed on the `i`th channel of the memory bus, otherwise 0.
+    pub is_read: T,
+    /// Context of the memory operation in the `i`th channel of the memory bus.
+    pub addr_context: T,
+    /// Segment of the memory operation in the `ith` channel of the memory bus.
+    pub addr_segment: T,
+    /// Virtual address of the memory operation in the `ith` channel of the memory bus.
+    pub addr_virtual: T,
+    /// Value, subdivided into 32-bit limbs, stored in the `ith` channel of the memory bus.
+    pub value: MemValue<T>,
+}
+
+/// View of all the columns in `CpuStark`.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+// A more lightweight channel, sharing values with the 0-th memory channel
+// (which contains the top of the stack).
+pub(crate) struct PartialMemoryChannelView<T: Copy> {
     pub used: T,
     pub is_read: T,
     pub addr_context: T,
     pub addr_segment: T,
     pub addr_virtual: T,
-    pub value: MemValue<T>,
 }
 
 #[repr(C)]
 #[derive(Clone, Copy, Eq, PartialEq, Debug)]
-pub struct CpuColumnsView<T: Copy> {
-    /// Filter. 1 if the row is part of bootstrapping the kernel code, 0 otherwise.
-    pub is_bootstrap_kernel: T,
-
-    /// Filter. 1 if the row corresponds to a cycle of execution and 0 otherwise.
-    /// Lets us re-use columns in non-cycle rows.
-    pub is_cpu_cycle: T,
-
+pub(crate) struct CpuColumnsView<T: Copy> {
     /// If CPU cycle: Current context.
-    // TODO: this is currently unconstrained
     pub context: T,
 
     /// If CPU cycle: Context for code memory channel.
@@ -54,10 +64,6 @@ pub struct CpuColumnsView<T: Copy> {
 
     /// If CPU cycle: The stack length.
     pub stack_len: T,
-
-    /// If CPU cycle: A prover-provided value needed to show that the instruction does not cause the
-    /// stack to underflow or overflow.
-    pub stack_len_bounds_aux: T,
 
     /// If CPU cycle: We're in kernel (privileged) mode.
     pub is_kernel_mode: T,
@@ -72,17 +78,22 @@ pub struct CpuColumnsView<T: Copy> {
     /// If CPU cycle: the opcode, broken up into bits in little-endian order.
     pub opcode_bits: [T; 8],
 
-    /// Filter. 1 iff a Keccak sponge lookup is performed on this row.
-    pub is_keccak_sponge: T,
-
+    /// Columns shared by various operations.
     pub(crate) general: CpuGeneralColumnsView<T>,
 
+    /// CPU clock.
     pub(crate) clock: T,
+
+    /// Memory bus channels in the CPU.
+    /// Full channels are comprised of 13 columns.
     pub mem_channels: [MemoryChannelView<T>; NUM_GP_CHANNELS],
+    /// Partial channel is only comprised of 5 columns.
+    pub(crate) partial_channel: PartialMemoryChannelView<T>,
 }
 
-// `u8` is guaranteed to have a `size_of` of 1.
-pub const NUM_CPU_COLUMNS: usize = size_of::<CpuColumnsView<u8>>();
+/// Total number of columns in `CpuStark`.
+/// `u8` is guaranteed to have a `size_of` of 1.
+pub(crate) const NUM_CPU_COLUMNS: usize = size_of::<CpuColumnsView<u8>>();
 
 impl<F: Field> Default for CpuColumnsView<F> {
     fn default() -> Self {
@@ -153,4 +164,5 @@ const fn make_col_map() -> CpuColumnsView<usize> {
     unsafe { transmute::<[usize; NUM_CPU_COLUMNS], CpuColumnsView<usize>>(indices_arr) }
 }
 
-pub const COL_MAP: CpuColumnsView<usize> = make_col_map();
+/// Mapping between [0..NUM_CPU_COLUMNS-1] and the CPU columns.
+pub(crate) const COL_MAP: CpuColumnsView<usize> = make_col_map();

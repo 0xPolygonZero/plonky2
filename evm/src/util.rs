@@ -11,8 +11,10 @@ use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::util::transpose;
 
+use crate::witness::errors::ProgramError;
+
 /// Construct an integer from its constituent bits (in little-endian order)
-pub fn limb_from_bits_le<P: PackedField>(iter: impl IntoIterator<Item = P>) -> P {
+pub(crate) fn limb_from_bits_le<P: PackedField>(iter: impl IntoIterator<Item = P>) -> P {
     // TODO: This is technically wrong, as 1 << i won't be canonical for all fields...
     iter.into_iter()
         .enumerate()
@@ -21,7 +23,7 @@ pub fn limb_from_bits_le<P: PackedField>(iter: impl IntoIterator<Item = P>) -> P
 }
 
 /// Construct an integer from its constituent bits (in little-endian order): recursive edition
-pub fn limb_from_bits_le_recursive<F: RichField + Extendable<D>, const D: usize>(
+pub(crate) fn limb_from_bits_le_recursive<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut plonky2::plonk::circuit_builder::CircuitBuilder<F, D>,
     iter: impl IntoIterator<Item = ExtensionTarget<D>>,
 ) -> ExtensionTarget<D> {
@@ -34,7 +36,7 @@ pub fn limb_from_bits_le_recursive<F: RichField + Extendable<D>, const D: usize>
 }
 
 /// A helper function to transpose a row-wise trace and put it in the format that `prove` expects.
-pub fn trace_rows_to_poly_values<F: Field, const COLUMNS: usize>(
+pub(crate) fn trace_rows_to_poly_values<F: Field, const COLUMNS: usize>(
     trace_rows: Vec<[F; COLUMNS]>,
 ) -> Vec<PolynomialValues<F>> {
     let trace_row_vecs = trace_rows.into_iter().map(|row| row.to_vec()).collect_vec();
@@ -45,7 +47,64 @@ pub fn trace_rows_to_poly_values<F: Field, const COLUMNS: usize>(
         .collect()
 }
 
-#[allow(unused)] // TODO: Remove?
+/// Returns the lowest LE 32-bit limb of a `U256` as a field element,
+/// and errors if the integer is actually greater.
+pub(crate) fn u256_to_u32<F: Field>(u256: U256) -> Result<F, ProgramError> {
+    if TryInto::<u32>::try_into(u256).is_err() {
+        return Err(ProgramError::IntegerTooLarge);
+    }
+
+    Ok(F::from_canonical_u32(u256.low_u32()))
+}
+
+/// Returns the lowest LE 64-bit word of a `U256` as two field elements
+/// each storing a 32-bit limb, and errors if the integer is actually greater.
+pub(crate) fn u256_to_u64<F: Field>(u256: U256) -> Result<(F, F), ProgramError> {
+    if TryInto::<u64>::try_into(u256).is_err() {
+        return Err(ProgramError::IntegerTooLarge);
+    }
+
+    Ok((
+        F::from_canonical_u32(u256.low_u64() as u32),
+        F::from_canonical_u32((u256.low_u64() >> 32) as u32),
+    ))
+}
+
+/// Safe alternative to `U256::as_usize()`, which errors in case of overflow instead of panicking.
+pub(crate) fn u256_to_usize(u256: U256) -> Result<usize, ProgramError> {
+    u256.try_into().map_err(|_| ProgramError::IntegerTooLarge)
+}
+
+/// Converts a `U256` to a `u8`, erroring in case of overlow instead of panicking.
+pub(crate) fn u256_to_u8(u256: U256) -> Result<u8, ProgramError> {
+    u256.try_into().map_err(|_| ProgramError::IntegerTooLarge)
+}
+
+/// Converts a `U256` to a `bool`, erroring in case of overlow instead of panicking.
+pub(crate) fn u256_to_bool(u256: U256) -> Result<bool, ProgramError> {
+    if u256 == U256::zero() {
+        Ok(false)
+    } else if u256 == U256::one() {
+        Ok(true)
+    } else {
+        Err(ProgramError::IntegerTooLarge)
+    }
+}
+
+/// Converts a `U256` to a `H160`, erroring in case of overflow instead of panicking.
+pub(crate) fn u256_to_h160(u256: U256) -> Result<H160, ProgramError> {
+    if u256.bits() / 8 > 20 {
+        return Err(ProgramError::IntegerTooLarge);
+    }
+    let mut bytes = [0u8; 32];
+    u256.to_big_endian(&mut bytes);
+    Ok(H160(
+        bytes[12..]
+            .try_into()
+            .expect("This conversion cannot fail."),
+    ))
+}
+
 /// Returns the 32-bit little-endian limbs of a `U256`.
 pub(crate) fn u256_limbs<F: Field>(u256: U256) -> [F; 8] {
     u256.0
@@ -63,7 +122,9 @@ pub(crate) fn u256_limbs<F: Field>(u256: U256) -> [F; 8] {
 
 /// Returns the 32-bit little-endian limbs of a `H256`.
 pub(crate) fn h256_limbs<F: Field>(h256: H256) -> [F; 8] {
-    h256.0
+    let mut temp_h256 = h256.0;
+    temp_h256.reverse();
+    temp_h256
         .chunks(4)
         .map(|chunk| u32::from_le_bytes(chunk.try_into().unwrap()))
         .map(F::from_canonical_u32)
@@ -142,6 +203,8 @@ pub(crate) fn u256_to_biguint(x: U256) -> BigUint {
 
 pub(crate) fn biguint_to_u256(x: BigUint) -> U256 {
     let bytes = x.to_bytes_le();
+    // This could panic if `bytes.len() > 32` but this is only
+    // used here with `BigUint` constructed from `U256`.
     U256::from_little_endian(&bytes)
 }
 
@@ -172,4 +235,30 @@ pub(crate) fn biguint_to_mem_vec(x: BigUint) -> Vec<U256> {
         mem_vec.push(U256::from(lo as u128 | (hi as u128) << 64));
     }
     mem_vec
+}
+
+pub(crate) fn h2u(h: H256) -> U256 {
+    U256::from_big_endian(&h.0)
+}
+
+pub(crate) fn get_h160<F: RichField>(slice: &[F]) -> H160 {
+    H160::from_slice(
+        &slice
+            .iter()
+            .rev()
+            .map(|x| x.to_canonical_u64() as u32)
+            .flat_map(|limb| limb.to_be_bytes())
+            .collect_vec(),
+    )
+}
+
+pub(crate) fn get_h256<F: RichField>(slice: &[F]) -> H256 {
+    H256::from_slice(
+        &slice
+            .iter()
+            .rev()
+            .map(|x| x.to_canonical_u64() as u32)
+            .flat_map(|limb| limb.to_be_bytes())
+            .collect_vec(),
+    )
 }

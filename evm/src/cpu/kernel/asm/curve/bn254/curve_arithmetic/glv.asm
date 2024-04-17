@@ -42,6 +42,7 @@
 // ```
 global bn_glv_decompose:
     // stack: k, retdest
+    %mod_const(@BN_SCALAR)
     PUSH @BN_SCALAR DUP1 DUP1
     // Compute c2 which is the top 256 bits of k*g1. Use asm from https://medium.com/wicketh/mathemagic-full-multiply-27650fec525d.
     PUSH @U256_MAX
@@ -73,7 +74,15 @@ global bn_glv_decompose:
 
     // We compute k2 = q1 + q2 - N, but we check for underflow and return N-q1-q2 instead if there is one,
     // along with a flag `underflow` set to 1 if there is an underflow, 0 otherwise.
-    ADD %sub_check_underflow
+    ADD %bn_sub_check_underflow
+    // stack: k2, underflow, N, k, retdest
+    DUP1 %ge_const(0x80000000000000000000000000000000) %jumpi(negate)
+    %jump(contd)
+negate:
+    // stack: k2, underflow, N, k, retdest
+    SWAP1 PUSH 1 SUB SWAP1
+    PUSH @BN_SCALAR SUB
+contd:
     // stack: k2, underflow, N, k, retdest
     SWAP3 PUSH @BN_SCALAR DUP5 PUSH @BN_GLV_S
     // stack: s, k2, N, k, underflow, N, k2, retdest
@@ -88,10 +97,20 @@ global bn_glv_decompose:
 
 underflowed:
     // stack: underflow, k, s*k2, N, k2
-    // Compute (k-s*k2)%N. TODO: Use SUBMOD here when ready
-    %stack (u, k, x, N, k2) -> (N, x, k, N, k2, u)
-    SUB ADDMOD
+    // Compute (k-s*k2)%N.
+    %stack (u, k, x, N, k2) -> (k, x, N, k2, u)
+    SUBMOD
     %stack (k1, k2, underflow, retdest) -> (retdest, underflow, k1, k2)
     JUMP
 
-
+%macro bn_sub_check_underflow
+    // stack: x, y
+    DUP2 DUP2 LT
+    // stack: x<y, x, y
+    DUP1 ISZERO DUP2 DUP4 DUP6 SUB MUL
+    // stack: (y-x)*(x<y), x>=y, x<y, x, y
+    %stack (a, b, c, x, y) -> (x, y, b, a, c)
+    SUB MUL ADD
+    %stack (res, bool) -> (res, @BN_SCALAR, bool)
+    MOD
+%endmacro

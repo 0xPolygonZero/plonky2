@@ -19,7 +19,7 @@ impl<const D: usize> Default for ExtensionTarget<D> {
 }
 
 impl<const D: usize> ExtensionTarget<D> {
-    pub fn to_target_array(&self) -> [Target; D] {
+    pub const fn to_target_array(&self) -> [Target; D] {
         self.0
     }
 
@@ -77,7 +77,7 @@ impl<const D: usize> TryFrom<Vec<Target>> for ExtensionTarget<D> {
 pub struct ExtensionAlgebraTarget<const D: usize>(pub [ExtensionTarget<D>; D]);
 
 impl<const D: usize> ExtensionAlgebraTarget<D> {
-    pub fn to_ext_target_array(&self) -> [ExtensionTarget<D>; D] {
+    pub const fn to_ext_target_array(&self) -> [ExtensionTarget<D>; D] {
         self.0
     }
 }

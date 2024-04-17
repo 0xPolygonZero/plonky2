@@ -15,27 +15,41 @@ global sys_return:
     // stack: kexit_info, offset, size
     %stack (kexit_info, offset, size) -> (offset, size, kexit_info, offset, size)
     %add_or_fault 
+    // stack: offset+size, kexit_info, offset, size
+    DUP4 ISZERO %jumpi(return_zero_size)
+    // stack: offset+size, kexit_info, offset, size
     DUP1 %ensure_reasonable_offset
     %update_mem_bytes
-
+    %jump(return_after_gas)
+return_zero_size:
+    POP
+return_after_gas:
     // Load the parent's context.
     %mload_context_metadata(@CTX_METADATA_PARENT_CONTEXT)
 
     // Store the return data size in the parent context's metadata.
     %stack (parent_ctx, kexit_info, offset, size) ->
-        (parent_ctx, @SEGMENT_CONTEXT_METADATA, @CTX_METADATA_RETURNDATA_SIZE, size, offset, size, parent_ctx, kexit_info)
+        (parent_ctx, @CTX_METADATA_RETURNDATA_SIZE, size, offset, size, parent_ctx, kexit_info)
+    ADD // addr (CTX offsets are already scaled by their segment)
+    SWAP1
+    // stack: size, addr, offset, size, parent_ctx, kexit_info
     MSTORE_GENERAL
     // stack: offset, size, parent_ctx, kexit_info
 
     // Store the return data in the parent context's returndata segment.
+    PUSH @SEGMENT_MAIN_MEMORY
     GET_CONTEXT
-    %stack (ctx, offset, size, parent_ctx, kexit_info) ->
+    %build_address
+
+    %stack (addr, size, parent_ctx, kexit_info) ->
         (
-        parent_ctx, @SEGMENT_RETURNDATA, 0, // DST
-        ctx, @SEGMENT_MAIN_MEMORY, offset,  // SRC
+        parent_ctx, @SEGMENT_RETURNDATA, // DST
+        addr, // SRC
         size, sys_return_finish, kexit_info // count, retdest, ...
         )
-    %jump(memcpy)
+    %build_address_no_offset
+    // stack: DST, SRC, size, sys_return_finish, kexit_info
+    %jump(memcpy_bytes)
 
 sys_return_finish:
     // stack: kexit_info
@@ -83,24 +97,23 @@ global sys_selfdestruct:
     // stack: account_ptr, 0, balance, address, recipient, kexit_info
     %add_const(1)
     // stack: balance_ptr, 0, balance, address, recipient, kexit_info
-    %mstore_trie_data // TODO: This should be a copy-on-write operation.
+    %mstore_trie_data
+
+    %stack (balance, address, recipient, kexit_info) ->
+        (address, recipient, address, recipient, balance, kexit_info)
 
     // If the recipient is the same as the address, then we're done.
     // Otherwise, send the balance to the recipient.
-    %stack (balance, address, recipient, kexit_info) -> (address, recipient, recipient, balance, kexit_info)
-    EQ %jumpi(sys_selfdestruct_same_addr)
-    // stack: recipient, balance, kexit_info
+    // stack: address, recipient, address, recipient, balance, kexit_info
+    EQ %jumpi(sys_selfdestruct_journal_add)
+    %stack (address, recipient, balance, kexit_info) -> (recipient, balance, address, recipient, balance, kexit_info)
     %add_eth
 
-    // stack: kexit_info
-    %leftover_gas
-    // stack: leftover_gas
-    PUSH 1 // success
-    %jump(terminate_common)
+sys_selfdestruct_journal_add:
+    // stack: address, recipient, balance, kexit_info
+    %journal_add_account_destroyed
 
-sys_selfdestruct_same_addr:
-    // stack: recipient, balance, kexit_info
-    %pop2
+    // stack: kexit_info
     %leftover_gas
     // stack: leftover_gas
     PUSH 1 // success
@@ -110,32 +123,46 @@ global sys_revert:
     // stack: kexit_info, offset, size
     %stack (kexit_info, offset, size) -> (offset, size, kexit_info, offset, size)
     %add_or_fault
+    // stack: offset+size, kexit_info, offset, size
+    DUP4 ISZERO %jumpi(revert_zero_size)
+    // stack: offset+size, kexit_info, offset, size
     DUP1 %ensure_reasonable_offset
     %update_mem_bytes
-
+    %jump(revert_after_gas)
+revert_zero_size:
+    POP
+revert_after_gas:
     // Load the parent's context.
     %mload_context_metadata(@CTX_METADATA_PARENT_CONTEXT)
 
     // Store the return data size in the parent context's metadata.
     %stack (parent_ctx, kexit_info, offset, size) ->
-        (parent_ctx, @SEGMENT_CONTEXT_METADATA, @CTX_METADATA_RETURNDATA_SIZE, size, offset, size, parent_ctx, kexit_info)
+        (parent_ctx, @CTX_METADATA_RETURNDATA_SIZE, size, offset, size, parent_ctx, kexit_info)
+    ADD // addr (CTX offsets are already scaled by their segment)
+    SWAP1
+    // stack: size, addr, offset, size, parent_ctx, kexit_info
     MSTORE_GENERAL
     // stack: offset, size, parent_ctx, kexit_info
 
     // Store the return data in the parent context's returndata segment.
+    PUSH @SEGMENT_MAIN_MEMORY
     GET_CONTEXT
-    %stack (ctx, offset, size, parent_ctx, kexit_info) ->
+    %build_address
+
+    %stack (addr, size, parent_ctx, kexit_info) ->
         (
-        parent_ctx, @SEGMENT_RETURNDATA, 0, // DST
-        ctx, @SEGMENT_MAIN_MEMORY, offset,  // SRC
+        parent_ctx, @SEGMENT_RETURNDATA, // DST
+        addr,  // SRC
         size, sys_revert_finish, kexit_info // count, retdest, ...
         )
-    %jump(memcpy)
+    %build_address_no_offset
+    // stack: DST, SRC, size, sys_revert_finish, kexit_info
+    %jump(memcpy_bytes)
 
 sys_revert_finish:
     %leftover_gas
     // stack: leftover_gas
-    // TODO: Revert state changes.
+    %revert_checkpoint
     PUSH 0 // success
     %jump(terminate_common)
 
@@ -148,8 +175,8 @@ sys_revert_finish:
 // - state modification is attempted during a static call
 global fault_exception:
     // stack: (empty)
+    %revert_checkpoint
     PUSH 0 // leftover_gas
-    // TODO: Revert state changes.
     // Set the parent context's return data size to 0.
     %mstore_parent_context_metadata(@CTX_METADATA_RETURNDATA_SIZE, 0)
     PUSH 0 // success
@@ -184,6 +211,7 @@ global terminate_common:
     // Go back to the parent context.
     %mload_context_metadata(@CTX_METADATA_PARENT_CONTEXT)
     SET_CONTEXT
+    %decrement_call_depth
     // stack: (empty)
 
     // Load the fields that we stored in SEGMENT_KERNEL_GENERAL.

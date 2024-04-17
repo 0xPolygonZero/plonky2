@@ -100,10 +100,10 @@ fn run_test(fn_label: &str, memory: Vec<U256>, stack: Vec<U256>) -> Result<(Vec<
     initial_stack.reverse();
 
     let mut interpreter = Interpreter::new_with_kernel(fn_label, initial_stack);
-    interpreter.set_kernel_general_memory(memory);
+    interpreter.set_current_general_memory(memory);
     interpreter.run()?;
 
-    let new_memory = interpreter.get_kernel_general_memory();
+    let new_memory = interpreter.get_current_general_memory();
 
     Ok((new_memory, interpreter.stack().to_vec()))
 }
@@ -188,7 +188,7 @@ fn test_add_bignum(a: BigUint, b: BigUint, expected_output: BigUint) -> Result<(
 fn test_addmul_bignum(a: BigUint, b: BigUint, c: u128, expected_output: BigUint) -> Result<()> {
     let len = bignum_len(&a).max(bignum_len(&b));
     let mut memory = pad_bignums(&[a, b], len);
-    memory.splice(len..len, vec![0.into(); 2].iter().cloned());
+    memory.splice(len..len, [0.into(); 2].iter().cloned());
 
     let a_start_loc = 0;
     let b_start_loc = len + 2;

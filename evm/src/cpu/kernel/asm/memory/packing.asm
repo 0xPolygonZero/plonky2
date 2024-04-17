@@ -2,95 +2,337 @@
 // decoding bytes as integers. All big-endian.
 
 // Given a pointer to some bytes in memory, pack them into a word. Assumes 0 < len <= 32.
-// Pre stack: addr: 3, len, retdest
+// Pre stack: addr, len, retdest
 // Post stack: packed_value
-// NOTE: addr: 3 denotes a (context, segment, virtual) tuple
 global mload_packing:
-    // stack: addr: 3, len, retdest
-    DUP3                DUP3 DUP3 MLOAD_GENERAL     DUP5 %eq_const(1)  %jumpi(mload_packing_return) %shl_const(8)
-    DUP4 %add_const(1)  DUP4 DUP4 MLOAD_GENERAL ADD DUP5 %eq_const(2)  %jumpi(mload_packing_return) %shl_const(8)
-    DUP4 %add_const(2)  DUP4 DUP4 MLOAD_GENERAL ADD DUP5 %eq_const(3)  %jumpi(mload_packing_return) %shl_const(8)
-    DUP4 %add_const(3)  DUP4 DUP4 MLOAD_GENERAL ADD DUP5 %eq_const(4)  %jumpi(mload_packing_return) %shl_const(8)
-    DUP4 %add_const(4)  DUP4 DUP4 MLOAD_GENERAL ADD DUP5 %eq_const(5)  %jumpi(mload_packing_return) %shl_const(8)
-    DUP4 %add_const(5)  DUP4 DUP4 MLOAD_GENERAL ADD DUP5 %eq_const(6)  %jumpi(mload_packing_return) %shl_const(8)
-    DUP4 %add_const(6)  DUP4 DUP4 MLOAD_GENERAL ADD DUP5 %eq_const(7)  %jumpi(mload_packing_return) %shl_const(8)
-    DUP4 %add_const(7)  DUP4 DUP4 MLOAD_GENERAL ADD DUP5 %eq_const(8)  %jumpi(mload_packing_return) %shl_const(8)
-    DUP4 %add_const(8)  DUP4 DUP4 MLOAD_GENERAL ADD DUP5 %eq_const(9)  %jumpi(mload_packing_return) %shl_const(8)
-    DUP4 %add_const(9)  DUP4 DUP4 MLOAD_GENERAL ADD DUP5 %eq_const(10) %jumpi(mload_packing_return) %shl_const(8)
-    DUP4 %add_const(10) DUP4 DUP4 MLOAD_GENERAL ADD DUP5 %eq_const(11) %jumpi(mload_packing_return) %shl_const(8)
-    DUP4 %add_const(11) DUP4 DUP4 MLOAD_GENERAL ADD DUP5 %eq_const(12) %jumpi(mload_packing_return) %shl_const(8)
-    DUP4 %add_const(12) DUP4 DUP4 MLOAD_GENERAL ADD DUP5 %eq_const(13) %jumpi(mload_packing_return) %shl_const(8)
-    DUP4 %add_const(13) DUP4 DUP4 MLOAD_GENERAL ADD DUP5 %eq_const(14) %jumpi(mload_packing_return) %shl_const(8)
-    DUP4 %add_const(14) DUP4 DUP4 MLOAD_GENERAL ADD DUP5 %eq_const(15) %jumpi(mload_packing_return) %shl_const(8)
-    DUP4 %add_const(15) DUP4 DUP4 MLOAD_GENERAL ADD DUP5 %eq_const(16) %jumpi(mload_packing_return) %shl_const(8)
-    DUP4 %add_const(16) DUP4 DUP4 MLOAD_GENERAL ADD DUP5 %eq_const(17) %jumpi(mload_packing_return) %shl_const(8)
-    DUP4 %add_const(17) DUP4 DUP4 MLOAD_GENERAL ADD DUP5 %eq_const(18) %jumpi(mload_packing_return) %shl_const(8)
-    DUP4 %add_const(18) DUP4 DUP4 MLOAD_GENERAL ADD DUP5 %eq_const(19) %jumpi(mload_packing_return) %shl_const(8)
-    DUP4 %add_const(19) DUP4 DUP4 MLOAD_GENERAL ADD DUP5 %eq_const(20) %jumpi(mload_packing_return) %shl_const(8)
-    DUP4 %add_const(20) DUP4 DUP4 MLOAD_GENERAL ADD DUP5 %eq_const(21) %jumpi(mload_packing_return) %shl_const(8)
-    DUP4 %add_const(21) DUP4 DUP4 MLOAD_GENERAL ADD DUP5 %eq_const(22) %jumpi(mload_packing_return) %shl_const(8)
-    DUP4 %add_const(22) DUP4 DUP4 MLOAD_GENERAL ADD DUP5 %eq_const(23) %jumpi(mload_packing_return) %shl_const(8)
-    DUP4 %add_const(23) DUP4 DUP4 MLOAD_GENERAL ADD DUP5 %eq_const(24) %jumpi(mload_packing_return) %shl_const(8)
-    DUP4 %add_const(24) DUP4 DUP4 MLOAD_GENERAL ADD DUP5 %eq_const(25) %jumpi(mload_packing_return) %shl_const(8)
-    DUP4 %add_const(25) DUP4 DUP4 MLOAD_GENERAL ADD DUP5 %eq_const(26) %jumpi(mload_packing_return) %shl_const(8)
-    DUP4 %add_const(26) DUP4 DUP4 MLOAD_GENERAL ADD DUP5 %eq_const(27) %jumpi(mload_packing_return) %shl_const(8)
-    DUP4 %add_const(27) DUP4 DUP4 MLOAD_GENERAL ADD DUP5 %eq_const(28) %jumpi(mload_packing_return) %shl_const(8)
-    DUP4 %add_const(28) DUP4 DUP4 MLOAD_GENERAL ADD DUP5 %eq_const(29) %jumpi(mload_packing_return) %shl_const(8)
-    DUP4 %add_const(29) DUP4 DUP4 MLOAD_GENERAL ADD DUP5 %eq_const(30) %jumpi(mload_packing_return) %shl_const(8)
-    DUP4 %add_const(30) DUP4 DUP4 MLOAD_GENERAL ADD DUP5 %eq_const(31) %jumpi(mload_packing_return) %shl_const(8)
-    DUP4 %add_const(31) DUP4 DUP4 MLOAD_GENERAL ADD
-mload_packing_return:
-    %stack (packed_value, addr: 3, len, retdest) -> (retdest, packed_value)
+    // stack: addr, len, retdest
+    MLOAD_32BYTES
+    // stack: packed_value, retdest
+    SWAP1
+    // stack: retdest, packed_value
     JUMP
 
 %macro mload_packing
-    %stack (addr: 3, len) -> (addr, len, %%after)
+    %stack (addr, len) -> (addr, len, %%after)
     %jump(mload_packing)
 %%after:
 %endmacro
 
-// Pre stack: context, segment, offset, value, len, retdest
-// Post stack: offset'
+global mload_packing_u64_LE:
+    // stack: addr, retdest
+    DUP1                MLOAD_GENERAL
+    DUP2 %add_const(1)  MLOAD_GENERAL %shl_const( 8) ADD
+    DUP2 %add_const(2)  MLOAD_GENERAL %shl_const(16) ADD
+    DUP2 %add_const(3)  MLOAD_GENERAL %shl_const(24) ADD
+    DUP2 %add_const(4)  MLOAD_GENERAL %shl_const(32) ADD
+    DUP2 %add_const(5)  MLOAD_GENERAL %shl_const(40) ADD
+    DUP2 %add_const(6)  MLOAD_GENERAL %shl_const(48) ADD
+    DUP2 %add_const(7)  MLOAD_GENERAL %shl_const(56) ADD
+    %stack (value, addr, retdest) -> (retdest, value)
+    JUMP
+
+%macro mload_packing_u64_LE
+    %stack (addr) -> (addr, %%after)
+    %jump(mload_packing_u64_LE)
+%%after:
+%endmacro
+
+// Pre stack: addr, value, len, retdest
+// Post stack: addr'
 global mstore_unpacking:
-    // stack: context, segment, offset, value, len, retdest
-    // We will enumerate i in (32 - len)..32.
-    // That way BYTE(i, value) will give us the bytes we want.
-    DUP5 // len
-    PUSH 32
-    SUB
+    // stack: addr, value, len, retdest
+    DUP3 ISZERO
+    // stack: len == 0, addr, value, len, retdest
+    %jumpi(mstore_unpacking_empty)
+    %stack(addr, value, len, retdest) -> (len, addr, value, retdest)
+    PUSH 3
+    // stack: BYTES_PER_JUMP, len, addr, value, retdest
+    MUL
+    // stack: jump_offset, addr, value, retdest
+    PUSH mstore_unpacking_0
+    // stack: mstore_unpacking_0, jump_offset, addr, value, retdest
+    ADD
+    // stack: address_unpacking, addr, value, retdest
+    JUMP
 
-mstore_unpacking_loop:
-    // stack: i, context, segment, offset, value, len, retdest
-    // If i == 32, finish.
-    DUP1
-    %eq_const(32)
-    %jumpi(mstore_unpacking_finish)
+mstore_unpacking_empty:
+    %stack(addr, value, len, retdest) -> (retdest, addr)
+    JUMP
 
-    // stack: i, context, segment, offset, value, len, retdest
-    DUP5 // value
-    DUP2 // i
-    BYTE
-    // stack: value[i], i, context, segment, offset, value, len, retdest
-    DUP5 DUP5 DUP5 // context, segment, offset
-    // stack: context, segment, offset, value[i], i, context, segment, offset, value, len, retdest
-    MSTORE_GENERAL
-    // stack: i, context, segment, offset, value, len, retdest
-
-    // Increment offset.
-    SWAP3 %increment SWAP3
-    // Increment i.
-    %increment
-
-    %jump(mstore_unpacking_loop)
-
-mstore_unpacking_finish:
-    // stack: i, context, segment, offset, value, len, retdest
-    %pop3
-    %stack (offset, value, len, retdest) -> (retdest, offset)
+// This case can never be reached. It's only here to offset the table correctly.
+mstore_unpacking_0:
+    %rep 3
+        PANIC
+    %endrep
+mstore_unpacking_1:
+    // stack: addr, value, retdest
+    MSTORE_32BYTES_1
+    // stack: addr', retdest
+    SWAP1
+    // stack: retdest, addr'
+    JUMP
+mstore_unpacking_2:
+    // stack: addr, value, retdest
+    MSTORE_32BYTES_2
+    // stack: addr', retdest
+    SWAP1
+    // stack: retdest, addr'
+    JUMP
+mstore_unpacking_3:
+    // stack: addr, value, retdest
+    MSTORE_32BYTES_3
+    // stack: addr', retdest
+    SWAP1
+    // stack: retdest, addr'
+    JUMP
+mstore_unpacking_4:
+    // stack: addr, value, retdest
+    MSTORE_32BYTES_4
+    // stack: addr', retdest
+    SWAP1
+    // stack: retdest, addr'
+    JUMP
+mstore_unpacking_5:
+    // stack: addr, value, retdest
+    MSTORE_32BYTES_5
+    // stack: addr', retdest
+    SWAP1
+    // stack: retdest, addr'
+    JUMP
+mstore_unpacking_6:
+    // stack: addr, value, retdest
+    MSTORE_32BYTES_6
+    // stack: addr', retdest
+    SWAP1
+    // stack: retdest, addr'
+    JUMP
+mstore_unpacking_7:
+    // stack: addr, value, retdest
+    MSTORE_32BYTES_7
+    // stack: addr', retdest
+    SWAP1
+    // stack: retdest, addr'
+    JUMP
+mstore_unpacking_8:
+    // stack: addr, value, retdest
+    MSTORE_32BYTES_8
+    // stack: addr', retdest
+    SWAP1
+    // stack: retdest, addr'
+    JUMP
+mstore_unpacking_9:
+    // stack: addr, value, retdest
+    MSTORE_32BYTES_9
+    // stack: addr', retdest
+    SWAP1
+    // stack: retdest, addr'
+    JUMP
+mstore_unpacking_10:
+    // stack: addr, value, retdest
+    MSTORE_32BYTES_10
+    // stack: addr', retdest
+    SWAP1
+    // stack: retdest, addr'
+    JUMP
+mstore_unpacking_11:
+    // stack: addr, value, retdest
+    MSTORE_32BYTES_11
+    // stack: addr', retdest
+    SWAP1
+    // stack: retdest, addr'
+    JUMP
+mstore_unpacking_12:
+    // stack: addr, value, retdest
+    MSTORE_32BYTES_12
+    // stack: addr', retdest
+    SWAP1
+    // stack: retdest, addr'
+    JUMP
+mstore_unpacking_13:
+    // stack: addr, value, retdest
+    MSTORE_32BYTES_13
+    // stack: addr', retdest
+    SWAP1
+    // stack: retdest, addr'
+    JUMP
+mstore_unpacking_14:
+    // stack: addr, value, retdest
+    MSTORE_32BYTES_14
+    // stack: addr', retdest
+    SWAP1
+    // stack: retdest, addr'
+    JUMP
+mstore_unpacking_15:
+    // stack: addr, value, retdest
+    MSTORE_32BYTES_15
+    // stack: addr', retdest
+    SWAP1
+    // stack: retdest, addr'
+    JUMP
+mstore_unpacking_16:
+    // stack: addr, value, retdest
+    MSTORE_32BYTES_16
+    // stack: addr', retdest
+    SWAP1
+    // stack: retdest, addr'
+    JUMP
+mstore_unpacking_17:
+    // stack: addr, value, retdest
+    MSTORE_32BYTES_17
+    // stack: addr', retdest
+    SWAP1
+    // stack: retdest, addr'
+    JUMP
+mstore_unpacking_18:
+    // stack: addr, value, retdest
+    MSTORE_32BYTES_18
+    // stack: addr', retdest
+    SWAP1
+    // stack: retdest, addr'
+    JUMP
+mstore_unpacking_19:
+    // stack: addr, value, retdest
+    MSTORE_32BYTES_19
+    // stack: addr', retdest
+    SWAP1
+    // stack: retdest, addr'
+    JUMP
+mstore_unpacking_20:
+    // stack: addr, value, retdest
+    MSTORE_32BYTES_20
+    // stack: addr', retdest
+    SWAP1
+    // stack: retdest, addr'
+    JUMP
+mstore_unpacking_21:
+    // stack: addr, value, retdest
+    MSTORE_32BYTES_21
+    // stack: addr', retdest
+    SWAP1
+    // stack: retdest, addr'
+    JUMP
+mstore_unpacking_22:
+    // stack: addr, value, retdest
+    MSTORE_32BYTES_22
+    // stack: addr', retdest
+    SWAP1
+    // stack: retdest, addr'
+    JUMP
+mstore_unpacking_23:
+    // stack: addr, value, retdest
+    MSTORE_32BYTES_23
+    // stack: addr', retdest
+    SWAP1
+    // stack: retdest, addr'
+    JUMP
+mstore_unpacking_24:
+    // stack: addr, value, retdest
+    MSTORE_32BYTES_24
+    // stack: addr', retdest
+    SWAP1
+    // stack: retdest, addr'
+    JUMP
+mstore_unpacking_25:
+    // stack: addr, value, retdest
+    MSTORE_32BYTES_25
+    // stack: addr', retdest
+    SWAP1
+    // stack: retdest, addr'
+    JUMP
+mstore_unpacking_26:
+    // stack: addr, value, retdest
+    MSTORE_32BYTES_26
+    // stack: addr', retdest
+    SWAP1
+    // stack: retdest, addr'
+    JUMP
+mstore_unpacking_27:
+    // stack: addr, value, retdest
+    MSTORE_32BYTES_27
+    // stack: addr', retdest
+    SWAP1
+    // stack: retdest, addr'
+    JUMP
+mstore_unpacking_28:
+    // stack: addr, value, retdest
+    MSTORE_32BYTES_28
+    // stack: addr', retdest
+    SWAP1
+    // stack: retdest, addr'
+    JUMP
+mstore_unpacking_29:
+    // stack: addr, value, retdest
+    MSTORE_32BYTES_29
+    // stack: addr', retdest
+    SWAP1
+    // stack: retdest, addr'
+    JUMP
+mstore_unpacking_30:
+    // stack: addr, value, retdest
+    MSTORE_32BYTES_30
+    // stack: addr', retdest
+    SWAP1
+    // stack: retdest, addr'
+    JUMP
+mstore_unpacking_31:
+    // stack: addr, value, retdest
+    MSTORE_32BYTES_31
+    // stack: addr', retdest
+    SWAP1
+    // stack: retdest, addr'
+    JUMP
+mstore_unpacking_32:
+    // stack: addr, value, retdest
+    MSTORE_32BYTES_32
+    // stack: addr', retdest
+    SWAP1
+    // stack: retdest, addr'
     JUMP
 
 %macro mstore_unpacking
-    %stack (addr: 3, value, len) -> (addr, value, len, %%after)
+    %stack (addr, value, len) -> (addr, value, len, %%after)
     %jump(mstore_unpacking)
+%%after:
+%endmacro
+
+// Pre stack: addr, value, retdest
+// Post stack: addr'
+global mstore_unpacking_u64_LE:
+    %stack (addr, value) -> (0xff, value, addr, addr, value)
+    AND
+    MSTORE_GENERAL // First byte
+    DUP1 %add_const(1)
+    %stack (new_addr, addr, value) -> (0xff00, value, new_addr, addr, value)
+    AND %shr_const(8)
+    MSTORE_GENERAL // Second byte
+    DUP1 %add_const(2)
+    %stack (new_addr, addr, value) -> (0xff0000, value, new_addr, addr, value)
+    AND %shr_const(16)
+    MSTORE_GENERAL // Third byte
+    DUP1 %add_const(3)
+    %stack (new_addr, addr, value) -> (0xff000000, value, new_addr, addr, value)
+    AND %shr_const(24)
+    MSTORE_GENERAL // Fourth byte
+    DUP1 %add_const(4)
+    %stack (new_addr, addr, value) -> (0xff00000000, value, new_addr, addr, value)
+    AND %shr_const(32)
+    MSTORE_GENERAL // Fifth byte
+    DUP1 %add_const(5)
+    %stack (new_addr, addr, value) -> (0xff0000000000, value, new_addr, addr, value)
+    AND %shr_const(40)
+    MSTORE_GENERAL // Sixth byte
+    DUP1 %add_const(6)
+    %stack (new_addr, addr, value) -> (0xff000000000000, value, new_addr, addr, value)
+    AND %shr_const(48)
+    MSTORE_GENERAL // Seventh byte
+    DUP1 %add_const(7)
+    %stack (new_addr, addr, value) -> (0xff00000000000000, value, new_addr, addr, value)
+    AND %shr_const(56)
+    MSTORE_GENERAL // Eighth byte
+    %pop2 JUMP
+
+%macro mstore_unpacking_u64_LE
+    %stack (addr, value) -> (addr, value, %%after)
+    %jump(mstore_unpacking_u64_LE)
 %%after:
 %endmacro

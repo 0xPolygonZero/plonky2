@@ -65,7 +65,7 @@ fn prepare_test<T>(
     // Load the message into the kernel.
     let interpreter_setup = make_interpreter_setup(message, hash_fn_label, hash_input_virt);
 
-    // Run the interpeter
+    // Run the interpreter
     let result = run_interpreter_with_memory(interpreter_setup).unwrap();
 
     Ok((expected, result.stack().to_vec()))

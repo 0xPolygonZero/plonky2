@@ -52,6 +52,8 @@ where
         plonk_zs_next,
         partial_products,
         quotient_polys,
+        lookup_zs,
+        lookup_zs_next,
     } = openings;
     let cap_height = common_data.fri_params.config.cap_height;
     ensure!(wires_cap.height() == cap_height);
@@ -64,5 +66,7 @@ where
     ensure!(plonk_zs_next.len() == config.num_challenges);
     ensure!(partial_products.len() == config.num_challenges * common_data.num_partial_products);
     ensure!(quotient_polys.len() == common_data.num_quotient_polys());
+    ensure!(lookup_zs.len() == common_data.num_all_lookup_polys());
+    ensure!(lookup_zs_next.len() == common_data.num_all_lookup_polys());
     Ok(())
 }

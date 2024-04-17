@@ -2,61 +2,54 @@ use std::borrow::{Borrow, BorrowMut};
 use std::mem::{size_of, transmute};
 use std::ops::{Deref, DerefMut};
 
-use crate::util::{indices_arr, transmute_no_compile_time_size_checks};
+use crate::util::transmute_no_compile_time_size_checks;
 
+/// Structure representing the flags for the various opcodes.
 #[repr(C)]
 #[derive(Clone, Copy, Eq, PartialEq, Debug)]
-pub struct OpsColumnsView<T: Copy> {
-    // TODO: combine ADD, MUL, SUB, DIV, MOD, ADDFP254, MULFP254, SUBFP254, LT, and GT into one flag
-    pub add: T,
-    pub mul: T,
-    pub sub: T,
-    pub div: T,
-    pub mod_: T,
-    // TODO: combine ADDMOD, MULMOD and SUBMOD into one flag
-    pub addmod: T,
-    pub mulmod: T,
-    pub addfp254: T,
-    pub mulfp254: T,
-    pub subfp254: T,
-    pub submod: T,
-    pub lt: T,
-    pub gt: T,
-    pub eq: T,     // Note: This column must be 0 when is_cpu_cycle = 0.
-    pub iszero: T, // Note: This column must be 0 when is_cpu_cycle = 0.
-    // TODO: combine AND, OR, and XOR into one flag
-    pub and: T,
-    pub or: T,
-    pub xor: T,
-    pub not: T,
-    pub byte: T,
-    // TODO: combine SHL and SHR into one flag
-    pub shl: T,
-    pub shr: T,
-    pub keccak_general: T,
-    pub prover_input: T,
-    pub pop: T,
-    // TODO: combine JUMP and JUMPI into one flag
-    pub jump: T,  // Note: This column must be 0 when is_cpu_cycle = 0.
-    pub jumpi: T, // Note: This column must be 0 when is_cpu_cycle = 0.
-    pub pc: T,
-    pub jumpdest: T,
-    pub push: T,
-    pub dup: T,
-    pub swap: T,
-    // TODO: combine GET_CONTEXT and SET_CONTEXT into one flag
-    pub get_context: T,
-    pub set_context: T,
+pub(crate) struct OpsColumnsView<T: Copy> {
+    /// Combines ADD, MUL, SUB, DIV, MOD, LT, GT and BYTE flags.
+    pub binary_op: T,
+    /// Combines ADDMOD, MULMOD and SUBMOD flags.
+    pub ternary_op: T,
+    /// Combines ADD_FP254, MUL_FP254 and SUB_FP254 flags.
+    pub fp254_op: T,
+    /// Combines EQ and ISZERO flags.
+    pub eq_iszero: T,
+    /// Combines AND, OR and XOR flags.
+    pub logic_op: T,
+    /// Combines NOT and POP flags.
+    pub not_pop: T,
+    /// Combines SHL and SHR flags.
+    pub shift: T,
+    /// Combines JUMPDEST and KECCAK_GENERAL flags.
+    pub jumpdest_keccak_general: T,
+    /// Combines JUMP and JUMPI flags.
+    pub jumps: T,
+    /// Combines PUSH and PROVER_INPUT flags.
+    pub push_prover_input: T,
+    /// Combines DUP and SWAP flags.
+    pub dup_swap: T,
+    /// Combines GET_CONTEXT and SET_CONTEXT flags.
+    pub context_op: T,
+    /// Combines MSTORE_32BYTES and MLOAD_32BYTES.
+    pub m_op_32bytes: T,
+    /// Flag for EXIT_KERNEL.
     pub exit_kernel: T,
-    // TODO: combine MLOAD_GENERAL and MSTORE_GENERAL into one flag
-    pub mload_general: T,
-    pub mstore_general: T,
+    /// Combines MSTORE_GENERAL and MLOAD_GENERAL flags.
+    pub m_op_general: T,
+    /// Combines PC and PUSH0
+    pub pc_push0: T,
 
-    pub syscall: T, // Note: This column must be 0 when is_cpu_cycle = 0.
+    /// Flag for syscalls.
+    pub syscall: T,
+    /// Flag for exceptions.
+    pub exception: T,
 }
 
-// `u8` is guaranteed to have a `size_of` of 1.
-pub const NUM_OPS_COLUMNS: usize = size_of::<OpsColumnsView<u8>>();
+/// Number of columns in Cpu Stark.
+/// `u8` is guaranteed to have a `size_of` of 1.
+pub(crate) const NUM_OPS_COLUMNS: usize = size_of::<OpsColumnsView<u8>>();
 
 impl<T: Copy> From<[T; NUM_OPS_COLUMNS]> for OpsColumnsView<T> {
     fn from(value: [T; NUM_OPS_COLUMNS]) -> Self {
@@ -94,10 +87,3 @@ impl<T: Copy> DerefMut for OpsColumnsView<T> {
         unsafe { transmute(self) }
     }
 }
-
-const fn make_col_map() -> OpsColumnsView<usize> {
-    let indices_arr = indices_arr::<NUM_OPS_COLUMNS>();
-    unsafe { transmute::<[usize; NUM_OPS_COLUMNS], OpsColumnsView<usize>>(indices_arr) }
-}
-
-pub const COL_MAP: OpsColumnsView<usize> = make_col_map();

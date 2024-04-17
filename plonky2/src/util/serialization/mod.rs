@@ -5,6 +5,7 @@ pub mod generator_serialization;
 pub mod gate_serialization;
 
 use alloc::collections::BTreeMap;
+use alloc::sync::Arc;
 use alloc::vec;
 use alloc::vec::Vec;
 use core::convert::Infallible;
@@ -30,6 +31,7 @@ use crate::fri::reduction_strategies::FriReductionStrategy;
 use crate::fri::{FriConfig, FriParams};
 use crate::gadgets::polynomial::PolynomialCoeffsExtTarget;
 use crate::gates::gate::GateRef;
+use crate::gates::lookup::Lookup;
 use crate::gates::selectors::SelectorsInfo;
 use crate::hash::hash_types::{HashOutTarget, MerkleCapTarget, RichField};
 use crate::hash::merkle_proofs::{MerkleProof, MerkleProofTarget};
@@ -38,6 +40,7 @@ use crate::iop::ext_target::ExtensionTarget;
 use crate::iop::generator::WitnessGeneratorRef;
 use crate::iop::target::{BoolTarget, Target};
 use crate::iop::wire::Wire;
+use crate::plonk::circuit_builder::LookupWire;
 use crate::plonk::circuit_data::{
     CircuitConfig, CircuitData, CommonCircuitData, ProverCircuitData, ProverOnlyCircuitData,
     VerifierCircuitData, VerifierCircuitTarget, VerifierOnlyCircuitData,
@@ -112,6 +115,14 @@ pub trait Read {
         Ok(buf[0])
     }
 
+    /// Reads a `u16` value from `self`.
+    #[inline]
+    fn read_u16(&mut self) -> IoResult<u16> {
+        let mut buf = [0; size_of::<u16>()];
+        self.read_exact(&mut buf)?;
+        Ok(u16::from_le_bytes(buf))
+    }
+
     /// Reads a `u32` value from `self`.
     #[inline]
     fn read_u32(&mut self) -> IoResult<u32> {
@@ -123,7 +134,7 @@ pub trait Read {
     /// Reads a `usize` value from `self`.
     #[inline]
     fn read_usize(&mut self) -> IoResult<usize> {
-        let mut buf = [0; std::mem::size_of::<u64>()];
+        let mut buf = [0; core::mem::size_of::<u64>()];
         self.read_exact(&mut buf)?;
         Ok(u64::from_le_bytes(buf) as usize)
     }
@@ -212,6 +223,15 @@ pub trait Read {
         }
 
         Ok(ExtensionTarget(res))
+    }
+
+    /// Reads an array of Target from `self`.
+    #[inline]
+    fn read_target_array<const N: usize>(&mut self) -> IoResult<[Target; N]> {
+        (0..N)
+            .map(|_| self.read_target())
+            .collect::<Result<Vec<_>, _>>()
+            .map(|v| v.try_into().unwrap())
     }
 
     /// Reads a vector of Target from `self`.
@@ -334,6 +354,8 @@ pub trait Read {
         let wires = self.read_field_ext_vec::<F, D>(config.num_wires)?;
         let plonk_zs = self.read_field_ext_vec::<F, D>(config.num_challenges)?;
         let plonk_zs_next = self.read_field_ext_vec::<F, D>(config.num_challenges)?;
+        let lookup_zs = self.read_field_ext_vec::<F, D>(common_data.num_all_lookup_polys())?;
+        let lookup_zs_next = self.read_field_ext_vec::<F, D>(common_data.num_all_lookup_polys())?;
         let partial_products = self
             .read_field_ext_vec::<F, D>(common_data.num_partial_products * config.num_challenges)?;
         let quotient_polys = self.read_field_ext_vec::<F, D>(
@@ -347,6 +369,8 @@ pub trait Read {
             plonk_zs_next,
             partial_products,
             quotient_polys,
+            lookup_zs,
+            lookup_zs_next,
         })
     }
 
@@ -358,6 +382,8 @@ pub trait Read {
         let wires = self.read_target_ext_vec::<D>()?;
         let plonk_zs = self.read_target_ext_vec::<D>()?;
         let plonk_zs_next = self.read_target_ext_vec::<D>()?;
+        let lookup_zs = self.read_target_ext_vec::<D>()?;
+        let next_lookup_zs = self.read_target_ext_vec::<D>()?;
         let partial_products = self.read_target_ext_vec::<D>()?;
         let quotient_polys = self.read_target_ext_vec::<D>()?;
 
@@ -367,6 +393,8 @@ pub trait Read {
             wires,
             plonk_zs,
             plonk_zs_next,
+            lookup_zs,
+            next_lookup_zs,
             partial_products,
             quotient_polys,
         })
@@ -422,7 +450,9 @@ pub trait Read {
         evals_proofs.push((wires_v, wires_p));
 
         let zs_partial_v = self.read_field_vec(
-            config.num_challenges * (1 + common_data.num_partial_products) + salt,
+            config.num_challenges
+                * (1 + common_data.num_partial_products + common_data.num_lookup_polys)
+                + salt,
         )?;
         let zs_partial_p = self.read_merkle_proof()?;
         evals_proofs.push((zs_partial_v, zs_partial_p));
@@ -663,13 +693,14 @@ pub trait Read {
     fn read_gate<F: RichField + Extendable<D>, const D: usize>(
         &mut self,
         gate_serializer: &dyn GateSerializer<F, D>,
+        common_data: &CommonCircuitData<F, D>,
     ) -> IoResult<GateRef<F, D>>;
 
     fn read_generator<F: RichField + Extendable<D>, const D: usize>(
         &mut self,
         generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
         common_data: &CommonCircuitData<F, D>,
-    ) -> IoResult<WitnessGeneratorRef<F>>;
+    ) -> IoResult<WitnessGeneratorRef<F, D>>;
 
     fn read_selectors_info(&mut self) -> IoResult<SelectorsInfo> {
         let selector_indices = self.read_usize_vec()?;
@@ -722,13 +753,6 @@ pub trait Read {
         let config = self.read_circuit_config()?;
         let fri_params = self.read_fri_params()?;
 
-        let gates_len = self.read_usize()?;
-        let mut gates = Vec::with_capacity(gates_len);
-        for _ in 0..gates_len {
-            let gate = self.read_gate::<F, D>(gate_serializer)?;
-            gates.push(gate);
-        }
-
         let selectors_info = self.read_selectors_info()?;
         let quotient_degree_factor = self.read_usize()?;
         let num_gate_constraints = self.read_usize()?;
@@ -740,10 +764,24 @@ pub trait Read {
 
         let num_partial_products = self.read_usize()?;
 
-        Ok(CommonCircuitData {
+        let num_lookup_polys = self.read_usize()?;
+        let num_lookup_selectors = self.read_usize()?;
+        let length = self.read_usize()?;
+        let mut luts = Vec::with_capacity(length);
+
+        for _ in 0..length {
+            luts.push(Arc::new(self.read_lut()?));
+        }
+
+        let gates_len = self.read_usize()?;
+        let mut gates = Vec::with_capacity(gates_len);
+
+        // We construct the common data without gates first,
+        // to pass it as argument when reading the gates.
+        let mut common_data = CommonCircuitData {
             config,
             fri_params,
-            gates,
+            gates: vec![],
             selectors_info,
             quotient_degree_factor,
             num_gate_constraints,
@@ -751,7 +789,19 @@ pub trait Read {
             num_public_inputs,
             k_is,
             num_partial_products,
-        })
+            num_lookup_polys,
+            num_lookup_selectors,
+            luts,
+        };
+
+        for _ in 0..gates_len {
+            let gate = self.read_gate::<F, D>(gate_serializer, &common_data)?;
+            gates.push(gate);
+        }
+
+        common_data.gates = gates;
+
+        Ok(common_data)
     }
 
     fn read_circuit_data<
@@ -780,12 +830,12 @@ pub trait Read {
     >(
         &mut self,
         generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
-        cd: &CommonCircuitData<F, D>,
+        common_data: &CommonCircuitData<F, D>,
     ) -> IoResult<ProverOnlyCircuitData<F, C, D>> {
         let gen_len = self.read_usize()?;
         let mut generators = Vec::with_capacity(gen_len);
         for _ in 0..gen_len {
-            generators.push(self.read_generator(generator_serializer, cd)?);
+            generators.push(self.read_generator(generator_serializer, common_data)?);
         }
         let map_len = self.read_usize()?;
         let mut generator_indices_by_watches = BTreeMap::new();
@@ -825,6 +875,22 @@ pub trait Read {
 
         let circuit_digest = self.read_hash::<F, <C as GenericConfig<D>>::Hasher>()?;
 
+        let length = self.read_usize()?;
+        let mut lookup_rows = Vec::with_capacity(length);
+        for _ in 0..length {
+            lookup_rows.push(LookupWire {
+                last_lu_gate: self.read_usize()?,
+                last_lut_gate: self.read_usize()?,
+                first_lut_gate: self.read_usize()?,
+            });
+        }
+
+        let length = self.read_usize()?;
+        let mut lut_to_lookups = Vec::with_capacity(length);
+        for _ in 0..length {
+            lut_to_lookups.push(self.read_target_lut()?);
+        }
+
         Ok(ProverOnlyCircuitData {
             generators,
             generator_indices_by_watches,
@@ -835,6 +901,8 @@ pub trait Read {
             representative_map,
             fft_root_table,
             circuit_digest,
+            lookup_rows,
+            lut_to_lookups,
         })
     }
 
@@ -1089,6 +1157,30 @@ pub trait Read {
             public_inputs,
         })
     }
+
+    /// Reads a lookup table stored as `Vec<(u16, u16)>` from `self`.
+    #[inline]
+    fn read_lut(&mut self) -> IoResult<Vec<(u16, u16)>> {
+        let length = self.read_usize()?;
+        let mut lut = Vec::with_capacity(length);
+        for _ in 0..length {
+            lut.push((self.read_u16()?, self.read_u16()?));
+        }
+
+        Ok(lut)
+    }
+
+    /// Reads a target lookup table stored as `Lookup` from `self`.
+    #[inline]
+    fn read_target_lut(&mut self) -> IoResult<Lookup> {
+        let length = self.read_usize()?;
+        let mut lut = Vec::with_capacity(length);
+        for _ in 0..length {
+            lut.push((self.read_target()?, self.read_target()?));
+        }
+
+        Ok(lut)
+    }
 }
 
 /// Writing
@@ -1126,6 +1218,12 @@ pub trait Write {
     #[inline]
     fn write_u8(&mut self, x: u8) -> IoResult<()> {
         self.write_all(&[x])
+    }
+
+    /// Writes a word `x` to `self`.
+    #[inline]
+    fn write_u16(&mut self, x: u16) -> IoResult<()> {
+        self.write_all(&x.to_le_bytes())
     }
 
     /// Writes a word `x` to `self.`
@@ -1218,6 +1316,16 @@ pub trait Write {
     #[inline]
     fn write_target_ext<const D: usize>(&mut self, x: ExtensionTarget<D>) -> IoResult<()> {
         for &elem in x.0.iter() {
+            self.write_target(elem)?;
+        }
+
+        Ok(())
+    }
+
+    /// Writes a vector of Target `v` to `self.`
+    #[inline]
+    fn write_target_array<const N: usize>(&mut self, v: &[Target; N]) -> IoResult<()> {
+        for &elem in v.iter() {
             self.write_target(elem)?;
         }
 
@@ -1334,6 +1442,8 @@ pub trait Write {
         self.write_field_ext_vec::<F, D>(&os.wires)?;
         self.write_field_ext_vec::<F, D>(&os.plonk_zs)?;
         self.write_field_ext_vec::<F, D>(&os.plonk_zs_next)?;
+        self.write_field_ext_vec::<F, D>(&os.lookup_zs)?;
+        self.write_field_ext_vec::<F, D>(&os.lookup_zs_next)?;
         self.write_field_ext_vec::<F, D>(&os.partial_products)?;
         self.write_field_ext_vec::<F, D>(&os.quotient_polys)
     }
@@ -1349,6 +1459,8 @@ pub trait Write {
         self.write_target_ext_vec::<D>(&os.wires)?;
         self.write_target_ext_vec::<D>(&os.plonk_zs)?;
         self.write_target_ext_vec::<D>(&os.plonk_zs_next)?;
+        self.write_target_ext_vec::<D>(&os.lookup_zs)?;
+        self.write_target_ext_vec::<D>(&os.next_lookup_zs)?;
         self.write_target_ext_vec::<D>(&os.partial_products)?;
         self.write_target_ext_vec::<D>(&os.quotient_polys)
     }
@@ -1604,12 +1716,14 @@ pub trait Write {
         &mut self,
         gate: &GateRef<F, D>,
         gate_serializer: &dyn GateSerializer<F, D>,
+        common_data: &CommonCircuitData<F, D>,
     ) -> IoResult<()>;
 
     fn write_generator<F: RichField + Extendable<D>, const D: usize>(
         &mut self,
-        generator: &WitnessGeneratorRef<F>,
+        generator: &WitnessGeneratorRef<F, D>,
         generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
+        common_data: &CommonCircuitData<F, D>,
     ) -> IoResult<()>;
 
     fn write_selectors_info(&mut self, selectors_info: &SelectorsInfo) -> IoResult<()> {
@@ -1664,15 +1778,13 @@ pub trait Write {
             num_public_inputs,
             k_is,
             num_partial_products,
+            num_lookup_polys,
+            num_lookup_selectors,
+            luts,
         } = common_data;
 
         self.write_circuit_config(config)?;
         self.write_fri_params(fri_params)?;
-
-        self.write_usize(gates.len())?;
-        for gate in gates.iter() {
-            self.write_gate::<F, D>(gate, gate_serializer)?;
-        }
 
         self.write_selectors_info(selectors_info)?;
         self.write_usize(*quotient_degree_factor)?;
@@ -1684,6 +1796,18 @@ pub trait Write {
         self.write_field_vec(k_is.as_slice())?;
 
         self.write_usize(*num_partial_products)?;
+
+        self.write_usize(*num_lookup_polys)?;
+        self.write_usize(*num_lookup_selectors)?;
+        self.write_usize(luts.len())?;
+        for lut in luts.iter() {
+            self.write_lut(lut)?;
+        }
+
+        self.write_usize(gates.len())?;
+        for gate in gates.iter() {
+            self.write_gate::<F, D>(gate, gate_serializer, common_data)?;
+        }
 
         Ok(())
     }
@@ -1699,7 +1823,11 @@ pub trait Write {
         generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
     ) -> IoResult<()> {
         self.write_common_circuit_data(&circuit_data.common, gate_serializer)?;
-        self.write_prover_only_circuit_data(&circuit_data.prover_only, generator_serializer)?;
+        self.write_prover_only_circuit_data(
+            &circuit_data.prover_only,
+            generator_serializer,
+            &circuit_data.common,
+        )?;
         self.write_verifier_only_circuit_data(&circuit_data.verifier_only)
     }
 
@@ -1711,6 +1839,7 @@ pub trait Write {
         &mut self,
         prover_only_circuit_data: &ProverOnlyCircuitData<F, C, D>,
         generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
+        common_data: &CommonCircuitData<F, D>,
     ) -> IoResult<()> {
         let ProverOnlyCircuitData {
             generators,
@@ -1722,11 +1851,13 @@ pub trait Write {
             representative_map,
             fft_root_table,
             circuit_digest,
+            lookup_rows,
+            lut_to_lookups,
         } = prover_only_circuit_data;
 
         self.write_usize(generators.len())?;
         for generator in generators.iter() {
-            self.write_generator::<F, D>(generator, generator_serializer)?;
+            self.write_generator::<F, D>(generator, generator_serializer, common_data)?;
         }
 
         self.write_usize(generator_indices_by_watches.len())?;
@@ -1760,6 +1891,18 @@ pub trait Write {
 
         self.write_hash::<F, <C as GenericConfig<D>>::Hasher>(*circuit_digest)?;
 
+        self.write_usize(lookup_rows.len())?;
+        for wire in lookup_rows.iter() {
+            self.write_usize(wire.last_lu_gate)?;
+            self.write_usize(wire.last_lut_gate)?;
+            self.write_usize(wire.first_lut_gate)?;
+        }
+
+        self.write_usize(lut_to_lookups.len())?;
+        for tlut in lut_to_lookups.iter() {
+            self.write_target_lut(tlut)?;
+        }
+
         Ok(())
     }
 
@@ -1774,7 +1917,11 @@ pub trait Write {
         generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
     ) -> IoResult<()> {
         self.write_common_circuit_data(&prover_circuit_data.common, gate_serializer)?;
-        self.write_prover_only_circuit_data(&prover_circuit_data.prover_only, generator_serializer)
+        self.write_prover_only_circuit_data(
+            &prover_circuit_data.prover_only,
+            generator_serializer,
+            &prover_circuit_data.common,
+        )
     }
 
     fn write_verifier_only_circuit_data<
@@ -1962,6 +2109,30 @@ pub trait Write {
         self.write_compressed_proof(proof)?;
         self.write_field_vec(public_inputs)
     }
+
+    /// Writes a lookup table to `self`.
+    #[inline]
+    fn write_lut(&mut self, lut: &[(u16, u16)]) -> IoResult<()> {
+        self.write_usize(lut.len())?;
+        for (a, b) in lut.iter() {
+            self.write_u16(*a)?;
+            self.write_u16(*b)?;
+        }
+
+        Ok(())
+    }
+
+    /// Writes a target lookup table to `self`.
+    #[inline]
+    fn write_target_lut(&mut self, lut: &[(Target, Target)]) -> IoResult<()> {
+        self.write_usize(lut.len())?;
+        for (a, b) in lut.iter() {
+            self.write_target(*a)?;
+            self.write_target(*b)?;
+        }
+
+        Ok(())
+    }
 }
 
 impl Write for Vec<u8> {
@@ -1977,63 +2148,61 @@ impl Write for Vec<u8> {
         &mut self,
         gate: &GateRef<F, D>,
         gate_serializer: &dyn GateSerializer<F, D>,
+        common_data: &CommonCircuitData<F, D>,
     ) -> IoResult<()> {
-        gate_serializer.write_gate(self, gate)
+        gate_serializer.write_gate(self, gate, common_data)
     }
 
     fn write_generator<F: RichField + Extendable<D>, const D: usize>(
         &mut self,
-        generator: &WitnessGeneratorRef<F>,
+        generator: &WitnessGeneratorRef<F, D>,
         generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
+        common_data: &CommonCircuitData<F, D>,
     ) -> IoResult<()> {
-        generator_serializer.write_generator(self, generator)
+        generator_serializer.write_generator(self, generator, common_data)
     }
 }
 
 /// Buffer
-#[cfg(feature = "std")]
 #[derive(Debug)]
-pub struct Buffer {
-    bytes: Vec<u8>,
+pub struct Buffer<'a> {
+    bytes: &'a [u8],
     pos: usize,
 }
 
-#[cfg(feature = "std")]
-impl Buffer {
+impl<'a> Buffer<'a> {
     /// Builds a new [`Buffer`] over `buffer`.
     #[inline]
-    pub fn new(bytes: Vec<u8>) -> Self {
+    pub const fn new(bytes: &'a [u8]) -> Self {
         Self { bytes, pos: 0 }
     }
 
     /// Returns the inner position.
     #[inline]
-    pub fn pos(&self) -> usize {
+    pub const fn pos(&self) -> usize {
         self.pos
     }
 
     /// Returns the inner buffer.
     #[inline]
-    pub fn bytes(&self) -> Vec<u8> {
-        self.bytes.clone()
+    pub const fn bytes(&self) -> &'a [u8] {
+        self.bytes
     }
 
     /// Returns the inner unread buffer.
     #[inline]
-    pub fn unread_bytes(&self) -> Vec<u8> {
-        self.bytes[self.pos..].to_vec()
+    pub fn unread_bytes(&self) -> &'a [u8] {
+        &self.bytes()[self.pos()..]
     }
 }
 
-#[cfg(feature = "std")]
-impl Remaining for Buffer {
+impl<'a> Remaining for Buffer<'a> {
     fn remaining(&self) -> usize {
-        self.bytes.len() - self.pos
+        self.bytes.len() - self.pos()
     }
 }
 
-#[cfg(feature = "std")]
-impl Read for Buffer {
+impl<'a> Read for Buffer<'a> {
     #[inline]
     fn read_exact(&mut self, bytes: &mut [u8]) -> IoResult<()> {
         let n = bytes.len();
@@ -2049,15 +2218,16 @@ impl Read for Buffer {
     fn read_gate<F: RichField + Extendable<D>, const D: usize>(
         &mut self,
         gate_serializer: &dyn GateSerializer<F, D>,
+        common_data: &CommonCircuitData<F, D>,
     ) -> IoResult<GateRef<F, D>> {
-        gate_serializer.read_gate(self)
+        gate_serializer.read_gate(self, common_data)
     }
 
     fn read_generator<F: RichField + Extendable<D>, const D: usize>(
         &mut self,
         generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
         common_data: &CommonCircuitData<F, D>,
-    ) -> IoResult<WitnessGeneratorRef<F>> {
+    ) -> IoResult<WitnessGeneratorRef<F, D>> {
         generator_serializer.read_generator(self, common_data)
     }
 }
