@@ -39,6 +39,16 @@ pub struct Filter<F: Field> {
     constants: Vec<Column<F>>,
 }
 
+/// The default filter is always on.
+impl<F: Field> Default for Filter<F> {
+    fn default() -> Self {
+        Self {
+            products: vec![],
+            constants: vec![Column::constant(F::ONE)],
+        }
+    }
+}
+
 impl<F: Field> Filter<F> {
     /// Returns a filter from the provided `products` and `constants` vectors.
     pub fn new(products: Vec<(Column<F>, Column<F>)>, constants: Vec<Column<F>>) -> Self {
@@ -396,7 +406,7 @@ impl<F: Field> Column<F> {
     }
 }
 
-pub(crate) type ColumnFilter<'a, F> = (&'a [Column<F>], &'a Option<Filter<F>>);
+pub(crate) type ColumnFilter<'a, F> = (&'a [Column<F>], &'a Filter<F>);
 
 /// A [`Lookup`] defines a set of `columns`` whose values should appear in a
 /// `table_column` (i.e. the lookup table associated to these looking columns),
@@ -423,7 +433,7 @@ pub struct Lookup<F: Field> {
 
     /// Columns to filter some elements. There is at most one filter
     /// column per column to lookup.
-    pub filter_columns: Vec<Option<Filter<F>>>,
+    pub filter_columns: Vec<Filter<F>>,
 }
 
 impl<F: Field> Lookup<F> {
@@ -650,7 +660,7 @@ pub(crate) fn lookup_helper_columns<F: Field>(
 
 /// Given data associated to a lookup, check the associated helper polynomials.
 pub(crate) fn eval_helper_columns<F, FE, P, const D: usize, const D2: usize>(
-    filter: &[Option<Filter<F>>],
+    filter: &[Filter<F>],
     columns: &[Vec<P>],
     local_values: &[P],
     next_values: &[P],
@@ -674,26 +684,14 @@ pub(crate) fn eval_helper_columns<F, FE, P, const D: usize, const D2: usize>(
                     let combin0 = challenges.combine(&chunk[0]);
                     let combin1 = challenges.combine(chunk[1].iter());
 
-                    let f0 = if let Some(filter0) = &fs[0] {
-                        filter0.eval_filter(local_values, next_values)
-                    } else {
-                        P::ONES
-                    };
-                    let f1 = if let Some(filter1) = &fs[1] {
-                        filter1.eval_filter(local_values, next_values)
-                    } else {
-                        P::ONES
-                    };
+                    let f0 = fs[0].eval_filter(local_values, next_values);
+                    let f1 = fs[1].eval_filter(local_values, next_values);
 
                     consumer.constraint(combin1 * combin0 * h - f0 * combin1 - f1 * combin0);
                 }
                 1 => {
                     let combin = challenges.combine(&chunk[0]);
-                    let f0 = if let Some(filter1) = &fs[0] {
-                        filter1.eval_filter(local_values, next_values)
-                    } else {
-                        P::ONES
-                    };
+                    let f0 = fs[0].eval_filter(local_values, next_values);
                     consumer.constraint(combin * h - f0);
                 }
 
@@ -707,7 +705,7 @@ pub(crate) fn eval_helper_columns<F, FE, P, const D: usize, const D2: usize>(
 /// Given data associated to a lookup (either a CTL or a range-check), check the associated helper polynomials.
 pub(crate) fn eval_helper_columns_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
-    filter: &[Option<Filter<F>>],
+    filter: &[Filter<F>],
     columns: &[Vec<ExtensionTarget<D>>],
     local_values: &[ExtensionTarget<D>],
     next_values: &[ExtensionTarget<D>],
@@ -722,22 +720,13 @@ pub(crate) fn eval_helper_columns_circuit<F: RichField + Extendable<D>, const D:
             .chunks(chunk_size)
             .zip(filter.chunks(chunk_size).zip(helper_columns))
         {
-            let one = builder.one_extension();
             match chunk.len() {
                 2 => {
                     let combin0 = challenges.combine_circuit(builder, &chunk[0]);
                     let combin1 = challenges.combine_circuit(builder, &chunk[1]);
 
-                    let f0 = if let Some(filter0) = &fs[0] {
-                        filter0.eval_filter_circuit(builder, local_values, next_values)
-                    } else {
-                        one
-                    };
-                    let f1 = if let Some(filter1) = &fs[1] {
-                        filter1.eval_filter_circuit(builder, local_values, next_values)
-                    } else {
-                        one
-                    };
+                    let f0 = fs[0].eval_filter_circuit(builder, local_values, next_values);
+                    let f1 = fs[1].eval_filter_circuit(builder, local_values, next_values);
 
                     let constr = builder.mul_sub_extension(combin0, h, f0);
                     let constr = builder.mul_extension(constr, combin1);
@@ -748,11 +737,7 @@ pub(crate) fn eval_helper_columns_circuit<F: RichField + Extendable<D>, const D:
                 }
                 1 => {
                     let combin = challenges.combine_circuit(builder, &chunk[0]);
-                    let f0 = if let Some(filter1) = &fs[0] {
-                        filter1.eval_filter_circuit(builder, local_values, next_values)
-                    } else {
-                        one
-                    };
+                    let f0 = fs[0].eval_filter_circuit(builder, local_values, next_values);
                     let constr = builder.mul_sub_extension(combin, h, f0);
                     consumer.constraint(builder, constr);
                 }
@@ -788,13 +773,10 @@ pub(crate) fn get_helper_cols<F: Field>(
         let mut filter_col = Vec::with_capacity(degree);
         let first_combined = (0..degree)
             .map(|d| {
-                let f = if let Some(filter) = first_filter {
-                    let f = filter.eval_table(trace, d);
+                let f = {
+                    let f = first_filter.eval_table(trace, d);
                     filter_col.push(f);
                     f
-                } else {
-                    filter_col.push(F::ONE);
-                    F::ONE
                 };
                 if f.is_one() {
                     let evals = first_col
@@ -821,13 +803,10 @@ pub(crate) fn get_helper_cols<F: Field>(
             let mut filter_col = Vec::with_capacity(degree);
             let mut combined = (0..degree)
                 .map(|d| {
-                    let f = if let Some(filter) = filt {
-                        let f = filter.eval_table(trace, d);
+                    let f = {
+                        let f = filt.eval_table(trace, d);
                         filter_col.push(f);
                         f
-                    } else {
-                        filter_col.push(F::ONE);
-                        F::ONE
                     };
                     if f.is_one() {
                         let evals = col

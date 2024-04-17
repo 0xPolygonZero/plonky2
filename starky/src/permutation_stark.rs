@@ -72,7 +72,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for PermutationSt
             columns: vec![Column::single(0)],
             table_column: Column::single(1),
             frequencies_column: Column::single(2),
-            filter_columns: vec![None; 1],
+            filter_columns: vec![Default::default()],
         }]
     }
 
