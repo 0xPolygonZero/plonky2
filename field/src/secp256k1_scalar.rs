@@ -126,9 +126,11 @@ impl Field for Secp256K1Scalar {
 
     fn from_noncanonical_biguint(val: BigUint) -> Self {
         let mut vals = val.to_u64_digits().into_iter().pad_using(4, |_| 0);
-        Self(core::array::from_fn(|_| {
-            vals.next().expect("error converting to u64 array")
-        }))
+        let mut arr = core::array::try_from_fn(|_| vals.next());
+        if vals.next().is_some() {
+            arr.take();
+        }
+        Self(arr.expect("error converting to u64 array"))
     }
 
     #[inline]
