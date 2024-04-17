@@ -23,6 +23,7 @@ ahash = { workspace = true }
 anyhow = { workspace = true }
 hashbrown = { workspace = true }
 itertools = { workspace = true }
+iter_fixed = { workspace = true }
 keccak-hash = { version = "0.8.0", default-features = false }
 log = { workspace = true }
 num = { workspace = true }
