@@ -161,6 +161,50 @@ where
     }
 }
 
+pub trait MaybeIntoExactSizeParIter {
+    #[cfg(feature = "parallel")]
+    type Item: Send;
+
+    #[cfg(feature = "parallel")]
+    type Iter: IndexedParallelIterator<Item = Self::Item>;
+
+    #[cfg(not(feature = "parallel"))]
+    type Item;
+
+    #[cfg(not(feature = "parallel"))]
+    type Iter: ExactSizeIterator<Item = Self::Item>;
+
+    fn into_exact_par_iter(self) -> Self::Iter;
+}
+
+#[cfg(feature = "parallel")]
+impl<T> MaybeIntoExactSizeParIter for T
+where
+    T: IntoParallelIterator,
+    T::Iter: IndexedParallelIterator,
+{
+    type Item = T::Item;
+    type Iter = T::Iter;
+
+    fn into_exact_par_iter(self) -> Self::Iter {
+        self.into_par_iter()
+    }
+}
+
+#[cfg(not(feature = "parallel"))]
+impl<T> MaybeIntoExactSizeParIter for T
+where
+    T: IntoIterator,
+    T::Iter: ExactSizeIterator,
+{
+    type Item = T::Item;
+    type Iter = T::IntoIter;
+
+    fn into_exact_par_iter(self) -> Self::Iter {
+        self.into_iter()
+    }
+}
+
 #[cfg(feature = "parallel")]
 pub trait MaybeParChunks<T: Sync> {
     fn par_chunks(&self, chunk_size: usize) -> ParChunks<'_, T>;
