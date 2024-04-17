@@ -1,8 +1,13 @@
-use alloc::string::{String, ToString};
-use alloc::sync::Arc;
-use alloc::vec::Vec;
-use alloc::{format, vec};
-use core::usize;
+#[cfg(not(feature = "std"))]
+use alloc::{
+    format,
+    string::{String, ToString},
+    sync::Arc,
+    vec,
+    vec::Vec,
+};
+#[cfg(feature = "std")]
+use std::sync::Arc;
 
 use itertools::Itertools;
 use plonky2_util::ceil_div_usize;

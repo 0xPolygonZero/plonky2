@@ -323,7 +323,7 @@ mod poseidon12_mds {
         let (u8, u9, u10) = fft4_real([s2, s5, s8, s11]);
 
         // This where the multiplication in frequency domain is done. More precisely, and with
-        // the appropriate permuations in between, the sequence of
+        // the appropriate permutations in between, the sequence of
         // 3-point FFTs --> multiplication by twiddle factors --> Hadamard multiplication -->
         // 3 point iFFTs --> multiplication by (inverse) twiddle factors
         // is "squashed" into one step composed of the functions "block1", "block2" and "block3".
@@ -444,6 +444,9 @@ mod poseidon12_mds {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(not(feature = "std"))]
+    use alloc::{vec, vec::Vec};
+
     use crate::field::goldilocks_field::GoldilocksField as F;
     use crate::field::types::{Field, PrimeField64};
     use crate::hash::poseidon::test_helpers::{check_consistency, check_test_vectors};

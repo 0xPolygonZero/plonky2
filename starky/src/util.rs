@@ -1,3 +1,6 @@
+//! Utility module providing some helper functions.
+
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 
 use itertools::Itertools;

@@ -1,3 +1,4 @@
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use core::ops::Range;
 
@@ -9,6 +10,10 @@ use crate::iop::target::Target;
 use crate::plonk::circuit_builder::CircuitBuilder;
 
 /// `Target`s representing an element of an extension field.
+///
+/// This is typically used in recursion settings, where the outer circuit must verify
+/// a proof satisfying an inner circuit's statement, which is verified using arithmetic
+/// in an extension of the base field.
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
 pub struct ExtensionTarget<const D: usize>(pub [Target; D]);
 

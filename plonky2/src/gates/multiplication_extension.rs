@@ -1,6 +1,9 @@
-use alloc::format;
-use alloc::string::{String, ToString};
-use alloc::vec::Vec;
+#[cfg(not(feature = "std"))]
+use alloc::{
+    format,
+    string::{String, ToString},
+    vec::Vec,
+};
 use core::ops::Range;
 
 use crate::field::extension::{Extendable, FieldExtension};
@@ -16,8 +19,8 @@ use crate::plonk::circuit_data::{CircuitConfig, CommonCircuitData};
 use crate::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
 use crate::util::serialization::{Buffer, IoResult, Read, Write};
 
-/// A gate which can perform a weighted multiplication, i.e. `result = c0 x y`. If the config
-/// supports enough routed wires, it can support several such operations in one gate.
+/// A gate which can perform a weighted multiplication, i.e. `result = c0.x.y` on [`ExtensionTarget`].
+/// If the config has enough routed wires, it can support several such operations in one gate.
 #[derive(Debug, Clone)]
 pub struct MulExtensionGate<const D: usize> {
     /// Number of multiplications performed by the gate.
@@ -37,13 +40,13 @@ impl<const D: usize> MulExtensionGate<D> {
         config.num_routed_wires / wires_per_op
     }
 
-    pub const fn wires_ith_multiplicand_0(i: usize) -> Range<usize> {
+    pub(crate) const fn wires_ith_multiplicand_0(i: usize) -> Range<usize> {
         3 * D * i..3 * D * i + D
     }
-    pub const fn wires_ith_multiplicand_1(i: usize) -> Range<usize> {
+    pub(crate) const fn wires_ith_multiplicand_1(i: usize) -> Range<usize> {
         3 * D * i + D..3 * D * i + 2 * D
     }
-    pub const fn wires_ith_output(i: usize) -> Range<usize> {
+    pub(crate) const fn wires_ith_output(i: usize) -> Range<usize> {
         3 * D * i + 2 * D..3 * D * i + 3 * D
     }
 }

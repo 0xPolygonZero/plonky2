@@ -1,5 +1,5 @@
-use alloc::borrow::ToOwned;
-use alloc::vec;
+#[cfg(not(feature = "std"))]
+use alloc::{borrow::ToOwned, vec};
 
 use crate::field::extension::Extendable;
 use crate::gates::lookup::LookupGate;

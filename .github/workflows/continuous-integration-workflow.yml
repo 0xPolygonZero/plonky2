@@ -10,39 +10,33 @@ on:
     branches:
       - "**"
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+env:
+    CARGO_TERM_COLOR: always
+
 jobs:
   test:
     name: Test Suite
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     if: "! contains(toJSON(github.event.commits.*.message), '[skip-ci]')"
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Install nightly toolchain
-        id: rustc-toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: nightly
-          override: true
+        uses: dtolnay/rust-toolchain@nightly
 
-      - name: rust-cache
-        uses: actions/cache@v3
+      - name: Set up rust cache
+        uses: Swatinem/rust-cache@v2
         with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: rustc-test-${{ steps.rustc-toolchain.outputs.rustc_hash }}-cargo-${{ hashFiles('**/Cargo.toml') }}
+            cache-on-failure: true
 
       - name: Check in plonky2 subdirectory
-        uses: actions-rs/cargo@v1
-        with:
-          command: check
-          args: --manifest-path plonky2/Cargo.toml
+        run: cargo check --manifest-path plonky2/Cargo.toml
         env:
           RUSTFLAGS: -Copt-level=3 -Cdebug-assertions -Coverflow-checks=y -Cdebuginfo=0
           RUST_LOG: 1
@@ -50,21 +44,7 @@ jobs:
           RUST_BACKTRACE: 1
 
       - name: Check in starky subdirectory
-        uses: actions-rs/cargo@v1
-        with:
-          command: check
-          args: --manifest-path starky/Cargo.toml
-        env:
-          RUSTFLAGS: -Copt-level=3 -Cdebug-assertions -Coverflow-checks=y -Cdebuginfo=0
-          RUST_LOG: 1
-          CARGO_INCREMENTAL: 1
-          RUST_BACKTRACE: 1
-
-      - name: Check in evm subdirectory
-        uses: actions-rs/cargo@v1
-        with:
-          command: check
-          args: --manifest-path evm/Cargo.toml
+        run: cargo check --manifest-path starky/Cargo.toml
         env:
           RUSTFLAGS: -Copt-level=3 -Cdebug-assertions -Coverflow-checks=y -Cdebuginfo=0
           RUST_LOG: 1
@@ -72,61 +52,77 @@ jobs:
           RUST_BACKTRACE: 1
 
       - name: Run cargo test
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --workspace
+        run: cargo test --workspace
         env:
           RUSTFLAGS: -Copt-level=3 -Cdebug-assertions -Coverflow-checks=y -Cdebuginfo=0
           RUST_LOG: 1
           CARGO_INCREMENTAL: 1
           RUST_BACKTRACE: 1
 
-  wasm32:
-    name: wasm32 compatibility
+  wasm:
+    name: Check wasm32 compatibility
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     if: "! contains(toJSON(github.event.commits.*.message), '[skip-ci]')"
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
-      - name: Install nightly wasm32 toolchain
-        id: rustc-toolchain
-        uses: actions-rs/toolchain@v1
+      - name: Install nightly toolchain
+        uses: dtolnay/rust-toolchain@nightly
         with:
-          profile: minimal
-          toolchain: nightly
-          target: wasm32-unknown-unknown
-          default: true
-          override: true
+          targets: wasm32-unknown-unknown
 
-      - name: rust-cache
-        uses: actions/cache@v3
+      - name: Set up rust cache
+        uses: Swatinem/rust-cache@v2
         with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: rustc-wasm32-${{ steps.rustc-toolchain.outputs.rustc_hash }}-cargo-${{ hashFiles('**/Cargo.toml') }}
+            cache-on-failure: true
 
-      - name: Check in plonky2 subdirectory
-        uses: actions-rs/cargo@v1
-        with:
-          command: check
-          args: --manifest-path plonky2/Cargo.toml --target wasm32-unknown-unknown --no-default-features
+      - name: Check in plonky2 subdirectory for wasm targets
+        run: cargo check --manifest-path plonky2/Cargo.toml --target wasm32-unknown-unknown --no-default-features
         env:
           RUSTFLAGS: -Copt-level=3 -Cdebug-assertions -Coverflow-checks=y -Cdebuginfo=0
           RUST_LOG: 1
           CARGO_INCREMENTAL: 1
           RUST_BACKTRACE: 1
 
-      - name: Check in starky subdirectory
-        uses: actions-rs/cargo@v1
+      - name: Check in starky subdirectory for wasm targets
+        run: cargo check --manifest-path starky/Cargo.toml --target wasm32-unknown-unknown --no-default-features
+        env:
+          RUSTFLAGS: -Copt-level=3 -Cdebug-assertions -Coverflow-checks=y -Cdebuginfo=0
+          RUST_LOG: 1
+          CARGO_INCREMENTAL: 1
+          RUST_BACKTRACE: 1
+
+  no_std:
+    name: Test Suite in no-std
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    if: "! contains(toJSON(github.event.commits.*.message), '[skip-ci]')"
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+
+      - name: Install nightly toolchain
+        uses: dtolnay/rust-toolchain@master
         with:
-          command: check
-          args: --manifest-path starky/Cargo.toml --target wasm32-unknown-unknown --no-default-features
+          toolchain: nightly-2024-02-01
+
+      - name: Set up rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+            cache-on-failure: true
+
+      - name: Run cargo test in plonky2 subdirectory (no-std)
+        run: cargo test --manifest-path plonky2/Cargo.toml --no-default-features --lib
+        env:
+          RUSTFLAGS: -Copt-level=3 -Cdebug-assertions -Coverflow-checks=y -Cdebuginfo=0
+          RUST_LOG: 1
+          CARGO_INCREMENTAL: 1
+          RUST_BACKTRACE: 1
+
+      - name: Run cargo test in starky subdirectory (no-std)
+        run: cargo test --manifest-path starky/Cargo.toml --no-default-features --lib
         env:
           RUSTFLAGS: -Copt-level=3 -Cdebug-assertions -Coverflow-checks=y -Cdebuginfo=0
           RUST_LOG: 1
@@ -136,44 +132,24 @@ jobs:
   lints:
     name: Formatting and Clippy
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     if: "! contains(toJSON(github.event.commits.*.message), '[skip-ci]')"
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Install nightly toolchain
-        id: rustc-toolchain
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@nightly
         with:
-          profile: minimal
-          toolchain: nightly
-          override: true
           components: rustfmt, clippy
 
-      - name: rust-cache
-        uses: actions/cache@v3
+      - name: Set up rust cache
+        uses: Swatinem/rust-cache@v2
         with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: rustc-lints-${{ steps.rustc-toolchain.outputs.rustc_hash }}-cargo-${{ hashFiles('**/Cargo.toml') }}
+          cache-on-failure: true
 
       - name: Run cargo fmt
-        uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --all -- --check
-        env:
-          CARGO_INCREMENTAL: 1
+        run: cargo fmt --all --check
 
       - name: Run cargo clippy
-        uses: actions-rs/cargo@v1
-        with:
-          command: clippy
-          args: --all-features --all-targets -- -D warnings -A incomplete-features
-        env:
-          # Seems necessary until https://github.com/rust-lang/rust/pull/115819 is merged.
-          CARGO_INCREMENTAL: 0
+        run: cargo clippy --all-features --all-targets -- -D warnings -A incomplete-features

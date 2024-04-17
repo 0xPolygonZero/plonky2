@@ -15,7 +15,7 @@ pub trait OEF<const D: usize>: FieldExtension<D> {
     // Element W of BaseField, such that `X^d - W` is irreducible over BaseField.
     const W: Self::BaseField;
 
-    // Element of BaseField such that DTH_ROOT^D == 1. Implementors
+    // Element of BaseField such that DTH_ROOT^D == 1. Implementers
     // should set this to W^((p - 1)/D), where W is as above and p is
     // the order of the BaseField.
     const DTH_ROOT: Self::BaseField;
@@ -125,9 +125,9 @@ impl<F: Field> FieldExtension<1> for F {
 }
 
 /// Flatten the slice by sending every extension field element to its D-sized canonical representation.
-pub fn flatten<F: Field, const D: usize>(l: &[F::Extension]) -> Vec<F>
+pub fn flatten<F, const D: usize>(l: &[F::Extension]) -> Vec<F>
 where
-    F: Extendable<D>,
+    F: Field + Extendable<D>,
 {
     l.iter()
         .flat_map(|x| x.to_basefield_array().to_vec())
@@ -135,9 +135,9 @@ where
 }
 
 /// Batch every D-sized chunks into extension field elements.
-pub fn unflatten<F: Field, const D: usize>(l: &[F]) -> Vec<F::Extension>
+pub fn unflatten<F, const D: usize>(l: &[F]) -> Vec<F::Extension>
 where
-    F: Extendable<D>,
+    F: Field + Extendable<D>,
 {
     debug_assert_eq!(l.len() % D, 0);
     l.chunks_exact(D)

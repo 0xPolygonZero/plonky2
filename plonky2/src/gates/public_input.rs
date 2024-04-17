@@ -1,5 +1,5 @@
-use alloc::string::String;
-use alloc::vec::Vec;
+#[cfg(not(feature = "std"))]
+use alloc::{string::String, vec::Vec};
 use core::ops::Range;
 
 use crate::field::extension::Extendable;
@@ -19,10 +19,11 @@ use crate::plonk::vars::{
 use crate::util::serialization::{Buffer, IoResult};
 
 /// A gate whose first four wires will be equal to a hash of public inputs.
+#[derive(Debug)]
 pub struct PublicInputGate;
 
 impl PublicInputGate {
-    pub const fn wires_public_inputs_hash() -> Range<usize> {
+    pub(crate) const fn wires_public_inputs_hash() -> Range<usize> {
         0..4
     }
 }

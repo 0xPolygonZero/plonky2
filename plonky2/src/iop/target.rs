@@ -1,3 +1,4 @@
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use core::ops::Range;
 
@@ -8,15 +9,25 @@ use crate::iop::wire::Wire;
 use crate::plonk::circuit_data::CircuitConfig;
 
 /// A location in the witness.
+///
+/// Targets can either be placed at a specific location, or be "floating" around,
+/// serving as intermediary value holders, and copied to other locations whenever needed.
+///
+/// When generating a proof for a given circuit, the prover will "set" the values of some
+/// (or all) targets, so that they satisfy the circuit constraints.  This is done through
+/// the [PartialWitness](crate::iop::witness::PartialWitness) interface.
+///
+/// There are different "variants" of the `Target` type, namely [`ExtensionTarget`],
+/// [ExtensionAlgebraTarget](crate::iop::ext_target::ExtensionAlgebraTarget).
+/// The `Target` type is the default one for most circuits verifying some simple statement.
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize)]
 pub enum Target {
+    /// A target that has a fixed location in the witness (seen as a `degree x num_wires` grid).
     Wire(Wire),
     /// A target that doesn't have any inherent location in the witness (but it can be copied to
     /// another target that does). This is useful for representing intermediate values in witness
     /// generation.
-    VirtualTarget {
-        index: usize,
-    },
+    VirtualTarget { index: usize },
 }
 
 impl Default for Target {

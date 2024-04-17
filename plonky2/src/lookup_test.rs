@@ -1,28 +1,34 @@
-static LOGGER_INITIALIZED: Once = Once::new();
-
-use alloc::sync::Arc;
-use std::sync::Once;
+#[cfg(not(feature = "std"))]
+use alloc::{sync::Arc, vec, vec::Vec};
+#[cfg(feature = "std")]
+use std::sync::{Arc, Once};
 
 use itertools::Itertools;
-use log::{Level, LevelFilter};
+use log::Level;
 
+use crate::field::types::Field;
 use crate::gadgets::lookup::{OTHER_TABLE, SMALLER_TABLE, TIP5_TABLE};
 use crate::gates::lookup_table::LookupTable;
 use crate::gates::noop::NoopGate;
+use crate::iop::witness::{PartialWitness, WitnessWrite};
+use crate::plonk::circuit_builder::CircuitBuilder;
+use crate::plonk::circuit_data::CircuitConfig;
+use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
 use crate::plonk::prover::prove;
 use crate::util::timing::TimingTree;
 
+const D: usize = 2;
+type C = PoseidonGoldilocksConfig;
+type F = <C as GenericConfig<D>>::F;
+
+const LUT_SIZE: usize = u16::MAX as usize + 1;
+
+#[cfg(feature = "std")]
+static LOGGER_INITIALIZED: Once = Once::new();
+
 #[test]
 fn test_no_lookup() -> anyhow::Result<()> {
-    LOGGER_INITIALIZED.call_once(|| init_logger().unwrap());
-    use crate::iop::witness::PartialWitness;
-    use crate::plonk::circuit_builder::CircuitBuilder;
-    use crate::plonk::circuit_data::CircuitConfig;
-    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
-
-    const D: usize = 2;
-    type C = PoseidonGoldilocksConfig;
-    type F = <C as GenericConfig<D>>::F;
+    init_logger();
 
     let config = CircuitConfig::standard_recursion_config();
     let mut builder = CircuitBuilder::<F, D>::new(config);
@@ -41,14 +47,7 @@ fn test_no_lookup() -> anyhow::Result<()> {
 #[should_panic]
 #[test]
 fn test_lookup_table_not_used() {
-    LOGGER_INITIALIZED.call_once(|| init_logger().unwrap());
-    use crate::plonk::circuit_builder::CircuitBuilder;
-    use crate::plonk::circuit_data::CircuitConfig;
-    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
-
-    const D: usize = 2;
-    type C = PoseidonGoldilocksConfig;
-    type F = <C as GenericConfig<D>>::F;
+    init_logger();
 
     let config = CircuitConfig::standard_recursion_config();
     let mut builder = CircuitBuilder::<F, D>::new(config);
@@ -63,14 +62,7 @@ fn test_lookup_table_not_used() {
 #[should_panic]
 #[test]
 fn test_lookup_without_table() {
-    LOGGER_INITIALIZED.call_once(|| init_logger().unwrap());
-    use crate::plonk::circuit_builder::CircuitBuilder;
-    use crate::plonk::circuit_data::CircuitConfig;
-    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
-
-    const D: usize = 2;
-    type C = PoseidonGoldilocksConfig;
-    type F = <C as GenericConfig<D>>::F;
+    init_logger();
 
     let config = CircuitConfig::standard_recursion_config();
     let mut builder = CircuitBuilder::<F, D>::new(config);
@@ -84,17 +76,8 @@ fn test_lookup_without_table() {
 // Tests two lookups in one lookup table.
 #[test]
 fn test_one_lookup() -> anyhow::Result<()> {
-    use crate::field::types::Field;
-    use crate::iop::witness::{PartialWitness, WitnessWrite};
-    use crate::plonk::circuit_builder::CircuitBuilder;
-    use crate::plonk::circuit_data::CircuitConfig;
-    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
+    init_logger();
 
-    const D: usize = 2;
-    type C = PoseidonGoldilocksConfig;
-    type F = <C as GenericConfig<D>>::F;
-
-    LOGGER_INITIALIZED.call_once(|| init_logger().unwrap());
     let tip5_table = TIP5_TABLE.to_vec();
     let table: LookupTable = Arc::new((0..256).zip_eq(tip5_table).collect());
     let config = CircuitConfig::standard_recursion_config();
@@ -145,18 +128,9 @@ fn test_one_lookup() -> anyhow::Result<()> {
 
 // Tests one lookup in two different lookup tables.
 #[test]
-pub fn test_two_luts() -> anyhow::Result<()> {
-    use crate::field::types::Field;
-    use crate::iop::witness::{PartialWitness, WitnessWrite};
-    use crate::plonk::circuit_builder::CircuitBuilder;
-    use crate::plonk::circuit_data::CircuitConfig;
-    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
+fn test_two_luts() -> anyhow::Result<()> {
+    init_logger();
 
-    const D: usize = 2;
-    type C = PoseidonGoldilocksConfig;
-    type F = <C as GenericConfig<D>>::F;
-
-    LOGGER_INITIALIZED.call_once(|| init_logger().unwrap());
     let config = CircuitConfig::standard_recursion_config();
     let mut builder = CircuitBuilder::<F, D>::new(config);
 
@@ -229,17 +203,9 @@ pub fn test_two_luts() -> anyhow::Result<()> {
 }
 
 #[test]
-pub fn test_different_inputs() -> anyhow::Result<()> {
-    use crate::field::types::Field;
-    use crate::iop::witness::{PartialWitness, WitnessWrite};
-    use crate::plonk::circuit_builder::CircuitBuilder;
-    use crate::plonk::circuit_data::CircuitConfig;
-    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
+fn test_different_inputs() -> anyhow::Result<()> {
+    init_logger();
 
-    const D: usize = 2;
-    type C = PoseidonGoldilocksConfig;
-    type F = <C as GenericConfig<D>>::F;
-    LOGGER_INITIALIZED.call_once(|| init_logger().unwrap());
     let config = CircuitConfig::standard_recursion_config();
     let mut builder = CircuitBuilder::<F, D>::new(config);
 
@@ -314,17 +280,9 @@ pub fn test_different_inputs() -> anyhow::Result<()> {
 
 // This test looks up over 514 values for one LookupTableGate, which means that several LookupGates are created.
 #[test]
-pub fn test_many_lookups() -> anyhow::Result<()> {
-    use crate::field::types::Field;
-    use crate::iop::witness::{PartialWitness, WitnessWrite};
-    use crate::plonk::circuit_builder::CircuitBuilder;
-    use crate::plonk::circuit_data::CircuitConfig;
-    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
+fn test_many_lookups() -> anyhow::Result<()> {
+    init_logger();
 
-    const D: usize = 2;
-    type C = PoseidonGoldilocksConfig;
-    type F = <C as GenericConfig<D>>::F;
-    LOGGER_INITIALIZED.call_once(|| init_logger().unwrap());
     let config = CircuitConfig::standard_recursion_config();
     let mut builder = CircuitBuilder::<F, D>::new(config);
 
@@ -404,18 +362,9 @@ pub fn test_many_lookups() -> anyhow::Result<()> {
 
 // Tests whether, when adding the same LUT to the circuit, the circuit only adds one copy, with the same index.
 #[test]
-pub fn test_same_luts() -> anyhow::Result<()> {
-    use crate::field::types::Field;
-    use crate::iop::witness::{PartialWitness, WitnessWrite};
-    use crate::plonk::circuit_builder::CircuitBuilder;
-    use crate::plonk::circuit_data::CircuitConfig;
-    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
+fn test_same_luts() -> anyhow::Result<()> {
+    init_logger();
 
-    const D: usize = 2;
-    type C = PoseidonGoldilocksConfig;
-    type F = <C as GenericConfig<D>>::F;
-
-    LOGGER_INITIALIZED.call_once(|| init_logger().unwrap());
     let config = CircuitConfig::standard_recursion_config();
     let mut builder = CircuitBuilder::<F, D>::new(config);
 
@@ -469,21 +418,11 @@ pub fn test_same_luts() -> anyhow::Result<()> {
 
 #[test]
 fn test_big_lut() -> anyhow::Result<()> {
-    use crate::field::types::Field;
-    use crate::iop::witness::{PartialWitness, WitnessWrite};
-    use crate::plonk::circuit_builder::CircuitBuilder;
-    use crate::plonk::circuit_data::CircuitConfig;
-    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
+    init_logger();
 
-    const D: usize = 2;
-    type C = PoseidonGoldilocksConfig;
-    type F = <C as GenericConfig<D>>::F;
-
-    LOGGER_INITIALIZED.call_once(|| init_logger().unwrap());
     let config = CircuitConfig::standard_recursion_config();
     let mut builder = CircuitBuilder::<F, D>::new(config);
 
-    const LUT_SIZE: usize = u16::MAX as usize + 1;
     let inputs: [u16; LUT_SIZE] = core::array::from_fn(|i| i as u16);
     let lut_fn = |inp: u16| inp / 10;
     let lut_index = builder.add_lookup_table_from_fn(lut_fn, &inputs);
@@ -522,21 +461,11 @@ fn test_big_lut() -> anyhow::Result<()> {
 
 #[test]
 fn test_many_lookups_on_big_lut() -> anyhow::Result<()> {
-    use crate::field::types::Field;
-    use crate::iop::witness::{PartialWitness, WitnessWrite};
-    use crate::plonk::circuit_builder::CircuitBuilder;
-    use crate::plonk::circuit_data::CircuitConfig;
-    use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
+    init_logger();
 
-    const D: usize = 2;
-    type C = PoseidonGoldilocksConfig;
-    type F = <C as GenericConfig<D>>::F;
-
-    LOGGER_INITIALIZED.call_once(|| init_logger().unwrap());
     let config = CircuitConfig::standard_recursion_config();
     let mut builder = CircuitBuilder::<F, D>::new(config);
 
-    const LUT_SIZE: usize = u16::MAX as usize + 1;
     let inputs: [u16; LUT_SIZE] = core::array::from_fn(|i| i as u16);
     let lut_fn = |inp: u16| inp / 10;
     let lut_index = builder.add_lookup_table_from_fn(lut_fn, &inputs);
@@ -581,11 +510,15 @@ fn test_many_lookups_on_big_lut() -> anyhow::Result<()> {
     data.verify(proof)
 }
 
-fn init_logger() -> anyhow::Result<()> {
-    let mut builder = env_logger::Builder::from_default_env();
-    builder.format_timestamp(None);
-    builder.filter_level(LevelFilter::Debug);
+fn init_logger() {
+    #[cfg(feature = "std")]
+    {
+        LOGGER_INITIALIZED.call_once(|| {
+            let mut builder = env_logger::Builder::from_default_env();
+            builder.format_timestamp(None);
+            builder.filter_level(log::LevelFilter::Debug);
 
-    builder.try_init()?;
-    Ok(())
+            builder.try_init().unwrap();
+        });
+    }
 }

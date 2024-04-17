@@ -1,6 +1,7 @@
 //! Information about the structure of a FRI instance, in terms of the oracles and polynomials
 //! involved, and the points they are opened at.
 
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use core::ops::Range;
 
@@ -9,6 +10,7 @@ use crate::hash::hash_types::RichField;
 use crate::iop::ext_target::ExtensionTarget;
 
 /// Describes an instance of a FRI-based batch opening.
+#[derive(Debug)]
 pub struct FriInstanceInfo<F: RichField + Extendable<D>, const D: usize> {
     /// The oracles involved, not counting oracles created during the commit phase.
     pub oracles: Vec<FriOracleInfo>,
@@ -17,6 +19,7 @@ pub struct FriInstanceInfo<F: RichField + Extendable<D>, const D: usize> {
 }
 
 /// Describes an instance of a FRI-based batch opening.
+#[derive(Debug)]
 pub struct FriInstanceInfoTarget<const D: usize> {
     /// The oracles involved, not counting oracles created during the commit phase.
     pub oracles: Vec<FriOracleInfo>,
@@ -24,19 +27,21 @@ pub struct FriInstanceInfoTarget<const D: usize> {
     pub batches: Vec<FriBatchInfoTarget<D>>,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct FriOracleInfo {
     pub num_polys: usize,
     pub blinding: bool,
 }
 
 /// A batch of openings at a particular point.
+#[derive(Debug)]
 pub struct FriBatchInfo<F: RichField + Extendable<D>, const D: usize> {
     pub point: F::Extension,
     pub polynomials: Vec<FriPolynomialInfo>,
 }
 
 /// A batch of openings at a particular point.
+#[derive(Debug)]
 pub struct FriBatchInfoTarget<const D: usize> {
     pub point: ExtensionTarget<D>,
     pub polynomials: Vec<FriPolynomialInfo>,
@@ -65,21 +70,25 @@ impl FriPolynomialInfo {
 }
 
 /// Opened values of each polynomial.
+#[derive(Debug)]
 pub struct FriOpenings<F: RichField + Extendable<D>, const D: usize> {
     pub batches: Vec<FriOpeningBatch<F, D>>,
 }
 
 /// Opened values of each polynomial that's opened at a particular point.
+#[derive(Debug)]
 pub struct FriOpeningBatch<F: RichField + Extendable<D>, const D: usize> {
     pub values: Vec<F::Extension>,
 }
 
 /// Opened values of each polynomial.
+#[derive(Debug)]
 pub struct FriOpeningsTarget<const D: usize> {
     pub batches: Vec<FriOpeningBatchTarget<D>>,
 }
 
 /// Opened values of each polynomial that's opened at a particular point.
+#[derive(Debug)]
 pub struct FriOpeningBatchTarget<const D: usize> {
     pub values: Vec<ExtensionTarget<D>>,
 }

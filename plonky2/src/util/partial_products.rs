@@ -1,3 +1,4 @@
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use core::iter;
 
@@ -108,6 +109,9 @@ pub(crate) fn check_partial_products_circuit<F: RichField + Extendable<D>, const
 
 #[cfg(test)]
 mod tests {
+    #[cfg(not(feature = "std"))]
+    use alloc::vec;
+
     use super::*;
     use crate::field::goldilocks_field::GoldilocksField;
 

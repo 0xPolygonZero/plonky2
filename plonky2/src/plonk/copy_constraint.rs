@@ -1,10 +1,13 @@
+#[cfg(not(feature = "std"))]
 use alloc::string::String;
 
 use crate::iop::target::Target;
 
 /// A named copy constraint.
+#[derive(Debug)]
 pub struct CopyConstraint {
     pub pair: (Target, Target),
+    #[allow(dead_code)]
     pub name: String,
 }
 
