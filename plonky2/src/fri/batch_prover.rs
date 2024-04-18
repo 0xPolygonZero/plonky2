@@ -266,7 +266,7 @@ mod tests {
         let _alphas = challenger.get_n_challenges(2);
         let zeta = challenger.get_extension_challenge::<D>();
         challenger.observe_extension_element::<D>(&poly.to_extension::<D>().eval(zeta));
-        let mut verfier_challenger = challenger.clone();
+        let mut verifier_challenger = challenger.clone();
 
         let fri_instance: FriInstanceInfo<F, D> = FriInstanceInfo {
             oracles: vec![FriOracleInfo {
@@ -299,7 +299,7 @@ mod tests {
             &mut timing,
         );
 
-        let fri_challenges = verfier_challenger.fri_challenges::<C, D>(
+        let fri_challenges = verifier_challenger.fri_challenges::<C, D>(
             &proof.commit_phase_merkle_caps,
             &proof.final_poly,
             proof.pow_witness,
@@ -370,7 +370,7 @@ mod tests {
         challenger.observe_extension_element::<D>(&poly0.to_extension::<D>().eval(zeta));
         challenger.observe_extension_element::<D>(&poly1.to_extension::<D>().eval(zeta));
         challenger.observe_extension_element::<D>(&poly2.to_extension::<D>().eval(zeta));
-        let mut verfier_challenger = challenger.clone();
+        let mut verifier_challenger = challenger.clone();
 
         let _alpha = challenger.get_extension_challenge::<D>();
 
@@ -415,7 +415,7 @@ mod tests {
             }],
         };
         let fri_instances = vec![fri_instance, fri_instance, fri_instance];
-        let fri_challenges = verfier_challenger.fri_challenges::<C, D>(
+        let fri_challenges = verifier_challenger.fri_challenges::<C, D>(
             &proof.commit_phase_merkle_caps,
             &proof.final_poly,
             proof.pow_witness,
