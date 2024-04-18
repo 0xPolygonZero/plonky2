@@ -67,12 +67,12 @@ pub type TableIdx = usize;
 pub struct TableWithColumns<F: Field> {
     table: TableIdx,
     columns: Vec<Column<F>>,
-    filter: Option<Filter<F>>,
+    filter: Filter<F>,
 }
 
 impl<F: Field> TableWithColumns<F> {
     /// Generates a new `TableWithColumns` given a `table` index, a linear combination of columns `columns` and a `filter`.
-    pub fn new(table: TableIdx, columns: Vec<Column<F>>, filter: Option<Filter<F>>) -> Self {
+    pub fn new(table: TableIdx, columns: Vec<Column<F>>, filter: Filter<F>) -> Self {
         Self {
             table,
             columns,
@@ -163,7 +163,7 @@ pub struct CtlZData<'a, F: Field> {
     pub(crate) columns: Vec<&'a [Column<F>]>,
     /// Vector of filter columns for the current table.
     /// Each filter evaluates to either 1 or 0.
-    pub(crate) filter: Vec<Option<Filter<F>>>,
+    pub(crate) filter: Vec<Filter<F>>,
 }
 
 impl<'a, F: Field> CtlZData<'a, F> {
@@ -173,7 +173,7 @@ impl<'a, F: Field> CtlZData<'a, F> {
         z: PolynomialValues<F>,
         challenge: GrandProductChallenge<F>,
         columns: Vec<&'a [Column<F>]>,
-        filter: Vec<Option<Filter<F>>>,
+        filter: Vec<Filter<F>>,
     ) -> Self {
         Self {
             helper_columns,
@@ -404,7 +404,7 @@ fn ctl_helper_zs_cols<F: Field, const N: usize>(
         .map(|(table, group)| {
             let columns_filters = group
                 .map(|table| (&table.columns[..], &table.filter))
-                .collect::<Vec<(&[Column<F>], &Option<Filter<F>>)>>();
+                .collect::<Vec<(&[Column<F>], &Filter<F>)>>();
             (
                 table,
                 partial_sums(
@@ -484,7 +484,7 @@ where
     /// Column linear combinations of the `CrossTableLookup`s.
     pub(crate) columns: Vec<&'a [Column<F>]>,
     /// Filter that evaluates to either 1 or 0.
-    pub(crate) filter: Vec<Option<Filter<F>>>,
+    pub(crate) filter: Vec<Filter<F>>,
 }
 
 impl<'a, F: RichField + Extendable<D>, const D: usize>
@@ -682,16 +682,8 @@ pub(crate) fn eval_cross_table_lookup_checks<F, FE, P, S, const D: usize, const 
             let combin0 = challenges.combine(&evals[0]);
             let combin1 = challenges.combine(&evals[1]);
 
-            let f0 = if let Some(filter0) = &filter[0] {
-                filter0.eval_filter(local_values, next_values)
-            } else {
-                P::ONES
-            };
-            let f1 = if let Some(filter1) = &filter[1] {
-                filter1.eval_filter(local_values, next_values)
-            } else {
-                P::ONES
-            };
+            let f0 = filter[0].eval_filter(local_values, next_values);
+            let f1 = filter[1].eval_filter(local_values, next_values);
 
             consumer
                 .constraint_last_row(combin0 * combin1 * *local_z - f0 * combin1 - f1 * combin0);
@@ -700,11 +692,7 @@ pub(crate) fn eval_cross_table_lookup_checks<F, FE, P, S, const D: usize, const 
             );
         } else {
             let combin0 = challenges.combine(&evals[0]);
-            let f0 = if let Some(filter0) = &filter[0] {
-                filter0.eval_filter(local_values, next_values)
-            } else {
-                P::ONES
-            };
+            let f0 = filter[0].eval_filter(local_values, next_values);
             consumer.constraint_last_row(combin0 * *local_z - f0);
             consumer.constraint_transition(combin0 * (*local_z - *next_z) - f0);
         }
@@ -726,7 +714,7 @@ pub struct CtlCheckVarsTarget<F: Field, const D: usize> {
     /// Column linear combinations of the `CrossTableLookup`s.
     pub(crate) columns: Vec<Vec<Column<F>>>,
     /// Filter that evaluates to either 1 or 0.
-    pub(crate) filter: Vec<Option<Filter<F>>>,
+    pub(crate) filter: Vec<Filter<F>>,
 }
 
 impl<'a, F: Field, const D: usize> CtlCheckVarsTarget<F, D> {
@@ -856,8 +844,6 @@ pub(crate) fn eval_cross_table_lookup_checks_circuit<
     let local_values = vars.get_local_values();
     let next_values = vars.get_next_values();
 
-    let one = builder.one_extension();
-
     for lookup_vars in ctl_vars {
         let CtlCheckVarsTarget {
             helper_columns,
@@ -906,16 +892,8 @@ pub(crate) fn eval_cross_table_lookup_checks_circuit<
             let combin0 = challenges.combine_circuit(builder, &evals[0]);
             let combin1 = challenges.combine_circuit(builder, &evals[1]);
 
-            let f0 = if let Some(filter0) = &filter[0] {
-                filter0.eval_filter_circuit(builder, local_values, next_values)
-            } else {
-                one
-            };
-            let f1 = if let Some(filter1) = &filter[1] {
-                filter1.eval_filter_circuit(builder, local_values, next_values)
-            } else {
-                one
-            };
+            let f0 = filter[0].eval_filter_circuit(builder, local_values, next_values);
+            let f1 = filter[1].eval_filter_circuit(builder, local_values, next_values);
 
             let combined = builder.mul_sub_extension(combin1, *local_z, f1);
             let combined = builder.mul_extension(combined, combin0);
@@ -928,11 +906,7 @@ pub(crate) fn eval_cross_table_lookup_checks_circuit<
             consumer.constraint_last_row(builder, constr);
         } else {
             let combin0 = challenges.combine_circuit(builder, &evals[0]);
-            let f0 = if let Some(filter0) = &filter[0] {
-                filter0.eval_filter_circuit(builder, local_values, next_values)
-            } else {
-                one
-            };
+            let f0 = filter[0].eval_filter_circuit(builder, local_values, next_values);
 
             let constr = builder.mul_sub_extension(combin0, *local_z, f0);
             consumer.constraint_last_row(builder, constr);
@@ -1121,11 +1095,7 @@ pub mod debug_utils {
     ) {
         let trace = &trace_poly_values[table.table];
         for i in 0..trace[0].len() {
-            let filter = if let Some(combin) = &table.filter {
-                combin.eval_table(trace, i)
-            } else {
-                F::ONE
-            };
+            let filter = table.filter.eval_table(trace, i);
             if filter.is_one() {
                 let row = table
                     .columns
