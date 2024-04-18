@@ -236,7 +236,11 @@ fn batch_fri_verifier_query_round<
             batch_index += 1;
         }
     }
-    assert_eq!(batch_index, instance.len(), "Wrong number of folded instances.");
+    assert_eq!(
+        batch_index,
+        instance.len(),
+        "Wrong number of folded instances."
+    );
 
     // Final check of FRI. After all the reductions, we check that the final polynomial is equal
     // to the one sent by the prover.
