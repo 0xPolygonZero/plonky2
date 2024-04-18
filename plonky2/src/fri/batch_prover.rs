@@ -98,6 +98,7 @@ pub(crate) fn batch_fri_committed_trees<
 
         let beta = challenger.get_extension_challenge::<D>();
         // P(x) = sum_{i<r} x^i * P_i(x^r) becomes sum_{i<r} beta^i * P_i(x).
+        // TODO: Optimize the folding process. Consider folding the functions directly in the value domain.
         final_coeffs = PolynomialCoeffs::new(
             final_coeffs
                 .coeffs
@@ -119,7 +120,6 @@ pub(crate) fn batch_fri_committed_trees<
             );
             polynomial_index += 1;
         }
-        //TODO: optimize the folding process.
         final_coeffs = final_values.clone().coset_ifft(shift.into());
     }
     assert_eq!(polynomial_index, values.len());
