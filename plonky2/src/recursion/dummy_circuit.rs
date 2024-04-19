@@ -8,7 +8,6 @@ use alloc::{
 use hashbrown::HashMap;
 use plonky2_field::extension::Extendable;
 use plonky2_field::polynomial::PolynomialCoeffs;
-use plonky2_util::ceil_div_usize;
 
 use crate::fri::proof::{FriProof, FriProofTarget};
 use crate::gadgets::polynomial::PolynomialCoeffsExtTarget;
@@ -103,7 +102,7 @@ pub(crate) fn dummy_circuit<
     // Number of `NoopGate`s to add to get a circuit of size `degree` in the end.
     // Need to account for public input hashing, a `PublicInputGate` and a `ConstantGate`.
     let degree = common_data.degree();
-    let num_noop_gate = degree - ceil_div_usize(common_data.num_public_inputs, 8) - 2;
+    let num_noop_gate = degree - common_data.num_public_inputs.div_ceil(8) - 2;
 
     let mut builder = CircuitBuilder::<F, D>::new(config);
     for _ in 0..num_noop_gate {

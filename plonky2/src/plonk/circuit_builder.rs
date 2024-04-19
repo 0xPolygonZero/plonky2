@@ -9,7 +9,6 @@ use std::{collections::BTreeMap, sync::Arc, time::Instant};
 use hashbrown::{HashMap, HashSet};
 use itertools::Itertools;
 use log::{debug, info, warn, Level};
-use plonky2_util::ceil_div_usize;
 
 use crate::field::cosets::get_unique_coset_shifts;
 use crate::field::extension::{Extendable, FieldExtension};
@@ -1219,7 +1218,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             0
         } else {
             // There is 1 RE polynomial and multiple Sum/LDC polynomials.
-            ceil_div_usize(LookupGate::num_slots(&self.config), lookup_degree) + 1
+            LookupGate::num_slots(&self.config).div_ceil(lookup_degree) + 1
         };
         let constants_sigmas_cap = constants_sigmas_commitment.merkle_tree.cap.clone();
         let domain_separator = self.domain_separator.unwrap_or_default();
