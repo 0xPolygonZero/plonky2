@@ -33,7 +33,7 @@ use crate::plonk::vars::EvaluationVarsBaseBatch;
 use crate::timed;
 use crate::util::partial_products::{partial_products_and_z_gx, quotient_chunk_products};
 use crate::util::timing::TimingTree;
-use crate::util::{ceil_div_usize, log2_ceil, transpose};
+use crate::util::{log2_ceil, transpose};
 
 /// Set all the lookup gate wires (including multiplicities) and pad unused LU slots.
 /// Warning: rows are in descending order: the first gate to appear is the last LU gate, and
@@ -462,9 +462,9 @@ fn compute_lookup_polys<
     let degree = common_data.degree();
     let num_lu_slots = LookupGate::num_slots(&common_data.config);
     let max_lookup_degree = common_data.config.max_quotient_degree_factor - 1;
-    let num_partial_lookups = ceil_div_usize(num_lu_slots, max_lookup_degree);
+    let num_partial_lookups = num_lu_slots.div_ceil(max_lookup_degree);
     let num_lut_slots = LookupTableGate::num_slots(&common_data.config);
-    let max_lookup_table_degree = ceil_div_usize(num_lut_slots, num_partial_lookups);
+    let max_lookup_table_degree = num_lut_slots.div_ceil(num_partial_lookups);
 
     // First poly is RE, the rest are partial SLDCs.
     let mut final_poly_vecs = Vec::with_capacity(num_partial_lookups + 1);
@@ -652,10 +652,10 @@ fn compute_quotient_polys<
 
                 (LookupSelectors::StartEnd as usize..common_data.num_lookup_selectors)
                     .map(|r| {
-                        let lut_row_number = ceil_div_usize(
-                            common_data.luts[r - LookupSelectors::StartEnd as usize].len(),
-                            num_lut_slots,
-                        );
+                        let lut_row_number = common_data.luts
+                            [r - LookupSelectors::StartEnd as usize]
+                            .len()
+                            .div_ceil(num_lut_slots);
 
                         get_lut_poly(
                             common_data,
@@ -676,7 +676,7 @@ fn compute_quotient_polys<
         lut_re_poly_evals.iter().map(|v| v.as_slice()).collect();
 
     let points_batches = points.par_chunks(BATCH_SIZE);
-    let num_batches = ceil_div_usize(points.len(), BATCH_SIZE);
+    let num_batches = points.len().div_ceil(BATCH_SIZE);
 
     let quotient_values: Vec<Vec<F>> = points_batches
         .enumerate()

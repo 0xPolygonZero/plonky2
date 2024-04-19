@@ -45,7 +45,6 @@ use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::iop::target::Target;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::config::GenericConfig;
-use plonky2::util::ceil_div_usize;
 
 use crate::config::StarkConfig;
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
@@ -125,7 +124,7 @@ impl<F: Field> CrossTableLookup<F> {
             let num_appearances = all_tables.filter(|twc| twc.table == table).count();
             let is_helpers = num_appearances > 1;
             if is_helpers {
-                num_helpers_by_ctl[i] = ceil_div_usize(num_appearances, constraint_degree - 1);
+                num_helpers_by_ctl[i] = num_appearances.div_ceil(constraint_degree - 1);
                 num_helpers += num_helpers_by_ctl[i];
             }
 
@@ -292,7 +291,7 @@ pub(crate) fn num_ctl_helper_columns_by_table<F: Field, const N: usize>(
             let sum = group.count();
             if sum > 1 {
                 // We only need helper columns if there are at least 2 columns.
-                num_by_table[table] = ceil_div_usize(sum, constraint_degree - 1);
+                num_by_table[table] = sum.div_ceil(constraint_degree - 1);
             }
         }
 
