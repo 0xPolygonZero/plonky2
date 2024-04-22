@@ -9,7 +9,6 @@ use crate::field::types::Field;
 use crate::hash::hash_types::RichField;
 use crate::iop::ext_target::ExtensionTarget;
 use crate::plonk::circuit_builder::CircuitBuilder;
-use crate::util::ceil_div_usize;
 
 pub(crate) fn quotient_chunk_products<F: Field>(
     quotient_values: &[F],
@@ -41,10 +40,10 @@ pub(crate) fn partial_products_and_z_gx<F: Field>(z_x: F, quotient_chunk_product
 pub(crate) fn num_partial_products(n: usize, max_degree: usize) -> usize {
     debug_assert!(max_degree > 1);
     let chunk_size = max_degree;
-    // We'll split the product into `ceil_div_usize(n, chunk_size)` chunks, but the last chunk will
+    // We'll split the product into `n.div_ceil( chunk_size)` chunks, but the last chunk will
     // be associated with Z(gx) itself. Thus we subtract one to get the chunks associated with
     // partial products.
-    ceil_div_usize(n, chunk_size) - 1
+    n.div_ceil(chunk_size) - 1
 }
 
 /// Checks the relationship between each pair of partial product accumulators. In particular, this
