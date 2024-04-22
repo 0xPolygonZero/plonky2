@@ -1,8 +1,8 @@
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 
+use itertools::zip_eq;
 use plonky2_field::extension::flatten;
-use plonky2_field::types::Field;
 use plonky2_maybe_rayon::*;
 use plonky2_util::reverse_index_bits_in_place;
 
@@ -23,13 +23,13 @@ use crate::util::timing::TimingTree;
 /// Builds a batch FRI proof.
 pub fn batch_fri_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
     initial_merkle_trees: &[&FieldMerkleTree<F, C::Hasher>],
-    lde_polynomial_coeffs: PolynomialCoeffs<F::Extension>,
-    lde_polynomial_values: &mut [PolynomialValues<F::Extension>],
+    lde_polynomial_coeffs: &[PolynomialCoeffs<F::Extension>],
+    lde_polynomial_values: &[PolynomialValues<F::Extension>],
     challenger: &mut Challenger<F, C::Hasher>,
     fri_params: &FriParams,
     timing: &mut TimingTree,
 ) -> FriProof<F, C::Hasher, D> {
-    let n = lde_polynomial_coeffs.len();
+    let n = lde_polynomial_coeffs[0].len();
     assert_eq!(lde_polynomial_values[0].len(), n);
     // The polynomial vectors should be sorted by degree, from largest to smallest, with no duplicate degrees.
     assert!(lde_polynomial_values
@@ -77,7 +77,7 @@ pub(crate) fn batch_fri_committed_trees<
     C: GenericConfig<D, F = F>,
     const D: usize,
 >(
-    mut final_coeffs: PolynomialCoeffs<F::Extension>,
+    coeffs: &[PolynomialCoeffs<F::Extension>],
     values: &[PolynomialValues<F::Extension>],
     challenger: &mut Challenger<F, C::Hasher>,
     fri_params: &FriParams,
@@ -86,6 +86,7 @@ pub(crate) fn batch_fri_committed_trees<
     let mut shift = F::MULTIPLICATIVE_GROUP_GENERATOR;
     let mut polynomial_index = 1;
     let mut final_values = values[0].clone();
+    let mut final_coeffs = coeffs[0].clone();
     for arity_bits in &fri_params.reduction_arity_bits {
         let arity = 1 << arity_bits;
 
@@ -111,16 +112,17 @@ pub(crate) fn batch_fri_committed_trees<
         if polynomial_index != values.len() && final_values.len() == values[polynomial_index].len()
         {
             final_values = PolynomialValues::new(
-                final_values
-                    .values
-                    .iter()
-                    .zip(&values[polynomial_index].values)
-                    .map(|(&f, &v)| f + v * beta.exp_power_of_2(*arity_bits))
+                zip_eq(final_values.values.iter(), &values[polynomial_index].values)
+                    .map(|(&f, &v)| f + v)
+                    .collect::<Vec<_>>(),
+            );
+            final_coeffs = PolynomialCoeffs::new(
+                zip_eq(final_coeffs.coeffs.iter(), &coeffs[polynomial_index].coeffs)
+                    .map(|(&f, &v)| f + v)
                     .collect::<Vec<_>>(),
             );
             polynomial_index += 1;
         }
-        final_coeffs = final_values.clone().coset_ifft(shift.into());
     }
     assert_eq!(polynomial_index, values.len());
 
@@ -214,6 +216,7 @@ mod tests {
     use plonky2_field::types::{Field64, Sample};
 
     use super::*;
+    use crate::field::types::Field;
     use crate::fri::batch_oracle::BatchFriOracle;
     use crate::fri::batch_verifier::verify_batch_fri_proof;
     use crate::fri::reduction_strategies::FriReductionStrategy;
@@ -292,8 +295,8 @@ mod tests {
 
         let proof = batch_fri_proof::<F, C, D>(
             &[&polynomial_batch.field_merkle_tree],
-            lde_final_poly,
-            &mut [lde_final_values],
+            &[lde_final_poly],
+            &[lde_final_values],
             &mut challenger,
             &fri_params,
             &mut timing,
@@ -384,18 +387,19 @@ mod tests {
         let mut quotient = composition_poly.divide_by_linear(zeta);
         quotient.coeffs.push(<F as Extendable<D>>::Extension::ZERO);
         let lde_final_poly_1 = quotient.lde(fri_params.config.rate_bits);
-        let lde_final_values_1 = lde_final_poly_1.coset_fft(F::coset_shift().into());
+        let lde_final_values_1 =
+            lde_final_poly_1.coset_fft(F::coset_shift().exp_u64(1 << (k0 - k1)).into());
 
         let composition_poly = poly2.mul_extension::<D>(<F as Extendable<D>>::Extension::ONE);
         let mut quotient = composition_poly.divide_by_linear(zeta);
         quotient.coeffs.push(<F as Extendable<D>>::Extension::ZERO);
         let lde_final_poly_2 = quotient.lde(fri_params.config.rate_bits);
-        let lde_final_values_2 = lde_final_poly_2.coset_fft(F::coset_shift().into());
-
+        let lde_final_values_2 =
+            lde_final_poly_2.coset_fft(F::coset_shift().exp_u64(1 << (k0 - k2)).into());
         let proof = batch_fri_proof::<F, C, D>(
             &[&trace_oracle.field_merkle_tree],
-            lde_final_poly_0,
-            &mut [lde_final_values_0, lde_final_values_1, lde_final_values_2],
+            &[lde_final_poly_0, lde_final_poly_1, lde_final_poly_2],
+            &[lde_final_values_0, lde_final_values_1, lde_final_values_2],
             &mut challenger,
             &fri_params,
             &mut timing,
