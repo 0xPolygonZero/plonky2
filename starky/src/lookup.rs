@@ -6,6 +6,7 @@ use alloc::{vec, vec::Vec};
 use core::borrow::Borrow;
 use core::fmt::Debug;
 use core::iter::repeat;
+use core::ops::Neg;
 
 use itertools::Itertools;
 use num_bigint::BigUint;
@@ -44,6 +45,21 @@ impl<F: Field> Default for Filter<F> {
         Self {
             products: vec![],
             constants: vec![Column::constant(F::ONE)],
+        }
+    }
+}
+
+impl<F: Field> Neg for Filter<F> {
+    type Output = Self;
+
+    fn neg(self) -> Self {
+        Self {
+            products: self
+                .products
+                .into_iter()
+                .map(|(c1, c2)| (c1, -c2))
+                .collect(),
+            constants: self.constants.into_iter().map(|c| -c).collect(),
         }
     }
 }
@@ -137,6 +153,26 @@ pub struct Column<F: Field> {
     linear_combination: Vec<(usize, F)>,
     next_row_linear_combination: Vec<(usize, F)>,
     constant: F,
+}
+
+impl<F: Field> Neg for Column<F> {
+    type Output = Self;
+
+    fn neg(self) -> Self {
+        Self {
+            linear_combination: self
+                .linear_combination
+                .into_iter()
+                .map(|(c, f)| (c, -f))
+                .collect(),
+            next_row_linear_combination: self
+                .next_row_linear_combination
+                .into_iter()
+                .map(|(c, f)| (c, -f))
+                .collect(),
+            constant: -self.constant,
+        }
+    }
 }
 
 impl<F: Field> Column<F> {
@@ -772,22 +808,12 @@ pub(crate) fn get_helper_cols<F: Field>(
         let mut filter_col = Vec::with_capacity(degree);
         let first_combined = (0..degree)
             .map(|d| {
-                let f = {
-                    let f = first_filter.eval_table(trace, d);
-                    filter_col.push(f);
-                    f
-                };
-                if f.is_one() {
-                    let evals = first_col
-                        .iter()
-                        .map(|c| c.eval_table(trace, d))
-                        .collect::<Vec<F>>();
-                    challenge.combine(evals.iter())
-                } else {
-                    assert_eq!(f, F::ZERO, "Non-binary filter?");
-                    // Dummy value. Cannot be zero since it will be batch-inverted.
-                    F::ONE
-                }
+                filter_col.push(first_filter.eval_table(trace, d));
+                let evals = first_col
+                    .iter()
+                    .map(|c| c.eval_table(trace, d))
+                    .collect::<Vec<F>>();
+                challenge.combine(evals.iter())
             })
             .collect::<Vec<F>>();
 
@@ -802,22 +828,12 @@ pub(crate) fn get_helper_cols<F: Field>(
             let mut filter_col = Vec::with_capacity(degree);
             let mut combined = (0..degree)
                 .map(|d| {
-                    let f = {
-                        let f = filt.eval_table(trace, d);
-                        filter_col.push(f);
-                        f
-                    };
-                    if f.is_one() {
-                        let evals = col
-                            .iter()
-                            .map(|c| c.eval_table(trace, d))
-                            .collect::<Vec<F>>();
-                        challenge.combine(evals.iter())
-                    } else {
-                        assert_eq!(f, F::ZERO, "Non-binary filter?");
-                        // Dummy value. Cannot be zero since it will be batch-inverted.
-                        F::ONE
-                    }
+                    filter_col.push(filt.eval_table(trace, d));
+                    let evals = col
+                        .iter()
+                        .map(|c| c.eval_table(trace, d))
+                        .collect::<Vec<F>>();
+                    challenge.combine(evals.iter())
                 })
                 .collect::<Vec<F>>();
 
