@@ -13,7 +13,6 @@ use crate::iop::target::{BoolTarget, Target};
 use crate::iop::witness::{PartitionWitness, Witness, WitnessWrite};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::circuit_data::CommonCircuitData;
-use crate::util::ceil_div_usize;
 use crate::util::serialization::{Buffer, IoResult, Read, Write};
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
@@ -26,7 +25,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             return Vec::new();
         }
         let gate_type = BaseSumGate::<2>::new_from_config::<F>(&self.config);
-        let k = ceil_div_usize(num_bits, gate_type.num_limbs);
+        let k = num_bits.div_ceil(gate_type.num_limbs);
         let gates = (0..k)
             .map(|_| self.add_gate(gate_type, vec![]))
             .collect::<Vec<_>>();

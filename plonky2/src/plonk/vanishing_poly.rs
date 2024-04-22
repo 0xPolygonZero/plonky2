@@ -3,7 +3,6 @@ use alloc::{format, vec, vec::Vec};
 use core::cmp::min;
 
 use plonky2_field::polynomial::PolynomialCoeffs;
-use plonky2_util::ceil_div_usize;
 
 use super::circuit_builder::{LookupChallenges, NUM_COINS_LOOKUP};
 use super::vars::EvaluationVarsBase;
@@ -345,7 +344,7 @@ pub fn check_lookup_constraints<F: RichField + Extendable<D>, const D: usize>(
     let num_lut_slots = LookupTableGate::num_slots(&common_data.config);
     let lu_degree = common_data.quotient_degree_factor - 1;
     let num_sldc_polys = local_lookup_zs.len() - 1;
-    let lut_degree = ceil_div_usize(num_lut_slots, num_sldc_polys);
+    let lut_degree = num_lut_slots.div_ceil(num_sldc_polys);
 
     let mut constraints = Vec::with_capacity(4 + common_data.luts.len() + 2 * num_sldc_polys);
 
@@ -402,10 +401,9 @@ pub fn check_lookup_constraints<F: RichField + Extendable<D>, const D: usize>(
     // Check final RE constraints for each different LUT.
     for r in LookupSelectors::StartEnd as usize..common_data.num_lookup_selectors {
         let cur_ends_selector = lookup_selectors[r];
-        let lut_row_number = ceil_div_usize(
-            common_data.luts[r - LookupSelectors::StartEnd as usize].len(),
-            num_lut_slots,
-        );
+        let lut_row_number = common_data.luts[r - LookupSelectors::StartEnd as usize]
+            .len()
+            .div_ceil(num_lut_slots);
         let cur_function_eval = get_lut_poly(
             common_data,
             r - LookupSelectors::StartEnd as usize,
@@ -519,7 +517,7 @@ pub fn check_lookup_constraints_batch<F: RichField + Extendable<D>, const D: usi
     let num_lut_slots = LookupTableGate::num_slots(&common_data.config);
     let lu_degree = common_data.quotient_degree_factor - 1;
     let num_sldc_polys = local_lookup_zs.len() - 1;
-    let lut_degree = ceil_div_usize(num_lut_slots, num_sldc_polys);
+    let lut_degree = num_lut_slots.div_ceil(num_sldc_polys);
 
     let mut constraints = Vec::with_capacity(4 + common_data.luts.len() + 2 * num_sldc_polys);
 
@@ -931,7 +929,7 @@ pub fn check_lookup_constraints_circuit<F: RichField + Extendable<D>, const D: u
     let num_lut_slots = LookupTableGate::num_slots(&common_data.config);
     let lu_degree = common_data.quotient_degree_factor - 1;
     let num_sldc_polys = local_lookup_zs.len() - 1;
-    let lut_degree = ceil_div_usize(num_lut_slots, num_sldc_polys);
+    let lut_degree = num_lut_slots.div_ceil(num_sldc_polys);
 
     let mut constraints = Vec::with_capacity(4 + common_data.luts.len() + 2 * num_sldc_polys);
 
@@ -1023,10 +1021,9 @@ pub fn check_lookup_constraints_circuit<F: RichField + Extendable<D>, const D: u
     // Check final RE constraints for each different LUT.
     for r in LookupSelectors::StartEnd as usize..common_data.num_lookup_selectors {
         let cur_ends_selectors = lookup_selectors[r];
-        let lut_row_number = ceil_div_usize(
-            common_data.luts[r - LookupSelectors::StartEnd as usize].len(),
-            num_lut_slots,
-        );
+        let lut_row_number = common_data.luts[r - LookupSelectors::StartEnd as usize]
+            .len()
+            .div_ceil(num_lut_slots);
         let cur_function_eval = get_lut_poly_circuit(
             builder,
             common_data,

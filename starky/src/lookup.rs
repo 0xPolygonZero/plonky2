@@ -24,7 +24,6 @@ use plonky2::plonk::plonk_common::{
     reduce_with_powers, reduce_with_powers_circuit, reduce_with_powers_ext_circuit,
 };
 use plonky2::util::serialization::{Buffer, IoResult, Read, Write};
-use plonky2_util::ceil_div_usize;
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 use crate::evaluation_frame::StarkEvaluationFrame;
@@ -441,10 +440,11 @@ impl<F: Field> Lookup<F> {
     pub fn num_helper_columns(&self, constraint_degree: usize) -> usize {
         // One helper column for each column batch of size `constraint_degree-1`,
         // then one column for the inverse of `table + challenge` and one for the `Z` polynomial.
-        ceil_div_usize(
-            self.columns.len(),
-            constraint_degree.checked_sub(1).unwrap_or(1),
-        ) + 1
+
+        self.columns
+            .len()
+            .div_ceil(constraint_degree.checked_sub(1).unwrap_or(1))
+            + 1
     }
 }
 
@@ -757,10 +757,9 @@ pub(crate) fn get_helper_cols<F: Field>(
     challenge: GrandProductChallenge<F>,
     constraint_degree: usize,
 ) -> Vec<PolynomialValues<F>> {
-    let num_helper_columns = ceil_div_usize(
-        columns_filters.len(),
-        constraint_degree.checked_sub(1).unwrap_or(1),
-    );
+    let num_helper_columns = columns_filters
+        .len()
+        .div_ceil(constraint_degree.checked_sub(1).unwrap_or(1));
 
     let mut helper_columns = Vec::with_capacity(num_helper_columns);
 
