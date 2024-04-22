@@ -10,7 +10,6 @@ use alloc::{
 use std::sync::Arc;
 
 use itertools::Itertools;
-use plonky2_util::ceil_div_usize;
 
 use crate::field::extension::Extendable;
 use crate::field::packed::PackedField;
@@ -207,7 +206,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D> for Loo
     }
 
     fn run_once(&self, _witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
-        let first_row = self.last_lut_row + ceil_div_usize(self.lut.len(), self.num_slots) - 1;
+        let first_row = self.last_lut_row + self.lut.len().div_ceil(self.num_slots) - 1;
         let slot = (first_row - self.row) * self.num_slots + self.slot_nb;
 
         let slot_input_target =
