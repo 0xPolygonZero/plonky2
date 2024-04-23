@@ -117,16 +117,15 @@ impl<F: RichField, H: Hasher<F>> FieldMerkleTree<F, H> {
             digests.set_len(num_digests);
         }
 
+        // remove dummy leaves
+        leaves.pop();
+
         Self {
             leaves,
             digests,
             cap: MerkleCap(cap),
             leaf_heights,
         }
-    }
-
-    pub fn get(&self, table_index: usize, leaf_index: usize) -> &[F] {
-        &self.leaves[table_index][leaf_index]
     }
 
     /// Create a Merkle proof from a leaf index.
