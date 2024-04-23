@@ -17,7 +17,7 @@ use crate::evaluation_frame::StarkFrame;
 use crate::stark::Stark;
 use crate::util::trace_rows_to_poly_values;
 
-/// A trace wirh arbitrary values
+/// A trace with arbitrary values
 #[derive(Copy, Clone)]
 struct UnconstrainedStark<F: RichField + Extendable<D>, const D: usize> {
     num_rows: usize,
