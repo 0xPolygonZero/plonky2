@@ -27,7 +27,7 @@ unsafe fn transpose_in_place_square_small<T>(
 }
 
 /// Transpose square matrices and swap
-/// The matrices are of of size `1 << lb_size` by `1 << lb_size`. They occupy
+/// The matrices are of size `1 << lb_size` by `1 << lb_size`. They occupy
 /// `M0[i, j] == arr[(i + x << lb_stride) + j + y]`, `M1[i, j] == arr[i + x + (j + y << lb_stride)]`
 /// for `0 <= i, j < 1 << lb_size. The transposition swaps `M0[i, j]` and `M1[j, i]`.
 ///
@@ -53,7 +53,7 @@ unsafe fn transpose_swap_square_small<T>(
 }
 
 /// Transpose square matrices and swap
-/// The matrices are of of size `1 << lb_size` by `1 << lb_size`. They occupy
+/// The matrices are of size `1 << lb_size` by `1 << lb_size`. They occupy
 /// `M0[i, j] == arr[(i + x << lb_stride) + j + y]`, `M1[i, j] == arr[i + x + (j + y << lb_stride)]`
 /// for `0 <= i, j < 1 << lb_size. The transposition swaps `M0[i, j]` and `M1[j, i]`.
 ///
