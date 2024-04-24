@@ -34,18 +34,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     {
         let selected_proof =
             self.select_proof_with_pis(condition, proof_with_pis0, proof_with_pis1);
-        let selected_verifier_data = VerifierCircuitTarget {
-            constants_sigmas_cap: self.select_cap(
-                condition,
-                &inner_verifier_data0.constants_sigmas_cap,
-                &inner_verifier_data1.constants_sigmas_cap,
-            ),
-            circuit_digest: self.select_hash(
-                condition,
-                inner_verifier_data0.circuit_digest,
-                inner_verifier_data1.circuit_digest,
-            ),
-        };
+        let selected_verifier_data =
+            self.select_verifier_data(condition, inner_verifier_data0, inner_verifier_data1);
 
         self.verify_proof::<C>(&selected_proof, &selected_verifier_data, inner_common_data);
     }
@@ -177,6 +167,23 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             .zip_eq(v1)
             .map(|(c0, c1)| self.select_cap(b, c0, c1))
             .collect()
+    }
+
+    /// Computes `if b { vk0 } else { vk1 }`.
+    pub fn select_verifier_data(
+        &mut self,
+        b: BoolTarget,
+        vk0: &VerifierCircuitTarget,
+        vk1: &VerifierCircuitTarget,
+    ) -> VerifierCircuitTarget {
+        VerifierCircuitTarget {
+            constants_sigmas_cap: self.select_cap(
+                b,
+                &vk0.constants_sigmas_cap,
+                &vk1.constants_sigmas_cap,
+            ),
+            circuit_digest: self.select_hash(b, vk0.circuit_digest, vk1.circuit_digest),
+        }
     }
 
     /// Computes `if b { os0 } else { os1 }`.
