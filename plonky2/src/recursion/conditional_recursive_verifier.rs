@@ -75,7 +75,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     /// Computes `if b { proof_with_pis0 } else { proof_with_pis1 }`.
-    fn select_proof_with_pis(
+    pub fn select_proof_with_pis(
         &mut self,
         b: BoolTarget,
         proof_with_pis0: &ProofWithPublicInputsTarget<D>,
