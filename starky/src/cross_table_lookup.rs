@@ -396,14 +396,14 @@ fn ctl_helper_zs_cols<F: Field, const N: usize>(
     challenge: GrandProductChallenge<F>,
     constraint_degree: usize,
 ) -> Vec<(usize, Vec<PolynomialValues<F>>)> {
-    let grouped_lookups = looking_tables.iter().group_by(|a| a.table);
-
-    grouped_lookups
+    looking_tables
+        .iter()
+        .map(|a| (a.table, (&a.columns[..], &a.filter)))
+        .into_group_map()
         .into_iter()
-        .map(|(table, group)| {
-            let columns_filters = group
-                .map(|table| (&table.columns[..], &table.filter))
-                .collect::<Vec<(&[Column<F>], &Filter<F>)>>();
+        // We sort for determinism:
+        .sorted_by_key(|(table, _)| *table)
+        .map(|(table, columns_filters)| {
             (
                 table,
                 partial_sums(
