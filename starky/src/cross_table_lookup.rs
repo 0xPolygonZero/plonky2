@@ -931,10 +931,6 @@ pub fn verify_cross_table_lookups<F: RichField + Extendable<D>, const D: usize, 
         },
     ) in cross_table_lookups.iter().enumerate()
     {
-        // Get elements looking into `looked_table` that are not associated to any STARK.
-        let extra_sum_vec: &[F] = ctl_extra_looking_sums
-            .map(|v| v[looked_table.table].as_ref())
-            .unwrap_or_default();
         // We want to iterate on each looking table only once.
         let mut filtered_looking_tables = vec![];
         for table in looking_tables {
@@ -949,7 +945,9 @@ pub fn verify_cross_table_lookups<F: RichField + Extendable<D>, const D: usize, 
                 .iter()
                 .map(|&table| *ctl_zs_openings[table].next().unwrap())
                 .sum::<F>()
-                + extra_sum_vec[c];
+                // Get elements looking into `looked_table` that are not associated to any STARK.
+                + ctl_extra_looking_sums
+                .map(|v| v[looked_table.table][c]).unwrap_or_default();
 
             // Get the looked table CTL polynomial opening.
             let looked_z = *ctl_zs_openings[looked_table.table].next().unwrap();
@@ -984,10 +982,6 @@ pub fn verify_cross_table_lookups_circuit<
         looked_table,
     } in cross_table_lookups.into_iter()
     {
-        // Get elements looking into `looked_table` that are not associated to any STARK.
-        let extra_sum_vec: &[Target] = ctl_extra_looking_sums
-            .map(|v| v[looked_table.table].as_ref())
-            .unwrap_or_default();
         // We want to iterate on each looking table only once.
         let mut filtered_looking_tables = vec![];
         for table in looking_tables {
@@ -1003,7 +997,11 @@ pub fn verify_cross_table_lookups_circuit<
                     .map(|&table| *ctl_zs_openings[table].next().unwrap()),
             );
 
-            looking_zs_sum = builder.add(looking_zs_sum, extra_sum_vec[c]);
+            // Get elements looking into `looked_table` that are not associated to any STARK.
+            let extra_sum = ctl_extra_looking_sums
+                .map(|v| v[looked_table.table][c])
+                .unwrap_or_default();
+            looking_zs_sum = builder.add(looking_zs_sum, extra_sum);
 
             // Get the looked table CTL polynomial opening.
             let looked_z = *ctl_zs_openings[looked_table.table].next().unwrap();
