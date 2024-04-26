@@ -84,17 +84,15 @@ impl<F: Field> ReducingFactor<F> {
 
     pub fn reduce_polys_base<BF: Extendable<D, Extension = F>, const D: usize>(
         &mut self,
-        polys: impl MaybeIntoExactSizeParIter<Item = impl Borrow<PolynomialCoeffs<BF>>>,
+        polys: Vec<&PolynomialCoeffs<BF>>,
     ) -> PolynomialCoeffs<F> {
-        let polys = polys.into_exact_par_iter();
         self.count += polys.len() as u64;
         self.base
             .powers()
-            .take(polys.len())
+            .zip(polys)
             .collect::<Vec<_>>()
             .par_iter()
-            .zip(polys)
-            .map(|(base_power, poly)| poly.borrow().mul_extension(*base_power))
+            .map(|(base_power, poly)| poly.mul_extension(*base_power))
             .sum()
     }
 
