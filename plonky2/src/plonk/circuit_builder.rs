@@ -277,6 +277,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         targets.iter().for_each(|&t| self.register_public_input(t));
     }
 
+    /// The public inputs currently registered in this circuit.
+    pub fn public_inputs(&self) -> &[Target] {
+        &self.public_inputs
+    }
+
     /// Outputs the number of public inputs in this circuit.
     pub fn num_public_inputs(&self) -> usize {
         self.public_inputs.len()
