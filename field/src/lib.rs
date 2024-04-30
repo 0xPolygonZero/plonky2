@@ -3,8 +3,6 @@
 #![allow(clippy::needless_range_loop)]
 #![deny(rustdoc::broken_intra_doc_links)]
 #![deny(missing_debug_implementations)]
-#![feature(array_chunks)]
-#![feature(array_try_from_fn)]
 #![feature(specialization)]
 #![cfg_attr(target_arch = "x86_64", feature(stdarch_x86_avx512))]
 #![cfg_attr(not(test), no_std)]

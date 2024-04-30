@@ -135,12 +135,17 @@ where
 }
 
 /// Batch every D-sized chunks into extension field elements.
-pub fn unflatten<F, const D: usize>(l: &[F]) -> Vec<F::Extension>
+pub fn unflatten<F, const D: usize>(mut l: &[F]) -> Vec<F::Extension>
 where
     F: Field + Extendable<D>,
 {
     debug_assert_eq!(l.len() % D, 0);
-    l.array_chunks::<D>()
-        .map(|c| F::Extension::from_basefield_array(*c))
-        .collect()
+    // TODO: replace with array_chunks
+    core::iter::from_fn(move || {
+        let c = l.first_chunk().copied().map(F::Extension::from_basefield_array);
+        if c.is_some() {
+            l = &l[D..];
+        }
+        c
+    }).collect()
 }

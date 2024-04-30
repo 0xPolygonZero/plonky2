@@ -117,12 +117,12 @@ impl Field for Secp256K1Base {
     }
 
     fn from_noncanonical_biguint(val: BigUint) -> Self {
-        let mut vals = val.to_u64_digits().into_iter().pad_using(4, |_| 0);
-        let mut arr = core::array::try_from_fn(|_| vals.next());
-        if vals.next().is_some() {
-            arr.take();
+        let vals = val.iter_u64_digits().pad_using(4, |_| 0);
+        let mut arr = [0; 4];
+        for (a, v) in arr.iter_mut().zip_eq(vals) {
+            *a = v;
         }
-        Self(arr.expect("error converting to u64 array"))
+        Self(arr)
     }
 
     #[inline]

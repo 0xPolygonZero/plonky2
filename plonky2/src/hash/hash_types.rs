@@ -90,7 +90,8 @@ impl<F: RichField> GenericHashOut<F> for HashOut<F> {
     }
 
     fn from_bytes(bytes: &[u8]) -> Self {
-        let bytes = bytes.as_chunks::<8>().0.first_chunk().unwrap();
+        // TODO: replace with as_chunks
+        let bytes = core::array::from_fn(|i| core::array::from_fn(|j| bytes[i * 8 + j]));
 
         HashOut {
             elements: bytes.map(u64::from_le_bytes).map(F::from_canonical_u64),

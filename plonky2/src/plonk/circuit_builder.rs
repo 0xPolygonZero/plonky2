@@ -7,7 +7,7 @@ use core::cmp::max;
 use std::{collections::BTreeMap, sync::Arc, time::Instant};
 
 use hashbrown::{HashMap, HashSet};
-use itertools::Itertools;
+use itertools::{EitherOrBoth, Itertools};
 use log::{debug, info, warn, Level};
 use plonky2_util::ceil_div_usize;
 
@@ -664,20 +664,19 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn target_as_constant_ext(&self, target: ExtensionTarget<D>) -> Option<F::Extension> {
         // Get any coefficients that are constant. If we end up with exactly D of them,
         // then the `ExtensionTarget` as a whole is constant.
-        let mut const_coeffs = target
+        let const_coeffs = target
             .0
             .into_iter()
             .filter_map(|t| self.target_as_constant(t));
 
-        if let Some(d_const_coeffs) = core::array::try_from_fn(|_| const_coeffs.next()) {
-            if const_coeffs.next().is_some() {
-                None
-            } else {
-                Some(F::Extension::from_basefield_array(d_const_coeffs))
+        let mut d_const_coeffs = [F::ZERO; D];
+        for v in d_const_coeffs.iter_mut().zip_longest(const_coeffs) {
+            match v {
+                EitherOrBoth::Both(d, c) => *d = c,
+                _ => return None,
             }
-        } else {
-            None
         }
+        Some(F::Extension::from_basefield_array(d_const_coeffs))
     }
 
     pub fn push_context(&mut self, level: log::Level, ctx: &str) {

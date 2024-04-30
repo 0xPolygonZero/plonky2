@@ -2,7 +2,6 @@
 use alloc::{vec, vec::Vec};
 use core::mem::size_of;
 
-use itertools::Itertools;
 use keccak_hash::keccak;
 
 use crate::hash::hash_types::{BytesHash, RichField};
@@ -75,11 +74,10 @@ impl<F: RichField> PlonkyPermutation<F> for KeccakPermutation<F> {
         });
 
         let hash_onion_u64s = hash_onion.flat_map(|output| {
-            output
-                .array_chunks::<STRIDE>()
-                .copied()
-                .map(u64::from_le_bytes)
-                .collect_vec()
+            const N: usize = 32 / STRIDE;
+            core::array::from_fn::<_, N, _>(|i| {
+                u64::from_le_bytes(core::array::from_fn(|j| output[i * N + j]))
+            })
         });
 
         // Parse field elements from u64 stream, using rejection sampling such that words that don't

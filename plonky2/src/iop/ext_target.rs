@@ -151,10 +151,15 @@ pub fn flatten_target<const D: usize>(l: &[ExtensionTarget<D>]) -> Vec<Target> {
 }
 
 /// Batch every D-sized chunks into extension targets.
-pub fn unflatten_target<const D: usize>(l: &[Target]) -> Vec<ExtensionTarget<D>> {
+pub fn unflatten_target<const D: usize>(mut l: &[Target]) -> Vec<ExtensionTarget<D>> {
     debug_assert_eq!(l.len() % D, 0);
-    l.array_chunks::<D>()
-        .copied()
-        .map(ExtensionTarget)
-        .collect()
+    // TODO: replace with array_chunks
+    core::iter::from_fn(move || {
+        let c = l.first_chunk().copied().map(ExtensionTarget);
+        if c.is_some() {
+            l = &l[D..];
+        }
+        c
+    })
+    .collect()
 }
