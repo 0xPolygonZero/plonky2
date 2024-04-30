@@ -77,14 +77,14 @@ impl Field for GoldilocksField {
     const CHARACTERISTIC_TWO_ADICITY: usize = Self::TWO_ADICITY;
 
     // Sage: `g = GF(p).multiplicative_generator()`
-    const MULTIPLICATIVE_GROUP_GENERATOR: Self = Self(7);
+    const MULTIPLICATIVE_GROUP_GENERATOR: Self = Self(14293326489335486720);
 
     // Sage:
     // ```
     // g_2 = g^((p - 1) / 2^32)
     // g_2.multiplicative_order().factor()
     // ```
-    const POWER_OF_TWO_GENERATOR: Self = Self(1753635133440165772);
+    const POWER_OF_TWO_GENERATOR: Self = Self(7277203076849721926);
 
     const BITS: usize = 64;
 
