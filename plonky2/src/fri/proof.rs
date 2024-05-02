@@ -43,23 +43,12 @@ pub struct FriInitialTreeProof<F: RichField, H: Hasher<F>> {
 
 impl<F: RichField, H: Hasher<F>> FriInitialTreeProof<F, H> {
     pub(crate) fn unsalted_eval(&self, oracle_index: usize, poly_index: usize, salted: bool) -> F {
-        self.unsalted_evals(0, oracle_index, salted)[poly_index]
+        self.unsalted_evals(oracle_index, salted)[poly_index]
     }
 
-    // the Field Merkle Tree version
-    pub(crate) fn fmt_unsalted_eval(
-        &self,
-        start_index: usize,
-        oracle_index: usize,
-        poly_index: usize,
-        salted: bool,
-    ) -> F {
-        self.unsalted_evals(start_index, oracle_index, salted)[poly_index]
-    }
-
-    fn unsalted_evals(&self, start_index: usize, oracle_index: usize, salted: bool) -> &[F] {
+    fn unsalted_evals(&self, oracle_index: usize, salted: bool) -> &[F] {
         let evals = &self.evals_proofs[oracle_index].0;
-        &evals[start_index..evals.len() - salt_size(salted)]
+        &evals[..evals.len() - salt_size(salted)]
     }
 }
 

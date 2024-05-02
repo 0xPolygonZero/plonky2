@@ -31,7 +31,7 @@ pub struct PolynomialBatch<F: RichField + Extendable<D>, C: GenericConfig<D, F =
 {
     pub polynomials: Vec<PolynomialCoeffs<F>>,
     pub merkle_tree: MerkleTree<F, C::Hasher>,
-    pub degree_log: usize,
+    pub degree_bits: usize,
     pub rate_bits: usize,
     pub blinding: bool,
 }
@@ -43,7 +43,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> D
         PolynomialBatch {
             polynomials: Vec::new(),
             merkle_tree: MerkleTree::default(),
-            degree_log: 0,
+            degree_bits: 0,
             rate_bits: 0,
             blinding: false,
         }
@@ -111,7 +111,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         Self {
             polynomials,
             merkle_tree,
-            degree_log: log2_strict(degree),
+            degree_bits: log2_strict(degree),
             rate_bits,
             blinding,
         }
@@ -148,7 +148,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     /// Fetches LDE values at the `index * step`th point.
     pub fn get_lde_values(&self, index: usize, step: usize) -> &[F] {
         let index = index * step;
-        let index = reverse_bits(index, self.degree_log + self.rate_bits);
+        let index = reverse_bits(index, self.degree_bits + self.rate_bits);
         let slice = &self.merkle_tree.leaves[index];
         &slice[..slice.len() - if self.blinding { SALT_SIZE } else { 0 }]
     }

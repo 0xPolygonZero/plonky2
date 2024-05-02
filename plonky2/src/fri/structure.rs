@@ -70,13 +70,13 @@ impl FriPolynomialInfo {
 }
 
 /// Opened values of each polynomial.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FriOpenings<F: RichField + Extendable<D>, const D: usize> {
     pub batches: Vec<FriOpeningBatch<F, D>>,
 }
 
 /// Opened values of each polynomial that's opened at a particular point.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FriOpeningBatch<F: RichField + Extendable<D>, const D: usize> {
     pub values: Vec<F::Extension>,
 }

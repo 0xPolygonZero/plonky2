@@ -740,7 +740,7 @@ pub trait Read {
         Ok(PolynomialBatch {
             polynomials,
             merkle_tree,
-            degree_log,
+            degree_bits: degree_log,
             rate_bits,
             blinding,
         })
@@ -1755,7 +1755,7 @@ pub trait Write {
             self.write_field_vec(&poly_batch.polynomials[i].coeffs)?;
         }
         self.write_merkle_tree(&poly_batch.merkle_tree)?;
-        self.write_usize(poly_batch.degree_log)?;
+        self.write_usize(poly_batch.degree_bits)?;
         self.write_usize(poly_batch.rate_bits)?;
         self.write_bool(poly_batch.blinding)?;
 
