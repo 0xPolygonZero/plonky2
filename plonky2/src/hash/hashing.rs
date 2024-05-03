@@ -11,6 +11,19 @@ use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::config::AlgebraicHasher;
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
+    /// Pad the message using the `pad10*1` rule, then hash it.
+    ///
+    /// This is circuit version of
+    /// [`crate::plonk::config::Hasher::hash_pad`]
+    pub fn hash_pad<H: AlgebraicHasher<F>>(&mut self, inputs: Vec<Target>) -> HashOutTarget {
+        let mut padded_input = inputs;
+        padded_input.push(self.one());
+        while (padded_input.len() + 1) % H::Permutation::RATE != 0 {
+            padded_input.push(self.zero());
+        }
+        padded_input.push(self.one());
+        self.hash_n_to_hash_no_pad::<H>(padded_input)
+    }
     pub fn hash_or_noop<H: AlgebraicHasher<F>>(&mut self, inputs: Vec<Target>) -> HashOutTarget {
         let zero = self.zero();
         if inputs.len() <= NUM_HASH_OUT_ELTS {
