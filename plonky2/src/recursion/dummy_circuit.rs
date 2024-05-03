@@ -144,7 +144,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         C::Hasher: AlgebraicHasher<F>,
     {
         let dummy_circuit = dummy_circuit::<F, C, D>(common_data);
-        let dummy_proof_with_pis = dummy_proof::<F, C, D>(&dummy_circuit, HashMap::new())?;
         let dummy_proof_with_pis_target = self.add_virtual_proof_with_pis(common_data);
         let dummy_verifier_data_target = self.constant_verifier_data(&dummy_circuit.verifier_only);
 
