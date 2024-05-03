@@ -113,7 +113,7 @@ pub fn dummy_circuit<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, c
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
-    pub fn dummy_proof_and_vk<C: GenericConfig<D, F = F> + 'static>(
+    pub(crate) fn dummy_proof_and_vk<C: GenericConfig<D, F = F> + 'static>(
         &mut self,
         common_data: &CommonCircuitData<F, D>,
     ) -> anyhow::Result<(ProofWithPublicInputsTarget<D>, VerifierCircuitTarget)>
