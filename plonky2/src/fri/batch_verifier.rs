@@ -221,12 +221,14 @@ fn batch_fri_verifier_query_round<
         if batch_index < degree_bits.len()
             && n == degree_bits[batch_index] + params.config.rate_bits
         {
+            let subgroup_x_init = F::MULTIPLICATIVE_GROUP_GENERATOR
+                * F::primitive_root_of_unity(n).exp_u64(reverse_bits(x_index, n) as u64);
             let eval = batch_fri_combine_initial::<F, C, D>(
                 instances,
                 batch_index,
                 &round_proof.initial_trees_proof,
                 challenges.fri_alpha,
-                subgroup_x,
+                subgroup_x_init,
                 &precomputed_reduced_evals[batch_index],
                 params,
             );

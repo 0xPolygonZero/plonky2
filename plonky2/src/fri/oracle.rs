@@ -91,13 +91,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         let lde_values = timed!(
             timing,
             "FFT + blinding",
-            Self::lde_values(
-                &polynomials,
-                rate_bits,
-                F::coset_shift(),
-                blinding,
-                fft_root_table
-            )
+            Self::lde_values(&polynomials, rate_bits, blinding, fft_root_table)
         );
 
         let mut leaves = timed!(timing, "transpose LDEs", transpose(&lde_values));
@@ -120,7 +114,6 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     pub(crate) fn lde_values(
         polynomials: &[PolynomialCoeffs<F>],
         rate_bits: usize,
-        shift: F,
         blinding: bool,
         fft_root_table: Option<&FftRootTable<F>>,
     ) -> Vec<Vec<F>> {
@@ -134,7 +127,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             .map(|p| {
                 assert_eq!(p.len(), degree, "Polynomial degrees inconsistent");
                 p.lde(rate_bits)
-                    .coset_fft_with_options(shift, Some(rate_bits), fft_root_table)
+                    .coset_fft_with_options(F::coset_shift(), Some(rate_bits), fft_root_table)
                     .values
             })
             .chain(

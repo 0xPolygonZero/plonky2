@@ -4,6 +4,7 @@ use alloc::{format, vec::Vec};
 use itertools::Itertools;
 use plonky2_field::extension::Extendable;
 use plonky2_field::fft::FftRootTable;
+use plonky2_field::packed::PackedField;
 use plonky2_field::polynomial::{PolynomialCoeffs, PolynomialValues};
 use plonky2_field::types::Field;
 use plonky2_maybe_rayon::*;
@@ -21,7 +22,7 @@ use crate::plonk::config::GenericConfig;
 use crate::timed;
 use crate::util::reducing::ReducingFactor;
 use crate::util::timing::TimingTree;
-use crate::util::transpose;
+use crate::util::{reverse_bits, transpose};
 
 /// Represents a batch FRI oracle, i.e. a batch of polynomials with different degrees which have
 /// been Merkle-ized in a Field Merkle Tree.
@@ -30,7 +31,7 @@ pub struct BatchFriOracle<F: RichField + Extendable<D>, C: GenericConfig<D, F = 
 {
     pub polynomials: Vec<PolynomialCoeffs<F>>,
     pub field_merkle_tree: FieldMerkleTree<F, C::Hasher>,
-    // The degree bits of each polynomial.
+    // The degree bits of each polynomial group.
     pub degree_bits: Vec<usize>,
     pub rate_bits: usize,
     pub blinding: bool,
@@ -73,17 +74,15 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         timing: &mut TimingTree,
         fft_root_table: &[Option<&FftRootTable<F>>],
     ) -> Self {
-        let degree_bits = polynomials
+        let mut degree_bits = polynomials
             .iter()
             .map(|p| log2_strict(p.len()))
             .collect_vec();
         assert!(degree_bits.windows(2).all(|pair| { pair[0] >= pair[1] }));
-        let max_degree_bits = degree_bits[0];
 
         let num_polynomials = polynomials.len();
         let mut group_start = 0;
         let mut leaves = Vec::new();
-        let shift = F::coset_shift();
 
         for (i, d) in degree_bits.iter().enumerate() {
             if i == num_polynomials - 1 || *d > degree_bits[i + 1] {
@@ -93,7 +92,6 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
                     PolynomialBatch::<F, C, D>::lde_values(
                         &polynomials[group_start..i + 1],
                         rate_bits,
-                        shift.exp_power_of_2(max_degree_bits - d),
                         blinding,
                         fft_root_table[i]
                     )
@@ -113,6 +111,10 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             FieldMerkleTree::new(leaves, cap_height)
         );
 
+        degree_bits.sort_unstable();
+        degree_bits.dedup();
+        degree_bits.reverse();
+        assert_eq!(field_merkle_tree.leaves.len(), degree_bits.len());
         Self {
             polynomials,
             field_merkle_tree,
@@ -170,11 +172,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             let lde_final_values = timed!(
                 timing,
                 &format!("perform final FFT {}", lde_final_poly.len()),
-                lde_final_poly.coset_fft(
-                    F::coset_shift()
-                        .exp_u64(1 << (degree_bits[0] - degree_bits[i]))
-                        .into()
-                )
+                lde_final_poly.coset_fft(F::coset_shift().into())
             );
             final_lde_polynomial_coeff.push(lde_final_poly);
             final_lde_polynomial_values.push(lde_final_values);
@@ -185,12 +183,68 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
                 .iter()
                 .map(|o| &o.field_merkle_tree)
                 .collect::<Vec<_>>(),
-            &final_lde_polynomial_coeff,
+            final_lde_polynomial_coeff[0].clone(),
             &final_lde_polynomial_values,
             challenger,
             fri_params,
             timing,
         )
+    }
+
+    /// Fetches LDE values at the `index * step`th point.
+    pub fn get_lde_values(
+        &self,
+        degree_bits_index: usize,
+        index: usize,
+        step: usize,
+        slice_start: usize,
+        slice_len: usize,
+    ) -> &[F] {
+        let index = index * step;
+        let index = reverse_bits(index, self.degree_bits[degree_bits_index] + self.rate_bits);
+        let slice = &self.field_merkle_tree.leaves[degree_bits_index][index];
+        &slice[slice_start..slice_start + slice_len]
+    }
+
+    /// Like `get_lde_values`, but fetches LDE values from a batch of `P::WIDTH` points, and returns
+    /// packed values.
+    pub fn get_lde_values_packed<P>(
+        &self,
+        degree_bits_index: usize,
+        index_start: usize,
+        step: usize,
+        slice_start: usize,
+        slice_len: usize,
+    ) -> Vec<P>
+    where
+        P: PackedField<Scalar = F>,
+    {
+        let row_wise = (0..P::WIDTH)
+            .map(|i| {
+                self.get_lde_values(
+                    degree_bits_index,
+                    index_start + i,
+                    step,
+                    slice_start,
+                    slice_len,
+                )
+            })
+            .collect_vec();
+
+        // This is essentially a transpose, but we will not use the generic transpose method as we
+        // want inner lists to be of type P, not Vecs which would involve allocation.
+        let leaf_size = row_wise[0].len();
+        (0..leaf_size)
+            .map(|j| {
+                let mut packed = P::ZEROS;
+                packed
+                    .as_slice_mut()
+                    .iter_mut()
+                    .zip(&row_wise)
+                    .for_each(|(packed_i, row_i)| *packed_i = row_i[j]);
+                packed
+            })
+            .collect_vec()
     }
 }
 
