@@ -58,7 +58,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Make sure we have enough wires and routed wires to do the FRI checks efficiently. This check
     /// isn't required -- without it we'd get errors elsewhere in the stack -- but just gives more
     /// helpful errors.
-    fn check_recursion_config(&self, max_fri_arity_bits: usize) {
+    pub(crate) fn check_recursion_config(&self, max_fri_arity_bits: usize) {
         let random_access = RandomAccessGate::<F, D>::new_from_config(
             &self.config,
             max_fri_arity_bits.max(self.config.fri_config.cap_height),
@@ -91,7 +91,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         );
     }
 
-    fn fri_verify_proof_of_work(&mut self, fri_pow_response: Target, config: &FriConfig) {
+    pub(crate) fn fri_verify_proof_of_work(
+        &mut self,
+        fri_pow_response: Target,
+        config: &FriConfig,
+    ) {
         self.assert_leading_zeros(
             fri_pow_response,
             config.proof_of_work_bits + (64 - F::order().bits()) as u32,

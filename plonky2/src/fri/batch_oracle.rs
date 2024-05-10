@@ -261,11 +261,18 @@ mod test {
     use crate::fri::batch_verifier::verify_batch_fri_proof;
     use crate::fri::reduction_strategies::FriReductionStrategy;
     use crate::fri::structure::{
-        FriBatchInfo, FriInstanceInfo, FriOpeningBatch, FriOpenings, FriOracleInfo,
-        FriPolynomialInfo,
+        FriBatchInfo, FriInstanceInfo, FriInstanceInfoTarget, FriOpeningBatch, FriOpenings,
+        FriOpeningsTarget, FriOracleInfo, FriPolynomialInfo,
     };
+    use crate::fri::witness_util::set_fri_proof_target;
     use crate::fri::FriConfig;
+    use crate::hash::hash_types::MerkleCapTarget;
+    use crate::iop::challenger::RecursiveChallenger;
+    use crate::iop::witness::{PartialWitness};
+    use crate::plonk::circuit_builder::CircuitBuilder;
+    use crate::plonk::circuit_data::CircuitConfig;
     use crate::plonk::config::PoseidonGoldilocksConfig;
+    use crate::plonk::prover::prove;
 
     const D: usize = 2;
 
@@ -448,6 +455,43 @@ mod test {
             &[trace_oracle.field_merkle_tree.cap],
             &proof,
             &fri_params,
-        )
+        );
+
+        // test recursive verifier
+        let config = CircuitConfig::standard_recursion_config();
+        let mut builder = CircuitBuilder::<F, D>::new(config.clone());
+        let num_leaves_per_oracle = vec![1, 2, 1];
+        let fri_proof_target = builder.add_virtual_fri_proof(&num_leaves_per_oracle, &fri_params);
+        let fri_instance_info_target = [FriInstanceInfoTarget {
+            oracles: vec![],
+            batches: vec![],
+        }];
+        let fri_openings_target = [FriOpeningsTarget { batches: vec![] }];
+        let mut challenger = RecursiveChallenger::<F, H, D>::new(&mut builder);
+        let fri_challenges_target = challenger.fri_challenges(
+            &mut builder,
+            &fri_proof_target.commit_phase_merkle_caps,
+            &fri_proof_target.final_poly,
+            fri_proof_target.pow_witness,
+            &fri_params.config,
+        );
+        let merkle_cap_target = MerkleCapTarget { 0: vec![] };
+        builder.verify_batch_fri_proof::<C>(
+            &fri_instance_info_target,
+            &fri_openings_target,
+            &fri_challenges_target,
+            &[merkle_cap_target],
+            &fri_proof_target,
+            &fri_params,
+        );
+
+        let mut pw = PartialWitness::new();
+        set_fri_proof_target(&mut pw, &fri_proof_target, &proof);
+
+        let data = builder.build::<C>();
+        let proof = prove::<F, C, D>(&data.prover_only, &data.common, pw, &mut timing)?;
+        data.verify(proof.clone())?;
+
+        Ok(())
     }
 }

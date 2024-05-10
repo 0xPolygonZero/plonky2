@@ -12,6 +12,7 @@ use crate::fri::reduction_strategies::FriReductionStrategy;
 
 pub mod batch_oracle;
 pub mod batch_prover;
+pub mod batch_recursive_verifier;
 pub mod batch_verifier;
 mod challenges;
 pub mod oracle;
