@@ -34,6 +34,7 @@ use core::fmt::Debug;
 use core::iter::once;
 
 use anyhow::{ensure, Result};
+use hashbrown::HashMap;
 use itertools::Itertools;
 use plonky2::field::extension::{Extendable, FieldExtension};
 use plonky2::field::packed::PackedField;
@@ -916,10 +917,11 @@ pub(crate) fn eval_cross_table_lookup_checks_circuit<
 }
 
 /// Verifies all cross-table lookups.
+/// The key of `ctl_extra_looking_sums` is the corresponding CTL's position within `cross_table_lookups`.
 pub fn verify_cross_table_lookups<F: RichField + Extendable<D>, const D: usize, const N: usize>(
     cross_table_lookups: &[CrossTableLookup<F>],
     ctl_zs_first: [Vec<F>; N],
-    ctl_extra_looking_sums: Option<&[Vec<F>]>,
+    ctl_extra_looking_sums: &HashMap<usize, Vec<F>>,
     config: &StarkConfig,
 ) -> Result<()> {
     let mut ctl_zs_openings = ctl_zs_first.iter().map(|v| v.iter()).collect::<Vec<_>>();
@@ -931,6 +933,7 @@ pub fn verify_cross_table_lookups<F: RichField + Extendable<D>, const D: usize, 
         },
     ) in cross_table_lookups.iter().enumerate()
     {
+        let ctl_extra_looking_sum = ctl_extra_looking_sums.get(&index);
         // We want to iterate on each looking table only once.
         let mut filtered_looking_tables = vec![];
         for table in looking_tables {
@@ -946,8 +949,7 @@ pub fn verify_cross_table_lookups<F: RichField + Extendable<D>, const D: usize, 
                 .map(|&table| *ctl_zs_openings[table].next().unwrap())
                 .sum::<F>()
                 // Get elements looking into `looked_table` that are not associated to any STARK.
-                + ctl_extra_looking_sums
-                .map(|v| v[looked_table.table][c]).unwrap_or_default();
+                + ctl_extra_looking_sum.map(|v| v[c]).unwrap_or_default();
 
             // Get the looked table CTL polynomial opening.
             let looked_z = *ctl_zs_openings[looked_table.table].next().unwrap();
@@ -965,6 +967,7 @@ pub fn verify_cross_table_lookups<F: RichField + Extendable<D>, const D: usize, 
 }
 
 /// Circuit version of `verify_cross_table_lookups`. Verifies all cross-table lookups.
+/// The key of `ctl_extra_looking_sums` is the corresponding CTL's position within `cross_table_lookups`.
 pub fn verify_cross_table_lookups_circuit<
     F: RichField + Extendable<D>,
     const D: usize,
@@ -973,15 +976,19 @@ pub fn verify_cross_table_lookups_circuit<
     builder: &mut CircuitBuilder<F, D>,
     cross_table_lookups: Vec<CrossTableLookup<F>>,
     ctl_zs_first: [Vec<Target>; N],
-    ctl_extra_looking_sums: Option<&[Vec<Target>]>,
+    ctl_extra_looking_sums: &HashMap<usize, Vec<Target>>,
     inner_config: &StarkConfig,
 ) {
     let mut ctl_zs_openings = ctl_zs_first.iter().map(|v| v.iter()).collect::<Vec<_>>();
-    for CrossTableLookup {
-        looking_tables,
-        looked_table,
-    } in cross_table_lookups.into_iter()
+    for (
+        index,
+        CrossTableLookup {
+            looking_tables,
+            looked_table,
+        },
+    ) in cross_table_lookups.into_iter().enumerate()
     {
+        let ctl_extra_looking_sum = ctl_extra_looking_sums.get(&index);
         // We want to iterate on each looking table only once.
         let mut filtered_looking_tables = vec![];
         for table in looking_tables {
@@ -998,9 +1005,7 @@ pub fn verify_cross_table_lookups_circuit<
             );
 
             // Get elements looking into `looked_table` that are not associated to any STARK.
-            let extra_sum = ctl_extra_looking_sums
-                .map(|v| v[looked_table.table][c])
-                .unwrap_or_default();
+            let extra_sum = ctl_extra_looking_sum.map(|v| v[c]).unwrap_or_default();
             looking_zs_sum = builder.add(looking_zs_sum, extra_sum);
 
             // Get the looked table CTL polynomial opening.
@@ -1029,10 +1034,11 @@ pub mod debug_utils {
     type MultiSet<F> = HashMap<Vec<F>, Vec<(TableIdx, usize)>>;
 
     /// Check that the provided traces and cross-table lookups are consistent.
+    /// The key of `extra_looking_values` is the corresponding CTL's position within `cross_table_lookups`.
     pub fn check_ctls<F: Field>(
         trace_poly_values: &[Vec<PolynomialValues<F>>],
         cross_table_lookups: &[CrossTableLookup<F>],
-        extra_looking_values: &HashMap<TableIdx, Vec<Vec<F>>>,
+        extra_looking_values: &HashMap<usize, Vec<Vec<F>>>,
     ) {
         for (i, ctl) in cross_table_lookups.iter().enumerate() {
             check_ctl(trace_poly_values, ctl, i, extra_looking_values.get(&i));
