@@ -236,10 +236,7 @@ mod tests {
         (0..n).map(|_| F::rand_vec(k)).collect()
     }
 
-    fn verify_all_leaves<
-        C: GenericConfig<D>,
-        const D: usize,
-    >(
+    fn verify_all_leaves<C: GenericConfig<D>, const D: usize>(
         leaves: Vec<Vec<C::F>>,
         cap_height: usize,
     ) -> Result<()> {

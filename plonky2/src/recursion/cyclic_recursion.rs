@@ -213,10 +213,7 @@ mod tests {
     use crate::recursion::dummy_circuit::cyclic_base_proof;
 
     // Generates `CommonCircuitData` usable for recursion.
-    fn common_data_for_recursion<
-        C: GenericConfig<D>,
-        const D: usize,
-    >() -> CommonCircuitData<C::F, D>
+    fn common_data_for_recursion<C: GenericConfig<D>, const D: usize>() -> CommonCircuitData<C::F, D>
     where
         C::Hasher: AlgebraicHasher<C::F>,
     {
