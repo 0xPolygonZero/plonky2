@@ -1,4 +1,4 @@
-use plonky2::field::extension::{Extendable, FieldExtension};
+use plonky2::field::extension::{BaseField, Extendable, FieldExtension};
 use plonky2::field::packed::PackedField;
 use plonky2::hash::hash_types::RichField;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
@@ -16,34 +16,28 @@ use crate::stark::Stark;
 
 /// Evaluates all constraint, permutation and cross-table lookup polynomials
 /// of the current STARK at the local and next values.
-pub(crate) fn eval_vanishing_poly<F, FE, P, S, const D: usize, const D2: usize>(
+pub(crate) fn eval_vanishing_poly<P, S, const D: usize, const D2: usize>(
     stark: &S,
-    vars: &S::EvaluationFrame<FE, P, D2>,
-    lookups: &[Lookup<F>],
-    lookup_vars: Option<LookupCheckVars<F, FE, P, D2>>,
-    ctl_vars: Option<&[CtlCheckVars<F, FE, P, D2>]>,
+    vars: &S::EvaluationFrame<P, D2>,
+    lookups: &[Lookup<BaseField<P::Scalar, D2>>],
+    lookup_vars: Option<LookupCheckVars<P, D2>>,
+    ctl_vars: Option<&[CtlCheckVars<P, D2>]>,
     consumer: &mut ConstraintConsumer<P>,
 ) where
-    F: RichField + Extendable<D>,
-    FE: FieldExtension<D2, BaseField = F>,
-    P: PackedField<Scalar = FE>,
-    S: Stark<F, D>,
+    P: PackedField,
+    BaseField<P::Scalar, D2>: RichField + Extendable<D>,
+    P::Scalar: FieldExtension<D2>,
+    S: Stark<BaseField<P::Scalar, D2>, D>,
 {
     // Evaluate all of the STARK's table constraints.
     stark.eval_packed_generic(vars, consumer);
     if let Some(lookup_vars) = lookup_vars {
         // Evaluate the STARK constraints related to the permutation arguments.
-        eval_packed_lookups_generic::<F, FE, P, S, D, D2>(
-            stark,
-            lookups,
-            vars,
-            lookup_vars,
-            consumer,
-        );
+        eval_packed_lookups_generic::<P, S, D, D2>(stark, lookups, vars, lookup_vars, consumer);
     }
     if let Some(ctl_vars) = ctl_vars {
         // Evaluate the STARK constraints related to the CTLs.
-        eval_cross_table_lookup_checks::<F, FE, P, S, D, D2>(
+        eval_cross_table_lookup_checks::<P, S, D, D2>(
             vars,
             ctl_vars,
             consumer,

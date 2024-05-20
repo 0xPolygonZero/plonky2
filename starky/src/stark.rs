@@ -28,10 +28,9 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
     const PUBLIC_INPUTS: usize = Self::EvaluationFrameTarget::PUBLIC_INPUTS;
 
     /// This is used to evaluate constraints natively.
-    type EvaluationFrame<FE, P, const D2: usize>: StarkEvaluationFrame<P, FE>
+    type EvaluationFrame<P: PackedField, const D2: usize>: StarkEvaluationFrame<P, P::Scalar>
     where
-        FE: FieldExtension<D2, BaseField = F>,
-        P: PackedField<Scalar = FE>;
+        P::Scalar: FieldExtension<D2, BaseField = F>;
 
     /// The `Target` version of `Self::EvaluationFrame`, used to evaluate constraints recursively.
     type EvaluationFrameTarget: StarkEvaluationFrame<ExtensionTarget<D>, ExtensionTarget<D>>;
@@ -42,18 +41,17 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
     /// evaluate constraints over a larger domain if desired. This can also be called with `FE = F`
     /// and `D2 = 1`, in which case we are using the trivial extension, i.e. just evaluating
     /// constraints over `F`.
-    fn eval_packed_generic<FE, P, const D2: usize>(
+    fn eval_packed_generic<P: PackedField, const D2: usize>(
         &self,
-        vars: &Self::EvaluationFrame<FE, P, D2>,
+        vars: &Self::EvaluationFrame<P, D2>,
         yield_constr: &mut ConstraintConsumer<P>,
     ) where
-        FE: FieldExtension<D2, BaseField = F>,
-        P: PackedField<Scalar = FE>;
+        P::Scalar: FieldExtension<D2, BaseField = F>;
 
     /// Evaluates constraints at a vector of points from the base field `F`.
     fn eval_packed_base<P: PackedField<Scalar = F>>(
         &self,
-        vars: &Self::EvaluationFrame<F, P, 1>,
+        vars: &Self::EvaluationFrame<P, 1>,
         yield_constr: &mut ConstraintConsumer<P>,
     ) {
         self.eval_packed_generic(vars, yield_constr)
@@ -62,7 +60,7 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
     /// Evaluates constraints at a single point from the degree `D` extension field.
     fn eval_ext(
         &self,
-        vars: &Self::EvaluationFrame<F::Extension, F::Extension, D>,
+        vars: &Self::EvaluationFrame<F::Extension, D>,
         yield_constr: &mut ConstraintConsumer<F::Extension>,
     ) {
         self.eval_packed_generic(vars, yield_constr)

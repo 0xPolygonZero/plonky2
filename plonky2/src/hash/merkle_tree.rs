@@ -229,7 +229,6 @@ mod tests {
     use anyhow::Result;
 
     use super::*;
-    use crate::field::extension::Extendable;
     use crate::hash::merkle_proofs::verify_merkle_proof_to_cap;
     use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
 
@@ -238,14 +237,13 @@ mod tests {
     }
 
     fn verify_all_leaves<
-        F: RichField + Extendable<D>,
-        C: GenericConfig<D, F = F>,
+        C: GenericConfig<D>,
         const D: usize,
     >(
-        leaves: Vec<Vec<F>>,
+        leaves: Vec<Vec<C::F>>,
         cap_height: usize,
     ) -> Result<()> {
-        let tree = MerkleTree::<F, C::Hasher>::new(leaves.clone(), cap_height);
+        let tree = MerkleTree::<C::F, C::Hasher>::new(leaves.clone(), cap_height);
         for (i, leaf) in leaves.into_iter().enumerate() {
             let proof = tree.prove(i);
             verify_merkle_proof_to_cap(leaf, i, &tree.cap, &proof)?;
@@ -277,7 +275,7 @@ mod tests {
         let n = 1 << log_n;
         let leaves = random_data::<F>(n, 7);
 
-        verify_all_leaves::<F, C, D>(leaves, log_n)?;
+        verify_all_leaves::<C, D>(leaves, log_n)?;
 
         Ok(())
     }
@@ -292,7 +290,7 @@ mod tests {
         let n = 1 << log_n;
         let leaves = random_data::<F>(n, 7);
 
-        verify_all_leaves::<F, C, D>(leaves, 1)?;
+        verify_all_leaves::<C, D>(leaves, 1)?;
 
         Ok(())
     }

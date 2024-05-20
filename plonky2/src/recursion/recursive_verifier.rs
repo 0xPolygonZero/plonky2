@@ -31,7 +31,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         );
         let public_inputs_hash =
             self.hash_n_to_hash_no_pad::<C::InnerHasher>(proof_with_pis.public_inputs.clone());
-        let challenges = proof_with_pis.get_challenges::<F, C>(
+        let challenges = proof_with_pis.get_challenges::<C>(
             self,
             public_inputs_hash,
             inner_verifier_data.circuit_digest,
@@ -207,6 +207,7 @@ mod tests {
     use log::{info, Level};
 
     use super::*;
+    use crate::field::types::Field;
     use crate::fri::reduction_strategies::FriReductionStrategy;
     use crate::fri::FriConfig;
     use crate::gadgets::lookup::{OTHER_TABLE, TIP5_TABLE};
@@ -224,12 +225,11 @@ mod tests {
         init_logger();
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
-        type F = <C as GenericConfig<D>>::F;
         let config = CircuitConfig::standard_recursion_zk_config();
 
-        let (proof, vd, common_data) = dummy_proof::<F, C, D>(&config, 4_000)?;
+        let (proof, vd, common_data) = dummy_proof::<C, D>(&config, 4_000)?;
         let (proof, vd, common_data) =
-            recursive_proof::<F, C, C, D>(proof, vd, common_data, &config, None, true, true)?;
+            recursive_proof::<C, C, D>(proof, vd, common_data, &config, None, true, true)?;
         test_serialization(&proof, &vd, &common_data)?;
 
         Ok(())
@@ -240,12 +240,11 @@ mod tests {
         init_logger();
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
-        type F = <C as GenericConfig<D>>::F;
         let config = CircuitConfig::standard_recursion_zk_config();
 
-        let (proof, vd, common_data) = dummy_lookup_proof::<F, C, D>(&config, 10)?;
+        let (proof, vd, common_data) = dummy_lookup_proof::<C, D>(&config, 10)?;
         let (proof, vd, common_data) =
-            recursive_proof::<F, C, C, D>(proof, vd, common_data, &config, None, true, true)?;
+            recursive_proof::<C, C, D>(proof, vd, common_data, &config, None, true, true)?;
         test_serialization(&proof, &vd, &common_data)?;
 
         Ok(())
@@ -256,12 +255,11 @@ mod tests {
         init_logger();
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
-        type F = <C as GenericConfig<D>>::F;
         let config = CircuitConfig::standard_recursion_config();
 
-        let (proof, vd, common_data) = dummy_two_luts_proof::<F, C, D>(&config)?;
+        let (proof, vd, common_data) = dummy_two_luts_proof::<C, D>(&config)?;
         let (proof, vd, common_data) =
-            recursive_proof::<F, C, C, D>(proof, vd, common_data, &config, None, true, true)?;
+            recursive_proof::<C, C, D>(proof, vd, common_data, &config, None, true, true)?;
         test_serialization(&proof, &vd, &common_data)?;
 
         Ok(())
@@ -272,12 +270,11 @@ mod tests {
         init_logger();
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
-        type F = <C as GenericConfig<D>>::F;
         let config = CircuitConfig::standard_recursion_config();
 
-        let (proof, vd, common_data) = dummy_too_many_rows_proof::<F, C, D>(&config)?;
+        let (proof, vd, common_data) = dummy_too_many_rows_proof::<C, D>(&config)?;
         let (proof, vd, common_data) =
-            recursive_proof::<F, C, C, D>(proof, vd, common_data, &config, None, true, true)?;
+            recursive_proof::<C, C, D>(proof, vd, common_data, &config, None, true, true)?;
         test_serialization(&proof, &vd, &common_data)?;
 
         Ok(())
@@ -288,22 +285,21 @@ mod tests {
         init_logger();
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
-        type F = <C as GenericConfig<D>>::F;
 
         let config = CircuitConfig::standard_recursion_config();
 
         // Start with a degree 2^14 proof
-        let (proof, vd, common_data) = dummy_proof::<F, C, D>(&config, 16_000)?;
+        let (proof, vd, common_data) = dummy_proof::<C, D>(&config, 16_000)?;
         assert_eq!(common_data.degree_bits(), 14);
 
         // Shrink it to 2^13.
         let (proof, vd, common_data) =
-            recursive_proof::<F, C, C, D>(proof, vd, common_data, &config, Some(13), false, false)?;
+            recursive_proof::<C, C, D>(proof, vd, common_data, &config, Some(13), false, false)?;
         assert_eq!(common_data.degree_bits(), 13);
 
         // Shrink it to 2^12.
         let (proof, vd, common_data) =
-            recursive_proof::<F, C, C, D>(proof, vd, common_data, &config, None, true, true)?;
+            recursive_proof::<C, C, D>(proof, vd, common_data, &config, None, true, true)?;
         assert_eq!(common_data.degree_bits(), 12);
 
         test_serialization(&proof, &vd, &common_data)?;
@@ -320,16 +316,15 @@ mod tests {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type KC = KeccakGoldilocksConfig;
-        type F = <C as GenericConfig<D>>::F;
 
         let standard_config = CircuitConfig::standard_recursion_config();
 
         // An initial dummy proof.
-        let (proof, vd, common_data) = dummy_proof::<F, C, D>(&standard_config, 4_000)?;
+        let (proof, vd, common_data) = dummy_proof::<C, D>(&standard_config, 4_000)?;
         assert_eq!(common_data.degree_bits(), 12);
 
         // A standard recursive proof.
-        let (proof, vd, common_data) = recursive_proof::<F, C, C, D>(
+        let (proof, vd, common_data) = recursive_proof::<C, C, D>(
             proof,
             vd,
             common_data,
@@ -350,7 +345,7 @@ mod tests {
             },
             ..standard_config
         };
-        let (proof, vd, common_data) = recursive_proof::<F, C, C, D>(
+        let (proof, vd, common_data) = recursive_proof::<C, C, D>(
             proof,
             vd,
             common_data,
@@ -373,15 +368,8 @@ mod tests {
             },
             ..high_rate_config
         };
-        let (proof, vd, common_data) = recursive_proof::<F, KC, C, D>(
-            proof,
-            vd,
-            common_data,
-            &final_config,
-            None,
-            true,
-            true,
-        )?;
+        let (proof, vd, common_data) =
+            recursive_proof::<KC, C, D>(proof, vd, common_data, &final_config, None, true, true)?;
         assert_eq!(common_data.degree_bits(), 12, "final proof too large");
 
         test_serialization(&proof, &vd, &common_data)?;
@@ -395,34 +383,33 @@ mod tests {
         const D: usize = 2;
         type PC = PoseidonGoldilocksConfig;
         type KC = KeccakGoldilocksConfig;
-        type F = <PC as GenericConfig<D>>::F;
 
         let config = CircuitConfig::standard_recursion_config();
-        let (proof, vd, common_data) = dummy_proof::<F, PC, D>(&config, 4_000)?;
+        let (proof, vd, common_data) = dummy_proof::<PC, D>(&config, 4_000)?;
 
         let (proof, vd, common_data) =
-            recursive_proof::<F, PC, PC, D>(proof, vd, common_data, &config, None, false, false)?;
+            recursive_proof::<PC, PC, D>(proof, vd, common_data, &config, None, false, false)?;
         test_serialization(&proof, &vd, &common_data)?;
 
         let (proof, vd, common_data) =
-            recursive_proof::<F, KC, PC, D>(proof, vd, common_data, &config, None, false, false)?;
+            recursive_proof::<KC, PC, D>(proof, vd, common_data, &config, None, false, false)?;
         test_serialization(&proof, &vd, &common_data)?;
 
         Ok(())
     }
 
-    type Proof<F, C, const D: usize> = (
-        ProofWithPublicInputs<F, C, D>,
+    type Proof<C, const D: usize> = (
+        ProofWithPublicInputs<C, D>,
         VerifierOnlyCircuitData<C, D>,
-        CommonCircuitData<F, D>,
+        CommonCircuitData<<C as GenericConfig<D>>::F, D>,
     );
 
     /// Creates a dummy proof which should have roughly `num_dummy_gates` gates.
-    fn dummy_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
+    fn dummy_proof<C: GenericConfig<D>, const D: usize>(
         config: &CircuitConfig,
         num_dummy_gates: u64,
-    ) -> Result<Proof<F, C, D>> {
-        let mut builder = CircuitBuilder::<F, D>::new(config.clone());
+    ) -> Result<Proof<C, D>> {
+        let mut builder = CircuitBuilder::<C::F, D>::new(config.clone());
         for _ in 0..num_dummy_gates {
             builder.add_gate(NoopGate, vec![]);
         }
@@ -436,15 +423,11 @@ mod tests {
     }
 
     /// Creates a dummy lookup proof which does one lookup to one LUT.
-    fn dummy_lookup_proof<
-        F: RichField + Extendable<D>,
-        C: GenericConfig<D, F = F>,
-        const D: usize,
-    >(
+    fn dummy_lookup_proof<C: GenericConfig<D>, const D: usize>(
         config: &CircuitConfig,
         num_dummy_gates: u64,
-    ) -> Result<Proof<F, C, D>> {
-        let mut builder = CircuitBuilder::<F, D>::new(config.clone());
+    ) -> Result<Proof<C, D>> {
+        let mut builder = CircuitBuilder::<C::F, D>::new(config.clone());
         let initial_a = builder.add_virtual_target();
         let initial_b = builder.add_virtual_target();
 
@@ -473,19 +456,19 @@ mod tests {
 
         let data = builder.build::<C>();
         let mut inputs = PartialWitness::new();
-        inputs.set_target(initial_a, F::from_canonical_usize(look_val_a));
-        inputs.set_target(initial_b, F::from_canonical_usize(look_val_b));
+        inputs.set_target(initial_a, C::F::from_canonical_usize(look_val_a));
+        inputs.set_target(initial_b, C::F::from_canonical_usize(look_val_b));
 
         let proof = data.prove(inputs)?;
         data.verify(proof.clone())?;
 
         assert!(
-            proof.public_inputs[2] == F::from_canonical_u16(out_a),
+            proof.public_inputs[2] == C::F::from_canonical_u16(out_a),
             "First lookup, at index {} in the Tip5 table gives an incorrect output.",
             proof.public_inputs[0]
         );
         assert!(
-            proof.public_inputs[3] == F::from_canonical_u16(out_b),
+            proof.public_inputs[3] == C::F::from_canonical_u16(out_b),
             "Second lookup, at index {} in the Tip5 table gives an incorrect output.",
             proof.public_inputs[1]
         );
@@ -494,14 +477,10 @@ mod tests {
     }
 
     /// Creates a dummy lookup proof which does one lookup to two different LUTs.
-    fn dummy_two_luts_proof<
-        F: RichField + Extendable<D>,
-        C: GenericConfig<D, F = F>,
-        const D: usize,
-    >(
+    fn dummy_two_luts_proof<C: GenericConfig<D>, const D: usize>(
         config: &CircuitConfig,
-    ) -> Result<Proof<F, C, D>> {
-        let mut builder = CircuitBuilder::<F, D>::new(config.clone());
+    ) -> Result<Proof<C, D>> {
+        let mut builder = CircuitBuilder::<C::F, D>::new(config.clone());
         let initial_a = builder.add_virtual_target();
         let initial_b = builder.add_virtual_target();
 
@@ -540,29 +519,29 @@ mod tests {
         builder.register_public_input(output_final);
 
         let mut pw = PartialWitness::new();
-        pw.set_target(initial_a, F::ONE);
-        pw.set_target(initial_b, F::TWO);
+        pw.set_target(initial_a, C::F::ONE);
+        pw.set_target(initial_b, C::F::TWO);
 
         let data = builder.build::<C>();
         let proof = data.prove(pw)?;
         data.verify(proof.clone())?;
 
         assert!(
-            proof.public_inputs[3] == F::from_canonical_u16(first_out),
+            proof.public_inputs[3] == C::F::from_canonical_u16(first_out),
             "First lookup, at index {} in the Tip5 table gives an incorrect output.",
             proof.public_inputs[0]
         );
         assert!(
-            proof.public_inputs[4] == F::from_canonical_u16(second_out),
+            proof.public_inputs[4] == C::F::from_canonical_u16(second_out),
             "Second lookup, at index {} in the Tip5 table gives an incorrect output.",
             proof.public_inputs[1]
         );
         assert!(
-            proof.public_inputs[2] == F::from_canonical_u16(s),
+            proof.public_inputs[2] == C::F::from_canonical_u16(s),
             "Sum between the first two LUT outputs is incorrect."
         );
         assert!(
-            proof.public_inputs[5] == F::from_canonical_u16(final_out),
+            proof.public_inputs[5] == C::F::from_canonical_u16(final_out),
             "Output of the second LUT at index {} is incorrect.",
             s
         );
@@ -571,14 +550,10 @@ mod tests {
     }
 
     /// Creates a dummy proof which has more than 256 lookups to one LUT.
-    fn dummy_too_many_rows_proof<
-        F: RichField + Extendable<D>,
-        C: GenericConfig<D, F = F>,
-        const D: usize,
-    >(
+    fn dummy_too_many_rows_proof<C: GenericConfig<D>, const D: usize>(
         config: &CircuitConfig,
-    ) -> Result<Proof<F, C, D>> {
-        let mut builder = CircuitBuilder::<F, D>::new(config.clone());
+    ) -> Result<Proof<C, D>> {
+        let mut builder = CircuitBuilder::<C::F, D>::new(config.clone());
 
         let initial_a = builder.add_virtual_target();
         let initial_b = builder.add_virtual_target();
@@ -606,18 +581,18 @@ mod tests {
 
         let mut pw = PartialWitness::new();
 
-        pw.set_target(initial_a, F::from_canonical_usize(look_val_a));
-        pw.set_target(initial_b, F::from_canonical_usize(look_val_b));
+        pw.set_target(initial_a, C::F::from_canonical_usize(look_val_a));
+        pw.set_target(initial_b, C::F::from_canonical_usize(look_val_b));
 
         let data = builder.build::<C>();
         let proof = data.prove(pw)?;
         assert!(
-            proof.public_inputs[2] == F::from_canonical_u16(out_b),
+            proof.public_inputs[2] == C::F::from_canonical_u16(out_b),
             "First lookup, at index {} in the Tip5 table gives an incorrect output.",
             proof.public_inputs[1]
         );
         assert!(
-            proof.public_inputs[3] == F::from_canonical_u16(out_a),
+            proof.public_inputs[3] == C::F::from_canonical_u16(out_a),
             "Lookups at index {} in the Tip5 table gives an incorrect output.",
             proof.public_inputs[0]
         );
@@ -626,24 +601,19 @@ mod tests {
         Ok((proof, data.verifier_only, data.common))
     }
 
-    fn recursive_proof<
-        F: RichField + Extendable<D>,
-        C: GenericConfig<D, F = F>,
-        InnerC: GenericConfig<D, F = F>,
-        const D: usize,
-    >(
-        inner_proof: ProofWithPublicInputs<F, InnerC, D>,
+    fn recursive_proof<C: GenericConfig<D>, InnerC: GenericConfig<D, F = C::F>, const D: usize>(
+        inner_proof: ProofWithPublicInputs<InnerC, D>,
         inner_vd: VerifierOnlyCircuitData<InnerC, D>,
-        inner_cd: CommonCircuitData<F, D>,
+        inner_cd: CommonCircuitData<C::F, D>,
         config: &CircuitConfig,
         min_degree_bits: Option<usize>,
         print_gate_counts: bool,
         print_timing: bool,
-    ) -> Result<Proof<F, C, D>>
+    ) -> Result<Proof<C, D>>
     where
-        InnerC::Hasher: AlgebraicHasher<F>,
+        InnerC::Hasher: AlgebraicHasher<C::F>,
     {
-        let mut builder = CircuitBuilder::<F, D>::new(config.clone());
+        let mut builder = CircuitBuilder::<C::F, D>::new(config.clone());
         let mut pw = PartialWitness::new();
         let pt = builder.add_virtual_proof_with_pis(&inner_cd);
         pw.set_proof_with_pis_target(&pt, &inner_proof);
@@ -685,14 +655,10 @@ mod tests {
     }
 
     /// Test serialization and print some size info.
-    fn test_serialization<
-        F: RichField + Extendable<D>,
-        C: GenericConfig<D, F = F>,
-        const D: usize,
-    >(
-        proof: &ProofWithPublicInputs<F, C, D>,
+    fn test_serialization<C: GenericConfig<D>, const D: usize>(
+        proof: &ProofWithPublicInputs<C, D>,
         vd: &VerifierOnlyCircuitData<C, D>,
-        common_data: &CommonCircuitData<F, D>,
+        common_data: &CommonCircuitData<C::F, D>,
     ) -> Result<()> {
         let proof_bytes = proof.to_bytes();
         info!("Proof length: {} bytes", proof_bytes.len());

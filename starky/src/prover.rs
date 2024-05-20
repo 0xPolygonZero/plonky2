@@ -6,14 +6,12 @@ use core::iter::once;
 
 use anyhow::{ensure, Result};
 use itertools::Itertools;
-use plonky2::field::extension::Extendable;
 use plonky2::field::packable::Packable;
 use plonky2::field::packed::PackedField;
 use plonky2::field::polynomial::{PolynomialCoeffs, PolynomialValues};
 use plonky2::field::types::Field;
 use plonky2::field::zero_poly_coset::ZeroPolyOnCoset;
 use plonky2::fri::oracle::PolynomialBatch;
-use plonky2::hash::hash_types::RichField;
 use plonky2::iop::challenger::Challenger;
 use plonky2::plonk::config::GenericConfig;
 use plonky2::timed;
@@ -34,17 +32,16 @@ use crate::stark::Stark;
 use crate::vanishing_poly::eval_vanishing_poly;
 
 /// From a STARK trace, computes a STARK proof to attest its correctness.
-pub fn prove<F, C, S, const D: usize>(
+pub fn prove<C, S, const D: usize>(
     stark: S,
     config: &StarkConfig,
-    trace_poly_values: Vec<PolynomialValues<F>>,
-    public_inputs: &[F],
+    trace_poly_values: Vec<PolynomialValues<C::F>>,
+    public_inputs: &[C::F],
     timing: &mut TimingTree,
-) -> Result<StarkProofWithPublicInputs<F, C, D>>
+) -> Result<StarkProofWithPublicInputs<C, D>>
 where
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
-    S: Stark<F, D>,
+    C: GenericConfig<D>,
+    S: Stark<C::F, D>,
 {
     let degree = trace_poly_values[0].len();
     let degree_bits = log2_strict(degree);
@@ -59,7 +56,7 @@ where
     let trace_commitment = timed!(
         timing,
         "compute trace commitment",
-        PolynomialBatch::<F, C, D>::from_values(
+        PolynomialBatch::<C, D>::from_values(
             trace_poly_values.clone(),
             rate_bits,
             false,
@@ -93,21 +90,20 @@ where
 /// - all the required polynomial and FRI argument openings.
 /// - individual `ctl_data` and common `ctl_challenges` if the STARK is part
 /// of a multi-STARK system.
-pub fn prove_with_commitment<F, C, S, const D: usize>(
+pub fn prove_with_commitment<C, S, const D: usize>(
     stark: &S,
     config: &StarkConfig,
-    trace_poly_values: &[PolynomialValues<F>],
-    trace_commitment: &PolynomialBatch<F, C, D>,
-    ctl_data: Option<&CtlData<F>>,
-    ctl_challenges: Option<&GrandProductChallengeSet<F>>,
-    challenger: &mut Challenger<F, C::Hasher>,
-    public_inputs: &[F],
+    trace_poly_values: &[PolynomialValues<C::F>],
+    trace_commitment: &PolynomialBatch<C, D>,
+    ctl_data: Option<&CtlData<C::F>>,
+    ctl_challenges: Option<&GrandProductChallengeSet<C::F>>,
+    challenger: &mut Challenger<C::F, C::Hasher>,
+    public_inputs: &[C::F],
     timing: &mut TimingTree,
-) -> Result<StarkProofWithPublicInputs<F, C, D>>
+) -> Result<StarkProofWithPublicInputs<C, D>>
 where
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
-    S: Stark<F, D>,
+    C: GenericConfig<D>,
+    S: Stark<C::F, D>,
 {
     let degree = trace_poly_values[0].len();
     let degree_bits = log2_strict(degree);
@@ -227,7 +223,7 @@ where
     let quotient_polys = timed!(
         timing,
         "compute quotient polys",
-        compute_quotient_polys::<F, <F as Packable>::Packing, C, S, D>(
+        compute_quotient_polys::<<C::F as Packable>::Packing, C, S, D>(
             stark,
             trace_commitment,
             &auxiliary_polys_commitment,
@@ -285,9 +281,9 @@ where
     // To avoid leaking witness data, we want to ensure that our opening locations, `zeta` and
     // `g * zeta`, are not in our subgroup `H`. It suffices to check `zeta` only, since
     // `(g * zeta)^n = zeta^n`, where `n` is the order of `g`.
-    let g = F::primitive_root_of_unity(degree_bits);
+    let g = C::F::primitive_root_of_unity(degree_bits);
     ensure!(
-        zeta.exp_power_of_2(degree_bits) != F::Extension::ONE,
+        zeta.exp_power_of_2(degree_bits) != C::FE::ONE,
         "Opening point is in the subgroup."
     );
 
@@ -338,25 +334,24 @@ where
 
 /// Computes the quotient polynomials `(sum alpha^i C_i(x)) / Z_H(x)` for `alpha` in `alphas`,
 /// where the `C_i`s are the STARK constraints.
-fn compute_quotient_polys<'a, F, P, C, S, const D: usize>(
+fn compute_quotient_polys<'a, P, C, S, const D: usize>(
     stark: &S,
-    trace_commitment: &'a PolynomialBatch<F, C, D>,
-    auxiliary_polys_commitment: &'a Option<PolynomialBatch<F, C, D>>,
-    lookup_challenges: Option<&'a Vec<F>>,
-    lookups: &[Lookup<F>],
-    ctl_data: Option<&CtlData<F>>,
-    public_inputs: &[F],
-    alphas: Vec<F>,
+    trace_commitment: &'a PolynomialBatch<C, D>,
+    auxiliary_polys_commitment: &'a Option<PolynomialBatch<C, D>>,
+    lookup_challenges: Option<&'a Vec<C::F>>,
+    lookups: &[Lookup<C::F>],
+    ctl_data: Option<&CtlData<C::F>>,
+    public_inputs: &[C::F],
+    alphas: Vec<C::F>,
     degree_bits: usize,
     num_lookup_columns: usize,
     num_ctl_columns: &[usize],
     config: &StarkConfig,
-) -> Option<Vec<PolynomialCoeffs<F>>>
+) -> Option<Vec<PolynomialCoeffs<C::F>>>
 where
-    F: RichField + Extendable<D>,
-    P: PackedField<Scalar = F>,
-    C: GenericConfig<D, F = F>,
-    S: Stark<F, D>,
+    P: PackedField<Scalar = C::F>,
+    C: GenericConfig<D>,
+    S: Stark<C::F, D>,
 {
     if stark.quotient_degree_factor() == 0 {
         return None;
@@ -381,18 +376,18 @@ where
     let lagrange_last =
         PolynomialValues::selector(degree, degree - 1).lde_onto_coset(quotient_degree_bits);
 
-    let z_h_on_coset = ZeroPolyOnCoset::<F>::new(degree_bits, quotient_degree_bits);
+    let z_h_on_coset = ZeroPolyOnCoset::<C::F>::new(degree_bits, quotient_degree_bits);
 
     // Retrieve the LDE values at index `i`.
     let get_trace_values_packed =
         |i_start| -> Vec<P> { trace_commitment.get_lde_values_packed(i_start, step) };
 
     // Last element of the subgroup.
-    let last = F::primitive_root_of_unity(degree_bits).inverse();
+    let last = C::F::primitive_root_of_unity(degree_bits).inverse();
     let size = degree << quotient_degree_bits;
-    let coset = F::cyclic_subgroup_coset_known_order(
-        F::primitive_root_of_unity(degree_bits + quotient_degree_bits),
-        F::coset_shift(),
+    let coset = C::F::cyclic_subgroup_coset_known_order(
+        C::F::primitive_root_of_unity(degree_bits + quotient_degree_bits),
+        C::F::coset_shift(),
         size,
     );
 
@@ -461,7 +456,7 @@ where
                                 ..num_lookup_columns + start_index + num_ctl_helper_cols]
                             .to_vec();
 
-                        let ctl_vars = CtlCheckVars::<F, F, P, 1> {
+                        let ctl_vars = CtlCheckVars::<P, 1> {
                             helper_columns,
                             local_z: auxiliary_polys_commitment
                                 .as_ref()
@@ -487,7 +482,7 @@ where
 
             // Evaluate the polynomial combining all constraints, including
             // those associated to the permutation arguments.
-            eval_vanishing_poly::<F, F, P, S, D, 1>(
+            eval_vanishing_poly::<P, S, D, 1>(
                 stark,
                 &vars,
                 lookups,
@@ -518,7 +513,7 @@ where
         transpose(&quotient_values)
             .into_par_iter()
             .map(PolynomialValues::new)
-            .map(|values| values.coset_ifft(F::coset_shift()))
+            .map(|values| values.coset_ifft(C::F::coset_shift()))
             .collect(),
     )
 }
@@ -532,22 +527,21 @@ where
 /// **Note**: this is an expensive check, hence is only available when the `debug_assertions`
 /// flag is activated, to not hinder performances with regular `release` build.
 #[cfg(debug_assertions)]
-fn check_constraints<'a, F, C, S, const D: usize>(
+fn check_constraints<'a, C, S, const D: usize>(
     stark: &S,
-    trace_commitment: &'a PolynomialBatch<F, C, D>,
-    public_inputs: &[F],
-    auxiliary_commitment: &'a Option<PolynomialBatch<F, C, D>>,
-    lookup_challenges: Option<&'a Vec<F>>,
-    lookups: &[Lookup<F>],
-    ctl_data: Option<&CtlData<F>>,
-    alphas: Vec<F>,
+    trace_commitment: &'a PolynomialBatch<C, D>,
+    public_inputs: &[C::F],
+    auxiliary_commitment: &'a Option<PolynomialBatch<C, D>>,
+    lookup_challenges: Option<&'a Vec<C::F>>,
+    lookups: &[Lookup<C::F>],
+    ctl_data: Option<&CtlData<C::F>>,
+    alphas: Vec<C::F>,
     degree_bits: usize,
     num_lookup_columns: usize,
     num_ctl_helper_cols: &[usize],
 ) where
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
-    S: Stark<F, D>,
+    C: GenericConfig<D>,
+    S: Stark<C::F, D>,
 {
     let degree = 1 << degree_bits;
     let rate_bits = 0; // Set this to higher value to check constraint degree.
@@ -561,10 +555,10 @@ fn check_constraints<'a, F, C, S, const D: usize>(
     // Evaluation of the last Lagrange polynomial.
     let lagrange_last = PolynomialValues::selector(degree, degree - 1).lde(rate_bits);
 
-    let subgroup = F::two_adic_subgroup(degree_bits + rate_bits);
+    let subgroup = C::F::two_adic_subgroup(degree_bits + rate_bits);
 
     // Get the evaluations of a batch of polynomials over our subgroup.
-    let get_subgroup_evals = |comm: &PolynomialBatch<F, C, D>| -> Vec<Vec<F>> {
+    let get_subgroup_evals = |comm: &PolynomialBatch<C, D>| -> Vec<Vec<C::F>> {
         let values = comm
             .polynomials
             .par_iter()
@@ -578,7 +572,7 @@ fn check_constraints<'a, F, C, S, const D: usize>(
     let auxiliary_subgroup_evals = auxiliary_commitment.as_ref().map(get_subgroup_evals);
 
     // Last element of the subgroup.
-    let last = F::primitive_root_of_unity(degree_bits).inverse();
+    let last = C::F::primitive_root_of_unity(degree_bits).inverse();
 
     let constraint_values = (0..size)
         .map(|i| {
@@ -623,7 +617,7 @@ fn check_constraints<'a, F, C, S, const D: usize>(
                             [num_lookup_columns + start_index
                                 ..num_lookup_columns + start_index + num_helper_cols]
                             .to_vec();
-                        let ctl_vars = CtlCheckVars::<F, F, F, 1> {
+                        let ctl_vars = CtlCheckVars::<C::F, 1> {
                             helper_columns,
                             local_z: auxiliary_subgroup_evals.as_ref().unwrap()[i]
                                 [num_lookup_columns + total_num_helper_cols + iii],
@@ -643,7 +637,7 @@ fn check_constraints<'a, F, C, S, const D: usize>(
 
             // Evaluate the polynomial combining all constraints, including those associated
             // to the permutation arguments.
-            eval_vanishing_poly::<F, F, F, S, D, 1>(
+            eval_vanishing_poly::<C::F, S, D, 1>(
                 stark,
                 &vars,
                 lookups,

@@ -86,24 +86,17 @@ fn random_low_degree_values<F: Field>(rate_bits: usize) -> Vec<F> {
         .values
 }
 
-pub fn test_eval_fns<
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
-    G: Gate<F, D>,
-    const D: usize,
->(
-    gate: G,
-) -> Result<()> {
+pub fn test_eval_fns<C: GenericConfig<D>, G: Gate<C::F, D>, const D: usize>(gate: G) -> Result<()> {
     // Test that `eval_unfiltered` and `eval_unfiltered_base` are coherent.
-    let wires_base = F::rand_vec(gate.num_wires());
-    let constants_base = F::rand_vec(gate.num_constants());
+    let wires_base = C::F::rand_vec(gate.num_wires());
+    let constants_base = C::F::rand_vec(gate.num_constants());
     let wires = wires_base
         .iter()
-        .map(|&x| F::Extension::from_basefield(x))
+        .map(|&x| C::FE::from_basefield(x))
         .collect::<Vec<_>>();
     let constants = constants_base
         .iter()
-        .map(|&x| F::Extension::from_basefield(x))
+        .map(|&x| C::FE::from_basefield(x))
         .collect::<Vec<_>>();
     let public_inputs_hash = HashOut::rand();
 
@@ -123,17 +116,17 @@ pub fn test_eval_fns<
         evals
             == evals_base
                 .into_iter()
-                .map(F::Extension::from_basefield)
+                .map(C::FE::from_basefield)
                 .collect::<Vec<_>>()
     );
 
     // Test that `eval_unfiltered` and `eval_unfiltered_recursively` are coherent.
-    let wires = F::Extension::rand_vec(gate.num_wires());
-    let constants = F::Extension::rand_vec(gate.num_constants());
+    let wires = C::FE::rand_vec(gate.num_wires());
+    let constants = C::FE::rand_vec(gate.num_constants());
 
     let config = CircuitConfig::standard_recursion_config();
     let mut pw = PartialWitness::new();
-    let mut builder = CircuitBuilder::<F, D>::new(config);
+    let mut builder = CircuitBuilder::<C::F, D>::new(config);
 
     let wires_t = builder.add_virtual_extension_targets(wires.len());
     let constants_t = builder.add_virtual_extension_targets(constants.len());
@@ -159,5 +152,5 @@ pub fn test_eval_fns<
 
     let data = builder.build::<C>();
     let proof = data.prove(pw)?;
-    verify::<F, C, D>(proof, &data.verifier_only, &data.common)
+    verify::<C, D>(proof, &data.verifier_only, &data.common)
 }

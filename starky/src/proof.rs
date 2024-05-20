@@ -27,20 +27,20 @@ use crate::lookup::GrandProductChallengeSet;
 
 /// Merkle caps and openings that form the proof of a single STARK.
 #[derive(Debug, Clone)]
-pub struct StarkProof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> {
+pub struct StarkProof<C: GenericConfig<D>, const D: usize> {
     /// Merkle cap of LDEs of trace values.
-    pub trace_cap: MerkleCap<F, C::Hasher>,
+    pub trace_cap: MerkleCap<C::F, C::Hasher>,
     /// Optional merkle cap of LDEs of permutation Z values, if any.
-    pub auxiliary_polys_cap: Option<MerkleCap<F, C::Hasher>>,
+    pub auxiliary_polys_cap: Option<MerkleCap<C::F, C::Hasher>>,
     /// Merkle cap of LDEs of trace values.
-    pub quotient_polys_cap: Option<MerkleCap<F, C::Hasher>>,
+    pub quotient_polys_cap: Option<MerkleCap<C::F, C::Hasher>>,
     /// Purported values of each polynomial at the challenge point.
-    pub openings: StarkOpeningSet<F, D>,
+    pub openings: StarkOpeningSet<C::F, D>,
     /// A batch FRI argument for all openings.
-    pub opening_proof: FriProof<F, C::Hasher, D>,
+    pub opening_proof: FriProof<C::F, C::Hasher, D>,
 }
 
-impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> StarkProof<F, C, D> {
+impl<C: GenericConfig<D>, const D: usize> StarkProof<C, D> {
     /// Recover the length of the trace from a STARK proof and a STARK config.
     pub fn recover_degree_bits(&self, config: &StarkConfig) -> usize {
         let initial_merkle_proof = &self.opening_proof.query_round_proofs[0]
@@ -123,16 +123,12 @@ impl<const D: usize> StarkProofTarget<D> {
 
 /// Merkle caps and openings that form the proof of a single STARK, along with its public inputs.
 #[derive(Debug, Clone)]
-pub struct StarkProofWithPublicInputs<
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
-    const D: usize,
-> {
+pub struct StarkProofWithPublicInputs<C: GenericConfig<D>, const D: usize> {
     /// A STARK proof.
-    pub proof: StarkProof<F, C, D>,
+    pub proof: StarkProof<C, D>,
     /// Public inputs associated to this STARK proof.
     // TODO: Maybe make it generic over a `S: Stark` and replace with `[F; S::PUBLIC_INPUTS]`.
-    pub public_inputs: Vec<F>,
+    pub public_inputs: Vec<C::F>,
 }
 
 /// Circuit version of [`StarkProofWithPublicInputs`].
@@ -146,64 +142,45 @@ pub struct StarkProofWithPublicInputsTarget<const D: usize> {
 
 /// A compressed proof format of a single STARK.
 #[derive(Debug, Clone)]
-pub struct CompressedStarkProof<
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
-    const D: usize,
-> {
+pub struct CompressedStarkProof<C: GenericConfig<D>, const D: usize> {
     /// Merkle cap of LDEs of trace values.
-    pub trace_cap: MerkleCap<F, C::Hasher>,
+    pub trace_cap: MerkleCap<C::F, C::Hasher>,
     /// Purported values of each polynomial at the challenge point.
-    pub openings: StarkOpeningSet<F, D>,
+    pub openings: StarkOpeningSet<C::F, D>,
     /// A batch FRI argument for all openings.
-    pub opening_proof: CompressedFriProof<F, C::Hasher, D>,
+    pub opening_proof: CompressedFriProof<C::F, C::Hasher, D>,
 }
 
 /// A compressed [`StarkProof`] format of a single STARK with its public inputs.
 #[derive(Debug, Clone)]
-pub struct CompressedStarkProofWithPublicInputs<
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
-    const D: usize,
-> {
+pub struct CompressedStarkProofWithPublicInputs<C: GenericConfig<D>, const D: usize> {
     /// A compressed STARK proof.
-    pub proof: CompressedStarkProof<F, C, D>,
+    pub proof: CompressedStarkProof<C, D>,
     /// Public inputs for this compressed STARK proof.
-    pub public_inputs: Vec<F>,
+    pub public_inputs: Vec<C::F>,
 }
 
 /// A [`StarkProof`] along with metadata about the initial Fiat-Shamir state, which is used when
 /// creating a recursive wrapper proof around a STARK proof.
 #[derive(Debug, Clone)]
-pub struct StarkProofWithMetadata<F, C, const D: usize>
-where
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
-{
+pub struct StarkProofWithMetadata<C: GenericConfig<D>, const D: usize> {
     /// Initial Fiat-Shamir state.
-    pub init_challenger_state: <C::Hasher as Hasher<F>>::Permutation,
+    pub init_challenger_state: <C::Hasher as Hasher<C::F>>::Permutation,
     /// Proof for a single STARK.
-    pub proof: StarkProof<F, C, D>,
+    pub proof: StarkProof<C, D>,
 }
 
 /// A combination of STARK proofs for independent statements operating on possibly shared variables,
 /// along with Cross-Table Lookup (CTL) challenges to assert consistency of common variables across tables.
 #[derive(Debug, Clone)]
-pub struct MultiProof<
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
-    const D: usize,
-    const N: usize,
-> {
+pub struct MultiProof<C: GenericConfig<D>, const D: usize, const N: usize> {
     /// Proofs for all the different STARK modules.
-    pub stark_proofs: [StarkProofWithMetadata<F, C, D>; N],
+    pub stark_proofs: [StarkProofWithMetadata<C, D>; N],
     /// Cross-table lookup challenges.
-    pub ctl_challenges: GrandProductChallengeSet<F>,
+    pub ctl_challenges: GrandProductChallengeSet<C::F>,
 }
 
-impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize, const N: usize>
-    MultiProof<F, C, D, N>
-{
+impl<C: GenericConfig<D>, const D: usize, const N: usize> MultiProof<C, D, N> {
     /// Returns the degree (i.e. the trace length) of each STARK proof,
     /// from their common [`StarkConfig`].
     pub fn recover_degree_bits(&self, config: &StarkConfig) -> [usize; N] {
@@ -271,22 +248,22 @@ impl<F: RichField + Extendable<D>, const D: usize> StarkOpeningSet<F, D> {
     pub fn new<C: GenericConfig<D, F = F>>(
         zeta: F::Extension,
         g: F,
-        trace_commitment: &PolynomialBatch<F, C, D>,
-        auxiliary_polys_commitment: Option<&PolynomialBatch<F, C, D>>,
-        quotient_commitment: Option<&PolynomialBatch<F, C, D>>,
+        trace_commitment: &PolynomialBatch<C, D>,
+        auxiliary_polys_commitment: Option<&PolynomialBatch<C, D>>,
+        quotient_commitment: Option<&PolynomialBatch<C, D>>,
         num_lookup_columns: usize,
         requires_ctl: bool,
         num_ctl_polys: &[usize],
     ) -> Self {
         // Batch evaluates polynomials on the LDE, at a point `z`.
-        let eval_commitment = |z: F::Extension, c: &PolynomialBatch<F, C, D>| {
+        let eval_commitment = |z: F::Extension, c: &PolynomialBatch<C, D>| {
             c.polynomials
                 .par_iter()
                 .map(|p| p.to_extension().eval(z))
                 .collect::<Vec<_>>()
         };
         // Batch evaluates polynomials at a base field point `z`.
-        let eval_commitment_base = |z: F, c: &PolynomialBatch<F, C, D>| {
+        let eval_commitment_base = |z: F, c: &PolynomialBatch<C, D>| {
             c.polynomials
                 .par_iter()
                 .map(|p| p.eval(z))

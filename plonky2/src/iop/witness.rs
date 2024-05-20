@@ -72,7 +72,7 @@ pub trait WitnessWrite<F: Field> {
     fn set_proof_with_pis_target<C: GenericConfig<D, F = F>, const D: usize>(
         &mut self,
         proof_with_pis_target: &ProofWithPublicInputsTarget<D>,
-        proof_with_pis: &ProofWithPublicInputs<F, C, D>,
+        proof_with_pis: &ProofWithPublicInputs<C, D>,
     ) where
         F: RichField + Extendable<D>,
         C::Hasher: AlgebraicHasher<F>,
@@ -98,7 +98,7 @@ pub trait WitnessWrite<F: Field> {
     fn set_proof_target<C: GenericConfig<D, F = F>, const D: usize>(
         &mut self,
         proof_target: &ProofTarget<D>,
-        proof: &Proof<F, C, D>,
+        proof: &Proof<C, D>,
     ) where
         F: RichField + Extendable<D>,
         C::Hasher: AlgebraicHasher<F>,

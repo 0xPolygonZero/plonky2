@@ -108,6 +108,8 @@ pub trait FieldExtension<const D: usize>: Field {
     }
 }
 
+pub type BaseField<F, const D: usize> = <F as FieldExtension<D>>::BaseField;
+
 impl<F: Field> FieldExtension<1> for F {
     type BaseField = F;
 

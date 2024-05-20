@@ -7,10 +7,9 @@ use core::iter::once;
 
 use anyhow::{anyhow, ensure, Result};
 use itertools::Itertools;
-use plonky2::field::extension::{Extendable, FieldExtension};
+use plonky2::field::extension::FieldExtension;
 use plonky2::field::types::Field;
 use plonky2::fri::verifier::verify_fri_proof;
-use plonky2::hash::hash_types::RichField;
 use plonky2::hash::merkle_tree::MerkleCap;
 use plonky2::iop::challenger::Challenger;
 use plonky2::plonk::config::GenericConfig;
@@ -26,18 +25,13 @@ use crate::stark::Stark;
 use crate::vanishing_poly::eval_vanishing_poly;
 
 /// Verifies a [`StarkProofWithPublicInputs`] against a STARK statement.
-pub fn verify_stark_proof<
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
-    S: Stark<F, D>,
-    const D: usize,
->(
+pub fn verify_stark_proof<C: GenericConfig<D>, S: Stark<C::F, D>, const D: usize>(
     stark: S,
-    proof_with_pis: StarkProofWithPublicInputs<F, C, D>,
+    proof_with_pis: StarkProofWithPublicInputs<C, D>,
     config: &StarkConfig,
 ) -> Result<()> {
     ensure!(proof_with_pis.public_inputs.len() == S::PUBLIC_INPUTS);
-    let mut challenger = Challenger::<F, C::Hasher>::new();
+    let mut challenger = Challenger::<C::F, C::Hasher>::new();
 
     let challenges = proof_with_pis.get_challenges(&mut challenger, None, false, config);
 
@@ -55,18 +49,17 @@ pub fn verify_stark_proof<
 /// with the provided [`StarkProofChallenges`].
 /// It also supports optional cross-table lookups data and challenges,
 /// in case this proof is part of a multi-STARK system.
-pub fn verify_stark_proof_with_challenges<F, C, S, const D: usize>(
+pub fn verify_stark_proof_with_challenges<C, S, const D: usize>(
     stark: &S,
-    proof: &StarkProof<F, C, D>,
-    challenges: &StarkProofChallenges<F, D>,
-    ctl_vars: Option<&[CtlCheckVars<F, F::Extension, F::Extension, D>]>,
-    public_inputs: &[F],
+    proof: &StarkProof<C, D>,
+    challenges: &StarkProofChallenges<C::F, D>,
+    ctl_vars: Option<&[CtlCheckVars<C::FE, D>]>,
+    public_inputs: &[C::F],
     config: &StarkConfig,
 ) -> Result<()>
 where
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
-    S: Stark<F, D>,
+    C: GenericConfig<D>,
+    S: Stark<C::F, D>,
 {
     log::debug!("Checking proof: {}", type_name::<S>());
 
@@ -103,20 +96,20 @@ where
         &public_inputs
             .iter()
             .copied()
-            .map(F::Extension::from_basefield)
+            .map(C::FE::from_basefield)
             .collect::<Vec<_>>(),
     );
 
     let degree_bits = proof.recover_degree_bits(config);
     let (l_0, l_last) = eval_l_0_and_l_last(degree_bits, challenges.stark_zeta);
-    let last = F::primitive_root_of_unity(degree_bits).inverse();
-    let z_last = challenges.stark_zeta - last.into();
+    let last = C::F::primitive_root_of_unity(degree_bits).inverse();
+    let z_last = challenges.stark_zeta - C::FE::from_basefield(last);
 
-    let mut consumer = ConstraintConsumer::<F::Extension>::new(
+    let mut consumer = ConstraintConsumer::<C::FE>::new(
         challenges
             .stark_alphas
             .iter()
-            .map(|&alpha| F::Extension::from_basefield(alpha))
+            .map(|&alpha| C::FE::from_basefield(alpha))
             .collect::<Vec<_>>(),
         z_last,
         l_0,
@@ -146,7 +139,7 @@ where
     });
     let lookups = stark.lookups();
 
-    eval_vanishing_poly::<F, F::Extension, F::Extension, S, D, D>(
+    eval_vanishing_poly::<C::FE, S, D, D>(
         stark,
         &vars,
         &lookups,
@@ -158,7 +151,7 @@ where
 
     // Check each polynomial identity, of the form `vanishing(x) = Z_H(x) quotient(x)`, at zeta.
     let zeta_pow_deg = challenges.stark_zeta.exp_power_of_2(degree_bits);
-    let z_h_zeta = zeta_pow_deg - F::Extension::ONE;
+    let z_h_zeta = zeta_pow_deg - C::FE::ONE;
     // `quotient_polys_zeta` holds `num_challenges * quotient_degree_factor` evaluations.
     // Each chunk of `quotient_degree_factor` holds the evaluations of `t_0(zeta),...,t_{quotient_degree_factor-1}(zeta)`
     // where the "real" quotient polynomial is `t(X) = t_0(X) + t_1(X)*X^n + t_2(X)*X^{2n} + ...`.
@@ -189,10 +182,10 @@ where
         })
         .unwrap_or_default();
 
-    verify_fri_proof::<F, C, D>(
+    verify_fri_proof::<C, D>(
         &stark.fri_instance(
             challenges.stark_zeta,
-            F::primitive_root_of_unity(degree_bits),
+            C::F::primitive_root_of_unity(degree_bits),
             num_ctl_polys,
             num_ctl_zs,
             config,
@@ -207,18 +200,17 @@ where
     Ok(())
 }
 
-fn validate_proof_shape<F, C, S, const D: usize>(
+fn validate_proof_shape<C, S, const D: usize>(
     stark: &S,
-    proof: &StarkProof<F, C, D>,
-    public_inputs: &[F],
+    proof: &StarkProof<C, D>,
+    public_inputs: &[C::F],
     config: &StarkConfig,
     num_ctl_helpers: usize,
     num_ctl_zs: usize,
 ) -> anyhow::Result<()>
 where
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
-    S: Stark<F, D>,
+    C: GenericConfig<D>,
+    S: Stark<C::F, D>,
 {
     let degree_bits = proof.recover_degree_bits(config);
 
@@ -260,7 +252,7 @@ where
         stark.num_quotient_polys(config) == 0
     });
 
-    check_lookup_options::<F, C, S, D>(
+    check_lookup_options::<C, S, D>(
         stark,
         auxiliary_polys_cap,
         auxiliary_polys,
@@ -288,20 +280,19 @@ fn eval_l_0_and_l_last<F: Field>(log_n: usize, x: F) -> (F, F) {
 
 /// Utility function to check that all lookups data wrapped in `Option`s are `Some` iff
 /// the STARK uses a permutation argument.
-fn check_lookup_options<F, C, S, const D: usize>(
+fn check_lookup_options<C, S, const D: usize>(
     stark: &S,
-    auxiliary_polys_cap: &Option<MerkleCap<F, <C as GenericConfig<D>>::Hasher>>,
-    auxiliary_polys: &Option<Vec<<F as Extendable<D>>::Extension>>,
-    auxiliary_polys_next: &Option<Vec<<F as Extendable<D>>::Extension>>,
+    auxiliary_polys_cap: &Option<MerkleCap<C::F, C::Hasher>>,
+    auxiliary_polys: &Option<Vec<C::FE>>,
+    auxiliary_polys_next: &Option<Vec<C::FE>>,
     num_ctl_helpers: usize,
     num_ctl_zs: usize,
-    ctl_zs_first: &Option<Vec<F>>,
+    ctl_zs_first: &Option<Vec<C::F>>,
     config: &StarkConfig,
 ) -> Result<()>
 where
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
-    S: Stark<F, D>,
+    C: GenericConfig<D>,
+    S: Stark<C::F, D>,
 {
     if stark.uses_lookups() || stark.requires_ctls() {
         let num_auxiliary = stark.num_lookup_helper_columns(config) + num_ctl_helpers + num_ctl_zs;

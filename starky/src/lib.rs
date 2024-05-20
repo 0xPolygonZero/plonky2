@@ -78,22 +78,20 @@
 //! const PUBLIC_INPUTS: usize = 3;
 //!
 //! impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for FibonacciStark<F, D> {
-//!     type EvaluationFrame<FE, P, const D2: usize> = StarkFrame<P, P::Scalar, COLUMNS, PUBLIC_INPUTS>
+//!     type EvaluationFrame<P: PackedField, const D2: usize> = StarkFrame<P, P::Scalar, COLUMNS, PUBLIC_INPUTS>
 //!     where
-//!         FE: FieldExtension<D2, BaseField = F>,
-//!         P: PackedField<Scalar = FE>;
+//!         P::Scalar: FieldExtension<D2, BaseField = F>;
 //!
 //!     type EvaluationFrameTarget =
 //!         StarkFrame<ExtensionTarget<D>, ExtensionTarget<D>, COLUMNS, PUBLIC_INPUTS>;
 //!
 //!     // Define this STARK's constraints.
-//!     fn eval_packed_generic<FE, P, const D2: usize>(
+//!     fn eval_packed_generic<P: PackedField, const D2: usize>(
 //!         &self,
-//!         vars: &Self::EvaluationFrame<FE, P, D2>,
+//!         vars: &Self::EvaluationFrame<P, D2>,
 //!         yield_constr: &mut ConstraintConsumer<P>,
 //!     ) where
-//!         FE: FieldExtension<D2, BaseField = F>,
-//!         P: PackedField<Scalar = FE>,
+//!         P::Scalar: FieldExtension<D2, BaseField = F>
 //!     {
 //!         let local_values = vars.get_local_values();
 //!         let next_values = vars.get_next_values();
@@ -216,20 +214,18 @@
 //! # const COLUMNS: usize = 3;
 //! # const PUBLIC_INPUTS: usize = 3;
 //! # impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for FibonacciStark<F, D> {
-//! #     type EvaluationFrame<FE, P, const D2: usize> = StarkFrame<P, P::Scalar, COLUMNS, PUBLIC_INPUTS>
+//! #     type EvaluationFrame<P: PackedField, const D2: usize> = StarkFrame<P, P::Scalar, COLUMNS, PUBLIC_INPUTS>
 //! #     where
-//! #         FE: FieldExtension<D2, BaseField = F>,
-//! #         P: PackedField<Scalar = FE>;
+//! #         P::Scalar: FieldExtension<D2, BaseField = F>;
 //! #     type EvaluationFrameTarget =
 //! #         StarkFrame<ExtensionTarget<D>, ExtensionTarget<D>, COLUMNS, PUBLIC_INPUTS>;
 //! #     // Define this STARK's constraints.
-//! #     fn eval_packed_generic<FE, P, const D2: usize>(
+//! #     fn eval_packed_generic<P: PackedField, const D2: usize>(
 //! #         &self,
-//! #         vars: &Self::EvaluationFrame<FE, P, D2>,
+//! #         vars: &Self::EvaluationFrame<P, D2>,
 //! #         yield_constr: &mut ConstraintConsumer<P>,
 //! #     ) where
-//! #         FE: FieldExtension<D2, BaseField = F>,
-//! #         P: PackedField<Scalar = FE>,
+//! #         P::Scalar: FieldExtension<D2, BaseField = F>,
 //! #     {
 //! #         let local_values = vars.get_local_values();
 //! #         let next_values = vars.get_next_values();
@@ -297,7 +293,7 @@
 //!     let stark = FibonacciStark::<F, D>::new(num_rows);
 //!     let trace = stark.generate_trace(public_inputs[0], public_inputs[1]);
 //!
-//!     let proof = prove::<F, C, S, D>(
+//!     let proof = prove::<C, S, D>(
 //!         stark,
 //!         &CONFIG,
 //!         trace,

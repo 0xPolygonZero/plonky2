@@ -142,35 +142,30 @@ impl CircuitConfig {
 
 /// Mock circuit data to only do witness generation without generating a proof.
 #[derive(Eq, PartialEq, Debug)]
-pub struct MockCircuitData<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
-{
-    pub prover_only: ProverOnlyCircuitData<F, C, D>,
-    pub common: CommonCircuitData<F, D>,
+pub struct MockCircuitData<C: GenericConfig<D>, const D: usize> {
+    pub prover_only: ProverOnlyCircuitData<C, D>,
+    pub common: CommonCircuitData<C::F, D>,
 }
 
-impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
-    MockCircuitData<F, C, D>
-{
-    pub fn generate_witness(&self, inputs: PartialWitness<F>) -> PartitionWitness<F> {
-        generate_partial_witness::<F, C, D>(inputs, &self.prover_only, &self.common)
+impl<C: GenericConfig<D>, const D: usize> MockCircuitData<C, D> {
+    pub fn generate_witness(&self, inputs: PartialWitness<C::F>) -> PartitionWitness<C::F> {
+        generate_partial_witness::<C, D>(inputs, &self.prover_only, &self.common)
     }
 }
 
 /// Circuit data required by the prover or the verifier.
 #[derive(Eq, PartialEq, Debug)]
-pub struct CircuitData<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> {
-    pub prover_only: ProverOnlyCircuitData<F, C, D>,
+pub struct CircuitData<C: GenericConfig<D>, const D: usize> {
+    pub prover_only: ProverOnlyCircuitData<C, D>,
     pub verifier_only: VerifierOnlyCircuitData<C, D>,
-    pub common: CommonCircuitData<F, D>,
+    pub common: CommonCircuitData<C::F, D>,
 }
 
-impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
-    CircuitData<F, C, D>
-{
+impl<C: GenericConfig<D>, const D: usize> CircuitData<C, D> {
     pub fn to_bytes(
         &self,
-        gate_serializer: &dyn GateSerializer<F, D>,
-        generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
+        gate_serializer: &dyn GateSerializer<C::F, D>,
+        generator_serializer: &dyn WitnessGeneratorSerializer<C::F, D>,
     ) -> IoResult<Vec<u8>> {
         let mut buffer = Vec::new();
         buffer.write_circuit_data(self, gate_serializer, generator_serializer)?;
@@ -179,15 +174,15 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 
     pub fn from_bytes(
         bytes: &[u8],
-        gate_serializer: &dyn GateSerializer<F, D>,
-        generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
+        gate_serializer: &dyn GateSerializer<C::F, D>,
+        generator_serializer: &dyn WitnessGeneratorSerializer<C::F, D>,
     ) -> IoResult<Self> {
         let mut buffer = Buffer::new(bytes);
         buffer.read_circuit_data(gate_serializer, generator_serializer)
     }
 
-    pub fn prove(&self, inputs: PartialWitness<F>) -> Result<ProofWithPublicInputs<F, C, D>> {
-        prove::<F, C, D>(
+    pub fn prove(&self, inputs: PartialWitness<C::F>) -> Result<ProofWithPublicInputs<C, D>> {
+        prove::<C, D>(
             &self.prover_only,
             &self.common,
             inputs,
@@ -195,32 +190,32 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         )
     }
 
-    pub fn verify(&self, proof_with_pis: ProofWithPublicInputs<F, C, D>) -> Result<()> {
-        verify::<F, C, D>(proof_with_pis, &self.verifier_only, &self.common)
+    pub fn verify(&self, proof_with_pis: ProofWithPublicInputs<C, D>) -> Result<()> {
+        verify::<C, D>(proof_with_pis, &self.verifier_only, &self.common)
     }
 
     pub fn verify_compressed(
         &self,
-        compressed_proof_with_pis: CompressedProofWithPublicInputs<F, C, D>,
+        compressed_proof_with_pis: CompressedProofWithPublicInputs<C, D>,
     ) -> Result<()> {
         compressed_proof_with_pis.verify(&self.verifier_only, &self.common)
     }
 
     pub fn compress(
         &self,
-        proof: ProofWithPublicInputs<F, C, D>,
-    ) -> Result<CompressedProofWithPublicInputs<F, C, D>> {
+        proof: ProofWithPublicInputs<C, D>,
+    ) -> Result<CompressedProofWithPublicInputs<C, D>> {
         proof.compress(&self.verifier_only.circuit_digest, &self.common)
     }
 
     pub fn decompress(
         &self,
-        proof: CompressedProofWithPublicInputs<F, C, D>,
-    ) -> Result<ProofWithPublicInputs<F, C, D>> {
+        proof: CompressedProofWithPublicInputs<C, D>,
+    ) -> Result<ProofWithPublicInputs<C, D>> {
         proof.decompress(&self.verifier_only.circuit_digest, &self.common)
     }
 
-    pub fn verifier_data(&self) -> VerifierCircuitData<F, C, D> {
+    pub fn verifier_data(&self) -> VerifierCircuitData<C, D> {
         let CircuitData {
             verifier_only,
             common,
@@ -232,7 +227,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         }
     }
 
-    pub fn prover_data(self) -> ProverCircuitData<F, C, D> {
+    pub fn prover_data(self) -> ProverCircuitData<C, D> {
         let CircuitData {
             prover_only,
             common,
@@ -253,22 +248,16 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 /// required, like LDEs of preprocessed polynomials. If more succinctness was desired, we could
 /// construct a more minimal prover structure and convert back and forth.
 #[derive(Debug)]
-pub struct ProverCircuitData<
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
-    const D: usize,
-> {
-    pub prover_only: ProverOnlyCircuitData<F, C, D>,
-    pub common: CommonCircuitData<F, D>,
+pub struct ProverCircuitData<C: GenericConfig<D>, const D: usize> {
+    pub prover_only: ProverOnlyCircuitData<C, D>,
+    pub common: CommonCircuitData<C::F, D>,
 }
 
-impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
-    ProverCircuitData<F, C, D>
-{
+impl<C: GenericConfig<D>, const D: usize> ProverCircuitData<C, D> {
     pub fn to_bytes(
         &self,
-        gate_serializer: &dyn GateSerializer<F, D>,
-        generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
+        gate_serializer: &dyn GateSerializer<C::F, D>,
+        generator_serializer: &dyn WitnessGeneratorSerializer<C::F, D>,
     ) -> IoResult<Vec<u8>> {
         let mut buffer = Vec::new();
         buffer.write_prover_circuit_data(self, gate_serializer, generator_serializer)?;
@@ -277,15 +266,15 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 
     pub fn from_bytes(
         bytes: &[u8],
-        gate_serializer: &dyn GateSerializer<F, D>,
-        generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
+        gate_serializer: &dyn GateSerializer<C::F, D>,
+        generator_serializer: &dyn WitnessGeneratorSerializer<C::F, D>,
     ) -> IoResult<Self> {
         let mut buffer = Buffer::new(bytes);
         buffer.read_prover_circuit_data(gate_serializer, generator_serializer)
     }
 
-    pub fn prove(&self, inputs: PartialWitness<F>) -> Result<ProofWithPublicInputs<F, C, D>> {
-        prove::<F, C, D>(
+    pub fn prove(&self, inputs: PartialWitness<C::F>) -> Result<ProofWithPublicInputs<C, D>> {
+        prove::<C, D>(
             &self.prover_only,
             &self.common,
             inputs,
@@ -296,19 +285,13 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 
 /// Circuit data required by the prover.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct VerifierCircuitData<
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
-    const D: usize,
-> {
+pub struct VerifierCircuitData<C: GenericConfig<D>, const D: usize> {
     pub verifier_only: VerifierOnlyCircuitData<C, D>,
-    pub common: CommonCircuitData<F, D>,
+    pub common: CommonCircuitData<C::F, D>,
 }
 
-impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
-    VerifierCircuitData<F, C, D>
-{
-    pub fn to_bytes(&self, gate_serializer: &dyn GateSerializer<F, D>) -> IoResult<Vec<u8>> {
+impl<C: GenericConfig<D>, const D: usize> VerifierCircuitData<C, D> {
+    pub fn to_bytes(&self, gate_serializer: &dyn GateSerializer<C::F, D>) -> IoResult<Vec<u8>> {
         let mut buffer = Vec::new();
         buffer.write_verifier_circuit_data(self, gate_serializer)?;
         Ok(buffer)
@@ -316,19 +299,19 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 
     pub fn from_bytes(
         bytes: Vec<u8>,
-        gate_serializer: &dyn GateSerializer<F, D>,
+        gate_serializer: &dyn GateSerializer<C::F, D>,
     ) -> IoResult<Self> {
         let mut buffer = Buffer::new(&bytes);
         buffer.read_verifier_circuit_data(gate_serializer)
     }
 
-    pub fn verify(&self, proof_with_pis: ProofWithPublicInputs<F, C, D>) -> Result<()> {
-        verify::<F, C, D>(proof_with_pis, &self.verifier_only, &self.common)
+    pub fn verify(&self, proof_with_pis: ProofWithPublicInputs<C, D>) -> Result<()> {
+        verify::<C, D>(proof_with_pis, &self.verifier_only, &self.common)
     }
 
     pub fn verify_compressed(
         &self,
-        compressed_proof_with_pis: CompressedProofWithPublicInputs<F, C, D>,
+        compressed_proof_with_pis: CompressedProofWithPublicInputs<C, D>,
     ) -> Result<()> {
         compressed_proof_with_pis.verify(&self.verifier_only, &self.common)
     }
@@ -336,44 +319,38 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 
 /// Circuit data required by the prover, but not the verifier.
 #[derive(Eq, PartialEq, Debug)]
-pub struct ProverOnlyCircuitData<
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
-    const D: usize,
-> {
-    pub generators: Vec<WitnessGeneratorRef<F, D>>,
+pub struct ProverOnlyCircuitData<C: GenericConfig<D>, const D: usize> {
+    pub generators: Vec<WitnessGeneratorRef<C::F, D>>,
     /// Generator indices (within the `Vec` above), indexed by the representative of each target
     /// they watch.
     pub generator_indices_by_watches: BTreeMap<usize, Vec<usize>>,
     /// Commitments to the constants polynomials and sigma polynomials.
-    pub constants_sigmas_commitment: PolynomialBatch<F, C, D>,
+    pub constants_sigmas_commitment: PolynomialBatch<C, D>,
     /// The transpose of the list of sigma polynomials.
-    pub sigmas: Vec<Vec<F>>,
+    pub sigmas: Vec<Vec<C::F>>,
     /// Subgroup of order `degree`.
-    pub subgroup: Vec<F>,
+    pub subgroup: Vec<C::F>,
     /// Targets to be made public.
     pub public_inputs: Vec<Target>,
     /// A map from each `Target`'s index to the index of its representative in the disjoint-set
     /// forest.
     pub representative_map: Vec<usize>,
     /// Pre-computed roots for faster FFT.
-    pub fft_root_table: Option<FftRootTable<F>>,
+    pub fft_root_table: Option<FftRootTable<C::F>>,
     /// A digest of the "circuit" (i.e. the instance, minus public inputs), which can be used to
     /// seed Fiat-Shamir.
-    pub circuit_digest: <<C as GenericConfig<D>>::Hasher as Hasher<F>>::Hash,
+    pub circuit_digest: <C::Hasher as Hasher<C::F>>::Hash,
     ///The concrete placement of the lookup gates for each lookup table index.
     pub lookup_rows: Vec<LookupWire>,
     /// A vector of (looking_in, looking_out) pairs for each lookup table index.
     pub lut_to_lookups: Vec<Lookup>,
 }
 
-impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
-    ProverOnlyCircuitData<F, C, D>
-{
+impl<C: GenericConfig<D>, const D: usize> ProverOnlyCircuitData<C, D> {
     pub fn to_bytes(
         &self,
-        generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
-        common_data: &CommonCircuitData<F, D>,
+        generator_serializer: &dyn WitnessGeneratorSerializer<C::F, D>,
+        common_data: &CommonCircuitData<C::F, D>,
     ) -> IoResult<Vec<u8>> {
         let mut buffer = Vec::new();
         buffer.write_prover_only_circuit_data(self, generator_serializer, common_data)?;
@@ -382,8 +359,8 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 
     pub fn from_bytes(
         bytes: &[u8],
-        generator_serializer: &dyn WitnessGeneratorSerializer<F, D>,
-        common_data: &CommonCircuitData<F, D>,
+        generator_serializer: &dyn WitnessGeneratorSerializer<C::F, D>,
+        common_data: &CommonCircuitData<C::F, D>,
     ) -> IoResult<Self> {
         let mut buffer = Buffer::new(bytes);
         buffer.read_prover_only_circuit_data(generator_serializer, common_data)
@@ -397,7 +374,7 @@ pub struct VerifierOnlyCircuitData<C: GenericConfig<D>, const D: usize> {
     pub constants_sigmas_cap: MerkleCap<C::F, C::Hasher>,
     /// A digest of the "circuit" (i.e. the instance, minus public inputs), which can be used to
     /// seed Fiat-Shamir.
-    pub circuit_digest: <<C as GenericConfig<D>>::Hasher as Hasher<C::F>>::Hash,
+    pub circuit_digest: <C::Hasher as Hasher<C::F>>::Hash,
 }
 
 impl<C: GenericConfig<D>, const D: usize> VerifierOnlyCircuitData<C, D> {

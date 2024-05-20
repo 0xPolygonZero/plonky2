@@ -36,9 +36,9 @@ macro_rules! read_generator_impl {
 
         $(if tag == i.next().unwrap() {
         let generator =
-            <$generator_types as $crate::iop::generator::SimpleGenerator<F, D>>::deserialize(buf, $common)?;
-        Ok($crate::iop::generator::WitnessGeneratorRef::<F, D>::new(
-            $crate::iop::generator::SimpleGenerator::<F, D>::adapter(generator),
+            <$generator_types as $crate::iop::generator::SimpleGenerator<C::F, D>>::deserialize(buf, $common)?;
+        Ok($crate::iop::generator::WitnessGeneratorRef::<C::F, D>::new(
+            $crate::iop::generator::SimpleGenerator::<C::F, D>::adapter(generator),
         ))
         } else)*
         {
@@ -51,7 +51,7 @@ macro_rules! read_generator_impl {
 macro_rules! get_generator_tag_impl {
     ($generator:expr, $($generator_types:ty),+) => {{
         let mut i = 0..;
-        $(if let (tag, true) = (i.next().unwrap(), $generator.0.id() == $crate::iop::generator::SimpleGenerator::<F, D>::id(&<$generator_types>::default())) {
+        $(if let (tag, true) = (i.next().unwrap(), $generator.0.id() == $crate::iop::generator::SimpleGenerator::<C::F, D>::id(&<$generator_types>::default())) {
             Ok(tag)
         } else)*
         {
@@ -75,8 +75,8 @@ macro_rules! impl_generator_serializer {
         fn read_generator(
             &self,
             buf: &mut $crate::util::serialization::Buffer,
-            common: &$crate::plonk::circuit_data::CommonCircuitData<F, D>,
-        ) -> $crate::util::serialization::IoResult<$crate::iop::generator::WitnessGeneratorRef<F, D>> {
+            common: &$crate::plonk::circuit_data::CommonCircuitData<C::F, D>,
+        ) -> $crate::util::serialization::IoResult<$crate::iop::generator::WitnessGeneratorRef<C::F, D>> {
             let tag = $crate::util::serialization::Read::read_u32(buf)?;
             read_generator_impl!(buf, tag, common, $($generator_types),+)
         }
@@ -84,8 +84,8 @@ macro_rules! impl_generator_serializer {
         fn write_generator(
             &self,
             buf: &mut $crate::util::serialization::generator_serialization::Vec<u8>,
-            generator: &$crate::iop::generator::WitnessGeneratorRef<F, D>,
-            common: &$crate::plonk::circuit_data::CommonCircuitData<F, D>,
+            generator: &$crate::iop::generator::WitnessGeneratorRef<C::F, D>,
+            common: &$crate::plonk::circuit_data::CommonCircuitData<C::F, D>,
         ) -> $crate::util::serialization::IoResult<()> {
             let tag = get_generator_tag_impl!(generator, $($generator_types),+)?;
 
@@ -98,8 +98,6 @@ macro_rules! impl_generator_serializer {
 
 pub mod default {
     use core::marker::PhantomData;
-
-    use plonky2_field::extension::Extendable;
 
     use crate::gadgets::arithmetic::EqualityGenerator;
     use crate::gadgets::arithmetic_extension::QuotientGeneratorExtension;
@@ -119,7 +117,6 @@ pub mod default {
     use crate::gates::random_access::RandomAccessGenerator;
     use crate::gates::reducing::ReducingGenerator;
     use crate::gates::reducing_extension::ReducingGenerator as ReducingExtensionGenerator;
-    use crate::hash::hash_types::RichField;
     use crate::iop::generator::{
         ConstantGenerator, CopyGenerator, NonzeroTestGenerator, RandomValueGenerator,
     };
@@ -145,33 +142,32 @@ pub mod default {
         pub _phantom: PhantomData<C>,
     }
 
-    impl<F, C, const D: usize> WitnessGeneratorSerializer<F, D> for DefaultGeneratorSerializer<C, D>
+    impl<C, const D: usize> WitnessGeneratorSerializer<C::F, D> for DefaultGeneratorSerializer<C, D>
     where
-        F: RichField + Extendable<D>,
-        C: GenericConfig<D, F = F> + 'static,
-        C::Hasher: AlgebraicHasher<F>,
+        C: GenericConfig<D> + 'static,
+        C::Hasher: AlgebraicHasher<C::F>,
     {
         impl_generator_serializer! {
             DefaultGeneratorSerializer,
-            ArithmeticBaseGenerator<F, D>,
-            ArithmeticExtensionGenerator<F, D>,
+            ArithmeticBaseGenerator<C::F, D>,
+            ArithmeticExtensionGenerator<C::F, D>,
             BaseSplitGenerator<2>,
             BaseSumGenerator<2>,
-            ConstantGenerator<F>,
+            ConstantGenerator<C::F>,
             CopyGenerator,
-            DummyProofGenerator<F, C, D>,
+            DummyProofGenerator<C, D>,
             EqualityGenerator,
-            ExponentiationGenerator<F, D>,
-            InterpolationGenerator<F, D>,
+            ExponentiationGenerator<C::F, D>,
+            InterpolationGenerator<C::F, D>,
             LookupGenerator,
             LookupTableGenerator,
             LowHighGenerator,
-            MulExtensionGenerator<F, D>,
+            MulExtensionGenerator<C::F, D>,
             NonzeroTestGenerator,
-            PoseidonGenerator<F, D>,
+            PoseidonGenerator<C::F, D>,
             PoseidonMdsGenerator<D>,
             QuotientGeneratorExtension<D>,
-            RandomAccessGenerator<F, D>,
+            RandomAccessGenerator<C::F, D>,
             RandomValueGenerator,
             ReducingGenerator<D>,
             ReducingExtensionGenerator<D>,

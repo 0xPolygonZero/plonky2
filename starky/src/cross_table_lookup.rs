@@ -35,7 +35,7 @@ use core::iter::once;
 
 use anyhow::{ensure, Result};
 use itertools::Itertools;
-use plonky2::field::extension::{Extendable, FieldExtension};
+use plonky2::field::extension::{BaseField, Extendable, FieldExtension};
 use plonky2::field::packed::PackedField;
 use plonky2::field::polynomial::PolynomialValues;
 use plonky2::field::types::Field;
@@ -222,23 +222,19 @@ impl<'a, F: Field> CtlData<'a, F> {
 
 /// Outputs a tuple of (challenges, data) of CTL challenges and all
 /// the CTL data necessary to prove a multi-STARK system.
-pub fn get_ctl_data<'a, F, C, const D: usize, const N: usize>(
+pub fn get_ctl_data<'a, C: GenericConfig<D>, const D: usize, const N: usize>(
     config: &StarkConfig,
-    trace_poly_values: &[Vec<PolynomialValues<F>>; N],
-    all_cross_table_lookups: &'a [CrossTableLookup<F>],
-    challenger: &mut Challenger<F, C::Hasher>,
+    trace_poly_values: &[Vec<PolynomialValues<C::F>>; N],
+    all_cross_table_lookups: &'a [CrossTableLookup<C::F>],
+    challenger: &mut Challenger<C::F, C::Hasher>,
     max_constraint_degree: usize,
-) -> (GrandProductChallengeSet<F>, [CtlData<'a, F>; N])
-where
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
-{
+) -> (GrandProductChallengeSet<C::F>, [CtlData<'a, C::F>; N]) {
     // Get challenges for the cross-table lookups.
     let ctl_challenges = get_grand_product_challenge_set(challenger, config.num_challenges);
 
     // For each STARK, compute its cross-table lookup Z polynomials
     // and get the associated `CtlData`.
-    let ctl_data = cross_table_lookup_data::<F, D, N>(
+    let ctl_data = cross_table_lookup_data::<C::F, D, N>(
         trace_poly_values,
         all_cross_table_lookups,
         &ctl_challenges,
@@ -249,18 +245,13 @@ where
 }
 
 /// Outputs all the CTL data necessary to prove a multi-STARK system.
-pub fn get_ctl_vars_from_proofs<'a, F, C, const D: usize, const N: usize>(
-    multi_proof: &MultiProof<F, C, D, N>,
-    all_cross_table_lookups: &'a [CrossTableLookup<F>],
-    ctl_challenges: &'a GrandProductChallengeSet<F>,
+pub fn get_ctl_vars_from_proofs<'a, C: GenericConfig<D>, const D: usize, const N: usize>(
+    multi_proof: &MultiProof<C, D, N>,
+    all_cross_table_lookups: &'a [CrossTableLookup<C::F>],
+    ctl_challenges: &'a GrandProductChallengeSet<C::F>,
     num_lookup_columns: &'a [usize; N],
     max_constraint_degree: usize,
-) -> [Vec<CtlCheckVars<'a, F, <F as Extendable<D>>::Extension, <F as Extendable<D>>::Extension, D>>;
-       N]
-where
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
-{
+) -> [Vec<CtlCheckVars<'a, C::FE, D>>; N] {
     let num_ctl_helper_cols =
         num_ctl_helper_columns_by_table(all_cross_table_lookups, max_constraint_degree);
 
@@ -465,11 +456,9 @@ fn partial_sums<F: Field>(
 
 /// Data necessary to check the cross-table lookups of a given table.
 #[derive(Clone, Debug)]
-pub struct CtlCheckVars<'a, F, FE, P, const D2: usize>
+pub struct CtlCheckVars<'a, P: PackedField, const D: usize>
 where
-    F: Field,
-    FE: FieldExtension<D2, BaseField = F>,
-    P: PackedField<Scalar = FE>,
+    P::Scalar: FieldExtension<D>,
 {
     /// Helper columns to check that the Z polyomial
     /// was constructed correctly.
@@ -479,21 +468,23 @@ where
     /// Evaluation of the trace polynomials at point `g * zeta`
     pub(crate) next_z: P,
     /// Cross-table lookup challenges.
-    pub(crate) challenges: GrandProductChallenge<F>,
+    pub(crate) challenges: GrandProductChallenge<BaseField<P::Scalar, D>>,
     /// Column linear combinations of the `CrossTableLookup`s.
-    pub(crate) columns: Vec<&'a [Column<F>]>,
+    pub(crate) columns: Vec<&'a [Column<BaseField<P::Scalar, D>>]>,
     /// Filter that evaluates to either 1 or 0.
-    pub(crate) filter: Vec<Filter<F>>,
+    pub(crate) filter: Vec<Filter<BaseField<P::Scalar, D>>>,
 }
 
-impl<'a, F: RichField + Extendable<D>, const D: usize>
-    CtlCheckVars<'a, F, F::Extension, F::Extension, D>
+impl<'a, P, const D: usize> CtlCheckVars<'a, P, D>
+where
+    P: PackedField<Scalar = P> + FieldExtension<D>,
+    BaseField<P, D>: RichField + Extendable<D, Extension = P>,
 {
     /// Extracts the `CtlCheckVars` for each STARK.
-    pub fn from_proofs<C: GenericConfig<D, F = F>, const N: usize>(
-        proofs: &[StarkProofWithMetadata<F, C, D>; N],
-        cross_table_lookups: &'a [CrossTableLookup<F>],
-        ctl_challenges: &'a GrandProductChallengeSet<F>,
+    pub fn from_proofs<C: GenericConfig<D, F = BaseField<P, D>>, const N: usize>(
+        proofs: &[StarkProofWithMetadata<C, D>; N],
+        cross_table_lookups: &'a [CrossTableLookup<C::F>],
+        ctl_challenges: &'a GrandProductChallengeSet<C::F>,
         num_lookup_columns: &[usize; N],
         num_helper_ctl_columns: &Vec<[usize; N]>,
     ) -> [Vec<Self>; N] {
@@ -625,16 +616,16 @@ impl<'a, F: RichField + Extendable<D>, const D: usize>
 /// the first term is on the last row. This allows the transition constraint to be:
 /// `combine(w) * (Z(w) - Z(gw)) = filter` where combine is called on the local row
 /// and not the next. This enables CTLs across two rows.
-pub(crate) fn eval_cross_table_lookup_checks<F, FE, P, S, const D: usize, const D2: usize>(
-    vars: &S::EvaluationFrame<FE, P, D2>,
-    ctl_vars: &[CtlCheckVars<F, FE, P, D2>],
+pub(crate) fn eval_cross_table_lookup_checks<P, S, const D: usize, const D2: usize>(
+    vars: &S::EvaluationFrame<P, D2>,
+    ctl_vars: &[CtlCheckVars<P, D2>],
     consumer: &mut ConstraintConsumer<P>,
     constraint_degree: usize,
 ) where
-    F: RichField + Extendable<D>,
-    FE: FieldExtension<D2, BaseField = F>,
-    P: PackedField<Scalar = FE>,
-    S: Stark<F, D>,
+    BaseField<P::Scalar, D2>: RichField + Extendable<D>,
+    P::Scalar: FieldExtension<D2>,
+    P: PackedField,
+    S: Stark<BaseField<P::Scalar, D2>, D>,
 {
     let local_values = vars.get_local_values();
     let next_values = vars.get_next_values();

@@ -178,17 +178,13 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
 /// Additional checks to be performed on a cyclic recursive proof in addition to verifying the proof.
 /// Checks that the purported verifier data in the public inputs match the real verifier data.
-pub fn check_cyclic_proof_verifier_data<
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
-    const D: usize,
->(
-    proof: &ProofWithPublicInputs<F, C, D>,
+pub fn check_cyclic_proof_verifier_data<C: GenericConfig<D>, const D: usize>(
+    proof: &ProofWithPublicInputs<C, D>,
     verifier_data: &VerifierOnlyCircuitData<C, D>,
-    common_data: &CommonCircuitData<F, D>,
+    common_data: &CommonCircuitData<C::F, D>,
 ) -> Result<()>
 where
-    C::Hasher: AlgebraicHasher<F>,
+    C::Hasher: AlgebraicHasher<C::F>,
 {
     let pis = VerifierOnlyCircuitData::<C, D>::from_slice(&proof.public_inputs, common_data)?;
     ensure!(verifier_data.constants_sigmas_cap == pis.constants_sigmas_cap);
@@ -204,7 +200,6 @@ mod tests {
 
     use anyhow::Result;
 
-    use crate::field::extension::Extendable;
     use crate::field::types::{Field, PrimeField64};
     use crate::gates::noop::NoopGate;
     use crate::hash::hash_types::{HashOutTarget, RichField};
@@ -219,18 +214,17 @@ mod tests {
 
     // Generates `CommonCircuitData` usable for recursion.
     fn common_data_for_recursion<
-        F: RichField + Extendable<D>,
-        C: GenericConfig<D, F = F>,
+        C: GenericConfig<D>,
         const D: usize,
-    >() -> CommonCircuitData<F, D>
+    >() -> CommonCircuitData<C::F, D>
     where
-        C::Hasher: AlgebraicHasher<F>,
+        C::Hasher: AlgebraicHasher<C::F>,
     {
         let config = CircuitConfig::standard_recursion_config();
-        let builder = CircuitBuilder::<F, D>::new(config);
+        let builder = CircuitBuilder::<C::F, D>::new(config);
         let data = builder.build::<C>();
         let config = CircuitConfig::standard_recursion_config();
-        let mut builder = CircuitBuilder::<F, D>::new(config);
+        let mut builder = CircuitBuilder::<C::F, D>::new(config);
         let proof = builder.add_virtual_proof_with_pis(&data.common);
         let verifier_data =
             builder.add_virtual_verifier_data(data.common.config.fri_config.cap_height);
@@ -238,7 +232,7 @@ mod tests {
         let data = builder.build::<C>();
 
         let config = CircuitConfig::standard_recursion_config();
-        let mut builder = CircuitBuilder::<F, D>::new(config);
+        let mut builder = CircuitBuilder::<C::F, D>::new(config);
         let proof = builder.add_virtual_proof_with_pis(&data.common);
         let verifier_data =
             builder.add_virtual_verifier_data(data.common.config.fri_config.cap_height);
@@ -274,7 +268,7 @@ mod tests {
         builder.register_public_inputs(&current_hash_out.elements);
         let counter = builder.add_virtual_public_input();
 
-        let mut common_data = common_data_for_recursion::<F, C, D>();
+        let mut common_data = common_data_for_recursion::<C, D>();
         let verifier_data_target = builder.add_verifier_data_public_inputs();
         common_data.num_public_inputs = builder.num_public_inputs();
 

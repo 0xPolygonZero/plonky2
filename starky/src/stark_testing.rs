@@ -73,30 +73,21 @@ pub fn test_stark_low_degree<F: RichField + Extendable<D>, S: Stark<F, D>, const
 }
 
 /// Tests that the circuit constraints imposed by the given STARK are coherent with the native constraints.
-pub fn test_stark_circuit_constraints<
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
-    S: Stark<F, D>,
-    const D: usize,
->(
+pub fn test_stark_circuit_constraints<C: GenericConfig<D>, S: Stark<C::F, D>, const D: usize>(
     stark: S,
 ) -> Result<()> {
     // Compute native constraint evaluation on random values.
     let vars = S::EvaluationFrame::from_values(
-        &F::Extension::rand_vec(S::COLUMNS),
-        &F::Extension::rand_vec(S::COLUMNS),
-        &F::Extension::rand_vec(S::PUBLIC_INPUTS),
+        &C::FE::rand_vec(S::COLUMNS),
+        &C::FE::rand_vec(S::COLUMNS),
+        &C::FE::rand_vec(S::PUBLIC_INPUTS),
     );
-    let alphas = F::rand_vec(1);
-    let z_last = F::Extension::rand();
-    let lagrange_first = F::Extension::rand();
-    let lagrange_last = F::Extension::rand();
-    let mut consumer = ConstraintConsumer::<F::Extension>::new(
-        alphas
-            .iter()
-            .copied()
-            .map(F::Extension::from_basefield)
-            .collect(),
+    let alphas = C::F::rand_vec(1);
+    let z_last = C::FE::rand();
+    let lagrange_first = C::FE::rand();
+    let lagrange_last = C::FE::rand();
+    let mut consumer = ConstraintConsumer::<C::FE>::new(
+        alphas.iter().copied().map(C::FE::from_basefield).collect(),
         z_last,
         lagrange_first,
         lagrange_last,
@@ -105,8 +96,8 @@ pub fn test_stark_circuit_constraints<
     let native_eval = consumer.accumulators()[0];
     // Compute circuit constraint evaluation on same random values.
     let circuit_config = CircuitConfig::standard_recursion_config();
-    let mut builder = CircuitBuilder::<F, D>::new(circuit_config);
-    let mut pw = PartialWitness::<F>::new();
+    let mut builder = CircuitBuilder::<C::F, D>::new(circuit_config);
+    let mut pw = PartialWitness::<C::F>::new();
 
     let locals_t = builder.add_virtual_extension_targets(S::COLUMNS);
     pw.set_extension_targets(&locals_t, vars.get_local_values());
@@ -124,7 +115,7 @@ pub fn test_stark_circuit_constraints<
     pw.set_extension_target(lagrange_last_t, lagrange_last);
 
     let vars = S::EvaluationFrameTarget::from_values(&locals_t, &nexts_t, &pis_t);
-    let mut consumer = RecursiveConstraintConsumer::<F, D>::new(
+    let mut consumer = RecursiveConstraintConsumer::<C::F, D>::new(
         builder.zero_extension(),
         alphas_t,
         z_last_t,
