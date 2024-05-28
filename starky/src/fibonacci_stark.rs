@@ -61,10 +61,9 @@ const FIBONACCI_COLUMNS: usize = 2;
 const FIBONACCI_PUBLIC_INPUTS: usize = 3;
 
 impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for FibonacciStark<F, D> {
-    type EvaluationFrame<FE, P, const D2: usize> = StarkFrame<P, P::Scalar, FIBONACCI_COLUMNS, FIBONACCI_PUBLIC_INPUTS>
+    type EvaluationFrame<P: PackedField, const D2: usize> = StarkFrame<P, P::Scalar, FIBONACCI_COLUMNS, FIBONACCI_PUBLIC_INPUTS>
     where
-        FE: FieldExtension<D2, BaseField = F>,
-        P: PackedField<Scalar = FE>;
+        P::Scalar: FieldExtension<D2, BaseField = F>;
 
     type EvaluationFrameTarget = StarkFrame<
         ExtensionTarget<D>,
@@ -73,13 +72,12 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for FibonacciStar
         FIBONACCI_PUBLIC_INPUTS,
     >;
 
-    fn eval_packed_generic<FE, P, const D2: usize>(
+    fn eval_packed_generic<P: PackedField, const D2: usize>(
         &self,
-        vars: &Self::EvaluationFrame<FE, P, D2>,
+        vars: &Self::EvaluationFrame<P, D2>,
         yield_constr: &mut ConstraintConsumer<P>,
     ) where
-        FE: FieldExtension<D2, BaseField = F>,
-        P: PackedField<Scalar = FE>,
+        P::Scalar: FieldExtension<D2, BaseField = F>,
     {
         let local_values = vars.get_local_values();
         let next_values = vars.get_next_values();
@@ -134,9 +132,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for FibonacciStar
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
-    use plonky2::field::extension::Extendable;
     use plonky2::field::types::Field;
-    use plonky2::hash::hash_types::RichField;
     use plonky2::iop::witness::PartialWitness;
     use plonky2::plonk::circuit_builder::CircuitBuilder;
     use plonky2::plonk::circuit_data::CircuitConfig;
@@ -172,7 +168,7 @@ mod tests {
 
         let stark = S::new(num_rows);
         let trace = stark.generate_trace(public_inputs[0], public_inputs[1]);
-        let proof = prove::<F, C, S, D>(
+        let proof = prove::<C, S, D>(
             stark,
             &config,
             trace,
@@ -204,7 +200,7 @@ mod tests {
 
         let num_rows = 1 << 5;
         let stark = S::new(num_rows);
-        test_stark_circuit_constraints::<F, C, S, D>(stark)
+        test_stark_circuit_constraints::<C, S, D>(stark)
     }
 
     #[test]
@@ -222,7 +218,7 @@ mod tests {
         // Test first STARK
         let stark = S::new(num_rows);
         let trace = stark.generate_trace(public_inputs[0], public_inputs[1]);
-        let proof = prove::<F, C, S, D>(
+        let proof = prove::<C, S, D>(
             stark,
             &config,
             trace,
@@ -231,33 +227,32 @@ mod tests {
         )?;
         verify_stark_proof(stark, proof.clone(), &config)?;
 
-        recursive_proof::<F, C, S, C, D>(stark, proof, &config, true)
+        recursive_proof::<C, S, C, D>(stark, proof, &config, true)
     }
 
     fn recursive_proof<
-        F: RichField + Extendable<D>,
-        C: GenericConfig<D, F = F>,
-        S: Stark<F, D> + Copy,
-        InnerC: GenericConfig<D, F = F>,
+        C: GenericConfig<D>,
+        S: Stark<C::F, D> + Copy,
+        InnerC: GenericConfig<D, F = C::F>,
         const D: usize,
     >(
         stark: S,
-        inner_proof: StarkProofWithPublicInputs<F, InnerC, D>,
+        inner_proof: StarkProofWithPublicInputs<InnerC, D>,
         inner_config: &StarkConfig,
         print_gate_counts: bool,
     ) -> Result<()>
     where
-        InnerC::Hasher: AlgebraicHasher<F>,
+        InnerC::Hasher: AlgebraicHasher<C::F>,
     {
         let circuit_config = CircuitConfig::standard_recursion_config();
-        let mut builder = CircuitBuilder::<F, D>::new(circuit_config);
+        let mut builder = CircuitBuilder::<C::F, D>::new(circuit_config);
         let mut pw = PartialWitness::new();
         let degree_bits = inner_proof.proof.recover_degree_bits(inner_config);
         let pt =
             add_virtual_stark_proof_with_pis(&mut builder, &stark, inner_config, degree_bits, 0, 0);
         set_stark_proof_with_pis_target(&mut pw, &pt, &inner_proof, builder.zero());
 
-        verify_stark_proof_circuit::<F, InnerC, S, D>(&mut builder, stark, pt, inner_config);
+        verify_stark_proof_circuit::<InnerC, S, D>(&mut builder, stark, pt, inner_config);
 
         if print_gate_counts {
             builder.print_gate_counts(0);

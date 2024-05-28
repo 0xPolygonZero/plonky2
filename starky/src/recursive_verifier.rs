@@ -34,29 +34,24 @@ use crate::vanishing_poly::eval_vanishing_poly_circuit;
 
 /// Encodes the verification of a [`StarkProofWithPublicInputsTarget`]
 /// for some statement in a circuit.
-pub fn verify_stark_proof_circuit<
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
-    S: Stark<F, D>,
-    const D: usize,
->(
-    builder: &mut CircuitBuilder<F, D>,
+pub fn verify_stark_proof_circuit<C: GenericConfig<D>, S: Stark<C::F, D>, const D: usize>(
+    builder: &mut CircuitBuilder<C::F, D>,
     stark: S,
     proof_with_pis: StarkProofWithPublicInputsTarget<D>,
     inner_config: &StarkConfig,
 ) where
-    C::Hasher: AlgebraicHasher<F>,
+    C::Hasher: AlgebraicHasher<C::F>,
 {
     assert_eq!(proof_with_pis.public_inputs.len(), S::PUBLIC_INPUTS);
 
-    let mut challenger = RecursiveChallenger::<F, C::Hasher, D>::new(builder);
+    let mut challenger = RecursiveChallenger::<C::F, C::Hasher, D>::new(builder);
     let challenges = with_context!(
         builder,
         "compute challenges",
-        proof_with_pis.get_challenges::<F, C>(builder, &mut challenger, None, false, inner_config)
+        proof_with_pis.get_challenges::<C>(builder, &mut challenger, None, false, inner_config)
     );
 
-    verify_stark_proof_with_challenges_circuit::<F, C, S, D>(
+    verify_stark_proof_with_challenges_circuit::<C, S, D>(
         builder,
         &stark,
         &proof_with_pis.proof,
@@ -69,20 +64,19 @@ pub fn verify_stark_proof_circuit<
 
 /// Recursively verifies an inner STARK proof.
 pub fn verify_stark_proof_with_challenges_circuit<
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
-    S: Stark<F, D>,
+    C: GenericConfig<D>,
+    S: Stark<C::F, D>,
     const D: usize,
 >(
-    builder: &mut CircuitBuilder<F, D>,
+    builder: &mut CircuitBuilder<C::F, D>,
     stark: &S,
     proof: &StarkProofTarget<D>,
     public_inputs: &[Target],
     challenges: StarkProofChallengesTarget<D>,
-    ctl_vars: Option<&[CtlCheckVarsTarget<F, D>]>,
+    ctl_vars: Option<&[CtlCheckVarsTarget<C::F, D>]>,
     inner_config: &StarkConfig,
 ) where
-    C::Hasher: AlgebraicHasher<F>,
+    C::Hasher: AlgebraicHasher<C::F>,
 {
     check_lookup_options(stark, proof, &challenges).unwrap();
 
@@ -116,11 +110,10 @@ pub fn verify_stark_proof_with_challenges_circuit<
     let z_h_zeta = builder.sub_extension(zeta_pow_deg, one);
     let (l_0, l_last) =
         eval_l_0_and_l_last_circuit(builder, degree_bits, challenges.stark_zeta, z_h_zeta);
-    let last =
-        builder.constant_extension(F::Extension::primitive_root_of_unity(degree_bits).inverse());
+    let last = builder.constant_extension(C::FE::primitive_root_of_unity(degree_bits).inverse());
     let z_last = builder.sub_extension(challenges.stark_zeta, last);
 
-    let mut consumer = RecursiveConstraintConsumer::<F, D>::new(
+    let mut consumer = RecursiveConstraintConsumer::<C::F, D>::new(
         builder.zero_extension(),
         challenges.stark_alphas,
         z_last,
@@ -149,7 +142,7 @@ pub fn verify_stark_proof_with_challenges_circuit<
     with_context!(
         builder,
         "evaluate vanishing polynomial",
-        eval_vanishing_poly_circuit::<F, S, D>(
+        eval_vanishing_poly_circuit::<C::F, S, D>(
             builder,
             stark,
             &vars,
@@ -181,7 +174,7 @@ pub fn verify_stark_proof_with_challenges_circuit<
     let fri_instance = stark.fri_instance_target(
         builder,
         challenges.stark_zeta,
-        F::primitive_root_of_unity(degree_bits),
+        C::F::primitive_root_of_unity(degree_bits),
         num_ctl_polys,
         ctl_zs_first.as_ref().map_or(0, |c| c.len()),
         inner_config,
@@ -320,15 +313,14 @@ fn add_virtual_stark_opening_set<F: RichField + Extendable<D>, S: Stark<F, D>, c
 
 /// Set the targets in a `StarkProofWithPublicInputsTarget` to
 /// their corresponding values in a `StarkProofWithPublicInputs`.
-pub fn set_stark_proof_with_pis_target<F, C: GenericConfig<D, F = F>, W, const D: usize>(
+pub fn set_stark_proof_with_pis_target<C: GenericConfig<D>, W, const D: usize>(
     witness: &mut W,
     stark_proof_with_pis_target: &StarkProofWithPublicInputsTarget<D>,
-    stark_proof_with_pis: &StarkProofWithPublicInputs<F, C, D>,
+    stark_proof_with_pis: &StarkProofWithPublicInputs<C, D>,
     zero: Target,
 ) where
-    F: RichField + Extendable<D>,
-    C::Hasher: AlgebraicHasher<F>,
-    W: Witness<F>,
+    C::Hasher: AlgebraicHasher<C::F>,
+    W: Witness<C::F>,
 {
     let StarkProofWithPublicInputs {
         proof,
@@ -349,15 +341,14 @@ pub fn set_stark_proof_with_pis_target<F, C: GenericConfig<D, F = F>, W, const D
 
 /// Set the targets in a [`StarkProofTarget`] to their corresponding values in a
 /// [`StarkProof`].
-pub fn set_stark_proof_target<F, C: GenericConfig<D, F = F>, W, const D: usize>(
+pub fn set_stark_proof_target<C: GenericConfig<D>, W, const D: usize>(
     witness: &mut W,
     proof_target: &StarkProofTarget<D>,
-    proof: &StarkProof<F, C, D>,
+    proof: &StarkProof<C, D>,
     zero: Target,
 ) where
-    F: RichField + Extendable<D>,
-    C::Hasher: AlgebraicHasher<F>,
-    W: Witness<F>,
+    C::Hasher: AlgebraicHasher<C::F>,
+    W: Witness<C::F>,
 {
     witness.set_cap_target(&proof_target.trace_cap, &proof.trace_cap);
     if let (Some(quotient_polys_cap_target), Some(quotient_polys_cap)) =

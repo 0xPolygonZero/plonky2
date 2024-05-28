@@ -8,7 +8,7 @@ use core::fmt::Debug;
 use plonky2_field::packed::PackedField;
 use unroll::unroll_for_loops;
 
-use crate::field::extension::{Extendable, FieldExtension};
+use crate::field::extension::{BaseField, Extendable, FieldExtension};
 use crate::field::types::{Field, PrimeField64};
 use crate::gates::gate::Gate;
 use crate::gates::poseidon::PoseidonGate;
@@ -216,19 +216,13 @@ pub trait Poseidon: PrimeField64 {
     }
 
     /// Same as `mds_row_shf` for `PackedField`.
-    fn mds_row_shf_packed_field<
-        F: RichField + Extendable<D>,
-        const D: usize,
-        FE,
-        P,
-        const D2: usize,
-    >(
+    fn mds_row_shf_packed_field<const D: usize, P: PackedField, const D2: usize>(
         r: usize,
         v: &[P; SPONGE_WIDTH],
     ) -> P
     where
-        FE: FieldExtension<D2, BaseField = F>,
-        P: PackedField<Scalar = FE>,
+        BaseField<P::Scalar, D2>: RichField + Extendable<D>,
+        P::Scalar: FieldExtension<D2>,
     {
         debug_assert!(r < SPONGE_WIDTH);
         let mut res = P::ZEROS;
@@ -303,18 +297,12 @@ pub trait Poseidon: PrimeField64 {
     }
 
     /// Same as `mds_layer` for `PackedField`.
-    fn mds_layer_packed_field<
-        F: RichField + Extendable<D>,
-        const D: usize,
-        FE,
-        P,
-        const D2: usize,
-    >(
+    fn mds_layer_packed_field<const D: usize, P: PackedField, const D2: usize>(
         state: &[P; SPONGE_WIDTH],
     ) -> [P; SPONGE_WIDTH]
     where
-        FE: FieldExtension<D2, BaseField = F>,
-        P: PackedField<Scalar = FE>,
+        BaseField<P::Scalar, D2>: RichField + Extendable<D>,
+        P::Scalar: FieldExtension<D2>,
     {
         let mut result = [P::ZEROS; SPONGE_WIDTH];
 
@@ -375,17 +363,11 @@ pub trait Poseidon: PrimeField64 {
     /// Same as `partial_first_constant_layer` for `PackedField`.
     #[inline(always)]
     #[unroll_for_loops]
-    fn partial_first_constant_layer_packed_field<
-        F: RichField + Extendable<D>,
-        const D: usize,
-        FE,
-        P,
-        const D2: usize,
-    >(
+    fn partial_first_constant_layer_packed_field<const D: usize, P: PackedField, const D2: usize>(
         state: &mut [P; SPONGE_WIDTH],
     ) where
-        FE: FieldExtension<D2, BaseField = F>,
-        P: PackedField<Scalar = FE>,
+        BaseField<P::Scalar, D2>: RichField + Extendable<D>,
+        P::Scalar: FieldExtension<D2>,
     {
         for i in 0..12 {
             if i < SPONGE_WIDTH {
@@ -443,18 +425,12 @@ pub trait Poseidon: PrimeField64 {
     /// Same as `mds_partial_layer_init` for `PackedField`.
     #[inline(always)]
     #[unroll_for_loops]
-    fn mds_partial_layer_init_packed_field<
-        F: RichField + Extendable<D>,
-        const D: usize,
-        FE,
-        P,
-        const D2: usize,
-    >(
+    fn mds_partial_layer_init_packed_field<const D: usize, P: PackedField, const D2: usize>(
         state: &[P; SPONGE_WIDTH],
     ) -> [P; SPONGE_WIDTH]
     where
-        FE: FieldExtension<D2, BaseField = F>,
-        P: PackedField<Scalar = FE>,
+        BaseField<P::Scalar, D2>: RichField + Extendable<D>,
+        P::Scalar: FieldExtension<D2>,
     {
         let mut result = [P::ZEROS; SPONGE_WIDTH];
 
@@ -565,19 +541,13 @@ pub trait Poseidon: PrimeField64 {
     }
 
     /// Same as `mds_partial_layer_fast` for `PackedField.
-    fn mds_partial_layer_fast_packed_field<
-        F: RichField + Extendable<D>,
-        const D: usize,
-        FE,
-        P,
-        const D2: usize,
-    >(
+    fn mds_partial_layer_fast_packed_field<const D: usize, P: PackedField, const D2: usize>(
         state: &[P; SPONGE_WIDTH],
         r: usize,
     ) -> [P; SPONGE_WIDTH]
     where
-        FE: FieldExtension<D2, BaseField = F>,
-        P: PackedField<Scalar = FE>,
+        BaseField<P::Scalar, D2>: RichField + Extendable<D>,
+        P::Scalar: FieldExtension<D2>,
     {
         let s0 = state[0];
         let mds0to0 = Self::MDS_MATRIX_CIRC[0] + Self::MDS_MATRIX_DIAG[0];
@@ -651,18 +621,12 @@ pub trait Poseidon: PrimeField64 {
     }
 
     /// Same as `constant_layer` for PackedFields.
-    fn constant_layer_packed_field<
-        F: RichField + Extendable<D>,
-        const D: usize,
-        FE,
-        P,
-        const D2: usize,
-    >(
+    fn constant_layer_packed_field<const D: usize, P: PackedField, const D2: usize>(
         state: &mut [P; SPONGE_WIDTH],
         round_ctr: usize,
     ) where
-        FE: FieldExtension<D2, BaseField = F>,
-        P: PackedField<Scalar = FE>,
+        BaseField<P::Scalar, D2>: RichField + Extendable<D>,
+        P::Scalar: FieldExtension<D2>,
     {
         for i in 0..SPONGE_WIDTH {
             state[i] +=

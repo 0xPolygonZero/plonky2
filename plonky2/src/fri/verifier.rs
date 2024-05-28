@@ -59,19 +59,15 @@ pub(crate) fn fri_verify_proof_of_work<F: RichField + Extendable<D>, const D: us
     Ok(())
 }
 
-pub fn verify_fri_proof<
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
-    const D: usize,
->(
-    instance: &FriInstanceInfo<F, D>,
-    openings: &FriOpenings<F, D>,
-    challenges: &FriChallenges<F, D>,
-    initial_merkle_caps: &[MerkleCap<F, C::Hasher>],
-    proof: &FriProof<F, C::Hasher, D>,
+pub fn verify_fri_proof<C: GenericConfig<D>, const D: usize>(
+    instance: &FriInstanceInfo<C::F, D>,
+    openings: &FriOpenings<C::F, D>,
+    challenges: &FriChallenges<C::F, D>,
+    initial_merkle_caps: &[MerkleCap<C::F, C::Hasher>],
+    proof: &FriProof<C::F, C::Hasher, D>,
     params: &FriParams,
 ) -> Result<()> {
-    validate_fri_proof_shape::<F, C, D>(proof, instance, params)?;
+    validate_fri_proof_shape::<C, D>(proof, instance, params)?;
 
     // Size of the LDE domain.
     let n = params.lde_size();
@@ -92,7 +88,7 @@ pub fn verify_fri_proof<
         .iter()
         .zip(&proof.query_round_proofs)
     {
-        fri_verifier_query_round::<F, C, D>(
+        fri_verifier_query_round::<C, D>(
             instance,
             challenges,
             &precomputed_reduced_evals,
@@ -120,22 +116,18 @@ fn fri_verify_initial_proof<F: RichField, H: Hasher<F>>(
     Ok(())
 }
 
-pub(crate) fn fri_combine_initial<
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
-    const D: usize,
->(
-    instance: &FriInstanceInfo<F, D>,
-    proof: &FriInitialTreeProof<F, C::Hasher>,
-    alpha: F::Extension,
-    subgroup_x: F,
-    precomputed_reduced_evals: &PrecomputedReducedOpenings<F, D>,
+pub(crate) fn fri_combine_initial<C: GenericConfig<D>, const D: usize>(
+    instance: &FriInstanceInfo<C::F, D>,
+    proof: &FriInitialTreeProof<C::F, C::Hasher>,
+    alpha: C::FE,
+    subgroup_x: C::F,
+    precomputed_reduced_evals: &PrecomputedReducedOpenings<C::F, D>,
     params: &FriParams,
-) -> F::Extension {
+) -> C::FE {
     assert!(D > 1, "Not implemented for D=1.");
-    let subgroup_x = F::Extension::from_basefield(subgroup_x);
+    let subgroup_x = C::FE::from_basefield(subgroup_x);
     let mut alpha = ReducingFactor::new(alpha);
-    let mut sum = F::Extension::ZERO;
+    let mut sum = C::FE::ZERO;
 
     for (batch, reduced_openings) in instance
         .batches
@@ -150,7 +142,7 @@ pub(crate) fn fri_combine_initial<
                 let salted = params.hiding && poly_blinding;
                 proof.unsalted_eval(p.oracle_index, p.polynomial_index, salted)
             })
-            .map(F::Extension::from_basefield);
+            .map(C::FE::from_basefield);
         let reduced_evals = alpha.reduce(evals);
         let numerator = reduced_evals - *reduced_openings;
         let denominator = subgroup_x - *point;
@@ -161,34 +153,30 @@ pub(crate) fn fri_combine_initial<
     sum
 }
 
-fn fri_verifier_query_round<
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
-    const D: usize,
->(
-    instance: &FriInstanceInfo<F, D>,
-    challenges: &FriChallenges<F, D>,
-    precomputed_reduced_evals: &PrecomputedReducedOpenings<F, D>,
-    initial_merkle_caps: &[MerkleCap<F, C::Hasher>],
-    proof: &FriProof<F, C::Hasher, D>,
+fn fri_verifier_query_round<C: GenericConfig<D>, const D: usize>(
+    instance: &FriInstanceInfo<C::F, D>,
+    challenges: &FriChallenges<C::F, D>,
+    precomputed_reduced_evals: &PrecomputedReducedOpenings<C::F, D>,
+    initial_merkle_caps: &[MerkleCap<C::F, C::Hasher>],
+    proof: &FriProof<C::F, C::Hasher, D>,
     mut x_index: usize,
     n: usize,
-    round_proof: &FriQueryRound<F, C::Hasher, D>,
+    round_proof: &FriQueryRound<C::F, C::Hasher, D>,
     params: &FriParams,
 ) -> Result<()> {
-    fri_verify_initial_proof::<F, C::Hasher>(
+    fri_verify_initial_proof::<C::F, C::Hasher>(
         x_index,
         &round_proof.initial_trees_proof,
         initial_merkle_caps,
     )?;
     // `subgroup_x` is `subgroup[x_index]`, i.e., the actual field element in the domain.
     let log_n = log2_strict(n);
-    let mut subgroup_x = F::MULTIPLICATIVE_GROUP_GENERATOR
-        * F::primitive_root_of_unity(log_n).exp_u64(reverse_bits(x_index, log_n) as u64);
+    let mut subgroup_x = C::F::MULTIPLICATIVE_GROUP_GENERATOR
+        * C::F::primitive_root_of_unity(log_n).exp_u64(reverse_bits(x_index, log_n) as u64);
 
     // old_eval is the last derived evaluation; it will be checked for consistency with its
     // committed "parent" value in the next iteration.
-    let mut old_eval = fri_combine_initial::<F, C, D>(
+    let mut old_eval = fri_combine_initial::<C, D>(
         instance,
         &round_proof.initial_trees_proof,
         challenges.fri_alpha,
@@ -217,7 +205,7 @@ fn fri_verifier_query_round<
             challenges.fri_betas[i],
         );
 
-        verify_merkle_proof_to_cap::<F, C::Hasher>(
+        verify_merkle_proof_to_cap::<C::F, C::Hasher>(
             flatten(evals),
             coset_index,
             &proof.commit_phase_merkle_caps[i],
@@ -233,7 +221,7 @@ fn fri_verifier_query_round<
     // Final check of FRI. After all the reductions, we check that the final polynomial is equal
     // to the one sent by the prover.
     ensure!(
-        proof.final_poly.eval(subgroup_x.into()) == old_eval,
+        proof.final_poly.eval(C::FE::from_basefield(subgroup_x)) == old_eval,
         "Final polynomial evaluation is invalid."
     );
 

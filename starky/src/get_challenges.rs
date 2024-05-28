@@ -1,8 +1,7 @@
-use plonky2::field::extension::Extendable;
 use plonky2::field::polynomial::PolynomialCoeffs;
 use plonky2::fri::proof::{FriProof, FriProofTarget};
 use plonky2::gadgets::polynomial::PolynomialCoeffsExtTarget;
-use plonky2::hash::hash_types::{MerkleCapTarget, RichField};
+use plonky2::hash::hash_types::MerkleCapTarget;
 use plonky2::hash::merkle_tree::MerkleCap;
 use plonky2::iop::challenger::{Challenger, RecursiveChallenger};
 use plonky2::iop::target::Target;
@@ -23,23 +22,19 @@ use crate::proof::*;
 /// or not by the challenger. Observing it here could be redundant in a
 /// multi-STARK system where trace caps would have already been observed
 /// before proving individually each STARK.
-fn get_challenges<F, C, const D: usize>(
-    challenger: &mut Challenger<F, C::Hasher>,
-    challenges: Option<&GrandProductChallengeSet<F>>,
-    trace_cap: Option<&MerkleCap<F, C::Hasher>>,
-    auxiliary_polys_cap: Option<&MerkleCap<F, C::Hasher>>,
-    quotient_polys_cap: Option<&MerkleCap<F, C::Hasher>>,
-    openings: &StarkOpeningSet<F, D>,
-    commit_phase_merkle_caps: &[MerkleCap<F, C::Hasher>],
-    final_poly: &PolynomialCoeffs<F::Extension>,
-    pow_witness: F,
+fn get_challenges<C: GenericConfig<D>, const D: usize>(
+    challenger: &mut Challenger<C::F, C::Hasher>,
+    challenges: Option<&GrandProductChallengeSet<C::F>>,
+    trace_cap: Option<&MerkleCap<C::F, C::Hasher>>,
+    auxiliary_polys_cap: Option<&MerkleCap<C::F, C::Hasher>>,
+    quotient_polys_cap: Option<&MerkleCap<C::F, C::Hasher>>,
+    openings: &StarkOpeningSet<C::F, D>,
+    commit_phase_merkle_caps: &[MerkleCap<C::F, C::Hasher>],
+    final_poly: &PolynomialCoeffs<C::FE>,
+    pow_witness: C::F,
     config: &StarkConfig,
     degree_bits: usize,
-) -> StarkProofChallenges<F, D>
-where
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
-{
+) -> StarkProofChallenges<C::F, D> {
     let num_challenges = config.num_challenges;
 
     if let Some(cap) = &trace_cap {
@@ -81,11 +76,7 @@ where
     }
 }
 
-impl<F, C, const D: usize> StarkProof<F, C, D>
-where
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
-{
+impl<C: GenericConfig<D>, const D: usize> StarkProof<C, D> {
     /// Computes all Fiat-Shamir challenges used in the STARK proof.
     /// For a single STARK system, the `ignore_trace_cap` boolean should
     /// always be set to `false`.
@@ -95,11 +86,11 @@ where
     /// again the cap when generating individual challenges.
     pub fn get_challenges(
         &self,
-        challenger: &mut Challenger<F, C::Hasher>,
-        challenges: Option<&GrandProductChallengeSet<F>>,
+        challenger: &mut Challenger<C::F, C::Hasher>,
+        challenges: Option<&GrandProductChallengeSet<C::F>>,
         ignore_trace_cap: bool,
         config: &StarkConfig,
-    ) -> StarkProofChallenges<F, D> {
+    ) -> StarkProofChallenges<C::F, D> {
         let degree_bits = self.recover_degree_bits(config);
 
         let StarkProof {
@@ -122,7 +113,7 @@ where
             Some(trace_cap)
         };
 
-        get_challenges::<F, C, D>(
+        get_challenges::<C, D>(
             challenger,
             challenges,
             trace_cap,
@@ -138,11 +129,7 @@ where
     }
 }
 
-impl<F, C, const D: usize> StarkProofWithPublicInputs<F, C, D>
-where
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
-{
+impl<C: GenericConfig<D>, const D: usize> StarkProofWithPublicInputs<C, D> {
     /// Computes all Fiat-Shamir challenges used in the STARK proof.
     /// For a single STARK system, the `ignore_trace_cap` boolean should
     /// always be set to `false`.
@@ -152,11 +139,11 @@ where
     /// again the cap when generating individual challenges.
     pub fn get_challenges(
         &self,
-        challenger: &mut Challenger<F, C::Hasher>,
-        challenges: Option<&GrandProductChallengeSet<F>>,
+        challenger: &mut Challenger<C::F, C::Hasher>,
+        challenges: Option<&GrandProductChallengeSet<C::F>>,
         ignore_trace_cap: bool,
         config: &StarkConfig,
-    ) -> StarkProofChallenges<F, D> {
+    ) -> StarkProofChallenges<C::F, D> {
         self.proof
             .get_challenges(challenger, challenges, ignore_trace_cap, config)
     }
@@ -164,9 +151,9 @@ where
 
 /// Circuit version of `get_challenges`, with the same flexibility around
 /// `trace_cap` being passed as an `Option`.
-fn get_challenges_target<F, C, const D: usize>(
-    builder: &mut CircuitBuilder<F, D>,
-    challenger: &mut RecursiveChallenger<F, C::Hasher, D>,
+fn get_challenges_target<C, const D: usize>(
+    builder: &mut CircuitBuilder<C::F, D>,
+    challenger: &mut RecursiveChallenger<C::F, C::Hasher, D>,
     challenges: Option<&GrandProductChallengeSet<Target>>,
     trace_cap: Option<&MerkleCapTarget>,
     auxiliary_polys_cap: Option<&MerkleCapTarget>,
@@ -178,9 +165,8 @@ fn get_challenges_target<F, C, const D: usize>(
     config: &StarkConfig,
 ) -> StarkProofChallengesTarget<D>
 where
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
-    C::Hasher: AlgebraicHasher<F>,
+    C: GenericConfig<D>,
+    C::Hasher: AlgebraicHasher<C::F>,
 {
     let num_challenges = config.num_challenges;
 
@@ -232,18 +218,17 @@ impl<const D: usize> StarkProofTarget<D> {
     /// Multi-STARK systems may already observe individual trace caps
     /// ahead of proving each table, and hence may ignore observing
     /// again the cap when generating individual challenges.
-    pub fn get_challenges<F, C>(
+    pub fn get_challenges<C>(
         &self,
-        builder: &mut CircuitBuilder<F, D>,
-        challenger: &mut RecursiveChallenger<F, C::Hasher, D>,
+        builder: &mut CircuitBuilder<C::F, D>,
+        challenger: &mut RecursiveChallenger<C::F, C::Hasher, D>,
         challenges: Option<&GrandProductChallengeSet<Target>>,
         ignore_trace_cap: bool,
         config: &StarkConfig,
     ) -> StarkProofChallengesTarget<D>
     where
-        F: RichField + Extendable<D>,
-        C: GenericConfig<D, F = F>,
-        C::Hasher: AlgebraicHasher<F>,
+        C: GenericConfig<D>,
+        C::Hasher: AlgebraicHasher<C::F>,
     {
         let StarkProofTarget {
             trace_cap,
@@ -265,7 +250,7 @@ impl<const D: usize> StarkProofTarget<D> {
             Some(trace_cap)
         };
 
-        get_challenges_target::<F, C, D>(
+        get_challenges_target::<C, D>(
             builder,
             challenger,
             challenges,
@@ -289,33 +274,32 @@ impl<const D: usize> StarkProofWithPublicInputsTarget<D> {
     /// Multi-STARK systems may already observe individual trace caps
     /// ahead of proving each table, and hence may ignore observing
     /// again the cap when generating individual challenges.
-    pub fn get_challenges<F, C>(
+    pub fn get_challenges<C>(
         &self,
-        builder: &mut CircuitBuilder<F, D>,
-        challenger: &mut RecursiveChallenger<F, C::Hasher, D>,
+        builder: &mut CircuitBuilder<C::F, D>,
+        challenger: &mut RecursiveChallenger<C::F, C::Hasher, D>,
         challenges: Option<&GrandProductChallengeSet<Target>>,
         ignore_trace_cap: bool,
         config: &StarkConfig,
     ) -> StarkProofChallengesTarget<D>
     where
-        F: RichField + Extendable<D>,
-        C: GenericConfig<D, F = F>,
-        C::Hasher: AlgebraicHasher<F>,
+        C: GenericConfig<D>,
+        C::Hasher: AlgebraicHasher<C::F>,
     {
         self.proof
-            .get_challenges::<F, C>(builder, challenger, challenges, ignore_trace_cap, config)
+            .get_challenges::<C>(builder, challenger, challenges, ignore_trace_cap, config)
     }
 }
 
 // TODO: Deal with the compressed stuff.
-// impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
-//     CompressedProofWithPublicInputs<F, C, D>
+// impl<C: GenericConfig<D>, const D: usize>
+//     CompressedProofWithPublicInputs<C, D>
 // {
 //     /// Computes all Fiat-Shamir challenges used in the Plonk proof.
 //     pub(crate) fn get_challenges(
 //         &self,
-//         common_data: &CommonCircuitData<F, C, D>,
-//     ) -> anyhow::Result<ProofChallenges<F, D>> {
+//         common_data: &CommonCircuitData<C, D>,
+//     ) -> anyhow::Result<ProofChallenges<C::F, D>> {
 //         let CompressedProof {
 //             wires_cap,
 //             plonk_zs_partial_products_cap,
@@ -346,9 +330,9 @@ impl<const D: usize> StarkProofWithPublicInputsTarget<D> {
 //     /// Computes all coset elements that can be inferred in the FRI reduction steps.
 //     pub(crate) fn get_inferred_elements(
 //         &self,
-//         challenges: &ProofChallenges<F, D>,
-//         common_data: &CommonCircuitData<F, C, D>,
-//     ) -> FriInferredElements<F, D> {
+//         challenges: &ProofChallenges<C::F, D>,
+//         common_data: &CommonCircuitData<C, D>,
+//     ) -> FriInferredElements<C::F, D> {
 //         let ProofChallenges {
 //             plonk_zeta,
 //             fri_alpha,
@@ -368,9 +352,9 @@ impl<const D: usize> StarkProofWithPublicInputsTarget<D> {
 //         // Simulate the proof verification and collect the inferred elements.
 //         // The content of the loop is basically the same as the `fri_verifier_query_round` function.
 //         for &(mut x_index) in fri_query_indices {
-//             let mut subgroup_x = F::MULTIPLICATIVE_GROUP_GENERATOR
-//                 * F::primitive_root_of_unity(log_n).exp_u64(reverse_bits(x_index, log_n) as u64);
-//             let mut old_eval = fri_combine_initial::<F, C, D>(
+//             let mut subgroup_x = C::F::MULTIPLICATIVE_GROUP_GENERATOR
+//                 * C::F::primitive_root_of_unity(log_n).exp_u64(reverse_bits(x_index, log_n) as u64);
+//             let mut old_eval = fri_combine_initial::<C, D>(
 //                 &common_data.get_fri_instance(*plonk_zeta),
 //                 &self
 //                     .proof

@@ -290,6 +290,6 @@ mod tests {
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
         let gate = PoseidonMdsGate::<F, D>::new();
-        test_eval_fns::<F, C, _, D>(gate)
+        test_eval_fns::<C, _, D>(gate)
     }
 }

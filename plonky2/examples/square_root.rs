@@ -71,21 +71,20 @@ pub struct CustomGeneratorSerializer<C: GenericConfig<D>, const D: usize> {
     pub _phantom: PhantomData<C>,
 }
 
-impl<F, C, const D: usize> WitnessGeneratorSerializer<F, D> for CustomGeneratorSerializer<C, D>
+impl<C, const D: usize> WitnessGeneratorSerializer<C::F, D> for CustomGeneratorSerializer<C, D>
 where
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F> + 'static,
-    C::Hasher: AlgebraicHasher<F>,
+    C: GenericConfig<D> + 'static,
+    C::Hasher: AlgebraicHasher<C::F>,
 {
     impl_generator_serializer! {
         CustomGeneratorSerializer,
-        DummyProofGenerator<F, C, D>,
-        ArithmeticBaseGenerator<F, D>,
-        ConstantGenerator<F>,
-        PoseidonGenerator<F, D>,
+        DummyProofGenerator<C, D>,
+        ArithmeticBaseGenerator<C::F, D>,
+        ConstantGenerator<C::F>,
+        PoseidonGenerator<C::F, D>,
         PoseidonMdsGenerator<D>,
         RandomValueGenerator,
-        SquareRootGenerator<F, D>
+        SquareRootGenerator<C::F, D>
     }
 }
 
@@ -138,12 +137,9 @@ fn main() -> Result<()> {
             .to_bytes(&gate_serializer, &generator_serializer)
             .map_err(|_| anyhow::Error::msg("CircuitData serialization failed."))?;
 
-        let data_from_bytes = CircuitData::<F, C, D>::from_bytes(
-            &data_bytes,
-            &gate_serializer,
-            &generator_serializer,
-        )
-        .map_err(|_| anyhow::Error::msg("CircuitData deserialization failed."))?;
+        let data_from_bytes =
+            CircuitData::<C, D>::from_bytes(&data_bytes, &gate_serializer, &generator_serializer)
+                .map_err(|_| anyhow::Error::msg("CircuitData deserialization failed."))?;
 
         assert_eq!(data, data_from_bytes);
     }

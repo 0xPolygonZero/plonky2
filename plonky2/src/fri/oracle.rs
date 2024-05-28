@@ -5,15 +5,15 @@ use itertools::Itertools;
 use plonky2_field::types::Field;
 use plonky2_maybe_rayon::*;
 
-use crate::field::extension::Extendable;
+use crate::field::extension::FieldExtension;
 use crate::field::fft::FftRootTable;
 use crate::field::packed::PackedField;
 use crate::field::polynomial::{PolynomialCoeffs, PolynomialValues};
+use crate::field::types::Sample;
 use crate::fri::proof::FriProof;
 use crate::fri::prover::fri_proof;
 use crate::fri::structure::{FriBatchInfo, FriInstanceInfo};
 use crate::fri::FriParams;
-use crate::hash::hash_types::RichField;
 use crate::hash::merkle_tree::MerkleTree;
 use crate::iop::challenger::Challenger;
 use crate::plonk::config::GenericConfig;
@@ -27,18 +27,15 @@ pub const SALT_SIZE: usize = 4;
 
 /// Represents a FRI oracle, i.e. a batch of polynomials which have been Merklized.
 #[derive(Eq, PartialEq, Debug)]
-pub struct PolynomialBatch<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
-{
-    pub polynomials: Vec<PolynomialCoeffs<F>>,
-    pub merkle_tree: MerkleTree<F, C::Hasher>,
+pub struct PolynomialBatch<C: GenericConfig<D>, const D: usize> {
+    pub polynomials: Vec<PolynomialCoeffs<C::F>>,
+    pub merkle_tree: MerkleTree<C::F, C::Hasher>,
     pub degree_log: usize,
     pub rate_bits: usize,
     pub blinding: bool,
 }
 
-impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> Default
-    for PolynomialBatch<F, C, D>
-{
+impl<C: GenericConfig<D>, const D: usize> Default for PolynomialBatch<C, D> {
     fn default() -> Self {
         PolynomialBatch {
             polynomials: Vec::new(),
@@ -50,17 +47,15 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> D
     }
 }
 
-impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
-    PolynomialBatch<F, C, D>
-{
+impl<C: GenericConfig<D>, const D: usize> PolynomialBatch<C, D> {
     /// Creates a list polynomial commitment for the polynomials interpolating the values in `values`.
     pub fn from_values(
-        values: Vec<PolynomialValues<F>>,
+        values: Vec<PolynomialValues<C::F>>,
         rate_bits: usize,
         blinding: bool,
         cap_height: usize,
         timing: &mut TimingTree,
-        fft_root_table: Option<&FftRootTable<F>>,
+        fft_root_table: Option<&FftRootTable<C::F>>,
     ) -> Self {
         let coeffs = timed!(
             timing,
@@ -80,12 +75,12 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 
     /// Creates a list polynomial commitment for the polynomials `polynomials`.
     pub fn from_coeffs(
-        polynomials: Vec<PolynomialCoeffs<F>>,
+        polynomials: Vec<PolynomialCoeffs<C::F>>,
         rate_bits: usize,
         blinding: bool,
         cap_height: usize,
         timing: &mut TimingTree,
-        fft_root_table: Option<&FftRootTable<F>>,
+        fft_root_table: Option<&FftRootTable<C::F>>,
     ) -> Self {
         let degree = polynomials[0].len();
         let lde_values = timed!(
@@ -112,11 +107,11 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     }
 
     fn lde_values(
-        polynomials: &[PolynomialCoeffs<F>],
+        polynomials: &[PolynomialCoeffs<C::F>],
         rate_bits: usize,
         blinding: bool,
-        fft_root_table: Option<&FftRootTable<F>>,
-    ) -> Vec<Vec<F>> {
+        fft_root_table: Option<&FftRootTable<C::F>>,
+    ) -> Vec<Vec<C::F>> {
         let degree = polynomials[0].len();
 
         // If blinding, salt with two random elements to each leaf vector.
@@ -127,19 +122,19 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             .map(|p| {
                 assert_eq!(p.len(), degree, "Polynomial degrees inconsistent");
                 p.lde(rate_bits)
-                    .coset_fft_with_options(F::coset_shift(), Some(rate_bits), fft_root_table)
+                    .coset_fft_with_options(C::F::coset_shift(), Some(rate_bits), fft_root_table)
                     .values
             })
             .chain(
                 (0..salt_size)
                     .into_par_iter()
-                    .map(|_| F::rand_vec(degree << rate_bits)),
+                    .map(|_| C::F::rand_vec(degree << rate_bits)),
             )
             .collect()
     }
 
     /// Fetches LDE values at the `index * step`th point.
-    pub fn get_lde_values(&self, index: usize, step: usize) -> &[F] {
+    pub fn get_lde_values(&self, index: usize, step: usize) -> &[C::F] {
         let index = index * step;
         let index = reverse_bits(index, self.degree_log + self.rate_bits);
         let slice = &self.merkle_tree.leaves[index];
@@ -150,7 +145,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     /// packed values.
     pub fn get_lde_values_packed<P>(&self, index_start: usize, step: usize) -> Vec<P>
     where
-        P: PackedField<Scalar = F>,
+        P: PackedField<Scalar = C::F>,
     {
         let row_wise = (0..P::WIDTH)
             .map(|i| self.get_lde_values(index_start + i, step))
@@ -174,12 +169,12 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 
     /// Produces a batch opening proof.
     pub fn prove_openings(
-        instance: &FriInstanceInfo<F, D>,
+        instance: &FriInstanceInfo<C::F, D>,
         oracles: &[&Self],
-        challenger: &mut Challenger<F, C::Hasher>,
+        challenger: &mut Challenger<C::F, C::Hasher>,
         fri_params: &FriParams,
         timing: &mut TimingTree,
-    ) -> FriProof<F, C::Hasher, D> {
+    ) -> FriProof<C::F, C::Hasher, D> {
         assert!(D > 1, "Not implemented for D=1.");
         let alpha = challenger.get_extension_challenge::<D>();
         let mut alpha = ReducingFactor::new(alpha);
@@ -205,7 +200,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
                 alpha.reduce_polys_base(polys_coeff)
             );
             let mut quotient = composition_poly.divide_by_linear(*point);
-            quotient.coeffs.push(F::Extension::ZERO); // pad back to power of two
+            quotient.coeffs.push(C::FE::ZERO); // pad back to power of two
             alpha.shift_poly(&mut final_poly);
             final_poly += quotient;
         }
@@ -214,10 +209,10 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         let lde_final_values = timed!(
             timing,
             &format!("perform final FFT {}", lde_final_poly.len()),
-            lde_final_poly.coset_fft(F::coset_shift().into())
+            lde_final_poly.coset_fft(C::FE::from_basefield(C::F::coset_shift()))
         );
 
-        let fri_proof = fri_proof::<F, C, D>(
+        let fri_proof = fri_proof::<C, D>(
             &oracles
                 .par_iter()
                 .map(|c| &c.merkle_tree)

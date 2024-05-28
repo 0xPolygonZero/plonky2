@@ -10,7 +10,7 @@ use core::iter::repeat;
 use itertools::Itertools;
 use num_bigint::BigUint;
 use plonky2::field::batch_util::{batch_add_inplace, batch_multiply_inplace};
-use plonky2::field::extension::{Extendable, FieldExtension};
+use plonky2::field::extension::{BaseField, Extendable, FieldExtension};
 use plonky2::field::packed::PackedField;
 use plonky2::field::polynomial::PolynomialValues;
 use plonky2::field::types::Field;
@@ -66,10 +66,9 @@ impl<F: Field> Filter<F> {
     }
 
     /// Given the column values for the current and next rows, evaluates the filter.
-    pub(crate) fn eval_filter<FE, P, const D: usize>(&self, v: &[P], next_v: &[P]) -> P
+    pub(crate) fn eval_filter<P: PackedField, const D: usize>(&self, v: &[P], next_v: &[P]) -> P
     where
-        FE: FieldExtension<D, BaseField = F>,
-        P: PackedField<Scalar = FE>,
+        P::Scalar: FieldExtension<D, BaseField = F>,
     {
         self.products
             .iter()
@@ -289,34 +288,32 @@ impl<F: Field> Column<F> {
     }
 
     /// Given the column values for the current row, returns the evaluation of the linear combination.
-    pub(crate) fn eval<FE, P, const D: usize>(&self, v: &[P]) -> P
+    pub(crate) fn eval<P: PackedField, const D: usize>(&self, v: &[P]) -> P
     where
-        FE: FieldExtension<D, BaseField = F>,
-        P: PackedField<Scalar = FE>,
+        P::Scalar: FieldExtension<D, BaseField = F>,
     {
         self.linear_combination
             .iter()
-            .map(|&(c, f)| v[c] * FE::from_basefield(f))
+            .map(|&(c, f)| v[c] * P::Scalar::from_basefield(f))
             .sum::<P>()
-            + FE::from_basefield(self.constant)
+            + P::Scalar::from_basefield(self.constant)
     }
 
     /// Given the column values for the current and next rows, evaluates the current and next linear combinations and returns their sum.
-    pub(crate) fn eval_with_next<FE, P, const D: usize>(&self, v: &[P], next_v: &[P]) -> P
+    pub(crate) fn eval_with_next<P: PackedField, const D: usize>(&self, v: &[P], next_v: &[P]) -> P
     where
-        FE: FieldExtension<D, BaseField = F>,
-        P: PackedField<Scalar = FE>,
+        P::Scalar: FieldExtension<D, BaseField = F>,
     {
         self.linear_combination
             .iter()
-            .map(|&(c, f)| v[c] * FE::from_basefield(f))
+            .map(|&(c, f)| v[c] * P::Scalar::from_basefield(f))
             .sum::<P>()
             + self
                 .next_row_linear_combination
                 .iter()
-                .map(|&(c, f)| next_v[c] * FE::from_basefield(f))
+                .map(|&(c, f)| next_v[c] * P::Scalar::from_basefield(f))
                 .sum::<P>()
-            + FE::from_basefield(self.constant)
+            + P::Scalar::from_basefield(self.constant)
     }
 
     /// Evaluate on a row of a table given in column-major form.
@@ -461,13 +458,16 @@ impl<F: Field> GrandProductChallenge<F> {
     /// Combines a series of values `t_i` with these challenge random values.
     /// In particular, given `beta` and `gamma` challenges, this will compute
     /// `(Σ t_i * beta^i) + gamma`.
-    pub fn combine<'a, FE, P, T: IntoIterator<Item = &'a P>, const D2: usize>(&self, terms: T) -> P
+    pub fn combine<'a, P: PackedField, T: IntoIterator<Item = &'a P>, const D2: usize>(
+        &self,
+        terms: T,
+    ) -> P
     where
-        FE: FieldExtension<D2, BaseField = F>,
-        P: PackedField<Scalar = FE>,
+        P::Scalar: FieldExtension<D2, BaseField = F>,
         T::IntoIter: DoubleEndedIterator,
     {
-        reduce_with_powers(terms, FE::from_basefield(self.beta)) + FE::from_basefield(self.gamma)
+        reduce_with_powers(terms, P::Scalar::from_basefield(self.beta))
+            + P::Scalar::from_basefield(self.gamma)
     }
 }
 
@@ -659,19 +659,18 @@ pub(crate) fn lookup_helper_columns<F: Field>(
 }
 
 /// Given data associated to a lookup, check the associated helper polynomials.
-pub(crate) fn eval_helper_columns<F, FE, P, const D: usize, const D2: usize>(
-    filter: &[Filter<F>],
+pub(crate) fn eval_helper_columns<P: PackedField, const D: usize, const D2: usize>(
+    filter: &[Filter<BaseField<P::Scalar, D2>>],
     columns: &[Vec<P>],
     local_values: &[P],
     next_values: &[P],
     helper_columns: &[P],
     constraint_degree: usize,
-    challenges: &GrandProductChallenge<F>,
+    challenges: &GrandProductChallenge<BaseField<P::Scalar, D2>>,
     consumer: &mut ConstraintConsumer<P>,
 ) where
-    F: RichField + Extendable<D>,
-    FE: FieldExtension<D2, BaseField = F>,
-    P: PackedField<Scalar = FE>,
+    BaseField<P::Scalar, D2>: RichField + Extendable<D>,
+    P::Scalar: FieldExtension<D2>,
 {
     if !helper_columns.is_empty() {
         let chunk_size = constraint_degree.checked_sub(1).unwrap_or(1);
@@ -796,29 +795,27 @@ pub(crate) fn get_helper_cols<F: Field>(
 }
 
 #[derive(Debug)]
-pub(crate) struct LookupCheckVars<F, FE, P, const D2: usize>
+pub(crate) struct LookupCheckVars<P: PackedField, const D: usize>
 where
-    F: Field,
-    FE: FieldExtension<D2, BaseField = F>,
-    P: PackedField<Scalar = FE>,
+    P::Scalar: FieldExtension<D>,
 {
     pub(crate) local_values: Vec<P>,
     pub(crate) next_values: Vec<P>,
-    pub(crate) challenges: Vec<F>,
+    pub(crate) challenges: Vec<BaseField<P::Scalar, D>>,
 }
 
 /// Constraints for the logUp lookup argument.
-pub(crate) fn eval_packed_lookups_generic<F, FE, P, S, const D: usize, const D2: usize>(
+pub(crate) fn eval_packed_lookups_generic<P, S, const D: usize, const D2: usize>(
     stark: &S,
-    lookups: &[Lookup<F>],
-    vars: &S::EvaluationFrame<FE, P, D2>,
-    lookup_vars: LookupCheckVars<F, FE, P, D2>,
+    lookups: &[Lookup<BaseField<P::Scalar, D2>>],
+    vars: &S::EvaluationFrame<P, D2>,
+    lookup_vars: LookupCheckVars<P, D2>,
     yield_constr: &mut ConstraintConsumer<P>,
 ) where
-    F: RichField + Extendable<D>,
-    FE: FieldExtension<D2, BaseField = F>,
-    P: PackedField<Scalar = FE>,
-    S: Stark<F, D>,
+    P: PackedField,
+    P::Scalar: FieldExtension<D2>,
+    BaseField<P::Scalar, D2>: RichField + Extendable<D>,
+    S: Stark<BaseField<P::Scalar, D2>, D>,
 {
     let local_values = vars.get_local_values();
     let next_values = vars.get_next_values();
@@ -828,7 +825,7 @@ pub(crate) fn eval_packed_lookups_generic<F, FE, P, S, const D: usize, const D2:
         let num_helper_columns = lookup.num_helper_columns(degree);
         for &challenge in &lookup_vars.challenges {
             let grand_challenge = GrandProductChallenge {
-                beta: F::ONE,
+                beta: BaseField::<P::Scalar, D2>::ONE,
                 gamma: challenge,
             };
             let lookup_columns = lookup
@@ -850,7 +847,7 @@ pub(crate) fn eval_packed_lookups_generic<F, FE, P, S, const D: usize, const D2:
                 yield_constr,
             );
 
-            let challenge = FE::from_basefield(challenge);
+            let challenge = P::Scalar::from_basefield(challenge);
 
             // Check the `Z` polynomial.
             let z = lookup_vars.local_values[start + num_helper_columns - 1];

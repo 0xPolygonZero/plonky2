@@ -37,14 +37,13 @@ impl<F: Field> ReducingFactor<F> {
         self.base * x
     }
 
-    fn mul_ext<FE, P, const D: usize>(&mut self, x: P) -> P
+    fn mul_ext<P: PackedField, const D: usize>(&mut self, x: P) -> P
     where
-        FE: FieldExtension<D, BaseField = F>,
-        P: PackedField<Scalar = FE>,
+        P::Scalar: FieldExtension<D, BaseField = F>,
     {
         self.count += 1;
-        // TODO: Would like to use `FE::scalar_mul`, but it doesn't work with Packed currently.
-        x * FE::from_basefield(self.base)
+        // TODO: Would like to use `FieldExtension::scalar_mul`, but it doesn't work with Packed currently.
+        x * P::Scalar::from_basefield(self.base)
     }
 
     fn mul_poly(&mut self, p: &mut PolynomialCoeffs<F>) {
@@ -57,13 +56,12 @@ impl<F: Field> ReducingFactor<F> {
             .fold(F::ZERO, |acc, x| self.mul(acc) + *x.borrow())
     }
 
-    pub fn reduce_ext<FE, P, const D: usize>(
+    pub fn reduce_ext<P: PackedField, const D: usize>(
         &mut self,
         iter: impl DoubleEndedIterator<Item = impl Borrow<P>>,
     ) -> P
     where
-        FE: FieldExtension<D, BaseField = F>,
-        P: PackedField<Scalar = FE>,
+        P::Scalar: FieldExtension<D, BaseField = F>,
     {
         iter.rev()
             .fold(P::ZEROS, |acc, x| self.mul_ext(acc) + *x.borrow())

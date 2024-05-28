@@ -21,16 +21,11 @@ use crate::util::serialization::{Buffer, IoResult, Read, Write};
 
 /// Given a `PartitionWitness` that has only inputs set, populates the rest of the witness using the
 /// given set of generators.
-pub fn generate_partial_witness<
-    'a,
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
-    const D: usize,
->(
-    inputs: PartialWitness<F>,
-    prover_data: &'a ProverOnlyCircuitData<F, C, D>,
-    common_data: &'a CommonCircuitData<F, D>,
-) -> PartitionWitness<'a, F> {
+pub fn generate_partial_witness<'a, C: GenericConfig<D>, const D: usize>(
+    inputs: PartialWitness<C::F>,
+    prover_data: &'a ProverOnlyCircuitData<C, D>,
+    common_data: &'a CommonCircuitData<C::F, D>,
+) -> PartitionWitness<'a, C::F> {
     let config = &common_data.config;
     let generators = &prover_data.generators;
     let generator_indices_by_watches = &prover_data.generator_indices_by_watches;

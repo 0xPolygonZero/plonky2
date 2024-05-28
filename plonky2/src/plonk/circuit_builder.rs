@@ -1040,7 +1040,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn build_with_options<C: GenericConfig<D, F = F>>(
         self,
         commit_to_sigma: bool,
-    ) -> CircuitData<F, C, D> {
+    ) -> CircuitData<C, D> {
         let (circuit_data, success) = self.try_build_with_options(commit_to_sigma);
         if !success {
             panic!("Failed to build circuit");
@@ -1051,7 +1051,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn try_build_with_options<C: GenericConfig<D, F = F>>(
         mut self,
         commit_to_sigma: bool,
-    ) -> (CircuitData<F, C, D>, bool) {
+    ) -> (CircuitData<C, D>, bool) {
         let mut timing = TimingTree::new("preprocess", Level::Trace);
 
         #[cfg(feature = "std")]
@@ -1160,7 +1160,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         let constants_sigmas_commitment = if commit_to_sigma {
             let constants_sigmas_vecs = [constant_vecs, sigma_vecs.clone()].concat();
-            PolynomialBatch::<F, C, D>::from_values(
+            PolynomialBatch::<C, D>::from_values(
                 constants_sigmas_vecs,
                 rate_bits,
                 PlonkOracle::CONSTANTS_SIGMAS.blinding,
@@ -1169,7 +1169,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 Some(&fft_root_table),
             )
         } else {
-            PolynomialBatch::<F, C, D>::default()
+            PolynomialBatch::<C, D>::default()
         };
 
         // Map between gates where not all generators are used and the gate's number of used generators.
@@ -1267,7 +1267,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             }
         }
 
-        let prover_only = ProverOnlyCircuitData::<F, C, D> {
+        let prover_only = ProverOnlyCircuitData::<C, D> {
             generators: self.generators,
             generator_indices_by_watches,
             constants_sigmas_commitment,
@@ -1300,11 +1300,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     /// Builds a "full circuit", with both prover and verifier data.
-    pub fn build<C: GenericConfig<D, F = F>>(self) -> CircuitData<F, C, D> {
+    pub fn build<C: GenericConfig<D, F = F>>(self) -> CircuitData<C, D> {
         self.build_with_options(true)
     }
 
-    pub fn mock_build<C: GenericConfig<D, F = F>>(self) -> MockCircuitData<F, C, D> {
+    pub fn mock_build<C: GenericConfig<D, F = F>>(self) -> MockCircuitData<C, D> {
         let circuit_data = self.build_with_options(false);
         MockCircuitData {
             prover_only: circuit_data.prover_only,
@@ -1312,14 +1312,14 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
     /// Builds a "prover circuit", with data needed to generate proofs but not verify them.
-    pub fn build_prover<C: GenericConfig<D, F = F>>(self) -> ProverCircuitData<F, C, D> {
+    pub fn build_prover<C: GenericConfig<D, F = F>>(self) -> ProverCircuitData<C, D> {
         // TODO: Can skip parts of this.
         let circuit_data = self.build::<C>();
         circuit_data.prover_data()
     }
 
     /// Builds a "verifier circuit", with data needed to verify proofs but not generate them.
-    pub fn build_verifier<C: GenericConfig<D, F = F>>(self) -> VerifierCircuitData<F, C, D> {
+    pub fn build_verifier<C: GenericConfig<D, F = F>>(self) -> VerifierCircuitData<C, D> {
         // TODO: Can skip parts of this.
         let circuit_data = self.build::<C>();
         circuit_data.verifier_data()

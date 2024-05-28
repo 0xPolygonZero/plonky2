@@ -17,9 +17,9 @@ use std::sync::Arc;
 use anyhow::{anyhow, Context as _, Result};
 use itertools::Itertools;
 use log::{info, Level, LevelFilter};
+use plonky2::field::types::Field;
 use plonky2::gadgets::lookup::TIP5_TABLE;
 use plonky2::gates::noop::NoopGate;
-use plonky2::hash::hash_types::RichField;
 use plonky2::iop::witness::{PartialWitness, WitnessWrite};
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::circuit_data::{CircuitConfig, CommonCircuitData, VerifierOnlyCircuitData};
@@ -28,17 +28,16 @@ use plonky2::plonk::proof::{CompressedProofWithPublicInputs, ProofWithPublicInpu
 use plonky2::plonk::prover::prove;
 use plonky2::util::serialization::DefaultGateSerializer;
 use plonky2::util::timing::TimingTree;
-use plonky2_field::extension::Extendable;
 use plonky2_maybe_rayon::rayon;
 use rand::rngs::OsRng;
 use rand::{RngCore, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 use structopt::StructOpt;
 
-type ProofTuple<F, C, const D: usize> = (
-    ProofWithPublicInputs<F, C, D>,
+type ProofTuple<C, const D: usize> = (
+    ProofWithPublicInputs<C, D>,
     VerifierOnlyCircuitData<C, D>,
-    CommonCircuitData<F, D>,
+    CommonCircuitData<<C as GenericConfig<D>>::F, D>,
 );
 
 #[derive(Clone, StructOpt, Debug)]
@@ -75,10 +74,10 @@ struct Options {
 }
 
 /// Creates a dummy proof which should have `2 ** log2_size` rows.
-fn dummy_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
+fn dummy_proof<C: GenericConfig<D>, const D: usize>(
     config: &CircuitConfig,
     log2_size: usize,
-) -> Result<ProofTuple<F, C, D>> {
+) -> Result<ProofTuple<C, D>> {
     // 'size' is in degree, but we want number of noop gates. A non-zero amount of padding will be added and size will be rounded to the next power of two. To hit our target size, we go just under the previous power of two and hope padding is less than half the proof.
     let num_dummy_gates = match log2_size {
         0 => return Err(anyhow!("size must be at least 1")),
@@ -87,7 +86,7 @@ fn dummy_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D
         n => (1 << (n - 1)) + 1,
     };
     info!("Constructing inner proof with {} gates", num_dummy_gates);
-    let mut builder = CircuitBuilder::<F, D>::new(config.clone());
+    let mut builder = CircuitBuilder::<C::F, D>::new(config.clone());
     for _ in 0..num_dummy_gates {
         builder.add_gate(NoopGate, vec![]);
     }
@@ -97,18 +96,18 @@ fn dummy_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D
     let inputs = PartialWitness::new();
 
     let mut timing = TimingTree::new("prove", Level::Debug);
-    let proof = prove::<F, C, D>(&data.prover_only, &data.common, inputs, &mut timing)?;
+    let proof = prove::<C, D>(&data.prover_only, &data.common, inputs, &mut timing)?;
     timing.print();
     data.verify(proof.clone())?;
 
     Ok((proof, data.verifier_only, data.common))
 }
 
-fn dummy_lookup_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
+fn dummy_lookup_proof<C: GenericConfig<D>, const D: usize>(
     config: &CircuitConfig,
     log2_size: usize,
-) -> Result<ProofTuple<F, C, D>> {
-    let mut builder = CircuitBuilder::<F, D>::new(config.clone());
+) -> Result<ProofTuple<C, D>> {
+    let mut builder = CircuitBuilder::<C::F, D>::new(config.clone());
     let tip5_table = TIP5_TABLE.to_vec();
     let inps = 0..256;
     let table = Arc::new(inps.zip_eq(tip5_table).collect());
@@ -137,8 +136,8 @@ fn dummy_lookup_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, 
     builder.print_gate_counts(0);
 
     let data = builder.build::<C>();
-    let mut inputs = PartialWitness::<F>::new();
-    inputs.set_target(initial_a, F::ONE);
+    let mut inputs = PartialWitness::<C::F>::new();
+    inputs.set_target(initial_a, C::F::ONE);
     let mut timing = TimingTree::new("prove with one lookup", Level::Debug);
     let proof = prove(&data.prover_only, &data.common, inputs, &mut timing)?;
     timing.print();
@@ -148,15 +147,11 @@ fn dummy_lookup_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, 
 }
 
 /// Creates a dummy proof which has more than 256 lookups to one LUT
-fn dummy_many_rows_proof<
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
-    const D: usize,
->(
+fn dummy_many_rows_proof<C: GenericConfig<D>, const D: usize>(
     config: &CircuitConfig,
     log2_size: usize,
-) -> Result<ProofTuple<F, C, D>> {
-    let mut builder = CircuitBuilder::<F, D>::new(config.clone());
+) -> Result<ProofTuple<C, D>> {
+    let mut builder = CircuitBuilder::<C::F, D>::new(config.clone());
     let tip5_table = TIP5_TABLE.to_vec();
     let inps: Vec<u16> = (0..256).collect();
     let tip5_idx = builder.add_lookup_table_from_table(&inps, &tip5_table);
@@ -189,7 +184,7 @@ fn dummy_many_rows_proof<
     builder.register_public_input(output);
 
     let mut pw = PartialWitness::new();
-    pw.set_target(initial_a, F::ONE);
+    pw.set_target(initial_a, C::F::ONE);
     let data = builder.build::<C>();
     let mut timing = TimingTree::new("prove with many lookups", Level::Debug);
     let proof = prove(&data.prover_only, &data.common, pw, &mut timing)?;
@@ -199,21 +194,16 @@ fn dummy_many_rows_proof<
     Ok((proof, data.verifier_only, data.common))
 }
 
-fn recursive_proof<
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
-    InnerC: GenericConfig<D, F = F>,
-    const D: usize,
->(
-    inner: &ProofTuple<F, InnerC, D>,
+fn recursive_proof<C: GenericConfig<D>, InnerC: GenericConfig<D, F = C::F>, const D: usize>(
+    inner: &ProofTuple<InnerC, D>,
     config: &CircuitConfig,
     min_degree_bits: Option<usize>,
-) -> Result<ProofTuple<F, C, D>>
+) -> Result<ProofTuple<C, D>>
 where
-    InnerC::Hasher: AlgebraicHasher<F>,
+    InnerC::Hasher: AlgebraicHasher<C::F>,
 {
     let (inner_proof, inner_vd, inner_cd) = inner;
-    let mut builder = CircuitBuilder::<F, D>::new(config.clone());
+    let mut builder = CircuitBuilder::<C::F, D>::new(config.clone());
     let pt = builder.add_virtual_proof_with_pis(inner_cd);
 
     let inner_data = builder.add_virtual_verifier_data(inner_cd.config.fri_config.cap_height);
@@ -239,7 +229,7 @@ where
     pw.set_verifier_data_target(&inner_data, inner_vd);
 
     let mut timing = TimingTree::new("prove", Level::Debug);
-    let proof = prove::<F, C, D>(&data.prover_only, &data.common, pw, &mut timing)?;
+    let proof = prove::<C, D>(&data.prover_only, &data.common, pw, &mut timing)?;
     timing.print();
 
     data.verify(proof.clone())?;
@@ -248,10 +238,10 @@ where
 }
 
 /// Test serialization and print some size info.
-fn test_serialization<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
-    proof: &ProofWithPublicInputs<F, C, D>,
+fn test_serialization<C: GenericConfig<D>, const D: usize>(
+    proof: &ProofWithPublicInputs<C, D>,
     vd: &VerifierOnlyCircuitData<C, D>,
-    common_data: &CommonCircuitData<F, D>,
+    common_data: &CommonCircuitData<C::F, D>,
 ) -> Result<()> {
     let proof_bytes = proof.to_bytes();
     info!("Proof length: {} bytes", proof_bytes.len());
@@ -284,7 +274,7 @@ fn test_serialization<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, 
         common_data_bytes.len()
     );
     let common_data_from_bytes =
-        CommonCircuitData::<F, D>::from_bytes(common_data_bytes, &gate_serializer)
+        CommonCircuitData::<C::F, D>::from_bytes(common_data_bytes, &gate_serializer)
             .map_err(|_| anyhow::Error::msg("CommonCircuitData deserialization failed."))?;
     assert_eq!(common_data, &common_data_from_bytes);
 
@@ -298,13 +288,12 @@ pub fn benchmark_function(
 ) -> Result<()> {
     const D: usize = 2;
     type C = PoseidonGoldilocksConfig;
-    type F = <C as GenericConfig<D>>::F;
 
     let dummy_proof_function = match lookup_type {
-        0 => dummy_proof::<F, C, D>,
-        1 => dummy_lookup_proof::<F, C, D>,
-        2 => dummy_many_rows_proof::<F, C, D>,
-        _ => dummy_proof::<F, C, D>,
+        0 => dummy_proof::<C, D>,
+        1 => dummy_lookup_proof::<C, D>,
+        2 => dummy_many_rows_proof::<C, D>,
+        _ => dummy_proof::<C, D>,
     };
 
     let name = match lookup_type {
@@ -324,7 +313,7 @@ pub fn benchmark_function(
     );
 
     // Recursively verify the proof
-    let middle = recursive_proof::<F, C, C, D>(&inner, config, None)?;
+    let middle = recursive_proof::<C, C, D>(&inner, config, None)?;
     let (_, _, common_data) = &middle;
     info!(
         "Single recursion {} degree {} = 2^{}",
@@ -334,7 +323,7 @@ pub fn benchmark_function(
     );
 
     // Add a second layer of recursion to shrink the proof size further
-    let outer = recursive_proof::<F, C, C, D>(&middle, config, None)?;
+    let outer = recursive_proof::<C, C, D>(&middle, config, None)?;
     let (proof, vd, common_data) = &outer;
     info!(
         "Double recursion {} degree {} = 2^{}",
