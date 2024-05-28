@@ -19,7 +19,8 @@
 //! - Z(gw) = Z(w) * combine(w) where combine(w) is the column combination at point w.
 //! - Z(g^(n-1)) = combine(1).
 //! - The verifier also checks that the product of looking table Z polynomials is equal
-//! to the associated looked table Z polynomial.
+//!   to the associated looked table Z polynomial.
+//!
 //! Note that the first two checks are written that way because Z polynomials are computed
 //! upside down for convenience.
 //!
@@ -316,6 +317,7 @@ pub(crate) fn get_ctl_auxiliary_polys<F: Field>(
 /// - `cross_table_lookups` corresponds to all the cross-table lookups, i.e. the looked and looking tables, as described in `CrossTableLookup`.
 /// - `ctl_challenges` corresponds to the challenges used for CTLs.
 /// - `constraint_degree` is the maximal constraint degree for the table.
+///
 /// For each `CrossTableLookup`, and each looking/looked table, the partial products for the CTL are computed, and added to the said table's `CtlZData`.
 pub(crate) fn cross_table_lookup_data<'a, F: RichField, const D: usize, const N: usize>(
     trace_poly_values: &[Vec<PolynomialValues<F>>; N],
@@ -621,6 +623,7 @@ impl<'a, F: RichField + Extendable<D>, const D: usize>
 /// Checks the cross-table lookup Z polynomials for each table:
 /// - Checks that the CTL `Z` partial sums are correctly updated.
 /// - Checks that the final value of the CTL sum is the combination of all STARKs' CTL polynomials.
+///
 /// CTL `Z` partial sums are upside down: the complete sum is on the first row, and
 /// the first term is on the last row. This allows the transition constraint to be:
 /// `combine(w) * (Z(w) - Z(gw)) = filter` where combine is called on the local row
@@ -825,6 +828,7 @@ impl<'a, F: Field, const D: usize> CtlCheckVarsTarget<F, D> {
 /// Circuit version of `eval_cross_table_lookup_checks`. Checks the cross-table lookup Z polynomials for each table:
 /// - Checks that the CTL `Z` partial sums are correctly updated.
 /// - Checks that the final value of the CTL sum is the combination of all STARKs' CTL polynomials.
+///
 /// CTL `Z` partial sums are upside down: the complete sum is on the first row, and
 /// the first term is on the last row. This allows the transition constraint to be:
 /// `combine(w) * (Z(w) - Z(gw)) = filter` where combine is called on the local row
