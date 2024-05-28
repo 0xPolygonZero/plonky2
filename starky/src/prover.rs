@@ -89,7 +89,7 @@ where
 /// - all the required Merkle caps,
 /// - all the required polynomial and FRI argument openings.
 /// - individual `ctl_data` and common `ctl_challenges` if the STARK is part
-/// of a multi-STARK system.
+///   of a multi-STARK system.
 pub fn prove_with_commitment<C, S, const D: usize>(
     stark: &S,
     config: &StarkConfig,
