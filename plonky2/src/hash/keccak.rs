@@ -8,7 +8,6 @@ use tiny_keccak::{Hasher as KeccakHasher, Keccak};
 use crate::hash::hash_types::{BytesHash, RichField};
 use crate::hash::hashing::PlonkyPermutation;
 use crate::plonk::config::Hasher;
-use crate::util::serialization::Write;
 
 pub const SPONGE_RATE: usize = 8;
 pub const SPONGE_CAPACITY: usize = 4;
