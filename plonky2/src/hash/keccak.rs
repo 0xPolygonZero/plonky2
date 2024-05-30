@@ -102,8 +102,8 @@ impl<F: RichField> PlonkyPermutation<F> for KeccakPermutation<F> {
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct KeccakHash<const N: usize>;
 impl<F: RichField, const N: usize> Hasher<F> for KeccakHash<N> {
-    const HASH_SIZE: usize = 25;
-    type Hash = BytesHash;
+    const HASH_SIZE: usize = N;
+    type Hash = BytesHash<N>;
     type Permutation = KeccakPermutation<F>;
 
     fn hash_no_pad(input: &[F]) -> Self::Hash {
@@ -115,8 +115,8 @@ impl<F: RichField, const N: usize> Hasher<F> for KeccakHash<N> {
         let mut hash_bytes = [0u8; 32];
         keccak256.finalize(&mut hash_bytes);
 
-        let mut arr = [0; 25];
-        arr.copy_from_slice(&hash_bytes[..25]);
+        let mut arr = [0; N];
+        arr.copy_from_slice(&hash_bytes[..N]);
         BytesHash(arr)
     }
 
@@ -128,8 +128,8 @@ impl<F: RichField, const N: usize> Hasher<F> for KeccakHash<N> {
         let mut hash_bytes = [0u8; 32];
         keccak256.finalize(&mut hash_bytes);
 
-        let mut arr = [0; 25];
-        arr.copy_from_slice(&hash_bytes[..25]);
+        let mut arr = [0; N];
+        arr.copy_from_slice(&hash_bytes[..N]);
         BytesHash(arr)
     }
 }

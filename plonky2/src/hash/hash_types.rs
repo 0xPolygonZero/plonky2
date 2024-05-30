@@ -155,22 +155,22 @@ impl TryFrom<&[Target]> for HashOutTarget {
 pub struct MerkleCapTarget(pub Vec<HashOutTarget>);
 
 /// Hash consisting of a byte array.
-#[derive(Eq, PartialEq, Copy, Clone, Debug, Serialize, Deserialize)]
-pub struct BytesHash(pub [u8; 25]);
+#[derive(Eq, PartialEq, Copy, Clone, Debug)]
+pub struct BytesHash<const N: usize>(pub [u8; N]);
 
-impl Sample for BytesHash {
+impl<const N: usize> Sample for BytesHash<N> {
     #[inline]
     fn sample<R>(rng: &mut R) -> Self
     where
         R: rand::RngCore + ?Sized,
     {
-        let mut buf = [0; 25];
+        let mut buf = [0; N];
         rng.fill_bytes(&mut buf);
         Self(buf)
     }
 }
 
-impl<F: RichField> GenericHashOut<F> for BytesHash {
+impl<F: RichField, const N: usize> GenericHashOut<F> for BytesHash<N> {
     fn to_bytes(&self) -> Vec<u8> {
         self.0.to_vec()
     }
@@ -192,20 +192,20 @@ impl<F: RichField> GenericHashOut<F> for BytesHash {
     }
 }
 
-// impl<const N: usize> Serialize for BytesHash<N> {
-//     fn serialize<S>(&self, _serializer: S) -> Result<S::Ok, S::Error>
-//     where
-//         S: Serializer,
-//     {
-//         todo!()
-//     }
-// }
-//
-// impl<'de, const N: usize> Deserialize<'de> for BytesHash<N> {
-//     fn deserialize<D>(_deserializer: D) -> Result<Self, D::Error>
-//     where
-//         D: Deserializer<'de>,
-//     {
-//         todo!()
-//     }
-// }
+impl<const N: usize> Serialize for BytesHash<N> {
+    fn serialize<S>(&self, _serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        todo!()
+    }
+}
+
+impl<'de, const N: usize> Deserialize<'de> for BytesHash<N> {
+    fn deserialize<D>(_deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        todo!()
+    }
+}
