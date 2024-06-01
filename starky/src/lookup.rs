@@ -321,24 +321,16 @@ impl<F: Field> Column<F> {
 
     /// Evaluate on a row of a table given in column-major form.
     pub(crate) fn eval_table(&self, table: &[PolynomialValues<F>], row: usize) -> F {
-        let mut res = self
-            .linear_combination
+        self.linear_combination
             .iter()
             .map(|&(c, f)| table[c].values[row] * f)
             .sum::<F>()
-            + self.constant;
-
-        // If we access the next row at the last row, for sanity, we consider the next row's values to be 0.
-        // If the lookups are correctly written, the filter should be 0 in that case anyway.
-        if !self.next_row_linear_combination.is_empty() && row < table[0].values.len() - 1 {
-            res += self
+            + self
                 .next_row_linear_combination
                 .iter()
-                .map(|&(c, f)| table[c].values[row + 1] * f)
-                .sum::<F>();
-        }
-
-        res
+                .map(|&(c, f)| table[c].values[(row + 1) % table[c].values.len()] * f)
+                .sum::<F>()
+            + self.constant
     }
 
     /// Evaluates the column on all rows.
