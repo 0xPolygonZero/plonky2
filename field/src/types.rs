@@ -559,11 +559,12 @@ pub trait PrimeField64: PrimeField + Field64 {
     /// The conversion to a canonical i64 is mostly useful for debugging,
     /// as it tries to recover 'negative' values for better readability.
     fn to_canonical_i64(&self) -> i64 {
-        i64::try_from(self.to_canonical_u64()).unwrap_or_else(|_| {
-            i64::try_from(self.neg().to_canonical_u64())
-                .expect("This conversion should never fail.")
-                .neg()
-        })
+        let x = self.to_canonical_u64();
+        if x < Self::ORDER / 2 {
+            x as i64
+        } else {
+            x.wrapping_sub(Self::ORDER) as i64
+        }
     }
 
     #[inline(always)]
