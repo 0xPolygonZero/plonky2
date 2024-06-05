@@ -357,24 +357,16 @@ impl<F: Field> Column<F> {
 
     /// Evaluate on a row of a table given in column-major form.
     pub(crate) fn eval_table(&self, table: &[PolynomialValues<F>], row: usize) -> F {
-        let mut res = self
-            .linear_combination
+        self.linear_combination
             .iter()
             .map(|&(c, f)| table[c].values[row] * f)
             .sum::<F>()
-            + self.constant;
-
-        // If we access the next row at the last row, for sanity, we consider the next row's values to be 0.
-        // If the lookups are correctly written, the filter should be 0 in that case anyway.
-        if !self.next_row_linear_combination.is_empty() && row < table[0].values.len() - 1 {
-            res += self
+            + self
                 .next_row_linear_combination
                 .iter()
-                .map(|&(c, f)| table[c].values[row + 1] * f)
-                .sum::<F>();
-        }
-
-        res
+                .map(|&(c, f)| table[c].values[(row + 1) % table[c].values.len()] * f)
+                .sum::<F>()
+            + self.constant
     }
 
     /// Evaluates the column on all rows.
@@ -797,50 +789,35 @@ pub(crate) fn get_helper_cols<F: Field>(
         .len()
         .div_ceil(constraint_degree.checked_sub(1).unwrap_or(1));
 
-    let mut helper_columns = Vec::with_capacity(num_helper_columns);
-
-    for mut cols_filts in &columns_filters
-        .iter()
-        .chunks(constraint_degree.checked_sub(1).unwrap_or(1))
-    {
-        let (first_col, first_filter) = cols_filts.next().unwrap();
-
-        let mut filter_col = Vec::with_capacity(degree);
-        let first_combined = (0..degree)
-            .map(|d| {
-                filter_col.push(first_filter.eval_table(trace, d));
-                let evals = first_col
-                    .iter()
-                    .map(|c| c.eval_table(trace, d))
-                    .collect::<Vec<F>>();
-                challenge.combine(evals.iter())
-            })
-            .collect::<Vec<F>>();
-
-        let mut acc = F::batch_multiplicative_inverse(&first_combined);
-        batch_multiply_inplace(&mut acc, &filter_col);
-
-        for (col, filt) in cols_filts {
-            let mut filter_col = Vec::with_capacity(degree);
-            let mut combined = (0..degree)
-                .map(|d| {
-                    filter_col.push(filt.eval_table(trace, d));
-                    let evals = col
-                        .iter()
-                        .map(|c| c.eval_table(trace, d))
+    let chunks = columns_filters.chunks(constraint_degree.checked_sub(1).unwrap_or(1));
+    let helper_columns: Vec<_> = chunks
+        .filter_map(|cols_filts| {
+            cols_filts
+                .iter()
+                .map(|(col, filter)| {
+                    let combined = (0..degree)
+                        .map(|d| {
+                            let evals = col
+                                .iter()
+                                .map(|c| c.eval_table(trace, d))
+                                .collect::<Vec<F>>();
+                            challenge.combine(&evals)
+                        })
                         .collect::<Vec<F>>();
-                    challenge.combine(evals.iter())
+
+                    let mut combined = F::batch_multiplicative_inverse(&combined);
+                    let filter_col: Vec<_> =
+                        (0..degree).map(|d| filter.eval_table(trace, d)).collect();
+                    batch_multiply_inplace(&mut combined, &filter_col);
+                    combined
                 })
-                .collect::<Vec<F>>();
-
-            combined = F::batch_multiplicative_inverse(&combined);
-
-            batch_multiply_inplace(&mut acc, &filter_col);
-            batch_add_inplace(&mut acc, &combined);
-        }
-
-        helper_columns.push(acc.into());
-    }
+                .reduce(|mut acc, combined| {
+                    batch_add_inplace(&mut acc, &combined);
+                    acc
+                })
+                .map(PolynomialValues::from)
+        })
+        .collect();
     assert_eq!(helper_columns.len(), num_helper_columns);
 
     helper_columns
