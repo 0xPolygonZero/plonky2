@@ -935,10 +935,9 @@ pub fn verify_cross_table_lookups_circuit<
             );
 
             let looking_zs_sum = builder.add(looking_zs_sum, extra_sum_vec[c]);
-            let zero = builder.zero();
 
             // Verify that the combination of looking table openings is equal to the looked table opening.
-            builder.connect(zero, looking_zs_sum);
+            builder.assert_zero(looking_zs_sum);
         }
     }
     debug_assert!(ctl_zs_openings.iter_mut().all(|iter| iter.next().is_none()));
