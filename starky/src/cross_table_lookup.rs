@@ -337,6 +337,9 @@ pub(crate) fn cross_table_lookup_data<'a, F: RichField, const D: usize, const N:
             looking_tables
                 .iter()
                 .map(|table| table.table)
+                .counts()
+                .into_iter()
+                .sorted()
                 .collect::<Vec<_>>()
         );
         for &challenge in &ctl_challenges.challenges {
