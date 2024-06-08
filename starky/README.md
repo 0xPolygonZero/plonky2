@@ -12,6 +12,11 @@ ZK is disabled by default on `starky`. Applications requiring their proof to be 
 recursive wrapper on top of their STARK proof with the `zero_knowledge` parameter activated in their `CircuitConfig`.
 See `plonky2` documentation for more info.
 
+## Note on `1.0.0` versions
+
+Starting from `v1.0.0`, the `plonky2_field` and `starky` crates use a *different* generator for the two-adic subgroup of the Goldilocks field.
+As such, any proof generated with a previous `starky` version would be *unverifiable* with newer versions of this crate starting from `v1.0.0`.
+
 ## License
 
 Licensed under either of

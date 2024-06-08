@@ -11,6 +11,12 @@ For more details about the Plonky2 argument system, see this [writeup](plonky2/p
 Polymer Labs has written up a helpful tutorial [here](https://polymerlabs.medium.com/a-tutorial-on-writing-zk-proofs-with-plonky2-part-i-be5812f6b798)!
 
 
+## Note on `1.0.0` versions
+
+Starting from `v1.0.0`, the `plonky2_field`, `plonky2` and `starky` crates use a *different* generator for the two-adic subgroup of the Goldilocks field.
+As such, any proof generated with a previous version of either `plonky2` or `starky` would be *unverifiable* with newer versions of those crates,
+starting from `v1.0.0`.
+
 ## Examples
 
 A good starting point for how to use Plonky2 for simple applications is the included examples:
