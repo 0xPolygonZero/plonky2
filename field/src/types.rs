@@ -427,9 +427,13 @@ pub trait Field:
     }
 
     fn powers(&self) -> Powers<Self> {
+        self.shifted_powers(Self::ONE)
+    }
+
+    fn shifted_powers(&self, start: Self) -> Powers<Self> {
         Powers {
             base: *self,
-            current: Self::ONE,
+            current: start,
         }
     }
 
@@ -563,6 +567,11 @@ pub trait PrimeField64: PrimeField + Field64 {
 }
 
 /// An iterator over the powers of a certain base element `b`: `b^0, b^1, b^2, ...`.
+///
+/// This iterator panics on calls to [`nth`] if `n` overflows [`u64`].
+///
+/// [`nth`]: ::core::iter::Iterator::nth
+#[must_use = "iterators are lazy and do nothing unless consumed"]
 #[derive(Clone, Debug)]
 pub struct Powers<F: Field> {
     base: F,
@@ -577,6 +586,24 @@ impl<F: Field> Iterator for Powers<F> {
         self.current *= self.base;
         Some(result)
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (usize::MAX, None)
+    }
+
+    fn nth(&mut self, n: usize) -> Option<F> {
+        let result = self.current * self.base.exp_u64(n.try_into().unwrap());
+        self.current = result * self.base;
+        Some(result)
+    }
+
+    fn last(self) -> Option<F> {
+        panic!("called `Iterator::last()` on an infinite sequence")
+    }
+
+    fn count(self) -> usize {
+        panic!("called `Iterator::count()` on an infinite sequence")
+    }
 }
 
 impl<F: Field> Powers<F> {
@@ -589,6 +616,29 @@ impl<F: Field> Powers<F> {
         Self {
             base: base.repeated_frobenius(k),
             current: current.repeated_frobenius(k),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Field;
+    use crate::goldilocks_field::GoldilocksField;
+
+    #[test]
+    fn test_powers_nth() {
+        type F = GoldilocksField;
+
+        const N: usize = 10;
+        let powers_of_two: Vec<F> = F::TWO.powers().take(N).collect();
+
+        for (n, &expect) in powers_of_two.iter().enumerate() {
+            let mut iter = F::TWO.powers();
+            assert_eq!(iter.nth(n), Some(expect));
+
+            for &expect_next in &powers_of_two[n + 1..] {
+                assert_eq!(iter.next(), Some(expect_next));
+            }
         }
     }
 }
