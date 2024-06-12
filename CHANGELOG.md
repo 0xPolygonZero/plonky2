@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fix CTL generation of last row ([#1585](https://github.com/0xPolygonZero/plonky2/pull/1585))
 - Allow multiple extra_looking_sums for the same looked table ([#1591](https://github.com/0xPolygonZero/plonky2/pull/1591))
 - Clarify zk usage with starky ([#1596](https://github.com/0xPolygonZero/plonky2/pull/1596))
+- Add row index to constraint failure message ([#1598](https://github.com/0xPolygonZero/plonky2/pull/1598))
 
 ## [0.2.3] - 2024-04-16
 
