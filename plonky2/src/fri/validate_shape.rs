@@ -1,3 +1,5 @@
+use alloc::vec;
+
 use anyhow::ensure;
 
 use crate::field::extension::Extendable;
