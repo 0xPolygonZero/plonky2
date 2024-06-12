@@ -549,6 +549,8 @@ fn check_constraints<'a, F, C, S, const D: usize>(
     C: GenericConfig<D, F = F>,
     S: Stark<F, D>,
 {
+    use core::any::type_name;
+
     let degree = 1 << degree_bits;
     let rate_bits = 0; // Set this to higher value to check constraint degree.
     let total_num_helper_cols: usize = num_ctl_helper_cols.iter().sum();
@@ -656,11 +658,14 @@ fn check_constraints<'a, F, C, S, const D: usize>(
         .collect::<Vec<_>>();
 
     // Assert that all constraints evaluate to 0 over our subgroup.
-    for v in constraint_values {
-        assert!(
-            v.iter().all(|x| x.is_zero()),
-            "Constraint failed in {}",
-            core::any::type_name::<S>()
-        );
+    for (row, v) in constraint_values.iter().enumerate() {
+        for x in v.iter() {
+            assert!(
+                x.is_zero(),
+                "Constraint failed in {} at row {}",
+                type_name::<S>(),
+                row
+            )
+        }
     }
 }
