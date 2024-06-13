@@ -6,7 +6,7 @@
 #![feature(specialization)]
 #![cfg_attr(target_arch = "x86_64", feature(stdarch_x86_avx512))]
 #![cfg_attr(not(test), no_std)]
-#![cfg(not(test))]
+
 extern crate alloc;
 
 pub(crate) mod arch;
