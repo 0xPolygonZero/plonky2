@@ -567,10 +567,6 @@ pub trait PrimeField64: PrimeField + Field64 {
 }
 
 /// An iterator over the powers of a certain base element `b`: `b^0, b^1, b^2, ...`.
-///
-/// This iterator panics on calls to [`nth`] if `n` overflows [`u64`].
-///
-/// [`nth`]: ::core::iter::Iterator::nth
 #[must_use = "iterators are lazy and do nothing unless consumed"]
 #[derive(Clone, Debug)]
 pub struct Powers<F: Field> {
