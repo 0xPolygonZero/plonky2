@@ -45,11 +45,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         access_index: Target,
         v: Vec<ExtensionTarget<D>>,
     ) -> ExtensionTarget<D> {
-        let selected: Vec<_> = (0..D)
-            .map(|i| self.random_access(access_index, v.iter().map(|et| et.0[i]).collect()))
-            .collect();
+        let selected = core::array::from_fn(|i| {
+            self.random_access(access_index, v.iter().map(|et| et.0[i]).collect())
+        });
 
-        ExtensionTarget(selected.try_into().unwrap())
+        ExtensionTarget(selected)
     }
 
     /// Like `random_access`, but with `HashOutTarget`s rather than simple `Target`s.

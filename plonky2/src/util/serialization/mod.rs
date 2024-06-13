@@ -228,10 +228,11 @@ pub trait Read {
     /// Reads an array of Target from `self`.
     #[inline]
     fn read_target_array<const N: usize>(&mut self) -> IoResult<[Target; N]> {
-        (0..N)
-            .map(|_| self.read_target())
-            .collect::<Result<Vec<_>, _>>()
-            .map(|v| v.try_into().unwrap())
+        let mut res = [Target::wire(0, 0); N];
+        for r in res.iter_mut() {
+            *r = self.read_target()?;
+        }
+        Ok(res)
     }
 
     /// Reads a vector of Target from `self`.

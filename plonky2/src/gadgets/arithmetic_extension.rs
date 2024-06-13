@@ -6,6 +6,8 @@ use alloc::{
 };
 use core::borrow::Borrow;
 
+use iter_fixed::IntoIteratorFixed;
+
 use crate::field::extension::{Extendable, FieldExtension, OEF};
 use crate::field::types::{Field, Field64};
 use crate::gates::arithmetic_extension::ArithmeticExtensionGate;
@@ -279,8 +281,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         b: ExtensionAlgebraTarget<D>,
         c: ExtensionAlgebraTarget<D>,
     ) -> ExtensionAlgebraTarget<D> {
-        let mut inner = vec![vec![]; D];
-        let mut inner_w = vec![vec![]; D];
+        let mut inner: [_; D] = core::array::from_fn(|_| vec![]);
+        let mut inner_w: [_; D] = core::array::from_fn(|_| vec![]);
         for i in 0..D {
             for j in 0..D - i {
                 inner[(i + j) % D].push((a.0[i], b.0[j]));
@@ -290,16 +292,16 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             }
         }
         let res = inner_w
-            .into_iter()
+            .into_iter_fixed()
             .zip(inner)
             .zip(c.0)
             .map(|((pairs_w, pairs), ci)| {
                 let acc = self.inner_product_extension(F::Extension::W, ci, pairs_w);
                 self.inner_product_extension(F::ONE, acc, pairs)
             })
-            .collect::<Vec<_>>();
+            .collect();
 
-        ExtensionAlgebraTarget(res.try_into().unwrap())
+        ExtensionAlgebraTarget(res)
     }
 
     /// Returns `a * b`.
@@ -681,12 +683,15 @@ mod tests {
         let mut pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
-        let xt =
-            ExtensionAlgebraTarget(builder.add_virtual_extension_targets(D).try_into().unwrap());
-        let yt =
-            ExtensionAlgebraTarget(builder.add_virtual_extension_targets(D).try_into().unwrap());
-        let zt =
-            ExtensionAlgebraTarget(builder.add_virtual_extension_targets(D).try_into().unwrap());
+        let xt = ExtensionAlgebraTarget(core::array::from_fn(|_| {
+            builder.add_virtual_extension_target()
+        }));
+        let yt = ExtensionAlgebraTarget(core::array::from_fn(|_| {
+            builder.add_virtual_extension_target()
+        }));
+        let zt = ExtensionAlgebraTarget(core::array::from_fn(|_| {
+            builder.add_virtual_extension_target()
+        }));
         let comp_zt = builder.mul_ext_algebra(xt, yt);
         for i in 0..D {
             builder.connect_extension(zt.0[i], comp_zt.0[i]);

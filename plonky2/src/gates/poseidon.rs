@@ -445,9 +445,9 @@ impl<F: RichField + Extendable<D> + Poseidon, const D: usize> SimpleGenerator<F,
             column,
         };
 
-        let mut state = (0..SPONGE_WIDTH)
-            .map(|i| witness.get_wire(local_wire(PoseidonGate::<F, D>::wire_input(i))))
-            .collect::<Vec<_>>();
+        let mut state: [F; SPONGE_WIDTH] = core::array::from_fn(|i| {
+            witness.get_wire(local_wire(PoseidonGate::<F, D>::wire_input(i)))
+        });
 
         let swap_value = witness.get_wire(local_wire(PoseidonGate::<F, D>::WIRE_SWAP));
         debug_assert!(swap_value == F::ZERO || swap_value == F::ONE);
@@ -463,7 +463,6 @@ impl<F: RichField + Extendable<D> + Poseidon, const D: usize> SimpleGenerator<F,
             }
         }
 
-        let mut state: [F; SPONGE_WIDTH] = state.try_into().unwrap();
         let mut round_ctr = 0;
 
         for r in 0..poseidon::HALF_N_FULL_ROUNDS {
@@ -584,9 +583,7 @@ mod tests {
         let row = builder.add_gate(gate, vec![]);
         let circuit = builder.build_prover::<C>();
 
-        let permutation_inputs = (0..SPONGE_WIDTH)
-            .map(F::from_canonical_usize)
-            .collect::<Vec<_>>();
+        let permutation_inputs = core::array::from_fn(F::from_canonical_usize);
 
         let mut inputs = PartialWitness::new();
         inputs.set_wire(
@@ -608,8 +605,7 @@ mod tests {
 
         let witness = generate_partial_witness(inputs, &circuit.prover_only, &circuit.common);
 
-        let expected_outputs: [F; SPONGE_WIDTH] =
-            F::poseidon(permutation_inputs.try_into().unwrap());
+        let expected_outputs: [F; SPONGE_WIDTH] = F::poseidon(permutation_inputs);
         for i in 0..SPONGE_WIDTH {
             let out = witness.get_wire(Wire {
                 row: 0,

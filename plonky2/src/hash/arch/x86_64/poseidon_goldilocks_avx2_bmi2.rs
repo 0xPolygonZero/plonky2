@@ -940,7 +940,7 @@ pub unsafe fn poseidon(state: &[GoldilocksField; 12]) -> [GoldilocksField; 12] {
 
     // The first constant layer must be done explicitly. The remaining constant layers are fused
     // with the preceding MDS layer.
-    let state = const_layer(state, &ALL_ROUND_CONSTANTS[0..WIDTH].try_into().unwrap());
+    let state = const_layer(state, ALL_ROUND_CONSTANTS.first_chunk().unwrap());
 
     let state = half_full_rounds(state, 0);
     let state = all_partial_rounds(state, HALF_N_FULL_ROUNDS);
@@ -954,9 +954,7 @@ pub unsafe fn poseidon(state: &[GoldilocksField; 12]) -> [GoldilocksField; 12] {
 #[inline(always)]
 pub unsafe fn constant_layer(state_arr: &mut [GoldilocksField; WIDTH], round_ctr: usize) {
     let state = load_state(state_arr);
-    let round_consts = &ALL_ROUND_CONSTANTS[WIDTH * round_ctr..][..WIDTH]
-        .try_into()
-        .unwrap();
+    let round_consts = ALL_ROUND_CONSTANTS[WIDTH * round_ctr..].first_chunk().unwrap();
     let state = const_layer(state, round_consts);
     store_state(state_arr, state);
 }

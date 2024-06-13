@@ -880,8 +880,8 @@ unsafe fn full_rounds(
     mut state: [u64; 12],
     round_constants: &[u64; WIDTH * HALF_N_FULL_ROUNDS],
 ) -> [u64; 12] {
-    for round_constants_chunk in round_constants.chunks_exact(WIDTH) {
-        state = full_round(state, round_constants_chunk.try_into().unwrap());
+    for round_constants_chunk in round_constants.array_chunks() {
+        state = full_round(state, *round_constants_chunk);
     }
     state
 }
@@ -901,8 +901,8 @@ unsafe fn partial_rounds(
             vcombine_u64(vcreate_u64(state[10]), vcreate_u64(state[11])),
         ],
     );
-    for round_constants_chunk in round_constants.chunks_exact(WIDTH) {
-        state = partial_round(state, round_constants_chunk.try_into().unwrap());
+    for round_constants_chunk in round_constants.array_chunks() {
+        state = partial_round(state, round_constants_chunk);
     }
     state.0
 }
@@ -922,7 +922,7 @@ fn wrap_state(state: [u64; 12]) -> [GoldilocksField; 12] {
 #[inline(always)]
 pub unsafe fn poseidon(state: [GoldilocksField; 12]) -> [GoldilocksField; 12] {
     let state = unwrap_state(state);
-    let state = const_layer_full(state, ALL_ROUND_CONSTANTS[0..WIDTH].try_into().unwrap());
+    let state = const_layer_full(state, ALL_ROUND_CONSTANTS.first_chunk().unwrap());
     let state = full_rounds(
         state,
         ALL_ROUND_CONSTANTS[WIDTH..WIDTH * (HALF_N_FULL_ROUNDS + 1)]

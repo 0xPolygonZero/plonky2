@@ -356,13 +356,11 @@ mod tests {
         )?;
 
         // Verify that the proof correctly computes a repeated hash.
-        let initial_hash = &proof.public_inputs[..4];
+        let initial_hash = *proof.public_inputs.first_chunk().unwrap();
         let hash = &proof.public_inputs[4..8];
         let counter = proof.public_inputs[8];
-        let expected_hash: [F; 4] = iterate_poseidon(
-            initial_hash.try_into().unwrap(),
-            counter.to_canonical_u64() as usize,
-        );
+        let expected_hash: [F; 4] =
+            iterate_poseidon(initial_hash, counter.to_canonical_u64() as usize);
         assert_eq!(hash, expected_hash);
 
         cyclic_circuit_data.verify(proof)

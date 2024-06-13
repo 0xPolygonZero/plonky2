@@ -452,9 +452,8 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D>
 
         let get_local_ext = |wire_range: Range<usize>| {
             debug_assert_eq!(wire_range.len(), D);
-            let values = wire_range.map(get_local_wire).collect::<Vec<_>>();
-            let arr = values.try_into().unwrap();
-            F::Extension::from_basefield_array(arr)
+            let mut values = wire_range.map(get_local_wire);
+            F::Extension::from_basefield_array(core::array::from_fn(|_| values.next().unwrap()))
         };
 
         let evaluation_point = get_local_ext(self.gate.wires_evaluation_point());

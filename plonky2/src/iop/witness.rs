@@ -191,9 +191,7 @@ pub trait Witness<F: Field>: WitnessWrite<F> {
     where
         F: RichField + Extendable<D>,
     {
-        F::Extension::from_basefield_array(
-            self.get_targets(&et.to_target_array()).try_into().unwrap(),
-        )
+        F::Extension::from_basefield_array(et.to_target_array().map(|t| self.get_target(t)))
     }
 
     fn get_extension_targets<const D: usize>(&self, ets: &[ExtensionTarget<D>]) -> Vec<F::Extension>
@@ -218,7 +216,7 @@ pub trait Witness<F: Field>: WitnessWrite<F> {
 
     fn get_hash_target(&self, ht: HashOutTarget) -> HashOut<F> {
         HashOut {
-            elements: self.get_targets(&ht.elements).try_into().unwrap(),
+            elements: ht.elements.map(|t| self.get_target(t)),
         }
     }
 
