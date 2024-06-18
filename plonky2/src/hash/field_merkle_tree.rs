@@ -40,17 +40,17 @@ impl<F: RichField, H: Hasher<F>> FieldMerkleTree<F, H> {
             .windows(2)
             .all(|pair| { pair[0].len() > pair[1].len() }));
 
-        let leaves_len = leaves[0].len();
-        let log2_leaves_len = log2_strict(leaves_len);
+        let last_leaves_cap_height = log2_strict(leaves.last().unwrap().len());
         assert!(
-            cap_height <= log2_leaves_len,
-            "cap_height={} should be at most log2(leaves.len())={}",
+            cap_height <= last_leaves_cap_height,
+            "cap_height={} should be at most last_leaves_cap_height={}",
             cap_height,
-            log2_leaves_len
+            last_leaves_cap_height
         );
 
         let mut leaf_heights = vec![];
 
+        let leaves_len = leaves[0].len();
         let num_digests = 2 * (leaves_len - (1 << cap_height));
         let mut digests = Vec::with_capacity(num_digests);
         let digests_buf = capacity_up_to_mut(&mut digests, num_digests);
@@ -131,7 +131,7 @@ impl<F: RichField, H: Hasher<F>> FieldMerkleTree<F, H> {
     /// Create a Merkle proof from a leaf index.
     pub fn open_batch(&self, leaf_index: usize) -> MerkleProof<F, H> {
         let mut digests_buf_pos = 0;
-        let leaves_cap_height = log2_strict(self.leaves[0].len());
+        let initial_leaf_height = log2_strict(self.leaves[0].len());
         let mut siblings = vec![];
         let mut cap_heights = self.leaf_heights.clone();
         cap_heights.push(log2_strict(self.cap.len()));
@@ -140,7 +140,7 @@ impl<F: RichField, H: Hasher<F>> FieldMerkleTree<F, H> {
             let next_cap_height = window[1];
             let num_digests: usize = 2 * ((1 << cur_cap_height) - (1 << next_cap_height));
             siblings.extend::<Vec<_>>(merkle_tree_prove::<F, H>(
-                leaf_index >> (leaves_cap_height - cur_cap_height),
+                leaf_index >> (initial_leaf_height - cur_cap_height),
                 1 << cur_cap_height,
                 next_cap_height,
                 &self.digests[digests_buf_pos..digests_buf_pos + num_digests],
