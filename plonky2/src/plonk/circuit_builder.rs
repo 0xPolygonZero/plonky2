@@ -153,7 +153,7 @@ pub struct CircuitBuilder<F: RichField + Extendable<D>, const D: usize> {
     pub(crate) gate_instances: Vec<GateInstance<F, D>>,
 
     /// Targets to be made public.
-    public_inputs: Vec<Target>,
+    pub public_inputs: Vec<Target>,
 
     /// The next available index for a `VirtualTarget`.
     virtual_target_index: usize,

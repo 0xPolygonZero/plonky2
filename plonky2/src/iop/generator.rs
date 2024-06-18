@@ -42,7 +42,11 @@ pub fn generate_partial_witness<
     );
 
     for (t, v) in inputs.target_values.into_iter() {
-        witness.set_target(t, v);
+        if let Some(label) = inputs.target_labels.get(&t) {
+            witness.set_target_with_label(t, v, label.clone());
+        } else {
+            witness.set_target(t, v);
+        }
     }
 
     // Build a list of "pending" generators which are queued to be run. Initially, all generators

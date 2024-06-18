@@ -61,7 +61,7 @@ impl VerifierCircuitTarget {
         })
     }
 
-    fn from_slice<F: RichField + Extendable<D>, const D: usize>(
+    pub fn from_slice<F: RichField + Extendable<D>, const D: usize>(
         slice: &[Target],
         common_data: &CommonCircuitData<F, D>,
     ) -> Result<Self> {

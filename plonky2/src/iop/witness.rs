@@ -266,13 +266,129 @@ impl<F: Field> MatrixWitness<F> {
 #[derive(Clone, Debug, Default)]
 pub struct PartialWitness<F: Field> {
     pub target_values: HashMap<Target, F>,
+    pub target_labels: HashMap<Target, String>,
 }
 
 impl<F: Field> PartialWitness<F> {
     pub fn new() -> Self {
         Self {
             target_values: HashMap::new(),
+            target_labels: HashMap::new(),
         }
+    }
+
+    pub fn set_target_with_label(&mut self, target: Target, value: F, label: String) {
+        let opt_old_value = self.target_values.insert(target, value);
+        if let Some(old_value) = opt_old_value {
+            if value != old_value {
+                panic!(
+                    "Target {:?} was set twice with different values: {} != {} (label: {:?}, setting label {})",
+                    target,
+                    old_value,
+                    value,
+                    self.target_labels.get(&target),
+                    label
+                );
+            }
+        }
+        self.target_labels.insert(target, label);
+    }
+
+    pub fn set_hash_target_with_label(
+        &mut self,
+        ht: HashOutTarget,
+        value: HashOut<F>,
+        label: String,
+    ) {
+        ht.elements
+            .iter()
+            .zip(value.elements)
+            .for_each(|(&t, x)| self.set_target_with_label(t, x, label.clone()));
+    }
+
+    pub fn set_cap_target_with_label<H: AlgebraicHasher<F>>(
+        &mut self,
+        ct: &MerkleCapTarget,
+        value: &MerkleCap<F, H>,
+        label: String,
+    ) where
+        F: RichField,
+    {
+        for (ht, h) in ct.0.iter().zip(&value.0) {
+            self.set_hash_target_with_label(*ht, *h, label.clone());
+        }
+    }
+
+    pub fn set_bool_target_with_label(&mut self, target: BoolTarget, value: bool, label: String) {
+        self.set_target_with_label(target.target, F::from_bool(value), label)
+    }
+
+    /// Set the targets in a `ProofWithPublicInputsTarget` to their corresponding values in a
+    /// `ProofWithPublicInputs`.
+    pub fn set_proof_with_pis_target_with_label<C: GenericConfig<D, F = F>, const D: usize>(
+        &mut self,
+        proof_with_pis_target: &ProofWithPublicInputsTarget<D>,
+        proof_with_pis: &ProofWithPublicInputs<F, C, D>,
+        label: String,
+    ) where
+        F: RichField + Extendable<D>,
+        C::Hasher: AlgebraicHasher<F>,
+    {
+        let ProofWithPublicInputs {
+            proof,
+            public_inputs,
+        } = proof_with_pis;
+        let ProofWithPublicInputsTarget {
+            proof: pt,
+            public_inputs: pi_targets,
+        } = proof_with_pis_target;
+
+        // Set public inputs.
+        let mut pi_label = label.clone();
+        pi_label.push_str(" PIs");
+        for (&pi_t, &pi) in pi_targets.iter().zip_eq(public_inputs) {
+            self.set_target_with_label(pi_t, pi, pi_label.clone());
+        }
+        let mut proof_label = label;
+        proof_label.push_str(" proof");
+        self.set_proof_target_with_label(pt, proof, proof_label);
+    }
+
+    /// Set the targets in a `ProofTarget` to their corresponding values in a `Proof`.
+    pub fn set_proof_target_with_label<C: GenericConfig<D, F = F>, const D: usize>(
+        &mut self,
+        proof_target: &ProofTarget<D>,
+        proof: &Proof<F, C, D>,
+        label: String,
+    ) where
+        F: RichField + Extendable<D>,
+        C::Hasher: AlgebraicHasher<F>,
+    {
+        let mut cap_label = label;
+        cap_label.push_str(" cap");
+
+        self.set_cap_target_with_label(
+            &proof_target.wires_cap,
+            &proof.wires_cap,
+            cap_label.clone(),
+        );
+        self.set_cap_target_with_label(
+            &proof_target.plonk_zs_partial_products_cap,
+            &proof.plonk_zs_partial_products_cap,
+            cap_label.clone(),
+        );
+        self.set_cap_target_with_label(
+            &proof_target.quotient_polys_cap,
+            &proof.quotient_polys_cap,
+            cap_label.clone(),
+        );
+
+        self.set_fri_openings(
+            &proof_target.openings.to_fri_openings(),
+            &proof.openings.to_fri_openings(),
+        );
+
+        set_fri_proof_target(self, &proof_target.opening_proof, &proof.opening_proof);
     }
 }
 
@@ -280,11 +396,15 @@ impl<F: Field> WitnessWrite<F> for PartialWitness<F> {
     fn set_target(&mut self, target: Target, value: F) {
         let opt_old_value = self.target_values.insert(target, value);
         if let Some(old_value) = opt_old_value {
-            assert_eq!(
-                value, old_value,
-                "Target {:?} was set twice with different values: {} != {}",
-                target, old_value, value
-            );
+            if value != old_value {
+                panic!(
+                    "Target {:?} was set twice with different values: {} != {} (label: {:?})",
+                    target,
+                    old_value,
+                    value,
+                    self.target_labels.get(&target)
+                );
+            }
         }
     }
 }
@@ -303,6 +423,7 @@ pub struct PartitionWitness<'a, F: Field> {
     pub representative_map: &'a [usize],
     pub num_wires: usize,
     pub degree: usize,
+    pub rep_labels: HashMap<usize, Vec<String>>,
 }
 
 impl<'a, F: Field> PartitionWitness<'a, F> {
@@ -312,6 +433,7 @@ impl<'a, F: Field> PartitionWitness<'a, F> {
             representative_map,
             num_wires,
             degree,
+            rep_labels: HashMap::new(),
         }
     }
 
@@ -323,11 +445,40 @@ impl<'a, F: Field> PartitionWitness<'a, F> {
         if let Some(old_value) = *rep_value {
             assert_eq!(
                 value, old_value,
-                "Partition containing {:?} was set twice with different values: {} != {}",
-                target, old_value, value
+                "Partition containing {:?} was set twice with different values: {} != {} (labels: {:?})",
+                target, old_value, value, self.rep_labels.get(&rep_index),
             );
             None
         } else {
+            *rep_value = Some(value);
+            Some(rep_index)
+        }
+    }
+
+    pub fn set_target_with_label(&mut self, target: Target, value: F, label: String) {
+        self.set_target_returning_rep_with_label(target, value, label);
+    }
+
+    pub fn set_target_returning_rep_with_label(
+        &mut self,
+        target: Target,
+        value: F,
+        label: String,
+    ) -> Option<usize> {
+        let rep_index = self.representative_map[self.target_index(target)];
+        let rep_value = &mut self.values[rep_index];
+        if let Some(old_value) = *rep_value {
+            assert_eq!(
+                value, old_value,
+                "Partition containing {:?} was set twice with different values: {} != {} (labels: {:?}, adding {})",
+                target, old_value, value, self.rep_labels.get(&rep_index), label
+            );
+            None
+        } else {
+            self.rep_labels
+                .entry(rep_index)
+                .and_modify(|existing_labels| existing_labels.push(label.clone()))
+                .or_insert(vec![label]);
             *rep_value = Some(value);
             Some(rep_index)
         }
