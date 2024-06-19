@@ -2,7 +2,7 @@
 //! as well as specific hash functions implementation.
 
 mod arch;
-pub mod field_merkle_tree;
+pub mod batch_merkle_tree;
 pub mod hash_types;
 pub mod hashing;
 pub mod keccak;

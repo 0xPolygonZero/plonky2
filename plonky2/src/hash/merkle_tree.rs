@@ -148,7 +148,7 @@ pub(crate) fn fill_digests_buf<F: RichField, H: Hasher<F>>(
     );
 }
 
-pub fn merkle_tree_prove<F: RichField, H: Hasher<F>>(
+pub(crate) fn merkle_tree_prove<F: RichField, H: Hasher<F>>(
     leaf_index: usize,
     leaves_len: usize,
     cap_height: usize,

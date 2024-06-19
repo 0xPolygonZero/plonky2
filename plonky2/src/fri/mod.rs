@@ -10,10 +10,6 @@ use serde::Serialize;
 
 use crate::fri::reduction_strategies::FriReductionStrategy;
 
-pub mod batch_oracle;
-pub mod batch_prover;
-pub mod batch_recursive_verifier;
-pub mod batch_verifier;
 mod challenges;
 pub mod oracle;
 pub mod proof;
@@ -21,7 +17,7 @@ pub mod prover;
 pub mod recursive_verifier;
 pub mod reduction_strategies;
 pub mod structure;
-mod validate_shape;
+pub(crate) mod validate_shape;
 pub mod verifier;
 pub mod witness_util;
 

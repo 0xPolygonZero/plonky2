@@ -10,12 +10,12 @@ use plonky2_field::types::Field;
 use plonky2_maybe_rayon::*;
 use plonky2_util::{log2_strict, reverse_index_bits_in_place};
 
-use crate::fri::batch_prover::batch_fri_proof;
+use crate::batch_fri::prover::batch_fri_proof;
 use crate::fri::oracle::PolynomialBatch;
 use crate::fri::proof::FriProof;
 use crate::fri::structure::{FriBatchInfo, FriInstanceInfo};
 use crate::fri::FriParams;
-use crate::hash::field_merkle_tree::FieldMerkleTree;
+use crate::hash::batch_merkle_tree::BatchMerkleTree;
 use crate::hash::hash_types::RichField;
 use crate::iop::challenger::Challenger;
 use crate::plonk::config::GenericConfig;
@@ -25,12 +25,12 @@ use crate::util::timing::TimingTree;
 use crate::util::{reverse_bits, transpose};
 
 /// Represents a batch FRI oracle, i.e. a batch of polynomials with different degrees which have
-/// been Merkle-ized in a Field Merkle Tree.
+/// been Merkle-ized in a [`BatchMerkleTree`].
 #[derive(Eq, PartialEq, Debug)]
 pub struct BatchFriOracle<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 {
     pub polynomials: Vec<PolynomialCoeffs<F>>,
-    pub field_merkle_tree: FieldMerkleTree<F, C::Hasher>,
+    pub batch_merkle_tree: BatchMerkleTree<F, C::Hasher>,
     // The degree bits of each polynomial group.
     pub degree_bits: Vec<usize>,
     pub rate_bits: usize,
@@ -105,19 +105,19 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             }
         }
 
-        let field_merkle_tree = timed!(
+        let batch_merkle_tree = timed!(
             timing,
             "build Field Merkle tree",
-            FieldMerkleTree::new(leaves, cap_height)
+            BatchMerkleTree::new(leaves, cap_height)
         );
 
         degree_bits.sort_unstable();
         degree_bits.dedup();
         degree_bits.reverse();
-        assert_eq!(field_merkle_tree.leaves.len(), degree_bits.len());
+        assert_eq!(batch_merkle_tree.leaves.len(), degree_bits.len());
         Self {
             polynomials,
-            field_merkle_tree,
+            batch_merkle_tree,
             degree_bits,
             rate_bits,
             blinding,
@@ -181,7 +181,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         batch_fri_proof::<F, C, D>(
             &oracles
                 .iter()
-                .map(|o| &o.field_merkle_tree)
+                .map(|o| &o.batch_merkle_tree)
                 .collect::<Vec<_>>(),
             final_lde_polynomial_coeff[0].clone(),
             &final_lde_polynomial_values,
@@ -202,7 +202,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     ) -> &[F] {
         let index = index * step;
         let index = reverse_bits(index, self.degree_bits[degree_bits_index] + self.rate_bits);
-        let slice = &self.field_merkle_tree.leaves[degree_bits_index][index];
+        let slice = &self.batch_merkle_tree.leaves[degree_bits_index][index];
         &slice[slice_start..slice_start + slice_len]
     }
 
@@ -257,8 +257,8 @@ mod test {
     use plonky2_field::types::Sample;
 
     use super::*;
-    use crate::fri::batch_oracle::BatchFriOracle;
-    use crate::fri::batch_verifier::verify_batch_fri_proof;
+    use crate::batch_fri::oracle::BatchFriOracle;
+    use crate::batch_fri::verifier::verify_batch_fri_proof;
     use crate::fri::reduction_strategies::FriReductionStrategy;
     use crate::fri::structure::{
         FriBatchInfo, FriBatchInfoTarget, FriInstanceInfo, FriInstanceInfoTarget, FriOpeningBatch,
@@ -323,7 +323,7 @@ mod test {
         );
 
         let mut challenger = Challenger::<F, H>::new();
-        challenger.observe_cap(&trace_oracle.field_merkle_tree.cap);
+        challenger.observe_cap(&trace_oracle.batch_merkle_tree.cap);
         let zeta = challenger.get_extension_challenge::<D>();
         let eta = challenger.get_extension_challenge::<D>();
         let poly0 = &trace_oracle.polynomials[0];
@@ -452,7 +452,7 @@ mod test {
             &fri_params.config,
         );
         let degree_bits = [k0, k1, k2];
-        let merkle_cap = trace_oracle.field_merkle_tree.cap;
+        let merkle_cap = trace_oracle.batch_merkle_tree.cap;
         verify_batch_fri_proof::<GoldilocksField, C, D>(
             &degree_bits,
             &fri_instances,

@@ -14,7 +14,7 @@ use crate::plonk::config::{GenericHashOut, Hasher};
 use crate::util::log2_strict;
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub struct FieldMerkleTree<F: RichField, H: Hasher<F>> {
+pub struct BatchMerkleTree<F: RichField, H: Hasher<F>> {
     /// The data stored in the Merkle tree leaves.
     pub leaves: Vec<Vec<Vec<F>>>,
 
@@ -28,11 +28,10 @@ pub struct FieldMerkleTree<F: RichField, H: Hasher<F>> {
     pub leaf_heights: Vec<usize>,
 }
 
-impl<F: RichField, H: Hasher<F>> FieldMerkleTree<F, H> {
+impl<F: RichField, H: Hasher<F>> BatchMerkleTree<F, H> {
     /// Each element in the `leaves` vector represents a matrix (a vector of vectors).
     /// The height of each matrix should be a power of two.
     /// The `leaves` vector should be sorted by matrix height, from tallest to shortest, with no duplicate heights.
-    // TODO: FieldMerkleTree does not handle duplicates; this is deferred to the caller.  Revisit when implementing batch FRI to potentially optimize.
     pub fn new(mut leaves: Vec<Vec<Vec<F>>>, cap_height: usize) -> Self {
         assert!(!leaves.is_empty());
         assert!(leaves.iter().all(|leaf| leaf.len().is_power_of_two()));
@@ -48,7 +47,7 @@ impl<F: RichField, H: Hasher<F>> FieldMerkleTree<F, H> {
             last_leaves_cap_height
         );
 
-        let mut leaf_heights = vec![];
+        let mut leaf_heights = Vec::with_capacity(leaves.len());
 
         let leaves_len = leaves[0].len();
         let num_digests = 2 * (leaves_len - (1 << cap_height));
@@ -105,6 +104,8 @@ impl<F: RichField, H: Hasher<F>> FieldMerkleTree<F, H> {
             }
 
             unsafe {
+                // SAFETY: `fill_digests_buf` and `cap` initialized the spare capacity up to
+                // `num_digests` and `len_cap`, resp.
                 cap.set_len(next_cap_len);
             }
 
@@ -173,7 +174,7 @@ mod tests {
     use plonky2_field::types::Field;
 
     use super::*;
-    use crate::hash::merkle_proofs::verify_field_merkle_proof_to_cap;
+    use crate::hash::merkle_proofs::verify_batch_merkle_proof_to_cap;
     use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
 
     const D: usize = 2;
@@ -195,7 +196,7 @@ mod tests {
             vec![F::TWO, F::TWO],
             vec![F::ZERO, F::ZERO],
         ];
-        let fmt: FieldMerkleTree<GoldilocksField, H> = FieldMerkleTree::new(vec![mat_1], 0);
+        let fmt: BatchMerkleTree<GoldilocksField, H> = BatchMerkleTree::new(vec![mat_1], 0);
 
         let mat_1_leaf_hashes = [
             H::hash_or_noop(&[F::ZERO, F::ONE]),
@@ -221,7 +222,7 @@ mod tests {
         let opened_values = fmt.values(2);
         assert_eq!(opened_values, [vec![F::TWO, F::TWO]]);
 
-        verify_field_merkle_proof_to_cap(&opened_values, &fmt.leaf_heights, 2, &fmt.cap, &proof)?;
+        verify_batch_merkle_proof_to_cap(&opened_values, &fmt.leaf_heights, 2, &fmt.cap, &proof)?;
         Ok(())
     }
 
@@ -246,8 +247,8 @@ mod tests {
         // ]
         let mat_2 = vec![vec![F::ONE, F::TWO, F::ONE], vec![F::ZERO, F::TWO, F::TWO]];
 
-        let fmt: FieldMerkleTree<GoldilocksField, H> =
-            FieldMerkleTree::new(vec![mat_1, mat_2.clone()], 0);
+        let fmt: BatchMerkleTree<GoldilocksField, H> =
+            BatchMerkleTree::new(vec![mat_1, mat_2.clone()], 0);
 
         let mat_1_leaf_hashes = [
             H::hash_or_noop(&[F::ZERO, F::ONE]),
@@ -288,22 +289,22 @@ mod tests {
             [vec![F::TWO, F::ONE], vec![F::ONE, F::TWO, F::ONE]]
         );
 
-        verify_field_merkle_proof_to_cap(&opened_values, &fmt.leaf_heights, 1, &fmt.cap, &proof)?;
+        verify_batch_merkle_proof_to_cap(&opened_values, &fmt.leaf_heights, 1, &fmt.cap, &proof)?;
         Ok(())
     }
 
     #[test]
-    fn test_field_merkle_trees() -> Result<()> {
+    fn test_batch_merkle_trees() -> Result<()> {
         let leaves_1 = crate::hash::merkle_tree::tests::random_data::<F>(1024, 7);
         let leaves_2 = crate::hash::merkle_tree::tests::random_data::<F>(64, 3);
         let leaves_3 = crate::hash::merkle_tree::tests::random_data::<F>(32, 100);
 
-        let fmt: FieldMerkleTree<GoldilocksField, H> =
-            FieldMerkleTree::new(vec![leaves_1, leaves_2, leaves_3], 3);
+        let fmt: BatchMerkleTree<GoldilocksField, H> =
+            BatchMerkleTree::new(vec![leaves_1, leaves_2, leaves_3], 3);
         for index in [0, 1023, 512, 255] {
             let proof = fmt.open_batch(index);
             let opened_values = fmt.values(index);
-            verify_field_merkle_proof_to_cap(
+            verify_batch_merkle_proof_to_cap(
                 &opened_values,
                 &fmt.leaf_heights,
                 index,
@@ -316,14 +317,14 @@ mod tests {
     }
 
     #[test]
-    fn test_field_merkle_trees_cap_at_leaves_height() -> Result<()> {
+    fn test_batch_merkle_trees_cap_at_leaves_height() -> Result<()> {
         let leaves_1 = crate::hash::merkle_tree::tests::random_data::<F>(16, 7);
 
-        let fmt: FieldMerkleTree<GoldilocksField, H> = FieldMerkleTree::new(vec![leaves_1], 4);
+        let fmt: BatchMerkleTree<GoldilocksField, H> = BatchMerkleTree::new(vec![leaves_1], 4);
         for index in 0..16 {
             let proof = fmt.open_batch(index);
             let opened_values = fmt.values(index);
-            verify_field_merkle_proof_to_cap(
+            verify_batch_merkle_proof_to_cap(
                 &opened_values,
                 &fmt.leaf_heights,
                 index,

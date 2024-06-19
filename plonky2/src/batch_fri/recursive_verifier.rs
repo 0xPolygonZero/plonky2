@@ -132,7 +132,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             with_context!(
                 self,
                 &format!("verify {i}'th initial Merkle proof"),
-                self.verify_field_merkle_proof_to_cap_with_cap_index::<H>(
+                self.verify_batch_merkle_proof_to_cap_with_cap_index::<H>(
                     &leaves,
                     degree_bits,
                     x_index_bits,
