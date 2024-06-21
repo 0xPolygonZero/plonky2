@@ -5,7 +5,7 @@ use plonky2_field::extension::flatten;
 #[allow(unused_imports)]
 use plonky2_field::types::Field;
 use plonky2_maybe_rayon::*;
-use plonky2_util::reverse_index_bits_in_place;
+use plonky2_util::{log2_strict, reverse_index_bits_in_place};
 
 use crate::field::extension::{unflatten, Extendable};
 use crate::field::polynomial::{PolynomialCoeffs, PolynomialValues};
@@ -36,6 +36,18 @@ pub fn batch_fri_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>,
     assert!(lde_polynomial_values
         .windows(2)
         .all(|pair| { pair[0].len() > pair[1].len() }));
+    // Check that reduction_arity_bits covers all polynomials
+    let mut cur_n = log2_strict(n);
+    let mut cur_poly_index = 1;
+    for arity_bits in &fri_params.reduction_arity_bits {
+        cur_n -= arity_bits;
+        if cur_poly_index < lde_polynomial_values.len()
+            && cur_n == log2_strict(lde_polynomial_values[cur_poly_index].len())
+        {
+            cur_poly_index += 1;
+        }
+    }
+    assert_eq!(cur_poly_index, lde_polynomial_values.len());
 
     // Commit phase
     let (trees, final_coeffs) = timed!(

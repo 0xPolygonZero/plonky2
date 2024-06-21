@@ -221,7 +221,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             {
                 let mut new_leaves = state.elements.to_vec();
                 new_leaves.extend_from_slice(&leaf_data[leaf_data_index]);
-                state = self.hash_or_noop::<H>(new_leaves.clone());
+                state = self.hash_or_noop::<H>(new_leaves);
 
                 leaf_data_index += 1;
             }
