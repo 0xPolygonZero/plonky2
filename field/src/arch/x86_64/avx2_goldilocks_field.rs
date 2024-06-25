@@ -348,7 +348,7 @@ unsafe fn neg(y: __m256i) -> __m256i {
 }
 
 /// Full 64-bit by 64-bit multiplication. This emulated multiplication is 1.33x slower than the
-/// scalar instruction, but may be worth it if we want our data to live in vector registers.
+/// scalar instruction, but it may be worth it if we want our data to live in vector registers.
 #[inline]
 unsafe fn mul64_64(x: __m256i, y: __m256i) -> (__m256i, __m256i) {
     // We want to move the high 32 bits to the low position. The multiplication instruction ignores
