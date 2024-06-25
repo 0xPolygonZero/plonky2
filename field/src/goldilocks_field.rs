@@ -253,7 +253,7 @@ impl Add for GoldilocksField {
         if over {
             // NB: self.0 > Self::ORDER && rhs.0 > Self::ORDER is necessary but not sufficient for
             // double-overflow.
-            // This assume does two things:
+            // This assumption does two things:
             //  1. If compiler knows that either self.0 or rhs.0 <= ORDER, then it can skip this
             //     check.
             //  2. Hints to the compiler how rare this double-overflow is (thus handled better with
