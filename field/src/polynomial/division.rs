@@ -54,7 +54,7 @@ impl<F: Field> PolynomialCoeffs<F> {
             // Now we know that self.degree() >= divisor.degree();
             let mut quotient = Self::zero(a_degree_plus_1 - b_degree_plus_1 + 1);
             let mut remainder = self.clone();
-            // Can unwrap here because we know self is not zero.
+            // Can unwrap here because we know the self is not zero.
             let divisor_leading_inv = b.lead().inverse();
             while !remainder.is_zero() && remainder.degree_plus_one() >= b_degree_plus_1 {
                 let cur_q_coeff = remainder.lead() * divisor_leading_inv;
