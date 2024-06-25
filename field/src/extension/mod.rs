@@ -34,7 +34,7 @@ pub trait Frobenius<const D: usize>: OEF<D> {
 
     /// Repeated Frobenius automorphisms: x -> x^(p^count).
     ///
-    /// Follows precomputation suggestion in Section 11.3.3 of the
+    /// Follows the precomputation suggestion in Section 11.3.3 of the
     /// Handbook of Elliptic and Hyperelliptic Curve Cryptography.
     fn repeated_frobenius(&self, count: usize) -> Self {
         if count == 0 {
