@@ -17,7 +17,7 @@ use crate::types::Field;
 
 /// A polynomial in point-value form.
 ///
-/// The points are implicitly `g^i`, where `g` generates the subgroup whose size equals the number
+/// The points are implicit `g^i`, where `g` generates the subgroup whose size equals the number
 /// of points.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PolynomialValues<F: Field> {
