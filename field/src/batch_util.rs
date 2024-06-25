@@ -30,7 +30,7 @@ pub fn batch_multiply_inplace<F: Field>(out: &mut [F], a: &[F]) {
     let n = out.len();
     assert_eq!(n, a.len(), "both arrays must have the same length");
 
-    // Split out slice of vectors, leaving leftovers as scalars
+    // Split out slices of vectors, leaving leftovers as scalars
     let (out_packed, out_leftovers) =
         pack_slice_with_leftovers_mut::<<F as Packable>::Packing>(out);
     let (a_packed, a_leftovers) = pack_slice_with_leftovers::<<F as Packable>::Packing>(a);
