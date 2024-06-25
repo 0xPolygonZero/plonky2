@@ -3,7 +3,7 @@
 Starky is a FRI-based STARK implementation.
 
 It is built for speed, features highly efficient recursive verification through `plonky2` circuits and gadgets, and is
-being used as backend proving system for the Polygon Zero Type-1 zkEVM.
+being used as a backend proving system for the Polygon Zero Type-1 zkEVM.
 
 ## Note on Zero-Knowledgeness
 
