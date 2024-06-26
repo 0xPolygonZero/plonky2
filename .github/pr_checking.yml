@@ -1,0 +1,22 @@
+name: PR check
+
+on:
+  pull_request_target:
+    types:
+      - opened
+      - edited
+      - synchronize
+
+jobs:
+  title:
+    name: Validate PR
+    runs-on: ubuntu-latest
+    if: ${{ 
+      github.event.pull_request.author_association != 'CONTRIBUTOR' &&
+      github.event.pull_request.author_association != 'MEMBER' &&
+      (
+        contains(fromJSON(secrets.RESTRICTED_KEYWORDS), github.event.pull_request.title) ||
+        contains(fromJSON(secrets.RESTRICTED_KEYWORDS), github.event.pull_request.description
+      ) }}
+    steps:
+      - run: gh pr close
