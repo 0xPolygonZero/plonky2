@@ -62,7 +62,7 @@ pub fn fri_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const
     }
 }
 
-type FriCommitedTrees<F, C, const D: usize> = (
+type FriCommittedTrees<F, C, const D: usize> = (
     Vec<MerkleTree<F, <C as GenericConfig<D>>::Hasher>>,
     PolynomialCoeffs<<F as Extendable<D>>::Extension>,
 );
@@ -72,7 +72,7 @@ fn fri_committed_trees<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>,
     mut values: PolynomialValues<F::Extension>,
     challenger: &mut Challenger<F, C::Hasher>,
     fri_params: &FriParams,
-) -> FriCommitedTrees<F, C, D> {
+) -> FriCommittedTrees<F, C, D> {
     let mut trees = Vec::with_capacity(fri_params.reduction_arity_bits.len());
 
     let mut shift = F::MULTIPLICATIVE_GROUP_GENERATOR;
