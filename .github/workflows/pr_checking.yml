@@ -50,7 +50,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Close PR if spam are found and author is not a contributor or member
-        if: ${{ env.is_spam == 'true' && github.event.pull_request.author_association != 'CONTRIBUTOR' && github.event.pull_request.author_association != 'MEMBER' && github.event.pull_request.author_association != 'OWNER' }}
+        if: ${{ env.is_spam == 'true' && github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR' }}
         run: gh pr close ${{ github.event.pull_request.number }} --comment "Spam detected"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
