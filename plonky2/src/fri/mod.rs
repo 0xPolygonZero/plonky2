@@ -17,7 +17,7 @@ pub mod prover;
 pub mod recursive_verifier;
 pub mod reduction_strategies;
 pub mod structure;
-mod validate_shape;
+pub(crate) mod validate_shape;
 pub mod verifier;
 pub mod witness_util;
 

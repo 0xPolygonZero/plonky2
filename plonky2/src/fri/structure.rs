@@ -10,7 +10,7 @@ use crate::hash::hash_types::RichField;
 use crate::iop::ext_target::ExtensionTarget;
 
 /// Describes an instance of a FRI-based batch opening.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct FriInstanceInfo<F: RichField + Extendable<D>, const D: usize> {
     /// The oracles involved, not counting oracles created during the commit phase.
     pub oracles: Vec<FriOracleInfo>,
@@ -34,7 +34,7 @@ pub struct FriOracleInfo {
 }
 
 /// A batch of openings at a particular point.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct FriBatchInfo<F: RichField + Extendable<D>, const D: usize> {
     pub point: F::Extension,
     pub polynomials: Vec<FriPolynomialInfo>,

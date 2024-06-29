@@ -111,7 +111,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         }
     }
 
-    fn lde_values(
+    pub(crate) fn lde_values(
         polynomials: &[PolynomialCoeffs<F>],
         rate_bits: usize,
         blinding: bool,

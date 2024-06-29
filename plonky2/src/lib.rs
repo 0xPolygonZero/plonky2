@@ -11,6 +11,7 @@ pub extern crate alloc;
 #[doc(inline)]
 pub use plonky2_field as field;
 
+pub mod batch_fri;
 pub mod fri;
 pub mod gadgets;
 pub mod gates;
