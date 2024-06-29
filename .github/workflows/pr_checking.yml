@@ -1,0 +1,56 @@
+name: PR check
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+
+permissions:
+  pull-requests: write
+
+jobs:
+  pr_check:
+    name: Validate PR
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up keywords
+        id: setup_keywords
+        run: echo "RESTRICTED_KEYWORDS=$(echo '${{ secrets.RESTRICTED_KEYWORDS }}' | jq -r '.[]' | tr '\n' ' ')" >> $GITHUB_ENV
+
+      - name: Check for spam PR
+        id: check
+        run: |
+          # Initialize variables to track spam presence
+          title_is_spam=false
+          description_is_spam=false
+          
+          # Check title for spam
+          for keyword in $RESTRICTED_KEYWORDS; do
+            if echo "${{ github.event.pull_request.title }}" | grep -i -q "$keyword"; then
+              title_is_spam=true
+              break
+            fi
+          done
+
+          # Check description for spam
+          for keyword in $RESTRICTED_KEYWORDS; do
+            if echo "${{ github.event.pull_request.body }}" | grep -i -q "$keyword"; then
+              description_is_spam=true
+              break
+            fi
+          done
+
+          # Set the output based on the presence of spam
+          if [ "$title_is_spam" = true ] || [ "$description_is_spam" = true ]; then
+            echo "is_spam=true" >> $GITHUB_ENV
+          else
+            echo "is_spam=false" >> $GITHUB_ENV
+          fi
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Close PR if spam are found and author is not a contributor or member
+        if: ${{ env.is_spam == 'true' && github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR' }}
+        run: gh pr close ${{ github.event.pull_request.number }} --comment "Spam detected"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
