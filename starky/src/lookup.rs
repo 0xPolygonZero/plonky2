@@ -6,6 +6,7 @@ use alloc::{vec, vec::Vec};
 use core::borrow::Borrow;
 use core::fmt::Debug;
 use core::iter::repeat;
+use core::ops::Neg;
 
 use itertools::Itertools;
 use num_bigint::BigUint;
@@ -44,6 +45,21 @@ impl<F: Field> Default for Filter<F> {
         Self {
             products: vec![],
             constants: vec![Column::constant(F::ONE)],
+        }
+    }
+}
+
+impl<F: Field> Neg for Filter<F> {
+    type Output = Self;
+
+    fn neg(self) -> Self {
+        Self {
+            products: self
+                .products
+                .into_iter()
+                .map(|(c1, c2)| (c1, -c2))
+                .collect(),
+            constants: self.constants.into_iter().map(|c| -c).collect(),
         }
     }
 }
@@ -137,6 +153,26 @@ pub struct Column<F: Field> {
     linear_combination: Vec<(usize, F)>,
     next_row_linear_combination: Vec<(usize, F)>,
     constant: F,
+}
+
+impl<F: Field> Neg for Column<F> {
+    type Output = Self;
+
+    fn neg(self) -> Self {
+        Self {
+            linear_combination: self
+                .linear_combination
+                .into_iter()
+                .map(|(c, f)| (c, -f))
+                .collect(),
+            next_row_linear_combination: self
+                .next_row_linear_combination
+                .into_iter()
+                .map(|(c, f)| (c, -f))
+                .collect(),
+            constant: -self.constant,
+        }
+    }
 }
 
 impl<F: Field> Column<F> {
