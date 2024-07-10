@@ -9,6 +9,7 @@ use plonky2::iop::target::Target;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::config::{AlgebraicHasher, GenericConfig};
 
+use crate::batch_proof::{BatchStarkProof, BatchStarkProofWithPublicInputs};
 use crate::config::StarkConfig;
 use crate::lookup::{
     get_grand_product_challenge_set, get_grand_product_challenge_set_target,
@@ -29,7 +30,7 @@ fn get_challenges<F, C, const D: usize>(
     trace_cap: Option<&MerkleCap<F, C::Hasher>>,
     auxiliary_polys_cap: Option<&MerkleCap<F, C::Hasher>>,
     quotient_polys_cap: Option<&MerkleCap<F, C::Hasher>>,
-    openings: &StarkOpeningSet<F, D>,
+    opening_batch: &[&StarkOpeningSet<F, D>],
     commit_phase_merkle_caps: &[MerkleCap<F, C::Hasher>],
     final_poly: &PolynomialCoeffs<F::Extension>,
     pow_witness: F,
@@ -65,7 +66,9 @@ where
     }
     let stark_zeta = challenger.get_extension_challenge::<D>();
 
-    challenger.observe_openings(&openings.to_fri_openings());
+    for opening in opening_batch {
+        challenger.observe_openings(&opening.to_fri_openings());
+    }
 
     StarkProofChallenges {
         lookup_challenge_set,
@@ -128,7 +131,7 @@ where
             trace_cap,
             auxiliary_polys_cap.as_ref(),
             quotient_polys_cap.as_ref(),
-            openings,
+            &[openings],
             commit_phase_merkle_caps,
             final_poly,
             *pow_witness,
@@ -416,3 +419,65 @@ impl<const D: usize> StarkProofWithPublicInputsTarget<D> {
 //         FriInferredElements(fri_inferred_elements)
 //     }
 // }
+
+impl<F, C, const D: usize, const N: usize> BatchStarkProof<F, C, D, N>
+where
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+{
+    /// Computes all Fiat-Shamir challenges used in the batched STARK proof.
+    pub fn get_challenges(
+        &self,
+        challenger: &mut Challenger<F, C::Hasher>,
+        challenges: Option<&GrandProductChallengeSet<F>>,
+        // ignore_trace_cap: bool,
+        config: &StarkConfig,
+    ) -> StarkProofChallenges<F, D> {
+        let degree_bits = self.recover_degree_bits(config);
+
+        let BatchStarkProof {
+            trace_cap,
+            auxiliary_polys_cap,
+            quotient_polys_cap,
+            openings,
+            opening_proof:
+                FriProof {
+                    commit_phase_merkle_caps,
+                    final_poly,
+                    pow_witness,
+                    ..
+                },
+        } = &self;
+
+        get_challenges::<F, C, D>(
+            challenger,
+            challenges,
+            Some(trace_cap),
+            auxiliary_polys_cap.as_ref(),
+            quotient_polys_cap.as_ref(),
+            &openings.iter().collect::<Vec<_>>(),
+            commit_phase_merkle_caps,
+            final_poly,
+            *pow_witness,
+            config,
+            degree_bits,
+        )
+    }
+}
+
+impl<F, C, const D: usize, const N: usize> BatchStarkProofWithPublicInputs<F, C, D, N>
+where
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+{
+    /// Computes all Fiat-Shamir challenges used in the batched STARK proof.
+    pub fn get_challenges(
+        &self,
+        challenger: &mut Challenger<F, C::Hasher>,
+        challenges: Option<&GrandProductChallengeSet<F>>,
+        // ignore_trace_cap: bool,
+        config: &StarkConfig,
+    ) -> StarkProofChallenges<F, D> {
+        self.proof.get_challenges(challenger, challenges, config)
+    }
+}

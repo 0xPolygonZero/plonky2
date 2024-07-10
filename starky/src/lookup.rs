@@ -575,7 +575,7 @@ pub fn get_grand_product_challenge_set_target<
 /// Given columns `f0,...,fk` and a column `t`, such that `∪fi ⊆ t`, and challenges `x`,
 /// this computes the helper columns `h_i = 1/(x+f_2i) + 1/(x+f_2i+1)`, `g = 1/(x+t)`,
 /// and `Z(gx) = Z(x) + sum h_i(x) - m(x)g(x)` where `m` is the frequencies column.
-pub(crate) fn lookup_helper_columns<F: Field>(
+pub fn lookup_helper_columns<F: Field>(
     lookup: &Lookup<F>,
     trace_poly_values: &[PolynomialValues<F>],
     challenge: F,

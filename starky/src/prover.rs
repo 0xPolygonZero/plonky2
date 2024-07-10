@@ -225,21 +225,29 @@ where
         );
     }
 
+    let get_trace_values_packed =
+        |index_start, step| trace_commitment.get_lde_values_packed(index_start, step);
+
+    let get_aux_values_packed = |index_start, step| {
+        auxiliary_polys_commitment
+            .as_ref()
+            .unwrap()
+            .get_lde_values_packed(index_start, step)
+    };
+
     let quotient_polys = timed!(
         timing,
         "compute quotient polys",
         compute_quotient_polys::<F, <F as Packable>::Packing, C, S, D>(
             stark,
-            trace_commitment,
-            &auxiliary_polys_commitment,
+            &get_trace_values_packed,
+            &get_aux_values_packed,
             lookup_challenges.as_ref(),
-            &lookups,
             ctl_data,
             public_inputs,
             alphas.clone(),
             degree_bits,
             num_lookup_columns,
-            &num_ctl_polys,
             config,
         )
     );
@@ -339,18 +347,16 @@ where
 
 /// Computes the quotient polynomials `(sum alpha^i C_i(x)) / Z_H(x)` for `alpha` in `alphas`,
 /// where the `C_i`s are the STARK constraints.
-fn compute_quotient_polys<'a, F, P, C, S, const D: usize>(
+pub fn compute_quotient_polys<F, P, C, S, const D: usize>(
     stark: &S,
-    trace_commitment: &'a PolynomialBatch<F, C, D>,
-    auxiliary_polys_commitment: &'a Option<PolynomialBatch<F, C, D>>,
-    lookup_challenges: Option<&'a Vec<F>>,
-    lookups: &[Lookup<F>],
+    get_trace_values_packed: &(dyn Fn(usize, usize) -> Vec<P> + Sync + Send),
+    get_aux_values_packed: &(dyn Fn(usize, usize) -> Vec<P> + Sync + Send),
+    lookup_challenges: Option<&Vec<F>>,
     ctl_data: Option<&CtlData<F>>,
     public_inputs: &[F],
     alphas: Vec<F>,
     degree_bits: usize,
     num_lookup_columns: usize,
-    num_ctl_columns: &[usize],
     config: &StarkConfig,
 ) -> Option<Vec<PolynomialCoeffs<F>>>
 where
@@ -365,6 +371,10 @@ where
 
     let degree = 1 << degree_bits;
     let rate_bits = config.fri_config.rate_bits;
+    let lookups = stark.lookups();
+    let num_ctl_columns = ctl_data
+        .map(|data| data.num_ctl_helper_polys())
+        .unwrap_or_default();
     let total_num_helper_cols: usize = num_ctl_columns.iter().sum();
 
     let quotient_degree_bits = log2_ceil(stark.quotient_degree_factor());
@@ -383,10 +393,6 @@ where
         PolynomialValues::selector(degree, degree - 1).lde_onto_coset(quotient_degree_bits);
 
     let z_h_on_coset = ZeroPolyOnCoset::<F>::new(degree_bits, quotient_degree_bits);
-
-    // Retrieve the LDE values at index `i`.
-    let get_trace_values_packed =
-        |i_start| -> Vec<P> { trace_commitment.get_lde_values_packed(i_start, step) };
 
     // Last element of the subgroup.
     let last = F::primitive_root_of_unity(degree_bits).inverse();
@@ -420,23 +426,15 @@ where
             // Get the local and next row evaluations for the current STARK,
             // as well as the public inputs.
             let vars = S::EvaluationFrame::from_values(
-                &get_trace_values_packed(i_start),
-                &get_trace_values_packed(i_next_start),
+                &get_trace_values_packed(i_start, step),
+                &get_trace_values_packed(i_next_start, step),
                 public_inputs,
             );
             // Get the local and next row evaluations for the permutation argument,
             // as well as the associated challenges.
             let lookup_vars = lookup_challenges.map(|challenges| LookupCheckVars {
-                local_values: auxiliary_polys_commitment
-                    .as_ref()
-                    .unwrap()
-                    .get_lde_values_packed(i_start, step)[..num_lookup_columns]
-                    .to_vec(),
-                next_values: auxiliary_polys_commitment
-                    .as_ref()
-                    .unwrap()
-                    .get_lde_values_packed(i_next_start, step)[..num_lookup_columns]
-                    .to_vec(),
+                local_values: get_aux_values_packed(i_start, step)[..num_lookup_columns].to_vec(),
+                next_values: get_aux_values_packed(i_next_start, step).to_vec(),
                 challenges: challenges.to_vec(),
             });
 
@@ -454,25 +452,16 @@ where
                     .enumerate()
                     .map(|(i, zs_columns)| {
                         let num_ctl_helper_cols = num_ctl_columns[i];
-                        let helper_columns = auxiliary_polys_commitment
-                            .as_ref()
-                            .unwrap()
-                            .get_lde_values_packed(i_start, step)
-                            [num_lookup_columns + start_index
+                        let helper_columns =
+                            get_aux_values_packed(i_start, step)[num_lookup_columns + start_index
                                 ..num_lookup_columns + start_index + num_ctl_helper_cols]
-                            .to_vec();
+                                .to_vec();
 
                         let ctl_vars = CtlCheckVars::<F, F, P, 1> {
                             helper_columns,
-                            local_z: auxiliary_polys_commitment
-                                .as_ref()
-                                .unwrap()
-                                .get_lde_values_packed(i_start, step)
+                            local_z: get_aux_values_packed(i_start, step)
                                 [num_lookup_columns + total_num_helper_cols + i],
-                            next_z: auxiliary_polys_commitment
-                                .as_ref()
-                                .unwrap()
-                                .get_lde_values_packed(i_next_start, step)
+                            next_z: get_aux_values_packed(i_next_start, step)
                                 [num_lookup_columns + total_num_helper_cols + i],
                             challenges: zs_columns.challenge,
                             columns: zs_columns.columns.clone(),
@@ -491,7 +480,7 @@ where
             eval_vanishing_poly::<F, F, P, S, D, 1>(
                 stark,
                 &vars,
-                lookups,
+                &lookups,
                 lookup_vars,
                 ctl_vars.as_deref(),
                 &mut consumer,

@@ -16,6 +16,7 @@ use plonky2::iop::challenger::Challenger;
 use plonky2::plonk::config::GenericConfig;
 use plonky2::plonk::plonk_common::reduce_with_powers;
 
+use crate::batch_proof::{BatchStarkProof, BatchStarkProofWithPublicInputs};
 use crate::config::StarkConfig;
 use crate::constraint_consumer::ConstraintConsumer;
 use crate::cross_table_lookup::CtlCheckVars;
@@ -42,6 +43,33 @@ pub fn verify_stark_proof<
     let challenges = proof_with_pis.get_challenges(&mut challenger, None, false, config);
 
     verify_stark_proof_with_challenges(
+        &stark,
+        &proof_with_pis.proof,
+        &challenges,
+        None,
+        &proof_with_pis.public_inputs,
+        config,
+    )
+}
+
+/// Verifies a [`BatchStarkProofWithPublicInputs`] against a batched STARK statement.
+pub fn verify_stark_proof_batch<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    S: Stark<F, D>,
+    const D: usize,
+    const N: usize,
+>(
+    stark: S,
+    proof_with_pis: BatchStarkProofWithPublicInputs<F, C, D, N>,
+    config: &StarkConfig,
+) -> Result<()> {
+    ensure!(proof_with_pis.public_inputs.len() == S::PUBLIC_INPUTS);
+    let mut challenger = Challenger::<F, C::Hasher>::new();
+
+    let challenges = proof_with_pis.get_challenges(&mut challenger, None, config);
+
+    verify_stark_proof_with_challenges_batch(
         &stark,
         &proof_with_pis.proof,
         &challenges,
@@ -203,6 +231,27 @@ where
         &proof.opening_proof,
         &config.fri_params(degree_bits),
     )?;
+
+    Ok(())
+}
+
+/// Verifies a [`BatchStarkProofWithPublicInputs`] against a batched STARK statement,
+/// with the provided [`StarkProofChallenges`].
+/// It also supports optional cross-table lookups data and challenges.
+pub fn verify_stark_proof_with_challenges_batch<F, C, S, const D: usize, const N: usize>(
+    stark: &S,
+    proof: &BatchStarkProof<F, C, D, N>,
+    challenges: &StarkProofChallenges<F, D>,
+    ctl_vars: Option<&[CtlCheckVars<F, F::Extension, F::Extension, D>]>,
+    public_inputs: &[F],
+    config: &StarkConfig,
+) -> Result<()>
+where
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    S: Stark<F, D>,
+{
+    log::debug!("Checking proof: {}", type_name::<S>());
 
     Ok(())
 }

@@ -212,7 +212,7 @@ impl<'a, F: Field> CtlData<'a, F> {
     }
     /// Returns the number of helper columns for each STARK in each
     /// `CtlZData`.
-    pub(crate) fn num_ctl_helper_polys(&self) -> Vec<usize> {
+    pub fn num_ctl_helper_polys(&self) -> Vec<usize> {
         let mut res = Vec::with_capacity(self.zs_columns.len());
         for z in &self.zs_columns {
             res.push(z.helper_columns.len());
@@ -303,7 +303,7 @@ pub(crate) fn num_ctl_helper_columns_by_table<F: Field, const N: usize>(
 }
 
 /// Gets the auxiliary polynomials associated to these CTL data.
-pub(crate) fn get_ctl_auxiliary_polys<F: Field>(
+pub fn get_ctl_auxiliary_polys<F: Field>(
     ctl_data: Option<&CtlData<F>>,
 ) -> Option<Vec<PolynomialValues<F>>> {
     ctl_data.map(|data| {

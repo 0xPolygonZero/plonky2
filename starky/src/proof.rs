@@ -311,7 +311,7 @@ impl<F: RichField + Extendable<D>, const D: usize> StarkOpeningSet<F, D> {
 
     /// Constructs the openings required by FRI.
     /// All openings but `ctl_zs_first` are grouped together.
-    pub(crate) fn to_fri_openings(&self) -> FriOpenings<F, D> {
+    pub fn to_fri_openings(&self) -> FriOpenings<F, D> {
         let zeta_batch = FriOpeningBatch {
             values: self
                 .local_values
