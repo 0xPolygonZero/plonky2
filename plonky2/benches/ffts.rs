@@ -7,7 +7,7 @@ use plonky2::field::types::Field;
 use tynm::type_name;
 
 pub(crate) fn bench_ffts<F: Field>(c: &mut Criterion) {
-    let mut group = c.benchmark_group(&format!("fft<{}>", type_name::<F>()));
+    let mut group = c.benchmark_group(format!("fft<{}>", type_name::<F>()));
 
     for size_log in [13, 14, 15, 16] {
         let size = 1 << size_log;
@@ -21,7 +21,7 @@ pub(crate) fn bench_ffts<F: Field>(c: &mut Criterion) {
 pub(crate) fn bench_ldes<F: Field>(c: &mut Criterion) {
     const RATE_BITS: usize = 3;
 
-    let mut group = c.benchmark_group(&format!("lde<{}>", type_name::<F>()));
+    let mut group = c.benchmark_group(format!("lde<{}>", type_name::<F>()));
 
     for size_log in [13, 14, 15, 16] {
         let orig_size = 1 << (size_log - RATE_BITS);
