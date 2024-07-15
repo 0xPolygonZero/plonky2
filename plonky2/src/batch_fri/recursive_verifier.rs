@@ -55,7 +55,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         );
 
         let mut precomputed_reduced_evals = Vec::with_capacity(openings.len());
-        for opn in openings.iter() {
+        for opn in openings {
             let pre = with_context!(
                 self,
                 "precompute reduced evaluations",
