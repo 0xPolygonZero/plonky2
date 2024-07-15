@@ -71,6 +71,7 @@ where
 
     let trace_cap = trace_commitment.merkle_tree.cap.clone();
     let mut challenger = Challenger::new();
+    challenger.observe_elements(public_inputs);
     challenger.observe_cap(&trace_cap);
 
     prove_with_commitment(

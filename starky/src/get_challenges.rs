@@ -157,6 +157,7 @@ where
         ignore_trace_cap: bool,
         config: &StarkConfig,
     ) -> StarkProofChallenges<F, D> {
+        challenger.observe_elements(&self.public_inputs);
         self.proof
             .get_challenges(challenger, challenges, ignore_trace_cap, config)
     }
@@ -302,6 +303,7 @@ impl<const D: usize> StarkProofWithPublicInputsTarget<D> {
         C: GenericConfig<D, F = F>,
         C::Hasher: AlgebraicHasher<F>,
     {
+        challenger.observe_elements(&self.public_inputs);
         self.proof
             .get_challenges::<F, C>(builder, challenger, challenges, ignore_trace_cap, config)
     }
