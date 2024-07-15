@@ -12,7 +12,7 @@ use tynm::type_name;
 const ELEMS_PER_LEAF: usize = 135;
 
 pub(crate) fn bench_merkle_tree<F: RichField, H: Hasher<F>>(c: &mut Criterion) {
-    let mut group = c.benchmark_group(&format!(
+    let mut group = c.benchmark_group(format!(
         "merkle-tree<{}, {}>",
         type_name::<F>(),
         type_name::<H>()
