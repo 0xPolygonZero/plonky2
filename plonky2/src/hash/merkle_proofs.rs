@@ -79,7 +79,7 @@ pub fn verify_batch_merkle_proof_to_cap<F: RichField, H: Hasher<F>>(
     let mut current_digest = H::hash_or_noop(&leaf_data[0]);
     let mut current_height = leaf_heights[0];
     let mut leaf_data_index = 1;
-    for &sibling_digest in proof.siblings.iter() {
+    for &sibling_digest in &proof.siblings {
         let bit = leaf_index & 1;
         leaf_index >>= 1;
         current_digest = if bit == 1 {
