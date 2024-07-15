@@ -12,7 +12,7 @@ use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::target::{BoolTarget, Target};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::circuit_data::VerifierCircuitTarget;
-use crate::plonk::config::{AlgebraicHasher, Hasher};
+use crate::plonk::config::{AlgebraicHasher, GenericHashOut, Hasher};
 
 #[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
 #[serde(bound = "")]
@@ -57,19 +57,48 @@ pub fn verify_merkle_proof_to_cap<F: RichField, H: Hasher<F>>(
     merkle_cap: &MerkleCap<F, H>,
     proof: &MerkleProof<F, H>,
 ) -> Result<()> {
-    let mut index = leaf_index;
-    let mut current_digest = H::hash_or_noop(&leaf_data);
-    for &sibling_digest in proof.siblings.iter() {
-        let bit = index & 1;
-        index >>= 1;
+    verify_batch_merkle_proof_to_cap(
+        &[leaf_data.clone()],
+        &[proof.siblings.len()],
+        leaf_index,
+        merkle_cap,
+        proof,
+    )
+}
+
+/// Verifies that the given leaf data is present at the given index in the Field Merkle tree with the
+/// given cap.
+pub fn verify_batch_merkle_proof_to_cap<F: RichField, H: Hasher<F>>(
+    leaf_data: &[Vec<F>],
+    leaf_heights: &[usize],
+    mut leaf_index: usize,
+    merkle_cap: &MerkleCap<F, H>,
+    proof: &MerkleProof<F, H>,
+) -> Result<()> {
+    assert_eq!(leaf_data.len(), leaf_heights.len());
+    let mut current_digest = H::hash_or_noop(&leaf_data[0]);
+    let mut current_height = leaf_heights[0];
+    let mut leaf_data_index = 1;
+    for &sibling_digest in &proof.siblings {
+        let bit = leaf_index & 1;
+        leaf_index >>= 1;
         current_digest = if bit == 1 {
             H::two_to_one(sibling_digest, current_digest)
         } else {
             H::two_to_one(current_digest, sibling_digest)
+        };
+        current_height -= 1;
+
+        if leaf_data_index < leaf_heights.len() && current_height == leaf_heights[leaf_data_index] {
+            let mut new_leaves = current_digest.to_vec();
+            new_leaves.extend_from_slice(&leaf_data[leaf_data_index]);
+            current_digest = H::hash_or_noop(&new_leaves);
+            leaf_data_index += 1;
         }
     }
+    assert_eq!(leaf_data_index, leaf_data.len());
     ensure!(
-        current_digest == merkle_cap.0[index],
+        current_digest == merkle_cap.0[leaf_index],
         "Invalid Merkle proof."
     );
 
@@ -140,6 +169,62 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             state = HashOutTarget {
                 elements: hash_outs,
             };
+        }
+
+        for i in 0..NUM_HASH_OUT_ELTS {
+            let result = self.random_access(
+                cap_index,
+                merkle_cap.0.iter().map(|h| h.elements[i]).collect(),
+            );
+            self.connect(result, state.elements[i]);
+        }
+    }
+
+    /// Same as `verify_batch_merkle_proof_to_cap`, except with the final "cap index" as separate parameter,
+    /// rather than being contained in `leaf_index_bits`.
+    pub(crate) fn verify_batch_merkle_proof_to_cap_with_cap_index<H: AlgebraicHasher<F>>(
+        &mut self,
+        leaf_data: &[Vec<Target>],
+        leaf_heights: &[usize],
+        leaf_index_bits: &[BoolTarget],
+        cap_index: Target,
+        merkle_cap: &MerkleCapTarget,
+        proof: &MerkleProofTarget,
+    ) {
+        debug_assert!(H::AlgebraicPermutation::RATE >= NUM_HASH_OUT_ELTS);
+
+        let zero = self.zero();
+        let mut state: HashOutTarget = self.hash_or_noop::<H>(leaf_data[0].clone());
+        debug_assert_eq!(state.elements.len(), NUM_HASH_OUT_ELTS);
+
+        let mut current_height = leaf_heights[0];
+        let mut leaf_data_index = 1;
+        for (&bit, &sibling) in leaf_index_bits.iter().zip(&proof.siblings) {
+            debug_assert_eq!(sibling.elements.len(), NUM_HASH_OUT_ELTS);
+
+            let mut perm_inputs = H::AlgebraicPermutation::default();
+            perm_inputs.set_from_slice(&state.elements, 0);
+            perm_inputs.set_from_slice(&sibling.elements, NUM_HASH_OUT_ELTS);
+            // Ensure the rest of the state, if any, is zero:
+            perm_inputs.set_from_iter(core::iter::repeat(zero), 2 * NUM_HASH_OUT_ELTS);
+            let perm_outs = self.permute_swapped::<H>(perm_inputs, bit);
+            let hash_outs = perm_outs.squeeze()[0..NUM_HASH_OUT_ELTS]
+                .try_into()
+                .unwrap();
+            state = HashOutTarget {
+                elements: hash_outs,
+            };
+            current_height -= 1;
+
+            if leaf_data_index < leaf_heights.len()
+                && current_height == leaf_heights[leaf_data_index]
+            {
+                let mut new_leaves = state.elements.to_vec();
+                new_leaves.extend_from_slice(&leaf_data[leaf_data_index]);
+                state = self.hash_or_noop::<H>(new_leaves);
+
+                leaf_data_index += 1;
+            }
         }
 
         for i in 0..NUM_HASH_OUT_ELTS {

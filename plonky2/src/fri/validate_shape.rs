@@ -1,3 +1,6 @@
+#[cfg(not(feature = "std"))]
+use alloc::vec;
+
 use anyhow::ensure;
 
 use crate::field::extension::Extendable;
@@ -11,6 +14,18 @@ use crate::plonk::plonk_common::salt_size;
 pub(crate) fn validate_fri_proof_shape<F, C, const D: usize>(
     proof: &FriProof<F, C::Hasher, D>,
     instance: &FriInstanceInfo<F, D>,
+    params: &FriParams,
+) -> anyhow::Result<()>
+where
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+{
+    validate_batch_fri_proof_shape::<F, C, D>(proof, &[instance.clone()], params)
+}
+
+pub(crate) fn validate_batch_fri_proof_shape<F, C, const D: usize>(
+    proof: &FriProof<F, C::Hasher, D>,
+    instances: &[FriInstanceInfo<F, D>],
     params: &FriParams,
 ) -> anyhow::Result<()>
 where
@@ -35,13 +50,16 @@ where
             steps,
         } = query_round;
 
-        ensure!(initial_trees_proof.evals_proofs.len() == instance.oracles.len());
-        for ((leaf, merkle_proof), oracle) in initial_trees_proof
-            .evals_proofs
-            .iter()
-            .zip(&instance.oracles)
-        {
-            ensure!(leaf.len() == oracle.num_polys + salt_size(oracle.blinding && params.hiding));
+        let oracle_count = initial_trees_proof.evals_proofs.len();
+        let mut leaf_len = vec![0; oracle_count];
+        for inst in instances {
+            ensure!(oracle_count == inst.oracles.len());
+            for (i, oracle) in inst.oracles.iter().enumerate() {
+                leaf_len[i] += oracle.num_polys + salt_size(oracle.blinding && params.hiding);
+            }
+        }
+        for (i, (leaf, merkle_proof)) in initial_trees_proof.evals_proofs.iter().enumerate() {
+            ensure!(leaf.len() == leaf_len[i]);
             ensure!(merkle_proof.len() + cap_height == params.lde_bits());
         }
 

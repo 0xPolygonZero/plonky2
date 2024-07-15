@@ -25,7 +25,7 @@ use crate::with_context;
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Computes P'(x^arity) from {P(x*g^i)}_(i=0..arity), where g is a `arity`-th root of unity
     /// and P' is the FRI reduced polynomial.
-    fn compute_evaluation(
+    pub(crate) fn compute_evaluation(
         &mut self,
         x: Target,
         x_index_within_coset_bits: &[BoolTarget],
@@ -58,7 +58,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Make sure we have enough wires and routed wires to do the FRI checks efficiently. This check
     /// isn't required -- without it we'd get errors elsewhere in the stack -- but just gives more
     /// helpful errors.
-    fn check_recursion_config(&self, max_fri_arity_bits: usize) {
+    pub(crate) fn check_recursion_config(&self, max_fri_arity_bits: usize) {
         let random_access = RandomAccessGate::<F, D>::new_from_config(
             &self.config,
             max_fri_arity_bits.max(self.config.fri_config.cap_height),
@@ -91,7 +91,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         );
     }
 
-    fn fri_verify_proof_of_work(&mut self, fri_pow_response: Target, config: &FriConfig) {
+    pub(crate) fn fri_verify_proof_of_work(
+        &mut self,
+        fri_pow_response: Target,
+        config: &FriConfig,
+    ) {
         self.assert_leading_zeros(
             fri_pow_response,
             config.proof_of_work_bits + (64 - F::order().bits()) as u32,
@@ -372,7 +376,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Thus ambiguous elements contribute a negligible amount to soundness error.
     ///
     /// Here we compare the probabilities as a sanity check, to verify the claim above.
-    fn assert_noncanonical_indices_ok(config: &FriConfig) {
+    pub(crate) fn assert_noncanonical_indices_ok(config: &FriConfig) {
         let num_ambiguous_elems = u64::MAX - F::ORDER + 1;
         let query_error = config.rate();
         let p_ambiguous = (num_ambiguous_elems as f64) / (F::ORDER as f64);
@@ -459,12 +463,12 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 /// For each opening point, holds the reduced (by `alpha`) evaluations of each polynomial that's
 /// opened at that point.
 #[derive(Clone)]
-struct PrecomputedReducedOpeningsTarget<const D: usize> {
-    reduced_openings_at_point: Vec<ExtensionTarget<D>>,
+pub(crate) struct PrecomputedReducedOpeningsTarget<const D: usize> {
+    pub(crate) reduced_openings_at_point: Vec<ExtensionTarget<D>>,
 }
 
 impl<const D: usize> PrecomputedReducedOpeningsTarget<D> {
-    fn from_os_and_alpha<F: RichField + Extendable<D>>(
+    pub(crate) fn from_os_and_alpha<F: RichField + Extendable<D>>(
         openings: &FriOpeningsTarget<D>,
         alpha: ExtensionTarget<D>,
         builder: &mut CircuitBuilder<F, D>,
