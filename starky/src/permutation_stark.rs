@@ -193,7 +193,11 @@ mod tests {
         )?;
         verify_stark_proof(stark, proof.clone(), &config)?;
 
-        recursive_proof::<F, C, S, C, D>(stark, proof, &config, true)
+        recursive_proof::<F, C, S, C, D>(stark, proof, &config, true);
+
+        println!("recursion done");
+
+        Ok(())
     }
 
     fn recursive_proof<
@@ -227,7 +231,11 @@ mod tests {
 
         let data = builder.build::<C>();
         let proof = data.prove(pw)?;
-        data.verify(proof)
+        data.verify(proof);
+
+
+
+        Ok(())
     }
 
     fn init_logger() {

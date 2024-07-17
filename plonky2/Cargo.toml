@@ -38,6 +38,8 @@ plonky2_field = { version = "0.2.2", path = "../field", default-features = false
 plonky2_maybe_rayon = { version = "0.2.0", path = "../maybe_rayon", default-features = false }
 plonky2_util = { version = "0.2.0", path = "../util", default-features = false }
 
+ff = { package = "ff", version = "0.13", features = ["derive"] }
+lazy_static = "1.4.0"
 
 [target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dependencies]
 getrandom = { version = "0.2", default-features = false, features = ["js"] }
