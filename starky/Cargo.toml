@@ -24,6 +24,8 @@ hashbrown = { workspace = true }
 itertools = { workspace = true }
 log = { workspace = true }
 num-bigint = { version = "0.4.3", default-features = false }
+serde_json = "1.0.103"
+serde = { version = "1.0.187", features = ["derive"] }
 
 # Local dependencies
 plonky2 = { version = "0.2.2", path = "../plonky2", default-features = false }
