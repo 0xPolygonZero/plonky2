@@ -319,6 +319,7 @@ where
         .chain(&quotient_commitment)
         .collect_vec();
 
+    println!("Proving opening...");
     let opening_proof = timed!(
         timing,
         "compute openings proof",

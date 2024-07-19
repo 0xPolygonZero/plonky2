@@ -227,7 +227,7 @@ impl<F: RichField + Extendable<D>, const D: usize> StarkOpeningSet<F, D> {
     ///
     /// Polynomials are evaluated at point `zeta` and, if necessary, at `g * zeta`.
     pub fn new_from_batch<C: GenericConfig<D, F = F>, S: Stark<F, D>>(
-        stark: S,
+        stark: &S,
         zeta: F::Extension,
         g: F,
         trace_commitment: &BatchFriOracle<F, C, D>,
