@@ -133,6 +133,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for FibonacciStar
 
 #[cfg(test)]
 mod tests {
+    use std::fs::File;
     use anyhow::Result;
     use plonky2::field::extension::Extendable;
     use plonky2::field::types::Field;
@@ -141,6 +142,7 @@ mod tests {
     use plonky2::plonk::circuit_builder::CircuitBuilder;
     use plonky2::plonk::circuit_data::CircuitConfig;
     use plonky2::plonk::config::{AlgebraicHasher, GenericConfig, PoseidonGoldilocksConfig};
+    use plonky2::plonk::wrapper::plonky2_config::PoseidonBN128GoldilocksConfig;
     use plonky2::util::timing::TimingTree;
 
     use crate::config::StarkConfig;
@@ -212,6 +214,8 @@ mod tests {
         init_logger();
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
+
+        type C2 = PoseidonBN128GoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
         type S = FibonacciStark<F, D>;
 
@@ -231,12 +235,12 @@ mod tests {
         )?;
         verify_stark_proof(stark, proof.clone(), &config)?;
 
-        recursive_proof::<F, C, S, C, D>(stark, proof, &config, true)
+        recursive_proof::<F, C2, S, C, D>(stark, proof, &config, true)
     }
 
     fn recursive_proof<
         F: RichField + Extendable<D>,
-        C: GenericConfig<D, F = F>,
+        C: GenericConfig<D, F = F> + serde::Serialize,
         S: Stark<F, D> + Copy,
         InnerC: GenericConfig<D, F = F>,
         const D: usize,
@@ -265,6 +269,19 @@ mod tests {
 
         let data = builder.build::<C>();
         let proof = data.prove(pw)?;
+
+        let common_data_file = File::create("common_circuit_data.json")?;
+        serde_json::to_writer_pretty(&common_data_file, &data.common)?;
+        println!("Succesfully wrote common circuit data to common_circuit_data.json");
+
+        let verifier_data_file = File::create("verifier_only_circuit_data.json")?;
+        serde_json::to_writer_pretty(&verifier_data_file, &data.verifier_only)?;
+        println!("Succesfully wrote verifier data to verifier_only_circuit_data.json");
+
+        let proof_file = File::create("proof_with_public_inputs.json")?;
+        serde_json::to_writer_pretty(&proof_file, &proof)?;
+        println!("Succesfully wrote proof to proof_with_public_inputs.json");
+
         data.verify(proof)
     }
 
