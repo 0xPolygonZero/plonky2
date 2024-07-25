@@ -135,13 +135,16 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for FibonacciStar
 mod tests {
     use std::fs::File;
     use anyhow::Result;
+    use log::Level;
     use plonky2::field::extension::Extendable;
     use plonky2::field::types::Field;
+    use plonky2::gates::noop::NoopGate;
     use plonky2::hash::hash_types::RichField;
-    use plonky2::iop::witness::PartialWitness;
+    use plonky2::iop::witness::{PartialWitness, WitnessWrite};
     use plonky2::plonk::circuit_builder::CircuitBuilder;
-    use plonky2::plonk::circuit_data::CircuitConfig;
+    use plonky2::plonk::circuit_data::{CircuitConfig, CommonCircuitData, VerifierOnlyCircuitData};
     use plonky2::plonk::config::{AlgebraicHasher, GenericConfig, PoseidonGoldilocksConfig};
+    use plonky2::plonk::proof::{ProofWithPublicInputs};
     use plonky2::plonk::wrapper::plonky2_config::PoseidonBN128GoldilocksConfig;
     use plonky2::util::timing::TimingTree;
 
@@ -211,6 +214,9 @@ mod tests {
 
     #[test]
     fn test_recursive_stark_verifier() -> Result<()> {
+        // starky proof
+        // plonky2 recursive proof
+        // plonky2 wrapper proof (to GoldilockBn128Poseidon)
         init_logger();
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
@@ -235,10 +241,27 @@ mod tests {
         )?;
         verify_stark_proof(stark, proof.clone(), &config)?;
 
-        recursive_proof::<F, C2, S, C, D>(stark, proof, &config, true)
+        let (r_p, r_v, r_c) = recursive_starky_proof::<F, C, S, C, D>(stark, proof, &config)?;
+        // this recursive proof will be wrapped
+
+        let (w_p, w_v, w_c) = recursive_plonky2_proof::<F, C2, C, D>(r_p, r_v, r_c)?;
+
+        let common_data_file = File::create("common_circuit_data.json")?;
+        serde_json::to_writer_pretty(&common_data_file, &w_c)?;
+        println!("Succesfully wrote common circuit data to common_circuit_data.json");
+
+        let verifier_data_file = File::create("verifier_only_circuit_data.json")?;
+        serde_json::to_writer_pretty(&verifier_data_file, &w_v)?;
+        println!("Succesfully wrote verifier data to verifier_only_circuit_data.json");
+
+        let proof_file = File::create("proof_with_public_inputs.json")?;
+        serde_json::to_writer_pretty(&proof_file, &w_p)?;
+        println!("Succesfully wrote proof to proof_with_public_inputs.json");
+
+        Ok(())
     }
 
-    fn recursive_proof<
+    fn recursive_starky_proof<
         F: RichField + Extendable<D>,
         C: GenericConfig<D, F = F> + serde::Serialize,
         S: Stark<F, D> + Copy,
@@ -248,11 +271,11 @@ mod tests {
         stark: S,
         inner_proof: StarkProofWithPublicInputs<F, InnerC, D>,
         inner_config: &StarkConfig,
-        print_gate_counts: bool,
-    ) -> Result<()>
+    ) -> Result<Proof<F, C, D>>
     where
         InnerC::Hasher: AlgebraicHasher<F>,
     {
+        println!("start recursive stakry in plonky2");
         let circuit_config = CircuitConfig::standard_recursion_config();
         let mut builder = CircuitBuilder::<F, D>::new(circuit_config);
         let mut pw = PartialWitness::new();
@@ -263,26 +286,59 @@ mod tests {
 
         verify_stark_proof_circuit::<F, InnerC, S, D>(&mut builder, stark, pt, inner_config);
 
-        if print_gate_counts {
-            builder.print_gate_counts(0);
-        }
-
         let data = builder.build::<C>();
         let proof = data.prove(pw)?;
 
-        let common_data_file = File::create("common_circuit_data.json")?;
-        serde_json::to_writer_pretty(&common_data_file, &data.common)?;
-        println!("Succesfully wrote common circuit data to common_circuit_data.json");
+        let res_proof = proof.clone();
+        data.verify(proof)?;
+        println!("recursive plonky2 degree: {}", data.common.degree_bits());
+        Ok((res_proof, data.verifier_only, data.common))
+    }
 
-        let verifier_data_file = File::create("verifier_only_circuit_data.json")?;
-        serde_json::to_writer_pretty(&verifier_data_file, &data.verifier_only)?;
-        println!("Succesfully wrote verifier data to verifier_only_circuit_data.json");
+    type Proof<F, C, const D: usize> = (
+        ProofWithPublicInputs<F, C, D>,
+        VerifierOnlyCircuitData<C, D>,
+        CommonCircuitData<F, D>,
+    );
 
-        let proof_file = File::create("proof_with_public_inputs.json")?;
-        serde_json::to_writer_pretty(&proof_file, &proof)?;
-        println!("Succesfully wrote proof to proof_with_public_inputs.json");
+    fn recursive_plonky2_proof<
+        F: RichField + Extendable<D>,
+        C: GenericConfig<D, F = F>,
+        InnerC: GenericConfig<D, F = F>,
+        const D: usize,
+    >(
+        inner_proof: ProofWithPublicInputs<F, InnerC, D>,
+        inner_vd: VerifierOnlyCircuitData<InnerC, D>,
+        inner_cd: CommonCircuitData<F, D>,
+    ) -> Result<Proof<F, C, D>>
+    where
+        InnerC::Hasher: AlgebraicHasher<F>,
+    {
+        let circuit_config = CircuitConfig::standard_recursion_config();
+        let mut builder = CircuitBuilder::<F, D>::new(circuit_config.clone());
+        let mut pw = PartialWitness::new();
+        let pt = builder.add_virtual_proof_with_pis(&inner_cd);
+        pw.set_proof_with_pis_target(&pt, &inner_proof);
 
-        data.verify(proof)
+        let inner_data = builder.add_virtual_verifier_data(inner_cd.config.fri_config.cap_height);
+        pw.set_cap_target(
+            &inner_data.constants_sigmas_cap,
+            &inner_vd.constants_sigmas_cap,
+        );
+        pw.set_hash_target(inner_data.circuit_digest, inner_vd.circuit_digest);
+
+        builder.verify_proof::<InnerC>(&pt, &inner_data, &inner_cd);
+
+        let data = builder.build::<C>();
+
+        let mut timing = TimingTree::new("prove", Level::Debug);
+        let proof = plonky2::plonk::prover::prove(&data.prover_only, &data.common, pw, &mut timing)?;
+
+        println!("plonky2 wrapper degrees: {}", data.common.degree_bits());
+
+        data.verify(proof.clone())?;
+
+        Ok((proof, data.verifier_only, data.common))
     }
 
     fn init_logger() {
