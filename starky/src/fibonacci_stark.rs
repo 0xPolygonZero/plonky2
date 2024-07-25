@@ -138,7 +138,6 @@ mod tests {
     use log::Level;
     use plonky2::field::extension::Extendable;
     use plonky2::field::types::Field;
-    use plonky2::gates::noop::NoopGate;
     use plonky2::hash::hash_types::RichField;
     use plonky2::iop::witness::{PartialWitness, WitnessWrite};
     use plonky2::plonk::circuit_builder::CircuitBuilder;
@@ -147,6 +146,8 @@ mod tests {
     use plonky2::plonk::proof::{ProofWithPublicInputs};
     use plonky2::plonk::wrapper::plonky2_config::PoseidonBN128GoldilocksConfig;
     use plonky2::util::timing::TimingTree;
+
+    use std::time::{Duration, Instant};
 
     use crate::config::StarkConfig;
     use crate::fibonacci_stark::FibonacciStark;
@@ -195,7 +196,7 @@ mod tests {
         type F = <C as GenericConfig<D>>::F;
         type S = FibonacciStark<F, D>;
 
-        let num_rows = 1 << 5;
+        let num_rows = 1 << 6;
         let stark = S::new(num_rows);
         test_stark_low_degree(stark)
     }
@@ -232,6 +233,7 @@ mod tests {
         // Test first STARK
         let stark = S::new(num_rows);
         let trace = stark.generate_trace(public_inputs[0], public_inputs[1]);
+        let start_stakry = Instant::now();
         let proof = prove::<F, C, S, D>(
             stark,
             &config,
@@ -239,12 +241,17 @@ mod tests {
             &public_inputs,
             &mut TimingTree::default(),
         )?;
+        println!("starky use {}s", &start_stakry.elapsed().as_secs_f64());
         verify_stark_proof(stark, proof.clone(), &config)?;
+
+        println!("staky proof size: {} bytes {}KB", bincode::serialize(&proof).unwrap().len(), bincode::serialize(&proof).unwrap().len()/1024);
 
         let (r_p, r_v, r_c) = recursive_starky_proof::<F, C, S, C, D>(stark, proof, &config)?;
         // this recursive proof will be wrapped
+        println!("recursive proof size: {} bytes {}KB", bincode::serialize(&r_p).unwrap().len(), bincode::serialize(&r_p).unwrap().len()/1024);
 
         let (w_p, w_v, w_c) = recursive_plonky2_proof::<F, C2, C, D>(r_p, r_v, r_c)?;
+        println!("wrapper proof size: {} bytes {}KB", bincode::serialize(&w_p).unwrap().len(), bincode::serialize(&w_p).unwrap().len()/1024);
 
         let common_data_file = File::create("common_circuit_data.json")?;
         serde_json::to_writer_pretty(&common_data_file, &w_c)?;
@@ -287,7 +294,9 @@ mod tests {
         verify_stark_proof_circuit::<F, InnerC, S, D>(&mut builder, stark, pt, inner_config);
 
         let data = builder.build::<C>();
+        let start_recursive = Instant::now();
         let proof = data.prove(pw)?;
+        println!("plonky2 recursive use {}s", start_recursive.elapsed().as_secs_f64());
 
         let res_proof = proof.clone();
         data.verify(proof)?;
@@ -332,7 +341,10 @@ mod tests {
         let data = builder.build::<C>();
 
         let mut timing = TimingTree::new("prove", Level::Debug);
+
+        let start_recursive = Instant::now();
         let proof = plonky2::plonk::prover::prove(&data.prover_only, &data.common, pw, &mut timing)?;
+        println!("plonky2 wrapper use: {}s", start_recursive.elapsed().as_secs_f64());
 
         println!("plonky2 wrapper degrees: {}", data.common.degree_bits());
 

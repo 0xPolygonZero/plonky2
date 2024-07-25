@@ -6,6 +6,7 @@
 use alloc::{vec, vec::Vec};
 
 use itertools::Itertools;
+use serde::Serialize;
 use plonky2::field::extension::{Extendable, FieldExtension};
 use plonky2::fri::oracle::PolynomialBatch;
 use plonky2::fri::proof::{
@@ -26,7 +27,7 @@ use crate::config::StarkConfig;
 use crate::lookup::GrandProductChallengeSet;
 
 /// Merkle caps and openings that form the proof of a single STARK.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct StarkProof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> {
     /// Merkle cap of LDEs of trace values.
     pub trace_cap: MerkleCap<F, C::Hasher>,
@@ -122,7 +123,7 @@ impl<const D: usize> StarkProofTarget<D> {
 }
 
 /// Merkle caps and openings that form the proof of a single STARK, along with its public inputs.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct StarkProofWithPublicInputs<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
@@ -247,7 +248,7 @@ pub struct MultiProofChallenges<F: RichField + Extendable<D>, const D: usize, co
 }
 
 /// Purported values of each polynomial at the challenge point.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct StarkOpeningSet<F: RichField + Extendable<D>, const D: usize> {
     /// Openings of trace polynomials at `zeta`.
     pub local_values: Vec<F::Extension>,

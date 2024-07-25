@@ -1,5 +1,4 @@
 use core::fmt;
-use std::error::Error;
 use std::marker::PhantomData;
 
 use ff::{Field as ff_Field, PrimeField};

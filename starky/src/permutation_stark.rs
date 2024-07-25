@@ -99,8 +99,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for PermutationSt
 
 #[cfg(test)]
 mod tests {
-    use std::fs::{self, File};
-
     use anyhow::Result;
     use plonky2::field::extension::Extendable;
     use plonky2::field::types::Field;
@@ -109,7 +107,6 @@ mod tests {
     use plonky2::plonk::circuit_builder::CircuitBuilder;
     use plonky2::plonk::circuit_data::CircuitConfig;
     use plonky2::plonk::config::{AlgebraicHasher, GenericConfig, PoseidonGoldilocksConfig};
-    use plonky2::plonk::wrapper::plonky2_config::PoseidonBN128GoldilocksConfig;
     use plonky2::util::timing::TimingTree;
 
     use crate::config::StarkConfig;
@@ -123,8 +120,6 @@ mod tests {
     use crate::stark::Stark;
     use crate::stark_testing::{test_stark_circuit_constraints, test_stark_low_degree};
     use crate::verifier::verify_stark_proof;
-
-    use serde::Serialize;
 
     #[test]
     fn test_pemutations_stark() -> Result<()> {
@@ -180,7 +175,6 @@ mod tests {
         init_logger();
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
-        type C2 = PoseidonBN128GoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
         type S = PermutationStark<F, D>;
 
@@ -199,7 +193,7 @@ mod tests {
         )?;
         verify_stark_proof(stark, proof.clone(), &config)?;
 
-        recursive_proof::<F, C, S, C, D>(stark, proof, &config, true);
+        let _ = recursive_proof::<F, C, S, C, D>(stark, proof, &config, true);
 
         println!("recursion done");
 

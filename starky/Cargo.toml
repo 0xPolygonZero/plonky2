@@ -31,6 +31,7 @@ serde = { version = "1.0.187", features = ["derive"] }
 plonky2 = { version = "0.2.2", path = "../plonky2", default-features = false }
 plonky2_maybe_rayon = { version = "0.2.0", path = "../maybe_rayon", default-features = false }
 plonky2_util = { version = "0.2.0", path = "../util", default-features = false }
+bincode = "1.3.3"
 
 [dev-dependencies]
 env_logger = { version = "0.9.0", default-features = false }
