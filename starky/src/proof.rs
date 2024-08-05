@@ -144,34 +144,6 @@ pub struct StarkProofWithPublicInputsTarget<const D: usize> {
     pub public_inputs: Vec<Target>,
 }
 
-/// A compressed proof format of a single STARK.
-#[derive(Debug, Clone)]
-pub struct CompressedStarkProof<
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
-    const D: usize,
-> {
-    /// Merkle cap of LDEs of trace values.
-    pub trace_cap: MerkleCap<F, C::Hasher>,
-    /// Purported values of each polynomial at the challenge point.
-    pub openings: StarkOpeningSet<F, D>,
-    /// A batch FRI argument for all openings.
-    pub opening_proof: CompressedFriProof<F, C::Hasher, D>,
-}
-
-/// A compressed [`StarkProof`] format of a single STARK with its public inputs.
-#[derive(Debug, Clone)]
-pub struct CompressedStarkProofWithPublicInputs<
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
-    const D: usize,
-> {
-    /// A compressed STARK proof.
-    pub proof: CompressedStarkProof<F, C, D>,
-    /// Public inputs for this compressed STARK proof.
-    pub public_inputs: Vec<F>,
-}
-
 /// A [`StarkProof`] along with metadata about the initial Fiat-Shamir state, which is used when
 /// creating a recursive wrapper proof around a STARK proof.
 #[derive(Debug, Clone)]

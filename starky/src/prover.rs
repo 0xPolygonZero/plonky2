@@ -466,7 +466,7 @@ where
                                 [num_lookup_columns + total_num_helper_cols + i],
                             challenges: zs_columns.challenge,
                             columns: zs_columns.columns.clone(),
-                            filter: zs_columns.filter.clone(),
+                            filters: zs_columns.filters.clone(),
                         };
 
                         start_index += num_ctl_helper_cols;
@@ -624,7 +624,7 @@ fn check_constraints<'a, F, C, S, const D: usize>(
                                 [num_lookup_columns + total_num_helper_cols + iii],
                             challenges: zs_columns.challenge,
                             columns: zs_columns.columns.clone(),
-                            filter: zs_columns.filter.clone(),
+                            filters: zs_columns.filters.clone(),
                         };
 
                         start_index += num_helper_cols;

@@ -55,7 +55,7 @@ use crate::lookup::{
     eval_helper_columns, eval_helper_columns_circuit, get_grand_product_challenge_set,
     get_helper_cols, Column, ColumnFilter, Filter, GrandProductChallenge, GrandProductChallengeSet,
 };
-use crate::proof::{MultiProof, StarkProofTarget, StarkProofWithMetadata};
+use crate::proof::{MultiProof, StarkOpeningSet, StarkProofTarget, StarkProofWithMetadata};
 use crate::stark::Stark;
 
 /// An alias for `usize`, to represent the index of a STARK table in a multi-STARK setting.
@@ -164,7 +164,7 @@ pub struct CtlZData<'a, F: Field> {
     pub(crate) columns: Vec<&'a [Column<F>]>,
     /// Vector of filter columns for the current table.
     /// Each filter evaluates to either 1 or 0.
-    pub(crate) filter: Vec<Filter<F>>,
+    pub(crate) filters: Vec<Filter<F>>,
 }
 
 impl<'a, F: Field> CtlZData<'a, F> {
@@ -174,14 +174,14 @@ impl<'a, F: Field> CtlZData<'a, F> {
         z: PolynomialValues<F>,
         challenge: GrandProductChallenge<F>,
         columns: Vec<&'a [Column<F>]>,
-        filter: Vec<Filter<F>>,
+        filters: Vec<Filter<F>>,
     ) -> Self {
         Self {
             helper_columns,
             z,
             challenge,
             columns,
-            filter,
+            filters,
         }
     }
 }
@@ -266,8 +266,14 @@ where
     let num_ctl_helper_cols =
         num_ctl_helper_columns_by_table(all_cross_table_lookups, max_constraint_degree);
 
-    CtlCheckVars::from_proofs(
-        &multi_proof.stark_proofs,
+    let openings = multi_proof
+        .stark_proofs
+        .iter()
+        .map(|proof| proof.proof.openings.clone())
+        .collect::<Vec<_>>();
+
+    CtlCheckVars::from_proofs::<C, N>(
+        &openings,
         all_cross_table_lookups,
         ctl_challenges,
         num_lookup_columns,
@@ -275,7 +281,7 @@ where
     )
 }
 /// Returns the number of helper columns for each `Table`.
-pub(crate) fn num_ctl_helper_columns_by_table<F: Field, const N: usize>(
+pub fn num_ctl_helper_columns_by_table<F: Field, const N: usize>(
     ctls: &[CrossTableLookup<F>],
     constraint_degree: usize,
 ) -> Vec<[usize; N]> {
@@ -362,17 +368,17 @@ pub(crate) fn cross_table_lookup_data<'a, F: RichField, const D: usize, const N:
                     }
                 });
                 let mut columns = Vec::with_capacity(count);
-                let mut filter = Vec::with_capacity(count);
+                let mut filters = Vec::with_capacity(count);
                 for (col, filt) in cols_filts {
                     columns.push(&col[..]);
-                    filter.push(filt.clone());
+                    filters.push(filt.clone());
                 }
                 ctl_data_per_table[table].zs_columns.push(CtlZData {
                     helper_columns: helpers_zs[..num_helpers].to_vec(),
                     z: helpers_zs[num_helpers].clone(),
                     challenge,
                     columns,
-                    filter,
+                    filters,
                 });
             }
             // There is no helper column for the looking table.
@@ -384,7 +390,7 @@ pub(crate) fn cross_table_lookup_data<'a, F: RichField, const D: usize, const N:
                     z: looked_poly,
                     challenge,
                     columns: vec![&looked_table.columns[..]],
-                    filter: vec![looked_table.filter.clone()],
+                    filters: vec![looked_table.filter.clone()],
                 });
         }
     }
@@ -486,7 +492,7 @@ where
     /// Column linear combinations of the `CrossTableLookup`s.
     pub(crate) columns: Vec<&'a [Column<F>]>,
     /// Filter that evaluates to either 1 or 0.
-    pub(crate) filter: Vec<Filter<F>>,
+    pub(crate) filters: Vec<Filter<F>>,
 }
 
 impl<'a, F: RichField + Extendable<D>, const D: usize>
@@ -494,19 +500,19 @@ impl<'a, F: RichField + Extendable<D>, const D: usize>
 {
     /// Extracts the `CtlCheckVars` for each STARK.
     pub fn from_proofs<C: GenericConfig<D, F = F>, const N: usize>(
-        proofs: &[StarkProofWithMetadata<F, C, D>; N],
+        openings: &[StarkOpeningSet<F, D>],
         cross_table_lookups: &'a [CrossTableLookup<F>],
         ctl_challenges: &'a GrandProductChallengeSet<F>,
         num_lookup_columns: &[usize; N],
         num_helper_ctl_columns: &Vec<[usize; N]>,
     ) -> [Vec<Self>; N] {
         let mut ctl_vars_per_table = [0; N].map(|_| vec![]);
-        // If there are no auxiliary polys in the proofs `openings`,
-        // return early. The verifier will reject the proofs when
+        // If there are no auxiliary polys in the `openings`,
+        // return early. The verifier will reject the proof when
         // calling `validate_proof_shape`.
-        if proofs
+        if openings
             .iter()
-            .any(|p| p.proof.openings.auxiliary_polys.is_none())
+            .all(|opening| opening.auxiliary_polys.is_none())
         {
             return ctl_vars_per_table;
         }
@@ -519,17 +525,17 @@ impl<'a, F: RichField + Extendable<D>, const D: usize>
         }
 
         // Get all cross-table lookup polynomial openings for each STARK proof.
-        let ctl_zs = proofs
+        let ctl_zs = openings
             .iter()
             .zip(num_lookup_columns)
-            .map(|(p, &num_lookup)| {
-                let openings = &p.proof.openings;
+            .map(|(opening, &num_lookup)| {
+                // let openings = &p.proof.openings;
 
-                let ctl_zs = &openings
+                let ctl_zs = &opening
                     .auxiliary_polys
                     .as_ref()
                     .expect("We cannot have CTls without auxiliary polynomials.")[num_lookup..];
-                let ctl_zs_next = &openings
+                let ctl_zs_next = &opening
                     .auxiliary_polys_next
                     .as_ref()
                     .expect("We cannot have CTls without auxiliary polynomials.")[num_lookup..];
@@ -575,10 +581,10 @@ impl<'a, F: RichField + Extendable<D>, const D: usize>
                         }
                     });
                     let mut columns = Vec::with_capacity(count);
-                    let mut filter = Vec::with_capacity(count);
+                    let mut filters = Vec::with_capacity(count);
                     for (col, filt) in cols_filts {
                         columns.push(&col[..]);
-                        filter.push(filt.clone());
+                        filters.push(filt.clone());
                     }
                     let helper_columns = ctl_zs[table]
                         [start_indices[table]..start_indices[table] + num_ctls[table]]
@@ -595,7 +601,7 @@ impl<'a, F: RichField + Extendable<D>, const D: usize>
                         next_z: *looking_z_next,
                         challenges,
                         columns,
-                        filter,
+                        filters,
                     });
                 }
 
@@ -606,14 +612,14 @@ impl<'a, F: RichField + Extendable<D>, const D: usize>
                 z_indices[looked_table.table] += 1;
 
                 let columns = vec![&looked_table.columns[..]];
-                let filter = vec![looked_table.filter.clone()];
+                let filters = vec![looked_table.filter.clone()];
                 ctl_vars_per_table[looked_table.table].push(Self {
                     helper_columns: vec![],
                     local_z: *looked_z,
                     next_z: *looked_z_next,
                     challenges,
                     columns,
-                    filter,
+                    filters,
                 });
             }
         }
@@ -650,7 +656,7 @@ pub(crate) fn eval_cross_table_lookup_checks<F, FE, P, S, const D: usize, const 
             next_z,
             challenges,
             columns,
-            filter,
+            filters,
         } = lookup_vars;
 
         // Compute all linear combinations on the current table, and combine them using the challenge.
@@ -665,7 +671,7 @@ pub(crate) fn eval_cross_table_lookup_checks<F, FE, P, S, const D: usize, const 
 
         // Check helper columns.
         eval_helper_columns(
-            filter,
+            filters,
             &evals,
             local_values,
             next_values,
@@ -685,8 +691,8 @@ pub(crate) fn eval_cross_table_lookup_checks<F, FE, P, S, const D: usize, const 
             let combin0 = challenges.combine(&evals[0]);
             let combin1 = challenges.combine(&evals[1]);
 
-            let f0 = filter[0].eval_filter(local_values, next_values);
-            let f1 = filter[1].eval_filter(local_values, next_values);
+            let f0 = filters[0].eval_filter(local_values, next_values);
+            let f1 = filters[1].eval_filter(local_values, next_values);
 
             consumer
                 .constraint_last_row(combin0 * combin1 * *local_z - f0 * combin1 - f1 * combin0);
@@ -695,7 +701,7 @@ pub(crate) fn eval_cross_table_lookup_checks<F, FE, P, S, const D: usize, const 
             );
         } else {
             let combin0 = challenges.combine(&evals[0]);
-            let f0 = filter[0].eval_filter(local_values, next_values);
+            let f0 = filters[0].eval_filter(local_values, next_values);
             consumer.constraint_last_row(combin0 * *local_z - f0);
             consumer.constraint_transition(combin0 * (*local_z - *next_z) - f0);
         }

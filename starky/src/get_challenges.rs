@@ -430,7 +430,6 @@ where
         &self,
         challenger: &mut Challenger<F, C::Hasher>,
         challenges: Option<&GrandProductChallengeSet<F>>,
-        // ignore_trace_cap: bool,
         config: &StarkConfig,
     ) -> StarkProofChallenges<F, D> {
         let degree_bits = self.recover_degree_bits(config);
@@ -475,7 +474,6 @@ where
         &self,
         challenger: &mut Challenger<F, C::Hasher>,
         challenges: Option<&GrandProductChallengeSet<F>>,
-        // ignore_trace_cap: bool,
         config: &StarkConfig,
     ) -> StarkProofChallenges<F, D> {
         self.proof.get_challenges(challenger, challenges, config)
