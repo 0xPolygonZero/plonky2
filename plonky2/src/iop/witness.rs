@@ -1,6 +1,6 @@
 #[cfg(not(feature = "std"))]
 use alloc::{vec, vec::Vec};
-use std::iter::zip;
+use core::iter::zip;
 
 use anyhow::{anyhow, Result};
 use hashbrown::HashMap;

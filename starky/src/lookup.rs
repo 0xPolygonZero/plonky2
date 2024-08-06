@@ -7,6 +7,7 @@ use core::borrow::Borrow;
 use core::fmt::Debug;
 use core::iter::repeat;
 
+#[cfg(feature = "std")]
 use itertools::Itertools;
 use num_bigint::BigUint;
 use plonky2::field::batch_util::{batch_add_inplace, batch_multiply_inplace};
