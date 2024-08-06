@@ -109,19 +109,19 @@ pub fn test_stark_circuit_constraints<
     let mut pw = PartialWitness::<F>::new();
 
     let locals_t = builder.add_virtual_extension_targets(S::COLUMNS);
-    pw.set_extension_targets(&locals_t, vars.get_local_values());
+    pw.set_extension_targets(&locals_t, vars.get_local_values())?;
     let nexts_t = builder.add_virtual_extension_targets(S::COLUMNS);
-    pw.set_extension_targets(&nexts_t, vars.get_next_values());
+    pw.set_extension_targets(&nexts_t, vars.get_next_values())?;
     let pis_t = builder.add_virtual_extension_targets(S::PUBLIC_INPUTS);
-    pw.set_extension_targets(&pis_t, vars.get_public_inputs());
+    pw.set_extension_targets(&pis_t, vars.get_public_inputs())?;
     let alphas_t = builder.add_virtual_targets(1);
-    pw.set_target(alphas_t[0], alphas[0]);
+    pw.set_target(alphas_t[0], alphas[0])?;
     let z_last_t = builder.add_virtual_extension_target();
-    pw.set_extension_target(z_last_t, z_last);
+    pw.set_extension_target(z_last_t, z_last)?;
     let lagrange_first_t = builder.add_virtual_extension_target();
-    pw.set_extension_target(lagrange_first_t, lagrange_first);
+    pw.set_extension_target(lagrange_first_t, lagrange_first)?;
     let lagrange_last_t = builder.add_virtual_extension_target();
-    pw.set_extension_target(lagrange_last_t, lagrange_last);
+    pw.set_extension_target(lagrange_last_t, lagrange_last)?;
 
     let vars = S::EvaluationFrameTarget::from_values(&locals_t, &nexts_t, &pis_t);
     let mut consumer = RecursiveConstraintConsumer::<F, D>::new(

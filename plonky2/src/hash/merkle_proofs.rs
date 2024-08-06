@@ -292,18 +292,18 @@ mod tests {
             siblings: builder.add_virtual_hashes(proof.siblings.len()),
         };
         for i in 0..proof.siblings.len() {
-            pw.set_hash_target(proof_t.siblings[i], proof.siblings[i]);
+            pw.set_hash_target(proof_t.siblings[i], proof.siblings[i])?;
         }
 
         let cap_t = builder.add_virtual_cap(cap_height);
-        pw.set_cap_target(&cap_t, &tree.cap);
+        pw.set_cap_target(&cap_t, &tree.cap)?;
 
         let i_c = builder.constant(F::from_canonical_usize(i));
         let i_bits = builder.split_le(i_c, log_n);
 
         let data = builder.add_virtual_targets(tree.leaves[i].len());
         for j in 0..data.len() {
-            pw.set_target(data[j], tree.leaves[i][j]);
+            pw.set_target(data[j], tree.leaves[i][j])?;
         }
 
         builder.verify_merkle_proof_to_cap::<<C as GenericConfig<D>>::InnerHasher>(

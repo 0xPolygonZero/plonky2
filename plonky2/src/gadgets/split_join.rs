@@ -5,6 +5,8 @@ use alloc::{
     vec::Vec,
 };
 
+use anyhow::Result;
+
 use crate::field::extension::Extendable;
 use crate::gates::base_sum::BaseSumGate;
 use crate::hash::hash_types::RichField;
@@ -75,12 +77,16 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D> for Spl
         vec![self.integer]
     }
 
-    fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
+    fn run_once(
+        &self,
+        witness: &PartitionWitness<F>,
+        out_buffer: &mut GeneratedValues<F>,
+    ) -> Result<()> {
         let mut integer_value = witness.get_target(self.integer).to_canonical_u64();
 
         for &b in &self.bits {
             let b_value = integer_value & 1;
-            out_buffer.set_target(b, F::from_canonical_u64(b_value));
+            out_buffer.set_target(b, F::from_canonical_u64(b_value))?;
             integer_value >>= 1;
         }
 
@@ -88,6 +94,8 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D> for Spl
             integer_value, 0,
             "Integer too large to fit in given number of bits"
         );
+
+        Ok(())
     }
 
     fn serialize(&self, dst: &mut Vec<u8>, _common_data: &CommonCircuitData<F, D>) -> IoResult<()> {
@@ -118,7 +126,11 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D> for Wir
         vec![self.integer]
     }
 
-    fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
+    fn run_once(
+        &self,
+        witness: &PartitionWitness<F>,
+        out_buffer: &mut GeneratedValues<F>,
+    ) -> Result<()> {
         let mut integer_value = witness.get_target(self.integer).to_canonical_u64();
 
         for &gate in &self.gates {
@@ -134,7 +146,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D> for Wir
                 integer_value = 0;
             };
 
-            out_buffer.set_target(sum, F::from_canonical_u64(truncated_value));
+            out_buffer.set_target(sum, F::from_canonical_u64(truncated_value))?;
         }
 
         debug_assert_eq!(
@@ -143,6 +155,8 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D> for Wir
             "Integer too large to fit in {} many `BaseSumGate`s",
             self.gates.len()
         );
+
+        Ok(())
     }
 
     fn serialize(&self, dst: &mut Vec<u8>, _common_data: &CommonCircuitData<F, D>) -> IoResult<()> {

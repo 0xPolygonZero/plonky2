@@ -8,6 +8,8 @@ use alloc::{
 use core::marker::PhantomData;
 use core::ops::Range;
 
+use anyhow::Result;
+
 use crate::field::extension::algebra::ExtensionAlgebra;
 use crate::field::extension::{Extendable, FieldExtension};
 use crate::field::types::Field;
@@ -238,7 +240,11 @@ impl<F: RichField + Extendable<D> + Poseidon, const D: usize> SimpleGenerator<F,
             .collect()
     }
 
-    fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
+    fn run_once(
+        &self,
+        witness: &PartitionWitness<F>,
+        out_buffer: &mut GeneratedValues<F>,
+    ) -> Result<()> {
         let get_local_get_target = |wire_range| ExtensionTarget::from_range(self.row, wire_range);
         let get_local_ext =
             |wire_range| witness.get_extension_target(get_local_get_target(wire_range));
@@ -255,8 +261,10 @@ impl<F: RichField + Extendable<D> + Poseidon, const D: usize> SimpleGenerator<F,
             out_buffer.set_extension_target(
                 get_local_get_target(PoseidonMdsGate::<F, D>::wires_output(i)),
                 out,
-            );
+            )?;
         }
+
+        Ok(())
     }
 
     fn serialize(&self, dst: &mut Vec<u8>, _common_data: &CommonCircuitData<F, D>) -> IoResult<()> {

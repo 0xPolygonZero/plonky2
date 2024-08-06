@@ -137,10 +137,10 @@ pub fn test_eval_fns<
 
     let wires_t = builder.add_virtual_extension_targets(wires.len());
     let constants_t = builder.add_virtual_extension_targets(constants.len());
-    pw.set_extension_targets(&wires_t, &wires);
-    pw.set_extension_targets(&constants_t, &constants);
+    pw.set_extension_targets(&wires_t, &wires)?;
+    pw.set_extension_targets(&constants_t, &constants)?;
     let public_inputs_hash_t = builder.add_virtual_hash();
-    pw.set_hash_target(public_inputs_hash_t, public_inputs_hash);
+    pw.set_hash_target(public_inputs_hash_t, public_inputs_hash)?;
 
     let vars = EvaluationVars {
         local_constants: &constants,
@@ -155,7 +155,7 @@ pub fn test_eval_fns<
         public_inputs_hash: &public_inputs_hash_t,
     };
     let evals_t = gate.eval_unfiltered_circuit(&mut builder, vars_t);
-    pw.set_extension_targets(&evals_t, &evals);
+    pw.set_extension_targets(&evals_t, &evals)?;
 
     let data = builder.build::<C>();
     let proof = data.prove(pw)?;

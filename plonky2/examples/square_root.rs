@@ -41,13 +41,17 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D>
         vec![self.x_squared]
     }
 
-    fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
+    fn run_once(
+        &self,
+        witness: &PartitionWitness<F>,
+        out_buffer: &mut GeneratedValues<F>,
+    ) -> Result<()> {
         let x_squared = witness.get_target(self.x_squared);
         let x = x_squared.sqrt().unwrap();
 
         println!("Square root: {x}");
 
-        out_buffer.set_target(self.x, x);
+        out_buffer.set_target(self.x, x)
     }
 
     fn serialize(&self, dst: &mut Vec<u8>, _common_data: &CommonCircuitData<F, D>) -> IoResult<()> {
@@ -121,7 +125,7 @@ fn main() -> Result<()> {
     };
 
     let mut pw = PartialWitness::new();
-    pw.set_target(x_squared, x_squared_value);
+    pw.set_target(x_squared, x_squared_value)?;
 
     let data = builder.build::<C>();
     let proof = data.prove(pw.clone())?;

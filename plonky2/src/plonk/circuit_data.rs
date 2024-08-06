@@ -152,7 +152,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     MockCircuitData<F, C, D>
 {
     pub fn generate_witness(&self, inputs: PartialWitness<F>) -> PartitionWitness<F> {
-        generate_partial_witness::<F, C, D>(inputs, &self.prover_only, &self.common)
+        generate_partial_witness::<F, C, D>(inputs, &self.prover_only, &self.common).unwrap()
     }
 }
 

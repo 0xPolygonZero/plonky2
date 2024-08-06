@@ -103,8 +103,8 @@ fn test_one_lookup() -> anyhow::Result<()> {
 
     let mut pw = PartialWitness::new();
 
-    pw.set_target(initial_a, F::from_canonical_usize(look_val_a));
-    pw.set_target(initial_b, F::from_canonical_usize(look_val_b));
+    pw.set_target(initial_a, F::from_canonical_usize(look_val_a))?;
+    pw.set_target(initial_b, F::from_canonical_usize(look_val_b))?;
 
     let data = builder.build::<C>();
     let mut timing = TimingTree::new("prove one lookup", Level::Debug);
@@ -171,8 +171,8 @@ fn test_two_luts() -> anyhow::Result<()> {
     builder.register_public_input(output_final);
 
     let mut pw = PartialWitness::new();
-    pw.set_target(initial_a, F::from_canonical_usize(look_val_a));
-    pw.set_target(initial_b, F::from_canonical_usize(look_val_b));
+    pw.set_target(initial_a, F::from_canonical_usize(look_val_a))?;
+    pw.set_target(initial_b, F::from_canonical_usize(look_val_b))?;
     let data = builder.build::<C>();
     let mut timing = TimingTree::new("prove two_luts", Level::Debug);
     let proof = prove(&data.prover_only, &data.common, pw, &mut timing)?;
@@ -241,8 +241,8 @@ fn test_different_inputs() -> anyhow::Result<()> {
 
     let look_val_a = table[init_a].0;
     let look_val_b = table[init_b].0;
-    pw.set_target(initial_a, F::from_canonical_u16(look_val_a));
-    pw.set_target(initial_b, F::from_canonical_u16(look_val_b));
+    pw.set_target(initial_a, F::from_canonical_u16(look_val_a))?;
+    pw.set_target(initial_b, F::from_canonical_u16(look_val_b))?;
 
     let data = builder.build::<C>();
     let mut timing = TimingTree::new("prove different lookups", Level::Debug);
@@ -327,8 +327,8 @@ fn test_many_lookups() -> anyhow::Result<()> {
 
     let mut pw = PartialWitness::new();
 
-    pw.set_target(initial_a, F::from_canonical_usize(look_val_a));
-    pw.set_target(initial_b, F::from_canonical_usize(look_val_b));
+    pw.set_target(initial_a, F::from_canonical_usize(look_val_a))?;
+    pw.set_target(initial_b, F::from_canonical_usize(look_val_b))?;
 
     let data = builder.build::<C>();
     let mut timing = TimingTree::new("prove different lookups", Level::Debug);
@@ -404,8 +404,8 @@ fn test_same_luts() -> anyhow::Result<()> {
 
     let mut pw = PartialWitness::new();
 
-    pw.set_target(initial_a, F::from_canonical_usize(look_val_a));
-    pw.set_target(initial_b, F::from_canonical_usize(look_val_b));
+    pw.set_target(initial_a, F::from_canonical_usize(look_val_a))?;
+    pw.set_target(initial_b, F::from_canonical_usize(look_val_b))?;
 
     let data = builder.build::<C>();
     let mut timing = TimingTree::new("prove two_luts", Level::Debug);
@@ -443,8 +443,8 @@ fn test_big_lut() -> anyhow::Result<()> {
 
     let mut pw = PartialWitness::new();
 
-    pw.set_target(initial_a, F::from_canonical_u16(look_val_a));
-    pw.set_target(initial_b, F::from_canonical_u16(look_val_b));
+    pw.set_target(initial_a, F::from_canonical_u16(look_val_a))?;
+    pw.set_target(initial_b, F::from_canonical_u16(look_val_b))?;
 
     let proof = data.prove(pw)?;
     assert_eq!(
@@ -494,12 +494,11 @@ fn test_many_lookups_on_big_lut() -> anyhow::Result<()> {
 
     let mut pw = PartialWitness::new();
 
-    inputs
-        .into_iter()
-        .enumerate()
-        .for_each(|(i, t)| pw.set_target(t, F::from_canonical_usize(i)));
-    pw.set_target(initial_a, F::from_canonical_u16(look_val_a));
-    pw.set_target(initial_b, F::from_canonical_u16(look_val_b));
+    for (i, t) in inputs.into_iter().enumerate() {
+        pw.set_target(t, F::from_canonical_usize(i))?
+    }
+    pw.set_target(initial_a, F::from_canonical_u16(look_val_a))?;
+    pw.set_target(initial_b, F::from_canonical_u16(look_val_b))?;
 
     let proof = data.prove(pw)?;
     assert_eq!(

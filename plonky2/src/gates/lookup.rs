@@ -6,6 +6,7 @@ use alloc::{
     vec::Vec,
 };
 
+use anyhow::{anyhow, Result};
 use itertools::Itertools;
 use keccak_hash::keccak;
 
@@ -188,7 +189,11 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D> for Loo
         )]
     }
 
-    fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
+    fn run_once(
+        &self,
+        witness: &PartitionWitness<F>,
+        out_buffer: &mut GeneratedValues<F>,
+    ) -> Result<()> {
         let get_wire = |wire: usize| -> F { witness.get_target(Target::wire(self.row, wire)) };
 
         let input_val = get_wire(LookupGate::wire_ith_looking_inp(self.slot_nb));
@@ -197,7 +202,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D> for Loo
             let output_val = F::from_canonical_u16(output);
 
             let out_wire = Target::wire(self.row, LookupGate::wire_ith_looking_out(self.slot_nb));
-            out_buffer.set_target(out_wire, output_val);
+            out_buffer.set_target(out_wire, output_val)
         } else {
             for (input, output) in self.lut.iter() {
                 if input_val == F::from_canonical_u16(*input) {
@@ -205,12 +210,13 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D> for Loo
 
                     let out_wire =
                         Target::wire(self.row, LookupGate::wire_ith_looking_out(self.slot_nb));
-                    out_buffer.set_target(out_wire, output_val);
-                    return;
+                    out_buffer.set_target(out_wire, output_val)?;
+
+                    return Ok(());
                 }
             }
-            panic!("Incorrect input value provided");
-        };
+            Err(anyhow!("Incorrect input value provided"))
+        }
     }
 
     fn serialize(&self, dst: &mut Vec<u8>, common_data: &CommonCircuitData<F, D>) -> IoResult<()> {

@@ -6,6 +6,8 @@ use alloc::{
 };
 use core::borrow::Borrow;
 
+use anyhow::Result;
+
 use crate::field::extension::{Extendable, FieldExtension, OEF};
 use crate::field::types::{Field, Field64};
 use crate::gates::arithmetic_extension::ArithmeticExtensionGate;
@@ -519,7 +521,11 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D>
         deps
     }
 
-    fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
+    fn run_once(
+        &self,
+        witness: &PartitionWitness<F>,
+        out_buffer: &mut GeneratedValues<F>,
+    ) -> Result<()> {
         let num = witness.get_extension_target(self.numerator);
         let dem = witness.get_extension_target(self.denominator);
         let quotient = num / dem;
@@ -621,7 +627,7 @@ mod tests {
         let vs = FF::rand_vec(3);
         let ts = builder.add_virtual_extension_targets(3);
         for (&v, &t) in vs.iter().zip(&ts) {
-            pw.set_extension_target(t, v);
+            pw.set_extension_target(t, v)?;
         }
         let mul0 = builder.mul_many_extension(&ts);
         let mul1 = {
@@ -696,9 +702,9 @@ mod tests {
         let y = ExtensionAlgebra::<FF, D>(FF::rand_array());
         let z = x * y;
         for i in 0..D {
-            pw.set_extension_target(xt.0[i], x.0[i]);
-            pw.set_extension_target(yt.0[i], y.0[i]);
-            pw.set_extension_target(zt.0[i], z.0[i]);
+            pw.set_extension_target(xt.0[i], x.0[i])?;
+            pw.set_extension_target(yt.0[i], y.0[i])?;
+            pw.set_extension_target(zt.0[i], z.0[i])?;
         }
 
         let data = builder.build::<C>();

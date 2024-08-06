@@ -599,7 +599,7 @@ mod test {
         );
 
         let mut pw = PartialWitness::new();
-        set_fri_proof_target(&mut pw, &fri_proof_target, &proof);
+        set_fri_proof_target(&mut pw, &fri_proof_target, &proof)?;
 
         let data = builder.build::<C>();
         let proof = prove::<F, C, D>(&data.prover_only, &data.common, pw, &mut timing)?;

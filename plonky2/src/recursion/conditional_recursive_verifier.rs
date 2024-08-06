@@ -370,7 +370,7 @@ mod tests {
         let mut builder = CircuitBuilder::<F, D>::new(config.clone());
         let mut pw = PartialWitness::new();
         let t = builder.add_virtual_target();
-        pw.set_target(t, F::rand());
+        pw.set_target(t, F::rand())?;
         builder.register_public_input(t);
         let _t2 = builder.square(t);
         for _ in 0..64 {
@@ -388,15 +388,15 @@ mod tests {
         let mut builder = CircuitBuilder::<F, D>::new(config);
         let mut pw = PartialWitness::new();
         let pt = builder.add_virtual_proof_with_pis(&data.common);
-        pw.set_proof_with_pis_target(&pt, &proof);
+        pw.set_proof_with_pis_target(&pt, &proof)?;
         let dummy_pt = builder.add_virtual_proof_with_pis(&data.common);
-        pw.set_proof_with_pis_target::<C, D>(&dummy_pt, &dummy_proof);
+        pw.set_proof_with_pis_target::<C, D>(&dummy_pt, &dummy_proof)?;
         let inner_data =
             builder.add_virtual_verifier_data(data.common.config.fri_config.cap_height);
-        pw.set_verifier_data_target(&inner_data, &data.verifier_only);
+        pw.set_verifier_data_target(&inner_data, &data.verifier_only)?;
         let dummy_inner_data =
             builder.add_virtual_verifier_data(data.common.config.fri_config.cap_height);
-        pw.set_verifier_data_target(&dummy_inner_data, &dummy_data.verifier_only);
+        pw.set_verifier_data_target(&dummy_inner_data, &dummy_data.verifier_only)?;
         let b = builder.constant_bool(F::rand().0 % 2 == 0);
         builder.conditionally_verify_proof::<C>(
             b,

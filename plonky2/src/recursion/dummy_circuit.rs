@@ -5,6 +5,7 @@ use alloc::{
     vec::Vec,
 };
 
+use anyhow::Result;
 use hashbrown::HashMap;
 use plonky2_field::extension::Extendable;
 use plonky2_field::polynomial::PolynomialCoeffs;
@@ -76,7 +77,7 @@ where
     let mut pw = PartialWitness::new();
     for i in 0..circuit.common.num_public_inputs {
         let pi = nonzero_public_inputs.get(&i).copied().unwrap_or_default();
-        pw.set_target(circuit.prover_only.public_inputs[i], pi);
+        pw.set_target(circuit.prover_only.public_inputs[i], pi)?;
     }
     circuit.prove(pw)
 }
@@ -238,9 +239,13 @@ where
         vec![]
     }
 
-    fn run_once(&self, _witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
-        out_buffer.set_proof_with_pis_target(&self.proof_with_pis_target, &self.proof_with_pis);
-        out_buffer.set_verifier_data_target(&self.verifier_data_target, &self.verifier_data);
+    fn run_once(
+        &self,
+        _witness: &PartitionWitness<F>,
+        out_buffer: &mut GeneratedValues<F>,
+    ) -> Result<()> {
+        out_buffer.set_proof_with_pis_target(&self.proof_with_pis_target, &self.proof_with_pis)?;
+        out_buffer.set_verifier_data_target(&self.verifier_data_target, &self.verifier_data)
     }
 
     fn serialize(&self, dst: &mut Vec<u8>, _common_data: &CommonCircuitData<F, D>) -> IoResult<()> {

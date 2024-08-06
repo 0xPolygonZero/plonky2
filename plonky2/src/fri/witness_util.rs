@@ -1,3 +1,4 @@
+use anyhow::Result;
 use itertools::Itertools;
 
 use crate::field::extension::Extendable;
@@ -11,12 +12,13 @@ pub fn set_fri_proof_target<F, W, H, const D: usize>(
     witness: &mut W,
     fri_proof_target: &FriProofTarget<D>,
     fri_proof: &FriProof<F, H, D>,
-) where
+) -> Result<()>
+where
     F: RichField + Extendable<D>,
     W: WitnessWrite<F> + ?Sized,
     H: AlgebraicHasher<F>,
 {
-    witness.set_target(fri_proof_target.pow_witness, fri_proof.pow_witness);
+    witness.set_target(fri_proof_target.pow_witness, fri_proof.pow_witness)?;
 
     for (&t, &x) in fri_proof_target
         .final_poly
@@ -24,7 +26,7 @@ pub fn set_fri_proof_target<F, W, H, const D: usize>(
         .iter()
         .zip_eq(&fri_proof.final_poly.coeffs)
     {
-        witness.set_extension_target(t, x);
+        witness.set_extension_target(t, x)?;
     }
 
     for (t, x) in fri_proof_target
@@ -32,7 +34,7 @@ pub fn set_fri_proof_target<F, W, H, const D: usize>(
         .iter()
         .zip_eq(&fri_proof.commit_phase_merkle_caps)
     {
-        witness.set_cap_target(t, x);
+        witness.set_cap_target(t, x)?;
     }
 
     for (qt, q) in fri_proof_target
@@ -47,16 +49,16 @@ pub fn set_fri_proof_target<F, W, H, const D: usize>(
             .zip_eq(&q.initial_trees_proof.evals_proofs)
         {
             for (&t, &x) in at.0.iter().zip_eq(&a.0) {
-                witness.set_target(t, x);
+                witness.set_target(t, x)?;
             }
             for (&t, &x) in at.1.siblings.iter().zip_eq(&a.1.siblings) {
-                witness.set_hash_target(t, x);
+                witness.set_hash_target(t, x)?;
             }
         }
 
         for (st, s) in qt.steps.iter().zip_eq(&q.steps) {
             for (&t, &x) in st.evals.iter().zip_eq(&s.evals) {
-                witness.set_extension_target(t, x);
+                witness.set_extension_target(t, x)?;
             }
             for (&t, &x) in st
                 .merkle_proof
@@ -64,8 +66,10 @@ pub fn set_fri_proof_target<F, W, H, const D: usize>(
                 .iter()
                 .zip_eq(&s.merkle_proof.siblings)
             {
-                witness.set_hash_target(t, x);
+                witness.set_hash_target(t, x)?;
             }
         }
     }
+
+    Ok(())
 }
