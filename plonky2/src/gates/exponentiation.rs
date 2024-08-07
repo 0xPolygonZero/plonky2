@@ -7,6 +7,8 @@ use alloc::{
 };
 use core::marker::PhantomData;
 
+use anyhow::Result;
+
 use crate::field::extension::Extendable;
 use crate::field::ops::Square;
 use crate::field::packed::PackedField;
@@ -265,7 +267,11 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D>
         deps
     }
 
-    fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
+    fn run_once(
+        &self,
+        witness: &PartitionWitness<F>,
+        out_buffer: &mut GeneratedValues<F>,
+    ) -> Result<()> {
         let local_wire = |column| Wire {
             row: self.row,
             column,
@@ -292,11 +298,11 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D>
 
         for i in 0..num_power_bits {
             let intermediate_value_wire = local_wire(self.gate.wire_intermediate_value(i));
-            out_buffer.set_wire(intermediate_value_wire, intermediate_values[i]);
+            out_buffer.set_wire(intermediate_value_wire, intermediate_values[i])?;
         }
 
         let output_wire = local_wire(self.gate.wire_output());
-        out_buffer.set_wire(output_wire, intermediate_values[num_power_bits - 1]);
+        out_buffer.set_wire(output_wire, intermediate_values[num_power_bits - 1])
     }
 
     fn serialize(&self, dst: &mut Vec<u8>, _common_data: &CommonCircuitData<F, D>) -> IoResult<()> {

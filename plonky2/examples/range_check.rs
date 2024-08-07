@@ -24,7 +24,7 @@ fn main() -> Result<()> {
     builder.range_check(value, log_max);
 
     let mut pw = PartialWitness::new();
-    pw.set_target(value, F::from_canonical_usize(42));
+    pw.set_target(value, F::from_canonical_usize(42))?;
 
     let data = builder.build::<C>();
     let proof = data.prove(pw)?;

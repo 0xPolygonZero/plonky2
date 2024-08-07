@@ -7,6 +7,7 @@ use alloc::{
 };
 use core::marker::PhantomData;
 
+use anyhow::Result;
 use itertools::Itertools;
 
 use crate::field::extension::Extendable;
@@ -366,7 +367,11 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D>
         deps
     }
 
-    fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
+    fn run_once(
+        &self,
+        witness: &PartitionWitness<F>,
+        out_buffer: &mut GeneratedValues<F>,
+    ) -> Result<()> {
         let local_wire = |column| Wire {
             row: self.row,
             column,
@@ -390,12 +395,14 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D>
         set_local_wire(
             self.gate.wire_claimed_element(copy),
             get_local_wire(self.gate.wire_list_item(access_index, copy)),
-        );
+        )?;
 
         for i in 0..self.gate.bits {
             let bit = F::from_bool(((access_index >> i) & 1) != 0);
-            set_local_wire(self.gate.wire_bit(i, copy), bit);
+            set_local_wire(self.gate.wire_bit(i, copy), bit)?;
         }
+
+        Ok(())
     }
 
     fn serialize(&self, dst: &mut Vec<u8>, _common_data: &CommonCircuitData<F, D>) -> IoResult<()> {

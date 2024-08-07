@@ -9,6 +9,7 @@ use alloc::{
 #[cfg(feature = "std")]
 use std::sync::Arc;
 
+use anyhow::Result;
 use itertools::Itertools;
 use keccak_hash::keccak;
 
@@ -205,7 +206,11 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D> for Loo
         vec![]
     }
 
-    fn run_once(&self, _witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
+    fn run_once(
+        &self,
+        _witness: &PartitionWitness<F>,
+        out_buffer: &mut GeneratedValues<F>,
+    ) -> Result<()> {
         let first_row = self.last_lut_row + self.lut.len().div_ceil(self.num_slots) - 1;
         let slot = (first_row - self.row) * self.num_slots + self.slot_nb;
 
@@ -216,12 +221,12 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D> for Loo
 
         if slot < self.lut.len() {
             let (input, output) = self.lut[slot];
-            out_buffer.set_target(slot_input_target, F::from_canonical_usize(input as usize));
-            out_buffer.set_target(slot_output_target, F::from_canonical_usize(output as usize));
+            out_buffer.set_target(slot_input_target, F::from_canonical_usize(input as usize))?;
+            out_buffer.set_target(slot_output_target, F::from_canonical_usize(output as usize))
         } else {
             // Pad with zeros.
-            out_buffer.set_target(slot_input_target, F::ZERO);
-            out_buffer.set_target(slot_output_target, F::ZERO);
+            out_buffer.set_target(slot_input_target, F::ZERO)?;
+            out_buffer.set_target(slot_output_target, F::ZERO)
         }
     }
 

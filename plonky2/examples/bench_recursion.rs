@@ -138,7 +138,7 @@ fn dummy_lookup_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, 
 
     let data = builder.build::<C>();
     let mut inputs = PartialWitness::<F>::new();
-    inputs.set_target(initial_a, F::ONE);
+    inputs.set_target(initial_a, F::ONE)?;
     let mut timing = TimingTree::new("prove with one lookup", Level::Debug);
     let proof = prove(&data.prover_only, &data.common, inputs, &mut timing)?;
     timing.print();
@@ -189,7 +189,7 @@ fn dummy_many_rows_proof<
     builder.register_public_input(output);
 
     let mut pw = PartialWitness::new();
-    pw.set_target(initial_a, F::ONE);
+    pw.set_target(initial_a, F::ONE)?;
     let data = builder.build::<C>();
     let mut timing = TimingTree::new("prove with many lookups", Level::Debug);
     let proof = prove(&data.prover_only, &data.common, pw, &mut timing)?;
@@ -235,8 +235,8 @@ where
     let data = builder.build::<C>();
 
     let mut pw = PartialWitness::new();
-    pw.set_proof_with_pis_target(&pt, inner_proof);
-    pw.set_verifier_data_target(&inner_data, inner_vd);
+    pw.set_proof_with_pis_target(&pt, inner_proof)?;
+    pw.set_verifier_data_target(&inner_data, inner_vd)?;
 
     let mut timing = TimingTree::new("prove", Level::Debug);
     let proof = prove::<F, C, D>(&data.prover_only, &data.common, pw, &mut timing)?;

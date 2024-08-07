@@ -8,6 +8,8 @@ use alloc::{
 use core::marker::PhantomData;
 use core::ops::Range;
 
+use anyhow::Result;
+
 use crate::field::extension::algebra::ExtensionAlgebra;
 use crate::field::extension::{Extendable, FieldExtension, OEF};
 use crate::field::interpolation::barycentric_weights;
@@ -442,7 +444,11 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D>
         deps
     }
 
-    fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
+    fn run_once(
+        &self,
+        witness: &PartitionWitness<F>,
+        out_buffer: &mut GeneratedValues<F>,
+    ) -> Result<()> {
         let local_wire = |column| Wire {
             row: self.row,
             column,
@@ -465,7 +471,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D>
         out_buffer.set_ext_wires(
             self.gate.wires_shifted_evaluation_point().map(local_wire),
             shifted_evaluation_point,
-        );
+        )?;
 
         let domain = &self.interpolation_domain;
         let values = (0..self.gate.num_points())
@@ -485,8 +491,8 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D>
         for i in 0..self.gate.num_intermediates() {
             let intermediate_eval_wires = self.gate.wires_intermediate_eval(i).map(local_wire);
             let intermediate_prod_wires = self.gate.wires_intermediate_prod(i).map(local_wire);
-            out_buffer.set_ext_wires(intermediate_eval_wires, computed_eval);
-            out_buffer.set_ext_wires(intermediate_prod_wires, computed_prod);
+            out_buffer.set_ext_wires(intermediate_eval_wires, computed_eval)?;
+            out_buffer.set_ext_wires(intermediate_prod_wires, computed_prod)?;
 
             let start_index = 1 + (degree - 1) * (i + 1);
             let end_index = (start_index + degree - 1).min(self.gate.num_points());
@@ -501,7 +507,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D>
         }
 
         let evaluation_value_wires = self.gate.wires_evaluation_value().map(local_wire);
-        out_buffer.set_ext_wires(evaluation_value_wires, computed_eval);
+        out_buffer.set_ext_wires(evaluation_value_wires, computed_eval)
     }
 
     fn serialize(&self, dst: &mut Vec<u8>, _common_data: &CommonCircuitData<F, D>) -> IoResult<()> {

@@ -473,8 +473,8 @@ mod tests {
 
         let data = builder.build::<C>();
         let mut inputs = PartialWitness::new();
-        inputs.set_target(initial_a, F::from_canonical_usize(look_val_a));
-        inputs.set_target(initial_b, F::from_canonical_usize(look_val_b));
+        inputs.set_target(initial_a, F::from_canonical_usize(look_val_a))?;
+        inputs.set_target(initial_b, F::from_canonical_usize(look_val_b))?;
 
         let proof = data.prove(inputs)?;
         data.verify(proof.clone())?;
@@ -540,8 +540,8 @@ mod tests {
         builder.register_public_input(output_final);
 
         let mut pw = PartialWitness::new();
-        pw.set_target(initial_a, F::ONE);
-        pw.set_target(initial_b, F::TWO);
+        pw.set_target(initial_a, F::ONE)?;
+        pw.set_target(initial_b, F::TWO)?;
 
         let data = builder.build::<C>();
         let proof = data.prove(pw)?;
@@ -606,8 +606,8 @@ mod tests {
 
         let mut pw = PartialWitness::new();
 
-        pw.set_target(initial_a, F::from_canonical_usize(look_val_a));
-        pw.set_target(initial_b, F::from_canonical_usize(look_val_b));
+        pw.set_target(initial_a, F::from_canonical_usize(look_val_a))?;
+        pw.set_target(initial_b, F::from_canonical_usize(look_val_b))?;
 
         let data = builder.build::<C>();
         let proof = data.prove(pw)?;
@@ -646,14 +646,14 @@ mod tests {
         let mut builder = CircuitBuilder::<F, D>::new(config.clone());
         let mut pw = PartialWitness::new();
         let pt = builder.add_virtual_proof_with_pis(&inner_cd);
-        pw.set_proof_with_pis_target(&pt, &inner_proof);
+        pw.set_proof_with_pis_target(&pt, &inner_proof)?;
 
         let inner_data = builder.add_virtual_verifier_data(inner_cd.config.fri_config.cap_height);
         pw.set_cap_target(
             &inner_data.constants_sigmas_cap,
             &inner_vd.constants_sigmas_cap,
-        );
-        pw.set_hash_target(inner_data.circuit_digest, inner_vd.circuit_digest);
+        )?;
+        pw.set_hash_target(inner_data.circuit_digest, inner_vd.circuit_digest)?;
 
         builder.verify_proof::<InnerC>(&pt, &inner_data, &inner_cd);
 

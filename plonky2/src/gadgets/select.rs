@@ -63,8 +63,8 @@ mod tests {
         let truet = builder._true();
         let falset = builder._false();
 
-        pw.set_extension_target(xt, x);
-        pw.set_extension_target(yt, y);
+        pw.set_extension_target(xt, x)?;
+        pw.set_extension_target(yt, y)?;
 
         let should_be_x = builder.select_ext(truet, xt, yt);
         let should_be_y = builder.select_ext(falset, xt, yt);

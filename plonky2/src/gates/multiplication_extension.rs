@@ -6,6 +6,8 @@ use alloc::{
 };
 use core::ops::Range;
 
+use anyhow::Result;
+
 use crate::field::extension::{Extendable, FieldExtension};
 use crate::gates::gate::Gate;
 use crate::gates::util::StridedConstraintConsumer;
@@ -175,7 +177,11 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D>
             .collect()
     }
 
-    fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
+    fn run_once(
+        &self,
+        witness: &PartitionWitness<F>,
+        out_buffer: &mut GeneratedValues<F>,
+    ) -> Result<()> {
         let extract_extension = |range: Range<usize>| -> F::Extension {
             let t = ExtensionTarget::from_range(self.row, range);
             witness.get_extension_target(t)

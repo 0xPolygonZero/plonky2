@@ -5,6 +5,8 @@ use alloc::{
     vec::Vec,
 };
 
+use anyhow::Result;
+
 use crate::field::extension::Extendable;
 use crate::hash::hash_types::RichField;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator};
@@ -74,13 +76,17 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D> for Low
         vec![self.integer]
     }
 
-    fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
+    fn run_once(
+        &self,
+        witness: &PartitionWitness<F>,
+        out_buffer: &mut GeneratedValues<F>,
+    ) -> Result<()> {
         let integer_value = witness.get_target(self.integer).to_canonical_u64();
         let low = integer_value & ((1 << self.n_log) - 1);
         let high = integer_value >> self.n_log;
 
-        out_buffer.set_target(self.low, F::from_canonical_u64(low));
-        out_buffer.set_target(self.high, F::from_canonical_u64(high));
+        out_buffer.set_target(self.low, F::from_canonical_u64(low))?;
+        out_buffer.set_target(self.high, F::from_canonical_u64(high))
     }
 
     fn serialize(&self, dst: &mut Vec<u8>, _common_data: &CommonCircuitData<F, D>) -> IoResult<()> {

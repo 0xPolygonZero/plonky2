@@ -7,6 +7,8 @@ use alloc::{
 };
 use core::marker::PhantomData;
 
+use anyhow::Result;
+
 use crate::field::extension::Extendable;
 use crate::field::types::Field;
 use crate::gates::gate::Gate;
@@ -439,7 +441,11 @@ impl<F: RichField + Extendable<D> + Poseidon, const D: usize> SimpleGenerator<F,
             .collect()
     }
 
-    fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
+    fn run_once(
+        &self,
+        witness: &PartitionWitness<F>,
+        out_buffer: &mut GeneratedValues<F>,
+    ) -> Result<()> {
         let local_wire = |column| Wire {
             row: self.row,
             column,
@@ -454,7 +460,7 @@ impl<F: RichField + Extendable<D> + Poseidon, const D: usize> SimpleGenerator<F,
 
         for i in 0..4 {
             let delta_i = swap_value * (state[i + 4] - state[i]);
-            out_buffer.set_wire(local_wire(PoseidonGate::<F, D>::wire_delta(i)), delta_i);
+            out_buffer.set_wire(local_wire(PoseidonGate::<F, D>::wire_delta(i)), delta_i)?;
         }
 
         if swap_value == F::ONE {
@@ -473,7 +479,7 @@ impl<F: RichField + Extendable<D> + Poseidon, const D: usize> SimpleGenerator<F,
                     out_buffer.set_wire(
                         local_wire(PoseidonGate::<F, D>::wire_full_sbox_0(r, i)),
                         state[i],
-                    );
+                    )?;
                 }
             }
             <F as Poseidon>::sbox_layer_field(&mut state);
@@ -487,7 +493,7 @@ impl<F: RichField + Extendable<D> + Poseidon, const D: usize> SimpleGenerator<F,
             out_buffer.set_wire(
                 local_wire(PoseidonGate::<F, D>::wire_partial_sbox(r)),
                 state[0],
-            );
+            )?;
             state[0] = <F as Poseidon>::sbox_monomial(state[0]);
             state[0] += F::from_canonical_u64(<F as Poseidon>::FAST_PARTIAL_ROUND_CONSTANTS[r]);
             state = <F as Poseidon>::mds_partial_layer_fast_field(&state, r);
@@ -497,7 +503,7 @@ impl<F: RichField + Extendable<D> + Poseidon, const D: usize> SimpleGenerator<F,
                 poseidon::N_PARTIAL_ROUNDS - 1,
             )),
             state[0],
-        );
+        )?;
         state[0] = <F as Poseidon>::sbox_monomial(state[0]);
         state =
             <F as Poseidon>::mds_partial_layer_fast_field(&state, poseidon::N_PARTIAL_ROUNDS - 1);
@@ -509,7 +515,7 @@ impl<F: RichField + Extendable<D> + Poseidon, const D: usize> SimpleGenerator<F,
                 out_buffer.set_wire(
                     local_wire(PoseidonGate::<F, D>::wire_full_sbox_1(r, i)),
                     state[i],
-                );
+                )?;
             }
             <F as Poseidon>::sbox_layer_field(&mut state);
             state = <F as Poseidon>::mds_layer_field(&state);
@@ -517,8 +523,10 @@ impl<F: RichField + Extendable<D> + Poseidon, const D: usize> SimpleGenerator<F,
         }
 
         for i in 0..SPONGE_WIDTH {
-            out_buffer.set_wire(local_wire(PoseidonGate::<F, D>::wire_output(i)), state[i]);
+            out_buffer.set_wire(local_wire(PoseidonGate::<F, D>::wire_output(i)), state[i])?
         }
+
+        Ok(())
     }
 
     fn serialize(&self, dst: &mut Vec<u8>, _common_data: &CommonCircuitData<F, D>) -> IoResult<()> {
@@ -589,24 +597,29 @@ mod tests {
             .collect::<Vec<_>>();
 
         let mut inputs = PartialWitness::new();
-        inputs.set_wire(
-            Wire {
-                row,
-                column: Gate::WIRE_SWAP,
-            },
-            F::ZERO,
-        );
-        for i in 0..SPONGE_WIDTH {
-            inputs.set_wire(
+        inputs
+            .set_wire(
                 Wire {
                     row,
-                    column: Gate::wire_input(i),
+                    column: Gate::WIRE_SWAP,
                 },
-                permutation_inputs[i],
-            );
+                F::ZERO,
+            )
+            .unwrap();
+        for i in 0..SPONGE_WIDTH {
+            inputs
+                .set_wire(
+                    Wire {
+                        row,
+                        column: Gate::wire_input(i),
+                    },
+                    permutation_inputs[i],
+                )
+                .unwrap();
         }
 
-        let witness = generate_partial_witness(inputs, &circuit.prover_only, &circuit.common);
+        let witness =
+            generate_partial_witness(inputs, &circuit.prover_only, &circuit.common).unwrap();
 
         let expected_outputs: [F; SPONGE_WIDTH] =
             F::poseidon(permutation_inputs.try_into().unwrap());

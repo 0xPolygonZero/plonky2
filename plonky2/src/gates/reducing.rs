@@ -7,6 +7,8 @@ use alloc::{
 };
 use core::ops::Range;
 
+use anyhow::Result;
+
 use crate::field::extension::{Extendable, FieldExtension};
 use crate::gates::gate::Gate;
 use crate::gates::util::StridedConstraintConsumer;
@@ -201,7 +203,11 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D> for Red
             .collect()
     }
 
-    fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
+    fn run_once(
+        &self,
+        witness: &PartitionWitness<F>,
+        out_buffer: &mut GeneratedValues<F>,
+    ) -> Result<()> {
         let extract_extension = |range: Range<usize>| -> F::Extension {
             let t = ExtensionTarget::from_range(self.row, range);
             witness.get_extension_target(t)
@@ -224,10 +230,11 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D> for Red
         let mut acc = old_acc;
         for i in 0..self.gate.num_coeffs {
             let computed_acc = acc * alpha + coeffs[i].into();
-            out_buffer.set_extension_target(accs[i], computed_acc);
+            out_buffer.set_extension_target(accs[i], computed_acc)?;
             acc = computed_acc;
         }
-        out_buffer.set_extension_target(output, acc);
+
+        out_buffer.set_extension_target(output, acc)
     }
 
     fn serialize(&self, dst: &mut Vec<u8>, _common_data: &CommonCircuitData<F, D>) -> IoResult<()> {
