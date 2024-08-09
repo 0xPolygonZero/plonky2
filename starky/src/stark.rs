@@ -3,7 +3,9 @@
 
 #[cfg(not(feature = "std"))]
 use alloc::{vec, vec::Vec};
+use core::ops::Range;
 
+use plonky2::batch_fri::oracle::BatchFriOracle;
 use plonky2::field::extension::{Extendable, FieldExtension};
 use plonky2::field::packed::PackedField;
 use plonky2::field::types::Field;
@@ -244,6 +246,88 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
         }
 
         FriInstanceInfoTarget { oracles, batches }
+    }
+
+    /// Computes a single FRI instance for batched STARKs.
+    fn fri_instance_batch(
+        &self,
+        zeta: F::Extension,
+        g: F,
+        trace_start_index: usize,
+        aux_start_index: usize,
+        num_aux_columns: usize,
+        quotients_start_index: usize,
+        num_quotient_polys: usize,
+        ctlzs_start_index: usize,
+    ) -> FriInstanceInfo<F, D> {
+        let mut oracles = vec![];
+        let trace_info = FriPolynomialInfo::from_range(
+            oracles.len(),
+            trace_start_index..(trace_start_index + Self::COLUMNS),
+        );
+        oracles.push(FriOracleInfo {
+            num_polys: Self::COLUMNS,
+            blinding: false,
+        });
+
+        let auxiliary_polys_info = if self.uses_lookups() || self.requires_ctls() {
+            let aux_polys = FriPolynomialInfo::from_range(
+                oracles.len(),
+                aux_start_index..(aux_start_index + num_aux_columns),
+            );
+            oracles.push(FriOracleInfo {
+                num_polys: num_aux_columns,
+                blinding: false,
+            });
+            aux_polys
+        } else {
+            vec![]
+        };
+
+        let quotient_info = if num_quotient_polys > 0 {
+            let quotient_polys = FriPolynomialInfo::from_range(
+                oracles.len(),
+                quotients_start_index..(quotients_start_index + num_quotient_polys),
+            );
+            oracles.push(FriOracleInfo {
+                num_polys: num_quotient_polys,
+                blinding: false,
+            });
+            quotient_polys
+        } else {
+            vec![]
+        };
+
+        let zeta_batch = FriBatchInfo {
+            point: zeta,
+            polynomials: [
+                trace_info.clone(),
+                auxiliary_polys_info.clone(),
+                quotient_info,
+            ]
+            .concat(),
+        };
+        let zeta_next_batch = FriBatchInfo {
+            point: zeta.scalar_mul(g),
+            polynomials: [trace_info, auxiliary_polys_info].concat(),
+        };
+
+        let mut batches = vec![zeta_batch, zeta_next_batch];
+
+        if self.requires_ctls() {
+            let ctl_zs_info = FriPolynomialInfo::from_range(
+                1, // auxiliary oracle index
+                ctlzs_start_index..(aux_start_index + num_aux_columns),
+            );
+            let ctl_first_batch = FriBatchInfo {
+                point: F::Extension::ONE,
+                polynomials: ctl_zs_info,
+            };
+
+            batches.push(ctl_first_batch);
+        }
+
+        FriInstanceInfo { oracles, batches }
     }
 
     /// Outputs all the [`Lookup`] this STARK table needs to perform across its columns.

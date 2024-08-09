@@ -324,6 +324,7 @@ extern crate alloc;
 
 mod get_challenges;
 
+pub mod batch_proof;
 pub mod config;
 pub mod constraint_consumer;
 pub mod cross_table_lookup;

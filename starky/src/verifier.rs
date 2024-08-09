@@ -88,93 +88,16 @@ where
         num_ctl_z_polys,
     )?;
 
-    let StarkOpeningSet {
-        local_values,
-        next_values,
-        auxiliary_polys,
-        auxiliary_polys_next,
-        ctl_zs_first: _,
-        quotient_polys,
-    } = &proof.openings;
-
-    let vars = S::EvaluationFrame::from_values(
-        local_values,
-        next_values,
-        &public_inputs
-            .iter()
-            .copied()
-            .map(F::Extension::from_basefield)
-            .collect::<Vec<_>>(),
-    );
-
     let degree_bits = proof.recover_degree_bits(config);
-    let (l_0, l_last) = eval_l_0_and_l_last(degree_bits, challenges.stark_zeta);
-    let last = F::primitive_root_of_unity(degree_bits).inverse();
-    let z_last = challenges.stark_zeta - last.into();
 
-    let mut consumer = ConstraintConsumer::<F::Extension>::new(
-        challenges
-            .stark_alphas
-            .iter()
-            .map(|&alpha| F::Extension::from_basefield(alpha))
-            .collect::<Vec<_>>(),
-        z_last,
-        l_0,
-        l_last,
-    );
-
-    let num_lookup_columns = stark.num_lookup_helper_columns(config);
-    let lookup_challenges = if stark.uses_lookups() {
-        Some(
-            challenges
-                .lookup_challenge_set
-                .as_ref()
-                .unwrap()
-                .challenges
-                .iter()
-                .map(|ch| ch.beta)
-                .collect::<Vec<_>>(),
-        )
-    } else {
-        None
-    };
-
-    let lookup_vars = stark.uses_lookups().then(|| LookupCheckVars {
-        local_values: auxiliary_polys.as_ref().unwrap()[..num_lookup_columns].to_vec(),
-        next_values: auxiliary_polys_next.as_ref().unwrap()[..num_lookup_columns].to_vec(),
-        challenges: lookup_challenges.unwrap(),
-    });
-    let lookups = stark.lookups();
-
-    eval_vanishing_poly::<F, F::Extension, F::Extension, S, D, D>(
+    verify_opening_set::<F, C, S, D>(
         stark,
-        &vars,
-        &lookups,
-        lookup_vars,
+        &proof.openings,
+        degree_bits,
+        challenges,
         ctl_vars,
-        &mut consumer,
-    );
-    let vanishing_polys_zeta = consumer.accumulators();
-
-    // Check each polynomial identity, of the form `vanishing(x) = Z_H(x) quotient(x)`, at zeta.
-    let zeta_pow_deg = challenges.stark_zeta.exp_power_of_2(degree_bits);
-    let z_h_zeta = zeta_pow_deg - F::Extension::ONE;
-    // `quotient_polys_zeta` holds `num_challenges * quotient_degree_factor` evaluations.
-    // Each chunk of `quotient_degree_factor` holds the evaluations of `t_0(zeta),...,t_{quotient_degree_factor-1}(zeta)`
-    // where the "real" quotient polynomial is `t(X) = t_0(X) + t_1(X)*X^n + t_2(X)*X^{2n} + ...`.
-    // So to reconstruct `t(zeta)` we can compute `reduce_with_powers(chunk, zeta^n)` for each
-    // `quotient_degree_factor`-sized chunk of the original evaluations.
-
-    for (i, chunk) in quotient_polys
-        .iter()
-        .flat_map(|x| x.chunks(stark.quotient_degree_factor()))
-        .enumerate()
-    {
-        ensure!(
-            vanishing_polys_zeta[i] == z_h_zeta * reduce_with_powers(chunk, zeta_pow_deg),
-            "Mismatch between evaluation and opening of quotient polynomial"
-        );
-    }
+        config,
+    )?;
 
     let merkle_caps = once(proof.trace_cap.clone())
         .chain(proof.auxiliary_polys_cap.clone())
@@ -270,6 +193,104 @@ where
         ctl_zs_first,
         config,
     )?;
+
+    Ok(())
+}
+
+/// Verifies a [`StarkOpeningSet`] validity for a given STARK
+/// with the provided [`StarkProofChallenges`],
+/// meaning that `vanishing(x) = Z_H(x) quotient(x)`.
+pub fn verify_opening_set<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    S: Stark<F, D>,
+    const D: usize,
+>(
+    stark: &S,
+    opening_set: &StarkOpeningSet<F, D>,
+    degree_bits: usize,
+    challenges: &StarkProofChallenges<F, D>,
+    ctl_vars: Option<&[CtlCheckVars<F, F::Extension, F::Extension, D>]>,
+    config: &StarkConfig,
+) -> Result<()> {
+    let StarkOpeningSet {
+        local_values,
+        next_values,
+        auxiliary_polys,
+        auxiliary_polys_next,
+        ctl_zs_first: _,
+        quotient_polys,
+    } = opening_set;
+
+    let vars = S::EvaluationFrame::from_values(local_values, next_values, &[]);
+
+    let (l_0, l_last) = eval_l_0_and_l_last(degree_bits, challenges.stark_zeta);
+    let last = F::primitive_root_of_unity(degree_bits).inverse();
+    let z_last = challenges.stark_zeta - last.into();
+
+    let mut consumer = ConstraintConsumer::<F::Extension>::new(
+        challenges
+            .stark_alphas
+            .iter()
+            .map(|&alpha| F::Extension::from_basefield(alpha))
+            .collect::<Vec<_>>(),
+        z_last,
+        l_0,
+        l_last,
+    );
+
+    let num_lookup_columns = stark.num_lookup_helper_columns(config);
+    let lookup_challenges = if stark.uses_lookups() {
+        Some(
+            challenges
+                .lookup_challenge_set
+                .as_ref()
+                .unwrap()
+                .challenges
+                .iter()
+                .map(|ch| ch.beta)
+                .collect::<Vec<_>>(),
+        )
+    } else {
+        None
+    };
+
+    let lookup_vars = stark.uses_lookups().then(|| LookupCheckVars {
+        local_values: auxiliary_polys.as_ref().unwrap()[..num_lookup_columns].to_vec(),
+        next_values: auxiliary_polys_next.as_ref().unwrap()[..num_lookup_columns].to_vec(),
+        challenges: lookup_challenges.unwrap(),
+    });
+    let lookups = stark.lookups();
+
+    eval_vanishing_poly::<F, F::Extension, F::Extension, S, D, D>(
+        stark,
+        &vars,
+        &lookups,
+        lookup_vars,
+        ctl_vars,
+        &mut consumer,
+    );
+    let vanishing_polys_zeta = consumer.accumulators();
+
+    // Check each polynomial identity, of the form `vanishing(x) = Z_H(x) quotient(x)`, at zeta.
+    let zeta_pow_deg = challenges.stark_zeta.exp_power_of_2(degree_bits);
+    let z_h_zeta = zeta_pow_deg - F::Extension::ONE;
+    // `quotient_polys_zeta` holds `num_challenges * quotient_degree_factor` evaluations.
+    // Each chunk of `quotient_degree_factor` holds the evaluations of `t_0(zeta),...,t_{quotient_degree_factor-1}(zeta)`
+    // where the "real" quotient polynomial is `t(X) = t_0(X) + t_1(X)*X^n + t_2(X)*X^{2n} + ...`.
+    // So to reconstruct `t(zeta)` we can compute `reduce_with_powers(chunk, zeta^n)` for each
+    // `quotient_degree_factor`-sized chunk of the original evaluations.
+
+    for (i, chunk) in quotient_polys
+        .iter()
+        .flat_map(|x| x.chunks(stark.quotient_degree_factor()))
+        .enumerate()
+    {
+        ensure!(
+            vanishing_polys_zeta[i] == z_h_zeta * reduce_with_powers(chunk, zeta_pow_deg),
+            "Mismatch between evaluation and opening of quotient polynomial"
+        );
+    }
 
     Ok(())
 }
