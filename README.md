@@ -60,6 +60,14 @@ static GLOBAL: Jemalloc = Jemalloc;
 
 Jemalloc is known to cause crashes when a binary compiled for x86 is run on an Apple silicon-based Mac under [Rosetta 2](https://support.apple.com/en-us/HT211861). If you are experiencing crashes on your Apple silicon Mac, run `rustc --print target-libdir`. The output should contain `aarch64-apple-darwin`. If the output contains `x86_64-apple-darwin`, then you are running the Rust toolchain for x86; we recommend switching to the native ARM version.
 
+## Documentation
+
+Generate documentation locally:
+
+```sh
+cargo doc --no-deps --open
+```
+
 ## Contributing guidelines
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md).
