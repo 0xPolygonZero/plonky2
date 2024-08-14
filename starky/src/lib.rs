@@ -30,17 +30,17 @@
 //! use plonky2::field::packed::PackedField;
 //! use plonky2::field::polynomial::PolynomialValues;
 //! use plonky2::hash::hash_types::RichField;
-//! 
+//!
 //! // Imports to define the constraints of our STARK.
 //! use starky::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
 //! use starky::evaluation_frame::{StarkEvaluationFrame, StarkFrame};
 //! use starky::stark::Stark;
-//! 
+//!
 //! // Imports to define the recursive constraints of our STARK.
 //! use plonky2::iop::ext_target::ExtensionTarget;
 //! use plonky2::plonk::circuit_builder::CircuitBuilder;
 //! use starky::util::trace_rows_to_poly_values;
-//! 
+//!
 //! // Imports to generate a STARK instance, compute the trace and prove it
 //! use plonky2::field::types::Field;
 //! use plonky2::plonk::config::GenericConfig;
@@ -49,7 +49,7 @@
 //! use starky::config::StarkConfig;
 //! use starky::prover::prove;
 //! use starky::verifier::verify_stark_proof;
-//! 
+//!
 //!# #[derive(Copy, Clone)]
 //! pub struct FibonacciStark<F: RichField + Extendable<D>, const D: usize> {
 //!   num_rows: usize,
@@ -64,14 +64,14 @@
 //!   // The third public input is the second element of the last row,
 //!   // which should be equal to the `num_rows`-th Fibonacci number.
 //!   const PI_INDEX_RES: usize = 2;
-//! 
+//!
 //!   pub(crate) fn new(num_rows: usize) -> Self {
-//!       Self { 
+//!       Self {
 //!           num_rows,
-//!           _phantom: PhantomData 
+//!           _phantom: PhantomData
 //!       }
 //!   }
-//! 
+//!
 //!   /// Generate the trace using `x0, x1, 0` as initial state values.
 //!   fn generate_trace(&self, x0: F, x1: F) -> Vec<PolynomialValues<F>> {
 //!       let mut trace_rows = (0..self.num_rows)
@@ -87,20 +87,20 @@
 //!       trace_rows_to_poly_values(trace_rows)
 //!   }
 //! }
-//! 
+//!
 //! // Define constraints.
 //! const COLUMNS: usize = 3;
 //! const PUBLIC_INPUTS: usize = 3;
-//! 
+//!
 //! impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for FibonacciStark<F, D> {
 //!   type EvaluationFrame<FE, P, const D2: usize> = StarkFrame<P, P::Scalar, COLUMNS, PUBLIC_INPUTS>
 //!   where
 //!       FE: FieldExtension<D2, BaseField = F>,
 //!       P: PackedField<Scalar = FE>;
-//! 
+//!
 //!   type EvaluationFrameTarget =
 //!       StarkFrame<ExtensionTarget<D>, ExtensionTarget<D>, COLUMNS, PUBLIC_INPUTS>;
-//! 
+//!
 //!   // Define this STARK's constraints.
 //!   fn eval_packed_generic<FE, P, const D2: usize>(
 //!       &self,
@@ -113,19 +113,19 @@
 //!       let local_values = vars.get_local_values();
 //!       let next_values = vars.get_next_values();
 //!       let public_inputs = vars.get_public_inputs();
-//! 
+//!
 //!       // Check public inputs.
 //!       yield_constr.constraint_first_row(local_values[0] - public_inputs[Self::PI_INDEX_X0]);
 //!       yield_constr.constraint_first_row(local_values[1] - public_inputs[Self::PI_INDEX_X1]);
 //!       yield_constr.constraint_last_row(local_values[1] - public_inputs[Self::PI_INDEX_RES]);
-//! 
+//!
 //!       // Enforce the Fibonacci transition constraints.
 //!       // x0' <- x1
 //!       yield_constr.constraint_transition(next_values[0] - local_values[1]);
 //!       // x1' <- x0 + x1
 //!       yield_constr.constraint_transition(next_values[1] - local_values[0] - local_values[1]);
 //!   }
-//! 
+//!
 //!   // Define the constraints to recursively verify this STARK.
 //!   fn eval_ext_circuit(
 //!       &self,
@@ -136,18 +136,18 @@
 //!       let local_values = vars.get_local_values();
 //!       let next_values = vars.get_next_values();
 //!       let public_inputs = vars.get_public_inputs();
-//! 
+//!
 //!       // Check public inputs.
 //!       let pis_constraints = [
 //!           builder.sub_extension(local_values[0], public_inputs[Self::PI_INDEX_X0]),
 //!           builder.sub_extension(local_values[1], public_inputs[Self::PI_INDEX_X1]),
 //!           builder.sub_extension(local_values[1], public_inputs[Self::PI_INDEX_RES]),
 //!       ];
-//! 
+//!
 //!       yield_constr.constraint_first_row(builder, pis_constraints[0]);
 //!       yield_constr.constraint_first_row(builder, pis_constraints[1]);
 //!       yield_constr.constraint_last_row(builder, pis_constraints[2]);
-//! 
+//!
 //!       // Enforce the Fibonacci transition constraints.
 //!       // x0' <- x1
 //!       let first_col_constraint = builder.sub_extension(next_values[0], local_values[1]);
@@ -159,7 +159,7 @@
 //!       };
 //!       yield_constr.constraint_transition(builder, second_col_constraint);
 //!   }
-//! 
+//!
 //!   fn constraint_degree(&self) -> usize {
 //!       2
 //!   }
@@ -173,20 +173,20 @@
 //! type C = PoseidonGoldilocksConfig;
 //! type F = <C as GenericConfig<D>>::F;
 //! type S = FibonacciStark<F, D>;
-//! 
+//!
 //! fn fibonacci<F: Field>(n: usize, x0: F, x1: F) -> F {
 //!     (0..n).fold((x0, x1), |acc, _| (acc.1, acc.0 + acc.1)).1
 //! }
-//! 
+//!
 //! fn fibonacci_stark() {
 //!     let num_rows = 1 << 10;
 //!     let x0 = F::from_canonical_u32(2);
 //!     let x1 = F::from_canonical_u32(7);
-//! 
+//!
 //!     let public_inputs = [x0, x1, fibonacci(num_rows - 1, x0, x1)];
 //!     let stark = FibonacciStark::<F, D>::new(num_rows);
 //!     let trace = stark.generate_trace(public_inputs[0], public_inputs[1]);
-//! 
+//!
 //!     let proof = prove::<F, C, S, D>(
 //!         stark,
 //!         &CONFIG,
@@ -194,7 +194,7 @@
 //!         &public_inputs,
 //!         &mut TimingTree::default(),
 //!     ).expect("We should have a valid proof!");
-//! 
+//!
 //!     verify_stark_proof(stark, proof, &CONFIG)
 //!         .expect("We should be able to verify this proof!")
 //! }
