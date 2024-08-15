@@ -268,6 +268,61 @@ mod tests {
         Ok(())
     }
 
+    #[test]
+    fn test_recursive_stark_verifier_with_no_emulate() -> Result<()> {
+        // starky proof
+        // plonky2 recursive proof
+        // plonky2 wrapper proof (to GoldilockBn128Poseidon)
+        init_logger();
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+
+        //type C2 = PoseidonBN128GoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+        type S = FibonacciStark<F, D>;
+
+        let config = StarkConfig::standard_fast_config();
+        let num_rows = 1 << 5;
+        let public_inputs = [F::ZERO, F::ONE, fibonacci(num_rows - 1, F::ZERO, F::ONE)];
+
+        // Test first STARK
+        let stark = S::new(num_rows);
+        let trace = stark.generate_trace(public_inputs[0], public_inputs[1]);
+        let start_stakry = Instant::now();
+        let proof = prove::<F, C, S, D>(
+            stark,
+            &config,
+            trace,
+            &public_inputs,
+            &mut TimingTree::default(),
+        )?;
+        println!("starky use {}s", &start_stakry.elapsed().as_secs_f64());
+        verify_stark_proof(stark, proof.clone(), &config)?;
+
+        println!("staky proof size: {} bytes {}KB", bincode::serialize(&proof).unwrap().len(), bincode::serialize(&proof).unwrap().len()/1024);
+
+        let (r_p, r_v, r_c) = recursive_starky_proof::<F, C, S, C, D>(stark, proof, &config)?;
+        // this recursive proof will be wrapped
+        println!("recursive proof size: {} bytes {}KB", bincode::serialize(&r_p).unwrap().len(), bincode::serialize(&r_p).unwrap().len()/1024);
+
+        let (w_p, w_v, w_c) = recursive_plonky2_proof::<F, C, C, D>(r_p, r_v, r_c)?;
+        println!("wrapper proof size: {} bytes {}KB", bincode::serialize(&w_p).unwrap().len(), bincode::serialize(&w_p).unwrap().len()/1024);
+
+        /*let common_data_file = File::create("common_circuit_data.json")?;
+        serde_json::to_writer_pretty(&common_data_file, &w_c)?;
+        println!("Succesfully wrote common circuit data to common_circuit_data.json");
+
+        let verifier_data_file = File::create("verifier_only_circuit_data.json")?;
+        serde_json::to_writer_pretty(&verifier_data_file, &w_v)?;
+        println!("Succesfully wrote verifier data to verifier_only_circuit_data.json");
+
+        let proof_file = File::create("proof_with_public_inputs.json")?;
+        serde_json::to_writer_pretty(&proof_file, &w_p)?;
+        println!("Succesfully wrote proof to proof_with_public_inputs.json");*/
+
+        Ok(())
+    }
+
     fn recursive_starky_proof<
         F: RichField + Extendable<D>,
         C: GenericConfig<D, F = F> + serde::Serialize,
@@ -290,6 +345,8 @@ mod tests {
         let pt =
             add_virtual_stark_proof_with_pis(&mut builder, &stark, inner_config, degree_bits, 0, 0);
         set_stark_proof_with_pis_target(&mut pw, &pt, &inner_proof, builder.zero());
+
+        builder.register_public_input(pt.public_inputs[2]);
 
         verify_stark_proof_circuit::<F, InnerC, S, D>(&mut builder, stark, pt, inner_config);
 
@@ -335,6 +392,10 @@ mod tests {
             &inner_vd.constants_sigmas_cap,
         );
         pw.set_hash_target(inner_data.circuit_digest, inner_vd.circuit_digest);
+
+        for i in 0..30 {
+            builder.register_public_input(pt.public_inputs[0]);
+        }
 
         builder.verify_proof::<InnerC>(&pt, &inner_data, &inner_cd);
 
