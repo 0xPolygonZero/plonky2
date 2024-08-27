@@ -26,3 +26,6 @@ plonky2_util = { version = "0.2.0", path = "../util", default-features = false }
 # Display math equations properly in documentation
 [package.metadata.docs.rs]
 rustdoc-args = ["--html-in-header", ".cargo/katex-header.html"]
+
+[lints]
+workspace = true

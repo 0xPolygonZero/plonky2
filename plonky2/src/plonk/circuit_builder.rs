@@ -524,6 +524,13 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             .push(CopyConstraint::new((x, y), self.context_log.open_stack()));
     }
 
+    /// Enforces that the underlying values of two [`Target`] arrays are equal.
+    pub fn connect_array<const N: usize>(&mut self, x: [Target; N], y: [Target; N]) {
+        for i in 0..N {
+            self.connect(x[i], y[i]);
+        }
+    }
+
     /// Enforces that two [`ExtensionTarget<D>`] underlying values are equal.
     pub fn connect_extension(&mut self, src: ExtensionTarget<D>, dst: ExtensionTarget<D>) {
         for i in 0..D {
