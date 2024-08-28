@@ -593,6 +593,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CommonCircuitData<F, D> {
                 num_polys: self.num_quotient_polys(),
                 blinding: PlonkOracle::QUOTIENT.blinding,
             },
+            FriOracleInfo {
+                num_polys: self.num_r_polys(),
+                blinding: PlonkOracle::R.blinding,
+            },
         ]
     }
 
@@ -662,7 +666,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CommonCircuitData<F, D> {
             self.num_zs_partial_products_polys() + self.num_all_lookup_polys() + self.num_r_polys()
         );
         FriPolynomialInfo::from_range(
-            PlonkOracle::ZS_PARTIAL_PRODUCTS.index,
+            PlonkOracle::R.index,
             self.num_zs_partial_products_polys() + self.num_all_lookup_polys()
                 ..self.num_zs_partial_products_polys()
                     + self.num_all_lookup_polys()
