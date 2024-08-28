@@ -301,6 +301,50 @@ where
 
     challenger.observe_cap::<C::Hasher>(&quotient_polys_commitment.merkle_tree.cap);
 
+    let (h, random_r_commitment) = if config.zero_knowledge {
+        let h = (2
+            * common_data.fri_params.degree_bits
+            * (D * config.num_challenges + common_data.fri_params.config.num_query_rounds)
+            + common_data.fri_params.config.num_query_rounds)
+            .next_power_of_two();
+        assert!(h < 1 << common_data.fri_params.degree_bits);
+
+        let n = h + 1 << common_data.fri_params.degree_bits;
+        let random_r = F::rand_vec(n); // R(X)
+        let random_r = PolynomialValues::new(random_r).coset_ifft(F::coset_shift());
+        let random_r_commitment = timed!(
+            timing,
+            "commit to random batch polynomial",
+            PolynomialBatch::<F, C, D>::from_coeffs(
+                vec![random_r.clone()],
+                config.fri_config.rate_bits,
+                config.zero_knowledge && PlonkOracle::ZS_PARTIAL_PRODUCTS.blinding,
+                config.fri_config.cap_height,
+                timing,
+                prover_data.fft_root_table.as_ref(),
+            )
+        );
+
+        // challenger.observe_cap::<C::Hasher>(&random_r_commitment.merkle_tree.cap);
+
+        (Some(h), random_r_commitment)
+    } else {
+        let random_r_commitment = timed!(
+            timing,
+            "commit to random batch polynomial",
+            PolynomialBatch::<F, C, D>::from_coeffs(
+                vec![],
+                config.fri_config.rate_bits,
+                config.zero_knowledge && PlonkOracle::ZS_PARTIAL_PRODUCTS.blinding,
+                config.fri_config.cap_height,
+                timing,
+                prover_data.fft_root_table.as_ref(),
+            )
+        );
+
+        (None, random_r_commitment)
+    };
+
     let zeta = challenger.get_extension_challenge::<D>();
     // To avoid leaking witness data, we want to ensure that our opening locations, `zeta` and
     // `g * zeta`, are not in our subgroup `H`. It suffices to check `zeta` only, since
@@ -321,6 +365,7 @@ where
             &wires_commitment,
             &partial_products_zs_and_lookup_commitment,
             &quotient_polys_commitment,
+            &random_r_commitment,
             common_data
         )
     );
@@ -337,9 +382,11 @@ where
                 &wires_commitment,
                 &partial_products_zs_and_lookup_commitment,
                 &quotient_polys_commitment,
+                &random_r_commitment
             ],
             &mut challenger,
             &common_data.fri_params,
+            h,
             timing,
         )
     );

@@ -627,6 +627,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CommonCircuitData<F, D> {
     pub(crate) const fn num_all_lookup_polys(&self) -> usize {
         self.config.num_challenges * self.num_lookup_polys
     }
+
+    /// Returns the total number of random polynomials.
+    pub(crate) const fn num_r_polys(&self) -> usize {
+        self.config.num_challenges * (self.config.zero_knowledge as usize)
+    }
     fn fri_zs_polys(&self) -> Vec<FriPolynomialInfo> {
         FriPolynomialInfo::from_range(PlonkOracle::ZS_PARTIAL_PRODUCTS.index, self.zs_range())
     }
@@ -648,6 +653,23 @@ impl<F: RichField + Extendable<D>, const D: usize> CommonCircuitData<F, D> {
                 ..self.num_zs_partial_products_polys() + self.num_all_lookup_polys(),
         )
     }
+
+    /// Returns the information for lookup polynomials, i.e. the index within the oracle and the indices of the polynomials within the commitment.
+    fn fri_r_polys(&self) -> Vec<FriPolynomialInfo> {
+        println!(
+            " fri r polys {:?} - {:?}",
+            self.num_zs_partial_products_polys() + self.num_all_lookup_polys(),
+            self.num_zs_partial_products_polys() + self.num_all_lookup_polys() + self.num_r_polys()
+        );
+        FriPolynomialInfo::from_range(
+            PlonkOracle::ZS_PARTIAL_PRODUCTS.index,
+            self.num_zs_partial_products_polys() + self.num_all_lookup_polys()
+                ..self.num_zs_partial_products_polys()
+                    + self.num_all_lookup_polys()
+                    + self.num_r_polys(),
+        )
+    }
+
     pub(crate) const fn num_quotient_polys(&self) -> usize {
         self.config.num_challenges * self.quotient_degree_factor
     }
@@ -659,6 +681,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CommonCircuitData<F, D> {
             self.fri_zs_partial_products_polys(),
             self.fri_quotient_polys(),
             self.fri_lookup_polys(),
+            self.fri_r_polys(),
         ]
         .concat()
     }

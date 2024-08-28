@@ -361,6 +361,7 @@ pub trait Read {
         let quotient_polys = self.read_field_ext_vec::<F, D>(
             common_data.quotient_degree_factor * config.num_challenges,
         )?;
+        let random_r = self.read_field_ext_vec::<F, D>(common_data.num_r_polys())?;
         Ok(OpeningSet {
             constants,
             plonk_sigmas,
@@ -371,6 +372,7 @@ pub trait Read {
             quotient_polys,
             lookup_zs,
             lookup_zs_next,
+            random_r,
         })
     }
 
@@ -386,6 +388,7 @@ pub trait Read {
         let next_lookup_zs = self.read_target_ext_vec::<D>()?;
         let partial_products = self.read_target_ext_vec::<D>()?;
         let quotient_polys = self.read_target_ext_vec::<D>()?;
+        let random_r = self.read_target_ext_vec::<D>()?;
 
         Ok(OpeningSetTarget {
             constants,
@@ -397,6 +400,7 @@ pub trait Read {
             next_lookup_zs,
             partial_products,
             quotient_polys,
+            random_r,
         })
     }
 
@@ -1445,7 +1449,8 @@ pub trait Write {
         self.write_field_ext_vec::<F, D>(&os.lookup_zs)?;
         self.write_field_ext_vec::<F, D>(&os.lookup_zs_next)?;
         self.write_field_ext_vec::<F, D>(&os.partial_products)?;
-        self.write_field_ext_vec::<F, D>(&os.quotient_polys)
+        self.write_field_ext_vec::<F, D>(&os.quotient_polys)?;
+        self.write_field_ext_vec::<F, D>(&os.random_r)
     }
 
     /// Writes a value `os` of type [`OpeningSet`] to `self.`

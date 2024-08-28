@@ -178,6 +178,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         oracles: &[&Self],
         challenger: &mut Challenger<F, C::Hasher>,
         fri_params: &FriParams,
+        opt_h: Option<usize>,
         timing: &mut TimingTree,
     ) -> FriProof<F, C::Hasher, D> {
         assert!(D > 1, "Not implemented for D=1.");
@@ -194,7 +195,13 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         // where the `k_i`s are chosen such that each power of `alpha` appears only once in the final sum.
         // There are usually two batches for the openings at `zeta` and `g * zeta`.
         // The oracles used in Plonky2 are given in `FRI_ORACLES` in `plonky2/src/plonk/plonk_common.rs`.
-        for FriBatchInfo { point, polynomials } in &instance.batches {
+        let is_zk = fri_params.hiding;
+        let last_batch = if is_zk {
+            instance.batches.len() - 1
+        } else {
+            instance.batches.len()
+        };
+        for FriBatchInfo { point, polynomials } in &instance.batches[..last_batch] {
             // Collect the coefficients of all the polynomials in `polynomials`.
             let polys_coeff = polynomials.iter().map(|fri_poly| {
                 &oracles[fri_poly.oracle_index].polynomials[fri_poly.polynomial_index]
@@ -209,6 +216,48 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             alpha.shift_poly(&mut final_poly);
             final_poly += quotient;
         }
+
+        if is_zk {
+            let FriBatchInfo { polynomials, .. } =
+                &instance.batches.last().expect("The instance is not empty");
+            let polys_coeff = polynomials.iter().map(|fri_poly| {
+                &oracles[fri_poly.oracle_index].polynomials[fri_poly.polynomial_index]
+            });
+            let composition_poly = timed!(
+                timing,
+                &format!("reduce batch of {} polynomials", polynomials.len()),
+                alpha.reduce_polys_base(polys_coeff)
+            );
+            alpha.shift_poly(&mut final_poly);
+            final_poly += composition_poly;
+        }
+
+        let final_poly = if let Some(h) = opt_h {
+            let h0 = PolynomialCoeffs {
+                coeffs: final_poly.coeffs[..h].to_vec(),
+            };
+            let h1 = PolynomialCoeffs {
+                coeffs: final_poly.coeffs[h..].to_vec(),
+            };
+
+            let mut adjusted_coeffs = h0.coeffs.clone();
+            adjusted_coeffs.reverse();
+            let length = final_poly.coeffs.len();
+            let to_extend = vec![F::Extension::ZERO; length];
+            adjusted_coeffs.extend(&to_extend);
+            let higher_h0 = PolynomialCoeffs {
+                coeffs: adjusted_coeffs,
+            };
+            let alpha_beta = challenger.get_n_extension_challenges(2);
+
+            let mut adjusted_h0 = higher_h0.mul(alpha_beta[0]);
+            adjusted_h0 += h0.mul(alpha_beta[1]);
+            adjusted_h0 += h1;
+
+            adjusted_h0
+        } else {
+            final_poly.clone()
+        };
 
         let lde_final_poly = final_poly.lde(fri_params.config.rate_bits);
         let lde_final_values = timed!(

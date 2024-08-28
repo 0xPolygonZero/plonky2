@@ -203,6 +203,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             next_lookup_zs: self.select_vec_ext(b, &os0.next_lookup_zs, &os1.next_lookup_zs),
             partial_products: self.select_vec_ext(b, &os0.partial_products, &os1.partial_products),
             quotient_polys: self.select_vec_ext(b, &os0.quotient_polys, &os1.quotient_polys),
+            random_r: self.select_vec_ext(b, &os0.random_r, &os1.random_r),
         }
     }
 

@@ -305,6 +305,10 @@ impl<F: Field> PolynomialCoeffs<F> {
     {
         PolynomialCoeffs::new(self.coeffs.iter().map(|&c| rhs.scalar_mul(c)).collect())
     }
+
+    pub fn mul(&self, rhs: F) -> Self {
+        PolynomialCoeffs::new(self.coeffs.iter().map(|&c| rhs.scalar_mul(c)).collect())
+    }
 }
 
 impl<F: Field> PartialEq for PolynomialCoeffs<F> {

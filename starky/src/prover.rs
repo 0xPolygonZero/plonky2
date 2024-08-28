@@ -319,6 +319,7 @@ where
             &initial_merkle_trees,
             challenger,
             &fri_params,
+            None,
             timing,
         )
     );

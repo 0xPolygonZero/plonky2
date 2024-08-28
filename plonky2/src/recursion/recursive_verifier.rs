@@ -181,6 +181,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         } else {
             0
         };
+        let num_random_r = if config.zero_knowledge {
+            common_data.num_r_polys()
+        } else {
+            0
+        };
         OpeningSetTarget {
             constants: self.add_virtual_extension_targets(common_data.num_constants),
             plonk_sigmas: self.add_virtual_extension_targets(config.num_routed_wires),
@@ -191,6 +196,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             next_lookup_zs: self.add_virtual_extension_targets(num_lookups),
             partial_products: self.add_virtual_extension_targets(total_partial_products),
             quotient_polys: self.add_virtual_extension_targets(common_data.num_quotient_polys()),
+            random_r: self.add_virtual_extension_targets(num_random_r),
         }
     }
 }

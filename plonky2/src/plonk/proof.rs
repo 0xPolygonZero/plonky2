@@ -308,6 +308,7 @@ pub struct OpeningSet<F: RichField + Extendable<D>, const D: usize> {
     pub quotient_polys: Vec<F::Extension>,
     pub lookup_zs: Vec<F::Extension>,
     pub lookup_zs_next: Vec<F::Extension>,
+    pub random_r: Vec<F::Extension>,
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> OpeningSet<F, D> {
@@ -318,6 +319,7 @@ impl<F: RichField + Extendable<D>, const D: usize> OpeningSet<F, D> {
         wires_commitment: &PolynomialBatch<F, C, D>,
         zs_partial_products_lookup_commitment: &PolynomialBatch<F, C, D>,
         quotient_polys_commitment: &PolynomialBatch<F, C, D>,
+        random_r_commitment: &PolynomialBatch<F, C, D>,
         common_data: &CommonCircuitData<F, D>,
     ) -> Self {
         let eval_commitment = |z: F::Extension, c: &PolynomialBatch<F, C, D>| {
@@ -334,6 +336,7 @@ impl<F: RichField + Extendable<D>, const D: usize> OpeningSet<F, D> {
         let zs_partial_products_lookup_next_eval =
             eval_commitment(g * zeta, zs_partial_products_lookup_commitment);
         let quotient_polys = eval_commitment(zeta, quotient_polys_commitment);
+        let random_r = eval_commitment(zeta, random_r_commitment);
 
         Self {
             constants: constants_sigmas_eval[common_data.constants_range()].to_vec(),
@@ -347,34 +350,66 @@ impl<F: RichField + Extendable<D>, const D: usize> OpeningSet<F, D> {
             lookup_zs: zs_partial_products_lookup_eval[common_data.lookup_range()].to_vec(),
             lookup_zs_next: zs_partial_products_lookup_next_eval[common_data.lookup_range()]
                 .to_vec(),
+            random_r,
         }
     }
     pub(crate) fn to_fri_openings(&self) -> FriOpenings<F, D> {
         let has_lookup = !self.lookup_zs.is_empty();
         let zeta_batch = if has_lookup {
-            FriOpeningBatch {
-                values: [
-                    self.constants.as_slice(),
-                    self.plonk_sigmas.as_slice(),
-                    self.wires.as_slice(),
-                    self.plonk_zs.as_slice(),
-                    self.partial_products.as_slice(),
-                    self.quotient_polys.as_slice(),
-                    self.lookup_zs.as_slice(),
-                ]
-                .concat(),
+            if !self.random_r.is_empty() {
+                FriOpeningBatch {
+                    values: [
+                        self.constants.as_slice(),
+                        self.plonk_sigmas.as_slice(),
+                        self.wires.as_slice(),
+                        self.plonk_zs.as_slice(),
+                        self.partial_products.as_slice(),
+                        self.quotient_polys.as_slice(),
+                        self.lookup_zs.as_slice(),
+                        self.random_r.as_slice(),
+                    ]
+                    .concat(),
+                }
+            } else {
+                FriOpeningBatch {
+                    values: [
+                        self.constants.as_slice(),
+                        self.plonk_sigmas.as_slice(),
+                        self.wires.as_slice(),
+                        self.plonk_zs.as_slice(),
+                        self.partial_products.as_slice(),
+                        self.quotient_polys.as_slice(),
+                        self.lookup_zs.as_slice(),
+                    ]
+                    .concat(),
+                }
             }
         } else {
-            FriOpeningBatch {
-                values: [
-                    self.constants.as_slice(),
-                    self.plonk_sigmas.as_slice(),
-                    self.wires.as_slice(),
-                    self.plonk_zs.as_slice(),
-                    self.partial_products.as_slice(),
-                    self.quotient_polys.as_slice(),
-                ]
-                .concat(),
+            if !self.random_r.is_empty() {
+                FriOpeningBatch {
+                    values: [
+                        self.constants.as_slice(),
+                        self.plonk_sigmas.as_slice(),
+                        self.wires.as_slice(),
+                        self.plonk_zs.as_slice(),
+                        self.partial_products.as_slice(),
+                        self.quotient_polys.as_slice(),
+                        self.random_r.as_slice(),
+                    ]
+                    .concat(),
+                }
+            } else {
+                FriOpeningBatch {
+                    values: [
+                        self.constants.as_slice(),
+                        self.plonk_sigmas.as_slice(),
+                        self.wires.as_slice(),
+                        self.plonk_zs.as_slice(),
+                        self.partial_products.as_slice(),
+                        self.quotient_polys.as_slice(),
+                    ]
+                    .concat(),
+                }
             }
         };
         let zeta_next_batch = if has_lookup {
@@ -404,35 +439,68 @@ pub struct OpeningSetTarget<const D: usize> {
     pub next_lookup_zs: Vec<ExtensionTarget<D>>,
     pub partial_products: Vec<ExtensionTarget<D>>,
     pub quotient_polys: Vec<ExtensionTarget<D>>,
+    pub random_r: Vec<ExtensionTarget<D>>,
 }
 
 impl<const D: usize> OpeningSetTarget<D> {
     pub(crate) fn to_fri_openings(&self) -> FriOpeningsTarget<D> {
         let has_lookup = !self.lookup_zs.is_empty();
+        let is_zk = !self.random_r.is_empty();
         let zeta_batch = if has_lookup {
-            FriOpeningBatchTarget {
-                values: [
-                    self.constants.as_slice(),
-                    self.plonk_sigmas.as_slice(),
-                    self.wires.as_slice(),
-                    self.plonk_zs.as_slice(),
-                    self.partial_products.as_slice(),
-                    self.quotient_polys.as_slice(),
-                    self.lookup_zs.as_slice(),
-                ]
-                .concat(),
+            if is_zk {
+                FriOpeningBatchTarget {
+                    values: [
+                        self.constants.as_slice(),
+                        self.plonk_sigmas.as_slice(),
+                        self.wires.as_slice(),
+                        self.plonk_zs.as_slice(),
+                        self.partial_products.as_slice(),
+                        self.quotient_polys.as_slice(),
+                        self.lookup_zs.as_slice(),
+                        self.random_r.as_slice(),
+                    ]
+                    .concat(),
+                }
+            } else {
+                FriOpeningBatchTarget {
+                    values: [
+                        self.constants.as_slice(),
+                        self.plonk_sigmas.as_slice(),
+                        self.wires.as_slice(),
+                        self.plonk_zs.as_slice(),
+                        self.partial_products.as_slice(),
+                        self.quotient_polys.as_slice(),
+                        self.lookup_zs.as_slice(),
+                    ]
+                    .concat(),
+                }
             }
         } else {
-            FriOpeningBatchTarget {
-                values: [
-                    self.constants.as_slice(),
-                    self.plonk_sigmas.as_slice(),
-                    self.wires.as_slice(),
-                    self.plonk_zs.as_slice(),
-                    self.partial_products.as_slice(),
-                    self.quotient_polys.as_slice(),
-                ]
-                .concat(),
+            if is_zk {
+                FriOpeningBatchTarget {
+                    values: [
+                        self.constants.as_slice(),
+                        self.plonk_sigmas.as_slice(),
+                        self.wires.as_slice(),
+                        self.plonk_zs.as_slice(),
+                        self.partial_products.as_slice(),
+                        self.quotient_polys.as_slice(),
+                        self.random_r.as_slice(),
+                    ]
+                    .concat(),
+                }
+            } else {
+                FriOpeningBatchTarget {
+                    values: [
+                        self.constants.as_slice(),
+                        self.plonk_sigmas.as_slice(),
+                        self.wires.as_slice(),
+                        self.plonk_zs.as_slice(),
+                        self.partial_products.as_slice(),
+                        self.quotient_polys.as_slice(),
+                    ]
+                    .concat(),
+                }
             }
         };
         let zeta_next_batch = if has_lookup {
