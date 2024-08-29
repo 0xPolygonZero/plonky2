@@ -30,3 +30,6 @@ homepage = "https://github.com/0xPolygonZero/plonky2"
 repository = "https://github.com/0xPolygonZero/plonky2"
 keywords = ["cryptography", "SNARK", "PLONK", "FRI", "plonky2"]
 categories = ["cryptography"]
+
+[workspace.lints.clippy]
+too_long_first_doc_paragraph = "allow"
