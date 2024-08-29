@@ -45,16 +45,16 @@ use crate::util::serialization::{Buffer, IoResult, Read, Write};
 /// non-routed wires. Let $x[]$ be the domain points, $v[]$ be the values, $w[]$ be the Barycentric
 /// weights and $z$ be the evaluation point. Define the sequences
 ///
-/// $p[0] = 1,$
+/// $p\[0\] = 1,$
 ///
-/// $p[i] = p[i - 1] \cdot (z - x[i - 1]),$
+/// $p\[i\] = p[i - 1] \cdot (z - x[i - 1]),$
 ///
-/// $e[0] = 0,$
+/// $e\[0\] = 0,$
 ///
-/// $e[i] = e[i - 1] ] \cdot (z - x[i - 1]) + w[i - 1] \cdot v[i - 1] \cdot p[i - 1]$
+/// $e\[i\] = e[i - 1] ] \cdot (z - x[i - 1]) + w[i - 1] \cdot v[i - 1] \cdot p[i - 1]$
 ///
-/// Then $e[N]$ is the final interpolated value. The non-routed wires hold every $(d - 1)$'th
-/// intermediate value of $p$ and $e$, starting at $p[d]$ and $e[d]$, where $d$ is the gate degree.
+/// Then $e\[N\]$ is the final interpolated value. The non-routed wires hold every $(d - 1)$'th
+/// intermediate value of $p$ and $e$, starting at $p\[d\]$ and $e\[d\]$, where $d$ is the gate degree.
 #[derive(Clone, Debug, Default)]
 pub struct CosetInterpolationGate<F: RichField + Extendable<D>, const D: usize> {
     pub subgroup_bits: usize,

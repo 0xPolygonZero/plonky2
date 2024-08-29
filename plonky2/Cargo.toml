@@ -87,6 +87,7 @@ harness = false
 # Display math equations properly in documentation
 [package.metadata.docs.rs]
 rustdoc-args = ["--html-in-header", ".cargo/katex-header.html"]
+cargo-args = ["--no-deps"]
 
 [lints]
 workspace = true
