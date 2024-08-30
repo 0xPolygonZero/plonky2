@@ -10,7 +10,6 @@ use unroll::unroll_for_loops;
 
 #[cfg(target_feature = "avx2")]
 use super::arch::x86_64::poseidon_goldilocks_avx2::poseidon_avx;
-
 use crate::field::extension::{Extendable, FieldExtension};
 use crate::field::types::{Field, PrimeField64};
 use crate::gates::gate::Gate;
