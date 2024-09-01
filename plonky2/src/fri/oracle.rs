@@ -2,6 +2,7 @@
 use alloc::{format, vec::Vec};
 
 use itertools::Itertools;
+use plonky2_field::extension::flatten;
 use plonky2_field::types::Field;
 use plonky2_maybe_rayon::*;
 
@@ -48,6 +49,13 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> D
             blinding: false,
         }
     }
+}
+
+#[derive(Debug, Clone)]
+pub struct PolynomialComm<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
+{
+    pub polynomials: Vec<PolynomialCoeffs<F::Extension>>,
+    pub merkle_tree: MerkleTree<F, C::Hasher>,
 }
 
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
@@ -180,7 +188,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         fri_params: &FriParams,
         opt_h: Option<usize>,
         timing: &mut TimingTree,
-    ) -> FriProof<F, C::Hasher, D> {
+    ) -> (FriProof<F, C::Hasher, D>, Option<PolynomialComm<F, C, D>>) {
         assert!(D > 1, "Not implemented for D=1.");
         let alpha = challenger.get_extension_challenge::<D>();
         let mut alpha = ReducingFactor::new(alpha);
@@ -188,6 +196,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         // Final low-degree polynomial that goes into FRI.
         let mut final_poly = PolynomialCoeffs::empty();
 
+        let degree = 1 << oracles[0].degree_log;
         // Each batch `i` consists of an opening point `z_i` and polynomials `{f_ij}_j` to be opened at that point.
         // For each batch, we compute the composition polynomial `F_i = sum alpha^j f_ij`,
         // where `alpha` is a random challenge in the extension field.
@@ -201,6 +210,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         } else {
             instance.batches.len()
         };
+        println!("last bacth {:?}", last_batch);
         for FriBatchInfo { point, polynomials } in &instance.batches[..last_batch] {
             // Collect the coefficients of all the polynomials in `polynomials`.
             let polys_coeff = polynomials.iter().map(|fri_poly| {
@@ -220,8 +230,16 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         if is_zk {
             let FriBatchInfo { polynomials, .. } =
                 &instance.batches.last().expect("The instance is not empty");
-            let polys_coeff = polynomials.iter().map(|fri_poly| {
-                &oracles[fri_poly.oracle_index].polynomials[fri_poly.polynomial_index]
+            let polys_coeff = polynomials.iter().enumerate().map(|(i, fri_poly)| {
+                let mut cur_coeffs = oracles[fri_poly.oracle_index].polynomials
+                    [fri_poly.polynomial_index]
+                    .coeffs
+                    .clone()[..opt_h.expect("h is set in zk.")]
+                    .to_vec();
+                cur_coeffs.reverse();
+                cur_coeffs.extend(vec![F::ZERO; degree]);
+                cur_coeffs.reverse();
+                PolynomialCoeffs { coeffs: cur_coeffs }
             });
             let composition_poly = timed!(
                 timing,
@@ -232,7 +250,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             final_poly += composition_poly;
         }
 
-        let final_poly = if let Some(h) = opt_h {
+        let (final_poly, opt_h0_h1_commit) = if let Some(h) = opt_h {
             let h0 = PolynomialCoeffs {
                 coeffs: final_poly.coeffs[..h].to_vec(),
             };
@@ -242,42 +260,88 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 
             let mut adjusted_coeffs = h0.coeffs.clone();
             adjusted_coeffs.reverse();
-            let length = final_poly.coeffs.len();
-            let to_extend = vec![F::Extension::ZERO; length];
+            let to_extend = vec![F::Extension::ZERO; degree - h];
             adjusted_coeffs.extend(&to_extend);
             let higher_h0 = PolynomialCoeffs {
                 coeffs: adjusted_coeffs,
             };
+            assert!(higher_h0.coeffs.len() == h1.coeffs.len());
+
+            println!("We have adjusted correctly");
+            let mut h0_values = h0
+                .lde(fri_params.config.rate_bits)
+                .coset_fft(F::coset_shift().into());
+            reverse_index_bits_in_place(&mut h0_values.values);
+
+            let h0_vals = flatten(&h0_values.values);
+
+            let mut h1_values = h0
+                .lde(fri_params.config.rate_bits)
+                .coset_fft(F::coset_shift().into());
+            reverse_index_bits_in_place(&mut h1_values.values);
+            let h1_vals = flatten(&h1_values.values);
+
+            println!(
+                "h0 leaves len {:?}, h1 leaves len {:?}",
+                h0_vals.len(),
+                h1_vals.len()
+            );
+
+            let h0_h1_tree = MerkleTree::<F, C::Hasher>::new(vec![h0_vals, h1_vals], 0);
+            let h0_h1_comm = PolynomialComm::<F, C, D> {
+                polynomials: vec![h0.clone(), h1.clone()],
+                merkle_tree: h0_h1_tree.clone(),
+            };
+
+            challenger.observe_cap(&h0_h1_tree.cap);
+            println!("observed");
             let alpha_beta = challenger.get_n_extension_challenges(2);
 
             let mut adjusted_h0 = higher_h0.mul(alpha_beta[0]);
             adjusted_h0 += h0.mul(alpha_beta[1]);
-            adjusted_h0 += h1;
+            adjusted_h0 += h1.clone();
 
-            adjusted_h0
+            (adjusted_h0, Some(h0_h1_comm))
         } else {
-            final_poly.clone()
+            (final_poly.clone(), None)
         };
 
+        println!("starting lde done");
         let lde_final_poly = final_poly.lde(fri_params.config.rate_bits);
         let lde_final_values = timed!(
             timing,
             &format!("perform final FFT {}", lde_final_poly.len()),
             lde_final_poly.coset_fft(F::coset_shift().into())
         );
+        println!("lde done");
 
-        let fri_proof = fri_proof::<F, C, D>(
-            &oracles
+        let actual_initial_trees = if let Some(h0_h1_cap) = opt_h0_h1_commit.clone() {
+            oracles
                 .par_iter()
-                .map(|c| &c.merkle_tree)
-                .collect::<Vec<_>>(),
+                .map(|c| c.merkle_tree.clone())
+                .collect::<Vec<_>>()
+            // vec![h0_h1_cap.merkle_tree]
+        } else {
+            oracles
+                .par_iter()
+                .map(|c| c.merkle_tree.clone())
+                .collect::<Vec<_>>()
+        };
+        println!("fri proof");
+        let fri_proof = fri_proof::<F, C, D>(
+            // &oracles
+            //     .par_iter()
+            //     .map(|c| &c.merkle_tree)
+            //     .collect::<Vec<_>>(),
+            &actual_initial_trees,
             lde_final_poly,
             lde_final_values,
             challenger,
             fri_params,
             timing,
         );
+        println!("fri proof done");
 
-        fri_proof
+        (fri_proof, opt_h0_h1_commit)
     }
 }

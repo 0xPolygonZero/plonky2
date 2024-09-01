@@ -38,6 +38,9 @@ pub struct Proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const
     pub plonk_zs_partial_products_cap: MerkleCap<F, C::Hasher>,
     /// Merkle cap of LDEs of the quotient polynomial components.
     pub quotient_polys_cap: MerkleCap<F, C::Hasher>,
+    pub random_r: MerkleCap<F, C::Hasher>,
+    pub opt_h0_h1_cap: Option<MerkleCap<F, C::Hasher>>,
+    pub opt_h0_h1_eval: Option<Vec<F::Extension>>,
     /// Purported values of each polynomial at the challenge point.
     pub openings: OpeningSet<F, D>,
     /// A batch FRI argument for all openings.
@@ -49,6 +52,9 @@ pub struct ProofTarget<const D: usize> {
     pub wires_cap: MerkleCapTarget,
     pub plonk_zs_partial_products_cap: MerkleCapTarget,
     pub quotient_polys_cap: MerkleCapTarget,
+    pub random_r: MerkleCapTarget,
+    pub opt_h0_h1_cap: Option<MerkleCapTarget>,
+    pub opt_h0_h1_eval: Option<Vec<ExtensionTarget<D>>>,
     pub openings: OpeningSetTarget<D>,
     pub opening_proof: FriProofTarget<D>,
 }
@@ -60,6 +66,9 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> P
             wires_cap,
             plonk_zs_partial_products_cap,
             quotient_polys_cap,
+            random_r,
+            opt_h0_h1_cap,
+            opt_h0_h1_eval,
             openings,
             opening_proof,
         } = self;
@@ -68,6 +77,9 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> P
             wires_cap,
             plonk_zs_partial_products_cap,
             quotient_polys_cap,
+            random_r,
+            opt_h0_h1_cap,
+            opt_h0_h1_eval,
             openings,
             opening_proof: opening_proof.compress(indices, params),
         }
@@ -137,6 +149,9 @@ pub struct CompressedProof<F: RichField + Extendable<D>, C: GenericConfig<D, F =
     pub plonk_zs_partial_products_cap: MerkleCap<F, C::Hasher>,
     /// Merkle cap of LDEs of the quotient polynomial components.
     pub quotient_polys_cap: MerkleCap<F, C::Hasher>,
+    pub random_r: MerkleCap<F, C::Hasher>,
+    pub opt_h0_h1_cap: Option<MerkleCap<F, C::Hasher>>,
+    pub opt_h0_h1_eval: Option<Vec<F::Extension>>,
     /// Purported values of each polynomial at the challenge point.
     pub openings: OpeningSet<F, D>,
     /// A compressed batch FRI argument for all openings.
@@ -157,6 +172,9 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             wires_cap,
             plonk_zs_partial_products_cap,
             quotient_polys_cap,
+            random_r,
+            opt_h0_h1_cap,
+            opt_h0_h1_eval,
             openings,
             opening_proof,
         } = self;
@@ -165,6 +183,9 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             wires_cap,
             plonk_zs_partial_products_cap,
             quotient_polys_cap,
+            random_r,
+            opt_h0_h1_cap,
+            opt_h0_h1_eval,
             openings,
             opening_proof: opening_proof.decompress(challenges, fri_inferred_elements, params),
         }

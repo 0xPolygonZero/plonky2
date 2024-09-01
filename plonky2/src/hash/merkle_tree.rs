@@ -184,6 +184,7 @@ pub(crate) fn merkle_tree_prove<F: RichField, H: Hasher<F>>(
             // Double the pair index to get the index of the left sibling. Conditionally add `1`
             // if we are to retrieve the right sibling.
             let sibling_index = 2 * siblings_index + (1 - parity);
+            println!("Is it here?");
             digest_tree[sibling_index]
         })
         .collect()
@@ -207,7 +208,9 @@ impl<F: RichField, H: Hasher<F>> MerkleTree<F, H> {
 
         let digests_buf = capacity_up_to_mut(&mut digests, num_digests);
         let cap_buf = capacity_up_to_mut(&mut cap, len_cap);
+        println!("starting fill digests");
         fill_digests_buf::<F, H>(digests_buf, cap_buf, &leaves[..], cap_height);
+        println!("done fille digests");
 
         unsafe {
             // SAFETY: `fill_digests_buf` and `cap` initialized the spare capacity up to
@@ -215,7 +218,7 @@ impl<F: RichField, H: Hasher<F>> MerkleTree<F, H> {
             digests.set_len(num_digests);
             cap.set_len(len_cap);
         }
-
+        println!("done");
         Self {
             leaves,
             digests,
@@ -224,6 +227,7 @@ impl<F: RichField, H: Hasher<F>> MerkleTree<F, H> {
     }
 
     pub fn get(&self, i: usize) -> &[F] {
+        println!("leaves length {:?} index {}", self.leaves.len(), i);
         &self.leaves[i]
     }
 
@@ -232,6 +236,7 @@ impl<F: RichField, H: Hasher<F>> MerkleTree<F, H> {
         let cap_height = log2_strict(self.cap.len());
         let siblings =
             merkle_tree_prove::<F, H>(leaf_index, self.leaves.len(), cap_height, &self.digests);
+        println!("merkle proof done?");
 
         MerkleProof { siblings }
     }

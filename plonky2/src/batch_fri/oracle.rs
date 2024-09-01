@@ -448,6 +448,7 @@ mod test {
             &proof.commit_phase_merkle_caps,
             &proof.final_poly,
             proof.pow_witness,
+            &None,
             k0,
             &fri_params.config,
         );
@@ -576,6 +577,7 @@ mod test {
             &mut builder,
             &fri_proof_target.commit_phase_merkle_caps,
             &fri_proof_target.final_poly,
+            &None,
             fri_proof_target.pow_witness,
             &fri_params.config,
         );

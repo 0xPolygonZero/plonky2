@@ -77,6 +77,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                     wires_cap: wires_cap0,
                     plonk_zs_partial_products_cap: plonk_zs_partial_products_cap0,
                     quotient_polys_cap: quotient_polys_cap0,
+                    random_r: random_r_cap0,
+                    opt_h0_h1_cap: opt_h0_h1_cap0,
+                    opt_h0_h1_eval: opt_h0_h1_eval0,
                     openings: openings0,
                     opening_proof: opening_proof0,
                 },
@@ -88,6 +91,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                     wires_cap: wires_cap1,
                     plonk_zs_partial_products_cap: plonk_zs_partial_products_cap1,
                     quotient_polys_cap: quotient_polys_cap1,
+                    random_r: random_r_cap1,
+                    opt_h0_h1_cap: opt_h0_h1_cap1,
+                    opt_h0_h1_eval: opt_h0_h1_eval1,
                     openings: openings1,
                     opening_proof: opening_proof1,
                 },
@@ -102,6 +108,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             );
             let selected_quotient_polys_cap =
                 self.select_cap(b, quotient_polys_cap0, quotient_polys_cap1);
+            let selected_random_r_cap = self.select_cap(b, random_r_cap0, random_r_cap1);
+            let selected_opt_h0_h1_cap = self.select_opt_cap(b, opt_h0_h1_cap0, opt_h0_h1_cap1);
+            let selected_opt_h0_h1_eval = self.select_eval(b, opt_h0_h1_eval0, opt_h0_h1_eval1);
             let selected_openings = self.select_opening_set(b, openings0, openings1);
             let selected_opening_proof =
                 self.select_opening_proof(b, opening_proof0, opening_proof1);
@@ -111,6 +120,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                     wires_cap: selected_wires_cap,
                     plonk_zs_partial_products_cap: selected_plonk_zs_partial_products_cap,
                     quotient_polys_cap: selected_quotient_polys_cap,
+                    random_r: selected_random_r_cap,
+                    opt_h0_h1_cap: selected_opt_h0_h1_cap,
+                    opt_h0_h1_eval: selected_opt_h0_h1_eval,
                     openings: selected_openings,
                     opening_proof: selected_opening_proof,
                 },
@@ -154,6 +166,42 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 .map(|(h0, h1)| self.select_hash(b, *h0, *h1))
                 .collect(),
         )
+    }
+
+    fn select_eval(
+        &mut self,
+        b: BoolTarget,
+        opt_eval0: &Option<Vec<ExtensionTarget<D>>>,
+        opt_eval1: &Option<Vec<ExtensionTarget<D>>>,
+    ) -> Option<Vec<ExtensionTarget<D>>> {
+        assert_eq!(opt_eval0.is_some(), opt_eval1.is_some());
+        match (opt_eval0, opt_eval1) {
+            (Some(eval0), Some(eval1)) => Some(self.select_vec_ext(b, eval0, eval1)),
+            _ => None,
+        }
+    }
+
+    /// Computes `if b { cap0 } else { cap1 }`.
+    fn select_opt_cap(
+        &mut self,
+        b: BoolTarget,
+        opt_cap0: &Option<MerkleCapTarget>,
+        opt_cap1: &Option<MerkleCapTarget>,
+    ) -> Option<MerkleCapTarget> {
+        assert_eq!(opt_cap0.is_some(), opt_cap1.is_some());
+        match (opt_cap0, opt_cap1) {
+            (Some(cap0), Some(cap1)) => {
+                assert_eq!(cap0.0.len(), cap1.0.len());
+                Some(MerkleCapTarget(
+                    cap0.0
+                        .iter()
+                        .zip_eq(&cap1.0)
+                        .map(|(h0, h1)| self.select_hash(b, *h0, *h1))
+                        .collect(),
+                ))
+            }
+            _ => None,
+        }
     }
 
     /// Computes `if b { v0 } else { v1 }`.

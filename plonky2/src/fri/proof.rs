@@ -104,6 +104,7 @@ pub struct CompressedFriQueryRounds<F: RichField + Extendable<D>, H: Hasher<F>, 
 pub struct FriProof<F: RichField + Extendable<D>, H: Hasher<F>, const D: usize> {
     /// A Merkle cap for each reduced polynomial in the commit phase.
     pub commit_phase_merkle_caps: Vec<MerkleCap<F, H>>,
+
     /// Query rounds proofs
     pub query_round_proofs: Vec<FriQueryRound<F, H, D>>,
     /// The final polynomial in coefficient form.
@@ -368,6 +369,8 @@ pub struct FriChallenges<F: RichField + Extendable<D>, const D: usize> {
     // Betas used in the FRI commit phase reductions.
     pub fri_betas: Vec<F::Extension>,
 
+    pub h0_h1_challenges: Option<Vec<F::Extension>>,
+
     pub fri_pow_response: F,
 
     // Indices at which the oracle is queried in FRI.
@@ -378,6 +381,7 @@ pub struct FriChallenges<F: RichField + Extendable<D>, const D: usize> {
 pub struct FriChallengesTarget<const D: usize> {
     pub fri_alpha: ExtensionTarget<D>,
     pub fri_betas: Vec<ExtensionTarget<D>>,
+    pub h0_h1_challenges: Option<Vec<ExtensionTarget<D>>>,
     pub fri_pow_response: Target,
     pub fri_query_indices: Vec<Target>,
 }

@@ -311,7 +311,7 @@ where
         .chain(&quotient_commitment)
         .collect_vec();
 
-    let opening_proof = timed!(
+    let (opening_proof, _) = timed!(
         timing,
         "compute openings proof",
         PolynomialBatch::prove_openings(

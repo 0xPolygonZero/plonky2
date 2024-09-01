@@ -200,6 +200,27 @@ pub trait Read {
         (0..length).map(|_| self.read_field_ext::<F, D>()).collect()
     }
 
+    /// Reads a vector of elements from the field extension of `F` from `self`.
+    #[inline]
+    fn read_opt_field_ext_vec<F, const D: usize>(
+        &mut self,
+        length: usize,
+    ) -> IoResult<Option<Vec<F::Extension>>>
+    where
+        F: RichField + Extendable<D>,
+    {
+        let is_zk = self.read_bool()?;
+        if is_zk {
+            let cur_vec = (0..length).map(|_| self.read_field_ext::<F, D>()).collect();
+            match cur_vec {
+                Ok(v) => Ok(Some(v)),
+                Err(e) => Err(e),
+            }
+        } else {
+            Ok(None)
+        }
+    }
+
     /// Reads a Target from `self.`
     #[inline]
     fn read_target(&mut self) -> IoResult<Target> {
@@ -252,6 +273,27 @@ pub trait Read {
             .collect::<Result<Vec<_>, _>>()
     }
 
+    /// Reads a vector of ExtensionTarget from `self`.
+    #[inline]
+    fn read_target_opt_ext_vec<const D: usize>(
+        &mut self,
+    ) -> IoResult<Option<Vec<ExtensionTarget<D>>>> {
+        let is_zk = self.read_bool()?;
+        if is_zk {
+            let length = self.read_usize()?;
+
+            let cur_vec = (0..length)
+                .map(|_| self.read_target_ext::<D>())
+                .collect::<Result<Vec<_>, _>>();
+            match cur_vec {
+                Ok(ext_vec) => Ok(Some(ext_vec)),
+                Err(e) => Err(e),
+            }
+        } else {
+            Ok(None)
+        }
+    }
+
     /// Reads a hash value from `self`.
     #[inline]
     fn read_hash<F, H>(&mut self) -> IoResult<H::Hash>
@@ -302,6 +344,26 @@ pub trait Read {
         ))
     }
 
+    /// Reads a value of type [`MerkleCap`] from `self` with the given `cap_height`.
+    #[inline]
+    fn read_opt_merkle_cap<F, H>(&mut self, cap_height: usize) -> IoResult<Option<MerkleCap<F, H>>>
+    where
+        F: RichField,
+        H: Hasher<F>,
+    {
+        let is_zk = self.read_bool()?;
+        if is_zk {
+            let cap_length = 1 << cap_height;
+            Ok(Some(MerkleCap(
+                (0..cap_length)
+                    .map(|_| self.read_hash::<F, H>())
+                    .collect::<Result<Vec<_>, _>>()?,
+            )))
+        } else {
+            Ok(None)
+        }
+    }
+
     /// Reads a value of type [`MerkleCapTarget`] from `self`.
     #[inline]
     fn read_target_merkle_cap(&mut self) -> IoResult<MerkleCapTarget> {
@@ -311,6 +373,22 @@ pub trait Read {
                 .map(|_| self.read_target_hash())
                 .collect::<Result<Vec<_>, _>>()?,
         ))
+    }
+
+    /// Reads a value of type [`MerkleCapTarget`] from `self`.
+    #[inline]
+    fn read_target_opt_merkle_cap(&mut self) -> IoResult<Option<MerkleCapTarget>> {
+        let is_zk = self.read_bool()?;
+        if is_zk {
+            let length = self.read_usize()?;
+            Ok(Some(MerkleCapTarget(
+                (0..length)
+                    .map(|_| self.read_target_hash())
+                    .collect::<Result<Vec<_>, _>>()?,
+            )))
+        } else {
+            Ok(None)
+        }
     }
 
     /// Reads a value of type [`MerkleTree`] from `self`.
@@ -982,12 +1060,23 @@ pub trait Read {
         let wires_cap = self.read_merkle_cap(config.fri_config.cap_height)?;
         let plonk_zs_partial_products_cap = self.read_merkle_cap(config.fri_config.cap_height)?;
         let quotient_polys_cap = self.read_merkle_cap(config.fri_config.cap_height)?;
+        let random_r = self.read_merkle_cap(config.fri_config.cap_height)?;
+        let (opt_h0_h1_cap, opt_h0_h1_eval) = if common_data.config.zero_knowledge {
+            let opt_h0_h1_cap = self.read_merkle_cap(config.fri_config.cap_height)?;
+            let opt_h0_h1_eval = self.read_field_ext_vec::<F, D>(common_data.num_r_polys() * 2)?;
+            (Some(opt_h0_h1_cap), Some(opt_h0_h1_eval))
+        } else {
+            (None, None)
+        };
         let openings = self.read_opening_set::<F, C, D>(common_data)?;
         let opening_proof = self.read_fri_proof::<F, C, D>(common_data)?;
         Ok(Proof {
             wires_cap,
             plonk_zs_partial_products_cap,
             quotient_polys_cap,
+            random_r,
+            opt_h0_h1_cap,
+            opt_h0_h1_eval,
             openings,
             opening_proof,
         })
@@ -999,12 +1088,18 @@ pub trait Read {
         let wires_cap = self.read_target_merkle_cap()?;
         let plonk_zs_partial_products_cap = self.read_target_merkle_cap()?;
         let quotient_polys_cap = self.read_target_merkle_cap()?;
+        let random_r = self.read_target_merkle_cap()?;
+        let opt_h0_h1_cap = self.read_target_opt_merkle_cap()?;
+        let opt_h0_h1_eval = self.read_target_opt_ext_vec()?;
         let openings = self.read_target_opening_set::<D>()?;
         let opening_proof = self.read_target_fri_proof::<D>()?;
         Ok(ProofTarget {
             wires_cap,
             plonk_zs_partial_products_cap,
             quotient_polys_cap,
+            random_r,
+            opt_h0_h1_cap,
+            opt_h0_h1_eval,
             openings,
             opening_proof,
         })
@@ -1132,12 +1227,18 @@ pub trait Read {
         let wires_cap = self.read_merkle_cap(config.fri_config.cap_height)?;
         let plonk_zs_partial_products_cap = self.read_merkle_cap(config.fri_config.cap_height)?;
         let quotient_polys_cap = self.read_merkle_cap(config.fri_config.cap_height)?;
+        let random_r = self.read_merkle_cap(config.fri_config.cap_height)?;
+        let opt_h0_h1_cap = self.read_opt_merkle_cap(config.fri_config.cap_height)?;
+        let opt_h0_h1_eval = self.read_opt_field_ext_vec::<F, D>(common_data.num_r_polys() * 2)?;
         let openings = self.read_opening_set::<F, C, D>(common_data)?;
         let opening_proof = self.read_compressed_fri_proof::<F, C, D>(common_data)?;
         Ok(CompressedProof {
             wires_cap,
             plonk_zs_partial_products_cap,
             quotient_polys_cap,
+            random_r,
+            opt_h0_h1_cap,
+            opt_h0_h1_eval,
             openings,
             opening_proof,
         })
@@ -1298,6 +1399,26 @@ pub trait Write {
         Ok(())
     }
 
+    /// Writes a vector `v` of elements from the field extension of `F` to `self`.
+    #[inline]
+    fn write_opt_field_ext_vec<F, const D: usize>(
+        &mut self,
+        opt_v: &Option<Vec<F::Extension>>,
+    ) -> IoResult<()>
+    where
+        F: RichField + Extendable<D>,
+    {
+        self.write_bool(opt_v.is_some())?;
+
+        if let Some(v) = opt_v {
+            for &a in v {
+                self.write_field_ext::<F, D>(a)?;
+            }
+        }
+
+        Ok(())
+    }
+
     /// Writes a Target `x` to `self.`
     #[inline]
     fn write_target(&mut self, x: Target) -> IoResult<()> {
@@ -1358,6 +1479,23 @@ pub trait Write {
         Ok(())
     }
 
+    /// Writes a vector of ExtensionTarget `v` to `self.`
+    #[inline]
+    fn write_target_opt_ext_vec<const D: usize>(
+        &mut self,
+        opt_v: &Option<Vec<ExtensionTarget<D>>>,
+    ) -> IoResult<()> {
+        self.write_bool(opt_v.is_some())?;
+        if let Some(v) = opt_v {
+            self.write_usize(v.len())?;
+            for &elem in v.iter() {
+                self.write_target_ext(elem)?;
+            }
+        }
+
+        Ok(())
+    }
+
     /// Writes a hash `h` to `self`.
     #[inline]
     fn write_hash<F, H>(&mut self, h: H::Hash) -> IoResult<()>
@@ -1406,6 +1544,24 @@ pub trait Write {
         Ok(())
     }
 
+    /// Writes `cap`, a value of type [`MerkleCap`], to `self`.
+    #[inline]
+    fn write_opt_merkle_cap<F, H>(&mut self, opt_cap: &Option<MerkleCap<F, H>>) -> IoResult<()>
+    where
+        F: RichField,
+        H: Hasher<F>,
+    {
+        self.write_bool(opt_cap.is_some())?;
+
+        if let Some(cap) = opt_cap {
+            for &a in &cap.0 {
+                self.write_hash::<F, H>(a)?;
+            }
+        }
+
+        Ok(())
+    }
+
     /// Writes `cap`, a value of type [`MerkleCapTarget`], to `self`.
     #[inline]
     fn write_target_merkle_cap(&mut self, cap: &MerkleCapTarget) -> IoResult<()> {
@@ -1413,6 +1569,19 @@ pub trait Write {
         for a in &cap.0 {
             self.write_target_hash(a)?;
         }
+        Ok(())
+    }
+
+    fn write_target_opt_merkle_cap(&mut self, opt_cap: &Option<MerkleCapTarget>) -> IoResult<()> {
+        self.write_bool(opt_cap.is_some())?;
+
+        if let Some(cap) = opt_cap {
+            self.write_usize(cap.0.len())?;
+            for a in &cap.0 {
+                self.write_target_hash(a)?;
+            }
+        }
+
         Ok(())
     }
 
@@ -1987,6 +2156,9 @@ pub trait Write {
         self.write_merkle_cap(&proof.wires_cap)?;
         self.write_merkle_cap(&proof.plonk_zs_partial_products_cap)?;
         self.write_merkle_cap(&proof.quotient_polys_cap)?;
+        self.write_merkle_cap(&proof.random_r)?;
+        self.write_opt_merkle_cap(&proof.opt_h0_h1_cap)?;
+        self.write_opt_field_ext_vec::<F, D>(&proof.opt_h0_h1_eval)?;
         self.write_opening_set(&proof.openings)?;
         self.write_fri_proof::<F, C, D>(&proof.opening_proof)
     }
@@ -1997,6 +2169,9 @@ pub trait Write {
         self.write_target_merkle_cap(&proof.wires_cap)?;
         self.write_target_merkle_cap(&proof.plonk_zs_partial_products_cap)?;
         self.write_target_merkle_cap(&proof.quotient_polys_cap)?;
+        self.write_target_merkle_cap(&proof.random_r)?;
+        self.write_target_opt_merkle_cap(&proof.opt_h0_h1_cap)?;
+        self.write_target_opt_ext_vec(&proof.opt_h0_h1_eval)?;
         self.write_target_opening_set(&proof.openings)?;
         self.write_target_fri_proof::<D>(&proof.opening_proof)
     }
@@ -2093,6 +2268,7 @@ pub trait Write {
         self.write_merkle_cap(&proof.wires_cap)?;
         self.write_merkle_cap(&proof.plonk_zs_partial_products_cap)?;
         self.write_merkle_cap(&proof.quotient_polys_cap)?;
+
         self.write_opening_set(&proof.openings)?;
         self.write_compressed_fri_proof::<F, C, D>(&proof.opening_proof)
     }

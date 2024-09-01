@@ -40,6 +40,9 @@ where
         plonk_zs_partial_products_cap,
         quotient_polys_cap,
         openings,
+        random_r: random_r_cap,
+        opt_h0_h1_cap,
+        opt_h0_h1_eval,
         // The shape of the opening proof will be checked in the FRI verifier (see
         // validate_fri_proof_shape), so we ignore it here.
         opening_proof: _,
@@ -60,6 +63,7 @@ where
     ensure!(wires_cap.height() == cap_height);
     ensure!(plonk_zs_partial_products_cap.height() == cap_height);
     ensure!(quotient_polys_cap.height() == cap_height);
+    ensure!(random_r_cap.height() == cap_height);
     ensure!(constants.len() == common_data.num_constants);
     ensure!(plonk_sigmas.len() == config.num_routed_wires);
     ensure!(wires.len() == config.num_wires);
@@ -70,5 +74,11 @@ where
     ensure!(lookup_zs.len() == common_data.num_all_lookup_polys());
     ensure!(lookup_zs_next.len() == common_data.num_all_lookup_polys());
     ensure!(random_r.len() == common_data.num_r_polys());
+    assert!(opt_h0_h1_cap.is_none() == opt_h0_h1_eval.is_none());
+    if let (Some(h0_h1_cap), Some(h0_h1_eval)) = (opt_h0_h1_cap, opt_h0_h1_eval) {
+        ensure!(h0_h1_cap.height() == 0);
+        ensure!(h0_h1_eval.len() == common_data.num_r_polys());
+    }
+
     Ok(())
 }

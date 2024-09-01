@@ -634,7 +634,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CommonCircuitData<F, D> {
 
     /// Returns the total number of random polynomials.
     pub(crate) const fn num_r_polys(&self) -> usize {
-        self.config.num_challenges * (self.config.zero_knowledge as usize)
+        // There are two commits: for the lower and higher coefficients.
+        2 * (self.config.zero_knowledge as usize)
     }
     fn fri_zs_polys(&self) -> Vec<FriPolynomialInfo> {
         FriPolynomialInfo::from_range(PlonkOracle::ZS_PARTIAL_PRODUCTS.index, self.zs_range())
@@ -665,13 +666,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CommonCircuitData<F, D> {
             self.num_zs_partial_products_polys() + self.num_all_lookup_polys(),
             self.num_zs_partial_products_polys() + self.num_all_lookup_polys() + self.num_r_polys()
         );
-        FriPolynomialInfo::from_range(
-            PlonkOracle::R.index,
-            self.num_zs_partial_products_polys() + self.num_all_lookup_polys()
-                ..self.num_zs_partial_products_polys()
-                    + self.num_all_lookup_polys()
-                    + self.num_r_polys(),
-        )
+        FriPolynomialInfo::from_range(PlonkOracle::R.index, 0..self.num_r_polys())
     }
 
     pub(crate) const fn num_quotient_polys(&self) -> usize {

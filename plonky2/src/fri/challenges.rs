@@ -26,6 +26,7 @@ impl<F: RichField, H: Hasher<F>> Challenger<F, H> {
         commit_phase_merkle_caps: &[MerkleCap<F, C::Hasher>],
         final_poly: &PolynomialCoeffs<F::Extension>,
         pow_witness: F,
+        opt_h0_h1_cap: &Option<MerkleCap<F, C::Hasher>>,
         degree_bits: usize,
         config: &FriConfig,
     ) -> FriChallenges<F, D>
@@ -36,6 +37,13 @@ impl<F: RichField, H: Hasher<F>> Challenger<F, H> {
         let lde_size = 1 << (degree_bits + config.rate_bits);
         // Scaling factor to combine polynomials.
         let fri_alpha = self.get_extension_challenge::<D>();
+
+        let h0_h1_challenges = if let Some(h0_h1_cap) = opt_h0_h1_cap {
+            self.observe_cap(h0_h1_cap);
+            Some(self.get_n_extension_challenges::<D>(2))
+        } else {
+            None
+        };
 
         // Recover the random betas used in the FRI reductions.
         let fri_betas = commit_phase_merkle_caps
@@ -58,6 +66,7 @@ impl<F: RichField, H: Hasher<F>> Challenger<F, H> {
         FriChallenges {
             fri_alpha,
             fri_betas,
+            h0_h1_challenges,
             fri_pow_response,
             fri_query_indices,
         }
@@ -78,12 +87,23 @@ impl<F: RichField + Extendable<D>, H: AlgebraicHasher<F>, const D: usize>
         builder: &mut CircuitBuilder<F, D>,
         commit_phase_merkle_caps: &[MerkleCapTarget],
         final_poly: &PolynomialCoeffsExtTarget<D>,
+        opt_h0_h1_cap: &Option<MerkleCapTarget>,
         pow_witness: Target,
         inner_fri_config: &FriConfig,
     ) -> FriChallengesTarget<D> {
         let num_fri_queries = inner_fri_config.num_query_rounds;
         // Scaling factor to combine polynomials.
         let fri_alpha = self.get_extension_challenge(builder);
+
+        let h0_h1_challenges = if let Some(h0_h1_cap) = opt_h0_h1_cap {
+            self.observe_cap(h0_h1_cap);
+            Some(vec![
+                self.get_extension_challenge(builder),
+                self.get_extension_challenge(builder),
+            ])
+        } else {
+            None
+        };
 
         // Recover the random betas used in the FRI reductions.
         let fri_betas = commit_phase_merkle_caps
@@ -106,6 +126,7 @@ impl<F: RichField + Extendable<D>, H: AlgebraicHasher<F>, const D: usize>
         FriChallengesTarget {
             fri_alpha,
             fri_betas,
+            h0_h1_challenges,
             fri_pow_response,
             fri_query_indices,
         }

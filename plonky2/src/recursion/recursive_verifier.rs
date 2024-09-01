@@ -162,10 +162,24 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             num_leaves_per_oracle.push(common_data.num_quotient_polys() + salt);
         }
 
+        let is_zk = common_data.config.zero_knowledge;
+        let opt_h0_h1_cap = if is_zk {
+            Some(self.add_virtual_cap(cap_height))
+        } else {
+            None
+        };
+        let opt_h0_h1_eval = if is_zk {
+            Some(self.add_virtual_extension_targets(common_data.num_r_polys() * 2))
+        } else {
+            None
+        };
         ProofTarget {
             wires_cap: self.add_virtual_cap(cap_height),
             plonk_zs_partial_products_cap: self.add_virtual_cap(cap_height),
             quotient_polys_cap: self.add_virtual_cap(cap_height),
+            random_r: self.add_virtual_cap(cap_height),
+            opt_h0_h1_cap,
+            opt_h0_h1_eval,
             openings: self.add_opening_set(common_data),
             opening_proof: self.add_virtual_fri_proof(num_leaves_per_oracle, fri_params),
         }

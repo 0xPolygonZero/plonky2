@@ -3,6 +3,7 @@ use alloc::vec::Vec;
 
 use plonky2_maybe_rayon::*;
 
+use super::oracle::PolynomialComm;
 use crate::field::extension::{flatten, unflatten, Extendable};
 use crate::field::polynomial::{PolynomialCoeffs, PolynomialValues};
 use crate::fri::proof::{FriInitialTreeProof, FriProof, FriQueryRound, FriQueryStep};
@@ -19,7 +20,7 @@ use crate::util::timing::TimingTree;
 
 /// Builds a FRI proof.
 pub fn fri_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
-    initial_merkle_trees: &[&MerkleTree<F, C::Hasher>],
+    initial_merkle_trees: &[MerkleTree<F, C::Hasher>],
     // Coefficients of the polynomial on which the LDT is performed. Only the first `1/rate` coefficients are non-zero.
     lde_polynomial_coeffs: PolynomialCoeffs<F::Extension>,
     // Evaluation of the polynomial on the large domain.
@@ -42,13 +43,14 @@ pub fn fri_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const
             fri_params,
         )
     );
-
+    println!("fri committed trees done");
     // PoW phase
     let pow_witness = timed!(
         timing,
         "find proof-of-work witness",
         fri_proof_of_work::<F, C, D>(challenger, &fri_params.config)
     );
+    println!("pow done");
 
     // Query phase
     let query_round_proofs =
@@ -78,13 +80,15 @@ fn fri_committed_trees<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>,
     let mut shift = F::MULTIPLICATIVE_GROUP_GENERATOR;
     for arity_bits in &fri_params.reduction_arity_bits {
         let arity = 1 << arity_bits;
+        println!("arity {:?}", arity);
 
         reverse_index_bits_in_place(&mut values.values);
-        let chunked_values = values
+        let chunked_values: Vec<Vec<F>> = values
             .values
             .par_chunks(arity)
             .map(|chunk: &[F::Extension]| flatten(chunk))
             .collect();
+        println!("Got chunked values, length {:?}", chunked_values.len());
         let tree = MerkleTree::<F, C::Hasher>::new(chunked_values, fri_params.config.cap_height);
 
         challenger.observe_cap(&tree.cap);
@@ -102,7 +106,7 @@ fn fri_committed_trees<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>,
         shift = shift.exp_u64(arity as u64);
         values = coeffs.coset_fft(shift.into())
     }
-
+    println!("hello?");
     // The coefficients being removed here should always be zero.
     coeffs
         .coeffs
@@ -169,7 +173,7 @@ fn fri_prover_query_rounds<
     C: GenericConfig<D, F = F>,
     const D: usize,
 >(
-    initial_merkle_trees: &[&MerkleTree<F, C::Hasher>],
+    initial_merkle_trees: &[MerkleTree<F, C::Hasher>],
     trees: &[MerkleTree<F, C::Hasher>],
     challenger: &mut Challenger<F, C::Hasher>,
     n: usize,
@@ -190,16 +194,23 @@ fn fri_prover_query_round<
     C: GenericConfig<D, F = F>,
     const D: usize,
 >(
-    initial_merkle_trees: &[&MerkleTree<F, C::Hasher>],
+    initial_merkle_trees: &[MerkleTree<F, C::Hasher>],
     trees: &[MerkleTree<F, C::Hasher>],
     mut x_index: usize,
     fri_params: &FriParams,
 ) -> FriQueryRound<F, C::Hasher, D> {
     let mut query_steps = Vec::new();
+
     let initial_proof = initial_merkle_trees
         .iter()
         .map(|t| (t.get(x_index).to_vec(), t.prove(x_index)))
         .collect::<Vec<_>>();
+
+    println!("initial proof done");
+    // if let Some(h0_h1_commitment) = opt_h0_h1_commit {
+    //     let tree = h0_h1_commitment.merkle_tree.clone();
+    //     initial_proof.push((tree.get(x_index).to_vec(), tree.prove(x_index)));
+    // }
     for (i, tree) in trees.iter().enumerate() {
         let arity_bits = fri_params.reduction_arity_bits[i];
         let evals = unflatten(tree.get(x_index >> arity_bits));

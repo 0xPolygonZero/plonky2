@@ -316,6 +316,7 @@ mod tests {
             &proof.commit_phase_merkle_caps,
             &proof.final_poly,
             proof.pow_witness,
+            &None,
             k,
             &fri_params.config,
         );
@@ -438,6 +439,7 @@ mod tests {
             &proof.commit_phase_merkle_caps,
             &proof.final_poly,
             proof.pow_witness,
+            &None,
             k0,
             &fri_params.config,
         );

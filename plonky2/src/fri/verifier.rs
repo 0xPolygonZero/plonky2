@@ -1,5 +1,6 @@
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
+use core::ops::Mul;
 
 use anyhow::{ensure, Result};
 
@@ -11,7 +12,7 @@ use crate::fri::structure::{FriBatchInfo, FriInstanceInfo, FriOpenings};
 use crate::fri::validate_shape::validate_fri_proof_shape;
 use crate::fri::{FriConfig, FriParams};
 use crate::hash::hash_types::RichField;
-use crate::hash::merkle_proofs::verify_merkle_proof_to_cap;
+use crate::hash::merkle_proofs::{verify_merkle_proof, verify_merkle_proof_to_cap};
 use crate::hash::merkle_tree::MerkleCap;
 use crate::plonk::config::{GenericConfig, Hasher};
 use crate::util::reducing::ReducingFactor;
@@ -68,6 +69,9 @@ pub fn verify_fri_proof<
     openings: &FriOpenings<F, D>,
     challenges: &FriChallenges<F, D>,
     initial_merkle_caps: &[MerkleCap<F, C::Hasher>],
+    opt_h0_h1_cap: &Option<MerkleCap<F, C::Hasher>>,
+    opt_h0_h1_eval: &Option<Vec<F::Extension>>,
+    opt_h: Option<usize>,
     proof: &FriProof<F, C::Hasher, D>,
     params: &FriParams,
 ) -> Result<()> {
@@ -85,6 +89,12 @@ pub fn verify_fri_proof<
         "Number of query rounds does not match config."
     );
 
+    let actual_initial_merkle_caps = if let Some(h0_h1_cap) = opt_h0_h1_cap {
+        vec![h0_h1_cap.clone()]
+    } else {
+        initial_merkle_caps.to_vec()
+    };
+
     let precomputed_reduced_evals =
         PrecomputedReducedOpenings::from_os_and_alpha(openings, challenges.fri_alpha);
     for (&x_index, round_proof) in challenges
@@ -96,14 +106,18 @@ pub fn verify_fri_proof<
             instance,
             challenges,
             &precomputed_reduced_evals,
-            initial_merkle_caps,
+            opt_h0_h1_eval,
+            &actual_initial_merkle_caps,
             proof,
             x_index,
             n,
+            opt_h,
             round_proof,
             params,
         )?;
     }
+
+    // Now, check the final poly.
 
     Ok(())
 }
@@ -161,6 +175,47 @@ pub(crate) fn fri_combine_initial<
     sum
 }
 
+fn new_fri_combine_initial<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
+    instance: &FriInstanceInfo<F, D>,
+    proof: &FriInitialTreeProof<F, C::Hasher>,
+    alpha: F::Extension,
+    opt_h0_h1_challenges: &Option<Vec<F::Extension>>,
+    subgroup_x: F,
+    precomputed_reduced_evals: &PrecomputedReducedOpenings<F, D>,
+    opt_h0_h1_eval: &Option<Vec<F::Extension>>,
+    opt_h: Option<usize>,
+    params: &FriParams,
+) -> F::Extension {
+    if let Some(h0_h1_eval) = opt_h0_h1_eval {
+        let h0_h1_challenges = opt_h0_h1_challenges
+            .clone()
+            .expect("There should be challenges when there is zero-knowledge.");
+        let alpha0 = h0_h1_challenges[0];
+        let alpha1 = h0_h1_challenges[1];
+        let h0 = h0_h1_eval[0];
+        let h1 = h0_h1_eval[1];
+
+        let mut power = subgroup_x.exp_power_of_2(params.degree_bits);
+        let h_power = subgroup_x.exp_u64(opt_h.expect("There should be a number here.") as u64);
+        power = power.div(h_power);
+        let adjustment_eval = alpha0 * power.into() + alpha1;
+        h0.mul(adjustment_eval) + h1
+    } else {
+        fri_combine_initial::<F, C, D>(
+            instance,
+            proof,
+            alpha,
+            subgroup_x,
+            precomputed_reduced_evals,
+            params,
+        )
+    }
+}
+
 fn fri_verifier_query_round<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
@@ -169,10 +224,12 @@ fn fri_verifier_query_round<
     instance: &FriInstanceInfo<F, D>,
     challenges: &FriChallenges<F, D>,
     precomputed_reduced_evals: &PrecomputedReducedOpenings<F, D>,
+    opt_h0_h1_eval: &Option<Vec<F::Extension>>,
     initial_merkle_caps: &[MerkleCap<F, C::Hasher>],
     proof: &FriProof<F, C::Hasher, D>,
     mut x_index: usize,
     n: usize,
+    opt_h: Option<usize>,
     round_proof: &FriQueryRound<F, C::Hasher, D>,
     params: &FriParams,
 ) -> Result<()> {
@@ -188,12 +245,15 @@ fn fri_verifier_query_round<
 
     // old_eval is the last derived evaluation; it will be checked for consistency with its
     // committed "parent" value in the next iteration.
-    let mut old_eval = fri_combine_initial::<F, C, D>(
+    let mut old_eval = new_fri_combine_initial::<F, C, D>(
         instance,
         &round_proof.initial_trees_proof,
         challenges.fri_alpha,
+        &challenges.h0_h1_challenges,
         subgroup_x,
         precomputed_reduced_evals,
+        opt_h0_h1_eval,
+        opt_h,
         params,
     );
 

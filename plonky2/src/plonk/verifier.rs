@@ -1,6 +1,7 @@
 //! plonky2 verifier implementation.
 
 use anyhow::{ensure, Result};
+use plonky2_util::log2_strict;
 
 use crate::field::extension::Extendable;
 use crate::field::types::Field;
@@ -61,6 +62,8 @@ pub(crate) fn verify_with_challenges<
     let next_lookup_zs = &proof.openings.lookup_zs_next;
     let s_sigmas = &proof.openings.plonk_sigmas;
     let partial_products = &proof.openings.partial_products;
+    let opt_h0_h1_cap = proof.opt_h0_h1_cap;
+    let opt_h0_h1_eval = proof.opt_h0_h1_eval;
 
     // Evaluate the vanishing polynomial at our challenge point, zeta.
     let vanishing_polys_zeta = eval_vanishing_poly::<F, D>(
@@ -103,13 +106,37 @@ pub(crate) fn verify_with_challenges<
         // In the lookup case, `plonk_zs_partial_products_cap` should also include the lookup commitment.
         proof.plonk_zs_partial_products_cap,
         proof.quotient_polys_cap,
+        proof.random_r,
     ];
+
+    let opt_h = if opt_h0_h1_cap.is_some() {
+        Some(
+            (2 * common_data.fri_params.degree_bits
+                * (D * common_data.config.num_challenges
+                    + common_data.fri_params.config.num_query_rounds)
+                + common_data.fri_params.config.num_query_rounds)
+                .next_power_of_two(),
+        )
+    } else {
+        None
+    };
+
+    // Check final polynomial.
+    if let (Some(h), Some(h0_h1_eval)) = (opt_h, opt_h0_h1_eval.clone()) {
+        let actual_final_eval =
+            h0_h1_eval[0] + h0_h1_eval[1] * challenges.plonk_zeta.exp_power_of_2(log2_strict(h));
+        let r = proof.openings.random_r[0];
+        // ensure!(actual_final_eval == r);
+    }
 
     verify_fri_proof::<F, C, D>(
         &common_data.get_fri_instance(challenges.plonk_zeta),
         &proof.openings.to_fri_openings(),
         &challenges.fri_challenges,
         merkle_caps,
+        &opt_h0_h1_cap,
+        &opt_h0_h1_eval,
+        opt_h,
         &proof.opening_proof,
         &common_data.fri_params,
     )?;

@@ -309,14 +309,20 @@ where
             .next_power_of_two();
         assert!(h < 1 << common_data.fri_params.degree_bits);
 
-        let n = h + 1 << common_data.fri_params.degree_bits;
+        let d = 1 << common_data.fri_params.degree_bits;
+        let n = h + d;
+
         let random_r = F::rand_vec(n); // R(X)
-        let random_r = PolynomialValues::new(random_r).coset_ifft(F::coset_shift());
+        let random_r = PolynomialCoeffs::new(random_r);
+        let random_low = PolynomialCoeffs::new(random_r.coeffs[..d].to_vec());
+        let mut high_coeffs = random_r.coeffs[d..].to_vec();
+        high_coeffs.extend(vec![F::ZERO; d - h]);
+        let random_high = PolynomialCoeffs::new(high_coeffs);
         let random_r_commitment = timed!(
             timing,
             "commit to random batch polynomial",
             PolynomialBatch::<F, C, D>::from_coeffs(
-                vec![random_r.clone()],
+                vec![random_low, random_high],
                 config.fri_config.rate_bits,
                 config.zero_knowledge && PlonkOracle::ZS_PARTIAL_PRODUCTS.blinding,
                 config.fri_config.cap_height,
@@ -372,7 +378,8 @@ where
     challenger.observe_openings(&openings.to_fri_openings());
     let instance = common_data.get_fri_instance(zeta);
 
-    let opening_proof = timed!(
+    println!("Starting openings");
+    let (opening_proof, h0_h1_commitment) = timed!(
         timing,
         "compute opening proofs",
         PolynomialBatch::<F, C, D>::prove_openings(
@@ -391,10 +398,30 @@ where
         )
     );
 
+    println!("DONE WITH OPENINGS");
+
+    // Get eval on zet.
+    let (opt_h0_h1_eval, opt_h0_h1_cap) = if let Some(com) = h0_h1_commitment {
+        (
+            Some(
+                com.polynomials
+                    .par_iter()
+                    .map(|p| p.eval(zeta))
+                    .collect::<Vec<_>>(),
+            ),
+            Some(com.merkle_tree.cap),
+        )
+    } else {
+        (None, None)
+    };
+
     let proof = Proof::<F, C, D> {
         wires_cap: wires_commitment.merkle_tree.cap,
         plonk_zs_partial_products_cap: partial_products_zs_and_lookup_commitment.merkle_tree.cap,
         quotient_polys_cap: quotient_polys_commitment.merkle_tree.cap,
+        random_r: random_r_commitment.merkle_tree.cap,
+        opt_h0_h1_cap,
+        opt_h0_h1_eval,
         openings,
         opening_proof,
     };

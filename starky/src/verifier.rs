@@ -200,6 +200,9 @@ where
         &proof.openings.to_fri_openings(),
         &challenges.fri_challenges,
         &merkle_caps,
+        &None,
+        &None,
+        None,
         &proof.opening_proof,
         &config.fri_params(degree_bits),
     )?;
