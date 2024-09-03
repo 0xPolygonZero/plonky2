@@ -144,7 +144,13 @@ impl<F: RichField + Extendable<D>, H: Hasher<F>, const D: usize> FriProof<F, H, 
             ..
         } = self;
         let cap_height = params.config.cap_height;
-        let reduction_arity_bits = &params.reduction_arity_bits;
+        let reduction_arity_bits = if params.hiding {
+            let mut tmp = vec![1];
+            tmp.extend(&params.reduction_arity_bits);
+            tmp
+        } else {
+            params.reduction_arity_bits.clone()
+        };
         let num_reductions = reduction_arity_bits.len();
         let num_initial_trees = query_round_proofs[0].initial_trees_proof.evals_proofs.len();
 
@@ -256,7 +262,13 @@ impl<F: RichField + Extendable<D>, H: Hasher<F>, const D: usize> CompressedFriPr
         } = &challenges.fri_challenges;
         let mut fri_inferred_elements = fri_inferred_elements.0.into_iter();
         let cap_height = params.config.cap_height;
-        let reduction_arity_bits = &params.reduction_arity_bits;
+        let reduction_arity_bits = if params.hiding {
+            let mut tmp = vec![1];
+            tmp.extend(&params.reduction_arity_bits);
+            tmp
+        } else {
+            params.reduction_arity_bits.clone()
+        };
         let num_reductions = reduction_arity_bits.len();
         let num_initial_trees = query_round_proofs
             .initial_trees_proofs
@@ -283,8 +295,7 @@ impl<F: RichField + Extendable<D>, H: Hasher<F>, const D: usize> CompressedFriPr
             .collect::<Vec<_>>();
 
         // Holds the `evals` vectors that have already been reconstructed at each reduction depth.
-        let mut evals_by_depth =
-            vec![HashMap::<usize, Vec<_>>::new(); params.reduction_arity_bits.len()];
+        let mut evals_by_depth = vec![HashMap::<usize, Vec<_>>::new(); reduction_arity_bits.len()];
         for &(mut index) in indices {
             let initial_trees_proof = query_round_proofs.initial_trees_proofs[&index].clone();
             for (i, (leaves_data, proof)) in

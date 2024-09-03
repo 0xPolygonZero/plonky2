@@ -85,8 +85,11 @@ pub fn verify_fri_proof<
         "Number of query rounds does not match config."
     );
 
-    let precomputed_reduced_evals =
-        PrecomputedReducedOpenings::from_os_and_alpha(openings, challenges.fri_alpha);
+    let precomputed_reduced_evals = PrecomputedReducedOpenings::from_os_and_alpha(
+        openings,
+        challenges.fri_alpha,
+        params.hiding,
+    );
     for (&x_index, round_proof) in challenges
         .fri_query_indices
         .iter()
@@ -137,13 +140,20 @@ pub(crate) fn fri_combine_initial<
     let mut alpha = ReducingFactor::new(alpha);
     let mut sum = F::Extension::ZERO;
 
-    for (batch, reduced_openings) in instance
+    for (idx, (batch, reduced_openings)) in instance
         .batches
         .iter()
         .zip(&precomputed_reduced_evals.reduced_openings_at_point)
+        .enumerate()
     {
         let FriBatchInfo { point, polynomials } = batch;
-        let evals = polynomials
+        let is_zk = params.hiding;
+        let last_poly = if is_zk && idx == 0 {
+            polynomials.len() - 2
+        } else {
+            polynomials.len()
+        };
+        let evals = polynomials[..last_poly]
             .iter()
             .map(|p| {
                 let poly_blinding = instance.oracles[p.oracle_index].blinding;
@@ -156,6 +166,22 @@ pub(crate) fn fri_combine_initial<
         let denominator = subgroup_x - *point;
         sum = alpha.shift(sum);
         sum += numerator / denominator;
+
+        if is_zk && idx == 0 {
+            polynomials[last_poly..]
+                .iter()
+                .enumerate()
+                .for_each(|(i, p)| {
+                    let poly_blinding = instance.oracles[p.oracle_index].blinding;
+                    let salted = params.hiding && poly_blinding;
+                    let eval = proof.unsalted_eval(p.oracle_index, p.polynomial_index, salted);
+                    sum = alpha.shift(sum);
+                    let shift_val = F::Extension::from_canonical_usize((i == 0) as usize)
+                        + subgroup_x.exp_power_of_2(i * params.degree_bits)
+                            * F::Extension::from_canonical_usize(i);
+                    sum += F::Extension::from_basefield(eval) * shift_val;
+                });
+        }
     }
 
     sum
@@ -197,7 +223,14 @@ fn fri_verifier_query_round<
         params,
     );
 
-    for (i, &arity_bits) in params.reduction_arity_bits.iter().enumerate() {
+    let arities = if params.hiding {
+        let mut tmp = vec![1];
+        tmp.extend(&params.reduction_arity_bits);
+        tmp
+    } else {
+        params.reduction_arity_bits.clone()
+    };
+    for (i, &arity_bits) in arities.iter().enumerate() {
         let arity = 1 << arity_bits;
         let evals = &round_proof.steps[i].evals;
 
@@ -217,6 +250,13 @@ fn fri_verifier_query_round<
             challenges.fri_betas[i],
         );
 
+        println!(
+            "commit caps len {}, evals len {}, coset index bytes len {} steps len {}",
+            proof.commit_phase_merkle_caps.len(),
+            flatten::<F, D>(evals).len(),
+            coset_index,
+            round_proof.steps.len()
+        );
         verify_merkle_proof_to_cap::<F, C::Hasher>(
             flatten(evals),
             coset_index,
@@ -248,11 +288,23 @@ pub(crate) struct PrecomputedReducedOpenings<F: RichField + Extendable<D>, const
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> PrecomputedReducedOpenings<F, D> {
-    pub(crate) fn from_os_and_alpha(openings: &FriOpenings<F, D>, alpha: F::Extension) -> Self {
+    pub(crate) fn from_os_and_alpha(
+        openings: &FriOpenings<F, D>,
+        alpha: F::Extension,
+        is_zk: bool,
+    ) -> Self {
         let reduced_openings_at_point = openings
             .batches
             .iter()
-            .map(|batch| ReducingFactor::new(alpha).reduce(batch.values.iter()))
+            .enumerate()
+            .map(|(i, batch)| {
+                let last_values = if i == 0 && is_zk {
+                    batch.values.len() - 2
+                } else {
+                    batch.values.len()
+                };
+                ReducingFactor::new(alpha).reduce(batch.values[..last_values].iter())
+            })
             .collect();
         Self {
             reduced_openings_at_point,

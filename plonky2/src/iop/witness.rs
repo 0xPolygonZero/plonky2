@@ -99,11 +99,11 @@ pub trait WitnessWrite<F: Field> {
             proof,
             public_inputs,
         } = proof_with_pis;
+
         let ProofWithPublicInputsTarget {
             proof: pt,
             public_inputs: pi_targets,
         } = proof_with_pis_target;
-
         // Set public inputs.
         for (&pi_t, &pi) in pi_targets.iter().zip_eq(public_inputs) {
             self.set_target(pi_t, pi)?;
@@ -128,6 +128,7 @@ pub trait WitnessWrite<F: Field> {
             &proof.plonk_zs_partial_products_cap,
         )?;
         self.set_cap_target(&proof_target.quotient_polys_cap, &proof.quotient_polys_cap)?;
+        self.set_cap_target(&proof_target.random_r, &proof.random_r)?;
 
         self.set_fri_openings(
             &proof_target.openings.to_fri_openings(),

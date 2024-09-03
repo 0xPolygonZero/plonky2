@@ -593,6 +593,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CommonCircuitData<F, D> {
                 num_polys: self.num_quotient_polys(),
                 blinding: PlonkOracle::QUOTIENT.blinding,
             },
+            FriOracleInfo {
+                num_polys: self.num_r_polys(),
+                blinding: PlonkOracle::R.blinding,
+            },
         ]
     }
 
@@ -648,8 +652,18 @@ impl<F: RichField + Extendable<D>, const D: usize> CommonCircuitData<F, D> {
                 ..self.num_zs_partial_products_polys() + self.num_all_lookup_polys(),
         )
     }
+
     pub(crate) const fn num_quotient_polys(&self) -> usize {
         self.config.num_challenges * self.quotient_degree_factor
+    }
+
+    /// Returns the information for lookup polynomials, i.e. the index within the oracle and the indices of the polynomials within the commitment.
+    fn fri_r_polys(&self) -> Vec<FriPolynomialInfo> {
+        FriPolynomialInfo::from_range(PlonkOracle::R.index, 0..self.num_r_polys())
+    }
+
+    pub(crate) const fn num_r_polys(&self) -> usize {
+        2 * (self.config.zero_knowledge as usize)
     }
 
     fn fri_all_polys(&self) -> Vec<FriPolynomialInfo> {
@@ -659,6 +673,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CommonCircuitData<F, D> {
             self.fri_zs_partial_products_polys(),
             self.fri_quotient_polys(),
             self.fri_lookup_polys(),
+            self.fri_r_polys(),
         ]
         .concat()
     }

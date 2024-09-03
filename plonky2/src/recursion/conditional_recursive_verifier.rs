@@ -77,6 +77,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                     wires_cap: wires_cap0,
                     plonk_zs_partial_products_cap: plonk_zs_partial_products_cap0,
                     quotient_polys_cap: quotient_polys_cap0,
+                    random_r: random_r_cap0,
                     openings: openings0,
                     opening_proof: opening_proof0,
                 },
@@ -88,6 +89,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                     wires_cap: wires_cap1,
                     plonk_zs_partial_products_cap: plonk_zs_partial_products_cap1,
                     quotient_polys_cap: quotient_polys_cap1,
+                    random_r: random_r_cap1,
                     openings: openings1,
                     opening_proof: opening_proof1,
                 },
@@ -102,6 +104,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             );
             let selected_quotient_polys_cap =
                 self.select_cap(b, quotient_polys_cap0, quotient_polys_cap1);
+            let selected_random_r = self.select_cap(b, random_r_cap0, random_r_cap1);
             let selected_openings = self.select_opening_set(b, openings0, openings1);
             let selected_opening_proof =
                 self.select_opening_proof(b, opening_proof0, opening_proof1);
@@ -111,6 +114,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                     wires_cap: selected_wires_cap,
                     plonk_zs_partial_products_cap: selected_plonk_zs_partial_products_cap,
                     quotient_polys_cap: selected_quotient_polys_cap,
+                    random_r: selected_random_r,
                     openings: selected_openings,
                     opening_proof: selected_opening_proof,
                 },
@@ -203,6 +207,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             next_lookup_zs: self.select_vec_ext(b, &os0.next_lookup_zs, &os1.next_lookup_zs),
             partial_products: self.select_vec_ext(b, &os0.partial_products, &os1.partial_products),
             quotient_polys: self.select_vec_ext(b, &os0.quotient_polys, &os1.quotient_polys),
+            random_r: self.select_vec_ext(b, &os0.random_r, &os1.random_r),
         }
     }
 

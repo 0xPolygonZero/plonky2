@@ -2,6 +2,7 @@
 use alloc::{format, vec::Vec};
 
 use itertools::Itertools;
+use plonky2_field::types::Field;
 
 use crate::field::extension::Extendable;
 use crate::fri::proof::{
@@ -145,6 +146,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             PrecomputedReducedOpeningsTarget::from_os_and_alpha(
                 openings,
                 challenges.fri_alpha,
+                params.hiding,
                 self
             )
         );
@@ -192,6 +194,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             .zip(initial_merkle_caps)
             .enumerate()
         {
+            println!("initial proof index {}", i);
             with_context!(
                 self,
                 &format!("verify {i}'th initial Merkle proof"),
@@ -226,13 +229,20 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let mut alpha = ReducingFactorTarget::new(alpha);
         let mut sum = self.zero_extension();
 
-        for (batch, reduced_openings) in instance
+        for (idx, (batch, reduced_openings)) in instance
             .batches
             .iter()
             .zip(&precomputed_reduced_evals.reduced_openings_at_point)
+            .enumerate()
         {
             let FriBatchInfoTarget { point, polynomials } = batch;
-            let evals = polynomials
+            let is_zk = params.hiding;
+            let last_poly = if is_zk && idx == 0 {
+                polynomials.len() - 2
+            } else {
+                polynomials.len()
+            };
+            let evals = polynomials[..last_poly]
                 .iter()
                 .map(|p| {
                     let poly_blinding = instance.oracles[p.oracle_index].blinding;
@@ -245,6 +255,30 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             let denominator = self.sub_extension(subgroup_x, *point);
             sum = alpha.shift(sum, self);
             sum = self.div_add_extension(numerator, denominator, sum);
+
+            if is_zk && idx == 0 {
+                polynomials[last_poly..]
+                    .iter()
+                    .enumerate()
+                    .for_each(|(i, p)| {
+                        let poly_blinding = instance.oracles[p.oracle_index].blinding;
+                        let salted = params.hiding && poly_blinding;
+                        let eval = proof.unsalted_eval(p.oracle_index, p.polynomial_index, salted);
+                        sum = alpha.shift(sum, self);
+                        let val = self
+                            .constant_extension(F::Extension::from_canonical_u32((i == 0) as u32));
+                        let power =
+                            self.exp_power_of_2_extension(subgroup_x, i * params.degree_bits);
+                        let pi =
+                            self.constant_extension(F::Extension::from_canonical_u32(i as u32));
+                        let power = self.mul_extension(power, pi);
+                        let shift_val = self.add_extension(val, power);
+
+                        let eval_extension = eval.to_ext_target(self.zero());
+                        let tmp = self.mul_extension(eval_extension, shift_val);
+                        sum = self.add_extension(sum, tmp);
+                    });
+            }
         }
 
         sum
@@ -264,6 +298,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     ) where
         C::Hasher: AlgebraicHasher<F>,
     {
+        println!("n in recursive verifier {}", n);
         let n_log = log2_strict(n);
 
         // Note that this `low_bits` decomposition permits non-canonical binary encodings. Here we
@@ -308,7 +343,15 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             )
         );
 
-        for (i, &arity_bits) in params.reduction_arity_bits.iter().enumerate() {
+        let reduction_arity_bits = if params.hiding {
+            let mut tmp = vec![1];
+            tmp.extend(&params.reduction_arity_bits);
+            tmp
+        } else {
+            params.reduction_arity_bits.clone()
+        };
+
+        for (i, &arity_bits) in reduction_arity_bits.iter().enumerate() {
             let evals = &round_proof.steps[i].evals;
 
             // Split x_index into the index of the coset x is in, and the index of x within that coset.
@@ -333,6 +376,14 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 )
             );
 
+            println!("verify cap index query round idx i {}", i);
+            println!(
+                "round proof steps len {:?}, commit merkle caps len {:?}, evals len {:?}, coset index bits len {:?}",
+                round_proof.steps.len(),
+                proof.commit_phase_merkle_caps.len(),
+                flatten_target(evals).len(),
+                coset_index_bits.len()
+            );
             with_context!(
                 self,
                 "verify FRI round Merkle proof.",
@@ -391,12 +442,20 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     ) -> FriProofTarget<D> {
         let cap_height = params.config.cap_height;
         let num_queries = params.config.num_query_rounds;
-        let commit_phase_merkle_caps = (0..params.reduction_arity_bits.len())
+        let arities = if params.hiding {
+            let mut tmp = vec![1];
+            tmp.extend(&params.reduction_arity_bits);
+            tmp
+        } else {
+            params.reduction_arity_bits.clone()
+        };
+        let commit_phase_merkle_caps = (0..arities.len())
             .map(|_| self.add_virtual_cap(cap_height))
             .collect();
         let query_round_proofs = (0..num_queries)
             .map(|_| self.add_virtual_fri_query(num_leaves_per_oracle, params))
             .collect();
+
         let final_poly = self.add_virtual_poly_coeff_ext(params.final_poly_len());
         let pow_witness = self.add_virtual_target();
         FriProofTarget {
@@ -414,13 +473,20 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     ) -> FriQueryRoundTarget<D> {
         let cap_height = params.config.cap_height;
         assert!(params.lde_bits() >= cap_height);
-        let mut merkle_proof_len = params.lde_bits() - cap_height;
+        let mut merkle_proof_len = params.lde_bits() - cap_height + 1;
 
         let initial_trees_proof =
-            self.add_virtual_fri_initial_trees_proof(num_leaves_per_oracle, merkle_proof_len);
+            self.add_virtual_fri_initial_trees_proof(num_leaves_per_oracle, merkle_proof_len - 1);
 
-        let mut steps = Vec::with_capacity(params.reduction_arity_bits.len());
-        for &arity_bits in &params.reduction_arity_bits {
+        let reduction_arity_bits = if params.hiding {
+            let mut tmp = vec![1];
+            tmp.extend(&params.reduction_arity_bits);
+            tmp
+        } else {
+            params.reduction_arity_bits.clone()
+        };
+        let mut steps = Vec::with_capacity(reduction_arity_bits.len());
+        for &arity_bits in &reduction_arity_bits {
             assert!(merkle_proof_len >= arity_bits);
             merkle_proof_len -= arity_bits;
             steps.push(self.add_virtual_fri_query_step(arity_bits, merkle_proof_len));
@@ -471,12 +537,21 @@ impl<const D: usize> PrecomputedReducedOpeningsTarget<D> {
     pub(crate) fn from_os_and_alpha<F: RichField + Extendable<D>>(
         openings: &FriOpeningsTarget<D>,
         alpha: ExtensionTarget<D>,
+        is_zk: bool,
         builder: &mut CircuitBuilder<F, D>,
     ) -> Self {
         let reduced_openings_at_point = openings
             .batches
             .iter()
-            .map(|batch| ReducingFactorTarget::new(alpha).reduce(&batch.values, builder))
+            .enumerate()
+            .map(|(i, batch)| {
+                let last_values = if i == 0 && is_zk {
+                    batch.values.len() - 2
+                } else {
+                    batch.values.len()
+                };
+                ReducingFactorTarget::new(alpha).reduce(&batch.values[..last_values], builder)
+            })
             .collect();
         Self {
             reduced_openings_at_point,

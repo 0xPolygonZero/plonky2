@@ -38,6 +38,7 @@ pub struct Proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const
     pub plonk_zs_partial_products_cap: MerkleCap<F, C::Hasher>,
     /// Merkle cap of LDEs of the quotient polynomial components.
     pub quotient_polys_cap: MerkleCap<F, C::Hasher>,
+    pub random_r: MerkleCap<F, C::Hasher>,
     /// Purported values of each polynomial at the challenge point.
     pub openings: OpeningSet<F, D>,
     /// A batch FRI argument for all openings.
@@ -49,6 +50,7 @@ pub struct ProofTarget<const D: usize> {
     pub wires_cap: MerkleCapTarget,
     pub plonk_zs_partial_products_cap: MerkleCapTarget,
     pub quotient_polys_cap: MerkleCapTarget,
+    pub random_r: MerkleCapTarget,
     pub openings: OpeningSetTarget<D>,
     pub opening_proof: FriProofTarget<D>,
 }
@@ -60,6 +62,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> P
             wires_cap,
             plonk_zs_partial_products_cap,
             quotient_polys_cap,
+            random_r,
             openings,
             opening_proof,
         } = self;
@@ -68,6 +71,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> P
             wires_cap,
             plonk_zs_partial_products_cap,
             quotient_polys_cap,
+            random_r,
             openings,
             opening_proof: opening_proof.compress(indices, params),
         }
@@ -137,6 +141,7 @@ pub struct CompressedProof<F: RichField + Extendable<D>, C: GenericConfig<D, F =
     pub plonk_zs_partial_products_cap: MerkleCap<F, C::Hasher>,
     /// Merkle cap of LDEs of the quotient polynomial components.
     pub quotient_polys_cap: MerkleCap<F, C::Hasher>,
+    pub random_r: MerkleCap<F, C::Hasher>,
     /// Purported values of each polynomial at the challenge point.
     pub openings: OpeningSet<F, D>,
     /// A compressed batch FRI argument for all openings.
@@ -157,6 +162,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             wires_cap,
             plonk_zs_partial_products_cap,
             quotient_polys_cap,
+            random_r,
             openings,
             opening_proof,
         } = self;
@@ -165,6 +171,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             wires_cap,
             plonk_zs_partial_products_cap,
             quotient_polys_cap,
+            random_r,
             openings,
             opening_proof: opening_proof.decompress(challenges, fri_inferred_elements, params),
         }
@@ -308,6 +315,7 @@ pub struct OpeningSet<F: RichField + Extendable<D>, const D: usize> {
     pub quotient_polys: Vec<F::Extension>,
     pub lookup_zs: Vec<F::Extension>,
     pub lookup_zs_next: Vec<F::Extension>,
+    pub random_r: Vec<F::Extension>,
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> OpeningSet<F, D> {
@@ -318,6 +326,7 @@ impl<F: RichField + Extendable<D>, const D: usize> OpeningSet<F, D> {
         wires_commitment: &PolynomialBatch<F, C, D>,
         zs_partial_products_lookup_commitment: &PolynomialBatch<F, C, D>,
         quotient_polys_commitment: &PolynomialBatch<F, C, D>,
+        random_r: &PolynomialBatch<F, C, D>,
         common_data: &CommonCircuitData<F, D>,
     ) -> Self {
         let eval_commitment = |z: F::Extension, c: &PolynomialBatch<F, C, D>| {
@@ -334,6 +343,7 @@ impl<F: RichField + Extendable<D>, const D: usize> OpeningSet<F, D> {
         let zs_partial_products_lookup_next_eval =
             eval_commitment(g * zeta, zs_partial_products_lookup_commitment);
         let quotient_polys = eval_commitment(zeta, quotient_polys_commitment);
+        let random_r_polys = eval_commitment(zeta, random_r);
 
         Self {
             constants: constants_sigmas_eval[common_data.constants_range()].to_vec(),
@@ -347,6 +357,7 @@ impl<F: RichField + Extendable<D>, const D: usize> OpeningSet<F, D> {
             lookup_zs: zs_partial_products_lookup_eval[common_data.lookup_range()].to_vec(),
             lookup_zs_next: zs_partial_products_lookup_next_eval[common_data.lookup_range()]
                 .to_vec(),
+            random_r: random_r_polys,
         }
     }
     pub(crate) fn to_fri_openings(&self) -> FriOpenings<F, D> {
@@ -361,6 +372,7 @@ impl<F: RichField + Extendable<D>, const D: usize> OpeningSet<F, D> {
                     self.partial_products.as_slice(),
                     self.quotient_polys.as_slice(),
                     self.lookup_zs.as_slice(),
+                    self.random_r.as_slice(),
                 ]
                 .concat(),
             }
@@ -373,6 +385,7 @@ impl<F: RichField + Extendable<D>, const D: usize> OpeningSet<F, D> {
                     self.plonk_zs.as_slice(),
                     self.partial_products.as_slice(),
                     self.quotient_polys.as_slice(),
+                    self.random_r.as_slice(),
                 ]
                 .concat(),
             }
@@ -404,6 +417,7 @@ pub struct OpeningSetTarget<const D: usize> {
     pub next_lookup_zs: Vec<ExtensionTarget<D>>,
     pub partial_products: Vec<ExtensionTarget<D>>,
     pub quotient_polys: Vec<ExtensionTarget<D>>,
+    pub random_r: Vec<ExtensionTarget<D>>,
 }
 
 impl<const D: usize> OpeningSetTarget<D> {
@@ -419,6 +433,7 @@ impl<const D: usize> OpeningSetTarget<D> {
                     self.partial_products.as_slice(),
                     self.quotient_polys.as_slice(),
                     self.lookup_zs.as_slice(),
+                    self.random_r.as_slice(),
                 ]
                 .concat(),
             }
@@ -431,6 +446,7 @@ impl<const D: usize> OpeningSetTarget<D> {
                     self.plonk_zs.as_slice(),
                     self.partial_products.as_slice(),
                     self.quotient_polys.as_slice(),
+                    self.random_r.as_slice(),
                 ]
                 .concat(),
             }

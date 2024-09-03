@@ -103,6 +103,7 @@ pub(crate) fn verify_with_challenges<
         // In the lookup case, `plonk_zs_partial_products_cap` should also include the lookup commitment.
         proof.plonk_zs_partial_products_cap,
         proof.quotient_polys_cap,
+        proof.random_r,
     ];
 
     verify_fri_proof::<F, C, D>(

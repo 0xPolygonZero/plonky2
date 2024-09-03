@@ -87,7 +87,11 @@ pub struct FriParams {
 
 impl FriParams {
     pub fn total_arities(&self) -> usize {
-        self.reduction_arity_bits.iter().sum()
+        if self.hiding {
+            (1 as usize) + self.reduction_arity_bits.iter().sum::<usize>()
+        } else {
+            self.reduction_arity_bits.iter().sum()
+        }
     }
 
     pub(crate) fn max_arity_bits(&self) -> Option<usize> {
@@ -103,7 +107,11 @@ impl FriParams {
     }
 
     pub fn final_poly_bits(&self) -> usize {
-        self.degree_bits - self.total_arities()
+        if self.hiding {
+            self.degree_bits + 1 - self.total_arities()
+        } else {
+            self.degree_bits - self.total_arities()
+        }
     }
 
     pub fn final_poly_len(&self) -> usize {

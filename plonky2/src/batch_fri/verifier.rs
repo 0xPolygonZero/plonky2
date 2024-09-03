@@ -46,7 +46,7 @@ pub fn verify_batch_fri_proof<
 
     let mut precomputed_reduced_evals = Vec::with_capacity(openings.len());
     for opn in openings {
-        let pre = PrecomputedReducedOpenings::from_os_and_alpha(opn, challenges.fri_alpha);
+        let pre = PrecomputedReducedOpenings::from_os_and_alpha(opn, challenges.fri_alpha, false);
         precomputed_reduced_evals.push(pre);
     }
     let degree_bits = degree_bits

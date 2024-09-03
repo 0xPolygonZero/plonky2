@@ -63,9 +63,21 @@ where
             ensure!(merkle_proof.len() + cap_height == params.lde_bits());
         }
 
-        ensure!(steps.len() == params.reduction_arity_bits.len());
-        let mut codeword_len_bits = params.lde_bits();
-        for (step, arity_bits) in steps.iter().zip(&params.reduction_arity_bits) {
+        let arity_bits = if params.hiding {
+            let mut tmp = vec![1];
+            tmp.extend(&params.reduction_arity_bits);
+            tmp
+        } else {
+            params.reduction_arity_bits.clone()
+        };
+        ensure!(steps.len() == arity_bits.len());
+
+        let mut codeword_len_bits = if params.hiding {
+            params.lde_bits() + 1
+        } else {
+            params.lde_bits()
+        };
+        for (step, arity_bits) in steps.iter().zip(&arity_bits) {
             let FriQueryStep {
                 evals,
                 merkle_proof,

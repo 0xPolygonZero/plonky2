@@ -62,6 +62,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 PrecomputedReducedOpeningsTarget::from_os_and_alpha(
                     opn,
                     challenges.fri_alpha,
+                    false,
                     self
                 )
             );
