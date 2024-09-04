@@ -335,7 +335,10 @@ impl<F: RichField + Extendable<D>, H: Hasher<F>, const D: usize> CompressedFriPr
         .map(|(ls, is, ps)| decompress_merkle_proofs(ls, is, &ps, height, cap_height))
         .collect::<Vec<_>>();
         let steps_proofs = izip!(&steps_evals, &steps_indices, steps_proofs, heights)
-            .map(|(ls, is, ps, h)| decompress_merkle_proofs(ls, is, &ps, h, cap_height))
+            .map(|(ls, is, ps, h)| {
+                let cur_h = if params.hiding { h + 1 } else { h };
+                decompress_merkle_proofs(ls, is, &ps, cur_h, cap_height)
+            })
             .collect::<Vec<_>>();
 
         let mut decompressed_query_proofs = Vec::with_capacity(num_reductions);

@@ -466,6 +466,10 @@ pub trait Read {
         let quotient_p = self.read_merkle_proof()?;
         evals_proofs.push((quotient_v, quotient_p));
 
+        let random_r_v = self.read_field_vec(common_data.num_r_polys() + salt)?;
+        let random_v_p = self.read_merkle_proof()?;
+        evals_proofs.push((random_r_v, random_v_p));
+
         Ok(FriInitialTreeProof { evals_proofs })
     }
 
@@ -528,9 +532,14 @@ pub trait Read {
         let mut fqrs = Vec::with_capacity(config.fri_config.num_query_rounds);
         for _ in 0..config.fri_config.num_query_rounds {
             let initial_trees_proof = self.read_fri_initial_proof::<F, C, D>(common_data)?;
-            let steps = common_data
-                .fri_params
-                .reduction_arity_bits
+            let arity_bits = if common_data.config.zero_knowledge {
+                let mut tmp = vec![1];
+                tmp.extend(&common_data.fri_params.reduction_arity_bits);
+                tmp
+            } else {
+                common_data.fri_params.reduction_arity_bits.clone()
+            };
+            let steps = arity_bits
                 .iter()
                 .map(|&ar| self.read_fri_query_step::<F, C, D>(1 << ar, false))
                 .collect::<Result<_, _>>()?;
@@ -2028,7 +2037,7 @@ pub trait Write {
         self.write_target_merkle_cap(&proof.wires_cap)?;
         self.write_target_merkle_cap(&proof.plonk_zs_partial_products_cap)?;
         self.write_target_merkle_cap(&proof.quotient_polys_cap)?;
-        self.write_target_merkle_cap(&&proof.random_r)?;
+        self.write_target_merkle_cap(&proof.random_r)?;
         self.write_target_opening_set(&proof.openings)?;
         self.write_target_fri_proof::<D>(&proof.opening_proof)
     }

@@ -229,14 +229,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
                 &precomputed_reduced_evals,
                 &common_data.fri_params,
             );
-            let all_arity_bits = if common_data.config.zero_knowledge {
-                let mut tmp = vec![1];
-                tmp.extend(&common_data.fri_params.reduction_arity_bits);
-                tmp
-            } else {
-                common_data.fri_params.reduction_arity_bits.clone()
-            };
-            for (i, &arity_bits) in all_arity_bits.iter().enumerate() {
+            for (i, &arity_bits) in reduction_arity_bits.iter().enumerate() {
                 let coset_index = x_index >> arity_bits;
                 if !seen_indices_by_depth[i].insert(coset_index) {
                     // If this index has already been seen, we can skip the rest of the reductions.
