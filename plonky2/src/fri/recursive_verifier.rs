@@ -194,7 +194,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             .zip(initial_merkle_caps)
             .enumerate()
         {
-            println!("initial proof index {}", i);
             with_context!(
                 self,
                 &format!("verify {i}'th initial Merkle proof"),
@@ -298,7 +297,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     ) where
         C::Hasher: AlgebraicHasher<F>,
     {
-        println!("n in recursive verifier {}", n);
         let n_log = log2_strict(n);
 
         // Note that this `low_bits` decomposition permits non-canonical binary encodings. Here we
@@ -306,7 +304,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         Self::assert_noncanonical_indices_ok(&params.config);
         let mut x_index_bits = self.low_bits(x_index, n_log, F::BITS);
 
-        let cap_index =
+        let initial_cap_index =
             self.le_sum(x_index_bits[x_index_bits.len() - params.config.cap_height..].iter());
         with_context!(
             self,
@@ -315,7 +313,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 &x_index_bits,
                 &round_proof.initial_trees_proof,
                 initial_merkle_caps,
-                cap_index
+                initial_cap_index
             )
         );
 
@@ -351,6 +349,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             params.reduction_arity_bits.clone()
         };
 
+        let cap_index =
+            self.le_sum(x_index_bits[x_index_bits.len() + 1 - params.config.cap_height..].iter());
         for (i, &arity_bits) in reduction_arity_bits.iter().enumerate() {
             let evals = &round_proof.steps[i].evals;
 
@@ -376,14 +376,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 )
             );
 
-            println!("verify cap index query round idx i {}", i);
-            println!(
-                "round proof steps len {:?}, commit merkle caps len {:?}, evals len {:?}, coset index bits len {:?}",
-                round_proof.steps.len(),
-                proof.commit_phase_merkle_caps.len(),
-                flatten_target(evals).len(),
-                coset_index_bits.len()
-            );
             with_context!(
                 self,
                 "verify FRI round Merkle proof.",

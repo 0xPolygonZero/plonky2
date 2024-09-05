@@ -33,11 +33,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let dummy_gate_wire_two = Target::wire(row, dummy_gate.wire_claimed_element(copy));
         self.connect(claimed_element, dummy_gate_wire_two);
 
-        println!(
-            "access_index {:?}, dummy_ne {:?}, claimed {:?}, dummy_two {:?}",
-            access_index, dummy_gate_wire_one, claimed_element, dummy_gate_wire_two
-        );
-
         claimed_element
     }
 

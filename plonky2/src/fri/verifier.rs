@@ -250,13 +250,6 @@ fn fri_verifier_query_round<
             challenges.fri_betas[i],
         );
 
-        println!(
-            "commit caps len {}, evals len {}, coset index bytes len {} steps len {}",
-            proof.commit_phase_merkle_caps.len(),
-            flatten::<F, D>(evals).len(),
-            coset_index,
-            round_proof.steps.len()
-        );
         verify_merkle_proof_to_cap::<F, C::Hasher>(
             flatten(evals),
             coset_index,

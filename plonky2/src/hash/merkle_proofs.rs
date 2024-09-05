@@ -115,7 +115,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         merkle_root: HashOutTarget,
         proof: &MerkleProofTarget,
     ) {
-        println!("verify merkle proof");
         let merkle_cap = MerkleCapTarget(vec![merkle_root]);
         self.verify_merkle_proof_to_cap::<H>(leaf_data, leaf_index_bits, &merkle_cap, proof);
     }
@@ -129,7 +128,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         merkle_cap: &MerkleCapTarget,
         proof: &MerkleProofTarget,
     ) {
-        println!("merkle proof to cap");
         let cap_index = self.le_sum(leaf_index_bits[proof.siblings.len()..].iter().copied());
         self.verify_merkle_proof_to_cap_with_cap_index::<H>(
             leaf_data,
@@ -174,7 +172,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
 
         for i in 0..NUM_HASH_OUT_ELTS {
-            println!("random access idx i {}, original", i);
             let result = self.random_access(
                 cap_index,
                 merkle_cap.0.iter().map(|h| h.elements[i]).collect(),
@@ -231,7 +228,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
 
         for i in 0..NUM_HASH_OUT_ELTS {
-            println!("random access idx i {}, final cap separate", i);
             let result = self.random_access(
                 cap_index,
                 merkle_cap.0.iter().map(|h| h.elements[i]).collect(),

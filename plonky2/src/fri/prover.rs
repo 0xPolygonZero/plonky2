@@ -33,7 +33,6 @@ pub fn fri_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const
     } else {
         lde_polynomial_values.len()
     };
-    println!("n in prover {}", n);
     assert_eq!(lde_polynomial_coeffs.len(), lde_polynomial_values.len());
 
     // Commit phase
