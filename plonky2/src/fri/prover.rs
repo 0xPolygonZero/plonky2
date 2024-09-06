@@ -218,20 +218,28 @@ fn fri_prover_query_round<
 
     let initial_proof = initial_merkle_trees
         .iter()
-        .map(|t| (t.get(x_index).to_vec(), t.prove(x_index)))
+        .filter_map(|t| {
+            if !t.leaves.is_empty() {
+                Some((t.get(x_index).to_vec(), t.prove(x_index)))
+            } else {
+                None
+            }
+        })
         .collect::<Vec<_>>();
 
     for (i, tree) in trees.iter().enumerate() {
-        let arity_bits = arities[i];
-        let evals = unflatten(tree.get(x_index >> arity_bits));
-        let merkle_proof = tree.prove(x_index >> arity_bits);
+        if !tree.leaves.is_empty() {
+            let arity_bits = arities[i];
+            let evals = unflatten(tree.get(x_index >> arity_bits));
+            let merkle_proof = tree.prove(x_index >> arity_bits);
 
-        query_steps.push(FriQueryStep {
-            evals,
-            merkle_proof,
-        });
+            query_steps.push(FriQueryStep {
+                evals,
+                merkle_proof,
+            });
 
-        x_index >>= arity_bits;
+            x_index >>= arity_bits;
+        }
     }
 
     FriQueryRound {

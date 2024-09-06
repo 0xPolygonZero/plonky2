@@ -337,18 +337,19 @@ where
 
         (Some(h), random_r_commitment)
     } else {
-        let random_r_commitment = timed!(
-            timing,
-            "commit to random batch polynomial",
-            PolynomialBatch::<F, C, D>::from_coeffs(
-                vec![],
-                config.fri_config.rate_bits,
-                config.zero_knowledge && PlonkOracle::ZS_PARTIAL_PRODUCTS.blinding,
-                config.fri_config.cap_height,
-                timing,
-                prover_data.fft_root_table.as_ref(),
-            )
-        );
+        let random_r_commitment = PolynomialBatch::default();
+        // let random_r_commitment = timed!(
+        //     timing,
+        //     "commit to random batch polynomial",
+        //     PolynomialBatch::<F, C, D>::from_coeffs(
+        //         vec![],
+        //         config.fri_config.rate_bits,
+        //         config.zero_knowledge && PlonkOracle::ZS_PARTIAL_PRODUCTS.blinding,
+        //         config.fri_config.cap_height,
+        //         timing,
+        //         prover_data.fft_root_table.as_ref(),
+        //     )
+        // );
 
         (None, random_r_commitment)
     };

@@ -3,7 +3,8 @@ use itertools::Itertools;
 
 use crate::field::extension::Extendable;
 use crate::fri::proof::{FriProof, FriProofTarget};
-use crate::hash::hash_types::RichField;
+use crate::hash::hash_types::{HashOut, RichField};
+use crate::hash::merkle_proofs::MerkleProof;
 use crate::iop::witness::WitnessWrite;
 use crate::plonk::config::AlgebraicHasher;
 
@@ -57,16 +58,36 @@ where
         .iter()
         .zip_eq(&fri_proof.query_round_proofs)
     {
-        assert_eq!(
-            qt.initial_trees_proof.evals_proofs.len(),
-            q.initial_trees_proof.evals_proofs.len(),
+        assert!(
+            (qt.initial_trees_proof.evals_proofs.len() == q.initial_trees_proof.evals_proofs.len())
+                || (qt.initial_trees_proof.evals_proofs.len()
+                    == q.initial_trees_proof.evals_proofs.len() + 1),
             "initial trees proof"
         );
+
+        let cur_evals = if qt.initial_trees_proof.evals_proofs.len()
+            == q.initial_trees_proof.evals_proofs.len() + 1
+        {
+            let mut tmp = q.initial_trees_proof.evals_proofs.clone();
+            let l = qt.initial_trees_proof.evals_proofs
+                [qt.initial_trees_proof.evals_proofs.len() - 1]
+                .1
+                .siblings
+                .len();
+            let dummy_proof = MerkleProof {
+                siblings: vec![HashOut::default(); l],
+            };
+            tmp.push((vec![], dummy_proof));
+            tmp
+        } else {
+            println!("we're good");
+            q.initial_trees_proof.evals_proofs.clone()
+        };
         for (at, a) in qt
             .initial_trees_proof
             .evals_proofs
             .iter()
-            .zip_eq(&q.initial_trees_proof.evals_proofs)
+            .zip_eq(&cur_evals)
         {
             assert_eq!(at.0.len(), a.0.len(), "at");
             for (&t, &x) in at.0.iter().zip_eq(&a.0) {

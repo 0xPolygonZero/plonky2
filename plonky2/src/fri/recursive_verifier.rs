@@ -349,8 +349,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             params.reduction_arity_bits.clone()
         };
 
-        let cap_index =
-            self.le_sum(x_index_bits[x_index_bits.len() + 1 - params.config.cap_height..].iter());
+        let cap_index = self.le_sum(
+            x_index_bits[x_index_bits.len() + params.hiding as usize - params.config.cap_height..]
+                .iter(),
+        );
         for (i, &arity_bits) in reduction_arity_bits.iter().enumerate() {
             let evals = &round_proof.steps[i].evals;
 
@@ -465,10 +467,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     ) -> FriQueryRoundTarget<D> {
         let cap_height = params.config.cap_height;
         assert!(params.lde_bits() >= cap_height);
-        let mut merkle_proof_len = params.lde_bits() - cap_height + 1;
+        let mut merkle_proof_len = params.lde_bits() - cap_height;
 
         let initial_trees_proof =
-            self.add_virtual_fri_initial_trees_proof(num_leaves_per_oracle, merkle_proof_len - 1);
+            self.add_virtual_fri_initial_trees_proof(num_leaves_per_oracle, merkle_proof_len);
 
         let reduction_arity_bits = if params.hiding {
             let mut tmp = vec![1];
@@ -478,6 +480,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             params.reduction_arity_bits.clone()
         };
         let mut steps = Vec::with_capacity(reduction_arity_bits.len());
+        merkle_proof_len = if params.hiding {
+            merkle_proof_len + 1
+        } else {
+            merkle_proof_len
+        };
         for &arity_bits in &reduction_arity_bits {
             assert!(merkle_proof_len >= arity_bits);
             merkle_proof_len -= arity_bits;
