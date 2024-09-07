@@ -2,7 +2,7 @@
 use alloc::{vec, vec::Vec};
 use core::iter::zip;
 
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, ensure, Result};
 use hashbrown::HashMap;
 use itertools::{zip_eq, Itertools};
 
@@ -40,6 +40,24 @@ pub trait WitnessWrite<F: Field> {
     {
         for (ht, h) in ct.0.iter().zip(&value.0) {
             self.set_hash_target(*ht, *h)?;
+        }
+
+        Ok(())
+    }
+
+    fn set_opt_cap_target<H: AlgebraicHasher<F>>(
+        &mut self,
+        opt_ct: &Option<MerkleCapTarget>,
+        opt_value: &Option<MerkleCap<F, H>>,
+    ) -> Result<()>
+    where
+        F: RichField,
+    {
+        ensure!(opt_ct.is_some() == opt_value.is_some());
+        if let (Some(ct), Some(value)) = (opt_ct, opt_value) {
+            for (ht, h) in ct.0.iter().zip(&value.0) {
+                self.set_hash_target(*ht, *h)?;
+            }
         }
 
         Ok(())
@@ -128,7 +146,7 @@ pub trait WitnessWrite<F: Field> {
             &proof.plonk_zs_partial_products_cap,
         )?;
         self.set_cap_target(&proof_target.quotient_polys_cap, &proof.quotient_polys_cap)?;
-        self.set_cap_target(&proof_target.random_r, &proof.random_r)?;
+        self.set_opt_cap_target(&proof_target.opt_random_r, &proof.opt_random_r)?;
 
         self.set_fri_openings(
             &proof_target.openings.to_fri_openings(),

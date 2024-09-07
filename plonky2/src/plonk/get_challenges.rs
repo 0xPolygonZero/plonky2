@@ -114,7 +114,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             wires_cap,
             plonk_zs_partial_products_cap,
             quotient_polys_cap,
-            random_r,
+            opt_random_r,
             openings,
             opening_proof:
                 FriProof {
@@ -154,7 +154,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             wires_cap,
             plonk_zs_partial_products_cap,
             quotient_polys_cap,
-            random_r,
+            opt_random_r,
             openings,
             opening_proof:
                 CompressedFriProof {
@@ -344,7 +344,7 @@ impl<const D: usize> ProofWithPublicInputsTarget<D> {
             wires_cap,
             plonk_zs_partial_products_cap,
             quotient_polys_cap,
-            random_r,
+            opt_random_r,
             openings,
             opening_proof:
                 FriProofTarget {

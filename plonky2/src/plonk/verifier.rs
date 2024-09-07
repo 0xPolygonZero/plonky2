@@ -97,14 +97,26 @@ pub(crate) fn verify_with_challenges<
         ensure!(vanishing_polys_zeta[i] == z_h_zeta * reduce_with_powers(chunk, zeta_pow_deg));
     }
 
-    let merkle_caps = &[
-        verifier_data.constants_sigmas_cap.clone(),
-        proof.wires_cap,
-        // In the lookup case, `plonk_zs_partial_products_cap` should also include the lookup commitment.
-        proof.plonk_zs_partial_products_cap,
-        proof.quotient_polys_cap,
-        proof.random_r,
-    ];
+    let merkle_caps = &if let Some(random_r) = proof.opt_random_r {
+        [
+            verifier_data.constants_sigmas_cap.clone(),
+            proof.wires_cap,
+            // In the lookup case, `plonk_zs_partial_products_cap` should also include the lookup commitment.
+            proof.plonk_zs_partial_products_cap,
+            proof.quotient_polys_cap,
+            random_r,
+        ]
+        .to_vec()
+    } else {
+        [
+            verifier_data.constants_sigmas_cap.clone(),
+            proof.wires_cap,
+            // In the lookup case, `plonk_zs_partial_products_cap` should also include the lookup commitment.
+            proof.plonk_zs_partial_products_cap,
+            proof.quotient_polys_cap,
+        ]
+        .to_vec()
+    };
 
     verify_fri_proof::<F, C, D>(
         &common_data.get_fri_instance(challenges.plonk_zeta),

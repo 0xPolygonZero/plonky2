@@ -335,23 +335,9 @@ where
 
         // challenger.observe_cap::<C::Hasher>(&random_r_commitment.merkle_tree.cap);
 
-        (Some(h), random_r_commitment)
+        (Some(h), Some(random_r_commitment))
     } else {
-        let random_r_commitment = PolynomialBatch::default();
-        // let random_r_commitment = timed!(
-        //     timing,
-        //     "commit to random batch polynomial",
-        //     PolynomialBatch::<F, C, D>::from_coeffs(
-        //         vec![],
-        //         config.fri_config.rate_bits,
-        //         config.zero_knowledge && PlonkOracle::ZS_PARTIAL_PRODUCTS.blinding,
-        //         config.fri_config.cap_height,
-        //         timing,
-        //         prover_data.fft_root_table.as_ref(),
-        //     )
-        // );
-
-        (None, random_r_commitment)
+        (None, None)
     };
 
     let zeta = challenger.get_extension_challenge::<D>();
@@ -381,32 +367,65 @@ where
     challenger.observe_openings(&openings.to_fri_openings());
     let instance = common_data.get_fri_instance(zeta);
 
-    let opening_proof = timed!(
-        timing,
-        "compute opening proofs",
-        PolynomialBatch::<F, C, D>::prove_openings(
-            &instance,
-            &[
-                &prover_data.constants_sigmas_commitment,
-                &wires_commitment,
-                &partial_products_zs_and_lookup_commitment,
-                &quotient_polys_commitment,
-                &random_r_commitment,
-            ],
-            &mut challenger,
-            &common_data.fri_params,
+    let proof = if let Some(random_r_com) = random_r_commitment {
+        let opening_proof = timed!(
             timing,
-        )
-    );
+            "compute opening proofs",
+            PolynomialBatch::<F, C, D>::prove_openings(
+                &instance,
+                &[
+                    &prover_data.constants_sigmas_commitment,
+                    &wires_commitment,
+                    &partial_products_zs_and_lookup_commitment,
+                    &quotient_polys_commitment,
+                    &random_r_com
+                ],
+                &mut challenger,
+                &common_data.fri_params,
+                timing,
+            )
+        );
 
-    let proof = Proof::<F, C, D> {
-        wires_cap: wires_commitment.merkle_tree.cap,
-        plonk_zs_partial_products_cap: partial_products_zs_and_lookup_commitment.merkle_tree.cap,
-        quotient_polys_cap: quotient_polys_commitment.merkle_tree.cap,
-        random_r: random_r_commitment.merkle_tree.cap,
-        openings,
-        opening_proof,
+        Proof::<F, C, D> {
+            wires_cap: wires_commitment.merkle_tree.cap,
+            plonk_zs_partial_products_cap: partial_products_zs_and_lookup_commitment
+                .merkle_tree
+                .cap,
+            quotient_polys_cap: quotient_polys_commitment.merkle_tree.cap,
+            opt_random_r: Some(random_r_com.merkle_tree.cap),
+            openings,
+            opening_proof,
+        }
+    } else {
+        let opening_proof = timed!(
+            timing,
+            "compute opening proofs",
+            PolynomialBatch::<F, C, D>::prove_openings(
+                &instance,
+                &[
+                    &prover_data.constants_sigmas_commitment,
+                    &wires_commitment,
+                    &partial_products_zs_and_lookup_commitment,
+                    &quotient_polys_commitment,
+                ],
+                &mut challenger,
+                &common_data.fri_params,
+                timing,
+            )
+        );
+
+        Proof::<F, C, D> {
+            wires_cap: wires_commitment.merkle_tree.cap,
+            plonk_zs_partial_products_cap: partial_products_zs_and_lookup_commitment
+                .merkle_tree
+                .cap,
+            quotient_polys_cap: quotient_polys_commitment.merkle_tree.cap,
+            opt_random_r: None,
+            openings,
+            opening_proof,
+        }
     };
+
     Ok(ProofWithPublicInputs::<F, C, D> {
         proof,
         public_inputs,

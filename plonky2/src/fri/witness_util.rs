@@ -80,7 +80,6 @@ where
             tmp.push((vec![], dummy_proof));
             tmp
         } else {
-            println!("we're good");
             q.initial_trees_proof.evals_proofs.clone()
         };
         for (at, a) in qt
