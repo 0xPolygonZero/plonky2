@@ -77,18 +77,11 @@ fn fri_committed_trees<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>,
     challenger: &mut Challenger<F, C::Hasher>,
     fri_params: &FriParams,
 ) -> FriCommitedTrees<F, C, D> {
-    let arities = if fri_params.hiding {
-        let mut tmp = vec![1];
-        tmp.extend(&fri_params.reduction_arity_bits);
-        tmp
-    } else {
-        fri_params.reduction_arity_bits.clone()
-    };
-    let mut trees = Vec::with_capacity(arities.len());
+    let mut trees = Vec::with_capacity(fri_params.reduction_arity_bits.len());
 
     let mut shift = F::MULTIPLICATIVE_GROUP_GENERATOR;
 
-    for arity_bits in &arities {
+    for arity_bits in &fri_params.reduction_arity_bits {
         let arity = 1 << arity_bits;
 
         reverse_index_bits_in_place(&mut values.values);

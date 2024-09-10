@@ -68,7 +68,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CosetInterpolationGate<F, D> 
         Self::with_max_degree(subgroup_bits, 1 << subgroup_bits)
     }
 
-    pub(crate) fn with_max_degree(subgroup_bits: usize, max_degree: usize) -> Self {
+    pub fn with_max_degree(subgroup_bits: usize, max_degree: usize) -> Self {
         assert!(max_degree > 1, "need at least quadratic constraints");
 
         let n_points = 1 << subgroup_bits;

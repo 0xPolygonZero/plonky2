@@ -51,6 +51,7 @@ impl FriConfig {
             self.rate_bits,
             self.cap_height,
             self.num_query_rounds,
+            hiding,
         );
         FriParams {
             config: self.clone(),
@@ -87,11 +88,7 @@ pub struct FriParams {
 
 impl FriParams {
     pub fn total_arities(&self) -> usize {
-        if self.hiding {
-            (1 as usize) + self.reduction_arity_bits.iter().sum::<usize>()
-        } else {
-            self.reduction_arity_bits.iter().sum()
-        }
+        self.reduction_arity_bits.iter().sum::<usize>()
     }
 
     pub(crate) fn max_arity_bits(&self) -> Option<usize> {

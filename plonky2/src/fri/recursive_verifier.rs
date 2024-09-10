@@ -2,6 +2,7 @@
 use alloc::{format, vec::Vec};
 
 use itertools::Itertools;
+use plonky2_field::interpolation;
 use plonky2_field::types::Field;
 
 use crate::field::extension::Extendable;
@@ -52,6 +53,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let interpolation_gate = <CosetInterpolationGate<F, D>>::with_max_degree(
             arity_bits,
             self.config.max_quotient_degree_factor,
+        );
+        println!(
+            "arity bits {}, interpolation gate {:?}",
+            arity_bits, interpolation_gate
         );
         self.interpolate_coset(interpolation_gate, coset_start, &evals, beta)
     }
@@ -341,19 +346,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             )
         );
 
-        let reduction_arity_bits = if params.hiding {
-            let mut tmp = vec![1];
-            tmp.extend(&params.reduction_arity_bits);
-            tmp
-        } else {
-            params.reduction_arity_bits.clone()
-        };
-
         let cap_index = self.le_sum(
             x_index_bits[x_index_bits.len() + params.hiding as usize - params.config.cap_height..]
                 .iter(),
         );
-        for (i, &arity_bits) in reduction_arity_bits.iter().enumerate() {
+        for (i, &arity_bits) in params.reduction_arity_bits.iter().enumerate() {
             let evals = &round_proof.steps[i].evals;
 
             // Split x_index into the index of the coset x is in, and the index of x within that coset.
@@ -472,20 +469,13 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let initial_trees_proof =
             self.add_virtual_fri_initial_trees_proof(num_leaves_per_oracle, merkle_proof_len);
 
-        let reduction_arity_bits = if params.hiding {
-            let mut tmp = vec![1];
-            tmp.extend(&params.reduction_arity_bits);
-            tmp
-        } else {
-            params.reduction_arity_bits.clone()
-        };
-        let mut steps = Vec::with_capacity(reduction_arity_bits.len());
+        let mut steps = Vec::with_capacity(params.reduction_arity_bits.len());
         merkle_proof_len = if params.hiding {
             merkle_proof_len + 1
         } else {
             merkle_proof_len
         };
-        for &arity_bits in &reduction_arity_bits {
+        for &arity_bits in &params.reduction_arity_bits {
             assert!(merkle_proof_len >= arity_bits);
             merkle_proof_len -= arity_bits;
             steps.push(self.add_virtual_fri_query_step(arity_bits, merkle_proof_len));
