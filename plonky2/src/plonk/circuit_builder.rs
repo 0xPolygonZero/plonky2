@@ -4,7 +4,9 @@
 use alloc::{collections::BTreeMap, sync::Arc, vec, vec::Vec};
 use core::cmp::max;
 #[cfg(feature = "std")]
-use std::{collections::BTreeMap, sync::Arc, time::Instant};
+use std::{collections::BTreeMap, sync::Arc};
+#[cfg(feature = "timing")]
+use web_time::Instant;
 
 use hashbrown::{HashMap, HashSet};
 use itertools::Itertools;
