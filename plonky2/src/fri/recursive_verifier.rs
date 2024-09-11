@@ -2,7 +2,6 @@
 use alloc::{format, vec::Vec};
 
 use itertools::Itertools;
-use plonky2_field::interpolation;
 use plonky2_field::types::Field;
 
 use crate::field::extension::Extendable;
@@ -433,14 +432,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     ) -> FriProofTarget<D> {
         let cap_height = params.config.cap_height;
         let num_queries = params.config.num_query_rounds;
-        let arities = if params.hiding {
-            let mut tmp = vec![1];
-            tmp.extend(&params.reduction_arity_bits);
-            tmp
-        } else {
-            params.reduction_arity_bits.clone()
-        };
-        let commit_phase_merkle_caps = (0..arities.len())
+        let commit_phase_merkle_caps = (0..params.reduction_arity_bits.len())
             .map(|_| self.add_virtual_cap(cap_height))
             .collect();
         let query_round_proofs = (0..num_queries)

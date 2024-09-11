@@ -852,14 +852,12 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     fn num_blinding_gates(&self, degree_estimate: usize) -> (usize, usize) {
         let degree_bits_estimate = log2_strict(degree_estimate);
         let fri_queries = self.config.fri_config.num_query_rounds;
-        let arity_bits = if self.config.zero_knowledge {
-            let mut tmp = vec![1];
-            tmp.extend(self.fri_params(degree_bits_estimate).reduction_arity_bits);
-            tmp
-        } else {
-            self.fri_params(degree_bits_estimate).reduction_arity_bits
-        };
-        let arities: Vec<usize> = arity_bits.iter().map(|x| 1 << x).collect();
+        let arities: Vec<usize> = self
+            .fri_params(degree_bits_estimate)
+            .reduction_arity_bits
+            .iter()
+            .map(|x| 1 << x)
+            .collect();
         let total_fri_folding_points: usize = arities.iter().map(|x| x - 1).sum::<usize>();
         let final_poly_coeffs: usize = degree_estimate / arities.iter().product::<usize>();
         let fri_openings = fri_queries * (1 + D * total_fri_folding_points + D * final_poly_coeffs);

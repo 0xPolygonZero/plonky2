@@ -201,13 +201,6 @@ fn fri_prover_query_round<
     fri_params: &FriParams,
 ) -> FriQueryRound<F, C::Hasher, D> {
     let mut query_steps = Vec::new();
-    let arities = if fri_params.hiding {
-        let mut tmp = vec![1];
-        tmp.extend(fri_params.reduction_arity_bits.clone());
-        tmp
-    } else {
-        fri_params.reduction_arity_bits.clone()
-    };
 
     let initial_proof = initial_merkle_trees
         .iter()
@@ -222,7 +215,7 @@ fn fri_prover_query_round<
 
     for (i, tree) in trees.iter().enumerate() {
         if !tree.leaves.is_empty() {
-            let arity_bits = arities[i];
+            let arity_bits = fri_params.reduction_arity_bits[i];
             let evals = unflatten(tree.get(x_index >> arity_bits));
             let merkle_proof = tree.prove(x_index >> arity_bits);
 

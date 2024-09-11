@@ -198,14 +198,8 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         } = challenges;
         let mut fri_inferred_elements = Vec::new();
         // Holds the indices that have already been seen at each reduction depth.
-        let reduction_arity_bits = if common_data.fri_params.hiding {
-            let mut tmp = vec![1];
-            tmp.extend(&common_data.fri_params.reduction_arity_bits);
-            tmp
-        } else {
-            common_data.fri_params.reduction_arity_bits.clone()
-        };
-        let mut seen_indices_by_depth = vec![HashSet::new(); reduction_arity_bits.len()];
+        let mut seen_indices_by_depth =
+            vec![HashSet::new(); common_data.fri_params.reduction_arity_bits.len()];
         let precomputed_reduced_evals = PrecomputedReducedOpenings::from_os_and_alpha(
             &self.proof.openings.to_fri_openings(),
             *fri_alpha,
@@ -229,7 +223,12 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
                 &precomputed_reduced_evals,
                 &common_data.fri_params,
             );
-            for (i, &arity_bits) in reduction_arity_bits.iter().enumerate() {
+            for (i, &arity_bits) in common_data
+                .fri_params
+                .reduction_arity_bits
+                .iter()
+                .enumerate()
+            {
                 let coset_index = x_index >> arity_bits;
                 if !seen_indices_by_depth[i].insert(coset_index) {
                     // If this index has already been seen, we can skip the rest of the reductions.

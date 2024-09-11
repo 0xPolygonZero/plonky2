@@ -87,14 +87,16 @@ pub fn dummy_circuit<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, c
     common_data: &CommonCircuitData<F, D>,
 ) -> CircuitData<F, C, D> {
     let config = common_data.config.clone();
-    assert!(
-        !common_data.config.zero_knowledge,
-        "Degree calculation can be off if zero-knowledge is on."
-    );
+    if common_data.config.zero_knowledge {
+        log::warn!("Degree calculation can be off if zero-knowledge is on.");
+    }
 
     // Number of `NoopGate`s to add to get a circuit of size `degree` in the end.
     // Need to account for public input hashing, a `PublicInputGate` and a `ConstantGate`.
-    let degree = common_data.degree();
+    let mut degree = common_data.degree();
+    if common_data.config.zero_knowledge {
+        degree = degree / 2;
+    }
     let num_noop_gate = degree - common_data.num_public_inputs.div_ceil(8) - 2;
 
     let mut builder = CircuitBuilder::<F, D>::new(config);

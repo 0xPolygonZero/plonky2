@@ -223,14 +223,7 @@ fn fri_verifier_query_round<
         params,
     );
 
-    let arities = if params.hiding {
-        let mut tmp = vec![1];
-        tmp.extend(&params.reduction_arity_bits);
-        tmp
-    } else {
-        params.reduction_arity_bits.clone()
-    };
-    for (i, &arity_bits) in arities.iter().enumerate() {
+    for (i, &arity_bits) in params.reduction_arity_bits.iter().enumerate() {
         let arity = 1 << arity_bits;
         let evals = &round_proof.steps[i].evals;
 

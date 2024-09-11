@@ -608,14 +608,9 @@ pub trait Read {
         let mut fqrs = Vec::with_capacity(config.fri_config.num_query_rounds);
         for _ in 0..config.fri_config.num_query_rounds {
             let initial_trees_proof = self.read_fri_initial_proof::<F, C, D>(common_data)?;
-            let arity_bits = if common_data.config.zero_knowledge {
-                let mut tmp = vec![1];
-                tmp.extend(&common_data.fri_params.reduction_arity_bits);
-                tmp
-            } else {
-                common_data.fri_params.reduction_arity_bits.clone()
-            };
-            let steps = arity_bits
+            let steps = common_data
+                .fri_params
+                .reduction_arity_bits
                 .iter()
                 .map(|&ar| self.read_fri_query_step::<F, C, D>(1 << ar, false))
                 .collect::<Result<_, _>>()?;
@@ -660,14 +655,7 @@ pub trait Read {
     {
         let config = &common_data.config;
 
-        let reduction_arity_bits = if common_data.fri_params.hiding {
-            let mut tmp = vec![1];
-            tmp.extend(&common_data.fri_params.reduction_arity_bits);
-            tmp
-        } else {
-            common_data.fri_params.reduction_arity_bits.clone()
-        };
-        let commit_phase_merkle_caps = (0..reduction_arity_bits.len())
+        let commit_phase_merkle_caps = (0..common_data.fri_params.reduction_arity_bits.len())
             .map(|_| self.read_merkle_cap(config.fri_config.cap_height))
             .collect::<Result<Vec<_>, _>>()?;
         let query_round_proofs = self.read_fri_query_rounds::<F, C, D>(common_data)?;
@@ -1163,15 +1151,8 @@ pub trait Read {
         }
         let initial_trees_proofs = HashMap::from_iter(pairs);
 
-        let reduction_arity_bits = if common_data.fri_params.hiding {
-            let mut tmp = vec![1];
-            tmp.extend(&common_data.fri_params.reduction_arity_bits);
-            tmp
-        } else {
-            common_data.fri_params.reduction_arity_bits.clone()
-        };
-        let mut steps = Vec::with_capacity(reduction_arity_bits.len());
-        for &a in &reduction_arity_bits {
+        let mut steps = Vec::with_capacity(common_data.fri_params.reduction_arity_bits.len());
+        for &a in &common_data.fri_params.reduction_arity_bits {
             indices.iter_mut().for_each(|x| {
                 *x >>= a;
             });
@@ -1207,14 +1188,7 @@ pub trait Read {
     {
         let config = &common_data.config;
 
-        let reduction_arity_bits = if common_data.fri_params.hiding {
-            let mut tmp = vec![1];
-            tmp.extend(&common_data.fri_params.reduction_arity_bits);
-            tmp
-        } else {
-            common_data.fri_params.reduction_arity_bits.clone()
-        };
-        let commit_phase_merkle_caps = (0..reduction_arity_bits.len())
+        let commit_phase_merkle_caps = (0..common_data.fri_params.reduction_arity_bits.len())
             .map(|_| self.read_merkle_cap(config.fri_config.cap_height))
             .collect::<Result<Vec<_>, _>>()?;
         let query_round_proofs = self.read_compressed_fri_query_rounds::<F, C, D>(common_data)?;
