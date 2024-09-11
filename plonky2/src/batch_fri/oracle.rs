@@ -19,6 +19,7 @@ use crate::hash::batch_merkle_tree::BatchMerkleTree;
 use crate::hash::hash_types::RichField;
 use crate::iop::challenger::Challenger;
 use crate::plonk::config::GenericConfig;
+use crate::plonk::plonk_common::PlonkOracle;
 use crate::timed;
 use crate::util::reducing::ReducingFactor;
 use crate::util::timing::TimingTree;
@@ -151,9 +152,15 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             // where the `k_i`s are chosen such that each power of `alpha` appears only once in the final sum.
             // There are usually two batches for the openings at `zeta` and `g * zeta`.
             // The oracles used in Plonky2 are given in `FRI_ORACLES` in `plonky2/src/plonk/plonk_common.rs`.
-            for FriBatchInfo { point, polynomials } in &instance.batches {
+            for (idx, FriBatchInfo { point, polynomials }) in instance.batches.iter().enumerate() {
+                let is_zk = fri_params.hiding;
+                let nb_r_polys: usize = polynomials
+                    .iter()
+                    .map(|p| (p.oracle_index == PlonkOracle::R.index) as usize)
+                    .sum();
+                let last_poly = polynomials.len() - nb_r_polys * (idx == 0) as usize;
                 // Collect the coefficients of all the polynomials in `polynomials`.
-                let polys_coeff = polynomials.iter().map(|fri_poly| {
+                let polys_coeff = polynomials[..last_poly].iter().map(|fri_poly| {
                     &oracles[fri_poly.oracle_index].polynomials[fri_poly.polynomial_index]
                 });
                 let composition_poly = timed!(
@@ -165,6 +172,28 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
                 quotient.coeffs.push(F::Extension::ZERO); // pad back to power of two
                 alpha.shift_poly(&mut final_poly);
                 final_poly += quotient;
+
+                if is_zk && idx == 0 {
+                    let degree = 1 << degree_bits[i];
+                    let mut composition_poly = PolynomialCoeffs::empty();
+                    polynomials[last_poly..]
+                        .iter()
+                        .enumerate()
+                        .for_each(|(i, fri_poly)| {
+                            let mut cur_coeffs = oracles[fri_poly.oracle_index].polynomials
+                                [fri_poly.polynomial_index]
+                                .coeffs
+                                .clone();
+                            cur_coeffs.reverse();
+                            cur_coeffs.extend(vec![F::ZERO; degree * i]);
+                            cur_coeffs.reverse();
+                            cur_coeffs.extend(vec![F::ZERO; 2 * degree - cur_coeffs.len()]);
+                            composition_poly += PolynomialCoeffs { coeffs: cur_coeffs };
+                        });
+
+                    alpha.shift_poly(&mut final_poly);
+                    final_poly += composition_poly.to_extension();
+                }
             }
 
             assert_eq!(final_poly.len(), 1 << degree_bits[i]);

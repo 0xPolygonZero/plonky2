@@ -340,26 +340,6 @@ pub trait Read {
         ))
     }
 
-    /// Optionally reads a value of type [`MerkleCap`] from `self` with the given `cap_height`.
-    #[inline]
-    fn read_opt_merkle_cap<F, H>(&mut self, cap_height: usize) -> IoResult<Option<MerkleCap<F, H>>>
-    where
-        F: RichField,
-        H: Hasher<F>,
-    {
-        let is_zk = self.read_bool()?;
-        if is_zk {
-            let cap_length = 1 << cap_height;
-            Ok(Some(MerkleCap(
-                (0..cap_length)
-                    .map(|_| self.read_hash::<F, H>())
-                    .collect::<Result<Vec<_>, _>>()?,
-            )))
-        } else {
-            Ok(None)
-        }
-    }
-
     /// Reads a value of type [`MerkleCapTarget`] from `self`.
     #[inline]
     fn read_target_merkle_cap(&mut self) -> IoResult<MerkleCapTarget> {
@@ -1063,7 +1043,11 @@ pub trait Read {
         let wires_cap = self.read_merkle_cap(config.fri_config.cap_height)?;
         let plonk_zs_partial_products_cap = self.read_merkle_cap(config.fri_config.cap_height)?;
         let quotient_polys_cap = self.read_merkle_cap(config.fri_config.cap_height)?;
-        let opt_random_r = self.read_opt_merkle_cap(config.fri_config.cap_height)?;
+        let opt_random_r = if common_data.config.zero_knowledge {
+            Some(self.read_merkle_cap(config.fri_config.cap_height)?)
+        } else {
+            None
+        };
         let openings = self.read_opening_set::<F, C, D>(common_data)?;
         let opening_proof = self.read_fri_proof::<F, C, D>(common_data)?;
         Ok(Proof {
@@ -1218,7 +1202,11 @@ pub trait Read {
         let wires_cap = self.read_merkle_cap(config.fri_config.cap_height)?;
         let plonk_zs_partial_products_cap = self.read_merkle_cap(config.fri_config.cap_height)?;
         let quotient_polys_cap = self.read_merkle_cap(config.fri_config.cap_height)?;
-        let opt_random_r = self.read_opt_merkle_cap(config.fri_config.cap_height)?;
+        let opt_random_r = if common_data.config.zero_knowledge {
+            Some(self.read_merkle_cap(config.fri_config.cap_height)?)
+        } else {
+            None
+        };
         let openings = self.read_opening_set::<F, C, D>(common_data)?;
         let opening_proof = self.read_compressed_fri_proof::<F, C, D>(common_data)?;
         Ok(CompressedProof {
@@ -2142,7 +2130,9 @@ pub trait Write {
         self.write_merkle_cap(&proof.wires_cap)?;
         self.write_merkle_cap(&proof.plonk_zs_partial_products_cap)?;
         self.write_merkle_cap(&proof.quotient_polys_cap)?;
-        self.write_opt_merkle_cap(&proof.opt_random_r)?;
+        if let Some(random_r) = proof.opt_random_r.clone() {
+            self.write_merkle_cap(&random_r)?;
+        }
         self.write_opening_set(&proof.openings)?;
         self.write_fri_proof::<F, C, D>(&proof.opening_proof)
     }
@@ -2250,7 +2240,9 @@ pub trait Write {
         self.write_merkle_cap(&proof.wires_cap)?;
         self.write_merkle_cap(&proof.plonk_zs_partial_products_cap)?;
         self.write_merkle_cap(&proof.quotient_polys_cap)?;
-        self.write_opt_merkle_cap(&proof.opt_random_r)?;
+        if let Some(random_r) = proof.opt_random_r.clone() {
+            self.write_merkle_cap(&random_r)?;
+        }
         self.write_opening_set(&proof.openings)?;
         self.write_compressed_fri_proof::<F, C, D>(&proof.opening_proof)
     }

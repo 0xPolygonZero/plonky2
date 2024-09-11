@@ -38,7 +38,7 @@ pub struct Proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const
     pub plonk_zs_partial_products_cap: MerkleCap<F, C::Hasher>,
     /// Merkle cap of LDEs of the quotient polynomial components.
     pub quotient_polys_cap: MerkleCap<F, C::Hasher>,
-    /// Optional Mekrle cap for the random polynomial used, in the zk case,
+    /// Optional Merkle cap for the random polynomial used, in the zk case,
     /// to hide FRI's batch polynomial.
     pub opt_random_r: Option<MerkleCap<F, C::Hasher>>,
     /// Purported values of each polynomial at the challenge point.
@@ -143,7 +143,7 @@ pub struct CompressedProof<F: RichField + Extendable<D>, C: GenericConfig<D, F =
     pub plonk_zs_partial_products_cap: MerkleCap<F, C::Hasher>,
     /// Merkle cap of LDEs of the quotient polynomial components.
     pub quotient_polys_cap: MerkleCap<F, C::Hasher>,
-    /// Optional Mekrle cap for the random polynomial used, in the zk case,
+    /// Optional Merkle cap for the random polynomial used, in the zk case,
     /// to hide FRI's batch polynomial.
     pub opt_random_r: Option<MerkleCap<F, C::Hasher>>,
     /// Purported values of each polynomial at the challenge point.
@@ -460,62 +460,22 @@ pub struct OpeningSetTarget<const D: usize> {
 impl<const D: usize> OpeningSetTarget<D> {
     pub(crate) fn to_fri_openings(&self) -> FriOpeningsTarget<D> {
         let has_lookup = !self.lookup_zs.is_empty();
-        let zeta_batch = if has_lookup {
-            if let Some(random_r) = self.opt_random_r.clone() {
-                FriOpeningBatchTarget {
-                    values: [
-                        self.constants.as_slice(),
-                        self.plonk_sigmas.as_slice(),
-                        self.wires.as_slice(),
-                        self.plonk_zs.as_slice(),
-                        self.partial_products.as_slice(),
-                        self.quotient_polys.as_slice(),
-                        self.lookup_zs.as_slice(),
-                        random_r.as_slice(),
-                    ]
-                    .concat(),
-                }
-            } else {
-                FriOpeningBatchTarget {
-                    values: [
-                        self.constants.as_slice(),
-                        self.plonk_sigmas.as_slice(),
-                        self.wires.as_slice(),
-                        self.plonk_zs.as_slice(),
-                        self.partial_products.as_slice(),
-                        self.quotient_polys.as_slice(),
-                        self.lookup_zs.as_slice(),
-                    ]
-                    .concat(),
-                }
-            }
-        } else {
-            if let Some(random_r) = self.opt_random_r.clone() {
-                FriOpeningBatchTarget {
-                    values: [
-                        self.constants.as_slice(),
-                        self.plonk_sigmas.as_slice(),
-                        self.wires.as_slice(),
-                        self.plonk_zs.as_slice(),
-                        self.partial_products.as_slice(),
-                        self.quotient_polys.as_slice(),
-                        random_r.as_slice(),
-                    ]
-                    .concat(),
-                }
-            } else {
-                FriOpeningBatchTarget {
-                    values: [
-                        self.constants.as_slice(),
-                        self.plonk_sigmas.as_slice(),
-                        self.wires.as_slice(),
-                        self.plonk_zs.as_slice(),
-                        self.partial_products.as_slice(),
-                        self.quotient_polys.as_slice(),
-                    ]
-                    .concat(),
-                }
-            }
+        let mut zeta_batch = FriOpeningBatchTarget {
+            values: [
+                self.constants.as_slice(),
+                self.plonk_sigmas.as_slice(),
+                self.wires.as_slice(),
+                self.plonk_zs.as_slice(),
+                self.partial_products.as_slice(),
+                self.quotient_polys.as_slice(),
+            ]
+            .concat(),
+        };
+        if has_lookup {
+            zeta_batch.values.extend(self.lookup_zs.as_slice());
+        }
+        if let Some(random_r) = &self.opt_random_r {
+            zeta_batch.values.extend(random_r.as_slice());
         };
         let zeta_next_batch = if has_lookup {
             FriOpeningBatchTarget {

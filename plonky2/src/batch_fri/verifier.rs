@@ -17,6 +17,7 @@ use crate::hash::hash_types::RichField;
 use crate::hash::merkle_proofs::{verify_batch_merkle_proof_to_cap, verify_merkle_proof_to_cap};
 use crate::hash::merkle_tree::MerkleCap;
 use crate::plonk::config::{GenericConfig, Hasher};
+use crate::plonk::plonk_common::PlonkOracle;
 use crate::util::reducing::ReducingFactor;
 use crate::util::reverse_bits;
 
@@ -46,7 +47,8 @@ pub fn verify_batch_fri_proof<
 
     let mut precomputed_reduced_evals = Vec::with_capacity(openings.len());
     for opn in openings {
-        let pre = PrecomputedReducedOpenings::from_os_and_alpha(opn, challenges.fri_alpha, false);
+        let pre =
+            PrecomputedReducedOpenings::from_os_and_alpha(opn, challenges.fri_alpha, params.hiding);
         precomputed_reduced_evals.push(pre);
     }
     let degree_bits = degree_bits
@@ -123,13 +125,20 @@ fn batch_fri_combine_initial<
     let mut alpha = ReducingFactor::new(alpha);
     let mut sum = F::Extension::ZERO;
 
-    for (batch, reduced_openings) in instances[index]
+    for (idx, (batch, reduced_openings)) in instances[index]
         .batches
         .iter()
         .zip(&precomputed_reduced_evals.reduced_openings_at_point)
+        .enumerate()
     {
         let FriBatchInfo { point, polynomials } = batch;
-        let evals = polynomials
+        let is_zk = params.hiding;
+        let nb_r_polys: usize = polynomials
+            .iter()
+            .map(|p| (p.oracle_index == PlonkOracle::R.index) as usize)
+            .sum();
+        let last_poly = polynomials.len() - nb_r_polys * (idx == 0) as usize;
+        let evals = polynomials[..last_poly]
             .iter()
             .map(|p| {
                 let poly_blinding = instances[index].oracles[p.oracle_index].blinding;
@@ -142,6 +151,22 @@ fn batch_fri_combine_initial<
         let denominator = subgroup_x - *point;
         sum = alpha.shift(sum);
         sum += numerator / denominator;
+
+        if is_zk && idx == 0 {
+            polynomials[last_poly..]
+                .iter()
+                .enumerate()
+                .for_each(|(i, p)| {
+                    let poly_blinding = instances[index].oracles[p.oracle_index].blinding;
+                    let salted = params.hiding && poly_blinding;
+                    let eval = proof.unsalted_eval(p.oracle_index, p.polynomial_index, salted);
+                    sum = alpha.shift(sum);
+                    let shift_val = F::Extension::from_canonical_usize((i == 0) as usize)
+                        + subgroup_x.exp_power_of_2(i * params.degree_bits)
+                            * F::Extension::from_canonical_usize(i);
+                    sum += F::Extension::from_basefield(eval) * shift_val;
+                });
+        }
     }
 
     sum

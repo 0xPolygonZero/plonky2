@@ -104,11 +104,7 @@ impl FriParams {
     }
 
     pub fn final_poly_bits(&self) -> usize {
-        if self.hiding {
-            self.degree_bits + 1 - self.total_arities()
-        } else {
-            self.degree_bits - self.total_arities()
-        }
+        self.degree_bits + self.hiding as usize - self.total_arities()
     }
 
     pub fn final_poly_len(&self) -> usize {

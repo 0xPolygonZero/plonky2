@@ -19,9 +19,12 @@ use crate::iop::ext_target::{flatten_target, ExtensionTarget};
 use crate::iop::target::{BoolTarget, Target};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::config::{AlgebraicHasher, GenericConfig};
+use crate::plonk::plonk_common::PlonkOracle;
 use crate::util::reducing::ReducingFactorTarget;
 use crate::util::{log2_strict, reverse_index_bits_in_place};
 use crate::with_context;
+
+const ZK_EXTRA_MERKLE_LENGTH: usize = 1;
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Computes P'(x^arity) from {P(x*g^i)}_(i=0..arity), where g is a `arity`-th root of unity
@@ -52,10 +55,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let interpolation_gate = <CosetInterpolationGate<F, D>>::with_max_degree(
             arity_bits,
             self.config.max_quotient_degree_factor,
-        );
-        println!(
-            "arity bits {}, interpolation gate {:?}",
-            arity_bits, interpolation_gate
         );
         self.interpolate_coset(interpolation_gate, coset_start, &evals, beta)
     }
@@ -150,7 +149,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             PrecomputedReducedOpeningsTarget::from_os_and_alpha(
                 openings,
                 challenges.fri_alpha,
-                params.hiding,
                 self
             )
         );
@@ -240,11 +238,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         {
             let FriBatchInfoTarget { point, polynomials } = batch;
             let is_zk = params.hiding;
-            let last_poly = if is_zk && idx == 0 {
-                polynomials.len() - 2
-            } else {
-                polynomials.len()
-            };
+            let nb_r_polys: usize = polynomials
+                .iter()
+                .map(|p| (p.oracle_index == PlonkOracle::R.index) as usize)
+                .sum();
+            let last_poly = polynomials.len() - nb_r_polys * (idx == 0) as usize;
             let evals = polynomials[..last_poly]
                 .iter()
                 .map(|p| {
@@ -462,11 +460,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             self.add_virtual_fri_initial_trees_proof(num_leaves_per_oracle, merkle_proof_len);
 
         let mut steps = Vec::with_capacity(params.reduction_arity_bits.len());
-        merkle_proof_len = if params.hiding {
-            merkle_proof_len + 1
-        } else {
-            merkle_proof_len
-        };
+
+        merkle_proof_len = merkle_proof_len + ZK_EXTRA_MERKLE_LENGTH * params.hiding as usize;
         for &arity_bits in &params.reduction_arity_bits {
             assert!(merkle_proof_len >= arity_bits);
             merkle_proof_len -= arity_bits;
@@ -518,19 +513,15 @@ impl<const D: usize> PrecomputedReducedOpeningsTarget<D> {
     pub(crate) fn from_os_and_alpha<F: RichField + Extendable<D>>(
         openings: &FriOpeningsTarget<D>,
         alpha: ExtensionTarget<D>,
-        is_zk: bool,
         builder: &mut CircuitBuilder<F, D>,
     ) -> Self {
+        let nb_r_polys = builder.config.zero_knowledge as usize * 2;
         let reduced_openings_at_point = openings
             .batches
             .iter()
             .enumerate()
             .map(|(i, batch)| {
-                let last_values = if i == 0 && is_zk {
-                    batch.values.len() - 2
-                } else {
-                    batch.values.len()
-                };
+                let last_values = batch.values.len() - nb_r_polys * (i == 0) as usize;
                 ReducingFactorTarget::new(alpha).reduce(&batch.values[..last_values], builder)
             })
             .collect();

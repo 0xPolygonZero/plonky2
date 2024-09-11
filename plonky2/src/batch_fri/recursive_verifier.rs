@@ -2,6 +2,7 @@
 use alloc::{format, vec::Vec};
 
 use itertools::Itertools;
+use plonky2_field::types::Field;
 
 use crate::field::extension::Extendable;
 use crate::fri::proof::{
@@ -15,6 +16,7 @@ use crate::iop::ext_target::{flatten_target, ExtensionTarget};
 use crate::iop::target::{BoolTarget, Target};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::config::{AlgebraicHasher, GenericConfig};
+use crate::plonk::plonk_common::PlonkOracle;
 use crate::util::reducing::ReducingFactorTarget;
 use crate::with_context;
 
@@ -62,7 +64,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 PrecomputedReducedOpeningsTarget::from_os_and_alpha(
                     opn,
                     challenges.fri_alpha,
-                    false,
                     self
                 )
             );
@@ -166,13 +167,20 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let mut alpha = ReducingFactorTarget::new(alpha);
         let mut sum = self.zero_extension();
 
-        for (batch, reduced_openings) in instance[index]
+        for (idx, (batch, reduced_openings)) in instance[index]
             .batches
             .iter()
             .zip(&precomputed_reduced_evals.reduced_openings_at_point)
+            .enumerate()
         {
             let FriBatchInfoTarget { point, polynomials } = batch;
-            let evals = polynomials
+            let is_zk = params.hiding;
+            let nb_r_polys: usize = polynomials
+                .iter()
+                .map(|p| (p.oracle_index == PlonkOracle::R.index) as usize)
+                .sum();
+            let last_poly = polynomials.len() - nb_r_polys * (idx == 0) as usize;
+            let evals = polynomials[..last_poly]
                 .iter()
                 .map(|p| {
                     let poly_blinding = instance[index].oracles[p.oracle_index].blinding;
@@ -185,6 +193,30 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             let denominator = self.sub_extension(subgroup_x, *point);
             sum = alpha.shift(sum, self);
             sum = self.div_add_extension(numerator, denominator, sum);
+
+            if is_zk && idx == 0 {
+                polynomials[last_poly..]
+                    .iter()
+                    .enumerate()
+                    .for_each(|(i, p)| {
+                        let poly_blinding = instance[index].oracles[p.oracle_index].blinding;
+                        let salted = params.hiding && poly_blinding;
+                        let eval = proof.unsalted_eval(p.oracle_index, p.polynomial_index, salted);
+                        sum = alpha.shift(sum, self);
+                        let val = self
+                            .constant_extension(F::Extension::from_canonical_u32((i == 0) as u32));
+                        let power =
+                            self.exp_power_of_2_extension(subgroup_x, i * params.degree_bits);
+                        let pi =
+                            self.constant_extension(F::Extension::from_canonical_u32(i as u32));
+                        let power = self.mul_extension(power, pi);
+                        let shift_val = self.add_extension(val, power);
+
+                        let eval_extension = eval.to_ext_target(self.zero());
+                        let tmp = self.mul_extension(eval_extension, shift_val);
+                        sum = self.add_extension(sum, tmp);
+                    });
+            }
         }
 
         sum
@@ -211,7 +243,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         Self::assert_noncanonical_indices_ok(&params.config);
         let mut x_index_bits = self.low_bits(x_index, n, F::BITS);
 
-        let cap_index =
+        let initial_cap_index =
             self.le_sum(x_index_bits[x_index_bits.len() - params.config.cap_height..].iter());
         with_context!(
             self,
@@ -222,7 +254,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 &x_index_bits,
                 &round_proof.initial_trees_proof,
                 initial_merkle_caps,
-                cap_index
+                initial_cap_index
             )
         );
 
@@ -253,6 +285,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         );
         batch_index += 1;
 
+        let cap_index = self.le_sum(
+            x_index_bits[x_index_bits.len() + params.hiding as usize - params.config.cap_height..]
+                .iter(),
+        );
         for (i, &arity_bits) in params.reduction_arity_bits.iter().enumerate() {
             let evals = &round_proof.steps[i].evals;
 

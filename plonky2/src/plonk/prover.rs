@@ -302,23 +302,13 @@ where
     challenger.observe_cap::<C::Hasher>(&quotient_polys_commitment.merkle_tree.cap);
 
     let (_h, random_r_commitment) = if config.zero_knowledge {
-        // let h = (2
-        //     * common_data.fri_params.degree_bits
-        //     * (D * config.num_challenges + common_data.fri_params.config.num_query_rounds)
-        //     + common_data.fri_params.config.num_query_rounds)
-        //     .next_power_of_two();
-        // assert!(h < 1 << common_data.fri_params.degree_bits);
-
-        let h = 1 << common_data.fri_params.degree_bits;
-
         let d = 1 << common_data.fri_params.degree_bits;
-        let n = h + d;
+        let n = 2 * d;
 
         let random_r = F::rand_vec(n); // R(X)
                                        // let random_r = PolynomialCoeffs::new(random_r);
         let random_low = PolynomialCoeffs::new(random_r[..d].to_vec());
-        let mut high_coeffs = random_r[d..].to_vec();
-        high_coeffs.extend(vec![F::ZERO; d - h]);
+        let high_coeffs = random_r[d..].to_vec();
         let random_high = PolynomialCoeffs::new(high_coeffs);
         let random_r_commitment = timed!(
             timing,
@@ -335,7 +325,7 @@ where
 
         // challenger.observe_cap::<C::Hasher>(&random_r_commitment.merkle_tree.cap);
 
-        (Some(h), Some(random_r_commitment))
+        (Some(d), Some(random_r_commitment))
     } else {
         (None, None)
     };

@@ -25,13 +25,16 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let (row, copy) = self.find_slot(dummy_gate, &[], &[]);
 
         v.iter().enumerate().for_each(|(i, &val)| {
-            let dummy_gate_wire = Target::wire(row, dummy_gate.wire_list_item(i, copy));
-            self.connect(val, dummy_gate_wire);
+            self.connect(val, Target::wire(row, dummy_gate.wire_list_item(i, copy)));
         });
-        let dummy_gate_wire_one = Target::wire(row, dummy_gate.wire_access_index(copy));
-        self.connect(access_index, dummy_gate_wire_one);
-        let dummy_gate_wire_two = Target::wire(row, dummy_gate.wire_claimed_element(copy));
-        self.connect(claimed_element, dummy_gate_wire_two);
+        self.connect(
+            access_index,
+            Target::wire(row, dummy_gate.wire_access_index(copy)),
+        );
+        self.connect(
+            claimed_element,
+            Target::wire(row, dummy_gate.wire_claimed_element(copy)),
+        );
 
         claimed_element
     }

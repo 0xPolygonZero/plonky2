@@ -30,8 +30,8 @@ pub fn batch_fri_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>,
     fri_params: &FriParams,
     timing: &mut TimingTree,
 ) -> FriProof<F, C::Hasher, D> {
-    let n = lde_polynomial_coeffs.len();
-    assert_eq!(lde_polynomial_values[0].len(), n);
+    let mut n = lde_polynomial_coeffs.len();
+    assert_eq!(lde_polynomial_values[0].len(), lde_polynomial_coeffs.len());
     // The polynomial vectors should be sorted by degree, from largest to smallest, with no duplicate degrees.
     assert!(lde_polynomial_values
         .windows(2)
@@ -48,6 +48,10 @@ pub fn batch_fri_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>,
         }
     }
     assert_eq!(cur_poly_index, lde_polynomial_values.len());
+
+    if fri_params.hiding {
+        n /= 2;
+    }
 
     // Commit phase
     let (trees, final_coeffs) = timed!(

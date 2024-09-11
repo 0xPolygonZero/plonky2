@@ -14,6 +14,7 @@ use crate::hash::hash_types::RichField;
 use crate::hash::merkle_proofs::verify_merkle_proof_to_cap;
 use crate::hash::merkle_tree::MerkleCap;
 use crate::plonk::config::{GenericConfig, Hasher};
+use crate::plonk::plonk_common::PlonkOracle;
 use crate::util::reducing::ReducingFactor;
 use crate::util::{log2_strict, reverse_bits, reverse_index_bits_in_place};
 
@@ -148,11 +149,11 @@ pub(crate) fn fri_combine_initial<
     {
         let FriBatchInfo { point, polynomials } = batch;
         let is_zk = params.hiding;
-        let last_poly = if is_zk && idx == 0 {
-            polynomials.len() - 2
-        } else {
-            polynomials.len()
-        };
+        let nb_r_polys: usize = polynomials
+            .iter()
+            .map(|p| (p.oracle_index == PlonkOracle::R.index) as usize)
+            .sum();
+        let last_poly = polynomials.len() - nb_r_polys * (idx == 0) as usize;
         let evals = polynomials[..last_poly]
             .iter()
             .map(|p| {
@@ -279,16 +280,13 @@ impl<F: RichField + Extendable<D>, const D: usize> PrecomputedReducedOpenings<F,
         alpha: F::Extension,
         is_zk: bool,
     ) -> Self {
+        let nb_r_polys = is_zk as usize * 2;
         let reduced_openings_at_point = openings
             .batches
             .iter()
             .enumerate()
             .map(|(i, batch)| {
-                let last_values = if i == 0 && is_zk {
-                    batch.values.len() - 2
-                } else {
-                    batch.values.len()
-                };
+                let last_values = batch.values.len() - nb_r_polys * (i == 0) as usize;
                 ReducingFactor::new(alpha).reduce(batch.values[..last_values].iter())
             })
             .collect();
