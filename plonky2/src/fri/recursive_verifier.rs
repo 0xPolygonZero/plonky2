@@ -149,7 +149,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             PrecomputedReducedOpeningsTarget::from_os_and_alpha(
                 openings,
                 challenges.fri_alpha,
-                self
+                self,
+                params.hiding,
             )
         );
 
@@ -514,8 +515,9 @@ impl<const D: usize> PrecomputedReducedOpeningsTarget<D> {
         openings: &FriOpeningsTarget<D>,
         alpha: ExtensionTarget<D>,
         builder: &mut CircuitBuilder<F, D>,
+        is_zk: bool,
     ) -> Self {
-        let nb_r_polys = builder.config.zero_knowledge as usize * 2;
+        let nb_r_polys = is_zk as usize * 2;
         let reduced_openings_at_point = openings
             .batches
             .iter()
