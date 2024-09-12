@@ -95,7 +95,7 @@ pub fn dummy_circuit<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, c
     // Need to account for public input hashing, a `PublicInputGate` and a `ConstantGate`.
     let mut degree = common_data.degree();
     if common_data.config.zero_knowledge {
-        degree = degree / 2;
+        degree /= 2;
     }
     let num_noop_gate = degree - common_data.num_public_inputs.div_ceil(8) - 2;
 

@@ -347,11 +347,9 @@ impl<F: RichField + Extendable<D>, const D: usize> OpeningSet<F, D> {
         let zs_partial_products_lookup_next_eval =
             eval_commitment(g * zeta, zs_partial_products_lookup_commitment);
         let quotient_polys = eval_commitment(zeta, quotient_polys_commitment);
-        let random_r_polys = if let Some(random_r) = opt_random_r {
-            Some(eval_commitment(zeta, random_r))
-        } else {
-            None
-        };
+        let random_r_polys = opt_random_r
+            .as_ref()
+            .map(|random_r| eval_commitment(zeta, random_r));
 
         Self {
             constants: constants_sigmas_eval[common_data.constants_range()].to_vec(),
@@ -370,62 +368,22 @@ impl<F: RichField + Extendable<D>, const D: usize> OpeningSet<F, D> {
     }
     pub(crate) fn to_fri_openings(&self) -> FriOpenings<F, D> {
         let has_lookup = !self.lookup_zs.is_empty();
-        let zeta_batch = if has_lookup {
-            if let Some(random_r) = &self.opt_random_r {
-                FriOpeningBatch {
-                    values: [
-                        self.constants.as_slice(),
-                        self.plonk_sigmas.as_slice(),
-                        self.wires.as_slice(),
-                        self.plonk_zs.as_slice(),
-                        self.partial_products.as_slice(),
-                        self.quotient_polys.as_slice(),
-                        self.lookup_zs.as_slice(),
-                        random_r.as_slice(),
-                    ]
-                    .concat(),
-                }
-            } else {
-                FriOpeningBatch {
-                    values: [
-                        self.constants.as_slice(),
-                        self.plonk_sigmas.as_slice(),
-                        self.wires.as_slice(),
-                        self.plonk_zs.as_slice(),
-                        self.partial_products.as_slice(),
-                        self.quotient_polys.as_slice(),
-                        self.lookup_zs.as_slice(),
-                    ]
-                    .concat(),
-                }
-            }
-        } else {
-            if let Some(random_r) = &self.opt_random_r {
-                FriOpeningBatch {
-                    values: [
-                        self.constants.as_slice(),
-                        self.plonk_sigmas.as_slice(),
-                        self.wires.as_slice(),
-                        self.plonk_zs.as_slice(),
-                        self.partial_products.as_slice(),
-                        self.quotient_polys.as_slice(),
-                        random_r.as_slice(),
-                    ]
-                    .concat(),
-                }
-            } else {
-                FriOpeningBatch {
-                    values: [
-                        self.constants.as_slice(),
-                        self.plonk_sigmas.as_slice(),
-                        self.wires.as_slice(),
-                        self.plonk_zs.as_slice(),
-                        self.partial_products.as_slice(),
-                        self.quotient_polys.as_slice(),
-                    ]
-                    .concat(),
-                }
-            }
+        let mut zeta_batch = FriOpeningBatch {
+            values: [
+                self.constants.as_slice(),
+                self.plonk_sigmas.as_slice(),
+                self.wires.as_slice(),
+                self.plonk_zs.as_slice(),
+                self.partial_products.as_slice(),
+                self.quotient_polys.as_slice(),
+            ]
+            .concat(),
+        };
+        if has_lookup {
+            zeta_batch.values.extend(self.lookup_zs.as_slice());
+        }
+        if let Some(random_r) = &self.opt_random_r {
+            zeta_batch.values.extend(random_r.as_slice());
         };
         let zeta_next_batch = if has_lookup {
             FriOpeningBatch {

@@ -1,5 +1,5 @@
 #[cfg(not(feature = "std"))]
-use alloc::{format, vec::Vec};
+use alloc::{format, vec, vec::Vec};
 
 use itertools::Itertools;
 use plonky2_field::types::Field;

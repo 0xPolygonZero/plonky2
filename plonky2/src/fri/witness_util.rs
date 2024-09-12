@@ -1,3 +1,6 @@
+#[cfg(not(feature = "std"))]
+use alloc::vec;
+
 use anyhow::Result;
 use itertools::Itertools;
 

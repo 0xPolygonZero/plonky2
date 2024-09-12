@@ -301,7 +301,7 @@ where
 
     challenger.observe_cap::<C::Hasher>(&quotient_polys_commitment.merkle_tree.cap);
 
-    let (_h, random_r_commitment) = if config.zero_knowledge {
+    let random_r_commitment = if config.zero_knowledge {
         let d = 1 << common_data.fri_params.degree_bits;
         let n = 2 * d;
 
@@ -323,11 +323,11 @@ where
             )
         );
 
-        // challenger.observe_cap::<C::Hasher>(&random_r_commitment.merkle_tree.cap);
+        challenger.observe_cap::<C::Hasher>(&random_r_commitment.merkle_tree.cap);
 
-        (Some(d), Some(random_r_commitment))
+        Some(random_r_commitment)
     } else {
-        (None, None)
+        None
     };
 
     let zeta = challenger.get_extension_challenge::<D>();

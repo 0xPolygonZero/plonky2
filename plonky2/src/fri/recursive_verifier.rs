@@ -462,7 +462,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         let mut steps = Vec::with_capacity(params.reduction_arity_bits.len());
 
-        merkle_proof_len = merkle_proof_len + ZK_EXTRA_MERKLE_LENGTH * params.hiding as usize;
+        merkle_proof_len += ZK_EXTRA_MERKLE_LENGTH * params.hiding as usize;
         for &arity_bits in &params.reduction_arity_bits {
             assert!(merkle_proof_len >= arity_bits);
             merkle_proof_len -= arity_bits;

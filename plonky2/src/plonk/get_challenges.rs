@@ -28,6 +28,7 @@ fn get_challenges<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, cons
     wires_cap: &MerkleCap<F, C::Hasher>,
     plonk_zs_partial_products_cap: &MerkleCap<F, C::Hasher>,
     quotient_polys_cap: &MerkleCap<F, C::Hasher>,
+    opt_random_r: &Option<MerkleCap<F, C::Hasher>>,
     openings: &OpeningSet<F, D>,
     commit_phase_merkle_caps: &[MerkleCap<F, C::Hasher>],
     final_poly: &PolynomialCoeffs<F::Extension>,
@@ -69,6 +70,11 @@ fn get_challenges<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, cons
     let plonk_alphas = challenger.get_n_challenges(num_challenges);
 
     challenger.observe_cap::<C::Hasher>(quotient_polys_cap);
+
+    if let Some(random_r) = opt_random_r {
+        challenger.observe_cap::<C::Hasher>(random_r);
+    }
+
     let plonk_zeta = challenger.get_extension_challenge::<D>();
 
     challenger.observe_openings(&openings.to_fri_openings());
@@ -130,6 +136,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             wires_cap,
             plonk_zs_partial_products_cap,
             quotient_polys_cap,
+            opt_random_r,
             openings,
             commit_phase_merkle_caps,
             final_poly,
@@ -170,6 +177,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             wires_cap,
             plonk_zs_partial_products_cap,
             quotient_polys_cap,
+            opt_random_r,
             openings,
             commit_phase_merkle_caps,
             final_poly,
@@ -263,6 +271,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         wires_cap: &MerkleCapTarget,
         plonk_zs_partial_products_cap: &MerkleCapTarget,
         quotient_polys_cap: &MerkleCapTarget,
+        opt_random_r: &Option<MerkleCapTarget>,
         openings: &OpeningSetTarget<D>,
         commit_phase_merkle_caps: &[MerkleCapTarget],
         final_poly: &PolynomialCoeffsExtTarget<D>,
@@ -307,6 +316,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let plonk_alphas = challenger.get_n_challenges(self, num_challenges);
 
         challenger.observe_cap(quotient_polys_cap);
+
+        if let Some(random_r_cap) = opt_random_r {
+            challenger.observe_cap(random_r_cap);
+        }
+
         let plonk_zeta = challenger.get_extension_challenge(self);
 
         challenger.observe_openings(&openings.to_fri_openings());
@@ -359,6 +373,7 @@ impl<const D: usize> ProofWithPublicInputsTarget<D> {
             wires_cap,
             plonk_zs_partial_products_cap,
             quotient_polys_cap,
+            opt_random_r,
             openings,
             commit_phase_merkle_caps,
             final_poly,
