@@ -1,5 +1,8 @@
+use std::iter;
+
 use anyhow::Result;
 use itertools::Itertools;
+use plonky2_field::types::Field;
 
 use crate::field::extension::Extendable;
 use crate::fri::proof::{FriProof, FriProofTarget};
@@ -20,12 +23,14 @@ where
 {
     witness.set_target(fri_proof_target.pow_witness, fri_proof.pow_witness)?;
 
-    for (&t, &x) in fri_proof_target
-        .final_poly
-        .0
-        .iter()
-        .zip_eq(&fri_proof.final_poly.coeffs)
-    {
+    assert!(fri_proof_target.final_poly.len() >= fri_proof.final_poly.coeffs.len());
+    for (&t, &x) in fri_proof_target.final_poly.0.iter().zip(
+        fri_proof
+            .final_poly
+            .coeffs
+            .iter()
+            .chain(iter::repeat(&F::Extension::ZERO)),
+    ) {
         witness.set_extension_target(t, x)?;
     }
 
@@ -51,7 +56,7 @@ where
             for (&t, &x) in at.0.iter().zip_eq(&a.0) {
                 witness.set_target(t, x)?;
             }
-            for (&t, &x) in at.1.siblings.iter().zip_eq(&a.1.siblings) {
+            for (&t, &x) in at.1.siblings.iter().zip(&a.1.siblings) {
                 witness.set_hash_target(t, x)?;
             }
         }
@@ -64,7 +69,7 @@ where
                 .merkle_proof
                 .siblings
                 .iter()
-                .zip_eq(&s.merkle_proof.siblings)
+                .zip(&s.merkle_proof.siblings)
             {
                 witness.set_hash_target(t, x)?;
             }

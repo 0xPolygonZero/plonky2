@@ -166,7 +166,7 @@ pub struct MultiProof<
     const N: usize,
 > {
     /// Proofs for all the different STARK modules.
-    pub stark_proofs: [StarkProofWithMetadata<F, C, D>; N],
+    pub stark_proofs: [Option<StarkProofWithMetadata<F, C, D>>; N],
     /// Cross-table lookup challenges.
     pub ctl_challenges: GrandProductChallengeSet<F>,
 }
@@ -176,8 +176,12 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize, c
 {
     /// Returns the degree (i.e. the trace length) of each STARK proof,
     /// from their common [`StarkConfig`].
-    pub fn recover_degree_bits(&self, config: &StarkConfig) -> [usize; N] {
-        core::array::from_fn(|i| self.stark_proofs[i].proof.recover_degree_bits(config))
+    pub fn recover_degree_bits(&self, config: &StarkConfig) -> [Option<usize>; N] {
+        core::array::from_fn(|i| {
+            self.stark_proofs[i]
+                .as_ref()
+                .map(|proof| proof.proof.recover_degree_bits(config))
+        })
     }
 }
 

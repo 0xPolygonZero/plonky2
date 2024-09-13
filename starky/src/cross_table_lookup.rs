@@ -494,7 +494,7 @@ impl<'a, F: RichField + Extendable<D>, const D: usize>
 {
     /// Extracts the `CtlCheckVars` for each STARK.
     pub fn from_proofs<C: GenericConfig<D, F = F>, const N: usize>(
-        proofs: &[StarkProofWithMetadata<F, C, D>; N],
+        proofs: &[Option<StarkProofWithMetadata<F, C, D>>; N],
         cross_table_lookups: &'a [CrossTableLookup<F>],
         ctl_challenges: &'a GrandProductChallengeSet<F>,
         num_lookup_columns: &[usize; N],
@@ -504,10 +504,14 @@ impl<'a, F: RichField + Extendable<D>, const D: usize>
         // If there are no auxiliary polys in the proofs `openings`,
         // return early. The verifier will reject the proofs when
         // calling `validate_proof_shape`.
-        if proofs
-            .iter()
-            .any(|p| p.proof.openings.auxiliary_polys.is_none())
-        {
+        if proofs.iter().any(|p| {
+            // Check only if `p` is `Some`, otherwise ignore
+            if let Some(proof) = p {
+                proof.proof.openings.auxiliary_polys.is_none()
+            } else {
+                false // If `p` is `None`, we don't want to count it, so return false
+            }
+        }) {
             return ctl_vars_per_table;
         }
 
@@ -523,21 +527,27 @@ impl<'a, F: RichField + Extendable<D>, const D: usize>
             .iter()
             .zip(num_lookup_columns)
             .map(|(p, &num_lookup)| {
-                let openings = &p.proof.openings;
+                if let Some(proof) = p {
+                    let openings = &proof.proof.openings;
 
-                let ctl_zs = &openings
-                    .auxiliary_polys
-                    .as_ref()
-                    .expect("We cannot have CTls without auxiliary polynomials.")[num_lookup..];
-                let ctl_zs_next = &openings
-                    .auxiliary_polys_next
-                    .as_ref()
-                    .expect("We cannot have CTls without auxiliary polynomials.")[num_lookup..];
-                ctl_zs.iter().zip(ctl_zs_next).collect::<Vec<_>>()
+                    let ctl_zs = &openings
+                        .auxiliary_polys
+                        .as_ref()
+                        .expect("We cannot have CTLs without auxiliary polynomials.")[num_lookup..];
+                    let ctl_zs_next = &openings
+                        .auxiliary_polys_next
+                        .as_ref()
+                        .expect("We cannot have CTLs without auxiliary polynomials.")[num_lookup..];
+                    Some(ctl_zs.iter().zip(ctl_zs_next).collect::<Vec<_>>())
+                } else {
+                    None // If `p` is None, return None
+                }
             })
             .collect::<Vec<_>>();
 
-        // Put each cross-table lookup polynomial into the correct table data: if a CTL polynomial is extracted from looking/looked table t, then we add it to the `CtlCheckVars` of table t.
+        // Put each cross-table lookup polynomial into the correct table data: if a CTL polynomial
+        // is extracted from looking/looked table t, then we add it to the `CtlCheckVars` of table
+        // t.
         let mut start_indices = [0; N];
         let mut z_indices = [0; N];
         for (
@@ -559,9 +569,11 @@ impl<'a, F: RichField + Extendable<D>, const D: usize>
                 }
 
                 for &table in filtered_looking_tables.iter() {
+                    let ctl_z = ctl_zs[table].as_ref().unwrap();
+
                     // We have first all the helper polynomials, then all the z polynomials.
                     let (looking_z, looking_z_next) =
-                        ctl_zs[table][total_num_helper_cols_by_table[table] + z_indices[table]];
+                        ctl_z[total_num_helper_cols_by_table[table] + z_indices[table]];
 
                     let count = looking_tables
                         .iter()
@@ -580,7 +592,7 @@ impl<'a, F: RichField + Extendable<D>, const D: usize>
                         columns.push(&col[..]);
                         filter.push(filt.clone());
                     }
-                    let helper_columns = ctl_zs[table]
+                    let helper_columns = ctl_z
                         [start_indices[table]..start_indices[table] + num_ctls[table]]
                         .iter()
                         .map(|&(h, _)| *h)
@@ -599,9 +611,10 @@ impl<'a, F: RichField + Extendable<D>, const D: usize>
                     });
                 }
 
-                let (looked_z, looked_z_next) = ctl_zs[looked_table.table]
-                    [total_num_helper_cols_by_table[looked_table.table]
-                        + z_indices[looked_table.table]];
+                let ctl_z = ctl_zs[looked_table.table].as_ref().unwrap();
+                let (looked_z, looked_z_next) = ctl_z[total_num_helper_cols_by_table
+                    [looked_table.table]
+                    + z_indices[looked_table.table]];
 
                 z_indices[looked_table.table] += 1;
 
