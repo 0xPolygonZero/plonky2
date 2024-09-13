@@ -94,9 +94,11 @@ pub(crate) fn verify_with_challenges<
         let fri_openings = common_data.config.fri_config.num_query_rounds
             * (1 + D * total_fri_folding_points + D * final_poly_coeffs);
         let h = fri_openings + D; // Number of FRI openings + n_deep
+                                  // let h = 1;
         let d = common_data.degree() - h;
         println!("d in verif {:?}", d);
         let chunk_size = (common_data.quotient_degree_factor * common_data.degree()).div_ceil(d);
+        println!("verifier chunk size {}", chunk_size);
         (challenges.plonk_zeta.exp_u64(d as u64), chunk_size)
     } else {
         (

@@ -87,7 +87,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             let fri_openings = inner_common_data.config.fri_config.num_query_rounds
                 * (1 + D * total_fri_folding_points + D * final_poly_coeffs);
             let h = fri_openings + D; // Number of FRI openings + n_deep
-                                      // let h = 2;
+                                      // let h = 1;
             let d = inner_common_data.degree() - h;
             let chunk_size =
                 (inner_common_data.quotient_degree_factor * inner_common_data.degree()).div_ceil(d);

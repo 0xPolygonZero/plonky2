@@ -135,11 +135,11 @@ impl CircuitConfig {
     pub fn standard_recursion_zk_config() -> Self {
         CircuitConfig {
             zero_knowledge: true,
-            // max_quotient_degree_factor: 15,
-            // fri_config: FriConfig {
-            //     rate_bits: 4,
-            //     ..Self::standard_recursion_config().fri_config
-            // },
+            max_quotient_degree_factor: 16,
+            fri_config: FriConfig {
+                rate_bits: 4,
+                ..Self::standard_recursion_config().fri_config
+            },
             ..Self::standard_recursion_config()
         }
     }
@@ -693,6 +693,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CommonCircuitData<F, D> {
             let fri_openings = self.config.fri_config.num_query_rounds
                 * (1 + D * total_fri_folding_points + D * final_poly_coeffs);
             let h = fri_openings + D; // Number of FRI openings + n_deep
+                                      // let h = 1;
             let d = self.degree() - h;
             assert!(self.degree() > h);
 

@@ -296,6 +296,7 @@ where
                     let fri_openings = common_data.config.fri_config.num_query_rounds
                         * (1 + D * total_fri_folding_points + D * final_poly_coeffs);
                     let h = fri_openings + D; // Number of FRI openings + n_deep
+                                              // let h = 1;
                     let d = degree - h;
                     assert!(degree > h);
                     println!("degree {}, h {}, d {}", degree, h, d);
@@ -303,37 +304,16 @@ where
                     let total_nb_chunks = quotient_poly.len().div_ceil(d);
                     let random_ts = vec![
                         PolynomialCoeffs {
-                            coeffs: F::rand_vec(h)
+                            coeffs: F::rand_vec(h) // coeffs: vec![F::ZERO; h]
                         };
                         total_nb_chunks - 1
                     ];
                     let mut quotients = quotient_poly.chunks(d);
-                    let mut tmp_coeffs = random_ts[0].coeffs.clone();
-                    tmp_coeffs.reverse();
-                    tmp_coeffs.extend(&vec![F::ZERO; d]);
-                    tmp_coeffs.reverse();
-                    quotients[0] += PolynomialCoeffs { coeffs: tmp_coeffs };
+                    quotients[0].coeffs.extend(&random_ts[0].coeffs);
                     for i in 1..total_nb_chunks - 1 {
                         quotients[i] -= random_ts[i - 1].clone();
-                        let mut tmp_coeffs = random_ts[i].coeffs.clone();
-                        tmp_coeffs.reverse();
-                        tmp_coeffs.extend(&vec![F::ZERO; d]);
-                        tmp_coeffs.reverse();
-                        quotients[i] += PolynomialCoeffs { coeffs: tmp_coeffs };
+                        quotients[i].coeffs.extend(&random_ts[i].coeffs);
                     }
-                    println!(
-                        "quotient degree factor {}",
-                        common_data.quotient_degree_factor
-                    );
-                    println!(
-                        "quotients last before len {}",
-                        quotients[total_nb_chunks - 1].len()
-                    );
-                    quotients[total_nb_chunks - 1] -= random_ts[total_nb_chunks - 2].clone();
-                    println!(
-                        "quotients last len {}",
-                        quotients[total_nb_chunks - 1].len()
-                    );
                     let last_len = quotients[total_nb_chunks - 1].coeffs.len();
                     quotients[total_nb_chunks - 1]
                         .coeffs
