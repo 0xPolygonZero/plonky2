@@ -81,24 +81,10 @@ pub(crate) fn verify_with_challenges<
 
     // Check each polynomial identity, of the form `vanishing(x) = Z_H(x) quotient(x)`, at zeta.
     let quotient_polys_zeta = &proof.openings.quotient_polys;
-    let (zeta_pow_deg, chunk_size) = if common_data.config.zero_knowledge {
-        let arities: Vec<usize> = common_data
-            .fri_params
-            .reduction_arity_bits
-            .iter()
-            .map(|x| 1 << x)
-            .collect();
-        let total_fri_folding_points: usize = arities.iter().map(|x| x - 1).sum::<usize>();
-        let final_poly_coeffs: usize =
-            (1 << (common_data.fri_params.degree_bits + 1)) / arities.iter().product::<usize>();
-        let fri_openings = common_data.config.fri_config.num_query_rounds
-            * (1 + D * total_fri_folding_points + D * final_poly_coeffs);
-        let h = fri_openings + D; // Number of FRI openings + n_deep
-                                  // let h = 1;
+    let (zeta_pow_deg_for_reducing, chunk_size) = if common_data.config.zero_knowledge {
+        let h = common_data.computed_h();
         let d = common_data.degree() - h;
-        println!("d in verif {:?}", d);
         let chunk_size = (common_data.quotient_degree_factor * common_data.degree()).div_ceil(d);
-        println!("verifier chunk size {}", chunk_size);
         (challenges.plonk_zeta.exp_u64(d as u64), chunk_size)
     } else {
         (
@@ -108,6 +94,9 @@ pub(crate) fn verify_with_challenges<
             common_data.quotient_degree_factor,
         )
     };
+    let zeta_pow_deg = challenges
+        .plonk_zeta
+        .exp_power_of_2(common_data.degree_bits());
     let z_h_zeta = zeta_pow_deg - F::Extension::ONE;
     // `quotient_polys_zeta` holds `num_challenges * quotient_degree_factor` evaluations.
     // Each chunk of `quotient_degree_factor` holds the evaluations of `t_0(zeta),...,t_{quotient_degree_factor-1}(zeta)`
@@ -115,7 +104,10 @@ pub(crate) fn verify_with_challenges<
     // So to reconstruct `t(zeta)` we can compute `reduce_with_powers(chunk, zeta^n)` for each
     // `quotient_degree_factor`-sized chunk of the original evaluations.
     for (i, chunk) in quotient_polys_zeta.chunks(chunk_size).enumerate() {
-        ensure!(vanishing_polys_zeta[i] == z_h_zeta * reduce_with_powers(chunk, zeta_pow_deg));
+        ensure!(
+            vanishing_polys_zeta[i]
+                == z_h_zeta * reduce_with_powers(chunk, zeta_pow_deg_for_reducing)
+        );
     }
 
     let merkle_caps = &if let Some(random_r) = proof.opt_random_r {

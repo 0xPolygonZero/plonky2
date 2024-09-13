@@ -135,11 +135,6 @@ impl CircuitConfig {
     pub fn standard_recursion_zk_config() -> Self {
         CircuitConfig {
             zero_knowledge: true,
-            max_quotient_degree_factor: 16,
-            fri_config: FriConfig {
-                rate_bits: 4,
-                ..Self::standard_recursion_config().fri_config
-            },
             ..Self::standard_recursion_config()
         }
     }
@@ -679,21 +674,27 @@ impl<F: RichField + Extendable<D>, const D: usize> CommonCircuitData<F, D> {
         )
     }
 
+    /// Returns the value of `h`, corresponding to the degree of random polynomials added to the quotient polynomial chunks.
+    pub(crate) fn computed_h(&self) -> usize {
+        assert!(self.config.zero_knowledge);
+        let arities: Vec<usize> = self
+            .fri_params
+            .reduction_arity_bits
+            .iter()
+            .map(|x| 1 << x)
+            .collect();
+        let total_fri_folding_points: usize = arities.iter().map(|x| x - 1).sum::<usize>();
+        let final_poly_coeffs: usize =
+            (1 << (self.fri_params.degree_bits + 1)) / arities.iter().product::<usize>();
+        let fri_openings = self.config.fri_config.num_query_rounds
+            * (1 + D * total_fri_folding_points + D * final_poly_coeffs);
+        // Number of FRI openings + n_deep
+        fri_openings + D
+    }
+
     pub(crate) fn num_quotient_polys(&self) -> usize {
         if self.config.zero_knowledge {
-            let arities: Vec<usize> = self
-                .fri_params
-                .reduction_arity_bits
-                .iter()
-                .map(|x| 1 << x)
-                .collect();
-            let total_fri_folding_points: usize = arities.iter().map(|x| x - 1).sum::<usize>();
-            let final_poly_coeffs: usize =
-                (1 << (self.fri_params.degree_bits + 1)) / arities.iter().product::<usize>();
-            let fri_openings = self.config.fri_config.num_query_rounds
-                * (1 + D * total_fri_folding_points + D * final_poly_coeffs);
-            let h = fri_openings + D; // Number of FRI openings + n_deep
-                                      // let h = 1;
+            let h = self.computed_h();
             let d = self.degree() - h;
             assert!(self.degree() > h);
 

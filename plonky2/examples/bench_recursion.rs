@@ -372,7 +372,7 @@ fn main() -> Result<()> {
     let num_cpus = num_cpus::get();
     let threads = options.threads.unwrap_or(num_cpus..=num_cpus);
 
-    let config = CircuitConfig::standard_recursion_zk_config();
+    let config = CircuitConfig::standard_recursion_config();
 
     for log2_inner_size in options.size {
         // Since the `size` is most likely to be an unbounded range we make that the outer iterator.

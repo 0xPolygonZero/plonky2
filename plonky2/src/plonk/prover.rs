@@ -281,25 +281,11 @@ where
                     "Quotient has failed, the vanishing polynomial is not divisible by Z_H",
                 );
 
+                // Split quotient into degree-n chunks.
                 if common_data.config.zero_knowledge {
-                    // Split quotient into degree-n chunks.
-                    let arities: Vec<usize> = common_data
-                        .fri_params
-                        .reduction_arity_bits
-                        .iter()
-                        .map(|x| 1 << x)
-                        .collect();
-                    let total_fri_folding_points: usize =
-                        arities.iter().map(|x| x - 1).sum::<usize>();
-                    let final_poly_coeffs: usize = (1 << (common_data.fri_params.degree_bits + 1))
-                        / arities.iter().product::<usize>();
-                    let fri_openings = common_data.config.fri_config.num_query_rounds
-                        * (1 + D * total_fri_folding_points + D * final_poly_coeffs);
-                    let h = fri_openings + D; // Number of FRI openings + n_deep
-                                              // let h = 1;
+                    let h = common_data.computed_h();
                     let d = degree - h;
                     assert!(degree > h);
-                    println!("degree {}, h {}, d {}", degree, h, d);
 
                     let total_nb_chunks = quotient_poly.len().div_ceil(d);
                     let random_ts = vec![
@@ -314,11 +300,10 @@ where
                         quotients[i] -= random_ts[i - 1].clone();
                         quotients[i].coeffs.extend(&random_ts[i].coeffs);
                     }
-                    let last_len = quotients[total_nb_chunks - 1].coeffs.len();
+                    quotients[total_nb_chunks - 1] -= random_ts[total_nb_chunks - 2].clone();
                     quotients[total_nb_chunks - 1]
-                        .coeffs
-                        .extend(&vec![F::ZERO; degree - last_len]);
-                    println!("quotients 0 len {}", quotients[0].len());
+                        .pad(degree)
+                        .expect("Degree is greater than the current length.");
                     quotients
                 } else {
                     quotient_poly.chunks(degree)
@@ -326,7 +311,6 @@ where
             })
             .collect()
     );
-    println!("nb quotient chunks {}", all_quotient_poly_chunks.len());
     let quotient_polys_commitment = timed!(
         timing,
         "commit to quotient polys",

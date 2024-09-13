@@ -2,7 +2,6 @@
 use alloc::{vec, vec::Vec};
 
 use hashbrown::HashSet;
-use plonky2_field::types::Field;
 
 use super::circuit_builder::NUM_COINS_LOOKUP;
 use crate::field::extension::Extendable;
@@ -76,7 +75,6 @@ fn get_challenges<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, cons
     }
 
     let plonk_zeta = challenger.get_extension_challenge::<D>();
-    // let plonk_zeta = F::Extension::primitive_root_of_unity(common_data.degree_bits());
 
     challenger.observe_openings(&openings.to_fri_openings());
 

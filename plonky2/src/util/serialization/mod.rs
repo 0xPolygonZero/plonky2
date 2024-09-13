@@ -412,9 +412,7 @@ pub trait Read {
         let lookup_zs_next = self.read_field_ext_vec::<F, D>(common_data.num_all_lookup_polys())?;
         let partial_products = self
             .read_field_ext_vec::<F, D>(common_data.num_partial_products * config.num_challenges)?;
-        let quotient_polys = self.read_field_ext_vec::<F, D>(
-            common_data.quotient_degree_factor * config.num_challenges,
-        )?;
+        let quotient_polys = self.read_field_ext_vec::<F, D>(common_data.num_quotient_polys())?;
         let opt_random_r = self.read_opt_field_ext_vec::<F, D>(common_data.num_r_polys())?;
         Ok(OpeningSet {
             constants,
@@ -515,8 +513,7 @@ pub trait Read {
         let zs_partial_p = self.read_merkle_proof()?;
         evals_proofs.push((zs_partial_v, zs_partial_p));
 
-        let quotient_v =
-            self.read_field_vec(config.num_challenges * common_data.quotient_degree_factor + salt)?;
+        let quotient_v = self.read_field_vec(common_data.num_quotient_polys() + salt)?;
         let quotient_p = self.read_merkle_proof()?;
         evals_proofs.push((quotient_v, quotient_p));
 
