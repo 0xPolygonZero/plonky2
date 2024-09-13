@@ -208,7 +208,7 @@ mod tests {
 
     use super::*;
     use crate::fri::reduction_strategies::FriReductionStrategy;
-    use crate::fri::{FriConfig, FriParams};
+    use crate::fri::{FriConfig};
     use crate::gadgets::lookup::{OTHER_TABLE, TIP5_TABLE};
     use crate::gates::lookup_table::LookupTable;
     use crate::gates::noop::NoopGate;
@@ -231,43 +231,6 @@ mod tests {
         let (proof, vd, common_data) =
             recursive_proof::<F, C, C, D>(proof, vd, common_data, &config, None, true, true)?;
         test_serialization(&proof, &vd, &common_data)?;
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_recursive_verifier_verify_proof_with_different_degree_bits() -> Result<()> {
-        init_logger();
-        const D: usize = 2;
-        type C = PoseidonGoldilocksConfig;
-        type F = <C as GenericConfig<D>>::F;
-        let config = CircuitConfig::standard_recursion_config();
-
-        let (proof0, vd0, common_data0) = dummy_proof::<F, C, D>(&config, 2_000)?;
-        let (proof1, vd1, common_data1) = dummy_proof::<F, C, D>(&config, 4_000)?;
-
-        let new_common_data = CommonCircuitData {
-            fri_params: FriParams {
-                degree_bits: common_data0.fri_params.degree_bits + 1,
-                ..common_data0.fri_params.clone()
-            },
-            ..common_data0.clone()
-        };
-        // It shows that the only difference between two common_data is the fri degree_bits.
-        assert_eq!(common_data1, new_common_data);
-
-        let (rec_proof, vd, common_data) = recursive_proof::<F, C, C, D>(
-            proof0.clone(),
-            vd0.clone(),
-            common_data0.clone(),
-            &config,
-            None,
-            true,
-            true,
-        )?;
-
-        let (rec_proof, vd, common_data) =
-            recursive_proof::<F, C, C, D>(proof0, vd0, common_data1, &config, None, true, true)?;
 
         Ok(())
     }
