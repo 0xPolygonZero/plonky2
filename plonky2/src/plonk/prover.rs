@@ -280,12 +280,73 @@ where
                 quotient_poly.trim_to_len(quotient_degree).expect(
                     "Quotient has failed, the vanishing polynomial is not divisible by Z_H",
                 );
-                // Split quotient into degree-n chunks.
-                quotient_poly.chunks(degree)
+
+                if common_data.config.zero_knowledge {
+                    // Split quotient into degree-n chunks.
+                    let arities: Vec<usize> = common_data
+                        .fri_params
+                        .reduction_arity_bits
+                        .iter()
+                        .map(|x| 1 << x)
+                        .collect();
+                    let total_fri_folding_points: usize =
+                        arities.iter().map(|x| x - 1).sum::<usize>();
+                    let final_poly_coeffs: usize = (1 << (common_data.fri_params.degree_bits + 1))
+                        / arities.iter().product::<usize>();
+                    let fri_openings = common_data.config.fri_config.num_query_rounds
+                        * (1 + D * total_fri_folding_points + D * final_poly_coeffs);
+                    let h = fri_openings + D; // Number of FRI openings + n_deep
+                    let d = degree - h;
+                    assert!(degree > h);
+                    println!("degree {}, h {}, d {}", degree, h, d);
+
+                    let total_nb_chunks = quotient_poly.len().div_ceil(d);
+                    let random_ts = vec![
+                        PolynomialCoeffs {
+                            coeffs: F::rand_vec(h)
+                        };
+                        total_nb_chunks - 1
+                    ];
+                    let mut quotients = quotient_poly.chunks(d);
+                    let mut tmp_coeffs = random_ts[0].coeffs.clone();
+                    tmp_coeffs.reverse();
+                    tmp_coeffs.extend(&vec![F::ZERO; d]);
+                    tmp_coeffs.reverse();
+                    quotients[0] += PolynomialCoeffs { coeffs: tmp_coeffs };
+                    for i in 1..total_nb_chunks - 1 {
+                        quotients[i] -= random_ts[i - 1].clone();
+                        let mut tmp_coeffs = random_ts[i].coeffs.clone();
+                        tmp_coeffs.reverse();
+                        tmp_coeffs.extend(&vec![F::ZERO; d]);
+                        tmp_coeffs.reverse();
+                        quotients[i] += PolynomialCoeffs { coeffs: tmp_coeffs };
+                    }
+                    println!(
+                        "quotient degree factor {}",
+                        common_data.quotient_degree_factor
+                    );
+                    println!(
+                        "quotients last before len {}",
+                        quotients[total_nb_chunks - 1].len()
+                    );
+                    quotients[total_nb_chunks - 1] -= random_ts[total_nb_chunks - 2].clone();
+                    println!(
+                        "quotients last len {}",
+                        quotients[total_nb_chunks - 1].len()
+                    );
+                    let last_len = quotients[total_nb_chunks - 1].coeffs.len();
+                    quotients[total_nb_chunks - 1]
+                        .coeffs
+                        .extend(&vec![F::ZERO; degree - last_len]);
+                    println!("quotients 0 len {}", quotients[0].len());
+                    quotients
+                } else {
+                    quotient_poly.chunks(degree)
+                }
             })
             .collect()
     );
-
+    println!("nb quotient chunks {}", all_quotient_poly_chunks.len());
     let quotient_polys_commitment = timed!(
         timing,
         "commit to quotient polys",
@@ -306,7 +367,6 @@ where
         let n = 2 * d;
 
         let random_r = F::rand_vec(n); // R(X)
-                                       // let random_r = PolynomialCoeffs::new(random_r);
         let random_low = PolynomialCoeffs::new(random_r[..d].to_vec());
         let high_coeffs = random_r[d..].to_vec();
         let random_high = PolynomialCoeffs::new(high_coeffs);

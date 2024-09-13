@@ -135,6 +135,11 @@ impl CircuitConfig {
     pub fn standard_recursion_zk_config() -> Self {
         CircuitConfig {
             zero_knowledge: true,
+            // max_quotient_degree_factor: 15,
+            // fri_config: FriConfig {
+            //     rate_bits: 4,
+            //     ..Self::standard_recursion_config().fri_config
+            // },
             ..Self::standard_recursion_config()
         }
     }
@@ -674,8 +679,28 @@ impl<F: RichField + Extendable<D>, const D: usize> CommonCircuitData<F, D> {
         )
     }
 
-    pub(crate) const fn num_quotient_polys(&self) -> usize {
-        self.config.num_challenges * self.quotient_degree_factor
+    pub(crate) fn num_quotient_polys(&self) -> usize {
+        if self.config.zero_knowledge {
+            let arities: Vec<usize> = self
+                .fri_params
+                .reduction_arity_bits
+                .iter()
+                .map(|x| 1 << x)
+                .collect();
+            let total_fri_folding_points: usize = arities.iter().map(|x| x - 1).sum::<usize>();
+            let final_poly_coeffs: usize =
+                (1 << (self.fri_params.degree_bits + 1)) / arities.iter().product::<usize>();
+            let fri_openings = self.config.fri_config.num_query_rounds
+                * (1 + D * total_fri_folding_points + D * final_poly_coeffs);
+            let h = fri_openings + D; // Number of FRI openings + n_deep
+            let d = self.degree() - h;
+            assert!(self.degree() > h);
+
+            let total_nb_chunks = self.quotient_degree().div_ceil(d);
+            self.config.num_challenges * total_nb_chunks
+        } else {
+            self.config.num_challenges * self.quotient_degree_factor
+        }
     }
 
     /// Returns the information for lookup polynomials, i.e. the index within the oracle and the indices of the polynomials within the commitment.

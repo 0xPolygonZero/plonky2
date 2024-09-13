@@ -74,8 +74,37 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let s_sigmas = &proof.openings.plonk_sigmas;
         let partial_products = &proof.openings.partial_products;
 
-        let zeta_pow_deg =
-            self.exp_power_of_2_extension(challenges.plonk_zeta, inner_common_data.degree_bits());
+        let (zeta_pow_deg, chunk_size) = if inner_common_data.config.zero_knowledge {
+            let arities: Vec<usize> = inner_common_data
+                .fri_params
+                .reduction_arity_bits
+                .iter()
+                .map(|x| 1 << x)
+                .collect();
+            let total_fri_folding_points: usize = arities.iter().map(|x| x - 1).sum::<usize>();
+            let final_poly_coeffs: usize = (1 << (inner_common_data.fri_params.degree_bits + 1))
+                / arities.iter().product::<usize>();
+            let fri_openings = inner_common_data.config.fri_config.num_query_rounds
+                * (1 + D * total_fri_folding_points + D * final_poly_coeffs);
+            let h = fri_openings + D; // Number of FRI openings + n_deep
+                                      // let h = 2;
+            let d = inner_common_data.degree() - h;
+            let chunk_size =
+                (inner_common_data.quotient_degree_factor * inner_common_data.degree()).div_ceil(d);
+            (
+                self.exp_u64_extension(challenges.plonk_zeta, d as u64),
+                chunk_size,
+            )
+        } else {
+            (
+                self.exp_power_of_2_extension(
+                    challenges.plonk_zeta,
+                    inner_common_data.degree_bits(),
+                ),
+                inner_common_data.quotient_degree_factor,
+            )
+        };
+
         let vanishing_polys_zeta = with_context!(
             self,
             "evaluate the vanishing polynomial at our challenge point, zeta.",
@@ -102,10 +131,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             let quotient_polys_zeta = &proof.openings.quotient_polys;
             let mut scale = ReducingFactorTarget::new(zeta_pow_deg);
             let z_h_zeta = self.sub_extension(zeta_pow_deg, one);
-            for (i, chunk) in quotient_polys_zeta
-                .chunks(inner_common_data.quotient_degree_factor)
-                .enumerate()
-            {
+            for (i, chunk) in quotient_polys_zeta.chunks(chunk_size).enumerate() {
                 let recombined_quotient = scale.reduce(chunk, self);
                 let computed_vanishing_poly = self.mul_extension(z_h_zeta, recombined_quotient);
                 self.connect_extension(vanishing_polys_zeta[i], computed_vanishing_poly);
