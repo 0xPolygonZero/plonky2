@@ -937,11 +937,15 @@ pub(crate) fn eval_cross_table_lookup_checks_circuit<
 /// The key of `ctl_extra_looking_sums` is the corresponding CTL's position within `cross_table_lookups`.
 pub fn verify_cross_table_lookups<F: RichField + Extendable<D>, const D: usize, const N: usize>(
     cross_table_lookups: &[CrossTableLookup<F>],
-    ctl_zs_first: [Vec<F>; N],
+    ctl_zs_first: [Option<Vec<F>>; N],
     ctl_extra_looking_sums: &HashMap<usize, Vec<F>>,
     config: &StarkConfig,
 ) -> Result<()> {
-    let mut ctl_zs_openings = ctl_zs_first.iter().map(|v| v.iter()).collect::<Vec<_>>();
+    let mut ctl_zs_openings = ctl_zs_first
+        .iter()
+        .map(|v| v.as_ref().map(|vec| vec.iter()))
+        .collect::<Vec<_>>();
+
     for (
         index,
         CrossTableLookup {
@@ -960,16 +964,27 @@ pub fn verify_cross_table_lookups<F: RichField + Extendable<D>, const D: usize, 
         }
         for c in 0..config.num_challenges {
             // Compute the combination of all looking table CTL polynomial openings.
-
             let looking_zs_sum = filtered_looking_tables
                 .iter()
-                .map(|&table| *ctl_zs_openings[table].next().unwrap())
+                .map(|&table| {
+                    // Unwrap to access the iterator, then unwrap to access the next value.
+                    *ctl_zs_openings[table]
+                        .as_mut()
+                        .expect("CTL opening should be present")
+                        .next()
+                        .expect("CTL value should be available")
+                })
                 .sum::<F>()
                 // Get elements looking into `looked_table` that are not associated to any STARK.
                 + ctl_extra_looking_sum.map(|v| v[c]).unwrap_or_default();
 
             // Get the looked table CTL polynomial opening.
-            let looked_z = *ctl_zs_openings[looked_table.table].next().unwrap();
+            let looked_z = *ctl_zs_openings[looked_table.table]
+                .as_mut()
+                .expect("CTL opening for looked table should be present")
+                .next()
+                .expect("CTL value should be available for looked table");
+
             // Ensure that the combination of looking table openings is equal to the looked table opening.
             ensure!(
                 looking_zs_sum == looked_z,
@@ -978,7 +993,11 @@ pub fn verify_cross_table_lookups<F: RichField + Extendable<D>, const D: usize, 
             );
         }
     }
-    debug_assert!(ctl_zs_openings.iter_mut().all(|iter| iter.next().is_none()));
+
+    // Ensure all iterators are fully consumed (i.e., `next()` returns `None`).
+    debug_assert!(ctl_zs_openings
+        .iter_mut()
+        .all(|iter| iter.as_mut().map(|it| it.next()).is_none()));
 
     Ok(())
 }
@@ -992,11 +1011,15 @@ pub fn verify_cross_table_lookups_circuit<
 >(
     builder: &mut CircuitBuilder<F, D>,
     cross_table_lookups: Vec<CrossTableLookup<F>>,
-    ctl_zs_first: [Vec<Target>; N],
+    ctl_zs_first: [Option<Vec<Target>>; N],
     ctl_extra_looking_sums: &HashMap<usize, Vec<Target>>,
     inner_config: &StarkConfig,
 ) {
-    let mut ctl_zs_openings = ctl_zs_first.iter().map(|v| v.iter()).collect::<Vec<_>>();
+    let mut ctl_zs_openings = ctl_zs_first
+        .iter()
+        .map(|v| v.as_ref().map(|vec| vec.iter()))
+        .collect::<Vec<_>>();
+
     for (
         index,
         CrossTableLookup {
@@ -1015,23 +1038,35 @@ pub fn verify_cross_table_lookups_circuit<
         }
         for c in 0..inner_config.num_challenges {
             // Compute the combination of all looking table CTL polynomial openings.
-            let mut looking_zs_sum = builder.add_many(
-                filtered_looking_tables
-                    .iter()
-                    .map(|&table| *ctl_zs_openings[table].next().unwrap()),
-            );
+            let mut looking_zs_sum =
+                builder.add_many(filtered_looking_tables.iter().map(|&table| {
+                    *ctl_zs_openings[table]
+                        .as_mut()
+                        .expect("CTL opening should be present")
+                        .next()
+                        .expect("CTL value should be available")
+                }));
 
             // Get elements looking into `looked_table` that are not associated to any STARK.
             let extra_sum = ctl_extra_looking_sum.map(|v| v[c]).unwrap_or_default();
             looking_zs_sum = builder.add(looking_zs_sum, extra_sum);
 
             // Get the looked table CTL polynomial opening.
-            let looked_z = *ctl_zs_openings[looked_table.table].next().unwrap();
+            let looked_z = *ctl_zs_openings[looked_table.table]
+                .as_mut()
+                .expect("CTL opening for looked table should be present")
+                .next()
+                .expect("CTL value should be available for looked table");
+
             // Verify that the combination of looking table openings is equal to the looked table opening.
             builder.connect(looked_z, looking_zs_sum);
         }
     }
-    debug_assert!(ctl_zs_openings.iter_mut().all(|iter| iter.next().is_none()));
+
+    // Ensure all iterators are fully consumed (i.e., `next()` returns `None`).
+    debug_assert!(ctl_zs_openings
+        .iter_mut()
+        .all(|iter| iter.as_mut().map(|it| it.next()).is_none()));
 }
 
 /// Debugging module used to assert correctness of the different CTLs of a multi-STARK system,
