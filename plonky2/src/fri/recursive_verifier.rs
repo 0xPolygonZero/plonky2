@@ -24,6 +24,8 @@ use crate::util::reducing::ReducingFactorTarget;
 use crate::util::{log2_strict, reverse_index_bits_in_place};
 use crate::with_context;
 
+// Length by which the Merkle proof is increased in the case of zk.
+// This corresponds to the extra degree bit of the final computed polynomial.
 const ZK_EXTRA_MERKLE_LENGTH: usize = 1;
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
@@ -231,6 +233,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let mut alpha = ReducingFactorTarget::new(alpha);
         let mut sum = self.zero_extension();
 
+        // If we are in the zk case, the `R` polynomial (the last polynomials in the first batch) is added to
+        // the batch polynomial independently, without being quotiented. So the final polynomial becomes:
+        // `final_poly = sum_i alpha^(k_i) (F_i(X) - F_i(z_i))/(X-z_i) + alpha^n R(X)`, where `n` is the degree
+        // of the batch polynomial.
         for (idx, (batch, reduced_openings)) in instance
             .batches
             .iter()
@@ -258,6 +264,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             sum = alpha.shift(sum, self);
             sum = self.div_add_extension(numerator, denominator, sum);
 
+            // If we are in the zk case, we still have to add `R(X)` to the batch.
             if is_zk && idx == 0 {
                 polynomials[last_poly..]
                     .iter()
@@ -344,6 +351,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             )
         );
 
+        // In case of zk, the finaly polynomial's degree bits is increased by 1.
         let cap_index = self.le_sum(
             x_index_bits[x_index_bits.len() + params.hiding as usize - params.config.cap_height..]
                 .iter(),
@@ -462,6 +470,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         let mut steps = Vec::with_capacity(params.reduction_arity_bits.len());
 
+        // In case of zk, the finaly polynomial's degree bits is increased by `ZK_EXTRA_MERKLE_LENGTH`.
         merkle_proof_len += ZK_EXTRA_MERKLE_LENGTH * params.hiding as usize;
         for &arity_bits in &params.reduction_arity_bits {
             assert!(merkle_proof_len >= arity_bits);
@@ -517,6 +526,10 @@ impl<const D: usize> PrecomputedReducedOpeningsTarget<D> {
         builder: &mut CircuitBuilder<F, D>,
         is_zk: bool,
     ) -> Self {
+        // We commit to two extra polynomials in the case of zk:
+        // the lower and higher coefficients of the random `R` polynomial.
+        // Those `R` polynomials should not be taken into account when
+        // computing the reduced openings.
         let nb_r_polys = is_zk as usize * 2;
         let reduced_openings_at_point = openings
             .batches

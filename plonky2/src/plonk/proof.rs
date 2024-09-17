@@ -347,6 +347,7 @@ impl<F: RichField + Extendable<D>, const D: usize> OpeningSet<F, D> {
         let zs_partial_products_lookup_next_eval =
             eval_commitment(g * zeta, zs_partial_products_lookup_commitment);
         let quotient_polys = eval_commitment(zeta, quotient_polys_commitment);
+        // `R` is a random polynomial used in the zk case to hide the batch FRI polynomial.
         let random_r_polys = opt_random_r
             .as_ref()
             .map(|random_r| eval_commitment(zeta, random_r));

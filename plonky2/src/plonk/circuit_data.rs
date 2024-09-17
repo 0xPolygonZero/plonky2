@@ -576,49 +576,32 @@ impl<F: RichField + Extendable<D>, const D: usize> CommonCircuitData<F, D> {
     }
 
     fn fri_oracles(&self) -> Vec<FriOracleInfo> {
+        let mut oracles = vec![
+            FriOracleInfo {
+                num_polys: self.num_preprocessed_polys(),
+                blinding: PlonkOracle::CONSTANTS_SIGMAS.blinding,
+            },
+            FriOracleInfo {
+                num_polys: self.config.num_wires,
+                blinding: PlonkOracle::WIRES.blinding,
+            },
+            FriOracleInfo {
+                num_polys: self.num_zs_partial_products_polys() + self.num_all_lookup_polys(),
+                blinding: PlonkOracle::ZS_PARTIAL_PRODUCTS.blinding,
+            },
+            FriOracleInfo {
+                num_polys: self.num_quotient_polys(),
+                blinding: PlonkOracle::QUOTIENT.blinding,
+            },
+        ];
         if self.num_r_polys() > 0 {
-            vec![
-                FriOracleInfo {
-                    num_polys: self.num_preprocessed_polys(),
-                    blinding: PlonkOracle::CONSTANTS_SIGMAS.blinding,
-                },
-                FriOracleInfo {
-                    num_polys: self.config.num_wires,
-                    blinding: PlonkOracle::WIRES.blinding,
-                },
-                FriOracleInfo {
-                    num_polys: self.num_zs_partial_products_polys() + self.num_all_lookup_polys(),
-                    blinding: PlonkOracle::ZS_PARTIAL_PRODUCTS.blinding,
-                },
-                FriOracleInfo {
-                    num_polys: self.num_quotient_polys(),
-                    blinding: PlonkOracle::QUOTIENT.blinding,
-                },
-                FriOracleInfo {
-                    num_polys: self.num_r_polys(),
-                    blinding: PlonkOracle::R.blinding,
-                },
-            ]
-        } else {
-            vec![
-                FriOracleInfo {
-                    num_polys: self.num_preprocessed_polys(),
-                    blinding: PlonkOracle::CONSTANTS_SIGMAS.blinding,
-                },
-                FriOracleInfo {
-                    num_polys: self.config.num_wires,
-                    blinding: PlonkOracle::WIRES.blinding,
-                },
-                FriOracleInfo {
-                    num_polys: self.num_zs_partial_products_polys() + self.num_all_lookup_polys(),
-                    blinding: PlonkOracle::ZS_PARTIAL_PRODUCTS.blinding,
-                },
-                FriOracleInfo {
-                    num_polys: self.num_quotient_polys(),
-                    blinding: PlonkOracle::QUOTIENT.blinding,
-                },
-            ]
+            oracles.push(FriOracleInfo {
+                num_polys: self.num_r_polys(),
+                blinding: PlonkOracle::R.blinding,
+            });
         }
+
+        oracles
     }
 
     fn fri_preprocessed_polys(&self) -> Vec<FriPolynomialInfo> {
@@ -693,6 +676,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CommonCircuitData<F, D> {
     }
 
     pub(crate) fn num_quotient_polys(&self) -> usize {
+        // In the case of zk, the quotient polynomials are split into smaller chunks.
         if self.config.zero_knowledge {
             let h = self.computed_h();
             let d = self.degree() - h;
@@ -705,7 +689,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CommonCircuitData<F, D> {
         }
     }
 
-    /// Returns the information for lookup polynomials, i.e. the index within the oracle and the indices of the polynomials within the commitment.
+    /// Returns the information for the random `R` polynomials.
     fn fri_r_polys(&self) -> Vec<FriPolynomialInfo> {
         FriPolynomialInfo::from_range(PlonkOracle::R.index, 0..self.num_r_polys())
     }
@@ -715,8 +699,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CommonCircuitData<F, D> {
     }
 
     fn fri_all_polys(&self) -> Vec<FriPolynomialInfo> {
-        let num_r_polys = self.num_r_polys();
-        if num_r_polys > 0 {
+        if self.num_r_polys() > 0 {
             [
                 self.fri_preprocessed_polys(),
                 self.fri_wire_polys(),

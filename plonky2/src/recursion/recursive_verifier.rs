@@ -75,6 +75,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let partial_products = &proof.openings.partial_products;
 
         let (zeta_pow_deg_for_reducing, chunk_size) = if inner_common_data.config.zero_knowledge {
+            // In the zk case, the quotient chunk size is smaller. This means the power of zeta for reducing the quotient chunks
+            // is also smaller.
             let h = inner_common_data.computed_h();
             let d = inner_common_data.degree() - h;
             let chunk_size =
@@ -128,24 +130,17 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             }
         });
 
-        let merkle_caps = &if let Some(random_r) = proof.opt_random_r.clone() {
-            [
-                inner_verifier_data.constants_sigmas_cap.clone(),
-                proof.wires_cap.clone(),
-                proof.plonk_zs_partial_products_cap.clone(),
-                proof.quotient_polys_cap.clone(),
-                random_r,
-            ]
-            .to_vec()
-        } else {
-            [
-                inner_verifier_data.constants_sigmas_cap.clone(),
-                proof.wires_cap.clone(),
-                proof.plonk_zs_partial_products_cap.clone(),
-                proof.quotient_polys_cap.clone(),
-            ]
-            .to_vec()
-        };
+        let mut merkle_caps = [
+            inner_verifier_data.constants_sigmas_cap.clone(),
+            proof.wires_cap.clone(),
+            proof.plonk_zs_partial_products_cap.clone(),
+            proof.quotient_polys_cap.clone(),
+        ]
+        .to_vec();
+
+        if let Some(random_r) = proof.opt_random_r.clone() {
+            merkle_caps.push(random_r);
+        }
 
         let fri_instance = inner_common_data.get_fri_instance_target(self, challenges.plonk_zeta);
 
@@ -156,7 +151,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 &fri_instance,
                 &proof.openings.to_fri_openings(),
                 &challenges.fri_challenges,
-                merkle_caps,
+                &merkle_caps,
                 &proof.opening_proof,
                 &inner_common_data.fri_params,
             )
@@ -190,7 +185,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         if common_data.num_quotient_polys() > 0 {
             num_leaves_per_oracle.push(common_data.num_quotient_polys() + salt);
         }
-        num_leaves_per_oracle.push(common_data.num_r_polys() + salt);
+
+        if common_data.num_r_polys() > 0 {
+            num_leaves_per_oracle.push(common_data.num_r_polys() + salt);
+        }
 
         ProofTarget {
             wires_cap: self.add_virtual_cap(cap_height),

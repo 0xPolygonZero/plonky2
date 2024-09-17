@@ -22,6 +22,7 @@ use crate::plonk::proof::{
     ProofWithPublicInputs, ProofWithPublicInputsTarget,
 };
 use crate::util::reverse_bits;
+
 fn get_challenges<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
     public_inputs_hash: <<C as GenericConfig<D>>::InnerHasher as Hasher<F>>::Hash,
     wires_cap: &MerkleCap<F, C::Hasher>,

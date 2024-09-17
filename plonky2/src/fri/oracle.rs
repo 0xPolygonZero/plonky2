@@ -195,6 +195,13 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         // where the `k_i`s are chosen such that each power of `alpha` appears only once in the final sum.
         // There are usually two batches for the openings at `zeta` and `g * zeta`.
         // The oracles used in Plonky2 are given in `FRI_ORACLES` in `plonky2/src/plonk/plonk_common.rs`.
+        //
+        // If we are in the zk case, the `R` polynomial (the last polynomials in the first batch) is added to
+        // the batch polynomial independently, without being quotiented. So the final polynomial becomes:
+        // `final_poly = sum_i alpha^(k_i) (F_i(X) - F_i(z_i))/(X-z_i) + alpha^n R(X)`, where `n` is the degree
+        // of the batch polynomial.
+        // Then, since the degree of `R` is double that of the batch polynomial in our cimplementation, we need to
+        // compute one extra step in FRI to reach the correct degree.
         let is_zk = fri_params.hiding;
 
         for (idx, FriBatchInfo { point, polynomials }) in instance.batches.iter().enumerate() {
@@ -203,7 +210,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
                 .map(|p| (p.oracle_index == PlonkOracle::R.index) as usize)
                 .sum();
             let last_poly = polynomials.len() - nb_r_polys * (idx == 0) as usize;
-            // Collect the coefficients of all the polynomials in `polynomials`.
+            // Collect the coefficients of all the polynomials in `polynomials` until `last_poly`.
             let polys_coeff = polynomials[..last_poly].iter().map(|fri_poly| {
                 &oracles[fri_poly.oracle_index].polynomials[fri_poly.polynomial_index]
             });
@@ -217,6 +224,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             alpha.shift_poly(&mut final_poly);
             final_poly += quotient;
 
+            // If we are in the zk case, we still have to add `R(X)` to the batch.
             if is_zk && idx == 0 {
                 let degree = 1 << oracles[0].degree_log;
                 let mut composition_poly = PolynomialCoeffs::empty();

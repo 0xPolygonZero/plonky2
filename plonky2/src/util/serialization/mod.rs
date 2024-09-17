@@ -1541,7 +1541,7 @@ pub trait Write {
         Ok(())
     }
 
-    /// Writes `cap`, a value of type [`MerkleCapTarget`], to `self`.
+    /// Writes `opt_cap`, an optional value of type [`MerkleCapTarget`], to `self`.
     #[inline]
     fn write_opt_target_merkle_cap(&mut self, opt_cap: &Option<MerkleCapTarget>) -> IoResult<()> {
         self.write_bool(opt_cap.is_some())?;

@@ -125,6 +125,10 @@ fn batch_fri_combine_initial<
     let mut alpha = ReducingFactor::new(alpha);
     let mut sum = F::Extension::ZERO;
 
+    // If we are in the zk case, the `R` polynomial (the last polynomials in the first batch) is added to
+    // the batch polynomial independently, without being quotiented. So the final polynomial becomes:
+    // `final_poly = sum_i alpha^(k_i) (F_i(X) - F_i(z_i))/(X-z_i) + alpha^n R(X)`, where `n` is the degree
+    // of the batch polynomial.
     for (idx, (batch, reduced_openings)) in instances[index]
         .batches
         .iter()
@@ -152,6 +156,7 @@ fn batch_fri_combine_initial<
         sum = alpha.shift(sum);
         sum += numerator / denominator;
 
+        // If we are in the zk case, we still have to add `R(X)` to the batch.
         if is_zk && idx == 0 {
             polynomials[last_poly..]
                 .iter()

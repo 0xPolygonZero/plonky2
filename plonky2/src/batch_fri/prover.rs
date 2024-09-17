@@ -49,6 +49,8 @@ pub fn batch_fri_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>,
     }
     assert_eq!(cur_poly_index, lde_polynomial_values.len());
 
+    // In the zk case, the final polynomial polynomial to be reduced has degree double that
+    // of the original batch FRI polynomial.
     if fri_params.hiding {
         n /= 2;
     }

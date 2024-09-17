@@ -82,6 +82,8 @@ pub(crate) fn verify_with_challenges<
     // Check each polynomial identity, of the form `vanishing(x) = Z_H(x) quotient(x)`, at zeta.
     let quotient_polys_zeta = &proof.openings.quotient_polys;
     let (zeta_pow_deg_for_reducing, chunk_size) = if common_data.config.zero_knowledge {
+        // In the zk case, the quotient chunk size is smaller. This means the power of zeta for reducing the quotient chunks
+        // is also smaller.
         let h = common_data.computed_h();
         let d = common_data.degree() - h;
         let chunk_size = (common_data.quotient_degree_factor * common_data.degree()).div_ceil(d);
@@ -110,32 +112,23 @@ pub(crate) fn verify_with_challenges<
         );
     }
 
-    let merkle_caps = &if let Some(random_r) = proof.opt_random_r {
-        [
-            verifier_data.constants_sigmas_cap.clone(),
-            proof.wires_cap,
-            // In the lookup case, `plonk_zs_partial_products_cap` should also include the lookup commitment.
-            proof.plonk_zs_partial_products_cap,
-            proof.quotient_polys_cap,
-            random_r,
-        ]
-        .to_vec()
-    } else {
-        [
-            verifier_data.constants_sigmas_cap.clone(),
-            proof.wires_cap,
-            // In the lookup case, `plonk_zs_partial_products_cap` should also include the lookup commitment.
-            proof.plonk_zs_partial_products_cap,
-            proof.quotient_polys_cap,
-        ]
-        .to_vec()
-    };
+    let mut merkle_caps = [
+        verifier_data.constants_sigmas_cap.clone(),
+        proof.wires_cap,
+        // In the lookup case, `plonk_zs_partial_products_cap` should also include the lookup commitment.
+        proof.plonk_zs_partial_products_cap,
+        proof.quotient_polys_cap,
+    ]
+    .to_vec();
+    if let Some(random_r) = proof.opt_random_r {
+        merkle_caps.push(random_r);
+    }
 
     verify_fri_proof::<F, C, D>(
         &common_data.get_fri_instance(challenges.plonk_zeta),
         &proof.openings.to_fri_openings(),
         &challenges.fri_challenges,
-        merkle_caps,
+        &merkle_caps,
         &proof.opening_proof,
         &common_data.fri_params,
     )?;

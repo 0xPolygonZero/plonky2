@@ -247,7 +247,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             .collect()
     }
 
-    /// Computes `if b { v0 } else { v1 }`.
+    /// Computes `if b { opt_v0 } else { opt_v1 }`.
     fn select_opt_vec_ext(
         &mut self,
         b: BoolTarget,

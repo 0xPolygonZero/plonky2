@@ -65,6 +65,7 @@ where
 
         ensure!(steps.len() == params.reduction_arity_bits.len());
 
+        // In the case of zk, the final polynomial has degree double that of the original batch polynomial.
         let mut codeword_len_bits = if params.hiding {
             params.lde_bits() + 1
         } else {

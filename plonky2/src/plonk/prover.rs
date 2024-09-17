@@ -282,6 +282,9 @@ where
                 );
 
                 // Split quotient into degree-n chunks.
+                // In the zk case, we split the quotient into degree-(n-h) chunks, where `h` is computed by `computed_h`.
+                // This is so that we can add random polynomials of degree n > n-h and still keep chhunks of degree a power of 2.
+                // See "A note on adding zero-knowledge to STARKs" (https://eprint.iacr.org/2024/1037.pdf) for details.
                 if common_data.config.zero_knowledge {
                     let h = common_data.computed_h();
                     let d = degree - h;
@@ -294,6 +297,12 @@ where
                         };
                         total_nb_chunks - 1
                     ];
+                    // Let (t_i)i be the random polynomials, and (q_i)i be the k quotient chunks of degree n.
+                    // We compute:
+                    // - q'_0(X) = q_0(X) + Xˆn * t_0(X)
+                    // - q'_i(X) = q_i(X) + Xˆn * t_i(X) - t_(i-1)(X)
+                    // - q'_k(X) = q_k(X) - t_(k-1)(X)
+                    // Then, the sum of q' over i is equal to the sum of q over i.
                     let mut quotients = quotient_poly.chunks(d);
                     quotients[0].coeffs.extend(&random_ts[0].coeffs);
                     for i in 1..total_nb_chunks - 1 {
@@ -326,11 +335,15 @@ where
 
     challenger.observe_cap::<C::Hasher>(&quotient_polys_commitment.merkle_tree.cap);
 
+    // If we are in the zk case, we need to commit to an extra random polynomial, that will be used to hide the batch FRI polynomial.
     let random_r_commitment = if config.zero_knowledge {
+        // The random polynomial is of degree 2 * |H| with H the subgroup.
         let d = 1 << common_data.fri_params.degree_bits;
         let n = 2 * d;
 
-        let random_r = F::rand_vec(n); // R(X)
+        // We commit to the lower and higher coefficients of `R` separately, so that the required size of the
+        // `fft_root_table` remains unchanged.
+        let random_r = F::rand_vec(n);
         let random_low = PolynomialCoeffs::new(random_r[..d].to_vec());
         let high_coeffs = random_r[d..].to_vec();
         let random_high = PolynomialCoeffs::new(high_coeffs);
@@ -381,6 +394,7 @@ where
     challenger.observe_openings(&openings.to_fri_openings());
     let instance = common_data.get_fri_instance(zeta);
 
+    // If we are in the zk case, the proof needs to take into account one extra random polynomial commitment.
     let proof = if let Some(random_r_com) = random_r_commitment {
         let opening_proof = timed!(
             timing,

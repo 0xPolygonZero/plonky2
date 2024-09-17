@@ -28,6 +28,7 @@ pub fn fri_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const
     fri_params: &FriParams,
     timing: &mut TimingTree,
 ) -> FriProof<F, C::Hasher, D> {
+    // In the zk case, the polynomial to be reduced has degree double that of the original batch FRI polynomial.
     let n = if fri_params.hiding {
         lde_polynomial_values.len() / 2
     } else {

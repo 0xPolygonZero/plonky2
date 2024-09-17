@@ -174,6 +174,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             .zip(&precomputed_reduced_evals.reduced_openings_at_point)
             .enumerate()
         {
+            // If we are in the zk case, the `R` polynomial (the last polynomials in the first batch) is added to
+            // the batch polynomial independently, without being quotiented. So the final polynomial becomes:
+            // `final_poly = sum_i alpha^(k_i) (F_i(X) - F_i(z_i))/(X-z_i) + alpha^n R(X)`, where `n` is the degree
+            // of the batch polynomial.
             let FriBatchInfoTarget { point, polynomials } = batch;
             let is_zk = params.hiding;
             let nb_r_polys: usize = polynomials
@@ -195,6 +199,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             sum = alpha.shift(sum, self);
             sum = self.div_add_extension(numerator, denominator, sum);
 
+            // If we are in the zk case, we still have to add `R(X)` to the batch.
             if is_zk && idx == 0 {
                 polynomials[last_poly..]
                     .iter()
@@ -286,6 +291,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         );
         batch_index += 1;
 
+        // In case of zk, the finaly polynomial's degree bits is increased by 1.
         let cap_index = self.le_sum(
             x_index_bits[x_index_bits.len() + params.hiding as usize - params.config.cap_height..]
                 .iter(),

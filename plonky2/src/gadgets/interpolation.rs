@@ -25,7 +25,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         for (i, &v) in values.iter().enumerate() {
             self.connect_extension(v, ExtensionTarget::from_range(row, gate.wires_value(i)));
         }
-
         self.connect_extension(
             evaluation_point,
             ExtensionTarget::from_range(row, gate.wires_evaluation_point()),

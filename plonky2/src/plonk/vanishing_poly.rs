@@ -905,6 +905,7 @@ pub(crate) fn eval_vanishing_poly_circuit<F: RichField + Extendable<D>, const D:
         constraint_terms,
     ]
     .concat();
+
     alphas
         .iter()
         .map(|&alpha| {
