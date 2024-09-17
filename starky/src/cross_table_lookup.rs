@@ -991,10 +991,9 @@ pub fn verify_cross_table_lookups<F: RichField + Extendable<D>, const D: usize, 
         }
     }
 
-    // Ensure all iterators are fully consumed (i.e., `next()` returns `None`).
     debug_assert!(ctl_zs_openings
         .iter_mut()
-        .all(|iter| iter.as_mut().map(|it| it.next()).is_none()));
+        .all(|iter| iter.as_mut().map_or(true, |it| it.next().is_none())));
 
     Ok(())
 }
@@ -1058,10 +1057,9 @@ pub fn verify_cross_table_lookups_circuit<
         }
     }
 
-    // Ensure all iterators are fully consumed (i.e., `next()` returns `None`).
     debug_assert!(ctl_zs_openings
         .iter_mut()
-        .all(|iter| iter.as_mut().map(|it| it.next()).is_none()));
+        .all(|iter| iter.as_mut().map_or(true, |it| it.next().is_none())));
 }
 
 /// Debugging module used to assert correctness of the different CTLs of a multi-STARK system,
