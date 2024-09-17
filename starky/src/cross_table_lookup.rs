@@ -941,10 +941,8 @@ pub fn verify_cross_table_lookups<F: RichField + Extendable<D>, const D: usize, 
     ctl_extra_looking_sums: &HashMap<usize, Vec<F>>,
     config: &StarkConfig,
 ) -> Result<()> {
-    let mut ctl_zs_openings = ctl_zs_first
-        .iter()
-        .map(|v| v.as_ref().map(|vec| vec.iter()))
-        .collect::<Vec<_>>();
+    let mut ctl_zs_openings: [Option<std::slice::Iter<F>>; N] =
+        core::array::from_fn(|i| ctl_zs_first[i].as_ref().map(|vec| vec.iter()));
 
     for (
         index,
@@ -967,7 +965,6 @@ pub fn verify_cross_table_lookups<F: RichField + Extendable<D>, const D: usize, 
             let looking_zs_sum = filtered_looking_tables
                 .iter()
                 .map(|&table| {
-                    // Unwrap to access the iterator, then unwrap to access the next value.
                     *ctl_zs_openings[table]
                         .as_mut()
                         .expect("CTL opening should be present")
@@ -1015,10 +1012,8 @@ pub fn verify_cross_table_lookups_circuit<
     ctl_extra_looking_sums: &HashMap<usize, Vec<Target>>,
     inner_config: &StarkConfig,
 ) {
-    let mut ctl_zs_openings = ctl_zs_first
-        .iter()
-        .map(|v| v.as_ref().map(|vec| vec.iter()))
-        .collect::<Vec<_>>();
+    let mut ctl_zs_openings: [Option<std::slice::Iter<Target>>; N] =
+        core::array::from_fn(|i| ctl_zs_first[i].as_ref().map(|vec| vec.iter()));
 
     for (
         index,
