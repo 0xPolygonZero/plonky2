@@ -941,7 +941,7 @@ pub fn verify_cross_table_lookups<F: RichField + Extendable<D>, const D: usize, 
     ctl_extra_looking_sums: &HashMap<usize, Vec<F>>,
     config: &StarkConfig,
 ) -> Result<()> {
-    let mut ctl_zs_openings: [Option<std::slice::Iter<F>>; N] =
+    let mut ctl_zs_openings: [_; N] =
         core::array::from_fn(|i| ctl_zs_first[i].as_ref().map(|vec| vec.iter()));
 
     for (
@@ -1011,7 +1011,7 @@ pub fn verify_cross_table_lookups_circuit<
     ctl_extra_looking_sums: &HashMap<usize, Vec<Target>>,
     inner_config: &StarkConfig,
 ) {
-    let mut ctl_zs_openings: [Option<std::slice::Iter<Target>>; N] =
+    let mut ctl_zs_openings: [_; N] =
         core::array::from_fn(|i| ctl_zs_first[i].as_ref().map(|vec| vec.iter()));
 
     for (
