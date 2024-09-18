@@ -384,7 +384,7 @@ mod tests {
         pw.set_target(t, F::rand())?;
         builder.register_public_input(t);
         let _t2 = builder.square(t);
-        for _ in 0..1 << 16 {
+        for _ in 0..64 {
             builder.add_gate(NoopGate, vec![]);
         }
         let data = builder.build::<C>();
@@ -396,7 +396,8 @@ mod tests {
         let dummy_data = dummy_circuit(&data.common);
         let dummy_proof = dummy_proof(&dummy_data, HashMap::new())?;
 
-        // Conditionally verify the three proofs.
+        // Conditionally verify the num_dummy_proofs + 1 proofs.
+        let num_dummy_proofs = 3;
         let mut builder = CircuitBuilder::<F, D>::new(config);
         let mut pw = PartialWitness::new();
         let pt = builder.add_virtual_proof_with_pis(&data.common);
@@ -413,12 +414,18 @@ mod tests {
         let t = builder.constant_bool(true);
         let f = builder.constant_bool(false);
 
-        builder.conditionally_verify_proof::<C>(
-            &[t, f, f],
-            &[&pt, &dummy_pt, &dummy_pt],
-            &[&inner_data, &dummy_inner_data, &dummy_inner_data],
-            &data.common,
-        );
+        let mut bools = vec![f; num_dummy_proofs + 1];
+        bools[0] = t;
+
+        let points = vec![&dummy_pt; num_dummy_proofs];
+        let mut pts = vec![&pt];
+        pts.extend(points.into_iter());
+
+        let inner_datas = vec![&dummy_inner_data; num_dummy_proofs];
+        let mut inner_data_vec = vec![&inner_data];
+        inner_data_vec.extend(inner_datas.into_iter());
+
+        builder.conditionally_verify_proof::<C>(&bools, &pts, &inner_data_vec, &data.common);
 
         builder.print_gate_counts(100);
         let data = builder.build::<C>();

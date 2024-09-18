@@ -143,12 +143,12 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         // Create the Vec for proof with public inputs
         let mut extended_proof_with_pis = Vec::with_capacity(other_len + 1);
         extended_proof_with_pis.push(cyclic_proof_with_pis);
-        extended_proof_with_pis.extend_from_slice(&other_proof_with_pis);
+        extended_proof_with_pis.extend_from_slice(other_proof_with_pis);
 
         // Create the Vec for verifier data
         let mut extended_verifier_data = Vec::with_capacity(other_len + 1);
         extended_verifier_data.push(&verifier_data);
-        extended_verifier_data.extend_from_slice(&other_verifier_data);
+        extended_verifier_data.extend_from_slice(other_verifier_data);
 
         // Create the Vec for conditions and calculate the first condition
         let sum_condition = self.add_many(other_conditions.iter().map(|t| t.target));
@@ -156,7 +156,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         let mut conditions = Vec::with_capacity(other_len + 1);
         conditions.push(first_condition);
-        conditions.extend_from_slice(&other_conditions);
+        conditions.extend_from_slice(other_conditions);
 
         // If required, use Vec directly, or slice them to pass to a method
         self.conditionally_verify_proof::<C>(
