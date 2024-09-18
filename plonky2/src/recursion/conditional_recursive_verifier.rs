@@ -359,7 +359,6 @@ mod tests {
 
     use anyhow::Result;
     use hashbrown::HashMap;
-    use log::info;
 
     use super::*;
     use crate::field::types::Sample;
@@ -390,7 +389,6 @@ mod tests {
         let data = builder.build::<C>();
         let proof = data.prove(pw)?;
         data.verify(proof.clone())?;
-        info!("Generate proof!");
 
         // Generate dummy proof with the same `CommonCircuitData`.
         let dummy_data = dummy_circuit(&data.common);
