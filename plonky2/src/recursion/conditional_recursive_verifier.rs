@@ -66,7 +66,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             self.dummy_proof_and_vk::<C>(inner_common_data)?;
         let not_condition = self.not(condition);
         self.conditionally_verify_proof::<C>(
-            &[not_condition, condition],
+            &[condition, not_condition],
             &[proof_with_pis, &dummy_proof_with_pis_target],
             &[inner_verifier_data, &dummy_verifier_data_target],
             inner_common_data,
