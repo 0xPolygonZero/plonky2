@@ -30,22 +30,22 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     ) where
         C::Hasher: AlgebraicHasher<F>,
     {
-        assert_eq!(conditions.len(), proof_with_pis.len());
-        assert_eq!(proof_with_pis.len(), inner_verifier_data.len());
+        let len = conditions.len();
+        assert_eq!(len, proof_with_pis.len());
+        assert_eq!(len, inner_verifier_data.len());
         let sum_condition = self.add_many(conditions.iter().map(|t| t.target));
         self.assert_one(sum_condition);
 
         let mut selected_proof = proof_with_pis[0].clone();
         let mut selected_verifier_data = inner_verifier_data[0].clone();
-        for (condition, (proof, verifier)) in conditions.iter().skip(1).zip(
-            proof_with_pis
-                .iter()
-                .skip(1)
-                .zip(inner_verifier_data.iter().skip(1)),
-        ) {
-            selected_proof = self.select_proof_with_pis(*condition, &selected_proof, proof);
-            selected_verifier_data =
-                self.select_verifier_data(*condition, &selected_verifier_data, verifier);
+        for i in 1..len {
+            selected_proof =
+                self.select_proof_with_pis(conditions[i], proof_with_pis[i], &selected_proof);
+            selected_verifier_data = self.select_verifier_data(
+                conditions[i],
+                inner_verifier_data[i],
+                &selected_verifier_data,
+            );
         }
 
         self.verify_proof::<C>(&selected_proof, &selected_verifier_data, inner_common_data);
