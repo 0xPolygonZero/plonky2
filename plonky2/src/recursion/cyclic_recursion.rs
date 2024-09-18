@@ -102,6 +102,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// WARNING: Do not register any public input after calling this! TODO: relax this
     pub fn conditionally_verify_cyclic_proof<C: GenericConfig<D, F = F>>(
         &mut self,
+        condition: BoolTarget,
         cyclic_proof_with_pis: &ProofWithPublicInputsTarget<D>,
         other_conditions: &[BoolTarget],
         other_proof_with_pis: &[&ProofWithPublicInputsTarget<D>],
@@ -150,12 +151,12 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         extended_verifier_data.push(&verifier_data);
         extended_verifier_data.extend_from_slice(other_verifier_data);
 
-        // Create the Vec for conditions and calculate the first condition
-        let sum_condition = self.add_many(other_conditions.iter().map(|t| t.target));
-        let first_condition = self.not(BoolTarget::new_unsafe(sum_condition));
+        let sum_other_conditions = self.add_many(other_conditions.iter().map(|t| t.target));
+        let sum_all_contitions = self.add(condition.target, sum_other_conditions);
+        self.assert_one(sum_all_contitions);
 
         let mut conditions = Vec::with_capacity(other_len + 1);
-        conditions.push(first_condition);
+        conditions.push(condition);
         conditions.extend_from_slice(other_conditions);
 
         // If required, use Vec directly, or slice them to pass to a method
@@ -185,9 +186,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     {
         let (dummy_proof_with_pis_target, dummy_verifier_data_target) =
             self.dummy_proof_and_vk::<C>(common_data)?;
+        let not_contidion = self.not(condition);
         self.conditionally_verify_cyclic_proof::<C>(
+            condition,
             cyclic_proof_with_pis,
-            &[condition],
+            &[not_contidion],
             &[&dummy_proof_with_pis_target],
             &[&dummy_verifier_data_target],
             common_data,
