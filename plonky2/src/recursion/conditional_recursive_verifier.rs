@@ -23,19 +23,31 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// `proof0` and `proof1` are assumed to use the same `CommonCircuitData`.
     pub fn conditionally_verify_proof<C: GenericConfig<D, F = F>>(
         &mut self,
-        condition: BoolTarget,
-        proof_with_pis0: &ProofWithPublicInputsTarget<D>,
-        inner_verifier_data0: &VerifierCircuitTarget,
-        proof_with_pis1: &ProofWithPublicInputsTarget<D>,
-        inner_verifier_data1: &VerifierCircuitTarget,
+        conditions: &[BoolTarget],
+        proof_with_pis: &[&ProofWithPublicInputsTarget<D>],
+        inner_verifier_data: &[&VerifierCircuitTarget],
         inner_common_data: &CommonCircuitData<F, D>,
     ) where
         C::Hasher: AlgebraicHasher<F>,
     {
-        let selected_proof =
-            self.select_proof_with_pis(condition, proof_with_pis0, proof_with_pis1);
-        let selected_verifier_data =
-            self.select_verifier_data(condition, inner_verifier_data0, inner_verifier_data1);
+        assert_eq!(conditions.len(), proof_with_pis.len());
+        assert_eq!(proof_with_pis.len(), inner_verifier_data.len());
+        let sum_condition = self.add_many(conditions.iter().map(|t| t.target));
+        self.assert_one(sum_condition);
+
+        //TODO: use selectors?
+        let mut selected_proof = proof_with_pis[0].clone();
+        let mut selected_verifier_data = inner_verifier_data[0].clone();
+        for (condition, (proof, verifier)) in conditions.iter().skip(1).zip(
+            proof_with_pis
+                .iter()
+                .skip(1)
+                .zip(inner_verifier_data.iter().skip(1)),
+        ) {
+            selected_proof = self.select_proof_with_pis(*condition, &selected_proof, proof);
+            selected_verifier_data =
+                self.select_verifier_data(*condition, &selected_verifier_data, verifier);
+        }
 
         self.verify_proof::<C>(&selected_proof, &selected_verifier_data, inner_common_data);
     }
@@ -53,12 +65,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     {
         let (dummy_proof_with_pis_target, dummy_verifier_data_target) =
             self.dummy_proof_and_vk::<C>(inner_common_data)?;
+        let not_condition = self.not(condition);
         self.conditionally_verify_proof::<C>(
-            condition,
-            proof_with_pis,
-            inner_verifier_data,
-            &dummy_proof_with_pis_target,
-            &dummy_verifier_data_target,
+            &[not_condition, condition],
+            &[proof_with_pis, &dummy_proof_with_pis_target],
+            &[inner_verifier_data, &dummy_verifier_data_target],
             inner_common_data,
         );
         Ok(())
@@ -349,7 +360,7 @@ mod tests {
 
     use anyhow::Result;
     use hashbrown::HashMap;
-
+    use log::info;
     use super::*;
     use crate::field::types::Sample;
     use crate::gates::noop::NoopGate;
@@ -373,18 +384,19 @@ mod tests {
         pw.set_target(t, F::rand())?;
         builder.register_public_input(t);
         let _t2 = builder.square(t);
-        for _ in 0..64 {
+        for _ in 0..1<<16 {
             builder.add_gate(NoopGate, vec![]);
         }
         let data = builder.build::<C>();
         let proof = data.prove(pw)?;
         data.verify(proof.clone())?;
+        info!("Generate proof!");
 
         // Generate dummy proof with the same `CommonCircuitData`.
         let dummy_data = dummy_circuit(&data.common);
         let dummy_proof = dummy_proof(&dummy_data, HashMap::new())?;
 
-        // Conditionally verify the two proofs.
+        // Conditionally verify the three proofs.
         let mut builder = CircuitBuilder::<F, D>::new(config);
         let mut pw = PartialWitness::new();
         let pt = builder.add_virtual_proof_with_pis(&data.common);
@@ -397,13 +409,14 @@ mod tests {
         let dummy_inner_data =
             builder.add_virtual_verifier_data(data.common.config.fri_config.cap_height);
         pw.set_verifier_data_target(&dummy_inner_data, &dummy_data.verifier_only)?;
-        let b = builder.constant_bool(F::rand().0 % 2 == 0);
+
+        let t = builder.constant_bool(true);
+        let f = builder.constant_bool(false);
+
         builder.conditionally_verify_proof::<C>(
-            b,
-            &pt,
-            &inner_data,
-            &dummy_pt,
-            &dummy_inner_data,
+            &[t, f, f],
+            &[&pt, &dummy_pt, &dummy_pt],
+            &[&inner_data, &dummy_inner_data, &dummy_inner_data],
             &data.common,
         );
 
