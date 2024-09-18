@@ -35,7 +35,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let sum_condition = self.add_many(conditions.iter().map(|t| t.target));
         self.assert_one(sum_condition);
 
-        //TODO: use selectors?
         let mut selected_proof = proof_with_pis[0].clone();
         let mut selected_verifier_data = inner_verifier_data[0].clone();
         for (condition, (proof, verifier)) in conditions.iter().skip(1).zip(
@@ -361,6 +360,7 @@ mod tests {
     use anyhow::Result;
     use hashbrown::HashMap;
     use log::info;
+
     use super::*;
     use crate::field::types::Sample;
     use crate::gates::noop::NoopGate;
@@ -384,7 +384,7 @@ mod tests {
         pw.set_target(t, F::rand())?;
         builder.register_public_input(t);
         let _t2 = builder.square(t);
-        for _ in 0..1<<16 {
+        for _ in 0..1 << 16 {
             builder.add_gate(NoopGate, vec![]);
         }
         let data = builder.build::<C>();
