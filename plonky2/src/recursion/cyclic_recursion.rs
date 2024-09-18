@@ -102,8 +102,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// WARNING: Do not register any public input after calling this! TODO: relax this
     pub fn conditionally_verify_cyclic_proof<C: GenericConfig<D, F = F>>(
         &mut self,
-        other_conditions: &[BoolTarget],
         cyclic_proof_with_pis: &ProofWithPublicInputsTarget<D>,
+        other_conditions: &[BoolTarget],
         other_proof_with_pis: &[&ProofWithPublicInputsTarget<D>],
         other_verifier_data: &[&VerifierCircuitTarget],
         common_data: &CommonCircuitData<F, D>,
@@ -186,8 +186,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let (dummy_proof_with_pis_target, dummy_verifier_data_target) =
             self.dummy_proof_and_vk::<C>(common_data)?;
         self.conditionally_verify_cyclic_proof::<C>(
-            &[condition],
             cyclic_proof_with_pis,
+            &[condition],
             &[&dummy_proof_with_pis_target],
             &[&dummy_verifier_data_target],
             common_data,

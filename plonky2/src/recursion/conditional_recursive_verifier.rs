@@ -417,11 +417,11 @@ mod tests {
 
         let points = vec![&dummy_pt; num_dummy_proofs];
         let mut pts = vec![&pt];
-        pts.extend(points.into_iter());
+        pts.extend(points);
 
         let inner_datas = vec![&dummy_inner_data; num_dummy_proofs];
         let mut inner_data_vec = vec![&inner_data];
-        inner_data_vec.extend(inner_datas.into_iter());
+        inner_data_vec.extend(inner_datas);
 
         builder.conditionally_verify_proof::<C>(&bools, &pts, &inner_data_vec, &data.common);
 
