@@ -105,8 +105,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         condition: BoolTarget,
         cyclic_proof_with_pis: &ProofWithPublicInputsTarget<D>,
         other_conditions: &[BoolTarget],
-        other_proof_with_pis: &[&ProofWithPublicInputsTarget<D>],
-        other_verifier_data: &[&VerifierCircuitTarget],
+        other_proof_with_pis: &[ProofWithPublicInputsTarget<D>],
+        other_verifier_data: &[VerifierCircuitTarget],
         common_data: &CommonCircuitData<F, D>,
     ) -> Result<()>
     where
@@ -143,12 +143,12 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         // Create the Vec for proof with public inputs
         let mut extended_proof_with_pis = Vec::with_capacity(other_len + 1);
-        extended_proof_with_pis.push(cyclic_proof_with_pis);
+        extended_proof_with_pis.push(cyclic_proof_with_pis.clone());
         extended_proof_with_pis.extend_from_slice(other_proof_with_pis);
 
         // Create the Vec for verifier data
         let mut extended_verifier_data = Vec::with_capacity(other_len + 1);
-        extended_verifier_data.push(&verifier_data);
+        extended_verifier_data.push(verifier_data);
         extended_verifier_data.extend_from_slice(other_verifier_data);
 
         let sum_other_conditions = self.add_many(other_conditions.iter().map(|t| t.target));
@@ -191,8 +191,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             condition,
             cyclic_proof_with_pis,
             &[not_contidion],
-            &[&dummy_proof_with_pis_target],
-            &[&dummy_verifier_data_target],
+            &[dummy_proof_with_pis_target],
+            &[dummy_verifier_data_target],
             common_data,
         )?;
         Ok(())

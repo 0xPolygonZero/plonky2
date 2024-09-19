@@ -24,8 +24,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn conditionally_verify_proof<C: GenericConfig<D, F = F>>(
         &mut self,
         conditions: &[BoolTarget],
-        proof_with_pis: &[&ProofWithPublicInputsTarget<D>],
-        inner_verifier_data: &[&VerifierCircuitTarget],
+        proof_with_pis: &[ProofWithPublicInputsTarget<D>],
+        inner_verifier_data: &[VerifierCircuitTarget],
         inner_common_data: &CommonCircuitData<F, D>,
     ) where
         C::Hasher: AlgebraicHasher<F>,
@@ -40,10 +40,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let mut selected_verifier_data = inner_verifier_data[0].clone();
         for i in 1..len {
             selected_proof =
-                self.select_proof_with_pis(conditions[i], proof_with_pis[i], &selected_proof);
+                self.select_proof_with_pis(conditions[i], &proof_with_pis[i], &selected_proof);
             selected_verifier_data = self.select_verifier_data(
                 conditions[i],
-                inner_verifier_data[i],
+                &inner_verifier_data[i],
                 &selected_verifier_data,
             );
         }
@@ -55,8 +55,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn conditionally_verify_proof_or_dummy<C: GenericConfig<D, F = F> + 'static>(
         &mut self,
         condition: BoolTarget,
-        proof_with_pis: &ProofWithPublicInputsTarget<D>,
-        inner_verifier_data: &VerifierCircuitTarget,
+        proof_with_pis: ProofWithPublicInputsTarget<D>,
+        inner_verifier_data: VerifierCircuitTarget,
         inner_common_data: &CommonCircuitData<F, D>,
     ) -> anyhow::Result<()>
     where
@@ -67,8 +67,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let not_condition = self.not(condition);
         self.conditionally_verify_proof::<C>(
             &[condition, not_condition],
-            &[proof_with_pis, &dummy_proof_with_pis_target],
-            &[inner_verifier_data, &dummy_verifier_data_target],
+            &[proof_with_pis, dummy_proof_with_pis_target],
+            &[inner_verifier_data, dummy_verifier_data_target],
             inner_common_data,
         );
         Ok(())
@@ -415,12 +415,12 @@ mod tests {
         let mut bools = vec![f; num_dummy_proofs + 1];
         bools[0] = t;
 
-        let points = vec![&dummy_pt; num_dummy_proofs];
-        let mut pts = vec![&pt];
+        let points = vec![dummy_pt; num_dummy_proofs];
+        let mut pts = vec![pt];
         pts.extend(points);
 
-        let inner_datas = vec![&dummy_inner_data; num_dummy_proofs];
-        let mut inner_data_vec = vec![&inner_data];
+        let inner_datas = vec![dummy_inner_data; num_dummy_proofs];
+        let mut inner_data_vec = vec![inner_data];
         inner_data_vec.extend(inner_datas);
 
         builder.conditionally_verify_proof::<C>(&bools, &pts, &inner_data_vec, &data.common);
