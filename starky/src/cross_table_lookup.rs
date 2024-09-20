@@ -226,7 +226,7 @@ impl<'a, F: Field> CtlData<'a, F> {
 /// the CTL data necessary to prove a multi-STARK system.
 pub fn get_ctl_data<'a, F, C, const D: usize, const N: usize>(
     config: &StarkConfig,
-    trace_poly_values: &[Vec<PolynomialValues<F>>; N],
+    trace_poly_values: &[Option<Vec<PolynomialValues<F>>>; N],
     all_cross_table_lookups: &'a [CrossTableLookup<F>],
     challenger: &mut Challenger<F, C::Hasher>,
     max_constraint_degree: usize,
@@ -321,7 +321,7 @@ pub(crate) fn get_ctl_auxiliary_polys<F: Field>(
 ///
 /// For each `CrossTableLookup`, and each looking/looked table, the partial products for the CTL are computed, and added to the said table's `CtlZData`.
 pub(crate) fn cross_table_lookup_data<'a, F: RichField, const D: usize, const N: usize>(
-    trace_poly_values: &[Vec<PolynomialValues<F>>; N],
+    trace_poly_values: &[Option<Vec<PolynomialValues<F>>>; N],
     cross_table_lookups: &'a [CrossTableLookup<F>],
     ctl_challenges: &GrandProductChallengeSet<F>,
     constraint_degree: usize,
@@ -341,8 +341,15 @@ pub(crate) fn cross_table_lookup_data<'a, F: RichField, const D: usize, const N:
                 constraint_degree,
             );
 
+            let trace_values = trace_poly_values[looked_table.table]
+                .as_ref()
+                .expect(&format!(
+                    "Missing trace polynomial values for table {:?}",
+                    looked_table.table
+                ));
+
             let z_looked = partial_sums(
-                &trace_poly_values[looked_table.table],
+                trace_values,
                 &[(&looked_table.columns, &looked_table.filter)],
                 challenge,
                 constraint_degree,
@@ -394,7 +401,7 @@ pub(crate) fn cross_table_lookup_data<'a, F: RichField, const D: usize, const N:
 /// Computes helper columns and Z polynomials for all looking tables
 /// of one cross-table lookup (i.e. for one looked table).
 fn ctl_helper_zs_cols<F: Field, const N: usize>(
-    all_stark_traces: &[Vec<PolynomialValues<F>>; N],
+    all_stark_traces: &[Option<Vec<PolynomialValues<F>>>; N],
     looking_tables: Vec<TableWithColumns<F>>,
     challenge: GrandProductChallenge<F>,
     constraint_degree: usize,
@@ -404,17 +411,17 @@ fn ctl_helper_zs_cols<F: Field, const N: usize>(
     grouped_lookups
         .into_iter()
         .map(|(table, group)| {
+            let trace_values = all_stark_traces[table].as_ref().expect(&format!(
+                "Missing trace polynomial values for table {:?}",
+                table
+            ));
+
             let columns_filters = group
                 .map(|table| (&table.columns[..], &table.filter))
                 .collect::<Vec<(&[Column<F>], &Filter<F>)>>();
             (
                 table,
-                partial_sums(
-                    &all_stark_traces[table],
-                    &columns_filters,
-                    challenge,
-                    constraint_degree,
-                ),
+                partial_sums(trace_values, &columns_filters, challenge, constraint_degree),
             )
         })
         .collect::<Vec<(usize, Vec<PolynomialValues<F>>)>>()
@@ -1081,7 +1088,7 @@ pub mod debug_utils {
     /// Check that the provided traces and cross-table lookups are consistent.
     /// The key of `extra_looking_values` is the corresponding CTL's position within `cross_table_lookups`.
     pub fn check_ctls<F: Field>(
-        trace_poly_values: &[Vec<PolynomialValues<F>>],
+        trace_poly_values: &[Option<Vec<PolynomialValues<F>>>],
         cross_table_lookups: &[CrossTableLookup<F>],
         extra_looking_values: &HashMap<usize, Vec<Vec<F>>>,
     ) {
@@ -1091,7 +1098,7 @@ pub mod debug_utils {
     }
 
     fn check_ctl<F: Field>(
-        trace_poly_values: &[Vec<PolynomialValues<F>>],
+        trace_poly_values: &[Option<Vec<PolynomialValues<F>>>],
         ctl: &CrossTableLookup<F>,
         ctl_index: usize,
         extra_looking_values: Option<&Vec<Vec<F>>>,
@@ -1137,11 +1144,14 @@ pub mod debug_utils {
     }
 
     fn process_table<F: Field>(
-        trace_poly_values: &[Vec<PolynomialValues<F>>],
+        trace_poly_values: &[Option<Vec<PolynomialValues<F>>>],
         table: &TableWithColumns<F>,
         multiset: &mut MultiSet<F>,
     ) {
-        let trace = &trace_poly_values[table.table];
+        let trace = trace_poly_values[table.table]
+            .as_ref()
+            .expect(&format!("Missing trace polynomial values for table {:?}", table.table));
+
         for i in 0..trace[0].len() {
             let filter = table.filter.eval_table(trace, i);
             if filter.is_one() {
