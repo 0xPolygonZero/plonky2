@@ -104,18 +104,13 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         &mut self,
         condition: BoolTarget,
         cyclic_proof_with_pis: &ProofWithPublicInputsTarget<D>,
-        other_conditions: &[BoolTarget],
-        other_proof_with_pis: &[ProofWithPublicInputsTarget<D>],
-        other_verifier_data: &[VerifierCircuitTarget],
+        other_proof_with_pis: &ProofWithPublicInputsTarget<D>,
+        other_verifier_data: &VerifierCircuitTarget,
         common_data: &CommonCircuitData<F, D>,
     ) -> Result<()>
     where
         C::Hasher: AlgebraicHasher<F>,
     {
-        let other_len = other_conditions.len();
-        assert_eq!(other_proof_with_pis.len(), other_len);
-        assert_eq!(other_verifier_data.len(), other_len);
-
         let verifier_data = self
             .verifier_data_public_input
             .clone()
@@ -141,29 +136,13 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             &verifier_data.constants_sigmas_cap,
         );
 
-        // Create the Vec for proof with public inputs
-        let mut extended_proof_with_pis = Vec::with_capacity(other_len + 1);
-        extended_proof_with_pis.push(cyclic_proof_with_pis.clone());
-        extended_proof_with_pis.extend_from_slice(other_proof_with_pis);
-
-        // Create the Vec for verifier data
-        let mut extended_verifier_data = Vec::with_capacity(other_len + 1);
-        extended_verifier_data.push(verifier_data);
-        extended_verifier_data.extend_from_slice(other_verifier_data);
-
-        let sum_other_conditions = self.add_many(other_conditions.iter().map(|t| t.target));
-        let sum_all_contitions = self.add(condition.target, sum_other_conditions);
-        self.assert_one(sum_all_contitions);
-
-        let mut conditions = Vec::with_capacity(other_len + 1);
-        conditions.push(condition);
-        conditions.extend_from_slice(other_conditions);
-
-        // If required, use Vec directly, or slice them to pass to a method
+        // Verify the cyclic proof if `condition` is set to true, otherwise verify the other proof.
         self.conditionally_verify_proof::<C>(
-            &conditions,
-            &extended_proof_with_pis,
-            &extended_verifier_data,
+            condition,
+            cyclic_proof_with_pis,
+            &verifier_data,
+            other_proof_with_pis,
+            other_verifier_data,
             common_data,
         );
 
@@ -186,13 +165,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     {
         let (dummy_proof_with_pis_target, dummy_verifier_data_target) =
             self.dummy_proof_and_vk::<C>(common_data)?;
-        let not_contidion = self.not(condition);
         self.conditionally_verify_cyclic_proof::<C>(
             condition,
             cyclic_proof_with_pis,
-            &[not_contidion],
-            &[dummy_proof_with_pis_target],
-            &[dummy_verifier_data_target],
+            &dummy_proof_with_pis_target,
+            &dummy_verifier_data_target,
             common_data,
         )?;
         Ok(())
