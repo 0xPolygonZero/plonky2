@@ -73,24 +73,24 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     ) -> ProofWithPublicInputsTarget<D> {
         let ProofWithPublicInputsTarget {
             proof:
-            ProofTarget {
-                wires_cap: wires_cap0,
-                plonk_zs_partial_products_cap: plonk_zs_partial_products_cap0,
-                quotient_polys_cap: quotient_polys_cap0,
-                openings: openings0,
-                opening_proof: opening_proof0,
-            },
+                ProofTarget {
+                    wires_cap: wires_cap0,
+                    plonk_zs_partial_products_cap: plonk_zs_partial_products_cap0,
+                    quotient_polys_cap: quotient_polys_cap0,
+                    openings: openings0,
+                    opening_proof: opening_proof0,
+                },
             public_inputs: public_inputs0,
         } = proof_with_pis0;
         let ProofWithPublicInputsTarget {
             proof:
-            ProofTarget {
-                wires_cap: wires_cap1,
-                plonk_zs_partial_products_cap: plonk_zs_partial_products_cap1,
-                quotient_polys_cap: quotient_polys_cap1,
-                openings: openings1,
-                opening_proof: opening_proof1,
-            },
+                ProofTarget {
+                    wires_cap: wires_cap1,
+                    plonk_zs_partial_products_cap: plonk_zs_partial_products_cap1,
+                    quotient_polys_cap: quotient_polys_cap1,
+                    openings: openings1,
+                    opening_proof: opening_proof1,
+                },
             public_inputs: public_inputs1,
         } = proof_with_pis1;
         with_context!(self, "select proof", {

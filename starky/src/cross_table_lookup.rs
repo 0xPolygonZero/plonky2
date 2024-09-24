@@ -1148,9 +1148,10 @@ pub mod debug_utils {
         table: &TableWithColumns<F>,
         multiset: &mut MultiSet<F>,
     ) {
-        let trace = trace_poly_values[table.table]
-            .as_ref()
-            .expect(&format!("Missing trace polynomial values for table {:?}", table.table));
+        let trace = trace_poly_values[table.table].as_ref().expect(&format!(
+            "Missing trace polynomial values for table {:?}",
+            table.table
+        ));
 
         for i in 0..trace[0].len() {
             let filter = table.filter.eval_table(trace, i);
