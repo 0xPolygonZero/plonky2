@@ -147,7 +147,7 @@ impl TimingTree {
 
     #[cfg(feature = "timing")]
     pub fn print(&self) {
-        self.print_helper(0);
+        self.print_helper(0, self.duration());
     }
 
     #[cfg(not(feature = "timing"))]
@@ -159,17 +159,18 @@ impl TimingTree {
     }
 
     #[cfg(feature = "timing")]
-    fn print_helper(&self, depth: usize) {
+    fn print_helper(&self, depth: usize, parent_duration: Duration) {
         let prefix = "| ".repeat(depth);
         log!(
             self.level,
-            "{}{:.4}s to {}",
+            "{}{:.4}s ({:.1}%) to {}",
             prefix,
             self.duration().as_secs_f64(),
+            self.duration().as_secs_f64() / parent_duration.as_secs_f64() * 100.0,
             self.name
         );
         for child in &self.children {
-            child.print_helper(depth + 1);
+            child.print_helper(depth + 1, self.duration());
         }
     }
 }
