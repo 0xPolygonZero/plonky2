@@ -149,6 +149,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             // For each batch, we compute the composition polynomial `F_i = sum alpha^j f_ij`,
             // where `alpha` is a random challenge in the extension field.
             // The final polynomial is then computed as `final_poly = sum_i alpha^(k_i) (F_i(X) - F_i(z_i))/(X-z_i)`
+            // (or `final_poly = R(X) + sum_i alpha^(k_i) (F_i(X) - F_i(z_i))/(X-z_i)` in the case of zero-knowledge),
             // where the `k_i`s are chosen such that each power of `alpha` appears only once in the final sum.
             // There are usually two batches for the openings at `zeta` and `g * zeta`.
             // The oracles used in Plonky2 are given in `FRI_ORACLES` in `plonky2/src/plonk/plonk_common.rs`.
@@ -156,8 +157,8 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
                 let is_zk = fri_params.hiding;
                 let nb_r_polys: usize = polynomials
                     .iter()
-                    .map(|p| (p.oracle_index == PlonkOracle::R.index) as usize)
-                    .sum();
+                    .filter(|p| p.oracle_index == PlonkOracle::R.index)
+                    .count();
                 let last_poly = polynomials.len() - nb_r_polys * (idx == 0) as usize;
                 // Collect the coefficients of all the polynomials in `polynomials`.
                 let polys_coeff = polynomials[..last_poly].iter().map(|fri_poly| {
@@ -173,6 +174,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
                 alpha.shift_poly(&mut final_poly);
                 final_poly += quotient;
 
+                // If we are in the zk case, we still have to add `R(X)` to the batch.
                 if is_zk && idx == 0 {
                     let degree = 1 << degree_bits[i];
                     let mut composition_poly = PolynomialCoeffs::empty();
@@ -191,7 +193,6 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
                             composition_poly += PolynomialCoeffs { coeffs: cur_coeffs };
                         });
 
-                    alpha.shift_poly(&mut final_poly);
                     final_poly += composition_poly.to_extension();
                 }
             }

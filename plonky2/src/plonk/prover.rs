@@ -284,7 +284,7 @@ where
                 // Split quotient into degree-n chunks.
                 // In the zk case, we split the quotient into degree-(n-h) chunks, where `h` is computed by `computed_h`.
                 // This is so that we can add random polynomials of degree n > n-h and still keep chhunks of degree a power of 2.
-                // See "A note on adding zero-knowledge to STARKs" (https://eprint.iacr.org/2024/1037.pdf) for details.
+                // See "A note on adding zero-knowledge to STARKs" (https://eprint.iacr.org/2024/1037.pdf), Section 4.1, for details.
                 if common_data.config.zero_knowledge {
                     let h = common_data.computed_h();
                     let d = degree - h;

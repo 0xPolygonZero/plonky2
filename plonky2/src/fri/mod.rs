@@ -88,7 +88,7 @@ pub struct FriParams {
 
 impl FriParams {
     pub fn total_arities(&self) -> usize {
-        self.reduction_arity_bits.iter().sum::<usize>()
+        self.reduction_arity_bits.iter().sum()
     }
 
     pub(crate) fn max_arity_bits(&self) -> Option<usize> {

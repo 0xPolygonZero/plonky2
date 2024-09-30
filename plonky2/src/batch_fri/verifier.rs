@@ -127,8 +127,7 @@ fn batch_fri_combine_initial<
 
     // If we are in the zk case, the `R` polynomial (the last polynomials in the first batch) is added to
     // the batch polynomial independently, without being quotiented. So the final polynomial becomes:
-    // `final_poly = sum_i alpha^(k_i) (F_i(X) - F_i(z_i))/(X-z_i) + alpha^n R(X)`, where `n` is the degree
-    // of the batch polynomial.
+    // `final_poly = R(X) + sum_i alpha^(k_i) (F_i(X) - F_i(z_i))/(X-z_i)`.
     for (idx, (batch, reduced_openings)) in instances[index]
         .batches
         .iter()
@@ -139,8 +138,8 @@ fn batch_fri_combine_initial<
         let is_zk = params.hiding;
         let nb_r_polys: usize = polynomials
             .iter()
-            .map(|p| (p.oracle_index == PlonkOracle::R.index) as usize)
-            .sum();
+            .filter(|p| p.oracle_index == PlonkOracle::R.index)
+            .count();
         let last_poly = polynomials.len() - nb_r_polys * (idx == 0) as usize;
         let evals = polynomials[..last_poly]
             .iter()
@@ -165,7 +164,6 @@ fn batch_fri_combine_initial<
                     let poly_blinding = instances[index].oracles[p.oracle_index].blinding;
                     let salted = params.hiding && poly_blinding;
                     let eval = proof.unsalted_eval(p.oracle_index, p.polynomial_index, salted);
-                    sum = alpha.shift(sum);
                     let shift_val = F::Extension::from_canonical_usize((i == 0) as usize)
                         + subgroup_x.exp_power_of_2(i * params.degree_bits)
                             * F::Extension::from_canonical_usize(i);

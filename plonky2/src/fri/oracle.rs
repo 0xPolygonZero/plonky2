@@ -198,8 +198,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         //
         // If we are in the zk case, the `R` polynomial (the last polynomials in the first batch) is added to
         // the batch polynomial independently, without being quotiented. So the final polynomial becomes:
-        // `final_poly = sum_i alpha^(k_i) (F_i(X) - F_i(z_i))/(X-z_i) + alpha^n R(X)`, where `n` is the degree
-        // of the batch polynomial.
+        // `final_poly = R(X) + sum_i alpha^(k_i) (F_i(X) - F_i(z_i))/(X-z_i)`.
         // Then, since the degree of `R` is double that of the batch polynomial in our cimplementation, we need to
         // compute one extra step in FRI to reach the correct degree.
         let is_zk = fri_params.hiding;
@@ -243,7 +242,6 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
                         composition_poly += PolynomialCoeffs { coeffs: cur_coeffs };
                     });
 
-                alpha.shift_poly(&mut final_poly);
                 final_poly += composition_poly.to_extension();
             }
         }

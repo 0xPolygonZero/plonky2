@@ -181,7 +181,6 @@ pub(crate) fn fri_combine_initial<
                     let poly_blinding = instance.oracles[p.oracle_index].blinding;
                     let salted = params.hiding && poly_blinding;
                     let eval = proof.unsalted_eval(p.oracle_index, p.polynomial_index, salted);
-                    sum = alpha.shift(sum);
                     let shift_val = F::Extension::from_canonical_usize((i == 0) as usize)
                         + subgroup_x.exp_power_of_2(i * params.degree_bits)
                             * F::Extension::from_canonical_usize(i);

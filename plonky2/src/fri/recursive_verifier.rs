@@ -273,7 +273,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                         let poly_blinding = instance.oracles[p.oracle_index].blinding;
                         let salted = params.hiding && poly_blinding;
                         let eval = proof.unsalted_eval(p.oracle_index, p.polynomial_index, salted);
-                        sum = alpha.shift(sum, self);
                         let val = self
                             .constant_extension(F::Extension::from_canonical_u32((i == 0) as u32));
                         let power =
