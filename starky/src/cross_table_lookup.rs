@@ -265,7 +265,7 @@ where
     let num_ctl_helper_cols =
         num_ctl_helper_columns_by_table(all_cross_table_lookups, max_constraint_degree);
 
-    CtlCheckVars::from_proofs::<C,N>(
+    CtlCheckVars::from_proofs::<C, N>(
         auxiliary_polys,
         auxiliary_polys_next,
         all_cross_table_lookups,
