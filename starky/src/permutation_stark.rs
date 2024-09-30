@@ -56,7 +56,7 @@ const PERM_PUBLIC_INPUTS: usize = 1;
 
 impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for PermutationStark<F, D> {
     type EvaluationFrame<FE, P, const D2: usize>
-    = StarkFrame<P, P::Scalar, PERM_COLUMNS, PERM_PUBLIC_INPUTS>
+        = StarkFrame<P, P::Scalar, PERM_COLUMNS, PERM_PUBLIC_INPUTS>
     where
         FE: FieldExtension<D2, BaseField = F>,
         P: PackedField<Scalar = FE>;

@@ -46,7 +46,7 @@ const PUBLIC_INPUTS: usize = 0;
 
 impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for UnconstrainedStark<F, D> {
     type EvaluationFrame<FE, P, const D2: usize>
-    = StarkFrame<P, P::Scalar, COLUMNS, PUBLIC_INPUTS>
+        = StarkFrame<P, P::Scalar, COLUMNS, PUBLIC_INPUTS>
     where
         FE: FieldExtension<D2, BaseField = F>,
         P: PackedField<Scalar = FE>;
