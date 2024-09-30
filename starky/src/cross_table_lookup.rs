@@ -53,7 +53,7 @@ use crate::lookup::{
     eval_helper_columns, eval_helper_columns_circuit, get_grand_product_challenge_set,
     get_helper_cols, Column, ColumnFilter, Filter, GrandProductChallenge, GrandProductChallengeSet,
 };
-use crate::proof::{MultiProof, StarkProofTarget, StarkProofWithMetadata};
+use crate::proof::StarkProofTarget;
 use crate::stark::Stark;
 
 /// An alias for `usize`, to represent the index of a STARK table in a multi-STARK setting.
@@ -250,7 +250,8 @@ where
 
 /// Outputs all the CTL data necessary to prove a multi-STARK system.
 pub fn get_ctl_vars_from_proofs<'a, F, C, const D: usize, const N: usize>(
-    multi_proof: &MultiProof<F, C, D, N>,
+    auxiliary_polys: &[&Option<Vec<F::Extension>>; N],
+    auxiliary_polys_next: &[&Option<Vec<F::Extension>>; N],
     all_cross_table_lookups: &'a [CrossTableLookup<F>],
     ctl_challenges: &'a GrandProductChallengeSet<F>,
     num_lookup_columns: &'a [usize; N],
@@ -264,8 +265,9 @@ where
     let num_ctl_helper_cols =
         num_ctl_helper_columns_by_table(all_cross_table_lookups, max_constraint_degree);
 
-    CtlCheckVars::from_proofs(
-        &multi_proof.stark_proofs,
+    CtlCheckVars::from_proofs::<C,N>(
+        auxiliary_polys,
+        auxiliary_polys_next,
         all_cross_table_lookups,
         ctl_challenges,
         num_lookup_columns,
@@ -491,7 +493,8 @@ impl<'a, F: RichField + Extendable<D>, const D: usize>
 {
     /// Extracts the `CtlCheckVars` for each STARK.
     pub fn from_proofs<C: GenericConfig<D, F = F>, const N: usize>(
-        proofs: &[StarkProofWithMetadata<F, C, D>; N],
+        auxiliary_polys: &[&Option<Vec<F::Extension>>; N],
+        auxiliary_polys_next: &[&Option<Vec<F::Extension>>; N],
         cross_table_lookups: &'a [CrossTableLookup<F>],
         ctl_challenges: &'a GrandProductChallengeSet<F>,
         num_lookup_columns: &[usize; N],
@@ -501,10 +504,7 @@ impl<'a, F: RichField + Extendable<D>, const D: usize>
         // If there are no auxiliary polys in the proofs `openings`,
         // return early. The verifier will reject the proofs when
         // calling `validate_proof_shape`.
-        if proofs
-            .iter()
-            .any(|p| p.proof.openings.auxiliary_polys.is_none())
-        {
+        if auxiliary_polys.iter().any(|&aux_polys| aux_polys.is_none()) {
             return ctl_vars_per_table;
         }
 
@@ -516,21 +516,20 @@ impl<'a, F: RichField + Extendable<D>, const D: usize>
         }
 
         // Get all cross-table lookup polynomial openings for each STARK proof.
-        let ctl_zs = proofs
+        let ctl_zs = auxiliary_polys
             .iter()
-            .zip(num_lookup_columns)
-            .map(|(p, &num_lookup)| {
-                let openings = &p.proof.openings;
+            .zip(auxiliary_polys_next.iter())
+            .zip(num_lookup_columns.iter())
+            .map(|((&aux_polys, &aux_polys_next), &num_lookup)| {
+                // Ensure we have auxiliary polynomials for both current and next steps
+                let ctl_zs = &aux_polys
+                    .as_ref()
+                    .expect("We cannot have CTLs without auxiliary polynomials.")[num_lookup..];
+                let ctl_zs_next = &aux_polys_next
+                    .as_ref()
+                    .expect("We cannot have CTLs without auxiliary polynomials.")[num_lookup..];
 
-                let ctl_zs = &openings
-                    .auxiliary_polys
-                    .as_ref()
-                    .expect("We cannot have CTls without auxiliary polynomials.")[num_lookup..];
-                let ctl_zs_next = &openings
-                    .auxiliary_polys_next
-                    .as_ref()
-                    .expect("We cannot have CTls without auxiliary polynomials.")[num_lookup..];
-                ctl_zs.iter().zip(ctl_zs_next).collect::<Vec<_>>()
+                ctl_zs.iter().zip(ctl_zs_next.iter()).collect::<Vec<_>>()
             })
             .collect::<Vec<_>>();
 
