@@ -1015,7 +1015,7 @@ pub fn verify_cross_table_lookups_circuit<
             // Get the looked table CTL polynomial opening.
             let looked_z = *ctl_zs_openings[looked_table.table].next().unwrap();
             // Verify that the combination of looking table openings is equal to the looked table opening.
-            // builder.connect(looked_z, looking_zs_sum);
+            builder.connect(looked_z, looking_zs_sum);
         }
     }
     debug_assert!(ctl_zs_openings.iter_mut().all(|iter| iter.next().is_none()));
