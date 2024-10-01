@@ -16,7 +16,6 @@ use std::sync::Arc;
 
 use anyhow::{anyhow, Context as _, Result};
 use itertools::Itertools;
-use log::{info, Level, LevelFilter};
 use plonky2::gadgets::lookup::TIP5_TABLE;
 use plonky2::gates::noop::NoopGate;
 use plonky2::hash::hash_types::RichField;
@@ -27,13 +26,18 @@ use plonky2::plonk::config::{AlgebraicHasher, GenericConfig, PoseidonGoldilocksC
 use plonky2::plonk::proof::{CompressedProofWithPublicInputs, ProofWithPublicInputs};
 use plonky2::plonk::prover::prove;
 use plonky2::util::serialization::DefaultGateSerializer;
-use plonky2::util::timing::TimingTree;
 use plonky2_field::extension::Extendable;
 use plonky2_maybe_rayon::rayon;
 use rand::rngs::OsRng;
 use rand::{RngCore, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 use structopt::StructOpt;
+use tracing::info;
+use tracing_forest::util::LevelFilter;
+use tracing_forest::ForestLayer;
+use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::util::SubscriberInitExt;
+use tracing_subscriber::{EnvFilter, Registry};
 
 type ProofTuple<F, C, const D: usize> = (
     ProofWithPublicInputs<F, C, D>,
@@ -44,14 +48,6 @@ type ProofTuple<F, C, const D: usize> = (
 #[derive(Clone, StructOpt, Debug)]
 #[structopt(name = "bench_recursion")]
 struct Options {
-    /// Verbose mode (-v, -vv, -vvv, etc.)
-    #[structopt(short, long, parse(from_occurrences))]
-    verbose: usize,
-
-    /// Apply an env_filter compatible log filter
-    #[structopt(long, env, default_value)]
-    log_filter: String,
-
     /// Random seed for deterministic runs.
     /// If not specified a new seed is generated from OS entropy.
     #[structopt(long, parse(try_from_str = parse_hex_u64))]
@@ -96,9 +92,8 @@ fn dummy_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D
     let data = builder.build::<C>();
     let inputs = PartialWitness::new();
 
-    let mut timing = TimingTree::new("prove", Level::Debug);
-    let proof = prove::<F, C, D>(&data.prover_only, &data.common, inputs, &mut timing)?;
-    timing.print();
+    let proof = prove::<F, C, D>(&data.prover_only, &data.common, inputs)?;
+
     data.verify(proof.clone())?;
 
     Ok((proof, data.verifier_only, data.common))
@@ -139,9 +134,8 @@ fn dummy_lookup_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, 
     let data = builder.build::<C>();
     let mut inputs = PartialWitness::<F>::new();
     inputs.set_target(initial_a, F::ONE)?;
-    let mut timing = TimingTree::new("prove with one lookup", Level::Debug);
-    let proof = prove(&data.prover_only, &data.common, inputs, &mut timing)?;
-    timing.print();
+    let proof = prove(&data.prover_only, &data.common, inputs)?;
+
     data.verify(proof.clone())?;
 
     Ok((proof, data.verifier_only, data.common))
@@ -191,9 +185,7 @@ fn dummy_many_rows_proof<
     let mut pw = PartialWitness::new();
     pw.set_target(initial_a, F::ONE)?;
     let data = builder.build::<C>();
-    let mut timing = TimingTree::new("prove with many lookups", Level::Debug);
-    let proof = prove(&data.prover_only, &data.common, pw, &mut timing)?;
-    timing.print();
+    let proof = prove(&data.prover_only, &data.common, pw)?;
 
     data.verify(proof.clone())?;
     Ok((proof, data.verifier_only, data.common))
@@ -238,9 +230,7 @@ where
     pw.set_proof_with_pis_target(&pt, inner_proof)?;
     pw.set_verifier_data_target(&inner_data, inner_vd)?;
 
-    let mut timing = TimingTree::new("prove", Level::Debug);
-    let proof = prove::<F, C, D>(&data.prover_only, &data.common, pw, &mut timing)?;
-    timing.print();
+    let proof = prove::<F, C, D>(&data.prover_only, &data.common, pw)?;
 
     data.verify(proof.clone())?;
 
@@ -352,16 +342,7 @@ fn main() -> Result<()> {
     // Parse command line arguments, see `--help` for details.
     let options = Options::from_args_safe()?;
     // Initialize logging
-    let mut builder = env_logger::Builder::from_default_env();
-    builder.parse_filters(&options.log_filter);
-    builder.format_timestamp(None);
-    match options.verbose {
-        0 => &mut builder,
-        1 => builder.filter_level(LevelFilter::Info),
-        2 => builder.filter_level(LevelFilter::Debug),
-        _ => builder.filter_level(LevelFilter::Trace),
-    };
-    builder.try_init()?;
+    init_tracing();
 
     // Initialize randomness source
     let rng_seed = options.seed.unwrap_or_else(|| OsRng.next_u64());
@@ -420,4 +401,15 @@ fn parse_range_usize(src: &str) -> Result<RangeInclusive<usize>, ParseIntError> 
         let value = usize::from_str(src)?;
         Ok(RangeInclusive::new(value, value))
     }
+}
+
+fn init_tracing() {
+    let env_filter = EnvFilter::builder()
+        .with_default_directive(LevelFilter::INFO.into())
+        .from_env_lossy();
+
+    Registry::default()
+        .with(env_filter)
+        .with(ForestLayer::default())
+        .init();
 }

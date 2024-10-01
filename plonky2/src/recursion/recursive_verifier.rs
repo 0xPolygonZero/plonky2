@@ -204,7 +204,7 @@ mod tests {
 
     use anyhow::Result;
     use itertools::Itertools;
-    use log::{info, Level};
+    use tracing::info;
 
     use super::*;
     use crate::fri::reduction_strategies::FriReductionStrategy;
@@ -217,7 +217,6 @@ mod tests {
     use crate::plonk::config::{KeccakGoldilocksConfig, PoseidonGoldilocksConfig};
     use crate::plonk::proof::{CompressedProofWithPublicInputs, ProofWithPublicInputs};
     use crate::plonk::prover::prove;
-    use crate::util::timing::TimingTree;
 
     #[test]
     fn test_recursive_verifier() -> Result<()> {
@@ -229,7 +228,7 @@ mod tests {
 
         let (proof, vd, common_data) = dummy_proof::<F, C, D>(&config, 4_000)?;
         let (proof, vd, common_data) =
-            recursive_proof::<F, C, C, D>(proof, vd, common_data, &config, None, true, true)?;
+            recursive_proof::<F, C, C, D>(proof, vd, common_data, &config, None, true)?;
         test_serialization(&proof, &vd, &common_data)?;
 
         Ok(())
@@ -245,7 +244,7 @@ mod tests {
 
         let (proof, vd, common_data) = dummy_lookup_proof::<F, C, D>(&config, 10)?;
         let (proof, vd, common_data) =
-            recursive_proof::<F, C, C, D>(proof, vd, common_data, &config, None, true, true)?;
+            recursive_proof::<F, C, C, D>(proof, vd, common_data, &config, None, true)?;
         test_serialization(&proof, &vd, &common_data)?;
 
         Ok(())
@@ -261,7 +260,7 @@ mod tests {
 
         let (proof, vd, common_data) = dummy_two_luts_proof::<F, C, D>(&config)?;
         let (proof, vd, common_data) =
-            recursive_proof::<F, C, C, D>(proof, vd, common_data, &config, None, true, true)?;
+            recursive_proof::<F, C, C, D>(proof, vd, common_data, &config, None, true)?;
         test_serialization(&proof, &vd, &common_data)?;
 
         Ok(())
@@ -277,7 +276,7 @@ mod tests {
 
         let (proof, vd, common_data) = dummy_too_many_rows_proof::<F, C, D>(&config)?;
         let (proof, vd, common_data) =
-            recursive_proof::<F, C, C, D>(proof, vd, common_data, &config, None, true, true)?;
+            recursive_proof::<F, C, C, D>(proof, vd, common_data, &config, None, true)?;
         test_serialization(&proof, &vd, &common_data)?;
 
         Ok(())
@@ -298,12 +297,12 @@ mod tests {
 
         // Shrink it to 2^13.
         let (proof, vd, common_data) =
-            recursive_proof::<F, C, C, D>(proof, vd, common_data, &config, Some(13), false, false)?;
+            recursive_proof::<F, C, C, D>(proof, vd, common_data, &config, Some(13), false)?;
         assert_eq!(common_data.degree_bits(), 13);
 
         // Shrink it to 2^12.
         let (proof, vd, common_data) =
-            recursive_proof::<F, C, C, D>(proof, vd, common_data, &config, None, true, true)?;
+            recursive_proof::<F, C, C, D>(proof, vd, common_data, &config, None, true)?;
         assert_eq!(common_data.degree_bits(), 12);
 
         test_serialization(&proof, &vd, &common_data)?;
@@ -329,15 +328,8 @@ mod tests {
         assert_eq!(common_data.degree_bits(), 12);
 
         // A standard recursive proof.
-        let (proof, vd, common_data) = recursive_proof::<F, C, C, D>(
-            proof,
-            vd,
-            common_data,
-            &standard_config,
-            None,
-            false,
-            false,
-        )?;
+        let (proof, vd, common_data) =
+            recursive_proof::<F, C, C, D>(proof, vd, common_data, &standard_config, None, false)?;
         assert_eq!(common_data.degree_bits(), 12);
 
         // A high-rate recursive proof, designed to be verifiable with fewer routed wires.
@@ -350,15 +342,8 @@ mod tests {
             },
             ..standard_config
         };
-        let (proof, vd, common_data) = recursive_proof::<F, C, C, D>(
-            proof,
-            vd,
-            common_data,
-            &high_rate_config,
-            None,
-            true,
-            true,
-        )?;
+        let (proof, vd, common_data) =
+            recursive_proof::<F, C, C, D>(proof, vd, common_data, &high_rate_config, None, true)?;
         assert_eq!(common_data.degree_bits(), 12);
 
         // A final proof, optimized for size.
@@ -373,15 +358,8 @@ mod tests {
             },
             ..high_rate_config
         };
-        let (proof, vd, common_data) = recursive_proof::<F, KC, C, D>(
-            proof,
-            vd,
-            common_data,
-            &final_config,
-            None,
-            true,
-            true,
-        )?;
+        let (proof, vd, common_data) =
+            recursive_proof::<F, KC, C, D>(proof, vd, common_data, &final_config, None, true)?;
         assert_eq!(common_data.degree_bits(), 12, "final proof too large");
 
         test_serialization(&proof, &vd, &common_data)?;
@@ -401,11 +379,11 @@ mod tests {
         let (proof, vd, common_data) = dummy_proof::<F, PC, D>(&config, 4_000)?;
 
         let (proof, vd, common_data) =
-            recursive_proof::<F, PC, PC, D>(proof, vd, common_data, &config, None, false, false)?;
+            recursive_proof::<F, PC, PC, D>(proof, vd, common_data, &config, None, false)?;
         test_serialization(&proof, &vd, &common_data)?;
 
         let (proof, vd, common_data) =
-            recursive_proof::<F, KC, PC, D>(proof, vd, common_data, &config, None, false, false)?;
+            recursive_proof::<F, KC, PC, D>(proof, vd, common_data, &config, None, false)?;
         test_serialization(&proof, &vd, &common_data)?;
 
         Ok(())
@@ -638,7 +616,6 @@ mod tests {
         config: &CircuitConfig,
         min_degree_bits: Option<usize>,
         print_gate_counts: bool,
-        print_timing: bool,
     ) -> Result<Proof<F, C, D>>
     where
         InnerC::Hasher: AlgebraicHasher<F>,
@@ -673,11 +650,7 @@ mod tests {
 
         let data = builder.build::<C>();
 
-        let mut timing = TimingTree::new("prove", Level::Debug);
-        let proof = prove(&data.prover_only, &data.common, pw, &mut timing)?;
-        if print_timing {
-            timing.print();
-        }
+        let proof = prove(&data.prover_only, &data.common, pw)?;
 
         data.verify(proof.clone())?;
 

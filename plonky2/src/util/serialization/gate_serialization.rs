@@ -51,8 +51,7 @@ macro_rules! get_gate_tag_impl {
             Ok(tag)
         } else)*
         {
-            log::log!(
-                log::Level::Error,
+            tracing::error!(
                 "attempted to serialize gate with id `{}` which is unsupported by this gate serializer",
                 $gate.0.id()
             );

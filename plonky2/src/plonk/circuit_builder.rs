@@ -8,7 +8,7 @@ use std::{collections::BTreeMap, sync::Arc};
 
 use hashbrown::{HashMap, HashSet};
 use itertools::Itertools;
-use log::{debug, info, warn, Level};
+use tracing::{debug, info, trace_span, warn, Level};
 #[cfg(feature = "timing")]
 use web_time::Instant;
 
@@ -48,10 +48,8 @@ use crate::plonk::config::{AlgebraicHasher, GenericConfig, GenericHashOut, Hashe
 use crate::plonk::copy_constraint::CopyConstraint;
 use crate::plonk::permutation_argument::Forest;
 use crate::plonk::plonk_common::PlonkOracle;
-use crate::timed;
 use crate::util::context_tree::ContextTree;
 use crate::util::partial_products::num_partial_products;
-use crate::util::timing::TimingTree;
 use crate::util::{log2_ceil, log2_strict, transpose, transpose_poly_values};
 
 /// Number of random coins needed for lookups (for each challenge).
@@ -693,7 +691,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
-    pub fn push_context(&mut self, level: log::Level, ctx: &str) {
+    pub fn push_context(&mut self, level: Level, ctx: &str) {
         self.context_log.push(ctx, level, self.num_gates());
     }
 
@@ -910,7 +908,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let (regular_poly_openings, z_openings) = self.blinding_counts();
         info!(
             "Adding {} blinding terms for witness polynomials, and {}*2 for Z polynomials",
-            regular_poly_openings, z_openings
+            regular_poly_openings, z_openings,
         );
 
         let num_routed_wires = self.config.num_routed_wires;
@@ -1061,8 +1059,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         mut self,
         commit_to_sigma: bool,
     ) -> (CircuitData<F, C, D>, bool) {
-        let mut timing = TimingTree::new("preprocess", Level::Trace);
-
         #[cfg(feature = "std")]
         let start = Instant::now();
 
@@ -1157,11 +1153,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let subgroup = F::two_adic_subgroup(degree_bits);
 
         let k_is = get_unique_coset_shifts(degree, self.config.num_routed_wires);
-        let (sigma_vecs, forest) = timed!(
-            timing,
-            "generate sigma polynomials",
-            self.sigma_vecs(&k_is, &subgroup)
-        );
+        let (sigma_vecs, forest) = trace_span!("generate sigma polynomials")
+            .in_scope(|| self.sigma_vecs(&k_is, &subgroup));
 
         // Precompute FFT roots.
         let max_fft_points = 1 << (degree_bits + max(rate_bits, log2_ceil(quotient_degree_factor)));
@@ -1174,7 +1167,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 rate_bits,
                 PlonkOracle::CONSTANTS_SIGMAS.blinding,
                 cap_height,
-                &mut timing,
                 Some(&fft_root_table),
             )
         } else {
@@ -1295,7 +1287,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             circuit_digest,
         };
 
-        timing.print();
         #[cfg(feature = "std")]
         debug!("Building circuit took {}s", start.elapsed().as_secs_f32());
         (

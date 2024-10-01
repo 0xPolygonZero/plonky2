@@ -6,6 +6,7 @@ use plonky2_field::extension::flatten;
 use plonky2_field::types::Field;
 use plonky2_maybe_rayon::*;
 use plonky2_util::{log2_strict, reverse_index_bits_in_place};
+use tracing::{debug_span, instrument};
 
 use crate::field::extension::{unflatten, Extendable};
 use crate::field::polynomial::{PolynomialCoeffs, PolynomialValues};
@@ -18,17 +19,15 @@ use crate::hash::merkle_tree::MerkleTree;
 use crate::iop::challenger::Challenger;
 use crate::plonk::config::GenericConfig;
 use crate::plonk::plonk_common::reduce_with_powers;
-use crate::timed;
-use crate::util::timing::TimingTree;
 
 /// Builds a batch FRI proof.
+#[instrument(skip_all, level = "debug")]
 pub fn batch_fri_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
     initial_merkle_trees: &[&BatchMerkleTree<F, C::Hasher>],
     lde_polynomial_coeffs: PolynomialCoeffs<F::Extension>,
     lde_polynomial_values: &[PolynomialValues<F::Extension>],
     challenger: &mut Challenger<F, C::Hasher>,
     fri_params: &FriParams,
-    timing: &mut TimingTree,
 ) -> FriProof<F, C::Hasher, D> {
     let n = lde_polynomial_coeffs.len();
     assert_eq!(lde_polynomial_values[0].len(), n);
@@ -50,23 +49,19 @@ pub fn batch_fri_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>,
     assert_eq!(cur_poly_index, lde_polynomial_values.len());
 
     // Commit phase
-    let (trees, final_coeffs) = timed!(
-        timing,
-        "fold codewords in the commitment phase",
-        batch_fri_committed_trees::<F, C, D>(
-            lde_polynomial_coeffs,
-            lde_polynomial_values,
-            challenger,
-            fri_params,
-        )
-    );
+    let (trees, final_coeffs) =
+        debug_span!("fold codewords in the commitment phase").in_scope(|| {
+            batch_fri_committed_trees::<F, C, D>(
+                lde_polynomial_coeffs,
+                lde_polynomial_values,
+                challenger,
+                fri_params,
+            )
+        });
 
     // PoW phase
-    let pow_witness = timed!(
-        timing,
-        "find proof-of-work witness",
-        fri_proof_of_work::<F, C, D>(challenger, &fri_params.config)
-    );
+    let pow_witness = debug_span!("find proof-of-work witness")
+        .in_scope(|| fri_proof_of_work::<F, C, D>(challenger, &fri_params.config));
 
     // Query phase
     let query_round_proofs = batch_fri_prover_query_rounds::<F, C, D>(
@@ -245,8 +240,6 @@ mod tests {
 
     #[test]
     fn single_polynomial() -> Result<()> {
-        let mut timing = TimingTree::default();
-
         let k = 9;
         let reduction_arity_bits = vec![1, 2, 1];
         let fri_params = FriParams {
@@ -270,7 +263,6 @@ mod tests {
             fri_params.config.rate_bits,
             fri_params.hiding,
             fri_params.config.cap_height,
-            &mut timing,
             &[None],
         );
         let poly = &polynomial_batch.polynomials[0];
@@ -309,7 +301,6 @@ mod tests {
             &[lde_final_values],
             &mut challenger,
             &fri_params,
-            &mut timing,
         );
 
         let fri_challenges = verifier_challenger.fri_challenges::<C, D>(
@@ -338,8 +329,6 @@ mod tests {
 
     #[test]
     fn multiple_polynomials() -> Result<()> {
-        let mut timing = TimingTree::default();
-
         let k0 = 9;
         let k1 = 8;
         let k2 = 6;
@@ -369,7 +358,6 @@ mod tests {
             fri_params.config.rate_bits,
             fri_params.hiding,
             fri_params.config.cap_height,
-            &mut timing,
             &[None; 3],
         );
 
@@ -411,7 +399,6 @@ mod tests {
             &[lde_final_values_0, lde_final_values_1, lde_final_values_2],
             &mut challenger,
             &fri_params,
-            &mut timing,
         );
 
         let get_test_fri_instance = |polynomial_index: usize| -> FriInstanceInfo<F, D> {

@@ -4,6 +4,7 @@ use alloc::{format, vec::Vec};
 use itertools::Itertools;
 use plonky2_field::types::Field;
 use plonky2_maybe_rayon::*;
+use tracing::debug_span;
 
 use crate::field::extension::Extendable;
 use crate::field::fft::FftRootTable;
@@ -17,9 +18,7 @@ use crate::hash::hash_types::RichField;
 use crate::hash::merkle_tree::MerkleTree;
 use crate::iop::challenger::Challenger;
 use crate::plonk::config::GenericConfig;
-use crate::timed;
 use crate::util::reducing::ReducingFactor;
-use crate::util::timing::TimingTree;
 use crate::util::{log2_strict, reverse_bits, reverse_index_bits_in_place, transpose};
 
 /// Four (~64 bit) field elements gives ~128 bit security.
@@ -59,23 +58,12 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         rate_bits: usize,
         blinding: bool,
         cap_height: usize,
-        timing: &mut TimingTree,
         fft_root_table: Option<&FftRootTable<F>>,
     ) -> Self {
-        let coeffs = timed!(
-            timing,
-            "IFFT",
-            values.into_par_iter().map(|v| v.ifft()).collect::<Vec<_>>()
-        );
+        let coeffs = debug_span!("IFFT")
+            .in_scope(|| values.into_par_iter().map(|v| v.ifft()).collect::<Vec<_>>());
 
-        Self::from_coeffs(
-            coeffs,
-            rate_bits,
-            blinding,
-            cap_height,
-            timing,
-            fft_root_table,
-        )
+        Self::from_coeffs(coeffs, rate_bits, blinding, cap_height, fft_root_table)
     }
 
     /// Creates a list polynomial commitment for the polynomials `polynomials`.
@@ -84,23 +72,16 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         rate_bits: usize,
         blinding: bool,
         cap_height: usize,
-        timing: &mut TimingTree,
         fft_root_table: Option<&FftRootTable<F>>,
     ) -> Self {
         let degree = polynomials[0].len();
-        let lde_values = timed!(
-            timing,
-            "FFT + blinding",
-            Self::lde_values(&polynomials, rate_bits, blinding, fft_root_table)
-        );
+        let lde_values = debug_span!("FFT + blinding")
+            .in_scope(|| Self::lde_values(&polynomials, rate_bits, blinding, fft_root_table));
 
-        let mut leaves = timed!(timing, "transpose LDEs", transpose(&lde_values));
+        let mut leaves = debug_span!("transpose LDEs").in_scope(|| transpose(&lde_values));
         reverse_index_bits_in_place(&mut leaves);
-        let merkle_tree = timed!(
-            timing,
-            "build Merkle tree",
-            MerkleTree::new(leaves, cap_height)
-        );
+        let merkle_tree =
+            debug_span!("build Merkle tree").in_scope(|| MerkleTree::new(leaves, cap_height));
 
         Self {
             polynomials,
@@ -178,7 +159,6 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         oracles: &[&Self],
         challenger: &mut Challenger<F, C::Hasher>,
         fri_params: &FriParams,
-        timing: &mut TimingTree,
     ) -> FriProof<F, C::Hasher, D> {
         assert!(D > 1, "Not implemented for D=1.");
         let alpha = challenger.get_extension_challenge::<D>();
@@ -199,11 +179,9 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             let polys_coeff = polynomials.iter().map(|fri_poly| {
                 &oracles[fri_poly.oracle_index].polynomials[fri_poly.polynomial_index]
             });
-            let composition_poly = timed!(
-                timing,
-                &format!("reduce batch of {} polynomials", polynomials.len()),
-                alpha.reduce_polys_base(polys_coeff)
-            );
+            let composition_poly =
+                debug_span!("reduce batch of polynomials", num_polys = polynomials.len())
+                    .in_scope(|| alpha.reduce_polys_base(polys_coeff));
             let mut quotient = composition_poly.divide_by_linear(*point);
             quotient.coeffs.push(F::Extension::ZERO); // pad back to power of two
             alpha.shift_poly(&mut final_poly);
@@ -211,11 +189,8 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         }
 
         let lde_final_poly = final_poly.lde(fri_params.config.rate_bits);
-        let lde_final_values = timed!(
-            timing,
-            &format!("perform final FFT {}", lde_final_poly.len()),
-            lde_final_poly.coset_fft(F::coset_shift().into())
-        );
+        let lde_final_values = debug_span!("perform final FFT", size = lde_final_poly.len())
+            .in_scope(|| lde_final_poly.coset_fft(F::coset_shift().into()));
 
         let fri_proof = fri_proof::<F, C, D>(
             &oracles
@@ -226,7 +201,6 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             lde_final_values,
             challenger,
             fri_params,
-            timing,
         );
 
         fri_proof

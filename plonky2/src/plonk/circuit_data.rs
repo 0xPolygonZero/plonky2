@@ -51,7 +51,6 @@ use crate::plonk::verifier::verify;
 use crate::util::serialization::{
     Buffer, GateSerializer, IoResult, Read, WitnessGeneratorSerializer, Write,
 };
-use crate::util::timing::TimingTree;
 
 /// Configuration to be used when building a circuit. This defines the shape of the circuit
 /// as well as its targeted security level and sub-protocol (e.g. FRI) parameters.
@@ -187,12 +186,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     }
 
     pub fn prove(&self, inputs: PartialWitness<F>) -> Result<ProofWithPublicInputs<F, C, D>> {
-        prove::<F, C, D>(
-            &self.prover_only,
-            &self.common,
-            inputs,
-            &mut TimingTree::default(),
-        )
+        prove::<F, C, D>(&self.prover_only, &self.common, inputs)
     }
 
     pub fn verify(&self, proof_with_pis: ProofWithPublicInputs<F, C, D>) -> Result<()> {
@@ -285,12 +279,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     }
 
     pub fn prove(&self, inputs: PartialWitness<F>) -> Result<ProofWithPublicInputs<F, C, D>> {
-        prove::<F, C, D>(
-            &self.prover_only,
-            &self.common,
-            inputs,
-            &mut TimingTree::default(),
-        )
+        prove::<F, C, D>(&self.prover_only, &self.common, inputs)
     }
 }
 

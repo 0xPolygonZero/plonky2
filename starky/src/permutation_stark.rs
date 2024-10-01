@@ -107,7 +107,7 @@ mod tests {
     use plonky2::plonk::circuit_builder::CircuitBuilder;
     use plonky2::plonk::circuit_data::CircuitConfig;
     use plonky2::plonk::config::{AlgebraicHasher, GenericConfig, PoseidonGoldilocksConfig};
-    use plonky2::util::timing::TimingTree;
+    
 
     use crate::config::StarkConfig;
     use crate::permutation_stark::PermutationStark;
@@ -140,7 +140,7 @@ mod tests {
             &config,
             trace,
             &[public_input],
-            &mut TimingTree::default(),
+            
         )?;
 
         verify_stark_proof(stark, proof, &config)
@@ -189,7 +189,7 @@ mod tests {
             &config,
             trace,
             &[public_input],
-            &mut TimingTree::default(),
+            
         )?;
         verify_stark_proof(stark, proof.clone(), &config)?;
 

@@ -87,7 +87,6 @@ mod tests {
     use plonky2::plonk::circuit_builder::CircuitBuilder;
     use plonky2::plonk::circuit_data::CircuitConfig;
     use plonky2::plonk::config::{AlgebraicHasher, GenericConfig, PoseidonGoldilocksConfig};
-    use plonky2::util::timing::TimingTree;
 
     use crate::config::StarkConfig;
     use crate::proof::StarkProofWithPublicInputs;
@@ -113,7 +112,7 @@ mod tests {
 
         let stark = S::new(num_rows);
         let trace = stark.generate_trace();
-        let proof = prove::<F, C, S, D>(stark, &config, trace, &[], &mut TimingTree::default())?;
+        let proof = prove::<F, C, S, D>(stark, &config, trace, &[])?;
 
         verify_stark_proof(stark, proof, &config)
     }
@@ -155,7 +154,7 @@ mod tests {
 
         let stark = S::new(num_rows);
         let trace = stark.generate_trace();
-        let proof = prove::<F, C, S, D>(stark, &config, trace, &[], &mut TimingTree::default())?;
+        let proof = prove::<F, C, S, D>(stark, &config, trace, &[])?;
         verify_stark_proof(stark, proof.clone(), &config)?;
 
         recursive_proof::<F, C, S, C, D>(stark, proof, &config, true)

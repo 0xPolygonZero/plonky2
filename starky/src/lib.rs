@@ -45,7 +45,6 @@
 //! use plonky2::field::types::Field;
 //! use plonky2::plonk::config::GenericConfig;
 //! use plonky2::plonk::config::PoseidonGoldilocksConfig;
-//! use plonky2::util::timing::TimingTree;
 //! use starky::config::StarkConfig;
 //! use starky::prover::prove;
 //! use starky::verifier::verify_stark_proof;
@@ -192,7 +191,7 @@
 //!         &CONFIG,
 //!         trace,
 //!         &public_inputs,
-//!         &mut TimingTree::default(),
+//!         
 //!     ).expect("We should have a valid proof!");
 //!
 //!     verify_stark_proof(stark, proof, &CONFIG)

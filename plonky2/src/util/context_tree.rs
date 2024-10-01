@@ -5,7 +5,7 @@ use alloc::{
     vec::Vec,
 };
 
-use log::{log, Level};
+use tracing::{debug, Level};
 
 /// The hierarchy of contexts, and the gate count contributed by each one. Useful for debugging.
 #[derive(Debug)]
@@ -13,7 +13,7 @@ pub(crate) struct ContextTree {
     /// The name of this scope.
     name: String,
     /// The level at which to log this scope and its children.
-    level: log::Level,
+    level: Level,
     /// The gate count when this scope was created.
     enter_gate_count: usize,
     /// The gate count when this scope was destroyed, or None if it has not yet been destroyed.
@@ -26,7 +26,7 @@ impl ContextTree {
     pub fn new() -> Self {
         Self {
             name: "root".to_string(),
-            level: Level::Debug,
+            level: Level::DEBUG,
             enter_gate_count: 0,
             exit_gate_count: None,
             children: vec![],
@@ -54,7 +54,7 @@ impl ContextTree {
         }
     }
 
-    pub fn push(&mut self, ctx: &str, mut level: log::Level, current_gate_count: usize) {
+    pub fn push(&mut self, ctx: &str, mut level: tracing::Level, current_gate_count: usize) {
         assert!(self.is_open());
 
         // We don't want a scope's log level to be stronger than that of its parent.
@@ -116,8 +116,7 @@ impl ContextTree {
 
     fn print_helper(&self, current_gate_count: usize, depth: usize) {
         let prefix = "| ".repeat(depth);
-        log!(
-            self.level,
+        debug!(
             "{}{} gates to {}",
             prefix,
             self.gate_count_delta(current_gate_count),
@@ -140,7 +139,7 @@ macro_rules! with_context {
     }};
     // If no context is specified, default to Debug.
     ($builder:expr, $ctx:expr, $exp:expr) => {{
-        $builder.push_context(log::Level::Debug, $ctx);
+        $builder.push_context(tracing::Level::DEBUG, $ctx);
         let res = $exp;
         $builder.pop_context();
         res

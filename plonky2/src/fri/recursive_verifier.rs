@@ -154,9 +154,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             // The very first query will have some extra gates due to constants being registered, so
             // the second query is a better representative.
             let level = if i == 1 {
-                log::Level::Debug
+                tracing::Level::DEBUG
             } else {
-                log::Level::Trace
+                tracing::Level::TRACE
             };
 
             let num_queries = proof.query_round_proofs.len();

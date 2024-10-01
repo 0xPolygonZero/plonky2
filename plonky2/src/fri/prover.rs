@@ -2,6 +2,7 @@
 use alloc::vec::Vec;
 
 use plonky2_maybe_rayon::*;
+use tracing::{debug_span, instrument};
 
 use crate::field::extension::{flatten, unflatten, Extendable};
 use crate::field::polynomial::{PolynomialCoeffs, PolynomialValues};
@@ -13,11 +14,10 @@ use crate::hash::merkle_tree::MerkleTree;
 use crate::iop::challenger::Challenger;
 use crate::plonk::config::GenericConfig;
 use crate::plonk::plonk_common::reduce_with_powers;
-use crate::timed;
 use crate::util::reverse_index_bits_in_place;
-use crate::util::timing::TimingTree;
 
 /// Builds a FRI proof.
+#[instrument(skip_all, level = "debug")]
 pub fn fri_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
     initial_merkle_trees: &[&MerkleTree<F, C::Hasher>],
     // Coefficients of the polynomial on which the LDT is performed. Only the first `1/rate` coefficients are non-zero.
@@ -26,29 +26,24 @@ pub fn fri_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const
     lde_polynomial_values: PolynomialValues<F::Extension>,
     challenger: &mut Challenger<F, C::Hasher>,
     fri_params: &FriParams,
-    timing: &mut TimingTree,
 ) -> FriProof<F, C::Hasher, D> {
     let n = lde_polynomial_values.len();
     assert_eq!(lde_polynomial_coeffs.len(), n);
 
     // Commit phase
-    let (trees, final_coeffs) = timed!(
-        timing,
-        "fold codewords in the commitment phase",
-        fri_committed_trees::<F, C, D>(
-            lde_polynomial_coeffs,
-            lde_polynomial_values,
-            challenger,
-            fri_params,
-        )
-    );
+    let (trees, final_coeffs) =
+        debug_span!("fold codewords in the commitment phase").in_scope(|| {
+            fri_committed_trees::<F, C, D>(
+                lde_polynomial_coeffs,
+                lde_polynomial_values,
+                challenger,
+                fri_params,
+            )
+        });
 
     // PoW phase
-    let pow_witness = timed!(
-        timing,
-        "find proof-of-work witness",
-        fri_proof_of_work::<F, C, D>(challenger, &fri_params.config)
-    );
+    let pow_witness = debug_span!("find proof-of-work witness")
+        .in_scope(|| fri_proof_of_work::<F, C, D>(challenger, &fri_params.config));
 
     // Query phase
     let query_round_proofs =

@@ -16,10 +16,9 @@ use plonky2::fri::oracle::PolynomialBatch;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::challenger::Challenger;
 use plonky2::plonk::config::GenericConfig;
-use plonky2::timed;
-use plonky2::util::timing::TimingTree;
 use plonky2::util::{log2_ceil, log2_strict, transpose};
 use plonky2_maybe_rayon::*;
+use tracing::{debug_span, info_span, instrument};
 
 use crate::config::StarkConfig;
 use crate::constraint_consumer::ConstraintConsumer;
@@ -34,12 +33,12 @@ use crate::stark::Stark;
 use crate::vanishing_poly::eval_vanishing_poly;
 
 /// From a STARK trace, computes a STARK proof to attest its correctness.
+#[instrument(skip_all, fields(stark = std::any::type_name::<S>()))]
 pub fn prove<F, C, S, const D: usize>(
     stark: S,
     config: &StarkConfig,
     trace_poly_values: Vec<PolynomialValues<F>>,
     public_inputs: &[F],
-    timing: &mut TimingTree,
 ) -> Result<StarkProofWithPublicInputs<F, C, D>>
 where
     F: RichField + Extendable<D>,
@@ -56,18 +55,15 @@ where
         "FRI total reduction arity is too large.",
     );
 
-    let trace_commitment = timed!(
-        timing,
-        "compute trace commitment",
+    let trace_commitment = info_span!("compute trace commitment").in_scope(|| {
         PolynomialBatch::<F, C, D>::from_values(
             trace_poly_values.clone(),
             rate_bits,
             false,
             cap_height,
-            timing,
             None,
         )
-    );
+    });
 
     let trace_cap = trace_commitment.merkle_tree.cap.clone();
     let mut challenger = Challenger::new();
@@ -83,7 +79,6 @@ where
         None,
         &mut challenger,
         public_inputs,
-        timing,
     )
 }
 
@@ -94,6 +89,7 @@ where
 /// - all the required polynomial and FRI argument openings.
 /// - individual `ctl_data` and common `ctl_challenges` if the STARK is part
 ///   of a multi-STARK system.
+#[instrument(skip_all, fields(stark = std::any::type_name::<S>()))]
 pub fn prove_with_commitment<F, C, S, const D: usize>(
     stark: &S,
     config: &StarkConfig,
@@ -103,7 +99,6 @@ pub fn prove_with_commitment<F, C, S, const D: usize>(
     ctl_challenges: Option<&GrandProductChallengeSet<F>>,
     challenger: &mut Challenger<F, C::Hasher>,
     public_inputs: &[F],
-    timing: &mut TimingTree,
 ) -> Result<StarkProofWithPublicInputs<F, C, D>>
 where
     F: RichField + Extendable<D>,
@@ -140,9 +135,7 @@ where
     });
 
     let lookups = stark.lookups();
-    let lookup_helper_columns = timed!(
-        timing,
-        "compute lookup helper columns",
+    let lookup_helper_columns = debug_span!("compute lookup helper columns").in_scope(|| {
         lookup_challenges.as_ref().map(|challenges| {
             let mut columns = Vec::new();
             for lookup in &lookups {
@@ -157,7 +150,7 @@ where
             }
             columns
         })
-    );
+    });
     let num_lookup_columns = lookup_helper_columns.as_ref().map_or(0, |v| v.len());
 
     // We add CTLs, if there are any, to the permutation arguments so that
@@ -180,18 +173,15 @@ where
 
     // Get the polynomial commitments for all auxiliary polynomials.
     let auxiliary_polys_commitment = auxiliary_polys.map(|aux_polys| {
-        timed!(
-            timing,
-            "compute auxiliary polynomials commitment",
+        debug_span!("compute auxiliary polynomials commitment").in_scope(|| {
             PolynomialBatch::from_values(
                 aux_polys,
                 rate_bits,
                 false,
                 config.fri_config.cap_height,
-                timing,
                 None,
             )
-        )
+        })
     });
 
     let auxiliary_polys_cap = auxiliary_polys_commitment
@@ -225,28 +215,22 @@ where
         );
     }
 
-    let quotient_polys = timed!(
-        timing,
-        "compute quotient polys",
-        compute_quotient_polys::<F, <F as Packable>::Packing, C, S, D>(
-            stark,
-            trace_commitment,
-            &auxiliary_polys_commitment,
-            lookup_challenges.as_ref(),
-            &lookups,
-            ctl_data,
-            public_inputs,
-            alphas.clone(),
-            degree_bits,
-            num_lookup_columns,
-            &num_ctl_polys,
-            config,
-        )
+    let quotient_polys = compute_quotient_polys::<F, <F as Packable>::Packing, C, S, D>(
+        stark,
+        trace_commitment,
+        &auxiliary_polys_commitment,
+        lookup_challenges.as_ref(),
+        &lookups,
+        ctl_data,
+        public_inputs,
+        alphas.clone(),
+        degree_bits,
+        num_lookup_columns,
+        &num_ctl_polys,
+        config,
     );
     let (quotient_commitment, quotient_polys_cap) = if let Some(quotient_polys) = quotient_polys {
-        let all_quotient_chunks = timed!(
-            timing,
-            "split quotient polys",
+        let all_quotient_chunks = debug_span!("split quotient polys").in_scope(|| {
             quotient_polys
                 .into_par_iter()
                 .flat_map(|mut quotient_poly| {
@@ -259,20 +243,17 @@ where
                     quotient_poly.chunks(degree)
                 })
                 .collect()
-        );
+        });
         // Commit to the quotient polynomials.
-        let quotient_commitment = timed!(
-            timing,
-            "compute quotient commitment",
+        let quotient_commitment = debug_span!("compute quotient commitment").in_scope(|| {
             PolynomialBatch::from_coeffs(
                 all_quotient_chunks,
                 rate_bits,
                 false,
                 config.fri_config.cap_height,
-                timing,
                 None,
             )
-        );
+        });
         // Observe the quotient polynomials Merkle cap.
         let quotient_polys_cap = quotient_commitment.merkle_tree.cap.clone();
         challenger.observe_cap(&quotient_polys_cap);
@@ -311,17 +292,14 @@ where
         .chain(&quotient_commitment)
         .collect_vec();
 
-    let opening_proof = timed!(
-        timing,
-        "compute openings proof",
+    let opening_proof = debug_span!("compute openings proof").in_scope(|| {
         PolynomialBatch::prove_openings(
             &stark.fri_instance(zeta, g, num_ctl_polys.iter().sum(), num_ctl_polys, config),
             &initial_merkle_trees,
             challenger,
             &fri_params,
-            timing,
         )
-    );
+    });
 
     let proof = StarkProof {
         trace_cap: trace_commitment.merkle_tree.cap.clone(),
@@ -339,6 +317,7 @@ where
 
 /// Computes the quotient polynomials `(sum alpha^i C_i(x)) / Z_H(x)` for `alpha` in `alphas`,
 /// where the `C_i`s are the STARK constraints.
+#[instrument(skip_all, level = "debug")]
 fn compute_quotient_polys<'a, F, P, C, S, const D: usize>(
     stark: &S,
     trace_commitment: &'a PolynomialBatch<F, C, D>,

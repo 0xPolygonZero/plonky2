@@ -1,8 +1,8 @@
 #[cfg(not(feature = "std"))]
 use alloc::{vec, vec::Vec};
 
-use log::debug;
 use serde::Serialize;
+use tracing::debug;
 #[cfg(feature = "timing")]
 use web_time::Instant;
 

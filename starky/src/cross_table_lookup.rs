@@ -332,7 +332,7 @@ pub(crate) fn cross_table_lookup_data<'a, F: RichField, const D: usize, const N:
         looked_table,
     } in cross_table_lookups
     {
-        log::debug!("Processing CTL for {:?}", looked_table.table);
+        tracing::debug!("Processing CTL for {:?}", looked_table.table);
         for &challenge in &ctl_challenges.challenges {
             let helper_zs_looking = ctl_helper_zs_cols(
                 trace_poly_values,

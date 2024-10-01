@@ -8,6 +8,7 @@ use core::mem::swap;
 use anyhow::{ensure, Result};
 use hashbrown::HashMap;
 use plonky2_maybe_rayon::*;
+use tracing::{debug_span, instrument};
 
 use super::circuit_builder::{LookupChallenges, LookupWire};
 use crate::field::extension::Extendable;
@@ -30,9 +31,7 @@ use crate::plonk::plonk_common::PlonkOracle;
 use crate::plonk::proof::{OpeningSet, Proof, ProofWithPublicInputs};
 use crate::plonk::vanishing_poly::{eval_vanishing_poly_base_batch, get_lut_poly};
 use crate::plonk::vars::EvaluationVarsBaseBatch;
-use crate::timed;
 use crate::util::partial_products::{partial_products_and_z_gx, quotient_chunk_products};
-use crate::util::timing::TimingTree;
 use crate::util::{log2_ceil, transpose};
 
 /// Set all the lookup gate wires (including multiplicities) and pad unused LU slots.
@@ -111,23 +110,20 @@ pub fn set_lookup_wires<
     Ok(())
 }
 
+#[instrument(skip_all)]
 pub fn prove<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
     prover_data: &ProverOnlyCircuitData<F, C, D>,
     common_data: &CommonCircuitData<F, D>,
     inputs: PartialWitness<F>,
-    timing: &mut TimingTree,
 ) -> Result<ProofWithPublicInputs<F, C, D>>
 where
     C::Hasher: Hasher<F>,
     C::InnerHasher: Hasher<F>,
 {
-    let partition_witness = timed!(
-        timing,
-        &format!("run {} generators", prover_data.generators.len()),
-        generate_partial_witness(inputs, prover_data, common_data)?
-    );
+    let partition_witness = debug_span!("run generators", num = prover_data.generators.len())
+        .in_scope(|| generate_partial_witness(inputs, prover_data, common_data))?;
 
-    prove_with_partition_witness(prover_data, common_data, partition_witness, timing)
+    prove_with_partition_witness(prover_data, common_data, partition_witness)
 }
 
 pub fn prove_with_partition_witness<
@@ -138,7 +134,6 @@ pub fn prove_with_partition_witness<
     prover_data: &ProverOnlyCircuitData<F, C, D>,
     common_data: &CommonCircuitData<F, D>,
     mut partition_witness: PartitionWitness<F>,
-    timing: &mut TimingTree,
 ) -> Result<ProofWithPublicInputs<F, C, D>>
 where
     C::Hasher: Hasher<F>,
@@ -155,34 +150,26 @@ where
     let public_inputs = partition_witness.get_targets(&prover_data.public_inputs);
     let public_inputs_hash = C::InnerHasher::hash_no_pad(&public_inputs);
 
-    let witness = timed!(
-        timing,
-        "compute full witness",
-        partition_witness.full_witness()
-    );
+    let witness = debug_span!("compute full witness").in_scope(|| partition_witness.full_witness());
 
-    let wires_values: Vec<PolynomialValues<F>> = timed!(
-        timing,
-        "compute wire polynomials",
-        witness
-            .wire_values
-            .par_iter()
-            .map(|column| PolynomialValues::new(column.clone()))
-            .collect()
-    );
+    let wires_values: Vec<PolynomialValues<F>> =
+        debug_span!("compute wire polynomials").in_scope(|| {
+            witness
+                .wire_values
+                .par_iter()
+                .map(|column| PolynomialValues::new(column.clone()))
+                .collect()
+        });
 
-    let wires_commitment = timed!(
-        timing,
-        "compute wires commitment",
+    let wires_commitment = debug_span!("compute wires commitment").in_scope(|| {
         PolynomialBatch::<F, C, D>::from_values(
             wires_values,
             config.fri_config.rate_bits,
             config.zero_knowledge && PlonkOracle::WIRES.blinding,
             config.fri_config.cap_height,
-            timing,
             prover_data.fft_root_table.as_ref(),
         )
-    );
+    });
 
     let mut challenger = Challenger::<F, C::Hasher>::new();
 
@@ -215,11 +202,9 @@ where
         common_data.quotient_degree_factor < common_data.config.num_routed_wires,
         "When the number of routed wires is smaller that the degree, we should change the logic to avoid computing partial products."
     );
-    let mut partial_products_and_zs = timed!(
-        timing,
-        "compute partial products",
+    let mut partial_products_and_zs = debug_span!("compute partial products").in_scope(|| {
         all_wires_permutation_partial_products(&witness, &betas, &gammas, prover_data, common_data)
-    );
+    });
 
     // Z is expected at the front of our batch; see `zs_range` and `partial_products_range`.
     let plonk_z_vecs = partial_products_and_zs
@@ -238,26 +223,22 @@ where
         zs_partial_products
     };
 
-    let partial_products_zs_and_lookup_commitment = timed!(
-        timing,
-        "commit to partial products, Z's and, if any, lookup polynomials",
-        PolynomialBatch::from_values(
-            zs_partial_products_lookups,
-            config.fri_config.rate_bits,
-            config.zero_knowledge && PlonkOracle::ZS_PARTIAL_PRODUCTS.blinding,
-            config.fri_config.cap_height,
-            timing,
-            prover_data.fft_root_table.as_ref(),
-        )
-    );
+    let partial_products_zs_and_lookup_commitment =
+        debug_span!("commit to partial products, Z's and lookup polynomials").in_scope(|| {
+            PolynomialBatch::from_values(
+                zs_partial_products_lookups,
+                config.fri_config.rate_bits,
+                config.zero_knowledge && PlonkOracle::ZS_PARTIAL_PRODUCTS.blinding,
+                config.fri_config.cap_height,
+                prover_data.fft_root_table.as_ref(),
+            )
+        });
 
     challenger.observe_cap::<C::Hasher>(&partial_products_zs_and_lookup_commitment.merkle_tree.cap);
 
     let alphas = challenger.get_n_challenges(num_challenges);
 
-    let quotient_polys = timed!(
-        timing,
-        "compute quotient polys",
+    let quotient_polys = debug_span!("compute quotient polys").in_scope(|| {
         compute_quotient_polys::<F, C, D>(
             common_data,
             prover_data,
@@ -269,35 +250,31 @@ where
             &deltas,
             &alphas,
         )
-    );
+    });
 
-    let all_quotient_poly_chunks: Vec<PolynomialCoeffs<F>> = timed!(
-        timing,
-        "split up quotient polys",
-        quotient_polys
-            .into_par_iter()
-            .flat_map(|mut quotient_poly| {
-                quotient_poly.trim_to_len(quotient_degree).expect(
-                    "Quotient has failed, the vanishing polynomial is not divisible by Z_H",
-                );
-                // Split quotient into degree-n chunks.
-                quotient_poly.chunks(degree)
-            })
-            .collect()
-    );
+    let all_quotient_poly_chunks: Vec<PolynomialCoeffs<F>> = debug_span!("split up quotient polys")
+        .in_scope(|| {
+            quotient_polys
+                .into_par_iter()
+                .flat_map(|mut quotient_poly| {
+                    quotient_poly.trim_to_len(quotient_degree).expect(
+                        "Quotient has failed, the vanishing polynomial is not divisible by Z_H",
+                    );
+                    // Split quotient into degree-n chunks.
+                    quotient_poly.chunks(degree)
+                })
+                .collect()
+        });
 
-    let quotient_polys_commitment = timed!(
-        timing,
-        "commit to quotient polys",
+    let quotient_polys_commitment = debug_span!("commit to quotient polys").in_scope(|| {
         PolynomialBatch::<F, C, D>::from_coeffs(
             all_quotient_poly_chunks,
             config.fri_config.rate_bits,
             config.zero_knowledge && PlonkOracle::QUOTIENT.blinding,
             config.fri_config.cap_height,
-            timing,
             prover_data.fft_root_table.as_ref(),
         )
-    );
+    });
 
     challenger.observe_cap::<C::Hasher>(&quotient_polys_commitment.merkle_tree.cap);
 
@@ -311,9 +288,7 @@ where
         "Opening point is in the subgroup."
     );
 
-    let openings = timed!(
-        timing,
-        "construct the opening set, including lookups",
+    let openings = debug_span!("construct the opening set, including lookups").in_scope(|| {
         OpeningSet::new(
             zeta,
             g,
@@ -321,15 +296,13 @@ where
             &wires_commitment,
             &partial_products_zs_and_lookup_commitment,
             &quotient_polys_commitment,
-            common_data
+            common_data,
         )
-    );
+    });
     challenger.observe_openings(&openings.to_fri_openings());
     let instance = common_data.get_fri_instance(zeta);
 
-    let opening_proof = timed!(
-        timing,
-        "compute opening proofs",
+    let opening_proof = debug_span!("compute opening proofs").in_scope(|| {
         PolynomialBatch::<F, C, D>::prove_openings(
             &instance,
             &[
@@ -340,9 +313,8 @@ where
             ],
             &mut challenger,
             &common_data.fri_params,
-            timing,
         )
-    );
+    });
 
     let proof = Proof::<F, C, D> {
         wires_cap: wires_commitment.merkle_tree.cap,

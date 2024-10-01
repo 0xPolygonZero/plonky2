@@ -55,8 +55,7 @@ macro_rules! get_generator_tag_impl {
             Ok(tag)
         } else)*
         {
-            log::log!(
-                log::Level::Error,
+        tracing::error!(
                 "attempted to serialize generator with id {} which is unsupported by this generator serializer",
                 $generator.0.id()
             );

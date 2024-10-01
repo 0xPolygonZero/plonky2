@@ -4,7 +4,6 @@ use alloc::{sync::Arc, vec, vec::Vec};
 use std::sync::{Arc, Once};
 
 use itertools::Itertools;
-use log::Level;
 
 use crate::field::types::Field;
 use crate::gadgets::lookup::{OTHER_TABLE, SMALLER_TABLE, TIP5_TABLE};
@@ -15,7 +14,6 @@ use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::circuit_data::CircuitConfig;
 use crate::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
 use crate::plonk::prover::prove;
-use crate::util::timing::TimingTree;
 
 const D: usize = 2;
 type C = PoseidonGoldilocksConfig;
@@ -36,9 +34,8 @@ fn test_no_lookup() -> anyhow::Result<()> {
     let pw = PartialWitness::new();
 
     let data = builder.build::<C>();
-    let mut timing = TimingTree::new("prove first", Level::Debug);
-    let proof = prove(&data.prover_only, &data.common, pw, &mut timing)?;
-    timing.print();
+    let proof = prove(&data.prover_only, &data.common, pw)?;
+
     data.verify(proof)?;
 
     Ok(())
@@ -107,9 +104,8 @@ fn test_one_lookup() -> anyhow::Result<()> {
     pw.set_target(initial_b, F::from_canonical_usize(look_val_b))?;
 
     let data = builder.build::<C>();
-    let mut timing = TimingTree::new("prove one lookup", Level::Debug);
-    let proof = prove(&data.prover_only, &data.common, pw, &mut timing)?;
-    timing.print();
+    let proof = prove(&data.prover_only, &data.common, pw)?;
+
     data.verify(proof.clone())?;
 
     assert!(
@@ -174,10 +170,8 @@ fn test_two_luts() -> anyhow::Result<()> {
     pw.set_target(initial_a, F::from_canonical_usize(look_val_a))?;
     pw.set_target(initial_b, F::from_canonical_usize(look_val_b))?;
     let data = builder.build::<C>();
-    let mut timing = TimingTree::new("prove two_luts", Level::Debug);
-    let proof = prove(&data.prover_only, &data.common, pw, &mut timing)?;
+    let proof = prove(&data.prover_only, &data.common, pw)?;
     data.verify(proof.clone())?;
-    timing.print();
 
     assert!(
         proof.public_inputs[3] == F::from_canonical_u16(first_out),
@@ -245,10 +239,8 @@ fn test_different_inputs() -> anyhow::Result<()> {
     pw.set_target(initial_b, F::from_canonical_u16(look_val_b))?;
 
     let data = builder.build::<C>();
-    let mut timing = TimingTree::new("prove different lookups", Level::Debug);
-    let proof = prove(&data.prover_only, &data.common, pw, &mut timing)?;
+    let proof = prove(&data.prover_only, &data.common, pw)?;
     data.verify(proof.clone())?;
-    timing.print();
 
     let out_a = table[init_a].1;
     let out_b = table[init_b].1;
@@ -283,7 +275,7 @@ fn test_different_inputs() -> anyhow::Result<()> {
 fn test_many_lookups() -> anyhow::Result<()> {
     init_logger();
 
-    let config = CircuitConfig::standard_recursion_config();
+    let config = CircuitConfig::standard_recursion_zk_config();
     let mut builder = CircuitBuilder::<F, D>::new(config);
 
     let initial_a = builder.add_virtual_target();
@@ -331,11 +323,9 @@ fn test_many_lookups() -> anyhow::Result<()> {
     pw.set_target(initial_b, F::from_canonical_usize(look_val_b))?;
 
     let data = builder.build::<C>();
-    let mut timing = TimingTree::new("prove different lookups", Level::Debug);
-    let proof = prove(&data.prover_only, &data.common, pw, &mut timing)?;
+    let proof = prove(&data.prover_only, &data.common, pw)?;
 
     data.verify(proof.clone())?;
-    timing.print();
 
     assert!(
         proof.public_inputs[3] == F::from_canonical_u16(out_a),
@@ -408,10 +398,8 @@ fn test_same_luts() -> anyhow::Result<()> {
     pw.set_target(initial_b, F::from_canonical_usize(look_val_b))?;
 
     let data = builder.build::<C>();
-    let mut timing = TimingTree::new("prove two_luts", Level::Debug);
-    let proof = prove(&data.prover_only, &data.common, pw, &mut timing)?;
+    let proof = prove(&data.prover_only, &data.common, pw)?;
     data.verify(proof)?;
-    timing.print();
 
     Ok(())
 }
@@ -512,12 +500,9 @@ fn test_many_lookups_on_big_lut() -> anyhow::Result<()> {
 fn init_logger() {
     #[cfg(feature = "std")]
     {
+        use env_logger::{try_init_from_env, Env, DEFAULT_FILTER_ENV};
         LOGGER_INITIALIZED.call_once(|| {
-            let mut builder = env_logger::Builder::from_default_env();
-            builder.format_timestamp(None);
-            builder.filter_level(log::LevelFilter::Debug);
-
-            builder.try_init().unwrap();
+            let _ = try_init_from_env(Env::default().filter_or(DEFAULT_FILTER_ENV, "info"));
         });
     }
 }

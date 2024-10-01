@@ -15,6 +15,7 @@ use plonky2::hash::merkle_tree::MerkleCap;
 use plonky2::iop::challenger::Challenger;
 use plonky2::plonk::config::GenericConfig;
 use plonky2::plonk::plonk_common::reduce_with_powers;
+use tracing::debug;
 
 use crate::config::StarkConfig;
 use crate::constraint_consumer::ConstraintConsumer;
@@ -68,7 +69,7 @@ where
     C: GenericConfig<D, F = F>,
     S: Stark<F, D>,
 {
-    log::debug!("Checking proof: {}", type_name::<S>());
+    debug!("Checking proof: {}", type_name::<S>());
 
     let (num_ctl_z_polys, num_ctl_polys) = ctl_vars
         .map(|ctls| {
