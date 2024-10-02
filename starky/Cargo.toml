@@ -23,6 +23,7 @@ anyhow = { workspace = true }
 hashbrown = { workspace = true }
 itertools = { workspace = true }
 log = { workspace = true }
+serde = { workspace = true, features = ["rc"] }
 num-bigint = { version = "0.4.3", default-features = false }
 
 # Local dependencies
