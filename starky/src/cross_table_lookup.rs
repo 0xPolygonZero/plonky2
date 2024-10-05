@@ -183,7 +183,7 @@ impl<'a, F: Field> CtlZData<'a, F> {
     }
 }
 
-impl<'a, F: Field> CtlData<'a, F> {
+impl<F: Field> CtlData<'_, F> {
     /// Returns all the cross-table lookup helper polynomials.
     pub(crate) fn ctl_helper_polys(&self) -> Vec<PolynomialValues<F>> {
         let num_polys = self
