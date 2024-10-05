@@ -439,7 +439,7 @@ impl<'a, F: RichField + Extendable<D>, const D: usize>
     /// Extracts the `CtlCheckVars` from a single proof.
     pub fn from_proof<C: GenericConfig<D, F = F>>(
         table_idx: TableIdx,
-        proof: &'a StarkProof<F, C, D>,
+        proof: &StarkProof<F, C, D>,
         cross_table_lookups: &'a [CrossTableLookup<F>],
         ctl_challenges: &'a GrandProductChallengeSet<F>,
         num_lookup_columns: usize,
