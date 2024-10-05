@@ -5,6 +5,8 @@ use alloc::{
     vec::Vec,
 };
 
+use anyhow::Result;
+
 use crate::field::extension::Extendable;
 use crate::field::packed::PackedField;
 use crate::gates::gate::Gate;
@@ -209,7 +211,11 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D>
         .collect()
     }
 
-    fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
+    fn run_once(
+        &self,
+        witness: &PartitionWitness<F>,
+        out_buffer: &mut GeneratedValues<F>,
+    ) -> Result<()> {
         let get_wire = |wire: usize| -> F { witness.get_target(Target::wire(self.row, wire)) };
 
         let multiplicand_0 = get_wire(ArithmeticGate::wire_ith_multiplicand_0(self.i));

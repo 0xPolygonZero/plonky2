@@ -494,7 +494,7 @@ unsafe fn mds_multiply_and_add_round_const_s(
         // Fall through for MDS matrix multiplication on low 32 bits
 
         // This is a GCC _local label_. For details, see
-        // https://doc.rust-lang.org/beta/unstable-book/library-features/asm.html#labels
+        // https://doc.rust-lang.org/rust-by-example/unsafe/asm.html#labels
         // In short, the assembler makes sure to assign a unique name to replace `2:` with a unique
         // name, so the label does not clash with any compiler-generated label. `2:` can appear
         // multiple times; to disambiguate, we must refer to it as `2b` or `2f`, specifying the

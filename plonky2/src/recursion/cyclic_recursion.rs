@@ -312,7 +312,7 @@ mod tests {
         let mut pw = PartialWitness::new();
         let initial_hash = [F::ZERO, F::ONE, F::TWO, F::from_canonical_usize(3)];
         let initial_hash_pis = initial_hash.into_iter().enumerate().collect();
-        pw.set_bool_target(condition, false);
+        pw.set_bool_target(condition, false)?;
         pw.set_proof_with_pis_target::<C, D>(
             &inner_cyclic_proof_with_pis,
             &cyclic_base_proof(
@@ -320,8 +320,8 @@ mod tests {
                 &cyclic_circuit_data.verifier_only,
                 initial_hash_pis,
             ),
-        );
-        pw.set_verifier_data_target(&verifier_data_target, &cyclic_circuit_data.verifier_only);
+        )?;
+        pw.set_verifier_data_target(&verifier_data_target, &cyclic_circuit_data.verifier_only)?;
         let proof = cyclic_circuit_data.prove(pw)?;
         check_cyclic_proof_verifier_data(
             &proof,
@@ -332,9 +332,9 @@ mod tests {
 
         // 1st recursive layer.
         let mut pw = PartialWitness::new();
-        pw.set_bool_target(condition, true);
-        pw.set_proof_with_pis_target(&inner_cyclic_proof_with_pis, &proof);
-        pw.set_verifier_data_target(&verifier_data_target, &cyclic_circuit_data.verifier_only);
+        pw.set_bool_target(condition, true)?;
+        pw.set_proof_with_pis_target(&inner_cyclic_proof_with_pis, &proof)?;
+        pw.set_verifier_data_target(&verifier_data_target, &cyclic_circuit_data.verifier_only)?;
         let proof = cyclic_circuit_data.prove(pw)?;
         check_cyclic_proof_verifier_data(
             &proof,
@@ -345,9 +345,9 @@ mod tests {
 
         // 2nd recursive layer.
         let mut pw = PartialWitness::new();
-        pw.set_bool_target(condition, true);
-        pw.set_proof_with_pis_target(&inner_cyclic_proof_with_pis, &proof);
-        pw.set_verifier_data_target(&verifier_data_target, &cyclic_circuit_data.verifier_only);
+        pw.set_bool_target(condition, true)?;
+        pw.set_proof_with_pis_target(&inner_cyclic_proof_with_pis, &proof)?;
+        pw.set_verifier_data_target(&verifier_data_target, &cyclic_circuit_data.verifier_only)?;
         let proof = cyclic_circuit_data.prove(pw)?;
         check_cyclic_proof_verifier_data(
             &proof,

@@ -8,6 +8,8 @@ use alloc::{
 use core::marker::PhantomData;
 use core::ops::Range;
 
+use anyhow::Result;
+
 use crate::field::extension::algebra::ExtensionAlgebra;
 use crate::field::extension::{Extendable, FieldExtension, OEF};
 use crate::field::interpolation::barycentric_weights;
@@ -43,16 +45,16 @@ use crate::util::serialization::{Buffer, IoResult, Read, Write};
 /// non-routed wires. Let $x[]$ be the domain points, $v[]$ be the values, $w[]$ be the Barycentric
 /// weights and $z$ be the evaluation point. Define the sequences
 ///
-/// $p[0] = 1,$
+/// $p\[0\] = 1,$
 ///
-/// $p[i] = p[i - 1] \cdot (z - x[i - 1]),$
+/// $p\[i\] = p[i - 1] \cdot (z - x[i - 1]),$
 ///
-/// $e[0] = 0,$
+/// $e\[0\] = 0,$
 ///
-/// $e[i] = e[i - 1] ] \cdot (z - x[i - 1]) + w[i - 1] \cdot v[i - 1] \cdot p[i - 1]$
+/// $e\[i\] = e[i - 1] ] \cdot (z - x[i - 1]) + w[i - 1] \cdot v[i - 1] \cdot p[i - 1]$
 ///
-/// Then $e[N]$ is the final interpolated value. The non-routed wires hold every $(d - 1)$'th
-/// intermediate value of $p$ and $e$, starting at $p[d]$ and $e[d]$, where $d$ is the gate degree.
+/// Then $e\[N\]$ is the final interpolated value. The non-routed wires hold every $(d - 1)$'th
+/// intermediate value of $p$ and $e$, starting at $p\[d\]$ and $e\[d\]$, where $d$ is the gate degree.
 #[derive(Clone, Debug, Default)]
 pub struct CosetInterpolationGate<F: RichField + Extendable<D>, const D: usize> {
     pub subgroup_bits: usize,
@@ -442,7 +444,11 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D>
         deps
     }
 
-    fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
+    fn run_once(
+        &self,
+        witness: &PartitionWitness<F>,
+        out_buffer: &mut GeneratedValues<F>,
+    ) -> Result<()> {
         let local_wire = |column| Wire {
             row: self.row,
             column,
@@ -465,7 +471,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D>
         out_buffer.set_ext_wires(
             self.gate.wires_shifted_evaluation_point().map(local_wire),
             shifted_evaluation_point,
-        );
+        )?;
 
         let domain = &self.interpolation_domain;
         let values = (0..self.gate.num_points())
@@ -485,8 +491,8 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D>
         for i in 0..self.gate.num_intermediates() {
             let intermediate_eval_wires = self.gate.wires_intermediate_eval(i).map(local_wire);
             let intermediate_prod_wires = self.gate.wires_intermediate_prod(i).map(local_wire);
-            out_buffer.set_ext_wires(intermediate_eval_wires, computed_eval);
-            out_buffer.set_ext_wires(intermediate_prod_wires, computed_prod);
+            out_buffer.set_ext_wires(intermediate_eval_wires, computed_eval)?;
+            out_buffer.set_ext_wires(intermediate_prod_wires, computed_prod)?;
 
             let start_index = 1 + (degree - 1) * (i + 1);
             let end_index = (start_index + degree - 1).min(self.gate.num_points());
@@ -501,7 +507,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D>
         }
 
         let evaluation_value_wires = self.gate.wires_evaluation_value().map(local_wire);
-        out_buffer.set_ext_wires(evaluation_value_wires, computed_eval);
+        out_buffer.set_ext_wires(evaluation_value_wires, computed_eval)
     }
 
     fn serialize(&self, dst: &mut Vec<u8>, _common_data: &CommonCircuitData<F, D>) -> IoResult<()> {

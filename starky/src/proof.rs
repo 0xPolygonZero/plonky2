@@ -8,9 +8,7 @@ use alloc::{vec, vec::Vec};
 use itertools::Itertools;
 use plonky2::field::extension::{Extendable, FieldExtension};
 use plonky2::fri::oracle::PolynomialBatch;
-use plonky2::fri::proof::{
-    CompressedFriProof, FriChallenges, FriChallengesTarget, FriProof, FriProofTarget,
-};
+use plonky2::fri::proof::{FriChallenges, FriChallengesTarget, FriProof, FriProofTarget};
 use plonky2::fri::structure::{
     FriOpeningBatch, FriOpeningBatchTarget, FriOpenings, FriOpeningsTarget,
 };
@@ -21,12 +19,14 @@ use plonky2::iop::target::Target;
 use plonky2::plonk::config::{GenericConfig, Hasher};
 use plonky2::util::serialization::{Buffer, IoResult, Read, Write};
 use plonky2_maybe_rayon::*;
+use serde::{Deserialize, Serialize};
 
 use crate::config::StarkConfig;
 use crate::lookup::GrandProductChallengeSet;
 
 /// Merkle caps and openings that form the proof of a single STARK.
-#[derive(Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(bound = "")]
 pub struct StarkProof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> {
     /// Merkle cap of LDEs of trace values.
     pub trace_cap: MerkleCap<F, C::Hasher>,
@@ -122,7 +122,8 @@ impl<const D: usize> StarkProofTarget<D> {
 }
 
 /// Merkle caps and openings that form the proof of a single STARK, along with its public inputs.
-#[derive(Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(bound = "")]
 pub struct StarkProofWithPublicInputs<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
@@ -142,34 +143,6 @@ pub struct StarkProofWithPublicInputsTarget<const D: usize> {
     pub proof: StarkProofTarget<D>,
     /// `Target` public inputs for this STARK proof.
     pub public_inputs: Vec<Target>,
-}
-
-/// A compressed proof format of a single STARK.
-#[derive(Debug, Clone)]
-pub struct CompressedStarkProof<
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
-    const D: usize,
-> {
-    /// Merkle cap of LDEs of trace values.
-    pub trace_cap: MerkleCap<F, C::Hasher>,
-    /// Purported values of each polynomial at the challenge point.
-    pub openings: StarkOpeningSet<F, D>,
-    /// A batch FRI argument for all openings.
-    pub opening_proof: CompressedFriProof<F, C::Hasher, D>,
-}
-
-/// A compressed [`StarkProof`] format of a single STARK with its public inputs.
-#[derive(Debug, Clone)]
-pub struct CompressedStarkProofWithPublicInputs<
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
-    const D: usize,
-> {
-    /// A compressed STARK proof.
-    pub proof: CompressedStarkProof<F, C, D>,
-    /// Public inputs for this compressed STARK proof.
-    pub public_inputs: Vec<F>,
 }
 
 /// A [`StarkProof`] along with metadata about the initial Fiat-Shamir state, which is used when
@@ -222,7 +195,8 @@ pub struct MultiProofChallenges<F: RichField + Extendable<D>, const D: usize, co
 }
 
 /// Purported values of each polynomial at the challenge point.
-#[derive(Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(bound = "")]
 pub struct StarkOpeningSet<F: RichField + Extendable<D>, const D: usize> {
     /// Openings of trace polynomials at `zeta`.
     pub local_values: Vec<F::Extension>,

@@ -14,7 +14,7 @@ use plonky2::hash::hash_types::RichField;
 use plonky2::iop::challenger::RecursiveChallenger;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::iop::target::Target;
-use plonky2::iop::witness::Witness;
+use plonky2::iop::witness::WitnessWrite;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::config::{AlgebraicHasher, GenericConfig};
 use plonky2::util::reducing::ReducingFactorTarget;
@@ -325,10 +325,11 @@ pub fn set_stark_proof_with_pis_target<F, C: GenericConfig<D, F = F>, W, const D
     stark_proof_with_pis_target: &StarkProofWithPublicInputsTarget<D>,
     stark_proof_with_pis: &StarkProofWithPublicInputs<F, C, D>,
     zero: Target,
-) where
+) -> Result<()>
+where
     F: RichField + Extendable<D>,
     C::Hasher: AlgebraicHasher<F>,
-    W: Witness<F>,
+    W: WitnessWrite<F>,
 {
     let StarkProofWithPublicInputs {
         proof,
@@ -341,10 +342,10 @@ pub fn set_stark_proof_with_pis_target<F, C: GenericConfig<D, F = F>, W, const D
 
     // Set public inputs.
     for (&pi_t, &pi) in pi_targets.iter().zip_eq(public_inputs) {
-        witness.set_target(pi_t, pi);
+        witness.set_target(pi_t, pi)?;
     }
 
-    set_stark_proof_target(witness, pt, proof, zero);
+    set_stark_proof_target(witness, pt, proof, zero)
 }
 
 /// Set the targets in a [`StarkProofTarget`] to their corresponding values in a
@@ -354,31 +355,32 @@ pub fn set_stark_proof_target<F, C: GenericConfig<D, F = F>, W, const D: usize>(
     proof_target: &StarkProofTarget<D>,
     proof: &StarkProof<F, C, D>,
     zero: Target,
-) where
+) -> Result<()>
+where
     F: RichField + Extendable<D>,
     C::Hasher: AlgebraicHasher<F>,
-    W: Witness<F>,
+    W: WitnessWrite<F>,
 {
-    witness.set_cap_target(&proof_target.trace_cap, &proof.trace_cap);
+    witness.set_cap_target(&proof_target.trace_cap, &proof.trace_cap)?;
     if let (Some(quotient_polys_cap_target), Some(quotient_polys_cap)) =
         (&proof_target.quotient_polys_cap, &proof.quotient_polys_cap)
     {
-        witness.set_cap_target(quotient_polys_cap_target, quotient_polys_cap);
+        witness.set_cap_target(quotient_polys_cap_target, quotient_polys_cap)?;
     }
 
     witness.set_fri_openings(
         &proof_target.openings.to_fri_openings(zero),
         &proof.openings.to_fri_openings(),
-    );
+    )?;
 
     if let (Some(auxiliary_polys_cap_target), Some(auxiliary_polys_cap)) = (
         &proof_target.auxiliary_polys_cap,
         &proof.auxiliary_polys_cap,
     ) {
-        witness.set_cap_target(auxiliary_polys_cap_target, auxiliary_polys_cap);
+        witness.set_cap_target(auxiliary_polys_cap_target, auxiliary_polys_cap)?;
     }
 
-    set_fri_proof_target(witness, &proof_target.opening_proof, &proof.opening_proof);
+    set_fri_proof_target(witness, &proof_target.opening_proof, &proof.opening_proof)
 }
 
 /// Utility function to check that all lookups data wrapped in `Option`s are `Some` iff

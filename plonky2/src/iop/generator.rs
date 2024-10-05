@@ -8,6 +8,8 @@ use alloc::{
 use core::fmt::Debug;
 use core::marker::PhantomData;
 
+use anyhow::{anyhow, Result};
+
 use crate::field::extension::Extendable;
 use crate::field::types::Field;
 use crate::hash::hash_types::RichField;
@@ -30,7 +32,7 @@ pub fn generate_partial_witness<
     inputs: PartialWitness<F>,
     prover_data: &'a ProverOnlyCircuitData<F, C, D>,
     common_data: &'a CommonCircuitData<F, D>,
-) -> PartitionWitness<'a, F> {
+) -> Result<PartitionWitness<'a, F>> {
     let config = &common_data.config;
     let generators = &prover_data.generators;
     let generator_indices_by_watches = &prover_data.generator_indices_by_watches;
@@ -42,7 +44,7 @@ pub fn generate_partial_witness<
     );
 
     for (t, v) in inputs.target_values.into_iter() {
-        witness.set_target(t, v);
+        witness.set_target(t, v)?;
     }
 
     // Build a list of "pending" generators which are queued to be run. Initially, all generators
@@ -72,10 +74,11 @@ pub fn generate_partial_witness<
 
             // Merge any generated values into our witness, and get a list of newly-populated
             // targets' representatives.
-            let new_target_reps = buffer
-                .target_values
-                .drain(..)
-                .flat_map(|(t, v)| witness.set_target_returning_rep(t, v));
+            let mut new_target_reps = Vec::with_capacity(buffer.target_values.len());
+            for (t, v) in buffer.target_values.drain(..) {
+                let reps = witness.set_target_returning_rep(t, v)?;
+                new_target_reps.extend(reps);
+            }
 
             // Enqueue unfinished generators that were watching one of the newly populated targets.
             for watch in new_target_reps {
@@ -93,13 +96,11 @@ pub fn generate_partial_witness<
         pending_generator_indices = next_pending_generator_indices;
     }
 
-    assert_eq!(
-        remaining_generators, 0,
-        "{} generators weren't run",
-        remaining_generators,
-    );
+    if remaining_generators != 0 {
+        return Err(anyhow!("{} generators weren't run", remaining_generators));
+    }
 
-    witness
+    Ok(witness)
 }
 
 /// A generator participates in the generation of the witness.
@@ -163,8 +164,10 @@ impl<F: Field> From<Vec<(Target, F)>> for GeneratedValues<F> {
 }
 
 impl<F: Field> WitnessWrite<F> for GeneratedValues<F> {
-    fn set_target(&mut self, target: Target, value: F) {
+    fn set_target(&mut self, target: Target, value: F) -> Result<()> {
         self.target_values.push((target, value));
+
+        Ok(())
     }
 }
 
@@ -188,13 +191,14 @@ impl<F: Field> GeneratedValues<F> {
     pub fn singleton_extension_target<const D: usize>(
         et: ExtensionTarget<D>,
         value: F::Extension,
-    ) -> Self
+    ) -> Result<Self>
     where
         F: RichField + Extendable<D>,
     {
         let mut witness = Self::with_capacity(D);
-        witness.set_extension_target(et, value);
-        witness
+        witness.set_extension_target(et, value)?;
+
+        Ok(witness)
     }
 }
 
@@ -206,7 +210,11 @@ pub trait SimpleGenerator<F: RichField + Extendable<D>, const D: usize>:
 
     fn dependencies(&self) -> Vec<Target>;
 
-    fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>);
+    fn run_once(
+        &self,
+        witness: &PartitionWitness<F>,
+        out_buffer: &mut GeneratedValues<F>,
+    ) -> Result<()>;
 
     fn adapter(self) -> SimpleGeneratorAdapter<F, Self, D>
     where
@@ -248,8 +256,7 @@ impl<F: RichField + Extendable<D>, SG: SimpleGenerator<F, D>, const D: usize> Wi
 
     fn run(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) -> bool {
         if witness.contains_all(&self.inner.dependencies()) {
-            self.inner.run_once(witness, out_buffer);
-            true
+            self.inner.run_once(witness, out_buffer).is_ok()
         } else {
             false
         }
@@ -283,9 +290,13 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D> for Cop
         vec![self.src]
     }
 
-    fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
+    fn run_once(
+        &self,
+        witness: &PartitionWitness<F>,
+        out_buffer: &mut GeneratedValues<F>,
+    ) -> Result<()> {
         let value = witness.get_target(self.src);
-        out_buffer.set_target(self.dst, value);
+        out_buffer.set_target(self.dst, value)
     }
 
     fn serialize(&self, dst: &mut Vec<u8>, _common_data: &CommonCircuitData<F, D>) -> IoResult<()> {
@@ -315,9 +326,13 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D> for Ran
         Vec::new()
     }
 
-    fn run_once(&self, _witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
+    fn run_once(
+        &self,
+        _witness: &PartitionWitness<F>,
+        out_buffer: &mut GeneratedValues<F>,
+    ) -> Result<()> {
         let random_value = F::rand();
-        out_buffer.set_target(self.target, random_value);
+        out_buffer.set_target(self.target, random_value)
     }
 
     fn serialize(&self, dst: &mut Vec<u8>, _common_data: &CommonCircuitData<F, D>) -> IoResult<()> {
@@ -346,7 +361,11 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D> for Non
         vec![self.to_test]
     }
 
-    fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
+    fn run_once(
+        &self,
+        witness: &PartitionWitness<F>,
+        out_buffer: &mut GeneratedValues<F>,
+    ) -> Result<()> {
         let to_test_value = witness.get_target(self.to_test);
 
         let dummy_value = if to_test_value == F::ZERO {
@@ -355,7 +374,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D> for Non
             to_test_value.inverse()
         };
 
-        out_buffer.set_target(self.dummy, dummy_value);
+        out_buffer.set_target(self.dummy, dummy_value)
     }
 
     fn serialize(&self, dst: &mut Vec<u8>, _common_data: &CommonCircuitData<F, D>) -> IoResult<()> {
@@ -394,8 +413,12 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D> for Con
         vec![]
     }
 
-    fn run_once(&self, _witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
-        out_buffer.set_target(Target::wire(self.row, self.wire_index), self.constant);
+    fn run_once(
+        &self,
+        _witness: &PartitionWitness<F>,
+        out_buffer: &mut GeneratedValues<F>,
+    ) -> Result<()> {
+        out_buffer.set_target(Target::wire(self.row, self.wire_index), self.constant)
     }
 
     fn serialize(&self, dst: &mut Vec<u8>, _common_data: &CommonCircuitData<F, D>) -> IoResult<()> {

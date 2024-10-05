@@ -4,11 +4,13 @@
 use alloc::{collections::BTreeMap, sync::Arc, vec, vec::Vec};
 use core::cmp::max;
 #[cfg(feature = "std")]
-use std::{collections::BTreeMap, sync::Arc, time::Instant};
+use std::{collections::BTreeMap, sync::Arc};
 
 use hashbrown::{HashMap, HashSet};
 use itertools::Itertools;
 use log::{debug, info, warn, Level};
+#[cfg(feature = "timing")]
+use web_time::Instant;
 
 use crate::field::cosets::get_unique_coset_shifts;
 use crate::field::extension::{Extendable, FieldExtension};
@@ -522,6 +524,13 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         );
         self.copy_constraints
             .push(CopyConstraint::new((x, y), self.context_log.open_stack()));
+    }
+
+    /// Enforces that the underlying values of two [`Target`] arrays are equal.
+    pub fn connect_array<const N: usize>(&mut self, x: [Target; N], y: [Target; N]) {
+        for i in 0..N {
+            self.connect(x[i], y[i]);
+        }
     }
 
     /// Enforces that two [`ExtensionTarget<D>`] underlying values are equal.

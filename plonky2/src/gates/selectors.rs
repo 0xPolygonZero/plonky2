@@ -42,9 +42,11 @@ pub enum LookupSelectors {
 /// Returns selector polynomials for each LUT. We have two constraint domains (remember that gates are stored upside down):
 /// - [last_lut_row, first_lut_row] (Sum and RE transition constraints),
 /// - [last_lu_row, last_lut_row - 1] (LDC column transition constraints).
+///
 /// We also add two more:
 /// - {first_lut_row + 1} where we check the initial values of sum and RE (which are 0),
 /// - {last_lu_row} where we check that the last value of LDC is 0.
+///
 /// Conceptually they're part of the selector ends lookups, but since we can have one polynomial for *all* LUTs it's here.
 pub(crate) fn selectors_lookup<F: RichField + Extendable<D>, const D: usize>(
     _gates: &[GateRef<F, D>],

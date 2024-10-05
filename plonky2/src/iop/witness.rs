@@ -1,6 +1,8 @@
 #[cfg(not(feature = "std"))]
 use alloc::{vec, vec::Vec};
+use core::iter::zip;
 
+use anyhow::{anyhow, Result};
 use hashbrown::HashMap;
 use itertools::{zip_eq, Itertools};
 
@@ -18,52 +20,67 @@ use crate::plonk::config::{AlgebraicHasher, GenericConfig};
 use crate::plonk::proof::{Proof, ProofTarget, ProofWithPublicInputs, ProofWithPublicInputsTarget};
 
 pub trait WitnessWrite<F: Field> {
-    fn set_target(&mut self, target: Target, value: F);
+    fn set_target(&mut self, target: Target, value: F) -> Result<()>;
 
-    fn set_hash_target(&mut self, ht: HashOutTarget, value: HashOut<F>) {
-        ht.elements
-            .iter()
-            .zip(value.elements)
-            .for_each(|(&t, x)| self.set_target(t, x));
+    fn set_hash_target(&mut self, ht: HashOutTarget, value: HashOut<F>) -> Result<()> {
+        for (t, x) in zip(ht.elements, value.elements) {
+            self.set_target(t, x)?;
+        }
+
+        Ok(())
     }
 
     fn set_cap_target<H: AlgebraicHasher<F>>(
         &mut self,
         ct: &MerkleCapTarget,
         value: &MerkleCap<F, H>,
-    ) where
+    ) -> Result<()>
+    where
         F: RichField,
     {
         for (ht, h) in ct.0.iter().zip(&value.0) {
-            self.set_hash_target(*ht, *h);
+            self.set_hash_target(*ht, *h)?;
         }
+
+        Ok(())
     }
 
-    fn set_extension_target<const D: usize>(&mut self, et: ExtensionTarget<D>, value: F::Extension)
+    fn set_extension_target<const D: usize>(
+        &mut self,
+        et: ExtensionTarget<D>,
+        value: F::Extension,
+    ) -> Result<()>
     where
         F: RichField + Extendable<D>,
     {
-        self.set_target_arr(&et.0, &value.to_basefield_array());
+        self.set_target_arr(&et.0, &value.to_basefield_array())
     }
 
-    fn set_target_arr(&mut self, targets: &[Target], values: &[F]) {
-        zip_eq(targets, values).for_each(|(&target, &value)| self.set_target(target, value));
+    fn set_target_arr(&mut self, targets: &[Target], values: &[F]) -> Result<()> {
+        for (&target, &value) in zip_eq(targets, values) {
+            self.set_target(target, value)?;
+        }
+
+        Ok(())
     }
 
     fn set_extension_targets<const D: usize>(
         &mut self,
         ets: &[ExtensionTarget<D>],
         values: &[F::Extension],
-    ) where
+    ) -> Result<()>
+    where
         F: RichField + Extendable<D>,
     {
         debug_assert_eq!(ets.len(), values.len());
-        ets.iter()
-            .zip(values)
-            .for_each(|(&et, &v)| self.set_extension_target(et, v));
+        for (&et, &v) in zip(ets, values) {
+            self.set_extension_target(et, v)?;
+        }
+
+        Ok(())
     }
 
-    fn set_bool_target(&mut self, target: BoolTarget, value: bool) {
+    fn set_bool_target(&mut self, target: BoolTarget, value: bool) -> Result<()> {
         self.set_target(target.target, F::from_bool(value))
     }
 
@@ -73,7 +90,8 @@ pub trait WitnessWrite<F: Field> {
         &mut self,
         proof_with_pis_target: &ProofWithPublicInputsTarget<D>,
         proof_with_pis: &ProofWithPublicInputs<F, C, D>,
-    ) where
+    ) -> Result<()>
+    where
         F: RichField + Extendable<D>,
         C::Hasher: AlgebraicHasher<F>,
     {
@@ -88,10 +106,10 @@ pub trait WitnessWrite<F: Field> {
 
         // Set public inputs.
         for (&pi_t, &pi) in pi_targets.iter().zip_eq(public_inputs) {
-            self.set_target(pi_t, pi);
+            self.set_target(pi_t, pi)?;
         }
 
-        self.set_proof_target(pt, proof);
+        self.set_proof_target(pt, proof)
     }
 
     /// Set the targets in a `ProofTarget` to their corresponding values in a `Proof`.
@@ -99,30 +117,32 @@ pub trait WitnessWrite<F: Field> {
         &mut self,
         proof_target: &ProofTarget<D>,
         proof: &Proof<F, C, D>,
-    ) where
+    ) -> Result<()>
+    where
         F: RichField + Extendable<D>,
         C::Hasher: AlgebraicHasher<F>,
     {
-        self.set_cap_target(&proof_target.wires_cap, &proof.wires_cap);
+        self.set_cap_target(&proof_target.wires_cap, &proof.wires_cap)?;
         self.set_cap_target(
             &proof_target.plonk_zs_partial_products_cap,
             &proof.plonk_zs_partial_products_cap,
-        );
-        self.set_cap_target(&proof_target.quotient_polys_cap, &proof.quotient_polys_cap);
+        )?;
+        self.set_cap_target(&proof_target.quotient_polys_cap, &proof.quotient_polys_cap)?;
 
         self.set_fri_openings(
             &proof_target.openings.to_fri_openings(),
             &proof.openings.to_fri_openings(),
-        );
+        )?;
 
-        set_fri_proof_target(self, &proof_target.opening_proof, &proof.opening_proof);
+        set_fri_proof_target(self, &proof_target.opening_proof, &proof.opening_proof)
     }
 
     fn set_fri_openings<const D: usize>(
         &mut self,
         fri_openings_target: &FriOpeningsTarget<D>,
         fri_openings: &FriOpenings<F, D>,
-    ) where
+    ) -> Result<()>
+    where
         F: RichField + Extendable<D>,
     {
         for (batch_target, batch) in fri_openings_target
@@ -130,48 +150,55 @@ pub trait WitnessWrite<F: Field> {
             .iter()
             .zip_eq(&fri_openings.batches)
         {
-            self.set_extension_targets(&batch_target.values, &batch.values);
+            self.set_extension_targets(&batch_target.values, &batch.values)?;
         }
+
+        Ok(())
     }
 
     fn set_verifier_data_target<C: GenericConfig<D, F = F>, const D: usize>(
         &mut self,
         vdt: &VerifierCircuitTarget,
         vd: &VerifierOnlyCircuitData<C, D>,
-    ) where
+    ) -> Result<()>
+    where
         F: RichField + Extendable<D>,
         C::Hasher: AlgebraicHasher<F>,
     {
-        self.set_cap_target(&vdt.constants_sigmas_cap, &vd.constants_sigmas_cap);
-        self.set_hash_target(vdt.circuit_digest, vd.circuit_digest);
+        self.set_cap_target(&vdt.constants_sigmas_cap, &vd.constants_sigmas_cap)?;
+        self.set_hash_target(vdt.circuit_digest, vd.circuit_digest)
     }
 
-    fn set_wire(&mut self, wire: Wire, value: F) {
+    fn set_wire(&mut self, wire: Wire, value: F) -> Result<()> {
         self.set_target(Target::Wire(wire), value)
     }
 
-    fn set_wires<W>(&mut self, wires: W, values: &[F])
+    fn set_wires<W>(&mut self, wires: W, values: &[F]) -> Result<()>
     where
         W: IntoIterator<Item = Wire>,
     {
         // If we used itertools, we could use zip_eq for extra safety.
         for (wire, &value) in wires.into_iter().zip(values) {
-            self.set_wire(wire, value);
+            self.set_wire(wire, value)?;
         }
+
+        Ok(())
     }
 
-    fn set_ext_wires<W, const D: usize>(&mut self, wires: W, value: F::Extension)
+    fn set_ext_wires<W, const D: usize>(&mut self, wires: W, value: F::Extension) -> Result<()>
     where
         F: RichField + Extendable<D>,
         W: IntoIterator<Item = Wire>,
     {
-        self.set_wires(wires, &value.to_basefield_array());
+        self.set_wires(wires, &value.to_basefield_array())
     }
 
-    fn extend<I: Iterator<Item = (Target, F)>>(&mut self, pairs: I) {
+    fn extend<I: Iterator<Item = (Target, F)>>(&mut self, pairs: I) -> Result<()> {
         for (t, v) in pairs {
-            self.set_target(t, v);
+            self.set_target(t, v)?;
         }
+
+        Ok(())
     }
 }
 
@@ -277,15 +304,20 @@ impl<F: Field> PartialWitness<F> {
 }
 
 impl<F: Field> WitnessWrite<F> for PartialWitness<F> {
-    fn set_target(&mut self, target: Target, value: F) {
+    fn set_target(&mut self, target: Target, value: F) -> Result<()> {
         let opt_old_value = self.target_values.insert(target, value);
         if let Some(old_value) = opt_old_value {
-            assert_eq!(
-                value, old_value,
-                "Target {:?} was set twice with different values: {} != {}",
-                target, old_value, value
-            );
+            if value != old_value {
+                return Err(anyhow!(
+                    "Target {:?} was set twice with different values: {} != {}",
+                    target,
+                    old_value,
+                    value
+                ));
+            }
         }
+
+        Ok(())
     }
 }
 
@@ -317,19 +349,23 @@ impl<'a, F: Field> PartitionWitness<'a, F> {
 
     /// Set a `Target`. On success, returns the representative index of the newly-set target. If the
     /// target was already set, returns `None`.
-    pub fn set_target_returning_rep(&mut self, target: Target, value: F) -> Option<usize> {
+    pub fn set_target_returning_rep(&mut self, target: Target, value: F) -> Result<Option<usize>> {
         let rep_index = self.representative_map[self.target_index(target)];
         let rep_value = &mut self.values[rep_index];
         if let Some(old_value) = *rep_value {
-            assert_eq!(
-                value, old_value,
-                "Partition containing {:?} was set twice with different values: {} != {}",
-                target, old_value, value
-            );
-            None
+            if value != old_value {
+                return Err(anyhow!(
+                    "Partition containing {:?} was set twice with different values: {} != {}",
+                    target,
+                    old_value,
+                    value
+                ));
+            }
+
+            Ok(None)
         } else {
             *rep_value = Some(value);
-            Some(rep_index)
+            Ok(Some(rep_index))
         }
     }
 
@@ -353,8 +389,8 @@ impl<'a, F: Field> PartitionWitness<'a, F> {
 }
 
 impl<F: Field> WitnessWrite<F> for PartitionWitness<'_, F> {
-    fn set_target(&mut self, target: Target, value: F) {
-        self.set_target_returning_rep(target, value);
+    fn set_target(&mut self, target: Target, value: F) -> Result<()> {
+        self.set_target_returning_rep(target, value).map(|_| ())
     }
 }
 

@@ -303,7 +303,7 @@ mod tests {
         let mut alpha_t = ReducingFactorTarget::new(builder.constant_extension(alpha));
         let vs_t = builder.add_virtual_targets(vs.len());
         for (&v, &v_t) in vs.iter().zip(&vs_t) {
-            pw.set_target(v_t, v);
+            pw.set_target(v_t, v)?;
         }
         let circuit_reduce = alpha_t.reduce_base(&vs_t, &mut builder);
 
@@ -334,7 +334,7 @@ mod tests {
 
         let mut alpha_t = ReducingFactorTarget::new(builder.constant_extension(alpha));
         let vs_t = builder.add_virtual_extension_targets(vs.len());
-        pw.set_extension_targets(&vs_t, &vs);
+        pw.set_extension_targets(&vs_t, &vs)?;
         let circuit_reduce = alpha_t.reduce(&vs_t, &mut builder);
 
         builder.connect_extension(manual_reduce, circuit_reduce);

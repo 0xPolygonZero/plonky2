@@ -2,6 +2,8 @@
 use alloc::{format, string::String, vec, vec::Vec};
 use core::ops::Range;
 
+use anyhow::Result;
+
 use crate::field::extension::Extendable;
 use crate::field::packed::PackedField;
 use crate::field::types::{Field, Field64};
@@ -185,7 +187,11 @@ impl<F: RichField + Extendable<D>, const B: usize, const D: usize> SimpleGenerat
         vec![Target::wire(self.row, BaseSumGate::<B>::WIRE_SUM)]
     }
 
-    fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) {
+    fn run_once(
+        &self,
+        witness: &PartitionWitness<F>,
+        out_buffer: &mut GeneratedValues<F>,
+    ) -> Result<()> {
         let sum_value = witness
             .get_target(Target::wire(self.row, BaseSumGate::<B>::WIRE_SUM))
             .to_canonical_u64() as usize;
@@ -206,8 +212,10 @@ impl<F: RichField + Extendable<D>, const B: usize, const D: usize> SimpleGenerat
             .collect::<Vec<_>>();
 
         for (b, b_value) in limbs.zip(limbs_value) {
-            out_buffer.set_target(b, b_value);
+            out_buffer.set_target(b, b_value)?;
         }
+
+        Ok(())
     }
 
     fn serialize(&self, dst: &mut Vec<u8>, _common_data: &CommonCircuitData<F, D>) -> IoResult<()> {

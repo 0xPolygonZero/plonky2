@@ -29,7 +29,7 @@ fn main() -> Result<()> {
     builder.register_public_input(cur_target);
 
     let mut pw = PartialWitness::new();
-    pw.set_target(initial, F::ONE);
+    pw.set_target(initial, F::ONE)?;
 
     let data = builder.build::<C>();
     let proof = data.prove(pw)?;
