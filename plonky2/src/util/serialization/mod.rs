@@ -2196,13 +2196,13 @@ impl<'a> Buffer<'a> {
     }
 }
 
-impl<'a> Remaining for Buffer<'a> {
+impl Remaining for Buffer<'_> {
     fn remaining(&self) -> usize {
         self.bytes.len() - self.pos()
     }
 }
 
-impl<'a> Read for Buffer<'a> {
+impl Read for Buffer<'_> {
     #[inline]
     fn read_exact(&mut self, bytes: &mut [u8]) -> IoResult<()> {
         let n = bytes.len();

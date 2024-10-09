@@ -388,13 +388,13 @@ impl<'a, F: Field> PartitionWitness<'a, F> {
     }
 }
 
-impl<'a, F: Field> WitnessWrite<F> for PartitionWitness<'a, F> {
+impl<F: Field> WitnessWrite<F> for PartitionWitness<'_, F> {
     fn set_target(&mut self, target: Target, value: F) -> Result<()> {
         self.set_target_returning_rep(target, value).map(|_| ())
     }
 }
 
-impl<'a, F: Field> Witness<F> for PartitionWitness<'a, F> {
+impl<F: Field> Witness<F> for PartitionWitness<'_, F> {
     fn try_get_target(&self, target: Target) -> Option<F> {
         let rep_index = self.representative_map[self.target_index(target)];
         self.values[rep_index]
