@@ -176,24 +176,12 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 
                 // If we are in the zk case, we still have to add `R(X)` to the batch.
                 if is_zk && idx == 0 {
-                    let degree = 1 << degree_bits[i];
-                    let mut composition_poly = PolynomialCoeffs::empty();
-                    polynomials[last_poly..]
-                        .iter()
-                        .enumerate()
-                        .for_each(|(i, fri_poly)| {
-                            let mut cur_coeffs = oracles[fri_poly.oracle_index].polynomials
-                                [fri_poly.polynomial_index]
-                                .coeffs
-                                .clone();
-                            cur_coeffs.reverse();
-                            cur_coeffs.extend(vec![F::ZERO; degree * i]);
-                            cur_coeffs.reverse();
-                            cur_coeffs.extend(vec![F::ZERO; 2 * degree - cur_coeffs.len()]);
-                            composition_poly += PolynomialCoeffs { coeffs: cur_coeffs };
-                        });
-
-                    final_poly += composition_poly.to_extension();
+                    // There should be only one R polynomial left.
+                    polynomials[last_poly..].iter().for_each(|fri_poly| {
+                        final_poly += oracles[fri_poly.oracle_index].polynomials
+                            [fri_poly.polynomial_index]
+                            .to_extension();
+                    });
                 }
             }
 

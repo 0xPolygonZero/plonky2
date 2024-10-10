@@ -2,7 +2,6 @@
 use alloc::{format, vec::Vec};
 
 use itertools::Itertools;
-use plonky2_field::types::Field;
 
 use crate::field::extension::Extendable;
 use crate::fri::proof::{
@@ -23,10 +22,6 @@ use crate::plonk::plonk_common::PlonkOracle;
 use crate::util::reducing::ReducingFactorTarget;
 use crate::util::{log2_strict, reverse_index_bits_in_place};
 use crate::with_context;
-
-// Length by which the Merkle proof is increased in the case of zk.
-// This corresponds to the extra degree bit of the final computed polynomial.
-const ZK_EXTRA_MERKLE_LENGTH: usize = 1;
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Computes P'(x^arity) from {P(x*g^i)}_(i=0..arity), where g is a `arity`-th root of unity
@@ -266,26 +261,15 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
             // If we are in the zk case, we still have to add `R(X)` to the batch.
             if is_zk && idx == 0 {
-                polynomials[last_poly..]
-                    .iter()
-                    .enumerate()
-                    .for_each(|(i, p)| {
-                        let poly_blinding = instance.oracles[p.oracle_index].blinding;
-                        let salted = params.hiding && poly_blinding;
-                        let eval = proof.unsalted_eval(p.oracle_index, p.polynomial_index, salted);
-                        let val = self
-                            .constant_extension(F::Extension::from_canonical_u32((i == 0) as u32));
-                        let power =
-                            self.exp_power_of_2_extension(subgroup_x, i * params.degree_bits);
-                        let pi =
-                            self.constant_extension(F::Extension::from_canonical_u32(i as u32));
-                        let power = self.mul_extension(power, pi);
-                        let shift_val = self.add_extension(val, power);
+                polynomials[last_poly..].iter().for_each(|p| {
+                    let poly_blinding = instance.oracles[p.oracle_index].blinding;
+                    let salted = params.hiding && poly_blinding;
+                    let eval_extension = proof
+                        .unsalted_eval(p.oracle_index, p.polynomial_index, salted)
+                        .to_ext_target(self.zero());
 
-                        let eval_extension = eval.to_ext_target(self.zero());
-                        let tmp = self.mul_extension(eval_extension, shift_val);
-                        sum = self.add_extension(sum, tmp);
-                    });
+                    sum = self.add_extension(sum, eval_extension);
+                });
             }
         }
 
@@ -313,7 +297,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         Self::assert_noncanonical_indices_ok(&params.config);
         let mut x_index_bits = self.low_bits(x_index, n_log, F::BITS);
 
-        let initial_cap_index =
+        let cap_index =
             self.le_sum(x_index_bits[x_index_bits.len() - params.config.cap_height..].iter());
         with_context!(
             self,
@@ -322,7 +306,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 &x_index_bits,
                 &round_proof.initial_trees_proof,
                 initial_merkle_caps,
-                initial_cap_index
+                cap_index
             )
         );
 
@@ -350,11 +334,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             )
         );
 
-        // In case of zk, the finaly polynomial's degree bits is increased by 1.
-        let cap_index = self.le_sum(
-            x_index_bits[x_index_bits.len() + params.hiding as usize - params.config.cap_height..]
-                .iter(),
-        );
         for (i, &arity_bits) in params.reduction_arity_bits.iter().enumerate() {
             let evals = &round_proof.steps[i].evals;
 
@@ -469,8 +448,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         let mut steps = Vec::with_capacity(params.reduction_arity_bits.len());
 
-        // In case of zk, the finaly polynomial's degree bits is increased by `ZK_EXTRA_MERKLE_LENGTH`.
-        merkle_proof_len += ZK_EXTRA_MERKLE_LENGTH * params.hiding as usize;
         for &arity_bits in &params.reduction_arity_bits {
             assert!(merkle_proof_len >= arity_bits);
             merkle_proof_len -= arity_bits;
@@ -529,7 +506,7 @@ impl<const D: usize> PrecomputedReducedOpeningsTarget<D> {
         // the lower and higher coefficients of the random `R` polynomial.
         // Those `R` polynomials should not be taken into account when
         // computing the reduced openings.
-        let nb_r_polys = is_zk as usize * 2;
+        let nb_r_polys = is_zk as usize;
         let reduced_openings_at_point = openings
             .batches
             .iter()

@@ -339,19 +339,16 @@ where
     let random_r_commitment = if config.zero_knowledge {
         // The random polynomial is of degree 2 * |H| with H the subgroup.
         let d = 1 << common_data.fri_params.degree_bits;
-        let n = 2 * d;
 
         // We commit to the lower and higher coefficients of `R` separately, so that the required size of the
         // `fft_root_table` remains unchanged.
-        let random_r = F::rand_vec(n);
-        let random_low = PolynomialCoeffs::new(random_r[..d].to_vec());
-        let high_coeffs = random_r[d..].to_vec();
-        let random_high = PolynomialCoeffs::new(high_coeffs);
+        let random_r = PolynomialCoeffs::new(F::rand_vec(d));
+
         let random_r_commitment = timed!(
             timing,
             "commit to random batch polynomial",
             PolynomialBatch::<F, C, D>::from_coeffs(
-                vec![random_low, random_high],
+                vec![random_r],
                 config.fri_config.rate_bits,
                 config.zero_knowledge && PlonkOracle::ZS_PARTIAL_PRODUCTS.blinding,
                 config.fri_config.cap_height,

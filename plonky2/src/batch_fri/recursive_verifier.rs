@@ -2,7 +2,6 @@
 use alloc::{format, vec::Vec};
 
 use itertools::Itertools;
-use plonky2_field::types::Field;
 
 use crate::field::extension::Extendable;
 use crate::fri::proof::{
@@ -200,26 +199,14 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
             // If we are in the zk case, we still have to add `R(X)` to the batch.
             if is_zk && idx == 0 {
-                polynomials[last_poly..]
-                    .iter()
-                    .enumerate()
-                    .for_each(|(i, p)| {
-                        let poly_blinding = instance[index].oracles[p.oracle_index].blinding;
-                        let salted = params.hiding && poly_blinding;
-                        let eval = proof.unsalted_eval(p.oracle_index, p.polynomial_index, salted);
-                        let val = self
-                            .constant_extension(F::Extension::from_canonical_u32((i == 0) as u32));
-                        let power =
-                            self.exp_power_of_2_extension(subgroup_x, i * params.degree_bits);
-                        let pi =
-                            self.constant_extension(F::Extension::from_canonical_u32(i as u32));
-                        let power = self.mul_extension(power, pi);
-                        let shift_val = self.add_extension(val, power);
+                polynomials[last_poly..].iter().for_each(|p| {
+                    let poly_blinding = instance[index].oracles[p.oracle_index].blinding;
+                    let salted = params.hiding && poly_blinding;
+                    let eval = proof.unsalted_eval(p.oracle_index, p.polynomial_index, salted);
 
-                        let eval_extension = eval.to_ext_target(self.zero());
-                        let tmp = self.mul_extension(eval_extension, shift_val);
-                        sum = self.add_extension(sum, tmp);
-                    });
+                    let eval_extension = eval.to_ext_target(self.zero());
+                    sum = self.add_extension(sum, eval_extension);
+                });
             }
         }
 
@@ -247,7 +234,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         Self::assert_noncanonical_indices_ok(&params.config);
         let mut x_index_bits = self.low_bits(x_index, n, F::BITS);
 
-        let initial_cap_index =
+        let cap_index =
             self.le_sum(x_index_bits[x_index_bits.len() - params.config.cap_height..].iter());
         with_context!(
             self,
@@ -258,7 +245,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 &x_index_bits,
                 &round_proof.initial_trees_proof,
                 initial_merkle_caps,
-                initial_cap_index
+                cap_index
             )
         );
 
@@ -289,11 +276,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         );
         batch_index += 1;
 
-        // In case of zk, the finaly polynomial's degree bits is increased by 1.
-        let cap_index = self.le_sum(
-            x_index_bits[x_index_bits.len() + params.hiding as usize - params.config.cap_height..]
-                .iter(),
-        );
         for (i, &arity_bits) in params.reduction_arity_bits.iter().enumerate() {
             let evals = &round_proof.steps[i].evals;
 

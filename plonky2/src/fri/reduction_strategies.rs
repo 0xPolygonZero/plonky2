@@ -33,22 +33,11 @@ impl FriReductionStrategy {
         rate_bits: usize,
         cap_height: usize,
         num_queries: usize,
-        hiding: bool,
     ) -> Vec<usize> {
         match self {
-            FriReductionStrategy::Fixed(reduction_arity_bits) => {
-                // In the case of zk, we need an extra FRI step to divide the polynomial's degree by two.
-                if hiding {
-                    let mut tmp = vec![1];
-                    tmp.extend(reduction_arity_bits);
-                    tmp
-                } else {
-                    reduction_arity_bits.to_vec()
-                }
-            }
+            FriReductionStrategy::Fixed(reduction_arity_bits) => reduction_arity_bits.to_vec(),
             &FriReductionStrategy::ConstantArityBits(arity_bits, final_poly_bits) => {
-                // In the case of zk, we need an extra FRI step to divide the polynomial's degree by two.
-                let mut result = if hiding { vec![1] } else { Vec::new() };
+                let mut result = Vec::new();
                 while degree_bits > final_poly_bits
                     && degree_bits + rate_bits - arity_bits >= cap_height
                 {

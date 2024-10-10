@@ -29,11 +29,7 @@ pub fn fri_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const
     timing: &mut TimingTree,
 ) -> FriProof<F, C::Hasher, D> {
     // In the zk case, the polynomial to be reduced has degree double that of the original batch FRI polynomial.
-    let n = if fri_params.hiding {
-        lde_polynomial_values.len() / 2
-    } else {
-        lde_polynomial_values.len()
-    };
+    let n = lde_polynomial_values.len();
     assert_eq!(lde_polynomial_coeffs.len(), lde_polynomial_values.len());
 
     // Commit phase

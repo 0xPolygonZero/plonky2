@@ -660,19 +660,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CommonCircuitData<F, D> {
     /// Returns the value of `h`, corresponding to the degree of random polynomials added to the quotient polynomial chunks.
     pub(crate) fn computed_h(&self) -> usize {
         assert!(self.config.zero_knowledge);
-        let arities: Vec<usize> = self
-            .fri_params
-            .reduction_arity_bits
-            .iter()
-            .map(|x| 1 << x)
-            .collect();
-        let total_fri_folding_points: usize = arities.iter().map(|x| x - 1).sum::<usize>();
-        let final_poly_coeffs: usize =
-            (1 << (self.fri_params.degree_bits + 1)) / arities.iter().product::<usize>();
-        let fri_openings = self.config.fri_config.num_query_rounds
-            * (1 + D * total_fri_folding_points + D * final_poly_coeffs);
-        // Number of FRI openings + n_deep
-        fri_openings + D
+
+        // Number of FRI queries + n_deep
+        self.config.fri_config.num_query_rounds + D
     }
 
     pub(crate) fn num_quotient_polys(&self) -> usize {
@@ -695,7 +685,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CommonCircuitData<F, D> {
     }
 
     pub(crate) const fn num_r_polys(&self) -> usize {
-        2 * (self.config.zero_knowledge as usize)
+        self.config.zero_knowledge as usize
     }
 
     fn fri_all_polys(&self) -> Vec<FriPolynomialInfo> {

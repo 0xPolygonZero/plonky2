@@ -30,7 +30,7 @@ pub fn batch_fri_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>,
     fri_params: &FriParams,
     timing: &mut TimingTree,
 ) -> FriProof<F, C::Hasher, D> {
-    let mut n = lde_polynomial_coeffs.len();
+    let n = lde_polynomial_coeffs.len();
     assert_eq!(lde_polynomial_values[0].len(), lde_polynomial_coeffs.len());
     // The polynomial vectors should be sorted by degree, from largest to smallest, with no duplicate degrees.
     assert!(lde_polynomial_values
@@ -48,12 +48,6 @@ pub fn batch_fri_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>,
         }
     }
     assert_eq!(cur_poly_index, lde_polynomial_values.len());
-
-    // In the zk case, the final polynomial polynomial to be reduced has degree double that
-    // of the original batch FRI polynomial.
-    if fri_params.hiding {
-        n /= 2;
-    }
 
     // Commit phase
     let (trees, final_coeffs) = timed!(

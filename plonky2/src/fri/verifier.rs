@@ -174,18 +174,13 @@ pub(crate) fn fri_combine_initial<
 
         // If we are in the zk case, we still have to add `R(X)` to the batch.
         if is_zk && idx == 0 {
-            polynomials[last_poly..]
-                .iter()
-                .enumerate()
-                .for_each(|(i, p)| {
-                    let poly_blinding = instance.oracles[p.oracle_index].blinding;
-                    let salted = params.hiding && poly_blinding;
-                    let eval = proof.unsalted_eval(p.oracle_index, p.polynomial_index, salted);
-                    let shift_val = F::Extension::from_canonical_usize((i == 0) as usize)
-                        + subgroup_x.exp_power_of_2(i * params.degree_bits)
-                            * F::Extension::from_canonical_usize(i);
-                    sum += F::Extension::from_basefield(eval) * shift_val;
-                });
+            polynomials[last_poly..].iter().for_each(|p| {
+                let poly_blinding = instance.oracles[p.oracle_index].blinding;
+                let salted = params.hiding && poly_blinding;
+                let eval = proof.unsalted_eval(p.oracle_index, p.polynomial_index, salted);
+
+                sum += F::Extension::from_basefield(eval);
+            });
         }
     }
 
@@ -288,7 +283,7 @@ impl<F: RichField + Extendable<D>, const D: usize> PrecomputedReducedOpenings<F,
         // the lower and higher coefficients of the random `R` polynomial.
         // Those `R` polynomials should not be taken into account when
         // computing the reduced openings.
-        let nb_r_polys = is_zk as usize * 2;
+        let nb_r_polys = is_zk as usize;
         let reduced_openings_at_point = openings
             .batches
             .iter()

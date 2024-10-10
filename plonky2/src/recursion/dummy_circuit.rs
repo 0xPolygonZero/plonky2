@@ -94,7 +94,7 @@ pub fn dummy_circuit<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, c
     // Number of `NoopGate`s to add to get a circuit of size `degree` in the end.
     // Need to account for public input hashing, a `PublicInputGate` and a `ConstantGate`.
     let mut degree = common_data.degree();
-    // In the zk case, the degree is double what the original batch FRI polynomial is.
+    // In the zk case, the degree is generally double what is predicted due to blinding.
     if common_data.config.zero_knowledge {
         degree /= 2;
     }

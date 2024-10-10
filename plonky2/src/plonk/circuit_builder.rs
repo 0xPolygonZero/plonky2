@@ -847,27 +847,15 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         ArithmeticExtensionGate::<D>::new_from_config(&self.config).num_ops
     }
 
-    /// The number of polynomial values that will be revealed per opening, both for the "regular"
-    /// polynomials and for the Z polynomials. Because calculating these values involves a recursive
-    /// dependence (the amount of blinding depends on the degree, which depends on the blinding),
-    /// this function takes in an estimate of the degree.
-    fn num_blinding_gates(&self, degree_estimate: usize) -> (usize, usize) {
-        let degree_bits_estimate = log2_strict(degree_estimate);
+    /// Since we blind the batch FRI polynomial, the number of extra gates we need is
+    /// `num_evaluation_points * D + n_FRI`, where `n_FRI` is the number of FRI queries.
+    fn num_blinding_gates(&self) -> (usize, usize) {
         let fri_queries = self.config.fri_config.num_query_rounds;
-        let arities: Vec<usize> = self
-            .fri_params(degree_bits_estimate)
-            .reduction_arity_bits
-            .iter()
-            .map(|x| 1 << x)
-            .collect();
-        let total_fri_folding_points: usize = arities.iter().map(|x| x - 1).sum::<usize>();
-        let final_poly_coeffs: usize = degree_estimate / arities.iter().product::<usize>();
-        let fri_openings = fri_queries * (1 + D * total_fri_folding_points + D * final_poly_coeffs);
 
         // We add D for openings at zeta.
-        let regular_poly_openings = D + fri_openings;
+        let regular_poly_openings = D + fri_queries;
         // We add 2 * D for openings at zeta and g * zeta.
-        let z_openings = 2 * D + fri_openings;
+        let z_openings = 2 * D + fri_queries;
 
         (regular_poly_openings, z_openings)
     }
@@ -880,7 +868,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let mut degree_estimate = 1 << log2_ceil(num_gates);
 
         loop {
-            let (regular_poly_openings, z_openings) = self.num_blinding_gates(degree_estimate);
+            let (regular_poly_openings, z_openings) = self.num_blinding_gates();
 
             // For most polynomials, we add one random element to offset each opened value.
             // But blinding Z is separate. For that, we add two random elements with a copy

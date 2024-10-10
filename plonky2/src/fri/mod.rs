@@ -51,7 +51,6 @@ impl FriConfig {
             self.rate_bits,
             self.cap_height,
             self.num_query_rounds,
-            hiding,
         );
         FriParams {
             config: self.clone(),
@@ -104,7 +103,7 @@ impl FriParams {
     }
 
     pub fn final_poly_bits(&self) -> usize {
-        self.degree_bits + self.hiding as usize - self.total_arities()
+        self.degree_bits - self.total_arities()
     }
 
     pub fn final_poly_len(&self) -> usize {
