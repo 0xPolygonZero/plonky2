@@ -236,6 +236,29 @@ mod tests {
     }
 
     #[test]
+    fn test_recursive_verifier_verify_proof_with_different_degree_bits() -> Result<()> {
+        init_logger();
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+        let config = CircuitConfig::standard_recursion_config();
+
+        let (proof0, vd0, common_data0) = dummy_proof::<F, C, D>(&config, 2_000)?;
+        let (proof1, vd1, common_data1) = dummy_proof::<F, C, D>(&config, 4_000)?;
+
+        assert_eq!(common_data0.fri_params.config, common_data1.fri_params.config);
+        assert_eq!(common_data0.fri_params.reduction_arity_bits, common_data1.fri_params.reduction_arity_bits);
+
+        let (rec_proof, vd, common_data) =
+            recursive_proof::<F, C, C, D>(proof0, vd0.clone(), common_data0.clone(), &config, None, true, true)?;
+
+        let (rec_proof, vd, common_data) =
+            recursive_proof::<F, C, C, D>(proof1, vd1, common_data0, &config, None, true, true)?;
+
+        Ok(())
+    }
+
+    #[test]
     fn test_recursive_verifier_one_lookup() -> Result<()> {
         init_logger();
         const D: usize = 2;
