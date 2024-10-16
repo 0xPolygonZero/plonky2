@@ -12,6 +12,7 @@ use plonky2_field::polynomial::PolynomialCoeffs;
 use crate::fri::proof::{FriProof, FriProofTarget};
 use crate::gadgets::polynomial::PolynomialCoeffsExtTarget;
 use crate::gates::noop::NoopGate;
+use crate::gates::selectors::SelectorsInfo;
 use crate::hash::hash_types::{HashOutTarget, MerkleCapTarget, RichField};
 use crate::hash::merkle_tree::MerkleCap;
 use crate::iop::generator::{GeneratedValues, SimpleGenerator};
@@ -19,14 +20,14 @@ use crate::iop::target::Target;
 use crate::iop::witness::{PartialWitness, PartitionWitness, WitnessWrite};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::circuit_data::{
-    CircuitData, CommonCircuitData, VerifierCircuitTarget, VerifierOnlyCircuitData,
+    CircuitConfig, CircuitData, CommonCircuitData, VerifierCircuitTarget, VerifierOnlyCircuitData,
 };
 use crate::plonk::config::{AlgebraicHasher, GenericConfig, GenericHashOut, Hasher};
 use crate::plonk::proof::{
     OpeningSet, OpeningSetTarget, Proof, ProofTarget, ProofWithPublicInputs,
     ProofWithPublicInputsTarget,
 };
-use crate::util::serialization::{Buffer, IoResult, Read, Write};
+use crate::util::serialization::{Buffer, DefaultGateSerializer, IoResult, Read, Write};
 
 /// Creates a dummy proof which is suitable for use as a base proof in a cyclic recursion tree.
 /// Such a base proof will not actually be verified, so most of its data is arbitrary. However, its
@@ -131,6 +132,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             proof_with_pis: dummy_proof_with_pis,
             verifier_data_target: dummy_verifier_data_target.clone(),
             verifier_data: dummy_circuit.verifier_only,
+            common_circuit_data: common_data.clone(),
         });
 
         Ok((dummy_proof_with_pis_target, dummy_verifier_data_target))
@@ -161,6 +163,7 @@ where
     pub(crate) proof_with_pis: ProofWithPublicInputs<F, C, D>,
     pub(crate) verifier_data_target: VerifierCircuitTarget,
     pub(crate) verifier_data: VerifierOnlyCircuitData<C, D>,
+    pub(crate) common_circuit_data: CommonCircuitData<F, D>,
 }
 
 impl<F, C, const D: usize> Default for DummyProofGenerator<F, C, D>
@@ -215,11 +218,34 @@ where
             ),
         };
 
+        let fri_params = CircuitConfig::standard_recursion_config()
+            .fri_config
+            .fri_params(0, false);
+        let common_circuit_data = CommonCircuitData {
+            config: Default::default(),
+            fri_params,
+            gates: vec![],
+            selectors_info: SelectorsInfo {
+                selector_indices: vec![],
+                groups: vec![],
+            },
+            quotient_degree_factor: 0,
+            num_gate_constraints: 0,
+            num_constants: 0,
+            num_public_inputs: 0,
+            k_is: vec![],
+            num_partial_products: 0,
+            num_lookup_polys: 0,
+            num_lookup_selectors: 0,
+            luts: vec![],
+        };
+
         Self {
             proof_with_pis_target,
             proof_with_pis,
             verifier_data_target,
             verifier_data,
+            common_circuit_data,
         }
     }
 }
@@ -245,21 +271,24 @@ where
 
     fn serialize(&self, dst: &mut Vec<u8>, _common_data: &CommonCircuitData<F, D>) -> IoResult<()> {
         dst.write_target_proof_with_public_inputs(&self.proof_with_pis_target)?;
-        dst.write_proof_with_public_inputs(&self.proof_with_pis)?;
         dst.write_target_verifier_circuit(&self.verifier_data_target)?;
-        dst.write_verifier_only_circuit_data(&self.verifier_data)
+        dst.write_verifier_only_circuit_data(&self.verifier_data)?;
+        dst.write_common_circuit_data(&self.common_circuit_data, &DefaultGateSerializer)?;
+        dst.write_proof_with_public_inputs(&self.proof_with_pis)
     }
 
-    fn deserialize(src: &mut Buffer, common_data: &CommonCircuitData<F, D>) -> IoResult<Self> {
+    fn deserialize(src: &mut Buffer, _common_data: &CommonCircuitData<F, D>) -> IoResult<Self> {
         let proof_with_pis_target = src.read_target_proof_with_public_inputs()?;
-        let proof_with_pis = src.read_proof_with_public_inputs(common_data)?;
         let verifier_data_target = src.read_target_verifier_circuit()?;
         let verifier_data = src.read_verifier_only_circuit_data()?;
+        let common_circuit_data = src.read_common_circuit_data(&DefaultGateSerializer)?;
+        let proof_with_pis = src.read_proof_with_public_inputs(&common_circuit_data)?;
         Ok(Self {
             proof_with_pis_target,
             proof_with_pis,
             verifier_data_target,
             verifier_data,
+            common_circuit_data,
         })
     }
 }
