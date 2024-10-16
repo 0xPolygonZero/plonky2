@@ -287,17 +287,17 @@ where
     }
 
     fn serialize(&self, dst: &mut Vec<u8>, _common_data: &CommonCircuitData<F, D>) -> IoResult<()> {
-        dst.write_target_proof_with_public_inputs(&self.proof_with_pis_target)?;
-        dst.write_proof_with_public_inputs(&self.proof_with_pis)?;
         dst.write_target_verifier_circuit(&self.verifier_data_target)?;
-        dst.write_verifier_circuit_data(&self.verifier_data, &DefaultGateSerializer)
+        dst.write_verifier_circuit_data(&self.verifier_data, &DefaultGateSerializer)?;
+        dst.write_target_proof_with_public_inputs(&self.proof_with_pis_target)?;
+        dst.write_proof_with_public_inputs(&self.proof_with_pis)
     }
 
-    fn deserialize(src: &mut Buffer, common_data: &CommonCircuitData<F, D>) -> IoResult<Self> {
-        let proof_with_pis_target = src.read_target_proof_with_public_inputs()?;
-        let proof_with_pis = src.read_proof_with_public_inputs(common_data)?;
+    fn deserialize(src: &mut Buffer, _common_data: &CommonCircuitData<F, D>) -> IoResult<Self> {
         let verifier_data_target = src.read_target_verifier_circuit()?;
         let verifier_data = src.read_verifier_circuit_data(&DefaultGateSerializer)?;
+        let proof_with_pis_target = src.read_target_proof_with_public_inputs()?;
+        let proof_with_pis = src.read_proof_with_public_inputs(&verifier_data.common)?;
         Ok(Self {
             proof_with_pis_target,
             proof_with_pis,
