@@ -112,17 +112,14 @@ pub(crate) fn verify_with_challenges<
         );
     }
 
-    let mut merkle_caps = [
+    let merkle_caps = [
         verifier_data.constants_sigmas_cap.clone(),
         proof.wires_cap,
         // In the lookup case, `plonk_zs_partial_products_cap` should also include the lookup commitment.
         proof.plonk_zs_partial_products_cap,
-        proof.quotient_polys_cap,
+        proof.quotient_polys_random_cap,
     ]
     .to_vec();
-    if let Some(random_r) = proof.opt_random_r {
-        merkle_caps.push(random_r);
-    }
 
     verify_fri_proof::<F, C, D>(
         &common_data.get_fri_instance(challenges.plonk_zeta),

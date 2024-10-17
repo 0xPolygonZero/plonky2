@@ -271,7 +271,7 @@ where
         )
     );
 
-    let all_quotient_poly_chunks: Vec<PolynomialCoeffs<F>> = timed!(
+    let mut all_quotient_poly_chunks_random: Vec<PolynomialCoeffs<F>> = timed!(
         timing,
         "split up quotient polys",
         quotient_polys
@@ -284,7 +284,9 @@ where
                 // Split quotient into degree-n chunks.
                 // In the zk case, we split the quotient into degree-(n-h) chunks, where `h` is computed by `computed_h`.
                 // This is so that we can add random polynomials of degree n > n-h and still keep chhunks of degree a power of 2.
-                // See "A note on adding zero-knowledge to STARKs" (https://eprint.iacr.org/2024/1037.pdf), Section 4.1, for details.
+                // This is Plonk's randomization strategy for the case of several chunks, as described in
+                // "A note on adding zero-knowledge to STARKs" (https://eprint.iacr.org/2024/1037.pdf), Section 4.1,
+                // adapted to keep the two-adic degree bound.
                 if common_data.config.zero_knowledge {
                     let h = common_data.computed_h();
                     let d = degree - h;
@@ -297,7 +299,7 @@ where
                         };
                         total_nb_chunks - 1
                     ];
-                    // Let (t_i)i be the random polynomials, and (q_i)i be the k quotient chunks of degree n.
+                    // Let (t_i)i be the random polynomials, and (q_i)i be the k quotient chunks of degree n-h.
                     // We compute:
                     // - q'_0(X) = q_0(X) + Xˆn * t_0(X)
                     // - q'_i(X) = q_i(X) + Xˆn * t_i(X) - t_(i-1)(X)
@@ -320,11 +322,20 @@ where
             })
             .collect()
     );
-    let quotient_polys_commitment = timed!(
+
+    // In the zk case, add a random polynomial (used to  hide the batch FRI polynomial)
+    // to the quotient polys commitment.
+    if config.zero_knowledge {
+        // The random polynomial is of degree |H| with H the subgroup.
+        let d = 1 << common_data.fri_params.degree_bits;
+        let random_r = PolynomialCoeffs::new(F::rand_vec(d));
+        all_quotient_poly_chunks_random.push(random_r);
+    }
+    let quotient_polys_random_commitment = timed!(
         timing,
         "commit to quotient polys",
         PolynomialBatch::<F, C, D>::from_coeffs(
-            all_quotient_poly_chunks,
+            all_quotient_poly_chunks_random,
             config.fri_config.rate_bits,
             config.zero_knowledge && PlonkOracle::QUOTIENT.blinding,
             config.fri_config.cap_height,
@@ -333,36 +344,7 @@ where
         )
     );
 
-    challenger.observe_cap::<C::Hasher>(&quotient_polys_commitment.merkle_tree.cap);
-
-    // If we are in the zk case, we need to commit to an extra random polynomial, that will be used to hide the batch FRI polynomial.
-    let random_r_commitment = if config.zero_knowledge {
-        // The random polynomial is of degree 2 * |H| with H the subgroup.
-        let d = 1 << common_data.fri_params.degree_bits;
-
-        // We commit to the lower and higher coefficients of `R` separately, so that the required size of the
-        // `fft_root_table` remains unchanged.
-        let random_r = PolynomialCoeffs::new(F::rand_vec(d));
-
-        let random_r_commitment = timed!(
-            timing,
-            "commit to random batch polynomial",
-            PolynomialBatch::<F, C, D>::from_coeffs(
-                vec![random_r],
-                config.fri_config.rate_bits,
-                config.zero_knowledge && PlonkOracle::ZS_PARTIAL_PRODUCTS.blinding,
-                config.fri_config.cap_height,
-                timing,
-                prover_data.fft_root_table.as_ref(),
-            )
-        );
-
-        challenger.observe_cap::<C::Hasher>(&random_r_commitment.merkle_tree.cap);
-
-        Some(random_r_commitment)
-    } else {
-        None
-    };
+    challenger.observe_cap::<C::Hasher>(&quotient_polys_random_commitment.merkle_tree.cap);
 
     let zeta = challenger.get_extension_challenge::<D>();
     // To avoid leaking witness data, we want to ensure that our opening locations, `zeta` and
@@ -383,72 +365,36 @@ where
             &prover_data.constants_sigmas_commitment,
             &wires_commitment,
             &partial_products_zs_and_lookup_commitment,
-            &quotient_polys_commitment,
-            &random_r_commitment,
+            &quotient_polys_random_commitment,
             common_data
         )
     );
     challenger.observe_openings(&openings.to_fri_openings());
     let instance = common_data.get_fri_instance(zeta);
 
-    // If we are in the zk case, the proof needs to take into account one extra random polynomial commitment.
-    let proof = if let Some(random_r_com) = random_r_commitment {
-        let opening_proof = timed!(
+    let opening_proof = timed!(
+        timing,
+        "compute opening proofs",
+        PolynomialBatch::<F, C, D>::prove_openings(
+            &instance,
+            &[
+                &prover_data.constants_sigmas_commitment,
+                &wires_commitment,
+                &partial_products_zs_and_lookup_commitment,
+                &quotient_polys_random_commitment,
+            ],
+            &mut challenger,
+            &common_data.fri_params,
             timing,
-            "compute opening proofs",
-            PolynomialBatch::<F, C, D>::prove_openings(
-                &instance,
-                &[
-                    &prover_data.constants_sigmas_commitment,
-                    &wires_commitment,
-                    &partial_products_zs_and_lookup_commitment,
-                    &quotient_polys_commitment,
-                    &random_r_com
-                ],
-                &mut challenger,
-                &common_data.fri_params,
-                timing,
-            )
-        );
+        )
+    );
 
-        Proof::<F, C, D> {
-            wires_cap: wires_commitment.merkle_tree.cap,
-            plonk_zs_partial_products_cap: partial_products_zs_and_lookup_commitment
-                .merkle_tree
-                .cap,
-            quotient_polys_cap: quotient_polys_commitment.merkle_tree.cap,
-            opt_random_r: Some(random_r_com.merkle_tree.cap),
-            openings,
-            opening_proof,
-        }
-    } else {
-        let opening_proof = timed!(
-            timing,
-            "compute opening proofs",
-            PolynomialBatch::<F, C, D>::prove_openings(
-                &instance,
-                &[
-                    &prover_data.constants_sigmas_commitment,
-                    &wires_commitment,
-                    &partial_products_zs_and_lookup_commitment,
-                    &quotient_polys_commitment,
-                ],
-                &mut challenger,
-                &common_data.fri_params,
-                timing,
-            )
-        );
-
-        Proof::<F, C, D> {
-            wires_cap: wires_commitment.merkle_tree.cap,
-            plonk_zs_partial_products_cap: partial_products_zs_and_lookup_commitment
-                .merkle_tree
-                .cap,
-            quotient_polys_cap: quotient_polys_commitment.merkle_tree.cap,
-            opt_random_r: None,
-            openings,
-            opening_proof,
-        }
+    let proof = Proof::<F, C, D> {
+        wires_cap: wires_commitment.merkle_tree.cap,
+        plonk_zs_partial_products_cap: partial_products_zs_and_lookup_commitment.merkle_tree.cap,
+        quotient_polys_random_cap: quotient_polys_random_commitment.merkle_tree.cap,
+        openings,
+        opening_proof,
     };
 
     Ok(ProofWithPublicInputs::<F, C, D> {

@@ -130,17 +130,13 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             }
         });
 
-        let mut merkle_caps = [
+        let merkle_caps = [
             inner_verifier_data.constants_sigmas_cap.clone(),
             proof.wires_cap.clone(),
             proof.plonk_zs_partial_products_cap.clone(),
-            proof.quotient_polys_cap.clone(),
+            proof.quotient_polys_random_cap.clone(),
         ]
         .to_vec();
-
-        if let Some(random_r) = proof.opt_random_r.clone() {
-            merkle_caps.push(random_r);
-        }
 
         let fri_instance = inner_common_data.get_fri_instance_target(self, challenges.plonk_zeta);
 
@@ -183,22 +179,16 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         ];
 
         if common_data.num_quotient_polys() > 0 {
-            num_leaves_per_oracle.push(common_data.num_quotient_polys() + salt);
-        }
-
-        if common_data.num_r_polys() > 0 {
+            num_leaves_per_oracle
+                .push(common_data.num_quotient_polys() + common_data.num_r_polys() + salt);
+        } else if common_data.num_r_polys() > 0 {
             num_leaves_per_oracle.push(common_data.num_r_polys() + salt);
         }
 
         ProofTarget {
             wires_cap: self.add_virtual_cap(cap_height),
             plonk_zs_partial_products_cap: self.add_virtual_cap(cap_height),
-            quotient_polys_cap: self.add_virtual_cap(cap_height),
-            opt_random_r: if common_data.config.zero_knowledge {
-                Some(self.add_virtual_cap(cap_height))
-            } else {
-                None
-            },
+            quotient_polys_random_cap: self.add_virtual_cap(cap_height),
             openings: self.add_opening_set(common_data),
             opening_proof: self.add_virtual_fri_proof(num_leaves_per_oracle, fri_params),
         }
@@ -224,11 +214,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             next_lookup_zs: self.add_virtual_extension_targets(num_lookups),
             partial_products: self.add_virtual_extension_targets(total_partial_products),
             quotient_polys: self.add_virtual_extension_targets(common_data.num_quotient_polys()),
-            opt_random_r: if common_data.config.zero_knowledge {
-                Some(self.add_virtual_extension_targets(common_data.num_r_polys()))
-            } else {
-                None
-            },
+            random_r: self.add_virtual_extension_targets(common_data.num_r_polys()),
         }
     }
 }

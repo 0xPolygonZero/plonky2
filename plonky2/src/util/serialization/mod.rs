@@ -413,7 +413,7 @@ pub trait Read {
         let partial_products = self
             .read_field_ext_vec::<F, D>(common_data.num_partial_products * config.num_challenges)?;
         let quotient_polys = self.read_field_ext_vec::<F, D>(common_data.num_quotient_polys())?;
-        let opt_random_r = self.read_opt_field_ext_vec::<F, D>(common_data.num_r_polys())?;
+        let random_r = self.read_field_ext_vec::<F, D>(common_data.num_r_polys())?;
         Ok(OpeningSet {
             constants,
             plonk_sigmas,
@@ -424,7 +424,7 @@ pub trait Read {
             quotient_polys,
             lookup_zs,
             lookup_zs_next,
-            opt_random_r,
+            random_r,
         })
     }
 
@@ -440,7 +440,7 @@ pub trait Read {
         let next_lookup_zs = self.read_target_ext_vec::<D>()?;
         let partial_products = self.read_target_ext_vec::<D>()?;
         let quotient_polys = self.read_target_ext_vec::<D>()?;
-        let opt_random_r = self.read_opt_target_ext_vec::<D>()?;
+        let random_r = self.read_target_ext_vec::<D>()?;
 
         Ok(OpeningSetTarget {
             constants,
@@ -452,7 +452,7 @@ pub trait Read {
             next_lookup_zs,
             partial_products,
             quotient_polys,
-            opt_random_r,
+            random_r,
         })
     }
 
@@ -513,15 +513,10 @@ pub trait Read {
         let zs_partial_p = self.read_merkle_proof()?;
         evals_proofs.push((zs_partial_v, zs_partial_p));
 
-        let quotient_v = self.read_field_vec(common_data.num_quotient_polys() + salt)?;
-        let quotient_p = self.read_merkle_proof()?;
-        evals_proofs.push((quotient_v, quotient_p));
-
-        if common_data.config.zero_knowledge {
-            let random_r_v = self.read_field_vec(common_data.num_r_polys() + salt)?;
-            let random_v_p = self.read_merkle_proof()?;
-            evals_proofs.push((random_r_v, random_v_p));
-        }
+        let quotient_random_v = self
+            .read_field_vec(common_data.num_quotient_polys() + common_data.num_r_polys() + salt)?;
+        let quotient_random_p = self.read_merkle_proof()?;
+        evals_proofs.push((quotient_random_v, quotient_random_p));
 
         Ok(FriInitialTreeProof { evals_proofs })
     }
@@ -1039,19 +1034,13 @@ pub trait Read {
         let config = &common_data.config;
         let wires_cap = self.read_merkle_cap(config.fri_config.cap_height)?;
         let plonk_zs_partial_products_cap = self.read_merkle_cap(config.fri_config.cap_height)?;
-        let quotient_polys_cap = self.read_merkle_cap(config.fri_config.cap_height)?;
-        let opt_random_r = if common_data.config.zero_knowledge {
-            Some(self.read_merkle_cap(config.fri_config.cap_height)?)
-        } else {
-            None
-        };
+        let quotient_polys_random_cap = self.read_merkle_cap(config.fri_config.cap_height)?;
         let openings = self.read_opening_set::<F, C, D>(common_data)?;
         let opening_proof = self.read_fri_proof::<F, C, D>(common_data)?;
         Ok(Proof {
             wires_cap,
             plonk_zs_partial_products_cap,
-            quotient_polys_cap,
-            opt_random_r,
+            quotient_polys_random_cap,
             openings,
             opening_proof,
         })
@@ -1062,15 +1051,13 @@ pub trait Read {
     fn read_target_proof<const D: usize>(&mut self) -> IoResult<ProofTarget<D>> {
         let wires_cap = self.read_target_merkle_cap()?;
         let plonk_zs_partial_products_cap = self.read_target_merkle_cap()?;
-        let quotient_polys_cap = self.read_target_merkle_cap()?;
-        let opt_random_r = self.read_opt_target_merkle_cap()?;
+        let quotient_polys_random_cap = self.read_target_merkle_cap()?;
         let openings = self.read_target_opening_set::<D>()?;
         let opening_proof = self.read_target_fri_proof::<D>()?;
         Ok(ProofTarget {
             wires_cap,
             plonk_zs_partial_products_cap,
-            quotient_polys_cap,
-            opt_random_r,
+            quotient_polys_random_cap,
             openings,
             opening_proof,
         })
@@ -1198,19 +1185,13 @@ pub trait Read {
         let config = &common_data.config;
         let wires_cap = self.read_merkle_cap(config.fri_config.cap_height)?;
         let plonk_zs_partial_products_cap = self.read_merkle_cap(config.fri_config.cap_height)?;
-        let quotient_polys_cap = self.read_merkle_cap(config.fri_config.cap_height)?;
-        let opt_random_r = if common_data.config.zero_knowledge {
-            Some(self.read_merkle_cap(config.fri_config.cap_height)?)
-        } else {
-            None
-        };
+        let quotient_polys_random_cap = self.read_merkle_cap(config.fri_config.cap_height)?;
         let openings = self.read_opening_set::<F, C, D>(common_data)?;
         let opening_proof = self.read_compressed_fri_proof::<F, C, D>(common_data)?;
         Ok(CompressedProof {
             wires_cap,
             plonk_zs_partial_products_cap,
-            quotient_polys_cap,
-            opt_random_r,
+            quotient_polys_random_cap,
             openings,
             opening_proof,
         })
@@ -1589,7 +1570,7 @@ pub trait Write {
         self.write_field_ext_vec::<F, D>(&os.lookup_zs_next)?;
         self.write_field_ext_vec::<F, D>(&os.partial_products)?;
         self.write_field_ext_vec::<F, D>(&os.quotient_polys)?;
-        self.write_opt_field_ext_vec::<F, D>(&os.opt_random_r)
+        self.write_field_ext_vec::<F, D>(&os.random_r)
     }
 
     /// Writes a value `os` of type [`OpeningSet`] to `self.`
@@ -1607,7 +1588,7 @@ pub trait Write {
         self.write_target_ext_vec::<D>(&os.next_lookup_zs)?;
         self.write_target_ext_vec::<D>(&os.partial_products)?;
         self.write_target_ext_vec::<D>(&os.quotient_polys)?;
-        self.write_opt_target_ext_vec::<D>(&os.opt_random_r)
+        self.write_target_ext_vec::<D>(&os.random_r)
     }
 
     /// Writes a value `p` of type [`MerkleProof`] to `self.`
@@ -2126,10 +2107,7 @@ pub trait Write {
     {
         self.write_merkle_cap(&proof.wires_cap)?;
         self.write_merkle_cap(&proof.plonk_zs_partial_products_cap)?;
-        self.write_merkle_cap(&proof.quotient_polys_cap)?;
-        if let Some(random_r) = proof.opt_random_r.clone() {
-            self.write_merkle_cap(&random_r)?;
-        }
+        self.write_merkle_cap(&proof.quotient_polys_random_cap)?;
         self.write_opening_set(&proof.openings)?;
         self.write_fri_proof::<F, C, D>(&proof.opening_proof)
     }
@@ -2139,8 +2117,7 @@ pub trait Write {
     fn write_target_proof<const D: usize>(&mut self, proof: &ProofTarget<D>) -> IoResult<()> {
         self.write_target_merkle_cap(&proof.wires_cap)?;
         self.write_target_merkle_cap(&proof.plonk_zs_partial_products_cap)?;
-        self.write_target_merkle_cap(&proof.quotient_polys_cap)?;
-        self.write_opt_target_merkle_cap(&proof.opt_random_r)?;
+        self.write_target_merkle_cap(&proof.quotient_polys_random_cap)?;
         self.write_target_opening_set(&proof.openings)?;
         self.write_target_fri_proof::<D>(&proof.opening_proof)
     }
@@ -2236,10 +2213,7 @@ pub trait Write {
     {
         self.write_merkle_cap(&proof.wires_cap)?;
         self.write_merkle_cap(&proof.plonk_zs_partial_products_cap)?;
-        self.write_merkle_cap(&proof.quotient_polys_cap)?;
-        if let Some(random_r) = proof.opt_random_r.clone() {
-            self.write_merkle_cap(&random_r)?;
-        }
+        self.write_merkle_cap(&proof.quotient_polys_random_cap)?;
         self.write_opening_set(&proof.openings)?;
         self.write_compressed_fri_proof::<F, C, D>(&proof.opening_proof)
     }

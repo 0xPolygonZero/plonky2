@@ -65,7 +65,6 @@ where
 
         ensure!(steps.len() == params.reduction_arity_bits.len());
 
-        // In the case of zk, the final polynomial has degree double that of the original batch polynomial.
         let mut codeword_len_bits = params.lde_bits();
         for (step, arity_bits) in steps.iter().zip(&params.reduction_arity_bits) {
             let FriQueryStep {

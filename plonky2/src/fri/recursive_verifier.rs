@@ -18,7 +18,6 @@ use crate::iop::ext_target::{flatten_target, ExtensionTarget};
 use crate::iop::target::{BoolTarget, Target};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::config::{AlgebraicHasher, GenericConfig};
-use crate::plonk::plonk_common::PlonkOracle;
 use crate::util::reducing::ReducingFactorTarget;
 use crate::util::{log2_strict, reverse_index_bits_in_place};
 use crate::with_context;
@@ -230,7 +229,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         // If we are in the zk case, the `R` polynomial (the last polynomials in the first batch) is added to
         // the batch polynomial independently, without being quotiented. So the final polynomial becomes:
-        // `final_poly = sum_i alpha^(k_i) (F_i(X) - F_i(z_i))/(X-z_i) + alpha^n R(X)`, where `n` is the degree
+        // `final_poly = R(X) + sum_i alpha^(k_i) (F_i(X) - F_i(z_i))/(X-z_i)`, where `n` is the degree
         // of the batch polynomial.
         for (idx, (batch, reduced_openings)) in instance
             .batches
@@ -240,10 +239,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         {
             let FriBatchInfoTarget { point, polynomials } = batch;
             let is_zk = params.hiding;
-            let nb_r_polys: usize = polynomials
-                .iter()
-                .map(|p| (p.oracle_index == PlonkOracle::R.index) as usize)
-                .sum();
+            let nb_r_polys = is_zk as usize;
             let last_poly = polynomials.len() - nb_r_polys * (idx == 0) as usize;
             let evals = polynomials[..last_poly]
                 .iter()

@@ -145,8 +145,10 @@ pub trait WitnessWrite<F: Field> {
             &proof_target.plonk_zs_partial_products_cap,
             &proof.plonk_zs_partial_products_cap,
         )?;
-        self.set_cap_target(&proof_target.quotient_polys_cap, &proof.quotient_polys_cap)?;
-        self.set_opt_cap_target(&proof_target.opt_random_r, &proof.opt_random_r)?;
+        self.set_cap_target(
+            &proof_target.quotient_polys_random_cap,
+            &proof.quotient_polys_random_cap,
+        )?;
 
         self.set_fri_openings(
             &proof_target.openings.to_fri_openings(),

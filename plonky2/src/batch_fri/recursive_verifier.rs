@@ -15,7 +15,6 @@ use crate::iop::ext_target::{flatten_target, ExtensionTarget};
 use crate::iop::target::{BoolTarget, Target};
 use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::config::{AlgebraicHasher, GenericConfig};
-use crate::plonk::plonk_common::PlonkOracle;
 use crate::util::reducing::ReducingFactorTarget;
 use crate::with_context;
 
@@ -178,10 +177,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             // `final_poly = R(X) + sum_i alpha^(k_i) (F_i(X) - F_i(z_i))/(X-z_i)`.
             let FriBatchInfoTarget { point, polynomials } = batch;
             let is_zk = params.hiding;
-            let nb_r_polys: usize = polynomials
-                .iter()
-                .filter(|p| p.oracle_index == PlonkOracle::R.index)
-                .count();
+            let nb_r_polys = is_zk as usize;
             let last_poly = polynomials.len() - nb_r_polys * (idx == 0) as usize;
             let evals = polynomials[..last_poly]
                 .iter()

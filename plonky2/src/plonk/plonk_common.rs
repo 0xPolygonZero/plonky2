@@ -38,10 +38,6 @@ impl PlonkOracle {
         index: 3,
         blinding: true,
     };
-    pub const R: PlonkOracle = PlonkOracle {
-        index: 4,
-        blinding: true,
-    };
 }
 
 pub const fn salt_size(salted: bool) -> usize {

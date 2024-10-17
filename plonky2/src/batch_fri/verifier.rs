@@ -17,7 +17,6 @@ use crate::hash::hash_types::RichField;
 use crate::hash::merkle_proofs::{verify_batch_merkle_proof_to_cap, verify_merkle_proof_to_cap};
 use crate::hash::merkle_tree::MerkleCap;
 use crate::plonk::config::{GenericConfig, Hasher};
-use crate::plonk::plonk_common::PlonkOracle;
 use crate::util::reducing::ReducingFactor;
 use crate::util::reverse_bits;
 
@@ -136,10 +135,7 @@ fn batch_fri_combine_initial<
     {
         let FriBatchInfo { point, polynomials } = batch;
         let is_zk = params.hiding;
-        let nb_r_polys: usize = polynomials
-            .iter()
-            .filter(|p| p.oracle_index == PlonkOracle::R.index)
-            .count();
+        let nb_r_polys = is_zk as usize;
         let last_poly = polynomials.len() - nb_r_polys * (idx == 0) as usize;
         let evals = polynomials[..last_poly]
             .iter()

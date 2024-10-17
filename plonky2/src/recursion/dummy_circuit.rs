@@ -177,8 +177,7 @@ where
             proof: ProofTarget {
                 wires_cap: MerkleCapTarget(vec![]),
                 plonk_zs_partial_products_cap: MerkleCapTarget(vec![]),
-                quotient_polys_cap: MerkleCapTarget(vec![]),
-                opt_random_r: None,
+                quotient_polys_random_cap: MerkleCapTarget(vec![]),
                 openings: OpeningSetTarget::default(),
                 opening_proof: FriProofTarget {
                     commit_phase_merkle_caps: vec![],
@@ -194,8 +193,7 @@ where
             proof: Proof {
                 wires_cap: MerkleCap(vec![]),
                 plonk_zs_partial_products_cap: MerkleCap(vec![]),
-                quotient_polys_cap: MerkleCap(vec![]),
-                opt_random_r: None,
+                quotient_polys_random_cap: MerkleCap(vec![]),
                 openings: OpeningSet::default(),
                 opening_proof: FriProof {
                     commit_phase_merkle_caps: vec![],

@@ -14,7 +14,7 @@
 
 #[cfg(not(feature = "std"))]
 use alloc::{collections::BTreeMap, vec, vec::Vec};
-use core::ops::{Range, RangeFrom};
+use core::ops::Range;
 #[cfg(feature = "std")]
 use std::collections::BTreeMap;
 
@@ -334,6 +334,15 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     }
 }
 
+pub(crate) const fn computed_h<const D: usize>(
+    zero_knowledge: bool,
+    num_query_rounds: usize,
+) -> usize {
+    assert!(zero_knowledge);
+
+    // Number of FRI queries + n_deep
+    num_query_rounds + D
+}
 /// Circuit data required by the prover, but not the verifier.
 #[derive(Eq, PartialEq, Debug)]
 pub struct ProverOnlyCircuitData<
@@ -517,14 +526,25 @@ impl<F: RichField + Extendable<D>, const D: usize> CommonCircuitData<F, D> {
     }
 
     /// Range of lookup polynomials in the `zs_partial_products_lookup_commitment`.
-    pub const fn lookup_range(&self) -> RangeFrom<usize> {
-        self.num_zs_partial_products_polys()..
+    pub const fn lookup_range(&self) -> Range<usize> {
+        self.num_zs_partial_products_polys()
+            ..self.num_zs_partial_products_polys() + self.num_all_lookup_polys()
     }
 
     /// Range of lookup polynomials needed for evaluation at `g * zeta`.
     pub const fn next_lookup_range(&self, i: usize) -> Range<usize> {
         self.num_zs_partial_products_polys() + i * self.num_lookup_polys
             ..self.num_zs_partial_products_polys() + i * self.num_lookup_polys + 2
+    }
+
+    /// Range of the quotient polynomials in the `quotient_polys_random_commitment`.
+    pub const fn quotient_range(&self) -> Range<usize> {
+        0..self.num_quotient_polys()
+    }
+
+    /// Range of random polynomials in the `quotient_polys_random_commitment`.
+    pub const fn random_range(&self) -> Range<usize> {
+        self.num_quotient_polys()..self.num_quotient_polys() + self.num_r_polys()
     }
 
     pub(crate) fn get_fri_instance(&self, zeta: F::Extension) -> FriInstanceInfo<F, D> {
@@ -576,7 +596,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CommonCircuitData<F, D> {
     }
 
     fn fri_oracles(&self) -> Vec<FriOracleInfo> {
-        let mut oracles = vec![
+        let oracles = vec![
             FriOracleInfo {
                 num_polys: self.num_preprocessed_polys(),
                 blinding: PlonkOracle::CONSTANTS_SIGMAS.blinding,
@@ -590,16 +610,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CommonCircuitData<F, D> {
                 blinding: PlonkOracle::ZS_PARTIAL_PRODUCTS.blinding,
             },
             FriOracleInfo {
-                num_polys: self.num_quotient_polys(),
+                num_polys: self.num_quotient_polys() + self.num_r_polys(),
+
                 blinding: PlonkOracle::QUOTIENT.blinding,
             },
         ];
-        if self.num_r_polys() > 0 {
-            oracles.push(FriOracleInfo {
-                num_polys: self.num_r_polys(),
-                blinding: PlonkOracle::R.blinding,
-            });
-        }
 
         oracles
     }
@@ -658,14 +673,14 @@ impl<F: RichField + Extendable<D>, const D: usize> CommonCircuitData<F, D> {
     }
 
     /// Returns the value of `h`, corresponding to the degree of random polynomials added to the quotient polynomial chunks.
-    pub(crate) fn computed_h(&self) -> usize {
-        assert!(self.config.zero_knowledge);
-
-        // Number of FRI queries + n_deep
-        self.config.fri_config.num_query_rounds + D
+    pub const fn computed_h(&self) -> usize {
+        computed_h::<D>(
+            self.config.zero_knowledge,
+            self.config.fri_config.num_query_rounds,
+        )
     }
 
-    pub(crate) fn num_quotient_polys(&self) -> usize {
+    pub(crate) const fn num_quotient_polys(&self) -> usize {
         // In the case of zk, the quotient polynomials are split into smaller chunks.
         if self.config.zero_knowledge {
             let h = self.computed_h();
@@ -681,7 +696,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CommonCircuitData<F, D> {
 
     /// Returns the information for the random `R` polynomials.
     fn fri_r_polys(&self) -> Vec<FriPolynomialInfo> {
-        FriPolynomialInfo::from_range(PlonkOracle::R.index, 0..self.num_r_polys())
+        FriPolynomialInfo::from_range(PlonkOracle::QUOTIENT.index, self.random_range())
     }
 
     pub(crate) const fn num_r_polys(&self) -> usize {
@@ -689,26 +704,15 @@ impl<F: RichField + Extendable<D>, const D: usize> CommonCircuitData<F, D> {
     }
 
     fn fri_all_polys(&self) -> Vec<FriPolynomialInfo> {
-        if self.num_r_polys() > 0 {
-            [
-                self.fri_preprocessed_polys(),
-                self.fri_wire_polys(),
-                self.fri_zs_partial_products_polys(),
-                self.fri_quotient_polys(),
-                self.fri_lookup_polys(),
-                self.fri_r_polys(),
-            ]
-            .concat()
-        } else {
-            [
-                self.fri_preprocessed_polys(),
-                self.fri_wire_polys(),
-                self.fri_zs_partial_products_polys(),
-                self.fri_quotient_polys(),
-                self.fri_lookup_polys(),
-            ]
-            .concat()
-        }
+        [
+            self.fri_preprocessed_polys(),
+            self.fri_wire_polys(),
+            self.fri_zs_partial_products_polys(),
+            self.fri_quotient_polys(),
+            self.fri_lookup_polys(),
+            self.fri_r_polys(),
+        ]
+        .concat()
     }
 }
 

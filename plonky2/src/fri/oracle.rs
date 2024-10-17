@@ -17,7 +17,6 @@ use crate::hash::hash_types::RichField;
 use crate::hash::merkle_tree::MerkleTree;
 use crate::iop::challenger::Challenger;
 use crate::plonk::config::GenericConfig;
-use crate::plonk::plonk_common::PlonkOracle;
 use crate::timed;
 use crate::util::reducing::ReducingFactor;
 use crate::util::timing::TimingTree;
@@ -204,10 +203,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         let is_zk = fri_params.hiding;
 
         for (idx, FriBatchInfo { point, polynomials }) in instance.batches.iter().enumerate() {
-            let nb_r_polys: usize = polynomials
-                .iter()
-                .map(|p| (p.oracle_index == PlonkOracle::R.index) as usize)
-                .sum();
+            let nb_r_polys = is_zk as usize;
             let last_poly = polynomials.len() - nb_r_polys * (idx == 0) as usize;
             // Collect the coefficients of all the polynomials in `polynomials` until `last_poly`.
             let polys_coeff = polynomials[..last_poly].iter().map(|fri_poly| {
