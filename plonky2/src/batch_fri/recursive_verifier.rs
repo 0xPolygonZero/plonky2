@@ -62,7 +62,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 PrecomputedReducedOpeningsTarget::from_os_and_alpha(
                     opn,
                     challenges.fri_alpha,
-                    self
+                    self,
+                    params.hiding,
                 )
             );
             precomputed_reduced_evals.push(pre);
@@ -165,13 +166,20 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let mut alpha = ReducingFactorTarget::new(alpha);
         let mut sum = self.zero_extension();
 
-        for (batch, reduced_openings) in instance[index]
+        for (idx, (batch, reduced_openings)) in instance[index]
             .batches
             .iter()
             .zip(&precomputed_reduced_evals.reduced_openings_at_point)
+            .enumerate()
         {
+            // If we are in the zk case, the `R` polynomial (the last polynomials in the first batch) is added to
+            // the batch polynomial independently, without being quotiented. So the final polynomial becomes:
+            // `final_poly = R(X) + sum_i alpha^(k_i) (F_i(X) - F_i(z_i))/(X-z_i)`.
             let FriBatchInfoTarget { point, polynomials } = batch;
-            let evals = polynomials
+            let is_zk = params.hiding;
+            let nb_r_polys = is_zk as usize;
+            let last_poly = polynomials.len() - nb_r_polys * (idx == 0) as usize;
+            let evals = polynomials[..last_poly]
                 .iter()
                 .map(|p| {
                     let poly_blinding = instance[index].oracles[p.oracle_index].blinding;
@@ -184,6 +192,18 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             let denominator = self.sub_extension(subgroup_x, *point);
             sum = alpha.shift(sum, self);
             sum = self.div_add_extension(numerator, denominator, sum);
+
+            // If we are in the zk case, we still have to add `R(X)` to the batch.
+            if is_zk && idx == 0 {
+                polynomials[last_poly..].iter().for_each(|p| {
+                    let poly_blinding = instance[index].oracles[p.oracle_index].blinding;
+                    let salted = params.hiding && poly_blinding;
+                    let eval = proof.unsalted_eval(p.oracle_index, p.polynomial_index, salted);
+
+                    let eval_extension = eval.to_ext_target(self.zero());
+                    sum = self.add_extension(sum, eval_extension);
+                });
+            }
         }
 
         sum

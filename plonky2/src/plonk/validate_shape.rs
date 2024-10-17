@@ -38,7 +38,7 @@ where
     let Proof {
         wires_cap,
         plonk_zs_partial_products_cap,
-        quotient_polys_cap,
+        quotient_polys_random_cap,
         openings,
         // The shape of the opening proof will be checked in the FRI verifier (see
         // validate_fri_proof_shape), so we ignore it here.
@@ -54,11 +54,12 @@ where
         quotient_polys,
         lookup_zs,
         lookup_zs_next,
+        random_r,
     } = openings;
     let cap_height = common_data.fri_params.config.cap_height;
     ensure!(wires_cap.height() == cap_height);
     ensure!(plonk_zs_partial_products_cap.height() == cap_height);
-    ensure!(quotient_polys_cap.height() == cap_height);
+    ensure!(quotient_polys_random_cap.height() == cap_height);
     ensure!(constants.len() == common_data.num_constants);
     ensure!(plonk_sigmas.len() == config.num_routed_wires);
     ensure!(wires.len() == config.num_wires);
@@ -68,5 +69,7 @@ where
     ensure!(quotient_polys.len() == common_data.num_quotient_polys());
     ensure!(lookup_zs.len() == common_data.num_all_lookup_polys());
     ensure!(lookup_zs_next.len() == common_data.num_all_lookup_polys());
+    ensure!(random_r.len() == common_data.num_r_polys());
+
     Ok(())
 }

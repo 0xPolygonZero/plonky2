@@ -1,5 +1,5 @@
 #[cfg(not(feature = "std"))]
-use alloc::{format, vec::Vec};
+use alloc::{format, vec, vec::Vec};
 
 use itertools::Itertools;
 use plonky2_field::types::Field;
@@ -194,9 +194,19 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         // where the `k_i`s are chosen such that each power of `alpha` appears only once in the final sum.
         // There are usually two batches for the openings at `zeta` and `g * zeta`.
         // The oracles used in Plonky2 are given in `FRI_ORACLES` in `plonky2/src/plonk/plonk_common.rs`.
-        for FriBatchInfo { point, polynomials } in &instance.batches {
-            // Collect the coefficients of all the polynomials in `polynomials`.
-            let polys_coeff = polynomials.iter().map(|fri_poly| {
+        //
+        // If we are in the zk case, the `R` polynomial (the last polynomials in the first batch) is added to
+        // the batch polynomial independently, without being quotiented. So the final polynomial becomes:
+        // `final_poly = R(X) + sum_i alpha^(k_i) (F_i(X) - F_i(z_i))/(X-z_i)`.
+        // Then, since the degree of `R` is double that of the batch polynomial in our cimplementation, we need to
+        // compute one extra step in FRI to reach the correct degree.
+        let is_zk = fri_params.hiding;
+
+        for (idx, FriBatchInfo { point, polynomials }) in instance.batches.iter().enumerate() {
+            let nb_r_polys = is_zk as usize;
+            let last_poly = polynomials.len() - nb_r_polys * (idx == 0) as usize;
+            // Collect the coefficients of all the polynomials in `polynomials` until `last_poly`.
+            let polys_coeff = polynomials[..last_poly].iter().map(|fri_poly| {
                 &oracles[fri_poly.oracle_index].polynomials[fri_poly.polynomial_index]
             });
             let composition_poly = timed!(
@@ -208,6 +218,15 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             quotient.coeffs.push(F::Extension::ZERO); // pad back to power of two
             alpha.shift_poly(&mut final_poly);
             final_poly += quotient;
+
+            // If we are in the zk case, we still have to add `R(X)` to the batch.
+            if is_zk && idx == 0 {
+                polynomials[last_poly..].iter().for_each(|fri_poly| {
+                    final_poly += oracles[fri_poly.oracle_index].polynomials
+                        [fri_poly.polynomial_index]
+                        .to_extension();
+                });
+            }
         }
 
         let lde_final_poly = final_poly.lde(fri_params.config.rate_bits);
