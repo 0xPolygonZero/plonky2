@@ -154,7 +154,8 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             // The oracles used in Plonky2 are given in `FRI_ORACLES` in `plonky2/src/plonk/plonk_common.rs`.
             for (idx, FriBatchInfo { point, polynomials }) in instance.batches.iter().enumerate() {
                 let is_zk = fri_params.hiding;
-                let last_poly = is_zk as usize;
+                let nb_r_polys: usize = is_zk as usize;
+                let last_poly = polynomials.len() - nb_r_polys * (idx == 0) as usize;
                 // Collect the coefficients of all the polynomials in `polynomials`.
                 let polys_coeff = polynomials[..last_poly].iter().map(|fri_poly| {
                     &oracles[fri_poly.oracle_index].polynomials[fri_poly.polynomial_index]
