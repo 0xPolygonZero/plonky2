@@ -27,7 +27,7 @@ fn get_challenges<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, cons
     public_inputs_hash: <<C as GenericConfig<D>>::InnerHasher as Hasher<F>>::Hash,
     wires_cap: &MerkleCap<F, C::Hasher>,
     plonk_zs_partial_products_cap: &MerkleCap<F, C::Hasher>,
-    quotient_polys_cap: &MerkleCap<F, C::Hasher>,
+    quotient_polys_random_cap: &MerkleCap<F, C::Hasher>,
     openings: &OpeningSet<F, D>,
     commit_phase_merkle_caps: &[MerkleCap<F, C::Hasher>],
     final_poly: &PolynomialCoeffs<F::Extension>,
@@ -68,7 +68,8 @@ fn get_challenges<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, cons
     challenger.observe_cap::<C::Hasher>(plonk_zs_partial_products_cap);
     let plonk_alphas = challenger.get_n_challenges(num_challenges);
 
-    challenger.observe_cap::<C::Hasher>(quotient_polys_cap);
+    challenger.observe_cap::<C::Hasher>(quotient_polys_random_cap);
+
     let plonk_zeta = challenger.get_extension_challenge::<D>();
 
     challenger.observe_openings(&openings.to_fri_openings());
@@ -113,7 +114,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         let Proof {
             wires_cap,
             plonk_zs_partial_products_cap,
-            quotient_polys_cap,
+            quotient_polys_random_cap,
             openings,
             opening_proof:
                 FriProof {
@@ -128,7 +129,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             public_inputs_hash,
             wires_cap,
             plonk_zs_partial_products_cap,
-            quotient_polys_cap,
+            quotient_polys_random_cap,
             openings,
             commit_phase_merkle_caps,
             final_poly,
@@ -152,7 +153,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         let CompressedProof {
             wires_cap,
             plonk_zs_partial_products_cap,
-            quotient_polys_cap,
+            quotient_polys_random_cap,
             openings,
             opening_proof:
                 CompressedFriProof {
@@ -167,7 +168,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             public_inputs_hash,
             wires_cap,
             plonk_zs_partial_products_cap,
-            quotient_polys_cap,
+            quotient_polys_random_cap,
             openings,
             commit_phase_merkle_caps,
             final_poly,
@@ -201,6 +202,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         let precomputed_reduced_evals = PrecomputedReducedOpenings::from_os_and_alpha(
             &self.proof.openings.to_fri_openings(),
             *fri_alpha,
+            common_data.config.zero_knowledge,
         );
         let log_n = common_data.degree_bits() + common_data.config.fri_config.rate_bits;
         // Simulate the proof verification and collect the inferred elements.
@@ -259,7 +261,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         public_inputs_hash: HashOutTarget,
         wires_cap: &MerkleCapTarget,
         plonk_zs_partial_products_cap: &MerkleCapTarget,
-        quotient_polys_cap: &MerkleCapTarget,
+        quotient_polys_random_cap: &MerkleCapTarget,
         openings: &OpeningSetTarget<D>,
         commit_phase_merkle_caps: &[MerkleCapTarget],
         final_poly: &PolynomialCoeffsExtTarget<D>,
@@ -303,7 +305,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         challenger.observe_cap(plonk_zs_partial_products_cap);
         let plonk_alphas = challenger.get_n_challenges(self, num_challenges);
 
-        challenger.observe_cap(quotient_polys_cap);
+        challenger.observe_cap(quotient_polys_random_cap);
+
         let plonk_zeta = challenger.get_extension_challenge(self);
 
         challenger.observe_openings(&openings.to_fri_openings());
@@ -339,7 +342,7 @@ impl<const D: usize> ProofWithPublicInputsTarget<D> {
         let ProofTarget {
             wires_cap,
             plonk_zs_partial_products_cap,
-            quotient_polys_cap,
+            quotient_polys_random_cap,
             openings,
             opening_proof:
                 FriProofTarget {
@@ -354,7 +357,7 @@ impl<const D: usize> ProofWithPublicInputsTarget<D> {
             public_inputs_hash,
             wires_cap,
             plonk_zs_partial_products_cap,
-            quotient_polys_cap,
+            quotient_polys_random_cap,
             openings,
             commit_phase_merkle_caps,
             final_poly,

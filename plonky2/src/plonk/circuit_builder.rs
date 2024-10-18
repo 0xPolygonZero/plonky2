@@ -12,6 +12,7 @@ use log::{debug, info, warn, Level};
 #[cfg(feature = "timing")]
 use web_time::Instant;
 
+use super::circuit_data::computed_h;
 use crate::field::cosets::get_unique_coset_shifts;
 use crate::field::extension::{Extendable, FieldExtension};
 use crate::field::fft::fft_root_table;
@@ -847,48 +848,33 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         ArithmeticExtensionGate::<D>::new_from_config(&self.config).num_ops
     }
 
-    /// The number of polynomial values that will be revealed per opening, both for the "regular"
-    /// polynomials and for the Z polynomials. Because calculating these values involves a recursive
-    /// dependence (the amount of blinding depends on the degree, which depends on the blinding),
-    /// this function takes in an estimate of the degree.
-    fn num_blinding_gates(&self, degree_estimate: usize) -> (usize, usize) {
-        let degree_bits_estimate = log2_strict(degree_estimate);
-        let fri_queries = self.config.fri_config.num_query_rounds;
-        let arities: Vec<usize> = self
-            .fri_params(degree_bits_estimate)
-            .reduction_arity_bits
-            .iter()
-            .map(|x| 1 << x)
-            .collect();
-        let total_fri_folding_points: usize = arities.iter().map(|x| x - 1).sum::<usize>();
-        let final_poly_coeffs: usize = degree_estimate / arities.iter().product::<usize>();
-        let fri_openings = fri_queries * (1 + D * total_fri_folding_points + D * final_poly_coeffs);
-
+    /// Since we blind the batch FRI polynomial, the number of extra gates we need is
+    /// `num_evaluation_points * D + n_FRI`, where `n_FRI` is the number of FRI queries.
+    fn num_blinding_gates(&self) -> usize {
         // We add D for openings at zeta.
-        let regular_poly_openings = D + fri_openings;
-        // We add 2 * D for openings at zeta and g * zeta.
-        let z_openings = 2 * D + fri_openings;
-
-        (regular_poly_openings, z_openings)
+        computed_h::<D>(
+            self.config.zero_knowledge,
+            self.config.fri_config.num_query_rounds,
+        )
     }
 
     /// The number of polynomial values that will be revealed per opening, both for the "regular"
     /// polynomials (which are opened at only one location) and for the Z polynomials (which are
     /// opened at two).
-    fn blinding_counts(&self) -> (usize, usize) {
+    fn blinding_counts(&self) -> usize {
         let num_gates = self.gate_instances.len();
         let mut degree_estimate = 1 << log2_ceil(num_gates);
 
         loop {
-            let (regular_poly_openings, z_openings) = self.num_blinding_gates(degree_estimate);
+            let poly_openings = self.num_blinding_gates();
 
             // For most polynomials, we add one random element to offset each opened value.
             // But blinding Z is separate. For that, we add two random elements with a copy
             // constraint between them.
-            let total_blinding_count = regular_poly_openings + 2 * z_openings;
+            let total_blinding_count = poly_openings + 2 * poly_openings;
 
             if num_gates + total_blinding_count <= degree_estimate {
-                return (regular_poly_openings, z_openings);
+                return poly_openings;
             }
 
             // The blinding gates do not fit within our estimated degree; increase our estimate.
@@ -907,10 +893,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     }
 
     fn blind(&mut self) {
-        let (regular_poly_openings, z_openings) = self.blinding_counts();
+        let poly_openings = self.blinding_counts();
         info!(
             "Adding {} blinding terms for witness polynomials, and {}*2 for Z polynomials",
-            regular_poly_openings, z_openings
+            poly_openings, poly_openings
         );
 
         let num_routed_wires = self.config.num_routed_wires;
@@ -918,7 +904,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         // For each "regular" blinding factor, we simply add a no-op gate, and insert a random value
         // for each wire.
-        for _ in 0..regular_poly_openings {
+        for _ in 0..poly_openings {
             let row = self.add_gate(NoopGate, vec![]);
             for w in 0..num_wires {
                 self.add_simple_generator(RandomValueGenerator {
@@ -930,7 +916,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         // For each z poly blinding factor, we add two new gates with the same random value, and
         // enforce a copy constraint between them.
         // See https://mirprotocol.org/blog/Adding-zero-knowledge-to-Plonk-Halo
-        for _ in 0..z_openings {
+        for _ in 0..poly_openings {
             let gate_1 = self.add_gate(NoopGate, vec![]);
             let gate_2 = self.add_gate(NoopGate, vec![]);
 

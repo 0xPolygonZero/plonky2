@@ -29,7 +29,7 @@ pub fn fri_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const
     timing: &mut TimingTree,
 ) -> FriProof<F, C::Hasher, D> {
     let n = lde_polynomial_values.len();
-    assert_eq!(lde_polynomial_coeffs.len(), n);
+    assert_eq!(lde_polynomial_coeffs.len(), lde_polynomial_values.len());
 
     // Commit phase
     let (trees, final_coeffs) = timed!(
@@ -76,6 +76,7 @@ fn fri_committed_trees<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>,
     let mut trees = Vec::with_capacity(fri_params.reduction_arity_bits.len());
 
     let mut shift = F::MULTIPLICATIVE_GROUP_GENERATOR;
+
     for arity_bits in &fri_params.reduction_arity_bits {
         let arity = 1 << arity_bits;
 
@@ -196,22 +197,33 @@ fn fri_prover_query_round<
     fri_params: &FriParams,
 ) -> FriQueryRound<F, C::Hasher, D> {
     let mut query_steps = Vec::new();
+
     let initial_proof = initial_merkle_trees
         .iter()
-        .map(|t| (t.get(x_index).to_vec(), t.prove(x_index)))
+        .filter_map(|t| {
+            if !t.leaves.is_empty() {
+                Some((t.get(x_index).to_vec(), t.prove(x_index)))
+            } else {
+                None
+            }
+        })
         .collect::<Vec<_>>();
+
     for (i, tree) in trees.iter().enumerate() {
-        let arity_bits = fri_params.reduction_arity_bits[i];
-        let evals = unflatten(tree.get(x_index >> arity_bits));
-        let merkle_proof = tree.prove(x_index >> arity_bits);
+        if !tree.leaves.is_empty() {
+            let arity_bits = fri_params.reduction_arity_bits[i];
+            let evals = unflatten(tree.get(x_index >> arity_bits));
+            let merkle_proof = tree.prove(x_index >> arity_bits);
 
-        query_steps.push(FriQueryStep {
-            evals,
-            merkle_proof,
-        });
+            query_steps.push(FriQueryStep {
+                evals,
+                merkle_proof,
+            });
 
-        x_index >>= arity_bits;
+            x_index >>= arity_bits;
+        }
     }
+
     FriQueryRound {
         initial_trees_proof: FriInitialTreeProof {
             evals_proofs: initial_proof,

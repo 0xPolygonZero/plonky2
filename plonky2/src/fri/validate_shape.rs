@@ -64,6 +64,7 @@ where
         }
 
         ensure!(steps.len() == params.reduction_arity_bits.len());
+
         let mut codeword_len_bits = params.lde_bits();
         for (step, arity_bits) in steps.iter().zip(&params.reduction_arity_bits) {
             let FriQueryStep {

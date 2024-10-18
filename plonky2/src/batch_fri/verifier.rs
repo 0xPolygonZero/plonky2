@@ -46,7 +46,8 @@ pub fn verify_batch_fri_proof<
 
     let mut precomputed_reduced_evals = Vec::with_capacity(openings.len());
     for opn in openings {
-        let pre = PrecomputedReducedOpenings::from_os_and_alpha(opn, challenges.fri_alpha);
+        let pre =
+            PrecomputedReducedOpenings::from_os_and_alpha(opn, challenges.fri_alpha, params.hiding);
         precomputed_reduced_evals.push(pre);
     }
     let degree_bits = degree_bits
@@ -123,13 +124,20 @@ fn batch_fri_combine_initial<
     let mut alpha = ReducingFactor::new(alpha);
     let mut sum = F::Extension::ZERO;
 
-    for (batch, reduced_openings) in instances[index]
+    // If we are in the zk case, the `R` polynomial (the last polynomials in the first batch) is added to
+    // the batch polynomial independently, without being quotiented. So the final polynomial becomes:
+    // `final_poly = R(X) + sum_i alpha^(k_i) (F_i(X) - F_i(z_i))/(X-z_i)`.
+    for (idx, (batch, reduced_openings)) in instances[index]
         .batches
         .iter()
         .zip(&precomputed_reduced_evals.reduced_openings_at_point)
+        .enumerate()
     {
         let FriBatchInfo { point, polynomials } = batch;
-        let evals = polynomials
+        let is_zk = params.hiding;
+        let nb_r_polys = is_zk as usize;
+        let last_poly = polynomials.len() - nb_r_polys * (idx == 0) as usize;
+        let evals = polynomials[..last_poly]
             .iter()
             .map(|p| {
                 let poly_blinding = instances[index].oracles[p.oracle_index].blinding;
@@ -142,6 +150,17 @@ fn batch_fri_combine_initial<
         let denominator = subgroup_x - *point;
         sum = alpha.shift(sum);
         sum += numerator / denominator;
+
+        // If we are in the zk case, we still have to add `R(X)` to the batch.
+        if is_zk && idx == 0 {
+            polynomials[last_poly..].iter().for_each(|p| {
+                let poly_blinding = instances[index].oracles[p.oracle_index].blinding;
+                let salted = params.hiding && poly_blinding;
+                let eval = proof.unsalted_eval(p.oracle_index, p.polynomial_index, salted);
+
+                sum += F::Extension::from_basefield(eval);
+            });
+        }
     }
 
     sum
