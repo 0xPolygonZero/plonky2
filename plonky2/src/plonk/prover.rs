@@ -517,7 +517,29 @@ fn compute_lookup_polys<
     // First poly is RE, the rest are partial SLDCs.
     let mut final_poly_vecs = Vec::with_capacity(num_partial_lookups + 1);
     for _ in 0..num_partial_lookups + 1 {
-        final_poly_vecs.push(PolynomialValues::<F>::new(vec![F::ZERO; degree]));
+        if common_data.config.zero_knowledge {
+            // In the zk case, we add `h` random values to the
+            let h = common_data.computed_h();
+            let last_row = prover_data
+                .lookup_rows
+                .iter()
+                .map(|lw| lw.first_lut_gate + 2)
+                .max()
+                .unwrap_or_default();
+            assert!(
+                last_row + h <= degree,
+                "The circuit degree with zero knowledge was not computed properly."
+            );
+            let mut tmp = vec![F::ZERO; last_row];
+            // Add randomization to the current lookup polynomial.
+            let random_array = F::rand_vec(h);
+            tmp.extend(random_array);
+            // Pad to `degree`.
+            tmp.extend(vec![F::ZERO; degree - last_row - h]);
+            final_poly_vecs.push(PolynomialValues::<F>::new(tmp));
+        } else {
+            final_poly_vecs.push(PolynomialValues::<F>::new(vec![F::ZERO; degree]));
+        }
     }
 
     for LookupWire {
