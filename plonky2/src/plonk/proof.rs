@@ -36,8 +36,9 @@ pub struct Proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const
     pub wires_cap: MerkleCap<F, C::Hasher>,
     /// Merkle cap of LDEs of Z, in the context of Plonk's permutation argument.
     pub plonk_zs_partial_products_cap: MerkleCap<F, C::Hasher>,
-    /// Merkle cap of LDEs of the quotient polynomial components.
-    pub quotient_polys_cap: MerkleCap<F, C::Hasher>,
+    /// Merkle cap of LDEs of the quotient polynomial components. In the zk case,
+    /// also includes the random polynomial for batch FRI.
+    pub quotient_polys_random_cap: MerkleCap<F, C::Hasher>,
     /// Purported values of each polynomial at the challenge point.
     pub openings: OpeningSet<F, D>,
     /// A batch FRI argument for all openings.
@@ -48,7 +49,7 @@ pub struct Proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const
 pub struct ProofTarget<const D: usize> {
     pub wires_cap: MerkleCapTarget,
     pub plonk_zs_partial_products_cap: MerkleCapTarget,
-    pub quotient_polys_cap: MerkleCapTarget,
+    pub quotient_polys_random_cap: MerkleCapTarget,
     pub openings: OpeningSetTarget<D>,
     pub opening_proof: FriProofTarget<D>,
 }
@@ -59,7 +60,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> P
         let Proof {
             wires_cap,
             plonk_zs_partial_products_cap,
-            quotient_polys_cap,
+            quotient_polys_random_cap,
             openings,
             opening_proof,
         } = self;
@@ -67,7 +68,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> P
         CompressedProof {
             wires_cap,
             plonk_zs_partial_products_cap,
-            quotient_polys_cap,
+            quotient_polys_random_cap,
             openings,
             opening_proof: opening_proof.compress(indices, params),
         }
@@ -135,8 +136,9 @@ pub struct CompressedProof<F: RichField + Extendable<D>, C: GenericConfig<D, F =
     pub wires_cap: MerkleCap<F, C::Hasher>,
     /// Merkle cap of LDEs of Z, in the context of Plonk's permutation argument.
     pub plonk_zs_partial_products_cap: MerkleCap<F, C::Hasher>,
-    /// Merkle cap of LDEs of the quotient polynomial components.
-    pub quotient_polys_cap: MerkleCap<F, C::Hasher>,
+    /// Merkle cap of LDEs of the quotient polynomial components. In the zk case,
+    /// also includes the random polynomial for batch FRI.
+    pub quotient_polys_random_cap: MerkleCap<F, C::Hasher>,
     /// Purported values of each polynomial at the challenge point.
     pub openings: OpeningSet<F, D>,
     /// A compressed batch FRI argument for all openings.
@@ -156,7 +158,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         let CompressedProof {
             wires_cap,
             plonk_zs_partial_products_cap,
-            quotient_polys_cap,
+            quotient_polys_random_cap,
             openings,
             opening_proof,
         } = self;
@@ -164,7 +166,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         Proof {
             wires_cap,
             plonk_zs_partial_products_cap,
-            quotient_polys_cap,
+            quotient_polys_random_cap,
             openings,
             opening_proof: opening_proof.decompress(challenges, fri_inferred_elements, params),
         }
@@ -308,6 +310,7 @@ pub struct OpeningSet<F: RichField + Extendable<D>, const D: usize> {
     pub quotient_polys: Vec<F::Extension>,
     pub lookup_zs: Vec<F::Extension>,
     pub lookup_zs_next: Vec<F::Extension>,
+    pub random_r: Vec<F::Extension>,
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> OpeningSet<F, D> {
@@ -343,39 +346,33 @@ impl<F: RichField + Extendable<D>, const D: usize> OpeningSet<F, D> {
             plonk_zs_next: zs_partial_products_lookup_next_eval[common_data.zs_range()].to_vec(),
             partial_products: zs_partial_products_lookup_eval[common_data.partial_products_range()]
                 .to_vec(),
-            quotient_polys,
+            quotient_polys: quotient_polys[common_data.quotient_range()].to_vec(),
             lookup_zs: zs_partial_products_lookup_eval[common_data.lookup_range()].to_vec(),
             lookup_zs_next: zs_partial_products_lookup_next_eval[common_data.lookup_range()]
                 .to_vec(),
+            random_r: quotient_polys[common_data.random_range()].to_vec(),
         }
     }
+
     pub(crate) fn to_fri_openings(&self) -> FriOpenings<F, D> {
         let has_lookup = !self.lookup_zs.is_empty();
-        let zeta_batch = if has_lookup {
-            FriOpeningBatch {
-                values: [
-                    self.constants.as_slice(),
-                    self.plonk_sigmas.as_slice(),
-                    self.wires.as_slice(),
-                    self.plonk_zs.as_slice(),
-                    self.partial_products.as_slice(),
-                    self.quotient_polys.as_slice(),
-                    self.lookup_zs.as_slice(),
-                ]
-                .concat(),
-            }
-        } else {
-            FriOpeningBatch {
-                values: [
-                    self.constants.as_slice(),
-                    self.plonk_sigmas.as_slice(),
-                    self.wires.as_slice(),
-                    self.plonk_zs.as_slice(),
-                    self.partial_products.as_slice(),
-                    self.quotient_polys.as_slice(),
-                ]
-                .concat(),
-            }
+        let has_random = !self.random_r.is_empty();
+        let mut zeta_batch = FriOpeningBatch {
+            values: [
+                self.constants.as_slice(),
+                self.plonk_sigmas.as_slice(),
+                self.wires.as_slice(),
+                self.plonk_zs.as_slice(),
+                self.partial_products.as_slice(),
+                self.quotient_polys.as_slice(),
+            ]
+            .concat(),
+        };
+        if has_lookup {
+            zeta_batch.values.extend(self.lookup_zs.as_slice());
+        }
+        if has_random {
+            zeta_batch.values.extend(self.random_r.as_slice());
         };
         let zeta_next_batch = if has_lookup {
             FriOpeningBatch {
@@ -404,36 +401,29 @@ pub struct OpeningSetTarget<const D: usize> {
     pub next_lookup_zs: Vec<ExtensionTarget<D>>,
     pub partial_products: Vec<ExtensionTarget<D>>,
     pub quotient_polys: Vec<ExtensionTarget<D>>,
+    pub random_r: Vec<ExtensionTarget<D>>,
 }
 
 impl<const D: usize> OpeningSetTarget<D> {
     pub(crate) fn to_fri_openings(&self) -> FriOpeningsTarget<D> {
         let has_lookup = !self.lookup_zs.is_empty();
-        let zeta_batch = if has_lookup {
-            FriOpeningBatchTarget {
-                values: [
-                    self.constants.as_slice(),
-                    self.plonk_sigmas.as_slice(),
-                    self.wires.as_slice(),
-                    self.plonk_zs.as_slice(),
-                    self.partial_products.as_slice(),
-                    self.quotient_polys.as_slice(),
-                    self.lookup_zs.as_slice(),
-                ]
-                .concat(),
-            }
-        } else {
-            FriOpeningBatchTarget {
-                values: [
-                    self.constants.as_slice(),
-                    self.plonk_sigmas.as_slice(),
-                    self.wires.as_slice(),
-                    self.plonk_zs.as_slice(),
-                    self.partial_products.as_slice(),
-                    self.quotient_polys.as_slice(),
-                ]
-                .concat(),
-            }
+        let has_random = !self.random_r.is_empty();
+        let mut zeta_batch = FriOpeningBatchTarget {
+            values: [
+                self.constants.as_slice(),
+                self.plonk_sigmas.as_slice(),
+                self.wires.as_slice(),
+                self.plonk_zs.as_slice(),
+                self.partial_products.as_slice(),
+                self.quotient_polys.as_slice(),
+            ]
+            .concat(),
+        };
+        if has_lookup {
+            zeta_batch.values.extend(self.lookup_zs.as_slice());
+        }
+        if has_random {
+            zeta_batch.values.extend(self.random_r.as_slice());
         };
         let zeta_next_batch = if has_lookup {
             FriOpeningBatchTarget {

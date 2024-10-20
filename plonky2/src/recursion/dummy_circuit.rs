@@ -91,14 +91,17 @@ pub fn dummy_circuit<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, c
     common_data: &CommonCircuitData<F, D>,
 ) -> CircuitData<F, C, D> {
     let config = common_data.config.clone();
-    assert!(
-        !common_data.config.zero_knowledge,
-        "Degree calculation can be off if zero-knowledge is on."
-    );
+    if common_data.config.zero_knowledge {
+        log::warn!("Degree calculation can be off if zero-knowledge is on.");
+    }
 
     // Number of `NoopGate`s to add to get a circuit of size `degree` in the end.
     // Need to account for public input hashing, a `PublicInputGate` and a `ConstantGate`.
-    let degree = common_data.degree();
+    let mut degree = common_data.degree();
+    // In the zk case, the degree is generally double what is predicted due to blinding.
+    if common_data.config.zero_knowledge {
+        degree /= 2;
+    }
     let num_noop_gate = degree - common_data.num_public_inputs.div_ceil(8) - 2;
 
     let mut builder = CircuitBuilder::<F, D>::new(config);
@@ -178,7 +181,7 @@ where
             proof: ProofTarget {
                 wires_cap: MerkleCapTarget(vec![]),
                 plonk_zs_partial_products_cap: MerkleCapTarget(vec![]),
-                quotient_polys_cap: MerkleCapTarget(vec![]),
+                quotient_polys_random_cap: MerkleCapTarget(vec![]),
                 openings: OpeningSetTarget::default(),
                 opening_proof: FriProofTarget {
                     commit_phase_merkle_caps: vec![],
@@ -194,7 +197,7 @@ where
             proof: Proof {
                 wires_cap: MerkleCap(vec![]),
                 plonk_zs_partial_products_cap: MerkleCap(vec![]),
-                quotient_polys_cap: MerkleCap(vec![]),
+                quotient_polys_random_cap: MerkleCap(vec![]),
                 openings: OpeningSet::default(),
                 opening_proof: FriProof {
                     commit_phase_merkle_caps: vec![],

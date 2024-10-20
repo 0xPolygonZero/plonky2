@@ -81,6 +81,21 @@ pub(crate) fn verify_with_challenges<
 
     // Check each polynomial identity, of the form `vanishing(x) = Z_H(x) quotient(x)`, at zeta.
     let quotient_polys_zeta = &proof.openings.quotient_polys;
+    let (zeta_pow_deg_for_reducing, chunk_size) = if common_data.config.zero_knowledge {
+        // In the zk case, the quotient chunk size is smaller. This means the power of zeta for reducing the quotient chunks
+        // is also smaller.
+        let h = common_data.computed_h();
+        let d = common_data.degree() - h;
+        let chunk_size = (common_data.quotient_degree_factor * common_data.degree()).div_ceil(d);
+        (challenges.plonk_zeta.exp_u64(d as u64), chunk_size)
+    } else {
+        (
+            challenges
+                .plonk_zeta
+                .exp_power_of_2(common_data.degree_bits()),
+            common_data.quotient_degree_factor,
+        )
+    };
     let zeta_pow_deg = challenges
         .plonk_zeta
         .exp_power_of_2(common_data.degree_bits());
@@ -90,26 +105,27 @@ pub(crate) fn verify_with_challenges<
     // where the "real" quotient polynomial is `t(X) = t_0(X) + t_1(X)*X^n + t_2(X)*X^{2n} + ...`.
     // So to reconstruct `t(zeta)` we can compute `reduce_with_powers(chunk, zeta^n)` for each
     // `quotient_degree_factor`-sized chunk of the original evaluations.
-    for (i, chunk) in quotient_polys_zeta
-        .chunks(common_data.quotient_degree_factor)
-        .enumerate()
-    {
-        ensure!(vanishing_polys_zeta[i] == z_h_zeta * reduce_with_powers(chunk, zeta_pow_deg));
+    for (i, chunk) in quotient_polys_zeta.chunks(chunk_size).enumerate() {
+        ensure!(
+            vanishing_polys_zeta[i]
+                == z_h_zeta * reduce_with_powers(chunk, zeta_pow_deg_for_reducing)
+        );
     }
 
-    let merkle_caps = &[
+    let merkle_caps = [
         verifier_data.constants_sigmas_cap.clone(),
         proof.wires_cap,
         // In the lookup case, `plonk_zs_partial_products_cap` should also include the lookup commitment.
         proof.plonk_zs_partial_products_cap,
-        proof.quotient_polys_cap,
-    ];
+        proof.quotient_polys_random_cap,
+    ]
+    .to_vec();
 
     verify_fri_proof::<F, C, D>(
         &common_data.get_fri_instance(challenges.plonk_zeta),
         &proof.openings.to_fri_openings(),
         &challenges.fri_challenges,
-        merkle_caps,
+        &merkle_caps,
         &proof.opening_proof,
         &common_data.fri_params,
     )?;

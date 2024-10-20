@@ -74,6 +74,27 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let s_sigmas = &proof.openings.plonk_sigmas;
         let partial_products = &proof.openings.partial_products;
 
+        let (zeta_pow_deg_for_reducing, chunk_size) = if inner_common_data.config.zero_knowledge {
+            // In the zk case, the quotient chunk size is smaller. This means the power of zeta for reducing the quotient chunks
+            // is also smaller.
+            let h = inner_common_data.computed_h();
+            let d = inner_common_data.degree() - h;
+            let chunk_size =
+                (inner_common_data.quotient_degree_factor * inner_common_data.degree()).div_ceil(d);
+            (
+                self.exp_u64_extension(challenges.plonk_zeta, d as u64),
+                chunk_size,
+            )
+        } else {
+            (
+                self.exp_power_of_2_extension(
+                    challenges.plonk_zeta,
+                    inner_common_data.degree_bits(),
+                ),
+                inner_common_data.quotient_degree_factor,
+            )
+        };
+
         let zeta_pow_deg =
             self.exp_power_of_2_extension(challenges.plonk_zeta, inner_common_data.degree_bits());
         let vanishing_polys_zeta = with_context!(
@@ -100,26 +121,25 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         with_context!(self, "check vanishing and quotient polynomials.", {
             let quotient_polys_zeta = &proof.openings.quotient_polys;
-            let mut scale = ReducingFactorTarget::new(zeta_pow_deg);
+            let mut scale = ReducingFactorTarget::new(zeta_pow_deg_for_reducing);
             let z_h_zeta = self.sub_extension(zeta_pow_deg, one);
-            for (i, chunk) in quotient_polys_zeta
-                .chunks(inner_common_data.quotient_degree_factor)
-                .enumerate()
-            {
+            for (i, chunk) in quotient_polys_zeta.chunks(chunk_size).enumerate() {
                 let recombined_quotient = scale.reduce(chunk, self);
                 let computed_vanishing_poly = self.mul_extension(z_h_zeta, recombined_quotient);
                 self.connect_extension(vanishing_polys_zeta[i], computed_vanishing_poly);
             }
         });
 
-        let merkle_caps = &[
+        let merkle_caps = [
             inner_verifier_data.constants_sigmas_cap.clone(),
             proof.wires_cap.clone(),
             proof.plonk_zs_partial_products_cap.clone(),
-            proof.quotient_polys_cap.clone(),
-        ];
+            proof.quotient_polys_random_cap.clone(),
+        ]
+        .to_vec();
 
         let fri_instance = inner_common_data.get_fri_instance_target(self, challenges.plonk_zeta);
+
         with_context!(
             self,
             "verify FRI proof",
@@ -127,7 +147,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 &fri_instance,
                 &proof.openings.to_fri_openings(),
                 &challenges.fri_challenges,
-                merkle_caps,
+                &merkle_caps,
                 &proof.opening_proof,
                 &inner_common_data.fri_params,
             )
@@ -159,13 +179,16 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         ];
 
         if common_data.num_quotient_polys() > 0 {
-            num_leaves_per_oracle.push(common_data.num_quotient_polys() + salt);
+            num_leaves_per_oracle
+                .push(common_data.num_quotient_polys() + common_data.num_r_polys() + salt);
+        } else if common_data.num_r_polys() > 0 {
+            num_leaves_per_oracle.push(common_data.num_r_polys() + salt);
         }
 
         ProofTarget {
             wires_cap: self.add_virtual_cap(cap_height),
             plonk_zs_partial_products_cap: self.add_virtual_cap(cap_height),
-            quotient_polys_cap: self.add_virtual_cap(cap_height),
+            quotient_polys_random_cap: self.add_virtual_cap(cap_height),
             openings: self.add_opening_set(common_data),
             opening_proof: self.add_virtual_fri_proof(num_leaves_per_oracle, fri_params),
         }
@@ -191,6 +214,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             next_lookup_zs: self.add_virtual_extension_targets(num_lookups),
             partial_products: self.add_virtual_extension_targets(total_partial_products),
             quotient_polys: self.add_virtual_extension_targets(common_data.num_quotient_polys()),
+            random_r: self.add_virtual_extension_targets(common_data.num_r_polys()),
         }
     }
 }

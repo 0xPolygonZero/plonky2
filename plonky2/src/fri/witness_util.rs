@@ -1,3 +1,6 @@
+#[cfg(not(feature = "std"))]
+use alloc::vec;
+
 use anyhow::Result;
 use itertools::Itertools;
 
@@ -60,6 +63,7 @@ where
             for (&t, &x) in st.evals.iter().zip_eq(&s.evals) {
                 witness.set_extension_target(t, x)?;
             }
+
             for (&t, &x) in st
                 .merkle_proof
                 .siblings

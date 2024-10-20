@@ -85,8 +85,11 @@ pub fn verify_fri_proof<
         "Number of query rounds does not match config."
     );
 
-    let precomputed_reduced_evals =
-        PrecomputedReducedOpenings::from_os_and_alpha(openings, challenges.fri_alpha);
+    let precomputed_reduced_evals = PrecomputedReducedOpenings::from_os_and_alpha(
+        openings,
+        challenges.fri_alpha,
+        params.hiding,
+    );
     for (&x_index, round_proof) in challenges
         .fri_query_indices
         .iter()
@@ -137,13 +140,21 @@ pub(crate) fn fri_combine_initial<
     let mut alpha = ReducingFactor::new(alpha);
     let mut sum = F::Extension::ZERO;
 
-    for (batch, reduced_openings) in instance
+    // If we are in the zk case, the `R` polynomial (the last polynomials in the first batch) is added to
+    // the batch polynomial independently, without being quotiented. So the final polynomial becomes:
+    // `final_poly = R(X) + sum_i alpha^(k_i) (F_i(X) - F_i(z_i))/(X-z_i)`, where `n` is the degree
+    // of the batch polynomial.
+    for (idx, (batch, reduced_openings)) in instance
         .batches
         .iter()
         .zip(&precomputed_reduced_evals.reduced_openings_at_point)
+        .enumerate()
     {
         let FriBatchInfo { point, polynomials } = batch;
-        let evals = polynomials
+        let is_zk = params.hiding;
+        let nb_r_polys = is_zk as usize;
+        let last_poly = polynomials.len() - nb_r_polys * (idx == 0) as usize;
+        let evals = polynomials[..last_poly]
             .iter()
             .map(|p| {
                 let poly_blinding = instance.oracles[p.oracle_index].blinding;
@@ -156,6 +167,17 @@ pub(crate) fn fri_combine_initial<
         let denominator = subgroup_x - *point;
         sum = alpha.shift(sum);
         sum += numerator / denominator;
+
+        // If we are in the zk case, we still have to add `R(X)` to the batch.
+        if is_zk && idx == 0 {
+            polynomials[last_poly..].iter().for_each(|p| {
+                let poly_blinding = instance.oracles[p.oracle_index].blinding;
+                let salted = params.hiding && poly_blinding;
+                let eval = proof.unsalted_eval(p.oracle_index, p.polynomial_index, salted);
+
+                sum += F::Extension::from_basefield(eval);
+            });
+        }
     }
 
     sum
@@ -248,11 +270,24 @@ pub(crate) struct PrecomputedReducedOpenings<F: RichField + Extendable<D>, const
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> PrecomputedReducedOpenings<F, D> {
-    pub(crate) fn from_os_and_alpha(openings: &FriOpenings<F, D>, alpha: F::Extension) -> Self {
+    pub(crate) fn from_os_and_alpha(
+        openings: &FriOpenings<F, D>,
+        alpha: F::Extension,
+        is_zk: bool,
+    ) -> Self {
+        // We commit to two extra polynomials in the case of zk:
+        // the lower and higher coefficients of the random `R` polynomial.
+        // Those `R` polynomials should not be taken into account when
+        // computing the reduced openings.
+        let nb_r_polys = is_zk as usize;
         let reduced_openings_at_point = openings
             .batches
             .iter()
-            .map(|batch| ReducingFactor::new(alpha).reduce(batch.values.iter()))
+            .enumerate()
+            .map(|(i, batch)| {
+                let last_values = batch.values.len() - nb_r_polys * (i == 0) as usize;
+                ReducingFactor::new(alpha).reduce(batch.values[..last_values].iter())
+            })
             .collect();
         Self {
             reduced_openings_at_point,

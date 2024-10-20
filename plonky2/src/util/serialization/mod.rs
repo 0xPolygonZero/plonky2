@@ -200,6 +200,26 @@ pub trait Read {
         (0..length).map(|_| self.read_field_ext::<F, D>()).collect()
     }
 
+    /// Optionally reads a vector of elements from the field extension of `F` from `self`.
+    #[inline]
+    fn read_opt_field_ext_vec<F, const D: usize>(
+        &mut self,
+        length: usize,
+    ) -> IoResult<Option<Vec<F::Extension>>>
+    where
+        F: RichField + Extendable<D>,
+    {
+        let is_zk = self.read_bool()?;
+        if is_zk {
+            let res = (0..length)
+                .map(|_| self.read_field_ext::<F, D>())
+                .collect::<Result<Vec<_>, _>>()?;
+            Ok(Some(res))
+        } else {
+            Ok(None)
+        }
+    }
+
     /// Reads a Target from `self.`
     #[inline]
     fn read_target(&mut self) -> IoResult<Target> {
@@ -250,6 +270,24 @@ pub trait Read {
         (0..length)
             .map(|_| self.read_target_ext::<D>())
             .collect::<Result<Vec<_>, _>>()
+    }
+
+    /// Optionally reads a vector of ExtensionTarget from `self`.
+    #[inline]
+    fn read_opt_target_ext_vec<const D: usize>(
+        &mut self,
+    ) -> IoResult<Option<Vec<ExtensionTarget<D>>>> {
+        let is_zk = self.read_bool()?;
+        if is_zk {
+            let length = self.read_usize()?;
+
+            let res = (0..length)
+                .map(|_| self.read_target_ext::<D>())
+                .collect::<Result<Vec<_>, _>>()?;
+            Ok(Some(res))
+        } else {
+            Ok(None)
+        }
     }
 
     /// Reads a hash value from `self`.
@@ -313,6 +351,22 @@ pub trait Read {
         ))
     }
 
+    /// Optionally reads a value of type [`MerkleCapTarget`] from `self`.
+    #[inline]
+    fn read_opt_target_merkle_cap(&mut self) -> IoResult<Option<MerkleCapTarget>> {
+        let is_zk = self.read_bool()?;
+        if is_zk {
+            let length = self.read_usize()?;
+            Ok(Some(MerkleCapTarget(
+                (0..length)
+                    .map(|_| self.read_target_hash())
+                    .collect::<Result<Vec<_>, _>>()?,
+            )))
+        } else {
+            Ok(None)
+        }
+    }
+
     /// Reads a value of type [`MerkleTree`] from `self`.
     #[inline]
     fn read_merkle_tree<F, H>(&mut self) -> IoResult<MerkleTree<F, H>>
@@ -358,9 +412,8 @@ pub trait Read {
         let lookup_zs_next = self.read_field_ext_vec::<F, D>(common_data.num_all_lookup_polys())?;
         let partial_products = self
             .read_field_ext_vec::<F, D>(common_data.num_partial_products * config.num_challenges)?;
-        let quotient_polys = self.read_field_ext_vec::<F, D>(
-            common_data.quotient_degree_factor * config.num_challenges,
-        )?;
+        let quotient_polys = self.read_field_ext_vec::<F, D>(common_data.num_quotient_polys())?;
+        let random_r = self.read_field_ext_vec::<F, D>(common_data.num_r_polys())?;
         Ok(OpeningSet {
             constants,
             plonk_sigmas,
@@ -371,6 +424,7 @@ pub trait Read {
             quotient_polys,
             lookup_zs,
             lookup_zs_next,
+            random_r,
         })
     }
 
@@ -386,6 +440,7 @@ pub trait Read {
         let next_lookup_zs = self.read_target_ext_vec::<D>()?;
         let partial_products = self.read_target_ext_vec::<D>()?;
         let quotient_polys = self.read_target_ext_vec::<D>()?;
+        let random_r = self.read_target_ext_vec::<D>()?;
 
         Ok(OpeningSetTarget {
             constants,
@@ -397,6 +452,7 @@ pub trait Read {
             next_lookup_zs,
             partial_products,
             quotient_polys,
+            random_r,
         })
     }
 
@@ -457,10 +513,10 @@ pub trait Read {
         let zs_partial_p = self.read_merkle_proof()?;
         evals_proofs.push((zs_partial_v, zs_partial_p));
 
-        let quotient_v =
-            self.read_field_vec(config.num_challenges * common_data.quotient_degree_factor + salt)?;
-        let quotient_p = self.read_merkle_proof()?;
-        evals_proofs.push((quotient_v, quotient_p));
+        let quotient_random_v = self
+            .read_field_vec(common_data.num_quotient_polys() + common_data.num_r_polys() + salt)?;
+        let quotient_random_p = self.read_merkle_proof()?;
+        evals_proofs.push((quotient_random_v, quotient_random_p));
 
         Ok(FriInitialTreeProof { evals_proofs })
     }
@@ -570,6 +626,7 @@ pub trait Read {
         C: GenericConfig<D, F = F>,
     {
         let config = &common_data.config;
+
         let commit_phase_merkle_caps = (0..common_data.fri_params.reduction_arity_bits.len())
             .map(|_| self.read_merkle_cap(config.fri_config.cap_height))
             .collect::<Result<Vec<_>, _>>()?;
@@ -977,13 +1034,13 @@ pub trait Read {
         let config = &common_data.config;
         let wires_cap = self.read_merkle_cap(config.fri_config.cap_height)?;
         let plonk_zs_partial_products_cap = self.read_merkle_cap(config.fri_config.cap_height)?;
-        let quotient_polys_cap = self.read_merkle_cap(config.fri_config.cap_height)?;
+        let quotient_polys_random_cap = self.read_merkle_cap(config.fri_config.cap_height)?;
         let openings = self.read_opening_set::<F, C, D>(common_data)?;
         let opening_proof = self.read_fri_proof::<F, C, D>(common_data)?;
         Ok(Proof {
             wires_cap,
             plonk_zs_partial_products_cap,
-            quotient_polys_cap,
+            quotient_polys_random_cap,
             openings,
             opening_proof,
         })
@@ -994,13 +1051,13 @@ pub trait Read {
     fn read_target_proof<const D: usize>(&mut self) -> IoResult<ProofTarget<D>> {
         let wires_cap = self.read_target_merkle_cap()?;
         let plonk_zs_partial_products_cap = self.read_target_merkle_cap()?;
-        let quotient_polys_cap = self.read_target_merkle_cap()?;
+        let quotient_polys_random_cap = self.read_target_merkle_cap()?;
         let openings = self.read_target_opening_set::<D>()?;
         let opening_proof = self.read_target_fri_proof::<D>()?;
         Ok(ProofTarget {
             wires_cap,
             plonk_zs_partial_products_cap,
-            quotient_polys_cap,
+            quotient_polys_random_cap,
             openings,
             opening_proof,
         })
@@ -1098,6 +1155,7 @@ pub trait Read {
         C: GenericConfig<D, F = F>,
     {
         let config = &common_data.config;
+
         let commit_phase_merkle_caps = (0..common_data.fri_params.reduction_arity_bits.len())
             .map(|_| self.read_merkle_cap(config.fri_config.cap_height))
             .collect::<Result<Vec<_>, _>>()?;
@@ -1127,13 +1185,13 @@ pub trait Read {
         let config = &common_data.config;
         let wires_cap = self.read_merkle_cap(config.fri_config.cap_height)?;
         let plonk_zs_partial_products_cap = self.read_merkle_cap(config.fri_config.cap_height)?;
-        let quotient_polys_cap = self.read_merkle_cap(config.fri_config.cap_height)?;
+        let quotient_polys_random_cap = self.read_merkle_cap(config.fri_config.cap_height)?;
         let openings = self.read_opening_set::<F, C, D>(common_data)?;
         let opening_proof = self.read_compressed_fri_proof::<F, C, D>(common_data)?;
         Ok(CompressedProof {
             wires_cap,
             plonk_zs_partial_products_cap,
-            quotient_polys_cap,
+            quotient_polys_random_cap,
             openings,
             opening_proof,
         })
@@ -1294,6 +1352,25 @@ pub trait Write {
         Ok(())
     }
 
+    /// Optionally writes a vector `v` of elements from the field extension of `F` to `self`.
+    #[inline]
+    fn write_opt_field_ext_vec<F, const D: usize>(
+        &mut self,
+        opt_v: &Option<Vec<F::Extension>>,
+    ) -> IoResult<()>
+    where
+        F: RichField + Extendable<D>,
+    {
+        self.write_bool(opt_v.is_some())?;
+        if let Some(v) = opt_v {
+            for &a in v {
+                self.write_field_ext::<F, D>(a)?;
+            }
+        }
+
+        Ok(())
+    }
+
     /// Writes a Target `x` to `self.`
     #[inline]
     fn write_target(&mut self, x: Target) -> IoResult<()> {
@@ -1354,6 +1431,23 @@ pub trait Write {
         Ok(())
     }
 
+    /// Optionally writes a vector of ExtensionTarget `v` to `self.`
+    #[inline]
+    fn write_opt_target_ext_vec<const D: usize>(
+        &mut self,
+        opt_v: &Option<Vec<ExtensionTarget<D>>>,
+    ) -> IoResult<()> {
+        self.write_bool(opt_v.is_some())?;
+        if let Some(v) = opt_v {
+            self.write_usize(v.len())?;
+            for &elem in v.iter() {
+                self.write_target_ext(elem)?;
+            }
+        }
+
+        Ok(())
+    }
+
     /// Writes a hash `h` to `self`.
     #[inline]
     fn write_hash<F, H>(&mut self, h: H::Hash) -> IoResult<()>
@@ -1402,6 +1496,22 @@ pub trait Write {
         Ok(())
     }
 
+    /// Writes `opt_cap`, an optional value of type [`MerkleCap`], to `self`.
+    #[inline]
+    fn write_opt_merkle_cap<F, H>(&mut self, opt_cap: &Option<MerkleCap<F, H>>) -> IoResult<()>
+    where
+        F: RichField,
+        H: Hasher<F>,
+    {
+        self.write_bool(opt_cap.is_some())?;
+        if let Some(cap) = opt_cap {
+            for &a in &cap.0 {
+                self.write_hash::<F, H>(a)?;
+            }
+        }
+        Ok(())
+    }
+
     /// Writes `cap`, a value of type [`MerkleCapTarget`], to `self`.
     #[inline]
     fn write_target_merkle_cap(&mut self, cap: &MerkleCapTarget) -> IoResult<()> {
@@ -1409,6 +1519,20 @@ pub trait Write {
         for a in &cap.0 {
             self.write_target_hash(a)?;
         }
+        Ok(())
+    }
+
+    /// Writes `opt_cap`, an optional value of type [`MerkleCapTarget`], to `self`.
+    #[inline]
+    fn write_opt_target_merkle_cap(&mut self, opt_cap: &Option<MerkleCapTarget>) -> IoResult<()> {
+        self.write_bool(opt_cap.is_some())?;
+        if let Some(cap) = opt_cap {
+            self.write_usize(cap.0.len())?;
+            for a in &cap.0 {
+                self.write_target_hash(a)?;
+            }
+        }
+
         Ok(())
     }
 
@@ -1445,7 +1569,8 @@ pub trait Write {
         self.write_field_ext_vec::<F, D>(&os.lookup_zs)?;
         self.write_field_ext_vec::<F, D>(&os.lookup_zs_next)?;
         self.write_field_ext_vec::<F, D>(&os.partial_products)?;
-        self.write_field_ext_vec::<F, D>(&os.quotient_polys)
+        self.write_field_ext_vec::<F, D>(&os.quotient_polys)?;
+        self.write_field_ext_vec::<F, D>(&os.random_r)
     }
 
     /// Writes a value `os` of type [`OpeningSet`] to `self.`
@@ -1462,7 +1587,8 @@ pub trait Write {
         self.write_target_ext_vec::<D>(&os.lookup_zs)?;
         self.write_target_ext_vec::<D>(&os.next_lookup_zs)?;
         self.write_target_ext_vec::<D>(&os.partial_products)?;
-        self.write_target_ext_vec::<D>(&os.quotient_polys)
+        self.write_target_ext_vec::<D>(&os.quotient_polys)?;
+        self.write_target_ext_vec::<D>(&os.random_r)
     }
 
     /// Writes a value `p` of type [`MerkleProof`] to `self.`
@@ -1981,7 +2107,7 @@ pub trait Write {
     {
         self.write_merkle_cap(&proof.wires_cap)?;
         self.write_merkle_cap(&proof.plonk_zs_partial_products_cap)?;
-        self.write_merkle_cap(&proof.quotient_polys_cap)?;
+        self.write_merkle_cap(&proof.quotient_polys_random_cap)?;
         self.write_opening_set(&proof.openings)?;
         self.write_fri_proof::<F, C, D>(&proof.opening_proof)
     }
@@ -1991,7 +2117,7 @@ pub trait Write {
     fn write_target_proof<const D: usize>(&mut self, proof: &ProofTarget<D>) -> IoResult<()> {
         self.write_target_merkle_cap(&proof.wires_cap)?;
         self.write_target_merkle_cap(&proof.plonk_zs_partial_products_cap)?;
-        self.write_target_merkle_cap(&proof.quotient_polys_cap)?;
+        self.write_target_merkle_cap(&proof.quotient_polys_random_cap)?;
         self.write_target_opening_set(&proof.openings)?;
         self.write_target_fri_proof::<D>(&proof.opening_proof)
     }
@@ -2087,7 +2213,7 @@ pub trait Write {
     {
         self.write_merkle_cap(&proof.wires_cap)?;
         self.write_merkle_cap(&proof.plonk_zs_partial_products_cap)?;
-        self.write_merkle_cap(&proof.quotient_polys_cap)?;
+        self.write_merkle_cap(&proof.quotient_polys_random_cap)?;
         self.write_opening_set(&proof.openings)?;
         self.write_compressed_fri_proof::<F, C, D>(&proof.opening_proof)
     }

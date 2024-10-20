@@ -271,7 +271,7 @@ where
         )
     );
 
-    let all_quotient_poly_chunks: Vec<PolynomialCoeffs<F>> = timed!(
+    let mut all_quotient_poly_chunks_random: Vec<PolynomialCoeffs<F>> = timed!(
         timing,
         "split up quotient polys",
         quotient_polys
@@ -280,17 +280,62 @@ where
                 quotient_poly.trim_to_len(quotient_degree).expect(
                     "Quotient has failed, the vanishing polynomial is not divisible by Z_H",
                 );
+
                 // Split quotient into degree-n chunks.
-                quotient_poly.chunks(degree)
+                // In the zk case, we split the quotient into degree-(n-h) chunks, where `h` is computed by `computed_h`.
+                // This is so that we can add random polynomials of degree n > n-h and still keep chhunks of degree a power of 2.
+                // This is Plonk's randomization strategy for the case of several chunks, as described in
+                // "A note on adding zero-knowledge to STARKs" (https://eprint.iacr.org/2024/1037.pdf), Section 4.1,
+                // adapted to keep the two-adic degree bound.
+                if common_data.config.zero_knowledge {
+                    let h = common_data.computed_h();
+                    let d = degree - h;
+                    assert!(degree > h);
+
+                    let total_nb_chunks = quotient_poly.len().div_ceil(d);
+                    let random_ts = vec![
+                        PolynomialCoeffs {
+                            coeffs: F::rand_vec(h) // coeffs: vec![F::ZERO; h]
+                        };
+                        total_nb_chunks - 1
+                    ];
+                    // Let (t_i)i be the random polynomials, and (q_i)i be the k quotient chunks of degree n-h.
+                    // We compute:
+                    // - q'_0(X) = q_0(X) + Xˆn * t_0(X)
+                    // - q'_i(X) = q_i(X) + Xˆn * t_i(X) - t_(i-1)(X)
+                    // - q'_k(X) = q_k(X) - t_(k-1)(X)
+                    // Then, the sum of q' over i is equal to the sum of q over i.
+                    let mut quotients = quotient_poly.chunks(d);
+                    quotients[0].coeffs.extend(&random_ts[0].coeffs);
+                    for i in 1..total_nb_chunks - 1 {
+                        quotients[i] -= random_ts[i - 1].clone();
+                        quotients[i].coeffs.extend(&random_ts[i].coeffs);
+                    }
+                    quotients[total_nb_chunks - 1] -= random_ts[total_nb_chunks - 2].clone();
+                    quotients[total_nb_chunks - 1]
+                        .pad(degree)
+                        .expect("Degree is greater than the current length.");
+                    quotients
+                } else {
+                    quotient_poly.chunks(degree)
+                }
             })
             .collect()
     );
 
-    let quotient_polys_commitment = timed!(
+    // In the zk case, add a random polynomial (used to  hide the batch FRI polynomial)
+    // to the quotient polys commitment.
+    if config.zero_knowledge {
+        // The random polynomial is of degree |H| with H the subgroup.
+        let d = 1 << common_data.fri_params.degree_bits;
+        let random_r = PolynomialCoeffs::new(F::rand_vec(d));
+        all_quotient_poly_chunks_random.push(random_r);
+    }
+    let quotient_polys_random_commitment = timed!(
         timing,
         "commit to quotient polys",
         PolynomialBatch::<F, C, D>::from_coeffs(
-            all_quotient_poly_chunks,
+            all_quotient_poly_chunks_random,
             config.fri_config.rate_bits,
             config.zero_knowledge && PlonkOracle::QUOTIENT.blinding,
             config.fri_config.cap_height,
@@ -299,7 +344,7 @@ where
         )
     );
 
-    challenger.observe_cap::<C::Hasher>(&quotient_polys_commitment.merkle_tree.cap);
+    challenger.observe_cap::<C::Hasher>(&quotient_polys_random_commitment.merkle_tree.cap);
 
     let zeta = challenger.get_extension_challenge::<D>();
     // To avoid leaking witness data, we want to ensure that our opening locations, `zeta` and
@@ -320,7 +365,7 @@ where
             &prover_data.constants_sigmas_commitment,
             &wires_commitment,
             &partial_products_zs_and_lookup_commitment,
-            &quotient_polys_commitment,
+            &quotient_polys_random_commitment,
             common_data
         )
     );
@@ -336,7 +381,7 @@ where
                 &prover_data.constants_sigmas_commitment,
                 &wires_commitment,
                 &partial_products_zs_and_lookup_commitment,
-                &quotient_polys_commitment,
+                &quotient_polys_random_commitment,
             ],
             &mut challenger,
             &common_data.fri_params,
@@ -347,10 +392,11 @@ where
     let proof = Proof::<F, C, D> {
         wires_cap: wires_commitment.merkle_tree.cap,
         plonk_zs_partial_products_cap: partial_products_zs_and_lookup_commitment.merkle_tree.cap,
-        quotient_polys_cap: quotient_polys_commitment.merkle_tree.cap,
+        quotient_polys_random_cap: quotient_polys_random_commitment.merkle_tree.cap,
         openings,
         opening_proof,
     };
+
     Ok(ProofWithPublicInputs::<F, C, D> {
         proof,
         public_inputs,
@@ -471,7 +517,29 @@ fn compute_lookup_polys<
     // First poly is RE, the rest are partial SLDCs.
     let mut final_poly_vecs = Vec::with_capacity(num_partial_lookups + 1);
     for _ in 0..num_partial_lookups + 1 {
-        final_poly_vecs.push(PolynomialValues::<F>::new(vec![F::ZERO; degree]));
+        if common_data.config.zero_knowledge {
+            // In the zk case, we add `h` random values to the
+            let h = common_data.computed_h();
+            let last_row = prover_data
+                .lookup_rows
+                .iter()
+                .map(|lw| lw.first_lut_gate + 2)
+                .max()
+                .unwrap_or_default();
+            assert!(
+                last_row + h <= degree,
+                "The circuit degree with zero knowledge was not computed properly."
+            );
+            let mut tmp = vec![F::ZERO; last_row];
+            // Add randomization to the current lookup polynomial.
+            let random_array = F::rand_vec(h);
+            tmp.extend(random_array);
+            // Pad to `degree`.
+            tmp.extend(vec![F::ZERO; degree - last_row - h]);
+            final_poly_vecs.push(PolynomialValues::<F>::new(tmp));
+        } else {
+            final_poly_vecs.push(PolynomialValues::<F>::new(vec![F::ZERO; degree]));
+        }
     }
 
     for LookupWire {
