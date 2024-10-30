@@ -265,10 +265,11 @@ mod tests {
     fn test_recursive_stark_verifier_in_different_degree() -> Result<()> {
         init_logger();
 
-        let config = StarkConfig::standard_fast_config();
+        let mut config = StarkConfig::standard_fast_config();
+        config.fri_config.num_query_rounds = 1;
 
         // Test first STARK
-        let degree_bits0 = 5;
+        let degree_bits0 = 7;
         let num_rows = 1 << degree_bits0;
         let public_inputs = [F::ZERO, F::ONE, fibonacci(num_rows - 1, F::ZERO, F::ONE)];
         let stark0 = S::new(num_rows);
@@ -283,7 +284,7 @@ mod tests {
         verify_stark_proof(stark0, proof0.clone(), &config)?;
 
         // Test second STARK
-        let degree_bits1 = 6;
+        let degree_bits1 = 8;
         let num_rows = 1 << degree_bits1;
         let public_inputs = [F::ZERO, F::ONE, fibonacci(num_rows - 1, F::ZERO, F::ONE)];
         let stark1 = S::new(num_rows);
@@ -298,6 +299,6 @@ mod tests {
         verify_stark_proof(stark1, proof1.clone(), &config)?;
 
         // Verify proof0 with the recursion circuit at different degree.
-        recursive_proof::<F, C, S, C, D>(stark1, proof0, &config, degree_bits1, true)
+        recursive_proof::<F, C, S, C, D>(stark0, proof0, &config, degree_bits1, true)
     }
 }
