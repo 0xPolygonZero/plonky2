@@ -19,6 +19,7 @@ use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::config::{AlgebraicHasher, GenericConfig};
 use plonky2::util::reducing::ReducingFactorTarget;
 use plonky2::with_context;
+use plonky2_util::log2_ceil;
 
 use crate::config::StarkConfig;
 use crate::constraint_consumer::RecursiveConstraintConsumer;
@@ -111,13 +112,37 @@ pub fn verify_stark_proof_with_challenges_circuit<
             .collect::<Vec<_>>(),
     );
 
-    let degree_bits = proof.recover_degree_bits(inner_config);
-    let zeta_pow_deg = builder.exp_power_of_2_extension(challenges.stark_zeta, degree_bits);
+    let max_degree_bits = log2_ceil(F::TWO_ADICITY);
+    let degree_bits_bits = builder.split_le(proof.degree_bits, max_degree_bits);
+
+    // degree_bits should be nonzero.
+    let mut or_all_bits = builder._false();
+    for i in 0..max_degree_bits {
+        or_all_bits = builder.or(or_all_bits, degree_bits_bits[i]);
+    }
+    builder.assert_one(or_all_bits.target);
+
+    let zeta_pow_deg = builder.exp_extension_from_bits(challenges.stark_zeta, &degree_bits_bits);
     let z_h_zeta = builder.sub_extension(zeta_pow_deg, one);
+    let two = builder.two();
+    let degree = builder.exp(two, proof.degree_bits, max_degree_bits);
+    let degree_ext = builder.convert_to_ext(degree);
+
+    // Calculate primitive_root_of_unity(degree_bits)
+    let two_adicity = builder.constant(F::from_canonical_usize(F::Extension::TWO_ADICITY));
+    let two_adicity_sub_degree_bits = builder.sub(two_adicity, proof.degree_bits);
+    let two_exp_two_adicity_sub_degree_bits =
+        builder.exp(two, two_adicity_sub_degree_bits, F::Extension::TWO_ADICITY);
+    let exponent_bits = builder.split_le(
+        two_exp_two_adicity_sub_degree_bits,
+        F::Extension::TWO_ADICITY,
+    );
+    let base = builder.constant_extension(F::Extension::POWER_OF_TWO_GENERATOR);
+    let g = builder.exp_extension_from_bits(base, &exponent_bits);
+
     let (l_0, l_last) =
-        eval_l_0_and_l_last_circuit(builder, degree_bits, challenges.stark_zeta, z_h_zeta);
-    let last =
-        builder.constant_extension(F::Extension::primitive_root_of_unity(degree_bits).inverse());
+        eval_l_0_and_l_last_circuit(builder, degree_ext, g, challenges.stark_zeta, z_h_zeta);
+    let last = builder.inverse_extension(g);
     let z_last = builder.sub_extension(challenges.stark_zeta, last);
 
     let mut consumer = RecursiveConstraintConsumer::<F, D>::new(
@@ -178,14 +203,24 @@ pub fn verify_stark_proof_with_challenges_circuit<
         .chain(proof.quotient_polys_cap.clone())
         .collect_vec();
 
+    // Calculate primitive_root_of_unity(degree_bits)
+    let two_adicity = builder.constant(F::from_canonical_usize(F::TWO_ADICITY));
+    let two_adicity_sub_degree_bits = builder.sub(two_adicity, proof.degree_bits);
+    let two_exp_two_adicity_sub_degree_bits =
+        builder.exp(two, two_adicity_sub_degree_bits, F::TWO_ADICITY);
+    let base = builder.constant(F::POWER_OF_TWO_GENERATOR);
+    let g = builder.exp(base, two_exp_two_adicity_sub_degree_bits, F::TWO_ADICITY);
+
     let fri_instance = stark.fri_instance_target(
         builder,
         challenges.stark_zeta,
-        F::primitive_root_of_unity(degree_bits),
+        g,
         num_ctl_polys,
         ctl_zs_first.as_ref().map_or(0, |c| c.len()),
         inner_config,
     );
+    //TODO
+    let degree_bits = proof.recover_degree_bits(inner_config);
     builder.verify_fri_proof::<C>(
         &fri_instance,
         &proof.openings.to_fri_openings(zero),
@@ -198,12 +233,11 @@ pub fn verify_stark_proof_with_challenges_circuit<
 
 fn eval_l_0_and_l_last_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
-    log_n: usize,
+    n: ExtensionTarget<D>,
+    g: ExtensionTarget<D>,
     x: ExtensionTarget<D>,
     z_x: ExtensionTarget<D>,
 ) -> (ExtensionTarget<D>, ExtensionTarget<D>) {
-    let n = builder.constant_extension(F::Extension::from_canonical_usize(1 << log_n));
-    let g = builder.constant_extension(F::Extension::primitive_root_of_unity(log_n));
     let one = builder.one_extension();
     let l_0_deno = builder.mul_sub_extension(n, x, n);
     let l_last_deno = builder.mul_sub_extension(g, x, one);
@@ -284,6 +318,7 @@ pub fn add_virtual_stark_proof<F: RichField + Extendable<D>, S: Stark<F, D>, con
             config,
         ),
         opening_proof: builder.add_virtual_fri_proof(&num_leaves_per_oracle, &fri_params),
+        degree_bits: builder.add_virtual_target(),
     }
 }
 
@@ -324,6 +359,7 @@ pub fn set_stark_proof_with_pis_target<F, C: GenericConfig<D, F = F>, W, const D
     witness: &mut W,
     stark_proof_with_pis_target: &StarkProofWithPublicInputsTarget<D>,
     stark_proof_with_pis: &StarkProofWithPublicInputs<F, C, D>,
+    degree_bits: usize,
     zero: Target,
 ) -> Result<()>
 where
@@ -345,7 +381,7 @@ where
         witness.set_target(pi_t, pi)?;
     }
 
-    set_stark_proof_target(witness, pt, proof, zero)
+    set_stark_proof_target(witness, pt, proof, degree_bits, zero)
 }
 
 /// Set the targets in a [`StarkProofTarget`] to their corresponding values in a
@@ -354,6 +390,7 @@ pub fn set_stark_proof_target<F, C: GenericConfig<D, F = F>, W, const D: usize>(
     witness: &mut W,
     proof_target: &StarkProofTarget<D>,
     proof: &StarkProof<F, C, D>,
+    degree_bits: usize,
     zero: Target,
 ) -> Result<()>
 where
@@ -361,6 +398,10 @@ where
     C::Hasher: AlgebraicHasher<F>,
     W: WitnessWrite<F>,
 {
+    witness.set_target(
+        proof_target.degree_bits,
+        F::from_canonical_usize(degree_bits),
+    )?;
     witness.set_cap_target(&proof_target.trace_cap, &proof.trace_cap)?;
     if let (Some(quotient_polys_cap_target), Some(quotient_polys_cap)) =
         (&proof_target.quotient_polys_cap, &proof.quotient_polys_cap)

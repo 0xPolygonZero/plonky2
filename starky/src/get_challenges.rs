@@ -258,6 +258,7 @@ impl<const D: usize> StarkProofTarget<D> {
                     pow_witness,
                     ..
                 },
+            ..
         } = self;
 
         let trace_cap = if ignore_trace_cap {
