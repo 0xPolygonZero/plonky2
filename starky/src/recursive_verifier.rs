@@ -45,6 +45,7 @@ pub fn verify_stark_proof_circuit<
     stark: S,
     proof_with_pis: StarkProofWithPublicInputsTarget<D>,
     inner_config: &StarkConfig,
+    degree_bits: usize,
 ) where
     C::Hasher: AlgebraicHasher<F>,
 {
@@ -65,6 +66,7 @@ pub fn verify_stark_proof_circuit<
         challenges,
         None,
         inner_config,
+        degree_bits,
     );
 }
 
@@ -82,6 +84,7 @@ pub fn verify_stark_proof_with_challenges_circuit<
     challenges: StarkProofChallengesTarget<D>,
     ctl_vars: Option<&[CtlCheckVarsTarget<F, D>]>,
     inner_config: &StarkConfig,
+    degree_bits: usize,
 ) where
     C::Hasher: AlgebraicHasher<F>,
 {
@@ -226,8 +229,6 @@ pub fn verify_stark_proof_with_challenges_circuit<
         ctl_zs_first.as_ref().map_or(0, |c| c.len()),
         inner_config,
     );
-    //TODO
-    let degree_bits = proof.recover_degree_bits(inner_config);
     builder.verify_fri_proof::<C>(
         &fri_instance,
         &proof.openings.to_fri_openings(zero),

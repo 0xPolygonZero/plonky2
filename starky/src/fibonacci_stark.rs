@@ -246,7 +246,13 @@ mod tests {
             add_virtual_stark_proof_with_pis(&mut builder, &stark, inner_config, degree_bits, 0, 0);
         set_stark_proof_with_pis_target(&mut pw, &pt, &inner_proof, degree_bits, builder.zero())?;
 
-        verify_stark_proof_circuit::<F, InnerC, S, D>(&mut builder, stark, pt, inner_config);
+        verify_stark_proof_circuit::<F, InnerC, S, D>(
+            &mut builder,
+            stark,
+            pt,
+            inner_config,
+            degree_bits,
+        );
 
         if print_gate_counts {
             builder.print_gate_counts(0);
