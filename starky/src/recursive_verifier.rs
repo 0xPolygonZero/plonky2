@@ -136,23 +136,17 @@ pub fn verify_stark_proof_with_challenges_circuit<
     let degree_ext = builder.convert_to_ext(degree);
 
     // Calculate primitive_root_of_unity(degree_bits)
-    let two_adicity = builder.constant(F::from_canonical_usize(F::Extension::TWO_ADICITY));
+    let two_adicity = builder.constant(F::from_canonical_usize(F::TWO_ADICITY));
     let two_adicity_sub_degree_bits = builder.sub(two_adicity, proof.degree_bits);
-    let two_exp_two_adicity_sub_degree_bits = builder.exp(
-        two,
-        two_adicity_sub_degree_bits,
-        log2_ceil(F::Extension::TWO_ADICITY),
-    );
-    let exponent_bits = builder.split_le(
-        two_exp_two_adicity_sub_degree_bits,
-        F::Extension::TWO_ADICITY,
-    );
-    let base = builder.constant_extension(F::Extension::POWER_OF_TWO_GENERATOR);
-    let g = builder.exp_extension_from_bits(base, &exponent_bits);
+    let two_exp_two_adicity_sub_degree_bits =
+        builder.exp(two, two_adicity_sub_degree_bits, F::TWO_ADICITY);
+    let base = builder.constant(F::POWER_OF_TWO_GENERATOR);
+    let g = builder.exp(base, two_exp_two_adicity_sub_degree_bits, F::TWO_ADICITY);
+    let g_ext = builder.convert_to_ext(g);
 
     let (l_0, l_last) =
-        eval_l_0_and_l_last_circuit(builder, degree_ext, g, challenges.stark_zeta, z_h_zeta);
-    let last = builder.inverse_extension(g);
+        eval_l_0_and_l_last_circuit(builder, degree_ext, g_ext, challenges.stark_zeta, z_h_zeta);
+    let last = builder.inverse_extension(g_ext);
     let z_last = builder.sub_extension(challenges.stark_zeta, last);
 
     let mut consumer = RecursiveConstraintConsumer::<F, D>::new(
@@ -212,14 +206,6 @@ pub fn verify_stark_proof_with_challenges_circuit<
         .chain(proof.auxiliary_polys_cap.clone())
         .chain(proof.quotient_polys_cap.clone())
         .collect_vec();
-
-    // Calculate primitive_root_of_unity(degree_bits)
-    let two_adicity = builder.constant(F::from_canonical_usize(F::TWO_ADICITY));
-    let two_adicity_sub_degree_bits = builder.sub(two_adicity, proof.degree_bits);
-    let two_exp_two_adicity_sub_degree_bits =
-        builder.exp(two, two_adicity_sub_degree_bits, F::TWO_ADICITY);
-    let base = builder.constant(F::POWER_OF_TWO_GENERATOR);
-    let g = builder.exp(base, two_exp_two_adicity_sub_degree_bits, F::TWO_ADICITY);
 
     let fri_instance = stark.fri_instance_target(
         builder,

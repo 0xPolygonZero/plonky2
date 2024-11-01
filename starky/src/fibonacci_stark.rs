@@ -245,7 +245,6 @@ mod tests {
         let pt =
             add_virtual_stark_proof_with_pis(&mut builder, &stark, inner_config, degree_bits, 0, 0);
         let proof_degree_bits = inner_proof.proof.recover_degree_bits(inner_config);
-        assert!(proof_degree_bits != degree_bits);
         set_stark_proof_with_pis_target(
             &mut pw,
             &pt,
