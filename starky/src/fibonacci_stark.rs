@@ -220,7 +220,7 @@ mod tests {
         verify_stark_proof(stark, proof.clone(), &config)?;
         assert_eq!(degree_bits, proof.proof.recover_degree_bits(&config));
 
-        recursive_proof::<F, C, S, C, D>(stark, proof, &config, 5, true)
+        recursive_proof::<F, C, S, C, D>(stark, proof, &config, degree_bits, true)
     }
 
     fn recursive_proof<
@@ -244,7 +244,7 @@ mod tests {
         let mut pw = PartialWitness::new();
         let pt =
             add_virtual_stark_proof_with_pis(&mut builder, &stark, inner_config, degree_bits, 0, 0);
-        set_stark_proof_with_pis_target(&mut pw, &pt, &inner_proof, builder.zero())?;
+        set_stark_proof_with_pis_target(&mut pw, &pt, &inner_proof, degree_bits, builder.zero())?;
 
         verify_stark_proof_circuit::<F, InnerC, S, D>(&mut builder, stark, pt, inner_config);
 
