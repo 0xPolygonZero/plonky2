@@ -135,8 +135,11 @@ pub fn verify_stark_proof_with_challenges_circuit<
     // Calculate primitive_root_of_unity(degree_bits)
     let two_adicity = builder.constant(F::from_canonical_usize(F::Extension::TWO_ADICITY));
     let two_adicity_sub_degree_bits = builder.sub(two_adicity, proof.degree_bits);
-    let two_exp_two_adicity_sub_degree_bits =
-        builder.exp(two, two_adicity_sub_degree_bits, F::Extension::TWO_ADICITY);
+    let two_exp_two_adicity_sub_degree_bits = builder.exp(
+        two,
+        two_adicity_sub_degree_bits,
+        log2_ceil(F::Extension::TWO_ADICITY),
+    );
     let exponent_bits = builder.split_le(
         two_exp_two_adicity_sub_degree_bits,
         F::Extension::TWO_ADICITY,
