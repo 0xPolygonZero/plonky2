@@ -203,8 +203,8 @@ mod tests {
         init_logger();
 
         let config = StarkConfig::standard_fast_config();
-        let num_rows = 1 << 5;
         let degree_bits = 5;
+        let num_rows = 1 << degree_bits;
         let public_inputs = [F::ZERO, F::ONE, fibonacci(num_rows - 1, F::ZERO, F::ONE)];
 
         // Test first STARK

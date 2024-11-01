@@ -112,20 +112,24 @@ pub fn verify_stark_proof_with_challenges_circuit<
             .collect::<Vec<_>>(),
     );
 
-    let max_degree_bits = log2_ceil(F::TWO_ADICITY);
-    let degree_bits_bits = builder.split_le(proof.degree_bits, max_degree_bits);
-
-    // degree_bits should be nonzero.
-    let mut or_all_bits = builder._false();
-    for i in 0..max_degree_bits {
-        or_all_bits = builder.or(or_all_bits, degree_bits_bits[i]);
+    let max_num_degree_bits = F::TWO_ADICITY;
+    {
+        // degree_bits should be nonzero.
+        let max_num_degree_bits_bits = log2_ceil(F::TWO_ADICITY);
+        let degree_bits_bits = builder.split_le(proof.degree_bits, max_num_degree_bits_bits);
+        let mut or_all_bits = builder._false();
+        for i in 0..max_num_degree_bits_bits {
+            or_all_bits = builder.or(or_all_bits, degree_bits_bits[i]);
+        }
+        builder.assert_one(or_all_bits.target);
     }
-    builder.assert_one(or_all_bits.target);
 
-    let zeta_pow_deg = builder.exp_extension_from_bits(challenges.stark_zeta, &degree_bits_bits);
-    let z_h_zeta = builder.sub_extension(zeta_pow_deg, one);
     let two = builder.two();
-    let degree = builder.exp(two, proof.degree_bits, max_degree_bits);
+    let degree = builder.exp(two, proof.degree_bits, max_num_degree_bits);
+    let degree_bits_vec = builder.split_le(degree, max_num_degree_bits);
+
+    let zeta_pow_deg = builder.exp_extension_from_bits(challenges.stark_zeta, &degree_bits_vec);
+    let z_h_zeta = builder.sub_extension(zeta_pow_deg, one);
     let degree_ext = builder.convert_to_ext(degree);
 
     // Calculate primitive_root_of_unity(degree_bits)
