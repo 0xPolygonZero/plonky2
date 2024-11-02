@@ -227,6 +227,7 @@ where
                     hiding: false,
                     degree_bits: 0,
                     reduction_arity_bits: vec![],
+                    final_poly_coeff_len: None,
                 },
                 gates: vec![],
                 selectors_info: SelectorsInfo {

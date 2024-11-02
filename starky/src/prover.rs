@@ -48,7 +48,7 @@ where
 {
     let degree = trace_poly_values[0].len();
     let degree_bits = log2_strict(degree);
-    let fri_params = config.fri_params(degree_bits);
+    let fri_params = config.fri_params(degree_bits, None);
     let rate_bits = config.fri_config.rate_bits;
     let cap_height = config.fri_config.cap_height;
     assert!(
@@ -112,7 +112,8 @@ where
 {
     let degree = trace_poly_values[0].len();
     let degree_bits = log2_strict(degree);
-    let fri_params = config.fri_params(degree_bits);
+    // TODO
+    let fri_params = config.fri_params(degree_bits, Some(16));
     let rate_bits = config.fri_config.rate_bits;
     let cap_height = config.fri_config.cap_height;
     assert!(

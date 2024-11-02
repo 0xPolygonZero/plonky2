@@ -681,12 +681,19 @@ pub trait Read {
         let reduction_arity_bits = self.read_usize_vec()?;
         let degree_bits = self.read_usize()?;
         let hiding = self.read_bool()?;
+        let has_final_poly_coeff_len = self.read_bool()?;
+        let final_poly_coeff_len = if has_final_poly_coeff_len {
+            Some(self.read_usize()?)
+        } else {
+            None
+        };
 
         Ok(FriParams {
             config,
             reduction_arity_bits,
             degree_bits,
             hiding,
+            final_poly_coeff_len,
         })
     }
 
@@ -1676,12 +1683,19 @@ pub trait Write {
             reduction_arity_bits,
             degree_bits,
             hiding,
+            final_poly_coeff_len,
         } = fri_params;
 
         self.write_fri_config(config)?;
         self.write_usize_vec(reduction_arity_bits.as_slice())?;
         self.write_usize(*degree_bits)?;
         self.write_bool(*hiding)?;
+        if let Some(len) = final_poly_coeff_len {
+            self.write_bool(true)?;
+            self.write_usize(*len)?;
+        } else {
+            self.write_bool(false)?;
+        }
 
         Ok(())
     }

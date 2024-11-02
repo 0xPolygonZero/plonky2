@@ -61,8 +61,9 @@ impl StarkConfig {
     }
 
     /// Outputs the [`FriParams`] used during the FRI sub-protocol by this [`StarkConfig`].
-    pub fn fri_params(&self, degree_bits: usize) -> FriParams {
-        self.fri_config.fri_params(degree_bits, false)
+    pub fn fri_params(&self, degree_bits: usize, final_poly_coeff_len: Option<usize>) -> FriParams {
+        self.fri_config
+            .fri_params(degree_bits, final_poly_coeff_len, false)
     }
 
     /// Checks that this STARK configuration is consistent, i.e. that the different

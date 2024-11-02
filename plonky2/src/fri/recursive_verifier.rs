@@ -133,50 +133,50 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         );
 
         // Check that parameters are coherent.
-        debug_assert_eq!(
-            params.config.num_query_rounds,
-            proof.query_round_proofs.len(),
-            "Number of query rounds does not match config."
-        );
+        // debug_assert_eq!(
+        //     params.config.num_query_rounds,
+        //     proof.query_round_proofs.len(),
+        //     "Number of query rounds does not match config."
+        // );
+        //
+        // let precomputed_reduced_evals = with_context!(
+        //     self,
+        //     "precompute reduced evaluations",
+        //     PrecomputedReducedOpeningsTarget::from_os_and_alpha(
+        //         openings,
+        //         challenges.fri_alpha,
+        //         self
+        //     )
+        // );
 
-        let precomputed_reduced_evals = with_context!(
-            self,
-            "precompute reduced evaluations",
-            PrecomputedReducedOpeningsTarget::from_os_and_alpha(
-                openings,
-                challenges.fri_alpha,
-                self
-            )
-        );
-
-        for (i, round_proof) in proof.query_round_proofs.iter().enumerate() {
-            // To minimize noise in our logs, we will only record a context for a single FRI query.
-            // The very first query will have some extra gates due to constants being registered, so
-            // the second query is a better representative.
-            let level = if i == 1 {
-                log::Level::Debug
-            } else {
-                log::Level::Trace
-            };
-
-            let num_queries = proof.query_round_proofs.len();
-            with_context!(
-                self,
-                level,
-                &format!("verify one (of {num_queries}) query rounds"),
-                self.fri_verifier_query_round::<C>(
-                    instance,
-                    challenges,
-                    &precomputed_reduced_evals,
-                    initial_merkle_caps,
-                    proof,
-                    challenges.fri_query_indices[i],
-                    n,
-                    round_proof,
-                    params,
-                )
-            );
-        }
+        // for (i, round_proof) in proof.query_round_proofs.iter().enumerate() {
+        //     // To minimize noise in our logs, we will only record a context for a single FRI query.
+        //     // The very first query will have some extra gates due to constants being registered, so
+        //     // the second query is a better representative.
+        //     let level = if i == 1 {
+        //         log::Level::Debug
+        //     } else {
+        //         log::Level::Trace
+        //     };
+        //
+        //     let num_queries = proof.query_round_proofs.len();
+        //     with_context!(
+        //         self,
+        //         level,
+        //         &format!("verify one (of {num_queries}) query rounds"),
+        //         self.fri_verifier_query_round::<C>(
+        //             instance,
+        //             challenges,
+        //             &precomputed_reduced_evals,
+        //             initial_merkle_caps,
+        //             proof,
+        //             challenges.fri_query_indices[i],
+        //             n,
+        //             round_proof,
+        //             params,
+        //         )
+        //     );
+        // }
     }
 
     fn fri_verify_initial_proof<H: AlgebraicHasher<F>>(

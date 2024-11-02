@@ -1,6 +1,7 @@
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 
+use plonky2_field::types::Field;
 use plonky2_maybe_rayon::*;
 
 use crate::field::extension::{flatten, unflatten, Extendable};
@@ -109,6 +110,16 @@ fn fri_committed_trees<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>,
         .truncate(coeffs.len() >> fri_params.config.rate_bits);
 
     challenger.observe_extension_elements(&coeffs.coeffs);
+    if let Some(len) = fri_params.final_poly_coeff_len {
+        // Calculate the number of zeros to append
+        let current_len = coeffs.coeffs.len();
+        dbg!(len);
+        dbg!(current_len);
+        for _ in current_len..len {
+            challenger.observe_extension_element(&F::Extension::ZERO);
+        }
+    }
+
     (trees, coeffs)
 }
 

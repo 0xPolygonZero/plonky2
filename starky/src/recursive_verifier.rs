@@ -221,7 +221,7 @@ pub fn verify_stark_proof_with_challenges_circuit<
         &challenges.fri_challenges,
         &merkle_caps,
         &proof.opening_proof,
-        &inner_config.fri_params(degree_bits),
+        &inner_config.fri_params(degree_bits, None),
     );
 }
 
@@ -280,7 +280,7 @@ pub fn add_virtual_stark_proof<F: RichField + Extendable<D>, S: Stark<F, D>, con
     num_ctl_helper_zs: usize,
     num_ctl_zs: usize,
 ) -> StarkProofTarget<D> {
-    let fri_params = config.fri_params(degree_bits);
+    let fri_params = config.fri_params(degree_bits, None);
     let cap_height = fri_params.config.cap_height;
 
     let num_leaves_per_oracle = once(S::COLUMNS)
