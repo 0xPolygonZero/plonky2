@@ -186,6 +186,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         &mut self,
         leaf_data: Vec<Target>,
         leaf_index_bits: &[BoolTarget],
+        circuit_log_n: usize,
         circuit_min_log_n: usize,
         n_index: Target,
         cap_index: Target,
@@ -198,10 +199,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let mut state: HashOutTarget = self.hash_or_noop::<H>(leaf_data);
         debug_assert_eq!(state.elements.len(), NUM_HASH_OUT_ELTS);
 
-        let mut final_states = Vec::new();
-        let start_index = proof.siblings.len() - (leaf_index_bits.len() - circuit_min_log_n + 1);
+        let num_log_n = circuit_log_n + 1 - circuit_min_log_n;
+        let mut final_states = vec![state.clone(); num_log_n];
 
-        for (i, (&bit, &sibling)) in leaf_index_bits.iter().zip(&proof.siblings).enumerate() {
+        for (&bit, &sibling) in leaf_index_bits.iter().zip(&proof.siblings) {
             debug_assert_eq!(sibling.elements.len(), NUM_HASH_OUT_ELTS);
 
             let mut perm_inputs = H::AlgebraicPermutation::default();
@@ -217,9 +218,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 elements: hash_outs,
             };
             // Store state at specific indices
-            if i >= start_index {
-                final_states.push(state.clone());
+            for n in 0..num_log_n - 1 {
+                final_states[n] = final_states[n + 1].clone();
             }
+            final_states[num_log_n - 1] = state.clone();
         }
 
         for i in 0..NUM_HASH_OUT_ELTS {

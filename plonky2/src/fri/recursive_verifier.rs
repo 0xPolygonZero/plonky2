@@ -193,6 +193,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     fn fri_verify_initial_proof<H: AlgebraicHasher<F>>(
         &mut self,
         x_index_bits: &[BoolTarget],
+        circuit_log_n: usize,
         circuit_min_log_n: usize,
         n_index: Target,
         proof: &FriInitialTreeProofTarget,
@@ -211,6 +212,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 self.verify_merkle_proof_to_cap_with_cap_indices::<H>(
                     evals.clone(),
                     x_index_bits,
+                    circuit_log_n,
                     circuit_min_log_n,
                     n_index,
                     cap_index,
@@ -307,6 +309,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             "check FRI initial proof",
             self.fri_verify_initial_proof::<C::Hasher>(
                 &x_index_bits,
+                circuit_log_n,
                 circuit_min_log_n,
                 n_index,
                 &round_proof.initial_trees_proof,
@@ -315,16 +318,20 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             )
         );
 
-        return;
-
+        let g = self.constant(F::coset_shift());
         // `subgroup_x` is `subgroup[x_index]`, i.e., the actual field element in the domain.
-        let mut subgroup_x = with_context!(self, "compute x from its index", {
-            let g = self.constant(F::coset_shift());
-            let phi = F::primitive_root_of_unity(circuit_log_n);
-            let phi = self.exp_from_bits_const_base(phi, x_index_bits.iter().rev());
-            // subgroup_x = g * phi
-            self.mul(g, phi)
-        });
+        let subgroup_x_vec: Vec<_> = (circuit_min_log_n..=circuit_log_n)
+            .map(|n| {
+                with_context!(self, "compute x from its index", {
+                    let phi = F::primitive_root_of_unity(n);
+                    let phi = self.exp_from_bits_const_base(phi, x_index_bits[..n].iter().rev());
+                    // subgroup_x = g * phi
+                    self.mul(g, phi)
+                })
+            })
+            .collect();
+
+        let mut subgroup_x = self.random_access(n_index, subgroup_x_vec);
 
         // old_eval is the last derived evaluation; it will be checked for consistency with its
         // committed "parent" value in the next iteration.
@@ -369,9 +376,12 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             with_context!(
                 self,
                 "verify FRI round Merkle proof.",
-                self.verify_merkle_proof_to_cap_with_cap_index::<C::Hasher>(
+                self.verify_merkle_proof_to_cap_with_cap_indices::<C::Hasher>(
                     flatten_target(evals),
                     &coset_index_bits,
+                    circuit_log_n,
+                    circuit_min_log_n,
+                    n_index,
                     cap_index,
                     &proof.commit_phase_merkle_caps[i],
                     &round_proof.steps[i].merkle_proof,
