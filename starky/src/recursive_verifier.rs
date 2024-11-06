@@ -222,6 +222,7 @@ pub fn verify_stark_proof_with_challenges_circuit<
         &merkle_caps,
         &proof.opening_proof,
         &inner_config.fri_params(degree_bits, None),
+        Some(proof.degree_bits),
     );
 }
 

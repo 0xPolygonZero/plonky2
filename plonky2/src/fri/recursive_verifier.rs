@@ -110,6 +110,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         initial_merkle_caps: &[MerkleCapTarget],
         proof: &FriProofTarget<D>,
         params: &FriParams,
+        degree_bits: Option<Target>,
     ) where
         C::Hasher: AlgebraicHasher<F>,
     {
@@ -124,7 +125,14 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         );
 
         // Size of the LDE domain.
-        let n = params.lde_size();
+        let log_n = params.config.rate_bits + params.degree_bits;
+        let mut log_n_target = self.constant(F::from_canonical_usize(params.config.rate_bits));
+        if let Some(degree_bits) = degree_bits {
+            log_n_target = self.add(log_n_target, degree_bits);
+        } else {
+            let degree_bits_target = self.constant(F::from_canonical_usize(params.degree_bits));
+            log_n_target = self.add(log_n_target, degree_bits_target);
+        }
 
         with_context!(
             self,
@@ -133,55 +141,60 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         );
 
         // Check that parameters are coherent.
-        // debug_assert_eq!(
-        //     params.config.num_query_rounds,
-        //     proof.query_round_proofs.len(),
-        //     "Number of query rounds does not match config."
-        // );
-        //
-        // let precomputed_reduced_evals = with_context!(
-        //     self,
-        //     "precompute reduced evaluations",
-        //     PrecomputedReducedOpeningsTarget::from_os_and_alpha(
-        //         openings,
-        //         challenges.fri_alpha,
-        //         self
-        //     )
-        // );
+        debug_assert_eq!(
+            params.config.num_query_rounds,
+            proof.query_round_proofs.len(),
+            "Number of query rounds does not match config."
+        );
 
-        // for (i, round_proof) in proof.query_round_proofs.iter().enumerate() {
-        //     // To minimize noise in our logs, we will only record a context for a single FRI query.
-        //     // The very first query will have some extra gates due to constants being registered, so
-        //     // the second query is a better representative.
-        //     let level = if i == 1 {
-        //         log::Level::Debug
-        //     } else {
-        //         log::Level::Trace
-        //     };
-        //
-        //     let num_queries = proof.query_round_proofs.len();
-        //     with_context!(
-        //         self,
-        //         level,
-        //         &format!("verify one (of {num_queries}) query rounds"),
-        //         self.fri_verifier_query_round::<C>(
-        //             instance,
-        //             challenges,
-        //             &precomputed_reduced_evals,
-        //             initial_merkle_caps,
-        //             proof,
-        //             challenges.fri_query_indices[i],
-        //             n,
-        //             round_proof,
-        //             params,
-        //         )
-        //     );
-        // }
+        let precomputed_reduced_evals = with_context!(
+            self,
+            "precompute reduced evaluations",
+            PrecomputedReducedOpeningsTarget::from_os_and_alpha(
+                openings,
+                challenges.fri_alpha,
+                self
+            )
+        );
+
+        for (i, round_proof) in proof.query_round_proofs.iter().enumerate() {
+            // To minimize noise in our logs, we will only record a context for a single FRI query.
+            // The very first query will have some extra gates due to constants being registered, so
+            // the second query is a better representative.
+            let level = if i == 1 {
+                log::Level::Debug
+            } else {
+                log::Level::Trace
+            };
+
+            let num_queries = proof.query_round_proofs.len();
+            with_context!(
+                self,
+                level,
+                &format!("verify one (of {num_queries}) query rounds"),
+                self.fri_verifier_query_round::<C>(
+                    instance,
+                    challenges,
+                    &precomputed_reduced_evals,
+                    initial_merkle_caps,
+                    proof,
+                    challenges.fri_query_indices[i],
+                    log_n,
+                    // TODO
+                    log_n - 3,
+                    log_n_target,
+                    round_proof,
+                    params,
+                )
+            );
+        }
     }
 
     fn fri_verify_initial_proof<H: AlgebraicHasher<F>>(
         &mut self,
         x_index_bits: &[BoolTarget],
+        circuit_min_log_n: usize,
+        n_index: Target,
         proof: &FriInitialTreeProofTarget,
         initial_merkle_caps: &[MerkleCapTarget],
         cap_index: Target,
@@ -195,9 +208,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             with_context!(
                 self,
                 &format!("verify {i}'th initial Merkle proof"),
-                self.verify_merkle_proof_to_cap_with_cap_index::<H>(
+                self.verify_merkle_proof_to_cap_with_cap_indices::<H>(
                     evals.clone(),
                     x_index_bits,
+                    circuit_min_log_n,
+                    n_index,
                     cap_index,
                     cap,
                     merkle_proof
@@ -258,36 +273,54 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         initial_merkle_caps: &[MerkleCapTarget],
         proof: &FriProofTarget<D>,
         x_index: Target,
-        n: usize,
+        circuit_log_n: usize,
+        circuit_min_log_n: usize,
+        log_n: Target,
         round_proof: &FriQueryRoundTarget<D>,
         params: &FriParams,
     ) where
         C::Hasher: AlgebraicHasher<F>,
     {
-        let n_log = log2_strict(n);
+        assert!(circuit_min_log_n > params.config.cap_height);
+        let n_index = {
+            let min_log_n = self.constant(F::from_canonical_usize(circuit_min_log_n));
+            self.sub(log_n, min_log_n)
+        };
 
         // Note that this `low_bits` decomposition permits non-canonical binary encodings. Here we
         // verify that this has a negligible impact on soundness error.
         Self::assert_noncanonical_indices_ok(&params.config);
-        let mut x_index_bits = self.low_bits(x_index, n_log, F::BITS);
+        let mut x_index_bits = self.low_bits(x_index, circuit_log_n, F::BITS);
 
-        let cap_index =
-            self.le_sum(x_index_bits[x_index_bits.len() - params.config.cap_height..].iter());
+        dbg!(circuit_log_n);
+        dbg!(circuit_min_log_n);
+
+        let cap_indices: Vec<_> = (circuit_min_log_n..=circuit_log_n)
+            .map(|n| {
+                let slice_start = n - params.config.cap_height;
+                self.le_sum(x_index_bits[slice_start..n].iter())
+            })
+            .collect();
+        let cap_index = self.random_access(n_index, cap_indices);
         with_context!(
             self,
             "check FRI initial proof",
             self.fri_verify_initial_proof::<C::Hasher>(
                 &x_index_bits,
+                circuit_min_log_n,
+                n_index,
                 &round_proof.initial_trees_proof,
                 initial_merkle_caps,
-                cap_index
+                cap_index,
             )
         );
+
+        return;
 
         // `subgroup_x` is `subgroup[x_index]`, i.e., the actual field element in the domain.
         let mut subgroup_x = with_context!(self, "compute x from its index", {
             let g = self.constant(F::coset_shift());
-            let phi = F::primitive_root_of_unity(n_log);
+            let phi = F::primitive_root_of_unity(circuit_log_n);
             let phi = self.exp_from_bits_const_base(phi, x_index_bits.iter().rev());
             // subgroup_x = g * phi
             self.mul(g, phi)

@@ -279,7 +279,7 @@ mod tests {
         init_logger();
 
         let mut config = StarkConfig::standard_fast_config();
-        config.fri_config.num_query_rounds = 1;
+        config.fri_config.num_query_rounds = 8;
 
         // Test first STARK
         let degree_bits0 = 7;
@@ -295,6 +295,7 @@ mod tests {
             &mut TimingTree::default(),
         )?;
         // verify_stark_proof(stark0, proof0.clone(), &config)?;
+        // recursive_proof::<F, C, S, C, D>(stark0, proof0.clone(), &config, degree_bits0, true)?;
 
         // Test second STARK
         let degree_bits1 = 8;
@@ -312,6 +313,8 @@ mod tests {
         verify_stark_proof(stark1, proof1.clone(), &config)?;
 
         // Verify proof0 with the recursion circuit at different degree.
-        recursive_proof::<F, C, S, C, D>(stark0, proof0, &config, degree_bits1, true)
+        // recursive_proof::<F, C, S, C, D>(stark1, proof1, &config, degree_bits1, true)?;
+        recursive_proof::<F, C, S, C, D>(stark1, proof0, &config, degree_bits1, true)?;
+        Ok(())
     }
 }

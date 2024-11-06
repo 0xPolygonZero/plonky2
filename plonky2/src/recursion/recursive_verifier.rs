@@ -130,6 +130,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 merkle_caps,
                 &proof.opening_proof,
                 &inner_common_data.fri_params,
+                None,
             )
         );
     }
