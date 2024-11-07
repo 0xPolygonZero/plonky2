@@ -687,6 +687,12 @@ pub trait Read {
         } else {
             None
         };
+        let has_min_degree_bits_to_support = self.read_bool()?;
+        let min_degree_bits_to_support = if has_min_degree_bits_to_support {
+            Some(self.read_usize()?)
+        } else {
+            None
+        };
 
         Ok(FriParams {
             config,
@@ -694,6 +700,7 @@ pub trait Read {
             degree_bits,
             hiding,
             final_poly_coeff_len,
+            min_degree_bits_to_support,
         })
     }
 
@@ -1684,6 +1691,7 @@ pub trait Write {
             degree_bits,
             hiding,
             final_poly_coeff_len,
+            min_degree_bits_to_support,
         } = fri_params;
 
         self.write_fri_config(config)?;
@@ -1693,6 +1701,12 @@ pub trait Write {
         if let Some(len) = final_poly_coeff_len {
             self.write_bool(true)?;
             self.write_usize(*len)?;
+        } else {
+            self.write_bool(false)?;
+        }
+        if let Some(db) = min_degree_bits_to_support {
+            self.write_bool(true)?;
+            self.write_usize(*db)?;
         } else {
             self.write_bool(false)?;
         }

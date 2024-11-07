@@ -49,6 +49,7 @@ impl FriConfig {
         &self,
         degree_bits: usize,
         final_poly_coeff_len: Option<usize>,
+        min_degree_bits_to_support: Option<usize>,
         hiding: bool,
     ) -> FriParams {
         let reduction_arity_bits = self.reduction_strategy.reduction_arity_bits(
@@ -63,6 +64,7 @@ impl FriConfig {
             degree_bits,
             reduction_arity_bits,
             final_poly_coeff_len,
+            min_degree_bits_to_support,
         }
     }
 
@@ -90,10 +92,14 @@ pub struct FriParams {
     /// is sent directly.
     pub reduction_arity_bits: Vec<usize>,
 
-    /// The length of the final polynomial coefficients.
-    /// This is only used when the proof will be verified in a circuit that is generated based on
-    /// larger degree bits.
+    /// The length of the final polynomial's coefficients.
+    /// This is used only when the proof will be verified in a circuit generated with a
+    /// larger degree bit size.
     pub final_poly_coeff_len: Option<usize>,
+
+    /// Specifies the minimum degree bit size to support verification of proofs with
+    /// varying degree bits.
+    pub min_degree_bits_to_support: Option<usize>,
 }
 
 impl FriParams {

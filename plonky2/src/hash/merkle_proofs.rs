@@ -1,5 +1,6 @@
 #[cfg(not(feature = "std"))]
 use alloc::{vec, vec::Vec};
+use std::ops::RangeInclusive;
 
 use anyhow::{ensure, Result};
 use itertools::Itertools;
@@ -186,8 +187,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         &mut self,
         leaf_data: Vec<Target>,
         leaf_index_bits: &[BoolTarget],
-        circuit_log_n: usize,
-        circuit_min_log_n: usize,
+        log_n_range: RangeInclusive<usize>,
         n_index: Target,
         cap_index: Target,
         merkle_cap: &MerkleCapTarget,
@@ -199,7 +199,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let mut state: HashOutTarget = self.hash_or_noop::<H>(leaf_data);
         debug_assert_eq!(state.elements.len(), NUM_HASH_OUT_ELTS);
 
-        let num_log_n = circuit_log_n + 1 - circuit_min_log_n;
+        let num_log_n = log_n_range.clone().count();
         let mut final_states = vec![state.clone(); num_log_n];
 
         for (&bit, &sibling) in leaf_index_bits.iter().zip(&proof.siblings) {

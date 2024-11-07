@@ -15,6 +15,7 @@ use plonky2::field::zero_poly_coset::ZeroPolyOnCoset;
 use plonky2::fri::oracle::PolynomialBatch;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::challenger::Challenger;
+use plonky2::plonk::circuit_data::{CommonCircuitData, VerifierCircuitData};
 use plonky2::plonk::config::GenericConfig;
 use plonky2::timed;
 use plonky2::util::timing::TimingTree;
@@ -48,7 +49,7 @@ where
 {
     let degree = trace_poly_values[0].len();
     let degree_bits = log2_strict(degree);
-    let fri_params = config.fri_params(degree_bits, None);
+    let fri_params = config.fri_params(degree_bits, None, None);
     let rate_bits = config.fri_config.rate_bits;
     let cap_height = config.fri_config.cap_height;
     assert!(
@@ -103,6 +104,7 @@ pub fn prove_with_commitment<F, C, S, const D: usize>(
     ctl_challenges: Option<&GrandProductChallengeSet<F>>,
     challenger: &mut Challenger<F, C::Hasher>,
     public_inputs: &[F],
+    common_circuit_data: Option<CommonCircuitData<F, D>>,
     timing: &mut TimingTree,
 ) -> Result<StarkProofWithPublicInputs<F, C, D>>
 where
@@ -112,8 +114,12 @@ where
 {
     let degree = trace_poly_values[0].len();
     let degree_bits = log2_strict(degree);
-    // TODO
-    let fri_params = config.fri_params(degree_bits, Some(16));
+    let fri_params = if let Some(cd) = common_circuit_data {
+
+        config.fri_params(degree_bits, Some(cd.degree_bits()), Some(cd.fri_params.))
+    } else {
+        config.fri_params(degree_bits, None, None)
+    };
     let rate_bits = config.fri_config.rate_bits;
     let cap_height = config.fri_config.cap_height;
     assert!(

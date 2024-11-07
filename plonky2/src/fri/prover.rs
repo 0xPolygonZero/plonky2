@@ -68,6 +68,16 @@ pub(crate) type FriCommitedTrees<F, C, const D: usize> = (
     PolynomialCoeffs<<F as Extendable<D>>::Extension>,
 );
 
+fn final_poly_coeff_len(
+    mut degree_bits: usize,
+    reduction_arity_bits: &Vec<usize>,
+) -> usize {
+    for arity_bits in reduction_arity_bits {
+        degree_bits -= *arity_bits;
+    }
+    1 << degree_bits
+}
+
 fn fri_committed_trees<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
     mut coeffs: PolynomialCoeffs<F::Extension>,
     mut values: PolynomialValues<F::Extension>,
@@ -110,11 +120,10 @@ fn fri_committed_trees<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>,
         .truncate(coeffs.len() >> fri_params.config.rate_bits);
 
     challenger.observe_extension_elements(&coeffs.coeffs);
+    // When verifying this proof in a circuit with a different final polynomial length,
+    // the challenger needs to observe the full length of the final polynomial.
     if let Some(len) = fri_params.final_poly_coeff_len {
-        // Calculate the number of zeros to append
         let current_len = coeffs.coeffs.len();
-        dbg!(len);
-        dbg!(current_len);
         for _ in current_len..len {
             challenger.observe_extension_element(&F::Extension::ZERO);
         }
