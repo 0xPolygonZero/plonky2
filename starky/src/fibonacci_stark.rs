@@ -135,6 +135,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for FibonacciStar
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
+    use itertools::Itertools;
     use plonky2::field::extension::Extendable;
     use plonky2::field::types::Field;
     use plonky2::hash::hash_types::RichField;
@@ -235,8 +236,6 @@ mod tests {
         stark: S,
         inner_proof: StarkProofWithPublicInputs<F, InnerC, D>,
         inner_config: &StarkConfig,
-        degree_bits: usize,
-        min_degree_bits_to_support: Option<usize>,
         print_gate_counts: bool,
     ) -> Result<()>
     where
@@ -245,25 +244,12 @@ mod tests {
         let circuit_config = CircuitConfig::standard_recursion_config();
         let mut builder = CircuitBuilder::<F, D>::new(circuit_config);
         let mut pw = PartialWitness::new();
+        let degree_bits = inner_proof.proof.recover_degree_bits(inner_config);
         let pt =
             add_virtual_stark_proof_with_pis(&mut builder, &stark, inner_config, degree_bits, 0, 0);
-        let proof_degree_bits = inner_proof.proof.recover_degree_bits(inner_config);
-        set_stark_proof_with_pis_target(
-            &mut pw,
-            &pt,
-            &inner_proof,
-            proof_degree_bits,
-            builder.zero(),
-        )?;
+        set_stark_proof_with_pis_target(&mut pw, &pt, &inner_proof, builder.zero())?;
 
-        verify_stark_proof_circuit::<F, InnerC, S, D>(
-            &mut builder,
-            stark,
-            pt,
-            inner_config,
-            degree_bits,
-            min_degree_bits_to_support,
-        );
+        verify_stark_proof_circuit::<F, InnerC, S, D>(&mut builder, stark, pt, inner_config);
 
         if print_gate_counts {
             builder.print_gate_counts(0);
@@ -283,49 +269,44 @@ mod tests {
         init_logger();
 
         let mut config = StarkConfig::standard_fast_config();
-        config.fri_config.num_query_rounds = 8;
+        config.fri_config.num_query_rounds = 1;
 
-        let degree_bits0 = 7;
-        let degree_bits1 = 8;
+        let degree_bits = [7, 8, 9, 10];
+        let verifier_degree_bits = 10;
 
-        // Test first STARK
-        let num_rows = 1 << degree_bits0;
-        let public_inputs = [F::ZERO, F::ONE, fibonacci(num_rows - 1, F::ZERO, F::ONE)];
-        let stark0 = S::new(num_rows);
-        let trace = stark0.generate_trace(public_inputs[0], public_inputs[1]);
-        let proof0 = prove::<F, C, S, D>(
-            stark0,
-            &config,
-            trace,
-            &public_inputs,
-            Some(degree_bits1),
-            &mut TimingTree::default(),
-        )?;
+        let proofs = degree_bits.iter().map(|degree_bits|{
+            let num_rows = 1 << degree_bits;
+            let public_inputs = [F::ZERO, F::ONE, fibonacci(num_rows - 1, F::ZERO, F::ONE)];
+            let stark = S::new(num_rows);
+            let trace = stark.generate_trace(public_inputs[0], public_inputs[1]);
+            prove::<F, C, S, D>(
+                stark,
+                &config,
+                trace,
+                &public_inputs,
+                Some(verifier_degree_bits),
+                &mut TimingTree::default(),
+            ).unwrap()
+        }).collect();
 
-        // Test second STARK
-        let num_rows = 1 << degree_bits1;
-        let public_inputs = [F::ZERO, F::ONE, fibonacci(num_rows - 1, F::ZERO, F::ONE)];
-        let stark1 = S::new(num_rows);
-        let trace = stark1.generate_trace(public_inputs[0], public_inputs[1]);
-        let proof1 = prove::<F, C, S, D>(
-            stark1,
-            &config,
-            trace,
-            &public_inputs,
-            None,
-            &mut TimingTree::default(),
-        )?;
-        verify_stark_proof(stark1, proof1.clone(), &config)?;
+        // Generate the second STARK proof
+        let num_rows = 1 << verifier_degree_bits;
+        let stark = S::new(num_rows);
 
-        // Verify proof0 with the recursion circuit at different degree.
-        recursive_proof::<F, C, S, C, D>(
-            stark1,
-            proof0,
-            &config,
-            degree_bits1,
-            Some(degree_bits0),
-            true,
-        )?;
+        let circuit_config = CircuitConfig::standard_recursion_config();
+        let mut builder = CircuitBuilder::<F, D>::new(circuit_config);
+        let pt =
+            add_virtual_stark_proof_with_pis(&mut builder, &stark, &config, verifier_degree_bits, 0, 0);
+        verify_stark_proof_circuit::<F, C, S, D>(&mut builder, stark, pt, &config, verifier_degree_bits, Some(degree_bits[0]));
+        builder.print_gate_counts(0);
+
+        let data = builder.build::<C>();
+        degree_bits.iter().zip_eq(proofs).map(|(degree_bits, proof)|{
+            let mut pw = PartialWitness::new();
+            set_stark_proof_with_pis_target(&mut pw, &pt, &proof, degree_bits, builder.zero())?;
+            let proof = data.prove(pw)?;
+            data.verify(proof)?;
+        });
         Ok(())
     }
 }
