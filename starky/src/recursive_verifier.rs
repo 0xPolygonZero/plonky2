@@ -8,7 +8,6 @@ use core::iter::once;
 use anyhow::{ensure, Result};
 use itertools::Itertools;
 use plonky2::field::extension::Extendable;
-use plonky2::field::types::Field;
 use plonky2::fri::witness_util::set_fri_proof_target;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::challenger::RecursiveChallenger;
@@ -46,6 +45,7 @@ pub fn verify_stark_proof_circuit<
     proof_with_pis: StarkProofWithPublicInputsTarget<D>,
     inner_config: &StarkConfig,
     degree_bits: usize,
+    min_degree_bits_to_support: Option<usize>,
 ) where
     C::Hasher: AlgebraicHasher<F>,
 {
@@ -67,6 +67,7 @@ pub fn verify_stark_proof_circuit<
         None,
         inner_config,
         degree_bits,
+        min_degree_bits_to_support,
     );
 }
 
@@ -85,6 +86,7 @@ pub fn verify_stark_proof_with_challenges_circuit<
     ctl_vars: Option<&[CtlCheckVarsTarget<F, D>]>,
     inner_config: &StarkConfig,
     degree_bits: usize,
+    min_degree_bits_to_support: Option<usize>,
 ) where
     C::Hasher: AlgebraicHasher<F>,
 {
@@ -215,15 +217,27 @@ pub fn verify_stark_proof_with_challenges_circuit<
         ctl_zs_first.as_ref().map_or(0, |c| c.len()),
         inner_config,
     );
-    builder.verify_fri_proof::<C>(
-        &fri_instance,
-        &proof.openings.to_fri_openings(zero),
-        &challenges.fri_challenges,
-        &merkle_caps,
-        &proof.opening_proof,
-        &inner_config.fri_params(degree_bits, None),
-        Some(proof.degree_bits),
-    );
+    if let Some(min_degree_bits_to_support) = min_degree_bits_to_support {
+        builder.verify_fri_proof_with_multiple_degree_bits::<C>(
+            &fri_instance,
+            &proof.openings.to_fri_openings(zero),
+            &challenges.fri_challenges,
+            &merkle_caps,
+            &proof.opening_proof,
+            &inner_config.fri_params(degree_bits),
+            proof.degree_bits,
+            min_degree_bits_to_support,
+        );
+    } else {
+        builder.verify_fri_proof::<C>(
+            &fri_instance,
+            &proof.openings.to_fri_openings(zero),
+            &challenges.fri_challenges,
+            &merkle_caps,
+            &proof.opening_proof,
+            &inner_config.fri_params(degree_bits),
+        );
+    }
 }
 
 fn eval_l_0_and_l_last_circuit<F: RichField + Extendable<D>, const D: usize>(
@@ -281,7 +295,7 @@ pub fn add_virtual_stark_proof<F: RichField + Extendable<D>, S: Stark<F, D>, con
     num_ctl_helper_zs: usize,
     num_ctl_zs: usize,
 ) -> StarkProofTarget<D> {
-    let fri_params = config.fri_params(degree_bits, None);
+    let fri_params = config.fri_params(degree_bits);
     let cap_height = fri_params.config.cap_height;
 
     let num_leaves_per_oracle = once(S::COLUMNS)

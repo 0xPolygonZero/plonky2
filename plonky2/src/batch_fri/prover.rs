@@ -260,8 +260,6 @@ mod tests {
             hiding: false,
             degree_bits: k,
             reduction_arity_bits,
-            final_poly_coeff_len: None,
-            min_degree_bits_to_support: None,
         };
 
         let n = 1 << k;
@@ -357,8 +355,6 @@ mod tests {
             hiding: false,
             degree_bits: k0,
             reduction_arity_bits,
-            final_poly_coeff_len: None,
-            min_degree_bits_to_support: None,
         };
 
         let n0 = 1 << k0;

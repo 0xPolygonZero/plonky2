@@ -27,6 +27,7 @@ pub fn fri_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const
     lde_polynomial_values: PolynomialValues<F::Extension>,
     challenger: &mut Challenger<F, C::Hasher>,
     fri_params: &FriParams,
+    final_poly_coeff_len: Option<usize>,
     timing: &mut TimingTree,
 ) -> FriProof<F, C::Hasher, D> {
     let n = lde_polynomial_values.len();
@@ -41,6 +42,7 @@ pub fn fri_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const
             lde_polynomial_values,
             challenger,
             fri_params,
+            final_poly_coeff_len,
         )
     );
 
@@ -68,10 +70,7 @@ pub(crate) type FriCommitedTrees<F, C, const D: usize> = (
     PolynomialCoeffs<<F as Extendable<D>>::Extension>,
 );
 
-fn final_poly_coeff_len(
-    mut degree_bits: usize,
-    reduction_arity_bits: &Vec<usize>,
-) -> usize {
+pub fn final_poly_coeff_len(mut degree_bits: usize, reduction_arity_bits: &Vec<usize>) -> usize {
     for arity_bits in reduction_arity_bits {
         degree_bits -= *arity_bits;
     }
@@ -83,6 +82,7 @@ fn fri_committed_trees<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>,
     mut values: PolynomialValues<F::Extension>,
     challenger: &mut Challenger<F, C::Hasher>,
     fri_params: &FriParams,
+    final_poly_coeff_len: Option<usize>,
 ) -> FriCommitedTrees<F, C, D> {
     let mut trees = Vec::with_capacity(fri_params.reduction_arity_bits.len());
 
@@ -122,7 +122,7 @@ fn fri_committed_trees<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>,
     challenger.observe_extension_elements(&coeffs.coeffs);
     // When verifying this proof in a circuit with a different final polynomial length,
     // the challenger needs to observe the full length of the final polynomial.
-    if let Some(len) = fri_params.final_poly_coeff_len {
+    if let Some(len) = final_poly_coeff_len {
         let current_len = coeffs.coeffs.len();
         for _ in current_len..len {
             challenger.observe_extension_element(&F::Extension::ZERO);

@@ -178,6 +178,7 @@ mod tests {
             &config,
             trace,
             &public_inputs,
+            None,
             &mut TimingTree::default(),
         )?;
 
@@ -215,12 +216,13 @@ mod tests {
             &config,
             trace,
             &public_inputs,
+            None,
             &mut TimingTree::default(),
         )?;
         verify_stark_proof(stark, proof.clone(), &config)?;
         assert_eq!(degree_bits, proof.proof.recover_degree_bits(&config));
 
-        recursive_proof::<F, C, S, C, D>(stark, proof, &config, degree_bits, true)
+        recursive_proof::<F, C, S, C, D>(stark, proof, &config, degree_bits, None, true)
     }
 
     fn recursive_proof<
@@ -234,6 +236,7 @@ mod tests {
         inner_proof: StarkProofWithPublicInputs<F, InnerC, D>,
         inner_config: &StarkConfig,
         degree_bits: usize,
+        min_degree_bits_to_support: Option<usize>,
         print_gate_counts: bool,
     ) -> Result<()>
     where
@@ -259,6 +262,7 @@ mod tests {
             pt,
             inner_config,
             degree_bits,
+            min_degree_bits_to_support,
         );
 
         if print_gate_counts {
@@ -281,8 +285,10 @@ mod tests {
         let mut config = StarkConfig::standard_fast_config();
         config.fri_config.num_query_rounds = 8;
 
-        // Test first STARK
         let degree_bits0 = 7;
+        let degree_bits1 = 8;
+
+        // Test first STARK
         let num_rows = 1 << degree_bits0;
         let public_inputs = [F::ZERO, F::ONE, fibonacci(num_rows - 1, F::ZERO, F::ONE)];
         let stark0 = S::new(num_rows);
@@ -292,13 +298,11 @@ mod tests {
             &config,
             trace,
             &public_inputs,
+            Some(degree_bits1),
             &mut TimingTree::default(),
         )?;
-        // verify_stark_proof(stark0, proof0.clone(), &config)?;
-        // recursive_proof::<F, C, S, C, D>(stark0, proof0.clone(), &config, degree_bits0, true)?;
 
         // Test second STARK
-        let degree_bits1 = 8;
         let num_rows = 1 << degree_bits1;
         let public_inputs = [F::ZERO, F::ONE, fibonacci(num_rows - 1, F::ZERO, F::ONE)];
         let stark1 = S::new(num_rows);
@@ -308,13 +312,20 @@ mod tests {
             &config,
             trace,
             &public_inputs,
+            None,
             &mut TimingTree::default(),
         )?;
         verify_stark_proof(stark1, proof1.clone(), &config)?;
 
         // Verify proof0 with the recursion circuit at different degree.
-        // recursive_proof::<F, C, S, C, D>(stark1, proof1, &config, degree_bits1, true)?;
-        recursive_proof::<F, C, S, C, D>(stark1, proof0, &config, degree_bits1, true)?;
+        recursive_proof::<F, C, S, C, D>(
+            stark1,
+            proof0,
+            &config,
+            degree_bits1,
+            Some(degree_bits0),
+            true,
+        )?;
         Ok(())
     }
 }

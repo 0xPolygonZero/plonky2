@@ -192,6 +192,7 @@
 //!         &CONFIG,
 //!         trace,
 //!         &public_inputs,
+//!         None,
 //!         &mut TimingTree::default(),
 //!     ).expect("We should have a valid proof!");
 //!

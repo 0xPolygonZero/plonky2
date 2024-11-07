@@ -141,6 +141,7 @@ mod tests {
             &config,
             trace,
             &[public_input],
+            None,
             &mut TimingTree::default(),
         )?;
 
@@ -190,6 +191,7 @@ mod tests {
             &config,
             trace,
             &[public_input],
+            None,
             &mut TimingTree::default(),
         )?;
         verify_stark_proof(stark, proof.clone(), &config)?;
@@ -226,6 +228,7 @@ mod tests {
             pt,
             inner_config,
             degree_bits,
+            None,
         );
 
         if print_gate_counts {

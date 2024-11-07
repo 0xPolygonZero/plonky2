@@ -201,7 +201,7 @@ where
         &challenges.fri_challenges,
         &merkle_caps,
         &proof.opening_proof,
-        &config.fri_params(degree_bits, None),
+        &config.fri_params(degree_bits),
     )?;
 
     Ok(())
@@ -243,7 +243,7 @@ where
 
     ensure!(public_inputs.len() == S::PUBLIC_INPUTS);
 
-    let fri_params = config.fri_params(degree_bits, None);
+    let fri_params = config.fri_params(degree_bits);
     let cap_height = fri_params.config.cap_height;
 
     ensure!(trace_cap.height() == cap_height);

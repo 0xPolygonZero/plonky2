@@ -827,18 +827,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         (gate_idx, slot_idx)
     }
 
-    fn fri_params(
-        &self,
-        degree_bits: usize,
-        final_poly_coeff_len: Option<usize>,
-        min_degree_bits_to_support: Option<usize>,
-    ) -> FriParams {
-        self.config.fri_config.fri_params(
-            degree_bits,
-            final_poly_coeff_len,
-            min_degree_bits_to_support,
-            self.config.zero_knowledge,
-        )
+    fn fri_params(&self, degree_bits: usize) -> FriParams {
+        self.config
+            .fri_config
+            .fri_params(degree_bits, self.config.zero_knowledge)
     }
 
     /// The number of (base field) `arithmetic` operations that can be performed in a single gate.
@@ -863,7 +855,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let degree_bits_estimate = log2_strict(degree_estimate);
         let fri_queries = self.config.fri_config.num_query_rounds;
         let arities: Vec<usize> = self
-            .fri_params(degree_bits_estimate, None, None)
+            .fri_params(degree_bits_estimate)
             .reduction_arity_bits
             .iter()
             .map(|x| 1 << x)
@@ -1133,7 +1125,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let degree = self.gate_instances.len();
         debug!("Degree after blinding & padding: {}", degree);
         let degree_bits = log2_strict(degree);
-        let fri_params = self.fri_params(degree_bits, None, None);
+        let fri_params = self.fri_params(degree_bits);
         assert!(
             fri_params.total_arities() <= degree_bits + rate_bits - cap_height,
             "FRI total reduction arity is too large.",

@@ -114,7 +114,8 @@ mod tests {
 
         let stark = S::new(num_rows);
         let trace = stark.generate_trace();
-        let proof = prove::<F, C, S, D>(stark, &config, trace, &[], &mut TimingTree::default())?;
+        let proof =
+            prove::<F, C, S, D>(stark, &config, trace, &[], None, &mut TimingTree::default())?;
 
         verify_stark_proof(stark, proof, &config)
     }
@@ -156,7 +157,8 @@ mod tests {
 
         let stark = S::new(num_rows);
         let trace = stark.generate_trace();
-        let proof = prove::<F, C, S, D>(stark, &config, trace, &[], &mut TimingTree::default())?;
+        let proof =
+            prove::<F, C, S, D>(stark, &config, trace, &[], None, &mut TimingTree::default())?;
         verify_stark_proof(stark, proof.clone(), &config)?;
 
         recursive_proof::<F, C, S, C, D>(stark, proof, &config, true)
@@ -191,6 +193,7 @@ mod tests {
             pt,
             inner_config,
             degree_bits,
+            None,
         );
 
         if print_gate_counts {

@@ -189,6 +189,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         proof: &FriProofTarget<D>,
         params: &FriParams,
         current_degree_bits: Target,
+        min_degree_bits_to_support: usize,
     ) where
         C::Hasher: AlgebraicHasher<F>,
     {
@@ -206,8 +207,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let log_n = params.config.rate_bits + params.degree_bits;
         let mut current_log_n = self.constant(F::from_canonical_usize(params.config.rate_bits));
         current_log_n = self.add(current_log_n, current_degree_bits);
-        let min_log_n_to_support =
-            log_n - (params.degree_bits - params.min_degree_bits_to_support.unwrap());
+        let min_log_n_to_support = log_n - (params.degree_bits - min_degree_bits_to_support);
 
         with_context!(
             self,
@@ -528,7 +528,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         let g = self.constant(F::coset_shift());
         // `subgroup_x` is `subgroup[x_index]`, i.e., the actual field element in the domain.
-        let subgroup_x_vec: Vec<_> = log_n_range.clone()
+        let subgroup_x_vec: Vec<_> = log_n_range
+            .clone()
             .map(|n| {
                 with_context!(self, "compute x from its index", {
                     let phi = F::primitive_root_of_unity(n);
