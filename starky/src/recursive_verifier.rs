@@ -44,12 +44,12 @@ pub fn verify_stark_proof_circuit<
     stark: S,
     proof_with_pis: StarkProofWithPublicInputsTarget<D>,
     inner_config: &StarkConfig,
-    degree_bits: usize,
     min_degree_bits_to_support: Option<usize>,
 ) where
     C::Hasher: AlgebraicHasher<F>,
 {
     assert_eq!(proof_with_pis.public_inputs.len(), S::PUBLIC_INPUTS);
+    let max_degree_bits_to_support = proof_with_pis.proof.recover_degree_bits(inner_config);
 
     let mut challenger = RecursiveChallenger::<F, C::Hasher, D>::new(builder);
     let challenges = with_context!(
@@ -66,7 +66,7 @@ pub fn verify_stark_proof_circuit<
         challenges,
         None,
         inner_config,
-        degree_bits,
+        max_degree_bits_to_support,
         min_degree_bits_to_support,
     );
 }
