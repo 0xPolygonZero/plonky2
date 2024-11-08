@@ -368,7 +368,7 @@ pub fn set_stark_proof_with_pis_target<F, C: GenericConfig<D, F = F>, W, const D
     witness: &mut W,
     stark_proof_with_pis_target: &StarkProofWithPublicInputsTarget<D>,
     stark_proof_with_pis: &StarkProofWithPublicInputs<F, C, D>,
-    degree_bits: usize,
+    pis_degree_bits: usize,
     zero: Target,
 ) -> Result<()>
 where
@@ -390,7 +390,7 @@ where
         witness.set_target(pi_t, pi)?;
     }
 
-    set_stark_proof_target(witness, pt, proof, degree_bits, zero)
+    set_stark_proof_target(witness, pt, proof, pis_degree_bits, zero)
 }
 
 /// Set the targets in a [`StarkProofTarget`] to their corresponding values in a
@@ -399,7 +399,7 @@ pub fn set_stark_proof_target<F, C: GenericConfig<D, F = F>, W, const D: usize>(
     witness: &mut W,
     proof_target: &StarkProofTarget<D>,
     proof: &StarkProof<F, C, D>,
-    degree_bits: usize,
+    pis_degree_bits: usize,
     zero: Target,
 ) -> Result<()>
 where
@@ -409,7 +409,7 @@ where
 {
     witness.set_target(
         proof_target.degree_bits,
-        F::from_canonical_usize(degree_bits),
+        F::from_canonical_usize(pis_degree_bits),
     )?;
     witness.set_cap_target(&proof_target.trace_cap, &proof.trace_cap)?;
     if let (Some(quotient_polys_cap_target), Some(quotient_polys_cap)) =

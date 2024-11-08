@@ -287,7 +287,7 @@ mod tests {
                 let trace = stark.generate_trace(public_inputs[0], public_inputs[1]);
 
                 // Generate proof with the specified verifier degree
-                let proof = prove::<F, C, S, D>(
+                prove::<F, C, S, D>(
                     stark,
                     &stark_config,
                     trace,
@@ -295,8 +295,7 @@ mod tests {
                     Some(verifier_degree_bits),
                     &mut TimingTree::default(),
                 )
-                .unwrap();
-                proof
+                .unwrap()
             })
             .collect();
 
