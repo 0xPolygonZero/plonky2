@@ -134,6 +134,9 @@ impl<F: RichField + Extendable<D>, const D: usize> Stark<F, D> for FibonacciStar
 
 #[cfg(test)]
 mod tests {
+    #[cfg(not(feature = "std"))]
+    use alloc::vec::Vec;
+
     use anyhow::Result;
     use itertools::Itertools;
     use plonky2::field::extension::Extendable;
