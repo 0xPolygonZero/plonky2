@@ -425,7 +425,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn exp_extension_from_bits(
         &mut self,
         mut base: ExtensionTarget<D>,
-        exponent_bits: &Vec<BoolTarget>,
+        exponent_bits: &[BoolTarget],
     ) -> ExtensionTarget<D> {
         let mut res = self.one_extension();
         for i in 0..exponent_bits.len() {

@@ -200,7 +200,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         debug_assert_eq!(state.elements.len(), NUM_HASH_OUT_ELTS);
 
         let num_log_n = log_n_range.clone().count();
-        let mut final_states = vec![state.clone(); num_log_n];
+        let mut final_states = vec![state; num_log_n];
 
         for (&bit, &sibling) in leaf_index_bits.iter().zip(&proof.siblings) {
             debug_assert_eq!(sibling.elements.len(), NUM_HASH_OUT_ELTS);
@@ -219,9 +219,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             };
             // Store state at specific indices
             for n in 0..num_log_n - 1 {
-                final_states[n] = final_states[n + 1].clone();
+                final_states[n] = final_states[n + 1];
             }
-            final_states[num_log_n - 1] = state.clone();
+            final_states[num_log_n - 1] = state;
         }
 
         for i in 0..NUM_HASH_OUT_ELTS {
