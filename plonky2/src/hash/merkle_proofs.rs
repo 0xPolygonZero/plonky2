@@ -1,6 +1,6 @@
 #[cfg(not(feature = "std"))]
 use alloc::{vec, vec::Vec};
-use std::ops::RangeInclusive;
+use core::ops::RangeInclusive;
 
 use anyhow::{ensure, Result};
 use itertools::Itertools;
