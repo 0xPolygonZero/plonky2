@@ -271,11 +271,13 @@ mod tests {
     fn test_recursive_verifier_with_multiple_degree_bits() -> Result<()> {
         init_logger();
 
-        let stark_config = StarkConfig::standard_fast_config();
+        let mut stark_config = StarkConfig::standard_fast_config();
+        stark_config.fri_config.num_query_rounds = 1;
 
         let min_degree_bits_to_support = 7;
-        let verifier_degree_bits = 10;
+        let verifier_degree_bits = 10; // 14;
         let degree_bits = min_degree_bits_to_support..=verifier_degree_bits;
+        let fri_params = stark_config.fri_params(verifier_degree_bits);
 
         // Generate STARK proofs for each degree in `degree_bits`
         let proofs: Vec<_> = degree_bits
@@ -292,12 +294,15 @@ mod tests {
                     &stark_config,
                     trace,
                     &public_inputs,
-                    Some(verifier_degree_bits),
+                    Some(fri_params.clone()),
                     &mut TimingTree::default(),
                 )
                 .unwrap()
             })
             .collect();
+
+        // dbg!(proofs[0].clone());
+        // dbg!(proofs[7].clone());
 
         // Configure the circuit for recursive verification
         let num_rows = 1 << verifier_degree_bits;

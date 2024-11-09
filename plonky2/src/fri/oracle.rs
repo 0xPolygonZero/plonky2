@@ -179,6 +179,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         challenger: &mut Challenger<F, C::Hasher>,
         fri_params: &FriParams,
         final_poly_coeff_len: Option<usize>,
+        query_round_step_count: Option<usize>,
         timing: &mut TimingTree,
     ) -> FriProof<F, C::Hasher, D> {
         assert!(D > 1, "Not implemented for D=1.");
@@ -228,6 +229,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             challenger,
             fri_params,
             final_poly_coeff_len,
+            query_round_step_count,
             timing,
         );
 

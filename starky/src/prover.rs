@@ -14,6 +14,7 @@ use plonky2::field::types::Field;
 use plonky2::field::zero_poly_coset::ZeroPolyOnCoset;
 use plonky2::fri::oracle::PolynomialBatch;
 use plonky2::fri::prover::final_poly_coeff_len;
+use plonky2::fri::FriParams;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::challenger::Challenger;
 use plonky2::plonk::config::GenericConfig;
@@ -40,7 +41,7 @@ pub fn prove<F, C, S, const D: usize>(
     config: &StarkConfig,
     trace_poly_values: Vec<PolynomialValues<F>>,
     public_inputs: &[F],
-    verifier_circuit_degree_bits: Option<usize>,
+    verifier_circuit_fri_params: Option<FriParams>,
     timing: &mut TimingTree,
 ) -> Result<StarkProofWithPublicInputs<F, C, D>>
 where
@@ -76,14 +77,17 @@ where
     challenger.observe_elements(public_inputs);
     challenger.observe_cap(&trace_cap);
 
-    let final_poly_coeff_len =
-        if let Some(verifier_circuit_degree_bits) = verifier_circuit_degree_bits {
-            Some(final_poly_coeff_len(
-                verifier_circuit_degree_bits,
-                &fri_params.reduction_arity_bits,
-            ))
+    let (final_poly_coeff_len, query_round_step_count) =
+        if let Some(verifier_circuit_fri_params) = verifier_circuit_fri_params {
+            (
+                Some(final_poly_coeff_len(
+                    verifier_circuit_fri_params.degree_bits,
+                    &fri_params.reduction_arity_bits,
+                )),
+                Some(fri_params.reduction_arity_bits.len()),
+            )
         } else {
-            None
+            (None, None)
         };
     prove_with_commitment(
         &stark,
@@ -95,6 +99,7 @@ where
         &mut challenger,
         public_inputs,
         final_poly_coeff_len,
+        query_round_step_count,
         timing,
     )
 }
@@ -116,6 +121,7 @@ pub fn prove_with_commitment<F, C, S, const D: usize>(
     challenger: &mut Challenger<F, C::Hasher>,
     public_inputs: &[F],
     final_poly_coeff_len: Option<usize>,
+    query_round_step_count: Option<usize>,
     timing: &mut TimingTree,
 ) -> Result<StarkProofWithPublicInputs<F, C, D>>
 where
@@ -333,6 +339,7 @@ where
             challenger,
             &fri_params,
             final_poly_coeff_len,
+            query_round_step_count,
             timing,
         )
     );

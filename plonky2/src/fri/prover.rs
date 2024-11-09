@@ -8,7 +8,7 @@ use crate::field::extension::{flatten, unflatten, Extendable};
 use crate::field::polynomial::{PolynomialCoeffs, PolynomialValues};
 use crate::fri::proof::{FriInitialTreeProof, FriProof, FriQueryRound, FriQueryStep};
 use crate::fri::{FriConfig, FriParams};
-use crate::hash::hash_types::RichField;
+use crate::hash::hash_types::{RichField, NUM_HASH_OUT_ELTS};
 use crate::hash::hashing::PlonkyPermutation;
 use crate::hash::merkle_tree::MerkleTree;
 use crate::iop::challenger::Challenger;
@@ -28,6 +28,7 @@ pub fn fri_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const
     challenger: &mut Challenger<F, C::Hasher>,
     fri_params: &FriParams,
     final_poly_coeff_len: Option<usize>,
+    query_round_step_count: Option<usize>,
     timing: &mut TimingTree,
 ) -> FriProof<F, C::Hasher, D> {
     let n = lde_polynomial_values.len();
@@ -43,6 +44,7 @@ pub fn fri_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const
             challenger,
             fri_params,
             final_poly_coeff_len,
+            query_round_step_count,
         )
     );
 
@@ -83,6 +85,7 @@ fn fri_committed_trees<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>,
     challenger: &mut Challenger<F, C::Hasher>,
     fri_params: &FriParams,
     final_poly_coeff_len: Option<usize>,
+    query_round_step_count: Option<usize>,
 ) -> FriCommitedTrees<F, C, D> {
     let mut trees = Vec::with_capacity(fri_params.reduction_arity_bits.len());
 
@@ -112,6 +115,15 @@ fn fri_committed_trees<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>,
         );
         shift = shift.exp_u64(arity as u64);
         values = coeffs.coset_fft(shift.into())
+    }
+
+    if let Some(step_count) = query_round_step_count {
+        let cap_len = 1 << fri_params.config.cap_height * NUM_HASH_OUT_ELTS;
+        let zero_cap = vec![F::ZERO; cap_len];
+        for _ in step_count..fri_params.reduction_arity_bits.len() {
+            challenger.observe_elements(&zero_cap);
+            challenger.get_extension_challenge::<D>();
+        }
     }
 
     // The coefficients being removed here should always be zero.
