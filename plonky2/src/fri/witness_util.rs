@@ -59,10 +59,8 @@ where
 
     // Set remaining elements in target caps to ZERO if target is longer
     for target_cap in target_caps.iter().skip(proof_caps.len()) {
-        for cap_element in target_cap.0.iter() {
-            for element in cap_element.elements.iter() {
-                witness.set_target(*element, F::ZERO)?;
-            }
+        for hash in target_cap.0.iter() {
+            witness.set_hash_target(*hash, HashOut::ZERO)?;
         }
     }
 
@@ -98,7 +96,7 @@ where
             }
         }
 
-        for (st, s) in qt.steps.iter().zip_eq(&q.steps) {
+        for (st, s) in qt.steps.iter().zip(&q.steps) {
             for (&t, &x) in st.evals.iter().zip_eq(&s.evals) {
                 witness.set_extension_target(t, x)?;
             }
@@ -118,6 +116,17 @@ where
             // Set remaining elements in target to ZERO if target is longer
             for i in siblings_len..target_len {
                 witness.set_hash_target(st.merkle_proof.siblings[i], HashOut::ZERO)?;
+            }
+        }
+
+        // Set remaining steps in qt to ZERO if qt.steps is longer
+        for st in qt.steps.iter().skip(q.steps.len()) {
+            for &eval in &st.evals {
+                witness.set_extension_target(eval, F::Extension::ZERO)?;
+            }
+
+            for &sibling in &st.merkle_proof.siblings {
+                witness.set_hash_target(sibling, HashOut::ZERO)?;
             }
         }
     }
