@@ -275,7 +275,7 @@ mod tests {
         stark_config.fri_config.num_query_rounds = 1;
 
         let min_degree_bits_to_support = 7;
-        let verifier_degree_bits = 10; // 14;
+        let verifier_degree_bits = 14;
         let degree_bits = min_degree_bits_to_support..=verifier_degree_bits;
         let fri_params = stark_config.fri_params(verifier_degree_bits);
 

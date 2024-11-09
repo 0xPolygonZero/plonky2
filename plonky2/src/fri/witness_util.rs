@@ -43,12 +43,27 @@ where
         witness.set_extension_target(fri_proof_target.final_poly.0[i], F::Extension::ZERO)?;
     }
 
-    for (t, x) in fri_proof_target
-        .commit_phase_merkle_caps
-        .iter()
-        .zip_eq(&fri_proof.commit_phase_merkle_caps)
-    {
-        witness.set_cap_target(t, x)?;
+    let target_caps = &fri_proof_target.commit_phase_merkle_caps;
+    let proof_caps = &fri_proof.commit_phase_merkle_caps;
+
+    if target_caps.len() < proof_caps.len() {
+        return Err(anyhow!(
+            "fri_proof->commit_phase_merkle_caps's target length is less than the proof length"
+        ));
+    }
+
+    // Set matching elements in both proof and target caps
+    for (target_cap, proof_cap) in target_caps.iter().zip(proof_caps) {
+        witness.set_cap_target(target_cap, proof_cap)?;
+    }
+
+    // Set remaining elements in target caps to ZERO if target is longer
+    for target_cap in target_caps.iter().skip(proof_caps.len()) {
+        for cap_element in target_cap.0.iter() {
+            for element in cap_element.elements.iter() {
+                witness.set_target(*element, F::ZERO)?;
+            }
+        }
     }
 
     for (qt, q) in fri_proof_target
