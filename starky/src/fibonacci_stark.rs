@@ -277,7 +277,7 @@ mod tests {
         let min_degree_bits_to_support = 7;
         let verifier_degree_bits = 14;
         let degree_bits = min_degree_bits_to_support..=verifier_degree_bits;
-        let fri_params = stark_config.fri_params(verifier_degree_bits);
+        let verifier_fri_params = stark_config.fri_params(verifier_degree_bits);
 
         // Generate STARK proofs for each degree in `degree_bits`
         let proofs: Vec<_> = degree_bits
@@ -294,15 +294,12 @@ mod tests {
                     &stark_config,
                     trace,
                     &public_inputs,
-                    Some(fri_params.clone()),
+                    Some(verifier_fri_params.clone()),
                     &mut TimingTree::default(),
                 )
                 .unwrap()
             })
             .collect();
-
-        // dbg!(proofs[0].clone());
-        // dbg!(proofs[7].clone());
 
         // Configure the circuit for recursive verification
         let num_rows = 1 << verifier_degree_bits;
