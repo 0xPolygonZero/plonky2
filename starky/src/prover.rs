@@ -82,9 +82,9 @@ where
             (
                 Some(final_poly_coeff_len(
                     verifier_circuit_fri_params.degree_bits,
-                    &fri_params.reduction_arity_bits,
+                    &verifier_circuit_fri_params.reduction_arity_bits,
                 )),
-                Some(fri_params.reduction_arity_bits.len()),
+                Some(verifier_circuit_fri_params.reduction_arity_bits.len()),
             )
         } else {
             (None, None)

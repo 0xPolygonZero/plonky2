@@ -120,7 +120,7 @@ fn fri_committed_trees<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>,
     if let Some(step_count) = query_round_step_count {
         let cap_len = (1 << fri_params.config.cap_height) * NUM_HASH_OUT_ELTS;
         let zero_cap = vec![F::ZERO; cap_len];
-        for _ in step_count..fri_params.reduction_arity_bits.len() {
+        for _ in fri_params.reduction_arity_bits.len()..step_count {
             challenger.observe_elements(&zero_cap);
             challenger.get_extension_challenge::<D>();
         }
