@@ -119,6 +119,8 @@ fn fri_committed_trees<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>,
         values = coeffs.coset_fft(shift.into())
     }
 
+    // When verifying this proof in a circuit with a different number of query steps,
+    // the challenger needs to observe the additional hash caps.
     if let Some(step_count) = query_round_step_count {
         let cap_len = (1 << fri_params.config.cap_height) * NUM_HASH_OUT_ELTS;
         let zero_cap = vec![F::ZERO; cap_len];

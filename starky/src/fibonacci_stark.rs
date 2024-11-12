@@ -208,7 +208,7 @@ mod tests {
         init_logger();
 
         let config = StarkConfig::standard_fast_config();
-        let degree_bits = 10;
+        let degree_bits = 5;
         let num_rows = 1 << degree_bits;
         let public_inputs = [F::ZERO, F::ONE, fibonacci(num_rows - 1, F::ZERO, F::ONE)];
 
@@ -276,7 +276,7 @@ mod tests {
 
         let min_degree_bits_to_support = 4;
         let verifier_degree_bits = 30;
-        let degree_bits = 6..=15;
+        let degree_bits = 4..=15;
         let verifier_fri_params = stark_config.fri_params(verifier_degree_bits);
 
         // Generate STARK proofs for each degree in `degree_bits`

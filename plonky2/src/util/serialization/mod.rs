@@ -681,6 +681,7 @@ pub trait Read {
         let reduction_arity_bits = self.read_usize_vec()?;
         let degree_bits = self.read_usize()?;
         let hiding = self.read_bool()?;
+
         Ok(FriParams {
             config,
             reduction_arity_bits,

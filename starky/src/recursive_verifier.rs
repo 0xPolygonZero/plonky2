@@ -18,7 +18,6 @@ use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::config::{AlgebraicHasher, GenericConfig};
 use plonky2::util::reducing::ReducingFactorTarget;
 use plonky2::with_context;
-use plonky2_util::log2_ceil;
 
 use crate::config::StarkConfig;
 use crate::constraint_consumer::RecursiveConstraintConsumer;
@@ -94,6 +93,7 @@ pub fn verify_stark_proof_with_challenges_circuit<
 
     let zero = builder.zero();
     let one = builder.one_extension();
+    let two = builder.two();
 
     let num_ctl_polys = ctl_vars
         .map(|v| v.iter().map(|ctl| ctl.helper_columns.len()).sum::<usize>())
@@ -117,19 +117,10 @@ pub fn verify_stark_proof_with_challenges_circuit<
             .collect::<Vec<_>>(),
     );
 
-    let max_num_of_bits_in_degree = degree_bits + 1;
-    {
-        // degree_bits should be nonzero.
-        let max_num_degree_bits_bits = log2_ceil(F::TWO_ADICITY);
-        let degree_bits_bits = builder.split_le(proof.degree_bits, max_num_degree_bits_bits);
-        let mut or_all_bits = builder._false();
-        for i in 0..max_num_degree_bits_bits {
-            or_all_bits = builder.or(or_all_bits, degree_bits_bits[i]);
-        }
-        builder.assert_one(or_all_bits.target);
-    }
+    // degree_bits should be nonzero.
+    let _ = builder.inverse(proof.degree_bits);
 
-    let two = builder.two();
+    let max_num_of_bits_in_degree = degree_bits + 1;
     let degree = builder.exp(two, proof.degree_bits, max_num_of_bits_in_degree);
     let degree_bits_vec = builder.split_le(degree, max_num_of_bits_in_degree);
 
@@ -220,6 +211,7 @@ pub fn verify_stark_proof_with_challenges_circuit<
 
     let one = builder.one();
     let degree_sub_one = builder.sub(degree, one);
+    // Used to check if we want to skip a Fri query step.
     let degree_sub_one_bits_vec = builder.split_le(degree_sub_one, degree_bits);
 
     if let Some(min_degree_bits_to_support) = min_degree_bits_to_support {
