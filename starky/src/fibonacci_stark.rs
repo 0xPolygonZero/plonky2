@@ -274,9 +274,9 @@ mod tests {
         let mut stark_config = StarkConfig::standard_fast_config();
         stark_config.fri_config.num_query_rounds = 1;
 
-        let min_degree_bits_to_support = 7;
-        let verifier_degree_bits = 14;
-        let degree_bits = min_degree_bits_to_support..=verifier_degree_bits;
+        let min_degree_bits_to_support = 4;
+        let verifier_degree_bits = 30;
+        let degree_bits = 6..=15;
         let verifier_fri_params = stark_config.fri_params(verifier_degree_bits);
 
         // Generate STARK proofs for each degree in `degree_bits`

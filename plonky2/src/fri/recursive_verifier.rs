@@ -517,7 +517,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 self.le_sum(x_index_bits[slice_start..n].iter())
             })
             .collect();
-        let cap_index = self.random_access(n_index, cap_indices);
+        let cap_index = self.random_access_with_padding(n_index, cap_indices);
         with_context!(
             self,
             "check FRI initial proof",
@@ -545,7 +545,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             })
             .collect();
 
-        let mut subgroup_x = self.random_access(n_index, subgroup_x_vec);
+        let mut subgroup_x = self.random_access_with_padding(n_index, subgroup_x_vec);
 
         // old_eval is the last derived evaluation; it will be checked for consistency with its
         // committed "parent" value in the next iteration.
@@ -578,7 +578,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             let x_index_within_coset = self.le_sum(x_index_within_coset_bits.iter());
 
             // Check consistency with our old evaluation from the previous round.
-            let new_eval = self.random_access_extension(x_index_within_coset, evals.clone());
+            let new_eval =
+                self.random_access_extension_with_padding(x_index_within_coset, evals.clone());
             let step_active = degree_sub_one_bits_vec[index_in_degree_sub_one_bits_vec];
             self.conditional_assert_eq_ext(step_active.target, new_eval, old_eval);
 

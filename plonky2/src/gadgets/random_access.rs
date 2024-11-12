@@ -1,6 +1,8 @@
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 
+use itertools::repeat_n;
+
 use crate::field::extension::Extendable;
 use crate::gates::random_access::RandomAccessGate;
 use crate::hash::hash_types::{HashOutTarget, MerkleCapTarget, RichField};
@@ -39,6 +41,20 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         claimed_element
     }
 
+    /// Like `random_access`, but padding `v` with the last element to a power of two.
+    pub fn random_access_with_padding(&mut self, access_index: Target, v: Vec<Target>) -> Target {
+        let mut v = v;
+        let current_len = v.len();
+        let next_power_of_two = current_len.next_power_of_two();
+        if current_len < next_power_of_two {
+            // Get the last element (if there is one) and extend with it
+            if let Some(&last) = v.last() {
+                v.extend(repeat_n(last, next_power_of_two - current_len));
+            }
+        }
+        self.random_access(access_index, v)
+    }
+
     /// Like `random_access`, but with `ExtensionTarget`s rather than simple `Target`s.
     pub fn random_access_extension(
         &mut self,
@@ -50,6 +66,24 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             .collect();
 
         ExtensionTarget(selected.try_into().unwrap())
+    }
+
+    /// Like `random_access_extension`, but padding `v` with the last element to a power of two.
+    pub fn random_access_extension_with_padding(
+        &mut self,
+        access_index: Target,
+        v: Vec<ExtensionTarget<D>>,
+    ) -> ExtensionTarget<D> {
+        let mut v = v;
+        let current_len = v.len();
+        let next_power_of_two = current_len.next_power_of_two();
+        if current_len < next_power_of_two {
+            // Get the last element (if there is one) and extend with it
+            if let Some(&last) = v.last() {
+                v.extend(repeat_n(last, next_power_of_two - current_len));
+            }
+        }
+        self.random_access_extension(access_index, v)
     }
 
     /// Like `random_access`, but with `HashOutTarget`s rather than simple `Target`s.
