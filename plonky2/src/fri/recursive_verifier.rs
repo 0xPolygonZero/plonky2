@@ -189,6 +189,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         proof: &FriProofTarget<D>,
         params: &FriParams,
         current_degree_bits: Target,
+        degree_sub_one_bits_vec: &[BoolTarget],
         min_degree_bits_to_support: usize,
     ) where
         C::Hasher: AlgebraicHasher<F>,
@@ -214,8 +215,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             "check PoW",
             self.fri_verify_proof_of_work(challenges.fri_pow_response, &params.config)
         );
-
-        return;
 
         // Check that parameters are coherent.
         debug_assert_eq!(
@@ -258,6 +257,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                     challenges.fri_query_indices[i],
                     min_log_n_to_support..=log_n,
                     current_log_n,
+                    degree_sub_one_bits_vec,
                     round_proof,
                     params,
                 )
@@ -301,6 +301,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         initial_merkle_caps: &[MerkleCapTarget],
         cap_index: Target,
     ) {
+        let one = self.one();
         for (i, ((evals, merkle_proof), cap)) in proof
             .evals_proofs
             .iter()
@@ -311,6 +312,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 self,
                 &format!("verify {i}'th initial Merkle proof"),
                 self.verify_merkle_proof_to_cap_with_cap_indices::<H>(
+                    one,
                     evals.clone(),
                     x_index_bits,
                     log_n_range.clone(),
@@ -491,6 +493,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         x_index: Target,
         log_n_range: RangeInclusive<usize>,
         log_n: Target,
+        degree_sub_one_bits_vec: &[BoolTarget],
         round_proof: &FriQueryRoundTarget<D>,
         params: &FriParams,
     ) where
@@ -559,6 +562,13 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             )
         );
 
+        let mut index_in_degree_sub_one_bits_vec = {
+            let mut degree_bits_len = degree_sub_one_bits_vec.len();
+            for artity_bits in &params.reduction_arity_bits {
+                degree_bits_len -= artity_bits;
+            }
+            degree_bits_len
+        };
         for (i, &arity_bits) in params.reduction_arity_bits.iter().enumerate() {
             let evals = &round_proof.steps[i].evals;
 
@@ -569,10 +579,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
             // Check consistency with our old evaluation from the previous round.
             let new_eval = self.random_access_extension(x_index_within_coset, evals.clone());
-            self.connect_extension(new_eval, old_eval);
+            let step_active = degree_sub_one_bits_vec[index_in_degree_sub_one_bits_vec];
+            self.conditional_assert_eq_ext(step_active.target, new_eval, old_eval);
 
             // Infer P(y) from {P(x)}_{x^arity=y}.
-            old_eval = with_context!(
+            let eval = with_context!(
                 self,
                 "infer evaluation using interpolation",
                 self.compute_evaluation(
@@ -583,11 +594,13 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                     challenges.fri_betas[i],
                 )
             );
+            old_eval = self.select_ext(step_active, eval, old_eval);
 
             with_context!(
                 self,
                 "verify FRI round Merkle proof.",
                 self.verify_merkle_proof_to_cap_with_cap_indices::<C::Hasher>(
+                    step_active.target,
                     flatten_target(evals),
                     &coset_index_bits,
                     log_n_range.clone(),
@@ -599,9 +612,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             );
 
             // Update the point x to x^arity.
-            subgroup_x = self.exp_power_of_2(subgroup_x, arity_bits);
+            let subgroup_x_cur = self.exp_power_of_2(subgroup_x, arity_bits);
+            subgroup_x = self.select(step_active, subgroup_x_cur, subgroup_x);
 
             x_index_bits = coset_index_bits;
+            index_in_degree_sub_one_bits_vec += arity_bits;
         }
 
         // Final check of FRI. After all the reductions, we check that the final polynomial is equal

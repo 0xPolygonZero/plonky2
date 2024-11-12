@@ -117,7 +117,7 @@ pub fn verify_stark_proof_with_challenges_circuit<
             .collect::<Vec<_>>(),
     );
 
-    let max_num_degree_bits = F::TWO_ADICITY;
+    let max_num_of_bits_in_degree = degree_bits + 1;
     {
         // degree_bits should be nonzero.
         let max_num_degree_bits_bits = log2_ceil(F::TWO_ADICITY);
@@ -130,8 +130,8 @@ pub fn verify_stark_proof_with_challenges_circuit<
     }
 
     let two = builder.two();
-    let degree = builder.exp(two, proof.degree_bits, max_num_degree_bits);
-    let degree_bits_vec = builder.split_le(degree, max_num_degree_bits);
+    let degree = builder.exp(two, proof.degree_bits, max_num_of_bits_in_degree);
+    let degree_bits_vec = builder.split_le(degree, max_num_of_bits_in_degree);
 
     let zeta_pow_deg = builder.exp_extension_from_bits(challenges.stark_zeta, &degree_bits_vec);
     let z_h_zeta = builder.sub_extension(zeta_pow_deg, one);
@@ -217,6 +217,11 @@ pub fn verify_stark_proof_with_challenges_circuit<
         ctl_zs_first.as_ref().map_or(0, |c| c.len()),
         inner_config,
     );
+
+    let one = builder.one();
+    let degree_sub_one = builder.sub(degree, one);
+    let degree_sub_one_bits_vec = builder.split_le(degree_sub_one, degree_bits);
+
     if let Some(min_degree_bits_to_support) = min_degree_bits_to_support {
         builder.verify_fri_proof_with_multiple_degree_bits::<C>(
             &fri_instance,
@@ -226,6 +231,7 @@ pub fn verify_stark_proof_with_challenges_circuit<
             &proof.opening_proof,
             &inner_config.fri_params(degree_bits),
             proof.degree_bits,
+            &degree_sub_one_bits_vec,
             min_degree_bits_to_support,
         );
     } else {

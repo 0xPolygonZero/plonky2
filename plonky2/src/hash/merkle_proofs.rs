@@ -185,6 +185,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// rather than being contained in `leaf_index_bits`.
     pub(crate) fn verify_merkle_proof_to_cap_with_cap_indices<H: AlgebraicHasher<F>>(
         &mut self,
+        condition: Target,
         leaf_data: Vec<Target>,
         leaf_index_bits: &[BoolTarget],
         log_n_range: RangeInclusive<usize>,
@@ -233,7 +234,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 n_index,
                 final_states.iter().map(|s| s.elements[i]).collect(),
             );
-            self.connect(result, state);
+            self.conditional_assert_eq(condition, result, state);
         }
     }
 

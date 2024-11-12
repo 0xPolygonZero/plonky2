@@ -548,6 +548,18 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.connect(constr, zero);
     }
 
+    /// If `condition`, enforces that two `ExtensionTarget<D>` values are equal.
+    pub fn conditional_assert_eq_ext(
+        &mut self,
+        condition: Target,
+        x: ExtensionTarget<D>,
+        y: ExtensionTarget<D>,
+    ) {
+        for i in 0..D {
+            self.conditional_assert_eq(condition, x.0[i], y.0[i]);
+        }
+    }
+
     /// Enforces that a routable `Target` value is 0, using Plonk's permutation argument.
     pub fn assert_zero(&mut self, x: Target) {
         let zero = self.zero();
