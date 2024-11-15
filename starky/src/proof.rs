@@ -38,18 +38,8 @@ pub struct StarkProof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, 
     pub openings: StarkOpeningSet<F, D>,
     /// A batch FRI argument for all openings.
     pub opening_proof: FriProof<F, C::Hasher, D>,
-}
-
-impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> StarkProof<F, C, D> {
-    /// Recover the length of the trace from a STARK proof and a STARK config.
-    pub fn recover_degree_bits(&self, config: &StarkConfig) -> usize {
-        let initial_merkle_proof = &self.opening_proof.query_round_proofs[0]
-            .initial_trees_proof
-            .evals_proofs[0]
-            .1;
-        let lde_bits = config.fri_config.cap_height + initial_merkle_proof.siblings.len();
-        lde_bits - config.fri_config.rate_bits
-    }
+    /// Log2 of the trace table's degree
+    pub degree_bits: usize,
 }
 
 /// Circuit version of [`StarkProof`].

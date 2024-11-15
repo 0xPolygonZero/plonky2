@@ -224,7 +224,7 @@ mod tests {
             &mut TimingTree::default(),
         )?;
         verify_stark_proof(stark, proof.clone(), &config)?;
-        assert_eq!(degree_bits, proof.proof.recover_degree_bits(&config));
+        assert_eq!(degree_bits, proof.proof.degree_bits);
 
         recursive_proof::<F, C, S, C, D>(stark, proof, &config, true)
     }
@@ -247,7 +247,7 @@ mod tests {
         let circuit_config = CircuitConfig::standard_recursion_config();
         let mut builder = CircuitBuilder::<F, D>::new(circuit_config);
         let mut pw = PartialWitness::new();
-        let degree_bits = inner_proof.proof.recover_degree_bits(inner_config);
+        let degree_bits = inner_proof.proof.degree_bits;
         let pt =
             add_virtual_stark_proof_with_pis(&mut builder, &stark, inner_config, degree_bits, 0, 0);
         set_stark_proof_with_pis_target(&mut pw, &pt, &inner_proof, degree_bits, builder.zero())?;

@@ -107,7 +107,7 @@ where
             .collect::<Vec<_>>(),
     );
 
-    let degree_bits = proof.recover_degree_bits(config);
+    let degree_bits = proof.degree_bits;
     let (l_0, l_last) = eval_l_0_and_l_last(degree_bits, challenges.stark_zeta);
     let last = F::primitive_root_of_unity(degree_bits).inverse();
     let z_last = challenges.stark_zeta - last.into();
@@ -220,8 +220,6 @@ where
     C: GenericConfig<D, F = F>,
     S: Stark<F, D>,
 {
-    let degree_bits = proof.recover_degree_bits(config);
-
     let StarkProof {
         trace_cap,
         auxiliary_polys_cap,
@@ -230,6 +228,7 @@ where
         // The shape of the opening proof will be checked in the FRI verifier (see
         // validate_fri_proof_shape), so we ignore it here.
         opening_proof: _,
+        degree_bits,
     } = proof;
 
     let StarkOpeningSet {
@@ -243,7 +242,7 @@ where
 
     ensure!(public_inputs.len() == S::PUBLIC_INPUTS);
 
-    let fri_params = config.fri_params(degree_bits);
+    let fri_params = config.fri_params(*degree_bits);
     let cap_height = fri_params.config.cap_height;
 
     ensure!(trace_cap.height() == cap_height);

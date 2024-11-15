@@ -350,6 +350,7 @@ where
         quotient_polys_cap,
         openings,
         opening_proof,
+        degree_bits,
     };
 
     Ok(StarkProofWithPublicInputs {
