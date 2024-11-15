@@ -196,7 +196,7 @@
 //!         &mut TimingTree::default(),
 //!     ).expect("We should have a valid proof!");
 //!
-//!     verify_stark_proof(stark, proof, &CONFIG)
+//!     verify_stark_proof(stark, proof, &CONFIG, None)
 //!         .expect("We should be able to verify this proof!")
 //! }
 //! ```
