@@ -14,6 +14,7 @@ use plonky2::field::types::Field;
 use plonky2::field::zero_poly_coset::ZeroPolyOnCoset;
 use plonky2::fri::oracle::PolynomialBatch;
 use plonky2::fri::prover::final_poly_coeff_len;
+use plonky2::fri::reduction_strategies::FriReductionStrategy;
 use plonky2::fri::FriParams;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::challenger::Challenger;
@@ -59,6 +60,31 @@ where
         "FRI total reduction arity is too large.",
     );
 
+    let (final_poly_coeff_len, query_round_step_count) =
+        if let Some(verifier_circuit_fri_params) = verifier_circuit_fri_params {
+            let len = final_poly_coeff_len(
+                verifier_circuit_fri_params.degree_bits,
+                &verifier_circuit_fri_params.reduction_arity_bits,
+            );
+            let strategy = &config.fri_config.reduction_strategy;
+            // Assert that the strategy is `ConstantArityBits`
+            assert!(
+                matches!(strategy, FriReductionStrategy::ConstantArityBits(_, _)),
+                "Fri Reduction Strategy is not ConstantArityBits"
+            );
+            if let FriReductionStrategy::ConstantArityBits(_, final_poly_bits) = strategy {
+                assert_eq!(len, 1 << (1 + *final_poly_bits));
+            } else {
+                panic!("Fri Reduction Strategy is not ConstantArityBits");
+            }
+            (
+                Some(len),
+                Some(verifier_circuit_fri_params.reduction_arity_bits.len()),
+            )
+        } else {
+            (None, None)
+        };
+
     let trace_commitment = timed!(
         timing,
         "compute trace commitment",
@@ -76,19 +102,6 @@ where
     let mut challenger = Challenger::new();
     challenger.observe_elements(public_inputs);
     challenger.observe_cap(&trace_cap);
-
-    let (final_poly_coeff_len, query_round_step_count) =
-        if let Some(verifier_circuit_fri_params) = verifier_circuit_fri_params {
-            (
-                Some(final_poly_coeff_len(
-                    verifier_circuit_fri_params.degree_bits,
-                    &verifier_circuit_fri_params.reduction_arity_bits,
-                )),
-                Some(verifier_circuit_fri_params.reduction_arity_bits.len()),
-            )
-        } else {
-            (None, None)
-        };
     prove_with_commitment(
         &stark,
         config,
