@@ -59,28 +59,23 @@ where
         fri_params.total_arities() <= degree_bits + rate_bits - cap_height,
         "FRI total reduction arity is too large.",
     );
-
     let (final_poly_coeff_len, query_round_step_count) =
         if let Some(verifier_circuit_fri_params) = verifier_circuit_fri_params {
             let len = final_poly_coeff_len(
                 verifier_circuit_fri_params.degree_bits,
                 &verifier_circuit_fri_params.reduction_arity_bits,
             );
-            let strategy = &config.fri_config.reduction_strategy;
-            // Assert that the strategy is `ConstantArityBits`
-            assert!(
-                matches!(strategy, FriReductionStrategy::ConstantArityBits(_, _)),
-                "Fri Reduction Strategy is not ConstantArityBits"
-            );
-            if let FriReductionStrategy::ConstantArityBits(_, final_poly_bits) = strategy {
-                assert_eq!(len, 1 << (1 + *final_poly_bits));
-            } else {
-                panic!("Fri Reduction Strategy is not ConstantArityBits");
+
+            match &config.fri_config.reduction_strategy {
+                FriReductionStrategy::ConstantArityBits(_, final_poly_bits) => {
+                    assert_eq!(len, 1 << (1 + *final_poly_bits));
+                    (
+                        Some(len),
+                        Some(verifier_circuit_fri_params.reduction_arity_bits.len()),
+                    )
+                }
+                _ => panic!("Fri Reduction Strategy is not ConstantArityBits"),
             }
-            (
-                Some(len),
-                Some(verifier_circuit_fri_params.reduction_arity_bits.len()),
-            )
         } else {
             (None, None)
         };
