@@ -1,6 +1,8 @@
 use plonky2::field::extension::Extendable;
 use plonky2::field::polynomial::PolynomialCoeffs;
 use plonky2::fri::proof::{FriProof, FriProofTarget};
+use plonky2::fri::prover::final_poly_coeff_len;
+use plonky2::fri::FriParams;
 use plonky2::gadgets::polynomial::PolynomialCoeffsExtTarget;
 use plonky2::hash::hash_types::{MerkleCapTarget, RichField};
 use plonky2::hash::merkle_tree::MerkleCap;
@@ -35,6 +37,7 @@ fn get_challenges<F, C, const D: usize>(
     pow_witness: F,
     config: &StarkConfig,
     degree_bits: usize,
+    verifier_circuit_fri_params: Option<FriParams>,
 ) -> StarkProofChallenges<F, D>
 where
     F: RichField + Extendable<D>,
@@ -67,6 +70,19 @@ where
 
     challenger.observe_openings(&openings.to_fri_openings());
 
+    let (final_poly_coeff_len, query_round_step_count) =
+        if let Some(verifier_circuit_fri_params) = verifier_circuit_fri_params {
+            (
+                Some(final_poly_coeff_len(
+                    verifier_circuit_fri_params.degree_bits,
+                    &verifier_circuit_fri_params.reduction_arity_bits,
+                )),
+                Some(verifier_circuit_fri_params.reduction_arity_bits.len()),
+            )
+        } else {
+            (None, None)
+        };
+
     StarkProofChallenges {
         lookup_challenge_set,
         stark_alphas,
@@ -77,6 +93,8 @@ where
             pow_witness,
             degree_bits,
             &config.fri_config,
+            final_poly_coeff_len,
+            query_round_step_count,
         ),
     }
 }
@@ -99,6 +117,7 @@ where
         challenges: Option<&GrandProductChallengeSet<F>>,
         ignore_trace_cap: bool,
         config: &StarkConfig,
+        verifier_circuit_fri_params: Option<FriParams>,
     ) -> StarkProofChallenges<F, D> {
         let degree_bits = self.recover_degree_bits(config);
 
@@ -134,6 +153,7 @@ where
             *pow_witness,
             config,
             degree_bits,
+            verifier_circuit_fri_params,
         )
     }
 }
@@ -156,10 +176,16 @@ where
         challenges: Option<&GrandProductChallengeSet<F>>,
         ignore_trace_cap: bool,
         config: &StarkConfig,
+        verifier_circuit_fri_params: Option<FriParams>,
     ) -> StarkProofChallenges<F, D> {
         challenger.observe_elements(&self.public_inputs);
-        self.proof
-            .get_challenges(challenger, challenges, ignore_trace_cap, config)
+        self.proof.get_challenges(
+            challenger,
+            challenges,
+            ignore_trace_cap,
+            config,
+            verifier_circuit_fri_params,
+        )
     }
 }
 

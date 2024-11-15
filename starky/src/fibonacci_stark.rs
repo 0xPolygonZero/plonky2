@@ -186,7 +186,7 @@ mod tests {
             &mut TimingTree::default(),
         )?;
 
-        verify_stark_proof(stark, proof, &config)
+        verify_stark_proof(stark, proof, &config, None)
     }
 
     #[test]
@@ -223,7 +223,7 @@ mod tests {
             None,
             &mut TimingTree::default(),
         )?;
-        verify_stark_proof(stark, proof.clone(), &config)?;
+        verify_stark_proof(stark, proof.clone(), &config, None)?;
         assert_eq!(degree_bits, proof.proof.recover_degree_bits(&config));
 
         recursive_proof::<F, C, S, C, D>(stark, proof, &config, true)
@@ -304,8 +304,12 @@ mod tests {
         // Configure the circuit for recursive verification
         let num_rows = 1 << verifier_degree_bits;
         let stark = S::new(num_rows);
-        let circuit_config = CircuitConfig::standard_recursion_config();
-        let mut builder = CircuitBuilder::<F, D>::new(circuit_config);
+        for p in proofs.clone() {
+            verify_stark_proof(stark, p, &stark_config, Some(verifier_fri_params.clone()))?;
+        }
+
+        let recursive_verification_circuit_config = CircuitConfig::standard_recursion_config();
+        let mut builder = CircuitBuilder::<F, D>::new(recursive_verification_circuit_config);
         let zero = builder.zero();
 
         // Set up proof verification within the circuit

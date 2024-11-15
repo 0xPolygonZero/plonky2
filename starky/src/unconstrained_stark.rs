@@ -117,7 +117,7 @@ mod tests {
         let proof =
             prove::<F, C, S, D>(stark, &config, trace, &[], None, &mut TimingTree::default())?;
 
-        verify_stark_proof(stark, proof, &config)
+        verify_stark_proof(stark, proof, &config, None)
     }
 
     #[test]
@@ -159,7 +159,7 @@ mod tests {
         let trace = stark.generate_trace();
         let proof =
             prove::<F, C, S, D>(stark, &config, trace, &[], None, &mut TimingTree::default())?;
-        verify_stark_proof(stark, proof.clone(), &config)?;
+        verify_stark_proof(stark, proof.clone(), &config, None)?;
 
         recursive_proof::<F, C, S, C, D>(stark, proof, &config, true)
     }
