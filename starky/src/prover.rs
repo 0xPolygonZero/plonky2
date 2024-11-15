@@ -61,13 +61,13 @@ where
     );
     let (final_poly_coeff_len, query_round_step_count) =
         if let Some(verifier_circuit_fri_params) = verifier_circuit_fri_params {
-            let len = final_poly_coeff_len(
-                verifier_circuit_fri_params.degree_bits,
-                &verifier_circuit_fri_params.reduction_arity_bits,
-            );
-
+            assert_eq!(verifier_circuit_fri_params.config, fri_params.config);
             match &config.fri_config.reduction_strategy {
                 FriReductionStrategy::ConstantArityBits(_, final_poly_bits) => {
+                    let len = final_poly_coeff_len(
+                        verifier_circuit_fri_params.degree_bits,
+                        &verifier_circuit_fri_params.reduction_arity_bits,
+                    );
                     assert_eq!(len, 1 << (1 + *final_poly_bits));
                     (
                         Some(len),
