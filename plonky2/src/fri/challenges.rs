@@ -1,7 +1,9 @@
-use plonky2_field::types::Field;
+#[cfg(not(feature = "std"))]
+use alloc::vec;
 
 use crate::field::extension::Extendable;
 use crate::field::polynomial::PolynomialCoeffs;
+use crate::field::types::Field;
 use crate::fri::proof::{FriChallenges, FriChallengesTarget};
 use crate::fri::structure::{FriOpenings, FriOpeningsTarget};
 use crate::fri::FriConfig;
