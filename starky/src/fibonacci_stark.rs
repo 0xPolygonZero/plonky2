@@ -275,6 +275,10 @@ mod tests {
         stark_config.fri_config.num_query_rounds = 1;
 
         let min_degree_bits_to_support = 4;
+        // Currently, we only support verifier_degree_bits to be {30, 26, 22, 18, …}, as they
+        // generate the max final polynomial length when using the default configuration
+        // ConstantArityBits(4, 5). This ensures that for other degrees, the final proof polynomial
+        // will not be longer than the circuit’s final polynomial length.
         let verifier_degree_bits = 30;
         let degree_bits = 4..=15;
         let verifier_fri_params = stark_config.fri_params(verifier_degree_bits);
