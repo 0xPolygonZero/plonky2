@@ -186,7 +186,7 @@ mod tests {
             &mut TimingTree::default(),
         )?;
 
-        verify_stark_proof(stark, proof, &config)
+        verify_stark_proof(stark, proof, &config, None)
     }
 
     #[test]
@@ -223,7 +223,7 @@ mod tests {
             None,
             &mut TimingTree::default(),
         )?;
-        verify_stark_proof(stark, proof.clone(), &config)?;
+        verify_stark_proof(stark, proof.clone(), &config, None)?;
         assert_eq!(degree_bits, proof.proof.degree_bits);
 
         recursive_proof::<F, C, S, C, D>(stark, proof, &config, true)
@@ -275,6 +275,10 @@ mod tests {
         stark_config.fri_config.num_query_rounds = 1;
 
         let min_degree_bits_to_support = 4;
+        // Currently, we only support verifier_degree_bits to be {30, 26, 22, 18, …}, as they
+        // generate the max final polynomial length when using the default configuration
+        // ConstantArityBits(4, 5). This ensures that for other degrees, the final proof polynomial
+        // will not be longer than the circuit’s final polynomial length.
         let verifier_degree_bits = 30;
         let degree_bits = 4..=15;
         let verifier_fri_params = stark_config.fri_params(verifier_degree_bits);
@@ -304,8 +308,12 @@ mod tests {
         // Configure the circuit for recursive verification
         let num_rows = 1 << verifier_degree_bits;
         let stark = S::new(num_rows);
-        let circuit_config = CircuitConfig::standard_recursion_config();
-        let mut builder = CircuitBuilder::<F, D>::new(circuit_config);
+        for p in proofs.clone() {
+            verify_stark_proof(stark, p, &stark_config, Some(verifier_fri_params.clone()))?;
+        }
+
+        let recursive_verification_circuit_config = CircuitConfig::standard_recursion_config();
+        let mut builder = CircuitBuilder::<F, D>::new(recursive_verification_circuit_config);
         let zero = builder.zero();
 
         // Set up proof verification within the circuit
