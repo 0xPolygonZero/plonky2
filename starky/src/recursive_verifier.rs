@@ -366,7 +366,6 @@ pub fn set_stark_proof_with_pis_target<F, C: GenericConfig<D, F = F>, W, const D
     witness: &mut W,
     stark_proof_with_pis_target: &StarkProofWithPublicInputsTarget<D>,
     stark_proof_with_pis: &StarkProofWithPublicInputs<F, C, D>,
-    pis_degree_bits: usize,
     zero: Target,
 ) -> Result<()>
 where
@@ -388,7 +387,13 @@ where
         witness.set_target(pi_t, pi)?;
     }
 
-    set_stark_proof_target(witness, pt, proof, pis_degree_bits, zero)
+    set_stark_proof_target(
+        witness,
+        pt,
+        proof,
+        stark_proof_with_pis.proof.degree_bits,
+        zero,
+    )
 }
 
 /// Set the targets in a [`StarkProofTarget`] to their corresponding values in a

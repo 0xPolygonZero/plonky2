@@ -138,7 +138,6 @@ mod tests {
     use alloc::vec::Vec;
 
     use anyhow::Result;
-    use itertools::Itertools;
     use plonky2::field::extension::Extendable;
     use plonky2::field::types::Field;
     use plonky2::hash::hash_types::RichField;
@@ -250,7 +249,7 @@ mod tests {
         let degree_bits = inner_proof.proof.degree_bits;
         let pt =
             add_virtual_stark_proof_with_pis(&mut builder, &stark, inner_config, degree_bits, 0, 0);
-        set_stark_proof_with_pis_target(&mut pw, &pt, &inner_proof, degree_bits, builder.zero())?;
+        set_stark_proof_with_pis_target(&mut pw, &pt, &inner_proof, builder.zero())?;
 
         verify_stark_proof_circuit::<F, InnerC, S, D>(&mut builder, stark, pt, inner_config, None);
 
@@ -338,14 +337,12 @@ mod tests {
         let data = builder.build::<C>();
 
         // Verify each proof using partial witnesses
-        degree_bits
-            .zip_eq(proofs)
-            .try_for_each(|(degree_bits, proof)| {
-                let mut pw = PartialWitness::new();
-                set_stark_proof_with_pis_target(&mut pw, &pt, &proof, degree_bits, zero)?;
-                let proof = data.prove(pw)?;
-                data.verify(proof)
-            })?;
+        proofs.iter().try_for_each(|proof| {
+            let mut pw = PartialWitness::new();
+            set_stark_proof_with_pis_target(&mut pw, &pt, &proof, zero)?;
+            let proof = data.prove(pw)?;
+            data.verify(proof)
+        })?;
 
         Ok(())
     }
