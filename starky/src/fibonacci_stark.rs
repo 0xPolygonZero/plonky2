@@ -339,7 +339,7 @@ mod tests {
         // Verify each proof using partial witnesses
         proofs.iter().try_for_each(|proof| {
             let mut pw = PartialWitness::new();
-            set_stark_proof_with_pis_target(&mut pw, &pt, &proof, zero)?;
+            set_stark_proof_with_pis_target(&mut pw, &pt, proof, zero)?;
             let proof = data.prove(pw)?;
             data.verify(proof)
         })?;
