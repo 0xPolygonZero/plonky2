@@ -119,8 +119,6 @@ where
         config: &StarkConfig,
         verifier_circuit_fri_params: Option<FriParams>,
     ) -> StarkProofChallenges<F, D> {
-        let degree_bits = self.recover_degree_bits(config);
-
         let StarkProof {
             trace_cap,
             auxiliary_polys_cap,
@@ -133,6 +131,7 @@ where
                     pow_witness,
                     ..
                 },
+            degree_bits,
         } = &self;
 
         let trace_cap = if ignore_trace_cap {
@@ -152,7 +151,7 @@ where
             final_poly,
             *pow_witness,
             config,
-            degree_bits,
+            *degree_bits,
             verifier_circuit_fri_params,
         )
     }
