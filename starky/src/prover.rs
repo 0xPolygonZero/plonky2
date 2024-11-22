@@ -59,7 +59,7 @@ where
         fri_params.total_arities() <= degree_bits + rate_bits - cap_height,
         "FRI total reduction arity is too large.",
     );
-    let (final_poly_coeff_len, query_round_step_count) =
+    let (final_poly_coeff_len, max_num_query_steps) =
         if let Some(verifier_circuit_fri_params) = verifier_circuit_fri_params {
             assert_eq!(verifier_circuit_fri_params.config, fri_params.config);
             match &config.fri_config.reduction_strategy {
@@ -107,7 +107,7 @@ where
         &mut challenger,
         public_inputs,
         final_poly_coeff_len,
-        query_round_step_count,
+        max_num_query_steps,
         timing,
     )
 }
@@ -129,7 +129,7 @@ pub fn prove_with_commitment<F, C, S, const D: usize>(
     challenger: &mut Challenger<F, C::Hasher>,
     public_inputs: &[F],
     final_poly_coeff_len: Option<usize>,
-    query_round_step_count: Option<usize>,
+    max_num_query_steps: Option<usize>,
     timing: &mut TimingTree,
 ) -> Result<StarkProofWithPublicInputs<F, C, D>>
 where
@@ -347,7 +347,7 @@ where
             challenger,
             &fri_params,
             final_poly_coeff_len,
-            query_round_step_count,
+            max_num_query_steps,
             timing,
         )
     );

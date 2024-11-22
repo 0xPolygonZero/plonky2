@@ -180,6 +180,12 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
     }
 
+    /// Verifies the current FRI proof with `current_degree_bits`, which may differ from the
+    /// circuit's `degree_bits` in `params`.
+    /// The circuit uses random access gates to select and connect the current hash/evaluation
+    /// values with those in the proof. It is designed with the maximum number of query/folding
+    /// steps and final polynomial length at `degree_bits`, "skipping" steps when the actual proof
+    /// has fewer.
     pub fn verify_fri_proof_with_multiple_degree_bits<C: GenericConfig<D, F = F>>(
         &mut self,
         instance: &FriInstanceInfoTarget<D>,
@@ -208,7 +214,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         let log_n = params.config.rate_bits + params.degree_bits;
         let mut current_log_n = self.constant(F::from_canonical_usize(params.config.rate_bits));
         current_log_n = self.add(current_log_n, current_degree_bits);
-        let min_log_n_to_support = log_n - (params.degree_bits - min_degree_bits_to_support);
+        let min_log_n_to_support = params.config.rate_bits + min_degree_bits_to_support;
 
         with_context!(
             self,
@@ -517,7 +523,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 self.le_sum(x_index_bits[slice_start..n].iter())
             })
             .collect();
-        let cap_index = self.random_access_with_padding(n_index, cap_indices);
+        let cap_index = self.random_access(n_index, cap_indices);
         with_context!(
             self,
             "check FRI initial proof",
@@ -545,7 +551,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             })
             .collect();
 
-        let mut subgroup_x = self.random_access_with_padding(n_index, subgroup_x_vec);
+        let mut subgroup_x = self.random_access(n_index, subgroup_x_vec);
 
         // old_eval is the last derived evaluation; it will be checked for consistency with its
         // committed "parent" value in the next iteration.
@@ -564,8 +570,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         let mut index_in_degree_sub_one_bits_vec = {
             let mut degree_bits_len = degree_sub_one_bits_vec.len();
-            for artity_bits in &params.reduction_arity_bits {
-                degree_bits_len -= artity_bits;
+            for arity_bits in &params.reduction_arity_bits {
+                degree_bits_len -= arity_bits;
             }
             degree_bits_len
         };
@@ -578,8 +584,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             let x_index_within_coset = self.le_sum(x_index_within_coset_bits.iter());
 
             // Check consistency with our old evaluation from the previous round.
-            let new_eval =
-                self.random_access_extension_with_padding(x_index_within_coset, evals.clone());
+            let new_eval = self.random_access_extension(x_index_within_coset, evals.clone());
             let step_active = degree_sub_one_bits_vec[index_in_degree_sub_one_bits_vec];
             self.conditional_assert_eq_ext(step_active.target, new_eval, old_eval);
 

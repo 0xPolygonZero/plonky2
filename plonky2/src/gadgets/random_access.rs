@@ -15,6 +15,15 @@ use crate::util::log2_strict;
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// Checks that a `Target` matches a vector at a particular index.
     pub fn random_access(&mut self, access_index: Target, v: Vec<Target>) -> Target {
+        let mut v = v;
+        let current_len = v.len();
+        let next_power_of_two = current_len.next_power_of_two();
+        if current_len < next_power_of_two {
+            // Get the last element (if there is one) and extend with it
+            if let Some(&last) = v.last() {
+                v.extend(repeat_n(last, next_power_of_two - current_len));
+            }
+        }
         let vec_size = v.len();
         let bits = log2_strict(vec_size);
         debug_assert!(vec_size > 0);
@@ -41,39 +50,12 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         claimed_element
     }
 
-    /// Like `random_access`, but padding `v` with the last element to a power of two.
-    pub fn random_access_with_padding(&mut self, access_index: Target, v: Vec<Target>) -> Target {
-        let mut v = v;
-        let current_len = v.len();
-        let next_power_of_two = current_len.next_power_of_two();
-        if current_len < next_power_of_two {
-            // Get the last element (if there is one) and extend with it
-            if let Some(&last) = v.last() {
-                v.extend(repeat_n(last, next_power_of_two - current_len));
-            }
-        }
-        self.random_access(access_index, v)
-    }
-
     /// Like `random_access`, but with `ExtensionTarget`s rather than simple `Target`s.
     pub fn random_access_extension(
         &mut self,
         access_index: Target,
         v: Vec<ExtensionTarget<D>>,
     ) -> ExtensionTarget<D> {
-        let selected: Vec<_> = (0..D)
-            .map(|i| self.random_access(access_index, v.iter().map(|et| et.0[i]).collect()))
-            .collect();
-
-        ExtensionTarget(selected.try_into().unwrap())
-    }
-
-    /// Like `random_access_extension`, but padding `v` with the last element to a power of two.
-    pub fn random_access_extension_with_padding(
-        &mut self,
-        access_index: Target,
-        v: Vec<ExtensionTarget<D>>,
-    ) -> ExtensionTarget<D> {
         let mut v = v;
         let current_len = v.len();
         let next_power_of_two = current_len.next_power_of_two();
@@ -83,7 +65,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 v.extend(repeat_n(last, next_power_of_two - current_len));
             }
         }
-        self.random_access_extension(access_index, v)
+        let selected: Vec<_> = (0..D)
+            .map(|i| self.random_access(access_index, v.iter().map(|et| et.0[i]).collect()))
+            .collect();
+
+        ExtensionTarget(selected.try_into().unwrap())
     }
 
     /// Like `random_access`, but with `HashOutTarget`s rather than simple `Target`s.
