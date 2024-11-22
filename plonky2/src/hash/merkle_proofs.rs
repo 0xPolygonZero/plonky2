@@ -226,11 +226,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         }
 
         for i in 0..NUM_HASH_OUT_ELTS {
-            let result = self.random_access_with_padding(
+            let result = self.random_access(
                 cap_index,
                 merkle_cap.0.iter().map(|h| h.elements[i]).collect(),
             );
-            let state = self.random_access_with_padding(
+            let state = self.random_access(
                 n_index,
                 final_states.iter().map(|s| s.elements[i]).collect(),
             );

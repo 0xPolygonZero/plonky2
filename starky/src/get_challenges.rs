@@ -70,7 +70,7 @@ where
 
     challenger.observe_openings(&openings.to_fri_openings());
 
-    let (final_poly_coeff_len, query_round_step_count) =
+    let (final_poly_coeff_len, max_num_query_steps) =
         if let Some(verifier_circuit_fri_params) = verifier_circuit_fri_params {
             (
                 Some(final_poly_coeff_len(
@@ -94,7 +94,7 @@ where
             degree_bits,
             &config.fri_config,
             final_poly_coeff_len,
-            query_round_step_count,
+            max_num_query_steps,
         ),
     }
 }

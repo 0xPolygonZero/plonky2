@@ -33,7 +33,7 @@ impl<F: RichField, H: Hasher<F>> Challenger<F, H> {
         degree_bits: usize,
         config: &FriConfig,
         final_poly_coeff_len: Option<usize>,
-        query_round_step_count: Option<usize>,
+        max_num_query_steps: Option<usize>,
     ) -> FriChallenges<F, D>
     where
         F: RichField + Extendable<D>,
@@ -54,7 +54,7 @@ impl<F: RichField, H: Hasher<F>> Challenger<F, H> {
 
         // When this proof was generated in a circuit with a different number of query steps,
         // the challenger needs to observe the additional hash caps.
-        if let Some(step_count) = query_round_step_count {
+        if let Some(step_count) = max_num_query_steps {
             let cap_len = (1 << config.cap_height) * NUM_HASH_OUT_ELTS;
             let zero_cap = vec![F::ZERO; cap_len];
             for _ in commit_phase_merkle_caps.len()..step_count {
