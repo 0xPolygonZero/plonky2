@@ -13,6 +13,7 @@ use plonky2::fri::structure::{
 };
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
+use plonky2::iop::target::Target;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
 
 use crate::config::StarkConfig;
@@ -175,7 +176,7 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
         &self,
         builder: &mut CircuitBuilder<F, D>,
         zeta: ExtensionTarget<D>,
-        g: F,
+        g: Target,
         num_ctl_helper_polys: usize,
         num_ctl_zs: usize,
         config: &StarkConfig,
@@ -222,7 +223,8 @@ pub trait Stark<F: RichField + Extendable<D>, const D: usize>: Sync {
             ]
             .concat(),
         };
-        let zeta_next = builder.mul_const_extension(g, zeta);
+        let g_ext = builder.convert_to_ext(g);
+        let zeta_next = builder.mul_extension(g_ext, zeta);
         let zeta_next_batch = FriBatchInfoTarget {
             point: zeta_next,
             polynomials: [trace_info, auxiliary_polys_info].concat(),

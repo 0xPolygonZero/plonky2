@@ -66,11 +66,14 @@ pub struct StarkProofTarget<const D: usize> {
     pub openings: StarkOpeningSetTarget<D>,
     /// `Target`s for the batch FRI argument for all openings.
     pub opening_proof: FriProofTarget<D>,
+    /// `Target`s for the proof's degree bits.
+    pub degree_bits: Target,
 }
 
 impl<const D: usize> StarkProofTarget<D> {
     /// Serializes a STARK proof.
     pub fn to_buffer(&self, buffer: &mut Vec<u8>) -> IoResult<()> {
+        buffer.write_target(self.degree_bits)?;
         buffer.write_target_merkle_cap(&self.trace_cap)?;
         buffer.write_bool(self.auxiliary_polys_cap.is_some())?;
         if let Some(poly) = &self.auxiliary_polys_cap {
@@ -87,6 +90,7 @@ impl<const D: usize> StarkProofTarget<D> {
 
     /// Deserializes a STARK proof.
     pub fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
+        let degree_bits = buffer.read_target()?;
         let trace_cap = buffer.read_target_merkle_cap()?;
         let auxiliary_polys_cap = if buffer.read_bool()? {
             Some(buffer.read_target_merkle_cap()?)
@@ -107,6 +111,7 @@ impl<const D: usize> StarkProofTarget<D> {
             quotient_polys_cap,
             openings,
             opening_proof,
+            degree_bits,
         })
     }
 

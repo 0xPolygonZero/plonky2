@@ -450,6 +450,8 @@ mod test {
             proof.pow_witness,
             k0,
             &fri_params.config,
+            None,
+            None,
         );
         let degree_bits = [k0, k1, k2];
         let merkle_cap = trace_oracle.batch_merkle_tree.cap;
