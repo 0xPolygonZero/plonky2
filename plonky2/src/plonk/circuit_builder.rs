@@ -1075,7 +1075,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     ) -> (CircuitData<F, C, D>, bool) {
         let mut timing = TimingTree::new("preprocess", Level::Trace);
 
-        #[cfg(feature = "std")]
+        #[cfg(feature = "timing")]
         let start = Instant::now();
 
         let rate_bits = self.config.fri_config.rate_bits;
@@ -1308,7 +1308,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         };
 
         timing.print();
-        #[cfg(feature = "std")]
+        #[cfg(feature = "timing")]
         debug!("Building circuit took {}s", start.elapsed().as_secs_f32());
         (
             CircuitData {
