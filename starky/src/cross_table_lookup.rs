@@ -346,7 +346,7 @@ fn ctl_helper_zs_cols<F: Field, const N: usize>(
     challenge: GrandProductChallenge<F>,
     constraint_degree: usize,
 ) -> Vec<(usize, Vec<PolynomialValues<F>>)> {
-    let grouped_lookups = looking_tables.iter().group_by(|a| a.table);
+    let grouped_lookups = looking_tables.iter().chunk_by(|a| a.table);
 
     grouped_lookups
         .into_iter()
