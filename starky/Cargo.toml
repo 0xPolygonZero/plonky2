@@ -18,13 +18,12 @@ std = ["anyhow/std", "plonky2/std"]
 timing = ["plonky2/timing"]
 
 [dependencies]
-ahash = { workspace = true }
 anyhow = { workspace = true }
 hashbrown = { workspace = true }
 itertools = { workspace = true }
 log = { workspace = true }
 serde = { workspace = true, features = ["rc"] }
-num-bigint = { version = "0.4.3", default-features = false }
+num-bigint = { version = "0.4.6", default-features = false }
 
 # Local dependencies
 plonky2 = { version = "1.0.0", path = "../plonky2", default-features = false }
@@ -32,7 +31,7 @@ plonky2_maybe_rayon = { version = "1.0.0", path = "../maybe_rayon", default-feat
 plonky2_util = { version = "1.0.0", path = "../util", default-features = false }
 
 [dev-dependencies]
-env_logger = { version = "0.9.0", default-features = false }
+env_logger = { version = "0.11.5", default-features = false }
 
 # Display math equations properly in documentation
 [package.metadata.docs.rs]
