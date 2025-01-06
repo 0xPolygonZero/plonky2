@@ -470,7 +470,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
             if j != 0 {
                 current = self.square_extension(current);
             }
-            if (exponent >> j & 1) != 0 {
+            if ((exponent >> j) & 1) != 0 {
                 product = self.mul_extension(product, current);
             }
         }
