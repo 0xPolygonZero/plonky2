@@ -83,6 +83,11 @@ impl<P: PackedField> ConstraintConsumer<P> {
     pub fn constraint_last_row(&mut self, constraint: P) {
         self.constraint(constraint * self.lagrange_basis_last);
     }
+
+    /// Returns true if no constraints have been added yet
+    pub fn is_empty(&self) -> bool {
+        self.constraint_accs.iter().all(|acc| acc.eq(&P::ZEROS))
+    }
 }
 
 /// Circuit version of [`ConstraintConsumer`].
@@ -174,5 +179,10 @@ impl<F: RichField + Extendable<D>, const D: usize> RecursiveConstraintConsumer<F
     ) {
         let filtered_constraint = builder.mul_extension(constraint, self.lagrange_basis_last);
         self.constraint(builder, filtered_constraint);
+    }
+
+    /// Returns true if no constraints have been added yet
+    pub fn is_empty(&self, builder: &mut CircuitBuilder<F, D>) -> bool {
+        self.constraint_accs.iter().all(|&acc| acc == self.constraint_accs[0])
     }
 }
