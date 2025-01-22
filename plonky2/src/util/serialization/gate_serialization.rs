@@ -1,10 +1,11 @@
 //! A module to help with GateRef serialization
 
 #[cfg(not(feature = "std"))]
-use alloc::vec::Vec;
+pub use alloc::vec::Vec;
 #[cfg(feature = "std")]
-use std::vec::Vec; // For macros below
+pub use std::vec::Vec; // For macros below
 
+pub use log;
 use plonky2_field::extension::Extendable;
 
 use crate::gates::gate::GateRef;
@@ -51,8 +52,8 @@ macro_rules! get_gate_tag_impl {
             Ok(tag)
         } else)*
         {
-            log::log!(
-                log::Level::Error,
+            $crate::util::serialization::gate_serialization::log::log!(
+                $crate::util::serialization::gate_serialization::log::Level::Error,
                 "attempted to serialize gate with id `{}` which is unsupported by this gate serializer",
                 $gate.0.id()
             );
