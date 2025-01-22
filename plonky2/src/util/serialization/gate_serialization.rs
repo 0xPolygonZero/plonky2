@@ -6,7 +6,6 @@ pub use alloc::vec::Vec;
 pub use std::vec::Vec; // For macros below
 
 pub use log;
-
 use plonky2_field::extension::Extendable;
 
 use crate::gates::gate::GateRef;
