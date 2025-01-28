@@ -1,7 +1,7 @@
 [package]
 name = "starky"
 description = "Implementation of STARKs"
-version = "1.0.0"
+version = "1.0.1"
 authors = ["Daniel Lubarov <daniel@lubarov.com>", "William Borgeaud <williamborgeaud@gmail.com>"]
 readme = "README.md"
 edition.workspace = true
@@ -27,7 +27,7 @@ serde = { workspace = true, features = ["rc"] }
 num-bigint = { version = "0.4.3", default-features = false }
 
 # Local dependencies
-plonky2 = { version = "1.0.0", path = "../plonky2", default-features = false }
+plonky2 = { version = "1.0.1", path = "../plonky2", default-features = false }
 plonky2_maybe_rayon = { version = "1.0.0", path = "../maybe_rayon", default-features = false }
 plonky2_util = { version = "1.0.0", path = "../util", default-features = false }
 
