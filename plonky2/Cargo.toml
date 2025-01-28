@@ -12,11 +12,12 @@ keywords.workspace = true
 categories.workspace = true
 
 [features]
-default = ["gate_testing", "parallel", "rand_chacha", "std", "timing", "plonky2_field/os_rng"]
+default = ["gate_testing", "parallel", "rand_chacha", "std", "timing", "os_rng"]
 gate_testing = []
 parallel = ["hashbrown/rayon", "plonky2_maybe_rayon/parallel"]
 std = ["anyhow/std", "rand/std", "itertools/use_std"]
 timing = ["std", "dep:web-time"]
+os_rng = ["plonky2_field/os_rng"]
 
 [dependencies]
 ahash = { workspace = true }
