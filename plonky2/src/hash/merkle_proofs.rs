@@ -1,5 +1,6 @@
 #[cfg(not(feature = "std"))]
 use alloc::{vec, vec::Vec};
+use core::ops::RangeInclusive;
 
 use anyhow::{ensure, Result};
 use itertools::Itertools;
@@ -177,6 +178,63 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
                 merkle_cap.0.iter().map(|h| h.elements[i]).collect(),
             );
             self.connect(result, state.elements[i]);
+        }
+    }
+
+    /// Same as `verify_merkle_proof_to_cap`, except with the final "cap index" as separate parameter,
+    /// rather than being contained in `leaf_index_bits`.
+    pub(crate) fn verify_merkle_proof_to_cap_with_cap_indices<H: AlgebraicHasher<F>>(
+        &mut self,
+        condition: Target,
+        leaf_data: Vec<Target>,
+        leaf_index_bits: &[BoolTarget],
+        log_n_range: RangeInclusive<usize>,
+        n_index: Target,
+        cap_index: Target,
+        merkle_cap: &MerkleCapTarget,
+        proof: &MerkleProofTarget,
+    ) {
+        debug_assert!(H::AlgebraicPermutation::RATE >= NUM_HASH_OUT_ELTS);
+
+        let zero = self.zero();
+        let mut state: HashOutTarget = self.hash_or_noop::<H>(leaf_data);
+        debug_assert_eq!(state.elements.len(), NUM_HASH_OUT_ELTS);
+
+        let num_log_n = log_n_range.clone().count();
+        let mut final_states = vec![state; num_log_n];
+
+        for (&bit, &sibling) in leaf_index_bits.iter().zip(&proof.siblings) {
+            debug_assert_eq!(sibling.elements.len(), NUM_HASH_OUT_ELTS);
+
+            let mut perm_inputs = H::AlgebraicPermutation::default();
+            perm_inputs.set_from_slice(&state.elements, 0);
+            perm_inputs.set_from_slice(&sibling.elements, NUM_HASH_OUT_ELTS);
+            // Ensure the rest of the state, if any, is zero:
+            perm_inputs.set_from_iter(core::iter::repeat(zero), 2 * NUM_HASH_OUT_ELTS);
+            let perm_outs = self.permute_swapped::<H>(perm_inputs, bit);
+            let hash_outs = perm_outs.squeeze()[0..NUM_HASH_OUT_ELTS]
+                .try_into()
+                .unwrap();
+            state = HashOutTarget {
+                elements: hash_outs,
+            };
+            // Store state at specific indices
+            for n in 0..num_log_n - 1 {
+                final_states[n] = final_states[n + 1];
+            }
+            final_states[num_log_n - 1] = state;
+        }
+
+        for i in 0..NUM_HASH_OUT_ELTS {
+            let result = self.random_access(
+                cap_index,
+                merkle_cap.0.iter().map(|h| h.elements[i]).collect(),
+            );
+            let state = self.random_access(
+                n_index,
+                final_states.iter().map(|s| s.elements[i]).collect(),
+            );
+            self.conditional_assert_eq(condition, result, state);
         }
     }
 

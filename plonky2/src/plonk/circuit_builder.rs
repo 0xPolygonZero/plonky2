@@ -548,6 +548,18 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.connect(constr, zero);
     }
 
+    /// If `condition`, enforces that two `ExtensionTarget<D>` values are equal.
+    pub fn conditional_assert_eq_ext(
+        &mut self,
+        condition: Target,
+        x: ExtensionTarget<D>,
+        y: ExtensionTarget<D>,
+    ) {
+        for i in 0..D {
+            self.conditional_assert_eq(condition, x.0[i], y.0[i]);
+        }
+    }
+
     /// Enforces that a routable `Target` value is 0, using Plonk's permutation argument.
     pub fn assert_zero(&mut self, x: Target) {
         let zero = self.zero();
@@ -1063,7 +1075,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     ) -> (CircuitData<F, C, D>, bool) {
         let mut timing = TimingTree::new("preprocess", Level::Trace);
 
-        #[cfg(feature = "std")]
+        #[cfg(feature = "timing")]
         let start = Instant::now();
 
         let rate_bits = self.config.fri_config.rate_bits;
@@ -1296,7 +1308,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         };
 
         timing.print();
-        #[cfg(feature = "std")]
+        #[cfg(feature = "timing")]
         debug!("Building circuit took {}s", start.elapsed().as_secs_f32());
         (
             CircuitData {

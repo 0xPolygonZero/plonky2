@@ -13,6 +13,9 @@ use plonky2::field::polynomial::{PolynomialCoeffs, PolynomialValues};
 use plonky2::field::types::Field;
 use plonky2::field::zero_poly_coset::ZeroPolyOnCoset;
 use plonky2::fri::oracle::PolynomialBatch;
+use plonky2::fri::prover::final_poly_coeff_len;
+use plonky2::fri::reduction_strategies::FriReductionStrategy;
+use plonky2::fri::FriParams;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::challenger::Challenger;
 use plonky2::plonk::config::GenericConfig;
@@ -39,6 +42,7 @@ pub fn prove<F, C, S, const D: usize>(
     config: &StarkConfig,
     trace_poly_values: Vec<PolynomialValues<F>>,
     public_inputs: &[F],
+    verifier_circuit_fri_params: Option<FriParams>,
     timing: &mut TimingTree,
 ) -> Result<StarkProofWithPublicInputs<F, C, D>>
 where
@@ -55,6 +59,26 @@ where
         fri_params.total_arities() <= degree_bits + rate_bits - cap_height,
         "FRI total reduction arity is too large.",
     );
+    let (final_poly_coeff_len, max_num_query_steps) =
+        if let Some(verifier_circuit_fri_params) = verifier_circuit_fri_params {
+            assert_eq!(verifier_circuit_fri_params.config, fri_params.config);
+            match &config.fri_config.reduction_strategy {
+                FriReductionStrategy::ConstantArityBits(_, final_poly_bits) => {
+                    let len = final_poly_coeff_len(
+                        verifier_circuit_fri_params.degree_bits,
+                        &verifier_circuit_fri_params.reduction_arity_bits,
+                    );
+                    assert_eq!(len, 1 << (1 + *final_poly_bits));
+                    (
+                        Some(len),
+                        Some(verifier_circuit_fri_params.reduction_arity_bits.len()),
+                    )
+                }
+                _ => panic!("Fri Reduction Strategy is not ConstantArityBits"),
+            }
+        } else {
+            (None, None)
+        };
 
     let trace_commitment = timed!(
         timing,
@@ -73,7 +97,6 @@ where
     let mut challenger = Challenger::new();
     challenger.observe_elements(public_inputs);
     challenger.observe_cap(&trace_cap);
-
     prove_with_commitment(
         &stark,
         config,
@@ -83,6 +106,8 @@ where
         None,
         &mut challenger,
         public_inputs,
+        final_poly_coeff_len,
+        max_num_query_steps,
         timing,
     )
 }
@@ -103,6 +128,8 @@ pub fn prove_with_commitment<F, C, S, const D: usize>(
     ctl_challenges: Option<&GrandProductChallengeSet<F>>,
     challenger: &mut Challenger<F, C::Hasher>,
     public_inputs: &[F],
+    final_poly_coeff_len: Option<usize>,
+    max_num_query_steps: Option<usize>,
     timing: &mut TimingTree,
 ) -> Result<StarkProofWithPublicInputs<F, C, D>>
 where
@@ -319,6 +346,8 @@ where
             &initial_merkle_trees,
             challenger,
             &fri_params,
+            final_poly_coeff_len,
+            max_num_query_steps,
             timing,
         )
     );
