@@ -197,8 +197,10 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D> for Loo
         let get_wire = |wire: usize| -> F { witness.get_target(Target::wire(self.row, wire)) };
 
         let input_val = get_wire(LookupGate::wire_ith_looking_inp(self.slot_nb));
-        let (input, output) = self.lut[input_val.to_canonical_u64() as usize];
-        if input_val == F::from_canonical_u16(input) {
+        if (input_val.to_canonical_u64() as usize) < self.lut.len()
+            && input_val == F::from_canonical_u16(self.lut[input_val.to_canonical_u64() as usize].0)
+        {
+            let (_, output) = self.lut[input_val.to_canonical_u64() as usize];
             let output_val = F::from_canonical_u16(output);
 
             let out_wire = Target::wire(self.row, LookupGate::wire_ith_looking_out(self.slot_nb));

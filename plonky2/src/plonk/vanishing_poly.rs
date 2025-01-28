@@ -36,10 +36,17 @@ pub(crate) fn get_lut_poly<F: RichField + Extendable<D>, const D: usize>(
     let b = deltas[LookupChallenges::ChallengeB as usize];
     let mut coeffs = Vec::with_capacity(common_data.luts[lut_index].len());
     let n = common_data.luts[lut_index].len();
+    let nb_padded_elts = LookupTableGate::num_slots(&common_data.config)
+        - n % LookupTableGate::num_slots(&common_data.config);
+    let (padding_inp, padding_out) = common_data.luts[lut_index][0];
     for (input, output) in common_data.luts[lut_index].iter() {
         coeffs.push(F::from_canonical_u16(*input) + b * F::from_canonical_u16(*output));
     }
-    coeffs.append(&mut vec![F::ZERO; degree - n]);
+    // Padding with the first element of the LUT.
+    for _ in 0..nb_padded_elts {
+        coeffs.push(F::from_canonical_u16(padding_inp) + b * F::from_canonical_u16(padding_out));
+    }
+    coeffs.append(&mut vec![F::ZERO; degree - (n + nb_padded_elts)]);
     coeffs.reverse();
     PolynomialCoeffs::new(coeffs)
 }
