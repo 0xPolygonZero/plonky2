@@ -36,8 +36,8 @@ pub(crate) fn get_lut_poly<F: RichField + Extendable<D>, const D: usize>(
     let b = deltas[LookupChallenges::ChallengeB as usize];
     let mut coeffs = Vec::with_capacity(common_data.luts[lut_index].len());
     let n = common_data.luts[lut_index].len();
-    let nb_padded_elts = LookupTableGate::num_slots(&common_data.config)
-        - n % LookupTableGate::num_slots(&common_data.config);
+    let nb_slots = LookupTableGate::num_slots(&common_data.config);
+    let nb_padded_elts = (nb_slots - n % nb_slots) % nb_slots;
     let (padding_inp, padding_out) = common_data.luts[lut_index][0];
     for (input, output) in common_data.luts[lut_index].iter() {
         coeffs.push(F::from_canonical_u16(*input) + b * F::from_canonical_u16(*output));
@@ -763,8 +763,8 @@ pub(crate) fn get_lut_poly_circuit<F: RichField + Extendable<D>, const D: usize>
     let b = deltas[LookupChallenges::ChallengeB as usize];
     let delta = deltas[LookupChallenges::ChallengeDelta as usize];
     let n = common_data.luts[lut_index].len();
-    let nb_padded_elts = LookupTableGate::num_slots(&common_data.config)
-        - n % LookupTableGate::num_slots(&common_data.config);
+    let nb_slots = LookupTableGate::num_slots(&common_data.config);
+    let nb_padded_elts = (nb_slots - n % nb_slots) % nb_slots;
     let (padding_inp, padding_out) = common_data.luts[lut_index][0];
     let mut coeffs: Vec<Target> = common_data.luts[lut_index]
         .iter()
