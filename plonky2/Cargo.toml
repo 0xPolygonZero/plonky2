@@ -1,7 +1,7 @@
 [package]
 name = "plonky2"
 description = "Recursive SNARKs based on PLONK and FRI"
-version = "1.0.1"
+version = "1.0.2"
 authors = ["Daniel Lubarov <daniel@lubarov.com>", "William Borgeaud <williamborgeaud@gmail.com>", "Nicholas Ward <npward@berkeley.edu>"]
 readme = "README.md"
 edition.workspace = true
