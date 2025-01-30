@@ -96,12 +96,7 @@ Plonky2's default hash function is Poseidon, configured with 8 full rounds, 22 p
 
 ## Links
 
-#### Actively maintained
-
 - [Polygon Zero's zkEVM](https://github.com/0xPolygonZero/zk_evm), an efficient Type 1 zkEVM built on top of Starky and plonky2
-
-#### No longer maintained
-
 - [System Zero](https://github.com/0xPolygonZero/system-zero), a zkVM built on top of Starky
 - [Waksman](https://github.com/0xPolygonZero/plonky2-waksman), Plonky2 gadgets for permutation checking using Waksman networks
 - [Insertion](https://github.com/0xPolygonZero/plonky2-insertion), Plonky2 gadgets for insertion into a list
