@@ -94,7 +94,6 @@ pub fn set_lookup_wires<
             multiplicities[0] += 1;
         }
 
-        // We don't need to pad the last `LookupTableGate`; extra wires are set to 0 by default, which satisfies the constraints.
         for lut_entry in 0..lut_len {
             let row = first_lut_gate - lut_entry / num_lut_entries;
             let col = lut_entry % num_lut_entries;
