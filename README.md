@@ -84,7 +84,10 @@ at your option.
 
 ## Security
 
-This code has not yet been audited, and should not be used in any production systems.
+This code has been audited prior to the `v1.0.0` release. The audits reports and findings are available in the [audits](./audits/) folder of this repository.
+An audited codebase isn't necessarily free of bugs and security exploits, hence we recommend care when using `plonky2` in production settings.
+
+If you find a security issue in the codebase, please refer to our [Security guidelines](./SECURITY.md) for private disclosure.
 
 While Plonky2 is configurable, its defaults generally target 100 bits of security. The default FRI configuration targets 100 bits of *conjectured* security based on the conjecture in [ethSTARK](https://eprint.iacr.org/2021/582).
 
