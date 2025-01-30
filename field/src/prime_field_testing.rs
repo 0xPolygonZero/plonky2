@@ -160,7 +160,7 @@ macro_rules! test_prime_field_arithmetic {
             fn subtraction_double_wraparound() {
                 type F = $field;
 
-                let (a, b) = (F::from_canonical_u64((F::ORDER + 1u64) / 2u64), F::TWO);
+                let (a, b) = (F::from_canonical_u64(F::ORDER.div_ceil(2u64)), F::TWO);
                 let x = a * b;
                 assert_eq!(x, F::ONE);
                 assert_eq!(F::ZERO - x, F::NEG_ONE);

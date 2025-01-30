@@ -222,7 +222,7 @@ mod tests {
         // "random", the last degree_padded-degree of them are zero.
         let coeffs = (0..degree)
             .map(|i| F::from_canonical_usize(i * 1337 % 100))
-            .chain(core::iter::repeat(F::ZERO).take(degree_padded - degree))
+            .chain(core::iter::repeat_n(F::ZERO, degree_padded - degree))
             .collect::<Vec<_>>();
         assert_eq!(coeffs.len(), degree_padded);
         let coefficients = PolynomialCoeffs { coeffs };
