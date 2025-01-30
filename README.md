@@ -84,7 +84,10 @@ at your option.
 
 ## Security
 
-This code has not yet been audited, and should not be used in any production systems.
+This code has been audited prior to the `v1.0.0` release. The audits reports and findings are available in the [audits](./audits/) folder of this repository.
+An audited codebase isn't necessarily free of bugs and security exploits, hence we recommend care when using `plonky2` in production settings.
+
+If you find a security issue in the codebase, please refer to our [Security guidelines](./SECURITY.md) for private disclosure.
 
 While Plonky2 is configurable, its defaults generally target 100 bits of security. The default FRI configuration targets 100 bits of *conjectured* security based on the conjecture in [ethSTARK](https://eprint.iacr.org/2021/582).
 
@@ -93,12 +96,7 @@ Plonky2's default hash function is Poseidon, configured with 8 full rounds, 22 p
 
 ## Links
 
-#### Actively maintained
-
 - [Polygon Zero's zkEVM](https://github.com/0xPolygonZero/zk_evm), an efficient Type 1 zkEVM built on top of Starky and plonky2
-
-#### No longer maintained
-
 - [System Zero](https://github.com/0xPolygonZero/system-zero), a zkVM built on top of Starky
 - [Waksman](https://github.com/0xPolygonZero/plonky2-waksman), Plonky2 gadgets for permutation checking using Waksman networks
 - [Insertion](https://github.com/0xPolygonZero/plonky2-insertion), Plonky2 gadgets for insertion into a list
