@@ -1,9 +1,9 @@
 # Polygon Technology Security Information
 
-For findings related to plonky2 repository, please contact us with relevant information privately 
+For findings related to plonky2 repository, please contact us with the relevant information privately 
 through our security contact details: security@polygon.technology.
 
-Depending on the severity of the findings, the team may reserve the rights to keep the information private
+Depending on the severity of the findings, the team may reserve the right to keep the information private
 while addressing it internally, and disclose it along a new release after having informed relevant parties.
 
 ## Link to vulnerability disclosure details (Bug Bounty).
