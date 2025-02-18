@@ -136,9 +136,6 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     ) -> Vec<Vec<F>> {
         let degree = polynomials[0].len();
 
-        // If blinding, salt with two random elements to each leaf vector.
-        let salt_size = SALT_SIZE;
-
         polynomials
             .par_iter()
             .map(|p| {
@@ -148,7 +145,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
                     .values
             })
             .chain(
-                (0..salt_size)
+                (0..SALT_SIZE)
                     .into_par_iter()
                     .map(|_| F::rand_vec(degree << rate_bits)),
             )

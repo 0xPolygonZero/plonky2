@@ -137,9 +137,6 @@ fn main() -> Result<()> {
 
     // Randomly generate the value of x^2: any quadratic residue in the field works.
     let x_squared_value = {
-        #[cfg(feature = "no_random")]
-        let mut val = F::from_noncanonical_i64(-2);
-        #[cfg(not(feature = "no_random"))]
         let mut val = F::rand();
         while !val.is_quadratic_residue() {
             val = F::rand();
