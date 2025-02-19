@@ -224,9 +224,11 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D> for Loo
             out_buffer.set_target(slot_input_target, F::from_canonical_usize(input as usize))?;
             out_buffer.set_target(slot_output_target, F::from_canonical_usize(output as usize))
         } else {
-            // Pad with zeros.
-            out_buffer.set_target(slot_input_target, F::ZERO)?;
-            out_buffer.set_target(slot_output_target, F::ZERO)
+            // Pad with first element in the LUT.
+            assert!(!self.lut.is_empty(), "Empty LUTs are not supported.");
+            let (input, output) = self.lut[0];
+            out_buffer.set_target(slot_input_target, F::from_canonical_usize(input as usize))?;
+            out_buffer.set_target(slot_output_target, F::from_canonical_usize(output as usize))
         }
     }
 

@@ -19,12 +19,14 @@ use plonky2::iop::target::Target;
 use plonky2::plonk::config::{GenericConfig, Hasher};
 use plonky2::util::serialization::{Buffer, IoResult, Read, Write};
 use plonky2_maybe_rayon::*;
+use serde::{Deserialize, Serialize};
 
 use crate::config::StarkConfig;
 use crate::lookup::GrandProductChallengeSet;
 
 /// Merkle caps and openings that form the proof of a single STARK.
-#[derive(Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(bound = "")]
 pub struct StarkProof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> {
     /// Merkle cap of LDEs of trace values.
     pub trace_cap: MerkleCap<F, C::Hasher>,
@@ -64,11 +66,14 @@ pub struct StarkProofTarget<const D: usize> {
     pub openings: StarkOpeningSetTarget<D>,
     /// `Target`s for the batch FRI argument for all openings.
     pub opening_proof: FriProofTarget<D>,
+    /// `Target`s for the proof's degree bits.
+    pub degree_bits: Target,
 }
 
 impl<const D: usize> StarkProofTarget<D> {
     /// Serializes a STARK proof.
     pub fn to_buffer(&self, buffer: &mut Vec<u8>) -> IoResult<()> {
+        buffer.write_target(self.degree_bits)?;
         buffer.write_target_merkle_cap(&self.trace_cap)?;
         buffer.write_bool(self.auxiliary_polys_cap.is_some())?;
         if let Some(poly) = &self.auxiliary_polys_cap {
@@ -85,6 +90,7 @@ impl<const D: usize> StarkProofTarget<D> {
 
     /// Deserializes a STARK proof.
     pub fn from_buffer(buffer: &mut Buffer) -> IoResult<Self> {
+        let degree_bits = buffer.read_target()?;
         let trace_cap = buffer.read_target_merkle_cap()?;
         let auxiliary_polys_cap = if buffer.read_bool()? {
             Some(buffer.read_target_merkle_cap()?)
@@ -105,6 +111,7 @@ impl<const D: usize> StarkProofTarget<D> {
             quotient_polys_cap,
             openings,
             opening_proof,
+            degree_bits,
         })
     }
 
@@ -120,7 +127,8 @@ impl<const D: usize> StarkProofTarget<D> {
 }
 
 /// Merkle caps and openings that form the proof of a single STARK, along with its public inputs.
-#[derive(Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(bound = "")]
 pub struct StarkProofWithPublicInputs<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
@@ -154,31 +162,6 @@ where
     pub init_challenger_state: <C::Hasher as Hasher<F>>::Permutation,
     /// Proof for a single STARK.
     pub proof: StarkProof<F, C, D>,
-}
-
-/// A combination of STARK proofs for independent statements operating on possibly shared variables,
-/// along with Cross-Table Lookup (CTL) challenges to assert consistency of common variables across tables.
-#[derive(Debug, Clone)]
-pub struct MultiProof<
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
-    const D: usize,
-    const N: usize,
-> {
-    /// Proofs for all the different STARK modules.
-    pub stark_proofs: [StarkProofWithMetadata<F, C, D>; N],
-    /// Cross-table lookup challenges.
-    pub ctl_challenges: GrandProductChallengeSet<F>,
-}
-
-impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize, const N: usize>
-    MultiProof<F, C, D, N>
-{
-    /// Returns the degree (i.e. the trace length) of each STARK proof,
-    /// from their common [`StarkConfig`].
-    pub fn recover_degree_bits(&self, config: &StarkConfig) -> [usize; N] {
-        core::array::from_fn(|i| self.stark_proofs[i].proof.recover_degree_bits(config))
-    }
 }
 
 /// Randomness used for a STARK proof.
@@ -217,7 +200,8 @@ pub struct MultiProofChallenges<F: RichField + Extendable<D>, const D: usize, co
 }
 
 /// Purported values of each polynomial at the challenge point.
-#[derive(Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(bound = "")]
 pub struct StarkOpeningSet<F: RichField + Extendable<D>, const D: usize> {
     /// Openings of trace polynomials at `zeta`.
     pub local_values: Vec<F::Extension>,

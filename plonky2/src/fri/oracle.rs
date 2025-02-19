@@ -178,6 +178,8 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
         oracles: &[&Self],
         challenger: &mut Challenger<F, C::Hasher>,
         fri_params: &FriParams,
+        final_poly_coeff_len: Option<usize>,
+        max_num_query_steps: Option<usize>,
         timing: &mut TimingTree,
     ) -> FriProof<F, C::Hasher, D> {
         assert!(D > 1, "Not implemented for D=1.");
@@ -226,6 +228,8 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
             lde_final_values,
             challenger,
             fri_params,
+            final_poly_coeff_len,
+            max_num_query_steps,
             timing,
         );
 

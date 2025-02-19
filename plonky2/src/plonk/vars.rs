@@ -46,7 +46,7 @@ pub struct EvaluationVarsBasePacked<'a, P: PackedField> {
     pub public_inputs_hash: &'a HashOut<P::Scalar>,
 }
 
-impl<'a, F: RichField + Extendable<D>, const D: usize> EvaluationVars<'a, F, D> {
+impl<F: RichField + Extendable<D>, const D: usize> EvaluationVars<'_, F, D> {
     pub fn get_local_ext_algebra(
         &self,
         wire_range: Range<usize>,
@@ -120,7 +120,7 @@ impl<'a, F: Field> EvaluationVarsBaseBatch<'a, F> {
     }
 }
 
-impl<'a, F: Field> EvaluationVarsBase<'a, F> {
+impl<F: Field> EvaluationVarsBase<'_, F> {
     pub fn get_local_ext<const D: usize>(&self, wire_range: Range<usize>) -> F::Extension
     where
         F: RichField + Extendable<D>,
@@ -209,13 +209,13 @@ impl<'a, P: PackedField> Iterator for EvaluationVarsBaseBatchIterPacked<'a, P> {
     }
 }
 
-impl<'a, P: PackedField> ExactSizeIterator for EvaluationVarsBaseBatchIterPacked<'a, P> {
+impl<P: PackedField> ExactSizeIterator for EvaluationVarsBaseBatchIterPacked<'_, P> {
     fn len(&self) -> usize {
         (self.vars_batch.len() - self.i) / P::WIDTH
     }
 }
 
-impl<'a, const D: usize> EvaluationTargets<'a, D> {
+impl<const D: usize> EvaluationTargets<'_, D> {
     pub fn remove_prefix(&mut self, num_selectors: usize) {
         self.local_constants = &self.local_constants[num_selectors..];
     }
@@ -228,7 +228,7 @@ pub struct EvaluationTargets<'a, const D: usize> {
     pub public_inputs_hash: &'a HashOutTarget,
 }
 
-impl<'a, const D: usize> EvaluationTargets<'a, D> {
+impl<const D: usize> EvaluationTargets<'_, D> {
     pub fn get_local_ext_algebra(&self, wire_range: Range<usize>) -> ExtensionAlgebraTarget<D> {
         debug_assert_eq!(wire_range.len(), D);
         let arr = self.local_wires[wire_range].try_into().unwrap();

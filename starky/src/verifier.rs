@@ -10,6 +10,7 @@ use itertools::Itertools;
 use plonky2::field::extension::{Extendable, FieldExtension};
 use plonky2::field::types::Field;
 use plonky2::fri::verifier::verify_fri_proof;
+use plonky2::fri::FriParams;
 use plonky2::hash::hash_types::RichField;
 use plonky2::hash::merkle_tree::MerkleCap;
 use plonky2::iop::challenger::Challenger;
@@ -35,11 +36,18 @@ pub fn verify_stark_proof<
     stark: S,
     proof_with_pis: StarkProofWithPublicInputs<F, C, D>,
     config: &StarkConfig,
+    verifier_circuit_fri_params: Option<FriParams>,
 ) -> Result<()> {
     ensure!(proof_with_pis.public_inputs.len() == S::PUBLIC_INPUTS);
     let mut challenger = Challenger::<F, C::Hasher>::new();
 
-    let challenges = proof_with_pis.get_challenges(&mut challenger, None, false, config);
+    let challenges = proof_with_pis.get_challenges(
+        &mut challenger,
+        None,
+        false,
+        config,
+        verifier_circuit_fri_params,
+    );
 
     verify_stark_proof_with_challenges(
         &stark,

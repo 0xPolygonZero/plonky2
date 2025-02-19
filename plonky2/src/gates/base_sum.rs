@@ -194,9 +194,9 @@ impl<F: RichField + Extendable<D>, const B: usize, const D: usize> SimpleGenerat
     ) -> Result<()> {
         let sum_value = witness
             .get_target(Target::wire(self.row, BaseSumGate::<B>::WIRE_SUM))
-            .to_canonical_u64() as usize;
+            .to_canonical_u64();
         debug_assert_eq!(
-            (0..self.num_limbs).fold(sum_value, |acc, _| acc / B),
+            (0..self.num_limbs).fold(sum_value, |acc, _| acc / (B as u64)),
             0,
             "Integer too large to fit in given number of limbs"
         );
@@ -205,9 +205,9 @@ impl<F: RichField + Extendable<D>, const B: usize, const D: usize> SimpleGenerat
             .map(|i| Target::wire(self.row, i));
         let limbs_value = (0..self.num_limbs)
             .scan(sum_value, |acc, _| {
-                let tmp = *acc % B;
-                *acc /= B;
-                Some(F::from_canonical_usize(tmp))
+                let tmp = *acc % (B as u64);
+                *acc /= B as u64;
+                Some(F::from_canonical_u64(tmp))
             })
             .collect::<Vec<_>>();
 

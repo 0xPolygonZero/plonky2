@@ -1,7 +1,7 @@
 [package]
 name = "plonky2_field"
 description = "Finite field arithmetic"
-version = "0.2.2"
+version = "1.0.0"
 authors = ["Daniel Lubarov <daniel@lubarov.com>", "William Borgeaud <williamborgeaud@gmail.com>", "Jacqueline Nabaglo <j@nab.gl>", "Hamish Ivey-Law <hamish@ivey-law.name>"]
 edition.workspace = true
 license.workspace = true
@@ -20,7 +20,7 @@ static_assertions = { workspace = true }
 unroll = { workspace = true }
 
 # Local dependencies
-plonky2_util = { version = "0.2.0", path = "../util", default-features = false }
+plonky2_util = { version = "1.0.0", path = "../util", default-features = false }
 
 
 # Display math equations properly in documentation

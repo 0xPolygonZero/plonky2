@@ -1,13 +1,16 @@
 #[cfg(not(feature = "std"))]
+use alloc::vec;
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 
+use plonky2_field::types::Field;
 use plonky2_maybe_rayon::*;
 
 use crate::field::extension::{flatten, unflatten, Extendable};
 use crate::field::polynomial::{PolynomialCoeffs, PolynomialValues};
 use crate::fri::proof::{FriInitialTreeProof, FriProof, FriQueryRound, FriQueryStep};
 use crate::fri::{FriConfig, FriParams};
-use crate::hash::hash_types::RichField;
+use crate::hash::hash_types::{RichField, NUM_HASH_OUT_ELTS};
 use crate::hash::hashing::PlonkyPermutation;
 use crate::hash::merkle_tree::MerkleTree;
 use crate::iop::challenger::Challenger;
@@ -26,6 +29,8 @@ pub fn fri_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const
     lde_polynomial_values: PolynomialValues<F::Extension>,
     challenger: &mut Challenger<F, C::Hasher>,
     fri_params: &FriParams,
+    final_poly_coeff_len: Option<usize>,
+    max_num_query_steps: Option<usize>,
     timing: &mut TimingTree,
 ) -> FriProof<F, C::Hasher, D> {
     let n = lde_polynomial_values.len();
@@ -40,6 +45,8 @@ pub fn fri_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const
             lde_polynomial_values,
             challenger,
             fri_params,
+            final_poly_coeff_len,
+            max_num_query_steps,
         )
     );
 
@@ -67,11 +74,20 @@ pub(crate) type FriCommitedTrees<F, C, const D: usize> = (
     PolynomialCoeffs<<F as Extendable<D>>::Extension>,
 );
 
+pub fn final_poly_coeff_len(mut degree_bits: usize, reduction_arity_bits: &Vec<usize>) -> usize {
+    for arity_bits in reduction_arity_bits {
+        degree_bits -= *arity_bits;
+    }
+    1 << degree_bits
+}
+
 fn fri_committed_trees<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
     mut coeffs: PolynomialCoeffs<F::Extension>,
     mut values: PolynomialValues<F::Extension>,
     challenger: &mut Challenger<F, C::Hasher>,
     fri_params: &FriParams,
+    final_poly_coeff_len: Option<usize>,
+    max_num_query_steps: Option<usize>,
 ) -> FriCommitedTrees<F, C, D> {
     let mut trees = Vec::with_capacity(fri_params.reduction_arity_bits.len());
 
@@ -103,12 +119,33 @@ fn fri_committed_trees<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>,
         values = coeffs.coset_fft(shift.into())
     }
 
+    // When verifying this proof in a circuit with a different number of query steps,
+    // we need the challenger to stay in sync with the verifier. Therefore, the challenger
+    // must observe the additional hash caps and generate dummy challenges.
+    if let Some(step_count) = max_num_query_steps {
+        let cap_len = (1 << fri_params.config.cap_height) * NUM_HASH_OUT_ELTS;
+        let zero_cap = vec![F::ZERO; cap_len];
+        for _ in fri_params.reduction_arity_bits.len()..step_count {
+            challenger.observe_elements(&zero_cap);
+            challenger.get_extension_challenge::<D>();
+        }
+    }
+
     // The coefficients being removed here should always be zero.
     coeffs
         .coeffs
         .truncate(coeffs.len() >> fri_params.config.rate_bits);
 
     challenger.observe_extension_elements(&coeffs.coeffs);
+    // When verifying this proof in a circuit with a different final polynomial length,
+    // the challenger needs to observe the full length of the final polynomial.
+    if let Some(len) = final_poly_coeff_len {
+        let current_len = coeffs.coeffs.len();
+        for _ in current_len..len {
+            challenger.observe_extension_element(&F::Extension::ZERO);
+        }
+    }
+
     (trees, coeffs)
 }
 
