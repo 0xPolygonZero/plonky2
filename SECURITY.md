@@ -4,20 +4,21 @@ For findings related to plonky2 repository, please contact us with relevant info
 through our security contact details: security@polygon.technology.
 
 Depending on the severity of the findings, the team may reserve the rights to keep the information private
-while addressing it internally, and disclose it along a new release after having informed relevant parties.
+while addressing it internally, and disclose it along with a new release after having informed relevant parties.
 
 ## Link to vulnerability disclosure details (Bug Bounty).
-- Websites and Applications: https://hackerone.com/polygon-technology
-- Smart Contracts: https://immunefi.com/bounty/polygon
+[- Websites and Applications](https://hackerone.com/polygon-technology)
+
+[- Smart Contracts](https://immunefi.com/bounty/polygon)
 
 ## Languages that our team speaks and understands.
 Preferred-Languages: en
 
 ## Security-related job openings at Polygon.
-https://polygon.technology/careers
+[Polygon Job Openings](https://polygon.technology/careers)
 
 ## Polygon security contact details.
 security@polygon.technology
 
 ## The URL for accessing the security.txt file.
-Canonical: https://polygon.technology/security.txt
+[Canonical](https://polygon.technology/security.txt)
