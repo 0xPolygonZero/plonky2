@@ -189,8 +189,8 @@ pub struct StarkProofChallengesTarget<const D: usize> {
     /// `Target`s for the randomness used in FRI.
     pub fri_challenges: FriChallengesTarget<D>,
 }
-
-/// Randomness for all STARK proofs contained in a [`MultiProof`]`.
+/// Randomness for all STARK proofs contained in a MultiProof.
+// TODO: remove?
 #[derive(Debug)]
 pub struct MultiProofChallenges<F: RichField + Extendable<D>, const D: usize, const N: usize> {
     /// Randomness used in each STARK proof.
