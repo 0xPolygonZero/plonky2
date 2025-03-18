@@ -1,3 +1,11 @@
+# ARM NEON Assembly Optimizations for Plonky2 Poseidon Hash
+
+This document details the assembly optimizations for Poseidon hash implementation on ARM-based processors using NEON SIMD instructions. These optimizations are specifically designed for the Goldilocks field used in Plonky2's implementation of Poseidon.
+
+## Overview
+
+The implementation in `poseidon_goldilocks_neon.rs` uses hand-optimized assembly to achieve maximum performance on ARM architectures. This document explains the internals of these optimizations, which are crucial for understanding how the low-level implementation achieves its performance characteristics.
+
 Partial rounds ASM
 ==================
 
