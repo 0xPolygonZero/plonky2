@@ -3,13 +3,12 @@ use core::arch::aarch64::*;
 use core::arch::asm;
 use core::mem::transmute;
 
+use plonky2_field::types::Field64;
 use static_assertions::const_assert;
 use unroll::unroll_for_loops;
-use plonky2_field::types::Field64;
 
 use crate::field::goldilocks_field::GoldilocksField;
-use crate::hash::poseidon::Poseidon;
-use crate::hash::poseidon::ALL_ROUND_CONSTANTS;
+use crate::hash::poseidon::{Poseidon, ALL_ROUND_CONSTANTS};
 use crate::util::branch_hint;
 
 // ========================================== CONSTANTS ===========================================
