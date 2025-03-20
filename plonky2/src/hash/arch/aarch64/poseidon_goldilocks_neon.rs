@@ -1,14 +1,15 @@
 #![allow(clippy::assertions_on_constants)]
-
 use core::arch::aarch64::*;
 use core::arch::asm;
 use core::mem::transmute;
 
 use static_assertions::const_assert;
 use unroll::unroll_for_loops;
+use plonky2_field::types::Field64;
 
 use crate::field::goldilocks_field::GoldilocksField;
 use crate::hash::poseidon::Poseidon;
+use crate::hash::poseidon::ALL_ROUND_CONSTANTS;
 use crate::util::branch_hint;
 
 // ========================================== CONSTANTS ===========================================
@@ -57,7 +58,6 @@ const_assert!(check_mds_matrix());
 /// Ensure that the first WIDTH round constants are in canonical* form. This is required because
 /// the first constant layer does not handle double overflow.
 /// *: round_const == GoldilocksField::ORDER is safe.
-/*
 #[allow(dead_code)]
 const fn check_round_const_bounds_init() -> bool {
     let mut i = 0;
@@ -70,7 +70,6 @@ const fn check_round_const_bounds_init() -> bool {
     true
 }
 const_assert!(check_round_const_bounds_init());
-*/
 // ====================================== SCALAR ARITHMETIC =======================================
 
 /// Addition modulo ORDER accounting for wraparound. Correct only when a + b < 2**64 + ORDER.
@@ -153,14 +152,13 @@ unsafe fn multiply(x: u64, y: u64) -> u64 {
 
 /// Standalone const layer. Run only once, at the start of round 1. Remaining const layers are fused
 /// with the preceding MDS matrix multiplication.
-/*
 #[inline(always)]
 #[unroll_for_loops]
+#[allow(dead_code)]
 unsafe fn const_layer_full(
     mut state: [u64; WIDTH],
     round_constants: &[u64; WIDTH],
 ) -> [u64; WIDTH] {
-    assert!(WIDTH == 12);
     for i in 0..12 {
         let rc = round_constants[i];
         // add_with_wraparound is safe, because rc is in canonical form.
@@ -168,7 +166,6 @@ unsafe fn const_layer_full(
     }
     state
 }
-*/
 // ========================================== FULL ROUNDS ==========================================
 
 /// Full S-box.
@@ -179,21 +176,18 @@ unsafe fn sbox_layer_full(state: [u64; WIDTH]) -> [u64; WIDTH] {
     // an insane latency (~100 cycles) on the M1.
 
     let mut state2 = [0u64; WIDTH];
-    assert!(WIDTH == 12);
     for i in 0..12 {
         state2[i] = multiply(state[i], state[i]);
     }
 
     let mut state3 = [0u64; WIDTH];
     let mut state4 = [0u64; WIDTH];
-    assert!(WIDTH == 12);
     for i in 0..12 {
         state3[i] = multiply(state[i], state2[i]);
         state4[i] = multiply(state2[i], state2[i]);
     }
 
     let mut state7 = [0u64; WIDTH];
-    assert!(WIDTH == 12);
     for i in 0..12 {
         state7[i] = multiply(state3[i], state4[i]);
     }
