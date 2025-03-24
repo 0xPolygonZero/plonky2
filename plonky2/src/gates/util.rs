@@ -41,7 +41,7 @@ impl<'a, P: PackedField> StridedConstraintConsumer<'a, P> {
 
     /// Emit one constraint.
     pub fn one(&mut self, constraint: P) {
-        if !std::ptr::eq(self.start, self.end) {
+        if !core::ptr::eq(self.start, self.end) {
             // # Safety
             // The checks in `new` guarantee that this points to valid space.
             unsafe {
