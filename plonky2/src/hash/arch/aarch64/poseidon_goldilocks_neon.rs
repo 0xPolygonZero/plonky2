@@ -54,23 +54,6 @@ const fn check_mds_matrix() -> bool {
 }
 const_assert!(check_mds_matrix());
 
-/// Ensure that the first WIDTH round constants are in canonical* form. This is required because
-/// the first constant layer does not handle double overflow.
-/// *: round_const == GoldilocksField::ORDER is safe.
-/*
-#[allow(dead_code)]
-const fn check_round_const_bounds_init() -> bool {
-    let mut i = 0;
-    while i < WIDTH {
-        if ALL_ROUND_CONSTANTS[i] > GoldilocksField::ORDER {
-            return false;
-        }
-        i += 1;
-    }
-    true
-}
-const_assert!(check_round_const_bounds_init());
-*/
 // ====================================== SCALAR ARITHMETIC =======================================
 
 /// Addition modulo ORDER accounting for wraparound. Correct only when a + b < 2**64 + ORDER.
@@ -149,26 +132,6 @@ unsafe fn multiply(x: u64, y: u64) -> u64 {
     add_with_wraparound(res0, xy_hi_lo_mul_epsilon)
 }
 
-// ==================================== STANDALONE CONST LAYER =====================================
-
-/// Standalone const layer. Run only once, at the start of round 1. Remaining const layers are fused
-/// with the preceding MDS matrix multiplication.
-/*
-#[inline(always)]
-#[unroll_for_loops]
-unsafe fn const_layer_full(
-    mut state: [u64; WIDTH],
-    round_constants: &[u64; WIDTH],
-) -> [u64; WIDTH] {
-    assert!(WIDTH == 12);
-    for i in 0..12 {
-        let rc = round_constants[i];
-        // add_with_wraparound is safe, because rc is in canonical form.
-        state[i] = add_with_wraparound(state[i], rc);
-    }
-    state
-}
-*/
 // ========================================== FULL ROUNDS ==========================================
 
 /// Full S-box.

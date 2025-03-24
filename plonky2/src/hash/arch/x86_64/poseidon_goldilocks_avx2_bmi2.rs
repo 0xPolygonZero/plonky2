@@ -1,3 +1,5 @@
+#![allow(clippy::assertions_on_constants)]
+
 use core::arch::asm;
 use core::arch::x86_64::*;
 use core::mem::size_of;
