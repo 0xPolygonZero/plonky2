@@ -203,7 +203,7 @@ impl<'a, P: PackedField> Iterator for PackedStridedViewIter<'a, P> {
             "start and end pointers should be separated by a multiple of stride"
         );
 
-        if self.start != self.end {
+        if !core::ptr::eq(self.start, self.end) {
             let res = unsafe { &*self.start.cast() };
             // See comment in `PackedStridedView`. Below will point more than one byte past the end
             // of the buffer if the offset is not 0 and we've reached the end.
@@ -224,7 +224,7 @@ impl<P: PackedField> DoubleEndedIterator for PackedStridedViewIter<'_, P> {
             "start and end pointers should be separated by a multiple of stride"
         );
 
-        if self.start != self.end {
+        if !core::ptr::eq(self.start, self.end) {
             // See comment in `PackedStridedView`. `self.end` starts off pointing more than one byte
             // past the end of the buffer unless `offset` is 0.
             self.end = self.end.wrapping_sub(self.stride);
