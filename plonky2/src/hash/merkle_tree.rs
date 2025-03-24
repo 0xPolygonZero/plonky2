@@ -301,11 +301,20 @@ pub(crate) mod tests {
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
 
-        let log_n = 8;
-        let n = 1 << log_n;
-        let leaves = random_data::<F>(n, 7);
-
-        verify_all_leaves::<F, C, D>(leaves, 1)?;
+        // Test with different log_n values (tree sizes)
+        for log_n in [4, 6, 8] {
+            let n = 1 << log_n;
+            
+            // Use different leaf sizes
+            for leaf_size in [3, 7, 12] {
+                let leaves = random_data::<F>(n, leaf_size);
+                
+                // Test with different cap heights
+                for cap_height in 1..=log_n {
+                    verify_all_leaves::<F, C, D>(leaves.clone(), cap_height)?;
+                }
+            }
+        }
 
         Ok(())
     }
