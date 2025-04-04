@@ -145,61 +145,61 @@ pub struct CircuitBuilder<F: RichField + Extendable<D>, const D: usize> {
     /// A domain separator, which is included in the initial Fiat-Shamir seed. This is generally not
     /// needed, but can be used to ensure that proofs for one application are not valid for another.
     /// Defaults to the empty vector.
-    domain_separator: Option<Vec<F>>,
+    pub domain_separator: Option<Vec<F>>,
 
     /// The types of gates used in this circuit.
-    gates: HashSet<GateRef<F, D>>,
+    pub gates: HashSet<GateRef<F, D>>,
 
     /// The concrete placement of each gate.
-    pub(crate) gate_instances: Vec<GateInstance<F, D>>,
+    pub gate_instances: Vec<GateInstance<F, D>>,
 
     /// Targets to be made public.
-    public_inputs: Vec<Target>,
+    pub public_inputs: Vec<Target>,
 
     /// The next available index for a `VirtualTarget`.
-    virtual_target_index: usize,
+    pub virtual_target_index: usize,
 
-    copy_constraints: Vec<CopyConstraint>,
+    pub copy_constraints: Vec<CopyConstraint>,
 
     /// A tree of named scopes, used for debugging.
-    context_log: ContextTree,
+    pub context_log: ContextTree,
 
     /// Generators used to generate the witness.
-    generators: Vec<WitnessGeneratorRef<F, D>>,
+    pub generators: Vec<WitnessGeneratorRef<F, D>>,
 
-    constants_to_targets: HashMap<F, Target>,
-    targets_to_constants: HashMap<Target, F>,
+    pub constants_to_targets: HashMap<F, Target>,
+    pub targets_to_constants: HashMap<Target, F>,
 
     /// Memoized results of `arithmetic` calls.
-    pub(crate) base_arithmetic_results: HashMap<BaseArithmeticOperation<F>, Target>,
+    pub base_arithmetic_results: HashMap<BaseArithmeticOperation<F>, Target>,
 
     /// Memoized results of `arithmetic_extension` calls.
-    pub(crate) arithmetic_results: HashMap<ExtensionArithmeticOperation<F, D>, ExtensionTarget<D>>,
+    pub arithmetic_results: HashMap<ExtensionArithmeticOperation<F, D>, ExtensionTarget<D>>,
 
     /// Map between gate type and the current gate of this type with available slots.
-    current_slots: HashMap<GateRef<F, D>, CurrentSlot<F, D>>,
+    pub current_slots: HashMap<GateRef<F, D>, CurrentSlot<F, D>>,
 
     /// List of constant generators used to fill the constant wires.
-    constant_generators: Vec<ConstantGenerator<F>>,
+    pub constant_generators: Vec<ConstantGenerator<F>>,
 
     /// Rows for each LUT: [`LookupWire`] contains: first [`LookupGate`], first and last
     /// [LookupTableGate](crate::gates::lookup_table::LookupTableGate).
-    lookup_rows: Vec<LookupWire>,
+    pub lookup_rows: Vec<LookupWire>,
 
     /// For each LUT index, vector of `(looking_in, looking_out)` pairs.
-    lut_to_lookups: Vec<Lookup>,
+    pub lut_to_lookups: Vec<Lookup>,
 
     // Lookup tables in the form of `Vec<(input_value, output_value)>`.
-    luts: Vec<LookupTable>,
+    pub luts: Vec<LookupTable>,
 
     /// Optional common data. When it is `Some(goal_data)`, the `build` function panics if the resulting
     /// common data doesn't equal `goal_data`.
     /// This is used in cyclic recursion.
-    pub(crate) goal_common_data: Option<CommonCircuitData<F, D>>,
+    pub goal_common_data: Option<CommonCircuitData<F, D>>,
 
     /// Optional verifier data that is registered as public inputs.
     /// This is used in cyclic recursion to hold the circuit's own verifier key.
-    pub(crate) verifier_data_public_input: Option<VerifierCircuitTarget>,
+    pub verifier_data_public_input: Option<VerifierCircuitTarget>,
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {

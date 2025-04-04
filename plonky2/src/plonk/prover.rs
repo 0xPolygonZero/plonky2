@@ -7,6 +7,7 @@ use core::mem::swap;
 
 use anyhow::{ensure, Result};
 use hashbrown::HashMap;
+use log::debug;
 use plonky2_maybe_rayon::*;
 
 use super::circuit_builder::{LookupChallenges, LookupWire};
@@ -127,6 +128,13 @@ where
         generate_partial_witness(inputs, prover_data, common_data)?
     );
 
+    debug!("Called prove!");
+    debug!("Num wires    {}", partition_witness.num_wires);
+    debug!("Degree       {}", partition_witness.degree);
+    debug!("Num values   {}", partition_witness.values.len());
+    debug!("    NOTE if you want to print partition_witness.values, go into plonk/prover.rs");
+    //debug!("{:?}", partition_witness.values);
+
     prove_with_partition_witness(prover_data, common_data, partition_witness, timing)
 }
 
@@ -154,6 +162,12 @@ where
 
     let public_inputs = partition_witness.get_targets(&prover_data.public_inputs);
     let public_inputs_hash = C::InnerHasher::hash_no_pad(&public_inputs);
+
+    println!("About to create matrix witness!");
+    println!(
+        "Degree: {}.  Num wires: {}.",
+        partition_witness.degree, partition_witness.num_wires
+    );
 
     let witness = timed!(
         timing,
