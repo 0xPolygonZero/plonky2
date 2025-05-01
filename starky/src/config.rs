@@ -13,6 +13,9 @@ use plonky2::field::types::Field;
 use plonky2::fri::reduction_strategies::FriReductionStrategy;
 use plonky2::fri::{FriConfig, FriParams};
 use plonky2::hash::hash_types::RichField;
+use plonky2::iop::challenger::{Challenger, RecursiveChallenger};
+use plonky2::plonk::circuit_builder::CircuitBuilder;
+use plonky2::plonk::config::{AlgebraicHasher, Hasher};
 
 /// A configuration containing the different parameters used by the STARK prover.
 #[derive(Clone, Debug)]
@@ -93,6 +96,29 @@ impl StarkConfig {
         } else {
             Ok(())
         }
+    }
+
+    /// Observes this [`StarkConfig`] for the given [`Challenger`].
+    pub(crate) fn observe<F: RichField, H: Hasher<F>>(&self, challenger: &mut Challenger<F, H>) {
+        challenger.observe_element(F::from_canonical_usize(self.security_bits));
+        challenger.observe_element(F::from_canonical_usize(self.num_challenges));
+
+        self.fri_config.observe(challenger);
+    }
+
+    /// Observes this [`StarkConfig`] for the given [`RecursiveChallenger`].
+    pub(crate) fn observe_target<F, H, const D: usize>(
+        &self,
+        builder: &mut CircuitBuilder<F, D>,
+        challenger: &mut RecursiveChallenger<F, H, D>,
+    ) where
+        F: RichField + Extendable<D>,
+        H: AlgebraicHasher<F>,
+    {
+        challenger.observe_element(builder.constant(F::from_canonical_usize(self.security_bits)));
+        challenger.observe_element(builder.constant(F::from_canonical_usize(self.num_challenges)));
+
+        self.fri_config.observe_target(builder, challenger);
     }
 }
 
