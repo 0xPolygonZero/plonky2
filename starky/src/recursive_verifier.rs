@@ -119,7 +119,7 @@ pub fn verify_stark_proof_with_challenges_circuit<
     let zeta_pow_deg = builder.exp_extension_from_bits(challenges.stark_zeta, &degree_bits_vec);
     let z_h_zeta = builder.sub_extension(zeta_pow_deg, one);
 
-    // // Calculate primitive_root_of_unity(degree_bits)
+    // Calculate primitive_root_of_unity(degree_bits)
     let two_adicity = builder.constant(F::from_canonical_usize(F::TWO_ADICITY));
     let two_adicity_sub_degree_bits = builder.sub(two_adicity, proof.degree_bits);
     let two_exp_two_adicity_sub_degree_bits =

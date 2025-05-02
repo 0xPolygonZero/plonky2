@@ -298,6 +298,7 @@ where
             .collect::<Vec<_>>()
     });
 
+    // Bind constraints.
     let constraints = compute_eval_vanishing_poly::<F, C, S, D>(
         stark,
         &poly_evals,

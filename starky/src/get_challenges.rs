@@ -86,6 +86,7 @@ where
     let stark_alphas_prime = challenger.get_n_challenges(num_challenges);
     let zeta_prime = challenger.get_extension_challenge();
 
+    // Bind constraints.
     let constraints = compute_eval_vanishing_poly::<F, C, S, D>(
         stark,
         &poly_evals,
@@ -300,6 +301,7 @@ where
     let stark_alphas_prime = challenger.get_n_challenges(builder, num_challenges);
     let zeta_prime = challenger.get_extension_challenge(builder);
 
+    // Bind constraints.
     let constraints = compute_eval_vanishing_poly_circuit::<F, S, D>(
         builder,
         stark,
