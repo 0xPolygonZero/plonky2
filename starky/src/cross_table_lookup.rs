@@ -54,7 +54,7 @@ use crate::lookup::{
     eval_helper_columns, eval_helper_columns_circuit, get_grand_product_challenge_set,
     get_helper_cols, Column, ColumnFilter, Filter, GrandProductChallenge, GrandProductChallengeSet,
 };
-use crate::proof::{StarkProof, StarkProofTarget};
+use crate::proof::{StarkOpeningSet, StarkOpeningSetTarget};
 use crate::stark::Stark;
 
 /// An alias for `usize`, to represent the index of a STARK table in a multi-STARK setting.
@@ -440,9 +440,9 @@ impl<'a, F: RichField + Extendable<D>, const D: usize>
     CtlCheckVars<'a, F, F::Extension, F::Extension, D>
 {
     /// Extracts the `CtlCheckVars` from a single proof.
-    pub fn from_proof<C: GenericConfig<D, F = F>>(
+    pub fn from_opening_set<C: GenericConfig<D, F = F>>(
         table_idx: TableIdx,
-        proof: &StarkProof<F, C, D>,
+        stark_opening_set: &StarkOpeningSet<F, D>,
         cross_table_lookups: &'a [CrossTableLookup<F>],
         ctl_challenges: &'a GrandProductChallengeSet<F>,
         num_lookup_columns: usize,
@@ -451,13 +451,11 @@ impl<'a, F: RichField + Extendable<D>, const D: usize>
     ) -> Vec<Self> {
         // Get all cross-table lookup polynomial openings for the provided STARK proof.
         let ctl_zs = {
-            let auxiliary_polys = proof
-                .openings
+            let auxiliary_polys = stark_opening_set
                 .auxiliary_polys
                 .as_ref()
                 .expect("We cannot have CTLs without auxiliary polynomials.");
-            let auxiliary_polys_next = proof
-                .openings
+            let auxiliary_polys_next = stark_opening_set
                 .auxiliary_polys_next
                 .as_ref()
                 .expect("We cannot have CTLs without auxiliary polynomials.");
@@ -648,9 +646,9 @@ pub struct CtlCheckVarsTarget<F: Field, const D: usize> {
 
 impl<'a, F: Field, const D: usize> CtlCheckVarsTarget<F, D> {
     /// Circuit version of `from_proofs`, for a single STARK.
-    pub fn from_proof(
+    pub fn from_opening_set(
         table: TableIdx,
-        proof: &StarkProofTarget<D>,
+        stark_opening_set: &StarkOpeningSetTarget<D>,
         cross_table_lookups: &'a [CrossTableLookup<F>],
         ctl_challenges: &'a GrandProductChallengeSet<Target>,
         num_lookup_columns: usize,
@@ -659,14 +657,13 @@ impl<'a, F: Field, const D: usize> CtlCheckVarsTarget<F, D> {
     ) -> Vec<Self> {
         // Get all cross-table lookup polynomial openings for each STARK proof.
         let ctl_zs = {
-            let openings = &proof.openings;
-            let ctl_zs = openings
+            let ctl_zs = stark_opening_set
                 .auxiliary_polys
                 .as_ref()
                 .expect("We cannot have CTls without auxiliary polynomials.")
                 .iter()
                 .skip(num_lookup_columns);
-            let ctl_zs_next = openings
+            let ctl_zs_next = stark_opening_set
                 .auxiliary_polys_next
                 .as_ref()
                 .expect("We cannot have CTls without auxiliary polynomials.")
