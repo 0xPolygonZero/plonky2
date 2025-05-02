@@ -137,7 +137,6 @@ where
     C: GenericConfig<D, F = F>,
     S: Stark<F, D>,
 {
-    println!("prover ctl challenges {:?}", ctl_challenges);
     let degree = trace_poly_values[0].len();
     let degree_bits = log2_strict(degree);
     let fri_params = config.fri_params(degree_bits);
@@ -298,8 +297,6 @@ where
             })
             .collect::<Vec<_>>()
     });
-
-    println!("prover ctl_vars {:?}", ctl_vars);
 
     // Bind constraints.
     let constraints = compute_eval_vanishing_poly::<F, C, S, D>(
