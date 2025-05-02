@@ -24,7 +24,7 @@ use crate::evaluation_frame::StarkEvaluationFrame;
 use crate::lookup::LookupCheckVars;
 use crate::proof::{StarkOpeningSet, StarkProof, StarkProofChallenges, StarkProofWithPublicInputs};
 use crate::stark::Stark;
-use crate::vanishing_poly::eval_vanishing_poly;
+use crate::vanishing_poly::{eval_l_0_and_l_last, eval_vanishing_poly};
 
 /// Verifies a [`StarkProofWithPublicInputs`] against a STARK statement.
 pub fn verify_stark_proof<
@@ -44,6 +44,7 @@ pub fn verify_stark_proof<
     let challenges = proof_with_pis.get_challenges(
         &stark,
         &mut challenger,
+        None,
         None,
         false,
         config,
@@ -306,18 +307,6 @@ where
     )?;
 
     Ok(())
-}
-
-/// Evaluate the Lagrange polynomials `L_0` and `L_(n-1)` at a point `x`.
-/// `L_0(x) = (x^n - 1)/(n * (x - 1))`
-/// `L_(n-1)(x) = (x^n - 1)/(n * (g * x - 1))`, with `g` the first element of the subgroup.
-fn eval_l_0_and_l_last<F: Field>(log_n: usize, x: F) -> (F, F) {
-    let n = F::from_canonical_usize(1 << log_n);
-    let g = F::primitive_root_of_unity(log_n);
-    let z_x = x.exp_power_of_2(log_n) - F::ONE;
-    let invs = F::batch_multiplicative_inverse(&[n * (x - F::ONE), n * (g * x - F::ONE)]);
-
-    (z_x * invs[0], z_x * invs[1])
 }
 
 /// Utility function to check that all lookups data wrapped in `Option`s are `Some` iff

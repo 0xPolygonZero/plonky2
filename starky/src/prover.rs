@@ -267,9 +267,41 @@ where
         &num_ctl_polys,
     );
 
+    let total_num_helper_cols: usize = num_ctl_polys.iter().sum();
+    let ctl_vars = ctl_data.map(|data| {
+        let mut start_index = 0;
+        data.zs_columns
+            .iter()
+            .enumerate()
+            .map(|(i, zs_columns)| {
+                let num_ctl_helper_cols = num_ctl_polys[i];
+                let helper_columns =
+                    poly_evals.auxiliary_polys.as_ref().unwrap()[num_lookup_columns + start_index
+                        ..num_lookup_columns + start_index + num_ctl_helper_cols]
+                        .to_vec();
+
+                let ctl_vars = CtlCheckVars::<F, F::Extension, F::Extension, D> {
+                    helper_columns,
+                    local_z: poly_evals.auxiliary_polys.as_ref().unwrap()
+                        [num_lookup_columns + total_num_helper_cols + i],
+                    next_z: poly_evals.auxiliary_polys_next.as_ref().unwrap()
+                        [num_lookup_columns + total_num_helper_cols + i],
+                    challenges: zs_columns.challenge,
+                    columns: zs_columns.columns.clone(),
+                    filter: zs_columns.filter.clone(),
+                };
+
+                start_index += num_ctl_helper_cols;
+
+                ctl_vars
+            })
+            .collect::<Vec<_>>()
+    });
+
     let constraints = compute_eval_vanishing_poly::<F, C, S, D>(
         stark,
         &poly_evals,
+        ctl_vars.as_ref().map(|v| &**v),
         lookup_challenges.as_ref(),
         &lookups,
         public_inputs,

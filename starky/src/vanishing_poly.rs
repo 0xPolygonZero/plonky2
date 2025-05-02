@@ -91,7 +91,10 @@ pub(crate) fn eval_vanishing_poly_circuit<F, S, const D: usize>(
     }
 }
 
-fn eval_l_0_and_l_last<F: Field>(log_n: usize, x: F) -> (F, F) {
+/// Evaluate the Lagrange polynomials `L_0` and `L_(n-1)` at a point `x`.
+/// `L_0(x) = (x^n - 1)/(n * (x - 1))`
+/// `L_(n-1)(x) = (x^n - 1)/(n * (g * x - 1))`, with `g` the first element of the subgroup.
+pub(crate) fn eval_l_0_and_l_last<F: Field>(log_n: usize, x: F) -> (F, F) {
     let n = F::from_canonical_usize(1 << log_n);
     let g = F::primitive_root_of_unity(log_n);
     let z_x = x.exp_power_of_2(log_n) - F::ONE;
@@ -100,9 +103,11 @@ fn eval_l_0_and_l_last<F: Field>(log_n: usize, x: F) -> (F, F) {
     (z_x * invs[0], z_x * invs[1])
 }
 
+/// Evaluates the constraints at a random extension point. It is used to bind the constraints.
 pub(crate) fn compute_eval_vanishing_poly<F, C, S, const D: usize>(
     stark: &S,
     stark_opening_set: &StarkOpeningSet<F, D>,
+    ctl_vars: Option<&[CtlCheckVars<F, F::Extension, F::Extension, D>]>,
     lookup_challenges: Option<&Vec<F>>,
     lookups: &[Lookup<F>],
     public_inputs: &[F],
@@ -110,8 +115,6 @@ pub(crate) fn compute_eval_vanishing_poly<F, C, S, const D: usize>(
     zeta: F::Extension,
     degree_bits: usize,
     num_lookup_columns: usize,
-    // num_ctl_columns: &[usize],
-    // config: &StarkConfig,
 ) -> Vec<F::Extension>
 where
     F: RichField + Extendable<D>,
@@ -127,52 +130,9 @@ where
         quotient_polys: _,
     } = &stark_opening_set;
 
-    // let rate_bits = config.fri_config.rate_bits;
-
-    // let quotient_degree_bits = log2_ceil(stark.quotient_degree_factor());
-    // assert!(
-    //     quotient_degree_bits <= rate_bits,
-    //     "Having constraints of degree higher than the rate is not supported yet."
-    // );
-
     let (l_0, l_last) = eval_l_0_and_l_last(degree_bits, zeta);
     let last = F::primitive_root_of_unity(degree_bits).inverse();
     let z_last = zeta - last.into();
-
-    // // Batch evaluates polynomials on the LDE, at a point `z`.
-    // let eval_commitment = |z: F::Extension, c: &PolynomialBatch<F, C, D>| {
-    //     c.polynomials
-    //         .par_iter()
-    //         .map(|p| p.to_extension().eval(z))
-    //         .collect::<Vec<_>>()
-    // };
-    // Batch evaluates polynomials at a base field point `z`.
-    // let eval_commitment_base = |z: F, c: &PolynomialBatch<F, C, D>| {
-    //     c.polynomials
-    //         .par_iter()
-    //         .map(|p| p.eval(z))
-    //         .collect::<Vec<_>>()
-    // };
-
-    // let auxiliary_first = auxiliary_polys_commitment
-    //     .as_ref()
-    //     .map(|c| eval_commitment_base(F::ONE, c));
-    // `g * zeta`.
-
-    // let zeta_next = zeta.scalar_mul(g);
-
-    // let local_values = eval_commitment(zeta, trace_commitment);
-    // let next_values = eval_commitment(zeta_next, trace_commitment);
-    // let auxiliary_polys = auxiliary_polys_commitment
-    //     .as_ref()
-    //     .map(|c| eval_commitment(zeta, c));
-    // let auxiliary_polys_next = auxiliary_polys_commitment
-    //     .as_ref()
-    //     .map(|c| eval_commitment(zeta_next, c));
-    // let ctl_zs_first = ctl_data.map(|c| {
-    //     let total_num_helper_cols: usize = num_ctl_polys.iter().sum();
-    //     auxiliary_first.unwrap()[num_lookup_columns + total_num_helper_cols..].to_vec()
-    // });
 
     let mut consumer = ConstraintConsumer::<F::Extension>::new(
         alphas
@@ -205,14 +165,13 @@ where
         &vars,
         &lookups,
         lookup_vars,
-        None,
-        // ctl_vars,
+        ctl_vars,
         &mut consumer,
     );
     consumer.accumulators()
 }
 
-fn eval_l_0_and_l_last_circuit<F: RichField + Extendable<D>, const D: usize>(
+pub(crate) fn eval_l_0_and_l_last_circuit<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     n: ExtensionTarget<D>,
     g: ExtensionTarget<D>,
@@ -230,10 +189,12 @@ fn eval_l_0_and_l_last_circuit<F: RichField + Extendable<D>, const D: usize>(
     )
 }
 
+/// Evaluates the constraints at a random extension point. It is used to bind the constraints.
 pub(crate) fn compute_eval_vanishing_poly_circuit<F, S, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     stark: &S,
     stark_opening_set: &StarkOpeningSetTarget<D>,
+    ctl_vars: Option<&[CtlCheckVarsTarget<F, D>]>,
     lookup_challenges: Option<&Vec<Target>>,
     public_inputs: &[Target],
     alphas: Vec<Target>,
@@ -241,7 +202,39 @@ pub(crate) fn compute_eval_vanishing_poly_circuit<F, S, const D: usize>(
     degree_bits: usize,
     degree_bits_target: Target,
     num_lookup_columns: usize,
-    // ctl_vars: Option<&[CtlCheckVarsTarget<F, D>]>,
+) -> Vec<ExtensionTarget<D>>
+where
+    F: RichField + Extendable<D>,
+    S: Stark<F, D>,
+{
+    get_constraint_accumulators(
+        builder,
+        stark,
+        stark_opening_set,
+        ctl_vars,
+        lookup_challenges,
+        public_inputs,
+        alphas,
+        zeta,
+        degree_bits,
+        degree_bits_target,
+        num_lookup_columns,
+    )
+}
+
+/// Gets the constraint accumulators given a [`StarkOpeningSet`].
+pub(crate) fn get_constraint_accumulators<F, S, const D: usize>(
+    builder: &mut CircuitBuilder<F, D>,
+    stark: &S,
+    stark_opening_set: &StarkOpeningSetTarget<D>,
+    ctl_vars: Option<&[CtlCheckVarsTarget<F, D>]>,
+    lookup_challenges: Option<&Vec<Target>>,
+    public_inputs: &[Target],
+    alphas: Vec<Target>,
+    zeta: ExtensionTarget<D>,
+    degree_bits: usize,
+    degree_bits_target: Target,
+    num_lookup_columns: usize,
 ) -> Vec<ExtensionTarget<D>>
 where
     F: RichField + Extendable<D>,
@@ -310,7 +303,7 @@ where
             stark,
             &vars,
             lookup_vars,
-            None,
+            ctl_vars,
             &mut consumer
         )
     );
