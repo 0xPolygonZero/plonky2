@@ -51,10 +51,20 @@ pub fn verify_stark_proof_circuit<
     let max_degree_bits_to_support = proof_with_pis.proof.recover_degree_bits(inner_config);
 
     let mut challenger = RecursiveChallenger::<F, C::Hasher, D>::new(builder);
+    let degree_bits_target = proof_with_pis.proof.degree_bits;
     let challenges = with_context!(
         builder,
         "compute challenges",
-        proof_with_pis.get_challenges::<F, C>(builder, &mut challenger, None, false, inner_config)
+        proof_with_pis.get_challenges::<F, C, S>(
+            &stark,
+            builder,
+            &mut challenger,
+            None,
+            max_degree_bits_to_support,
+            degree_bits_target,
+            false,
+            inner_config
+        )
     );
 
     verify_stark_proof_with_challenges_circuit::<F, C, S, D>(
@@ -317,6 +327,13 @@ pub fn add_virtual_stark_proof<F: RichField + Extendable<D>, S: Stark<F, D>, con
         trace_cap: builder.add_virtual_cap(cap_height),
         auxiliary_polys_cap,
         quotient_polys_cap,
+        poly_evals: add_virtual_stark_opening_set(
+            builder,
+            stark,
+            num_ctl_helper_zs,
+            num_ctl_zs,
+            config,
+        ),
         openings: add_virtual_stark_opening_set::<F, S, D>(
             builder,
             stark,
@@ -415,6 +432,11 @@ where
     {
         witness.set_cap_target(quotient_polys_cap_target, quotient_polys_cap)?;
     }
+
+    witness.set_fri_openings(
+        &proof_target.poly_evals.to_fri_openings(zero),
+        &proof.poly_evals.to_fri_openings(),
+    )?;
 
     witness.set_fri_openings(
         &proof_target.openings.to_fri_openings(zero),

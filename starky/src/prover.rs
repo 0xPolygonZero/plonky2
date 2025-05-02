@@ -34,7 +34,7 @@ use crate::lookup::{
 };
 use crate::proof::{StarkOpeningSet, StarkProof, StarkProofWithPublicInputs};
 use crate::stark::Stark;
-use crate::vanishing_poly::eval_vanishing_poly;
+use crate::vanishing_poly::{compute_eval_vanishing_poly, eval_vanishing_poly};
 
 /// From a STARK trace, computes a STARK proof to attest its correctness.
 pub fn prove<F, C, S, const D: usize>(
@@ -142,6 +142,11 @@ where
     let fri_params = config.fri_params(degree_bits);
     let rate_bits = config.fri_config.rate_bits;
     let cap_height = config.fri_config.cap_height;
+
+    let num_ctl_polys = ctl_data
+        .map(|data| data.num_ctl_helper_polys())
+        .unwrap_or_default();
+
     assert!(
         fri_params.total_arities() <= degree_bits + rate_bits - cap_height,
         "FRI total reduction arity is too large.",
@@ -228,11 +233,7 @@ where
         challenger.observe_cap(cap);
     }
 
-    let alphas = challenger.get_n_challenges(config.num_challenges);
-
-    let num_ctl_polys = ctl_data
-        .map(|data| data.num_ctl_helper_polys())
-        .unwrap_or_default();
+    let alphas_prime = challenger.get_n_challenges(config.num_challenges);
 
     // This is an expensive check, hence is only run when `debug_assertions` are enabled.
     #[cfg(debug_assertions)]
@@ -245,12 +246,42 @@ where
             lookup_challenges.as_ref(),
             &lookups,
             ctl_data,
-            alphas.clone(),
+            alphas_prime.clone(),
             degree_bits,
             num_lookup_columns,
             &num_ctl_polys,
         );
     }
+
+    let g = F::primitive_root_of_unity(degree_bits);
+    let zeta_prime = challenger.get_extension_challenge();
+
+    let poly_evals = StarkOpeningSet::new(
+        zeta_prime,
+        g,
+        trace_commitment,
+        auxiliary_polys_commitment.as_ref(),
+        None,
+        num_lookup_columns,
+        ctl_data.is_some(),
+        &num_ctl_polys,
+    );
+
+    let constraints = compute_eval_vanishing_poly::<F, C, S, D>(
+        stark,
+        &poly_evals,
+        lookup_challenges.as_ref(),
+        &lookups,
+        public_inputs,
+        alphas_prime.clone(),
+        zeta_prime,
+        degree_bits,
+        num_lookup_columns,
+    );
+
+    challenger.observe_extension_elements(&constraints);
+
+    let alphas = challenger.get_n_challenges(config.num_challenges);
 
     let quotient_polys = timed!(
         timing,
@@ -313,7 +344,7 @@ where
     // To avoid leaking witness data, we want to ensure that our opening locations, `zeta` and
     // `g * zeta`, are not in our subgroup `H`. It suffices to check `zeta` only, since
     // `(g * zeta)^n = zeta^n`, where `n` is the order of `g`.
-    let g = F::primitive_root_of_unity(degree_bits);
+
     ensure!(
         zeta.exp_power_of_2(degree_bits) != F::Extension::ONE,
         "Opening point is in the subgroup."
@@ -356,6 +387,7 @@ where
         trace_cap: trace_commitment.merkle_tree.cap.clone(),
         auxiliary_polys_cap,
         quotient_polys_cap,
+        poly_evals,
         openings,
         opening_proof,
     };

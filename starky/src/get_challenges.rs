@@ -17,6 +17,8 @@ use crate::lookup::{
     GrandProductChallengeSet,
 };
 use crate::proof::*;
+use crate::stark::Stark;
+use crate::vanishing_poly::{compute_eval_vanishing_poly, compute_eval_vanishing_poly_circuit};
 
 /// Generates challenges for a STARK proof from a challenger and given
 /// all the arguments needed to update the challenger state.
@@ -25,12 +27,15 @@ use crate::proof::*;
 /// or not by the challenger. Observing it here could be redundant in a
 /// multi-STARK system where trace caps would have already been observed
 /// before proving individually each STARK.
-fn get_challenges<F, C, const D: usize>(
+fn get_challenges<F, C, S: Stark<F, D>, const D: usize>(
+    stark: &S,
+    public_inputs: &[F],
     challenger: &mut Challenger<F, C::Hasher>,
     challenges: Option<&GrandProductChallengeSet<F>>,
     trace_cap: Option<&MerkleCap<F, C::Hasher>>,
     auxiliary_polys_cap: Option<&MerkleCap<F, C::Hasher>>,
     quotient_polys_cap: Option<&MerkleCap<F, C::Hasher>>,
+    poly_evals: &StarkOpeningSet<F, D>,
     openings: &StarkOpeningSet<F, D>,
     commit_phase_merkle_caps: &[MerkleCap<F, C::Hasher>],
     final_poly: &PolynomialCoeffs<F::Extension>,
@@ -60,6 +65,38 @@ where
     if let Some(cap) = &auxiliary_polys_cap {
         challenger.observe_cap(cap);
     }
+
+    let num_lookup_columns = stark.num_lookup_helper_columns(config);
+    let lookup_challenges = if stark.uses_lookups() {
+        Some(
+            lookup_challenge_set
+                .as_ref()
+                .unwrap()
+                .challenges
+                .iter()
+                .map(|ch| ch.beta)
+                .collect::<Vec<_>>(),
+        )
+    } else {
+        None
+    };
+
+    let stark_alphas_prime = challenger.get_n_challenges(num_challenges);
+    let zeta_prime = challenger.get_extension_challenge();
+
+    let constraints = compute_eval_vanishing_poly::<F, C, S, D>(
+        stark,
+        &poly_evals,
+        lookup_challenges.as_ref(),
+        &stark.lookups(),
+        public_inputs,
+        stark_alphas_prime.clone(),
+        zeta_prime,
+        degree_bits,
+        num_lookup_columns,
+    );
+
+    challenger.observe_extension_elements(&constraints);
 
     let stark_alphas = challenger.get_n_challenges(num_challenges);
 
@@ -111,8 +148,10 @@ where
     /// Multi-STARK systems may already observe individual trace caps
     /// ahead of proving each table, and hence may ignore observing
     /// again the cap when generating individual challenges.
-    pub fn get_challenges(
+    pub fn get_challenges<S: Stark<F, D>>(
         &self,
+        stark: &S,
+        public_inputs: &[F],
         challenger: &mut Challenger<F, C::Hasher>,
         challenges: Option<&GrandProductChallengeSet<F>>,
         ignore_trace_cap: bool,
@@ -125,6 +164,7 @@ where
             trace_cap,
             auxiliary_polys_cap,
             quotient_polys_cap,
+            poly_evals,
             openings,
             opening_proof:
                 FriProof {
@@ -141,12 +181,15 @@ where
             Some(trace_cap)
         };
 
-        get_challenges::<F, C, D>(
+        get_challenges::<F, C, S, D>(
+            stark,
+            public_inputs,
             challenger,
             challenges,
             trace_cap,
             auxiliary_polys_cap.as_ref(),
             quotient_polys_cap.as_ref(),
+            poly_evals,
             openings,
             commit_phase_merkle_caps,
             final_poly,
@@ -170,8 +213,9 @@ where
     /// Multi-STARK systems may already observe individual trace caps
     /// ahead of proving each table, and hence may ignore observing
     /// again the cap when generating individual challenges.
-    pub fn get_challenges(
+    pub fn get_challenges<S: Stark<F, D>>(
         &self,
+        stark: &S,
         challenger: &mut Challenger<F, C::Hasher>,
         challenges: Option<&GrandProductChallengeSet<F>>,
         ignore_trace_cap: bool,
@@ -179,7 +223,9 @@ where
         verifier_circuit_fri_params: Option<FriParams>,
     ) -> StarkProofChallenges<F, D> {
         challenger.observe_elements(&self.public_inputs);
-        self.proof.get_challenges(
+        self.proof.get_challenges::<S>(
+            stark,
+            &self.public_inputs,
             challenger,
             challenges,
             ignore_trace_cap,
@@ -191,17 +237,22 @@ where
 
 /// Circuit version of `get_challenges`, with the same flexibility around
 /// `trace_cap` being passed as an `Option`.
-fn get_challenges_target<F, C, const D: usize>(
+fn get_challenges_target<F, C, S: Stark<F, D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
+    stark: &S,
+    public_inputs: &[Target],
     challenger: &mut RecursiveChallenger<F, C::Hasher, D>,
     challenges: Option<&GrandProductChallengeSet<Target>>,
     trace_cap: Option<&MerkleCapTarget>,
     auxiliary_polys_cap: Option<&MerkleCapTarget>,
     quotient_polys_cap: Option<&MerkleCapTarget>,
+    poly_evals: &StarkOpeningSetTarget<D>,
     openings: &StarkOpeningSetTarget<D>,
     commit_phase_merkle_caps: &[MerkleCapTarget],
     final_poly: &PolynomialCoeffsExtTarget<D>,
     pow_witness: Target,
+    degree_bits: usize,
+    degree_bits_target: Target,
     config: &StarkConfig,
 ) -> StarkProofChallengesTarget<D>
 where
@@ -226,6 +277,35 @@ where
     if let Some(cap) = auxiliary_polys_cap {
         challenger.observe_cap(cap);
     }
+
+    let num_lookup_columns = stark.num_lookup_helper_columns(config);
+    let lookup_challenges = stark.uses_lookups().then(|| {
+        lookup_challenge_set
+            .as_ref()
+            .unwrap()
+            .challenges
+            .iter()
+            .map(|ch| ch.beta)
+            .collect::<Vec<_>>()
+    });
+
+    let stark_alphas_prime = challenger.get_n_challenges(builder, num_challenges);
+    let zeta_prime = challenger.get_extension_challenge(builder);
+
+    let constraints = compute_eval_vanishing_poly_circuit::<F, S, D>(
+        builder,
+        stark,
+        poly_evals,
+        lookup_challenges.as_ref(),
+        public_inputs,
+        stark_alphas_prime.clone(),
+        zeta_prime,
+        degree_bits,
+        degree_bits_target,
+        num_lookup_columns,
+    );
+
+    challenger.observe_extension_elements(&constraints);
 
     let stark_alphas = challenger.get_n_challenges(builder, num_challenges);
 
@@ -259,11 +339,15 @@ impl<const D: usize> StarkProofTarget<D> {
     /// Multi-STARK systems may already observe individual trace caps
     /// ahead of proving each table, and hence may ignore observing
     /// again the cap when generating individual challenges.
-    pub fn get_challenges<F, C>(
+    pub fn get_challenges<F, C, S: Stark<F, D>>(
         &self,
         builder: &mut CircuitBuilder<F, D>,
+        stark: &S,
+        public_inputs: &[Target],
         challenger: &mut RecursiveChallenger<F, C::Hasher, D>,
         challenges: Option<&GrandProductChallengeSet<Target>>,
+        degree_bits: usize,
+        degree_bits_target: Target,
         ignore_trace_cap: bool,
         config: &StarkConfig,
     ) -> StarkProofChallengesTarget<D>
@@ -276,6 +360,7 @@ impl<const D: usize> StarkProofTarget<D> {
             trace_cap,
             auxiliary_polys_cap,
             quotient_polys_cap,
+            poly_evals,
             openings,
             opening_proof:
                 FriProofTarget {
@@ -293,17 +378,22 @@ impl<const D: usize> StarkProofTarget<D> {
             Some(trace_cap)
         };
 
-        get_challenges_target::<F, C, D>(
+        get_challenges_target::<F, C, S, D>(
             builder,
+            stark,
+            public_inputs,
             challenger,
             challenges,
             trace_cap,
             auxiliary_polys_cap.as_ref(),
             quotient_polys_cap.as_ref(),
+            poly_evals,
             openings,
             commit_phase_merkle_caps,
             final_poly,
             *pow_witness,
+            degree_bits,
+            degree_bits_target,
             config,
         )
     }
@@ -317,11 +407,14 @@ impl<const D: usize> StarkProofWithPublicInputsTarget<D> {
     /// Multi-STARK systems may already observe individual trace caps
     /// ahead of proving each table, and hence may ignore observing
     /// again the cap when generating individual challenges.
-    pub fn get_challenges<F, C>(
+    pub fn get_challenges<F, C, S: Stark<F, D>>(
         &self,
+        stark: &S,
         builder: &mut CircuitBuilder<F, D>,
         challenger: &mut RecursiveChallenger<F, C::Hasher, D>,
         challenges: Option<&GrandProductChallengeSet<Target>>,
+        degree_bits: usize,
+        degre_bits_target: Target,
         ignore_trace_cap: bool,
         config: &StarkConfig,
     ) -> StarkProofChallengesTarget<D>
@@ -331,7 +424,16 @@ impl<const D: usize> StarkProofWithPublicInputsTarget<D> {
         C::Hasher: AlgebraicHasher<F>,
     {
         challenger.observe_elements(&self.public_inputs);
-        self.proof
-            .get_challenges::<F, C>(builder, challenger, challenges, ignore_trace_cap, config)
+        self.proof.get_challenges::<F, C, S>(
+            builder,
+            stark,
+            &self.public_inputs,
+            challenger,
+            challenges,
+            degree_bits,
+            degre_bits_target,
+            ignore_trace_cap,
+            config,
+        )
     }
 }
