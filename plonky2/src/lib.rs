@@ -20,6 +20,7 @@ pub mod iop;
 pub mod plonk;
 pub mod recursion;
 pub mod util;
+pub mod boil;
 
 #[cfg(test)]
 mod lookup_test;

@@ -80,6 +80,18 @@ impl<F: Field> ReducingFactor<F> {
         })
     }
 
+    pub fn reduce_polys2(
+        &mut self,
+        polys: Vec<PolynomialCoeffs<F>>,
+    ) -> PolynomialCoeffs<F> {
+        polys.iter().rev().fold(PolynomialCoeffs::empty(), |mut acc, x| {
+            self.mul_poly(&mut acc);
+            // acc += x.borrow();
+            acc += x;
+            acc
+        })
+    }
+
     pub fn reduce_polys_base<BF: Extendable<D, Extension = F>, const D: usize>(
         &mut self,
         polys: impl IntoIterator<Item = impl Borrow<PolynomialCoeffs<BF>>>,
