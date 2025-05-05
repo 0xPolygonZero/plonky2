@@ -269,7 +269,7 @@ pub fn add_virtual_stark_proof<F: RichField + Extendable<D>, S: Stark<F, D>, con
         trace_cap: builder.add_virtual_cap(cap_height),
         auxiliary_polys_cap,
         quotient_polys_cap,
-        poly_evals: add_virtual_stark_opening_set(
+        poly_evals: add_virtual_stark_opening_set_no_quotient_poly(
             builder,
             stark,
             num_ctl_helper_zs,
@@ -316,6 +316,37 @@ fn add_virtual_stark_opening_set<F: RichField + Extendable<D>, S: Stark<F, D>, c
                 stark.quotient_degree_factor() * config.num_challenges,
             )
         }),
+    }
+}
+
+fn add_virtual_stark_opening_set_no_quotient_poly<
+    F: RichField + Extendable<D>,
+    S: Stark<F, D>,
+    const D: usize,
+>(
+    builder: &mut CircuitBuilder<F, D>,
+    stark: &S,
+    num_ctl_helper_zs: usize,
+    num_ctl_zs: usize,
+    config: &StarkConfig,
+) -> StarkOpeningSetTarget<D> {
+    StarkOpeningSetTarget {
+        local_values: builder.add_virtual_extension_targets(S::COLUMNS),
+        next_values: builder.add_virtual_extension_targets(S::COLUMNS),
+        auxiliary_polys: (stark.uses_lookups() || stark.requires_ctls()).then(|| {
+            builder.add_virtual_extension_targets(
+                stark.num_lookup_helper_columns(config) + num_ctl_helper_zs,
+            )
+        }),
+        auxiliary_polys_next: (stark.uses_lookups() || stark.requires_ctls()).then(|| {
+            builder.add_virtual_extension_targets(
+                stark.num_lookup_helper_columns(config) + num_ctl_helper_zs,
+            )
+        }),
+        ctl_zs_first: stark
+            .requires_ctls()
+            .then(|| builder.add_virtual_targets(num_ctl_zs)),
+        quotient_polys: None,
     }
 }
 
