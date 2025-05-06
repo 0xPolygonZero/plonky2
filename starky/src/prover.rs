@@ -254,6 +254,11 @@ where
     }
 
     let g = F::primitive_root_of_unity(degree_bits);
+
+    // Before computing the quotient polynomial, we bind the constraints.
+    // To do so, we evaluate them at a random extension point `zeta_prime` and combine them with `stark_alphas_prime`.
+    // Then, the challenger observes the resulting evaluations, so that the constraints are bound to `stark_alphas`
+    // (the challenges used in the quotient polynomials).
     let zeta_prime = challenger.get_extension_challenge();
 
     let poly_evals = StarkOpeningSet::new(

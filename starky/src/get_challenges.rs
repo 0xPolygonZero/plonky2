@@ -86,6 +86,11 @@ where
         None
     };
 
+    // Before computing the quotient polynomial, we bind the constraints.
+    // To do so, the verifier gets all the necessary polynomials evaluated at the random extension challenge `zeta_prime`,
+    // and evaluates the constraints at that point. The constraints are combined usihg `stark_alphas_prime`.
+    // Then, the challenger observes the constraint evaluations, so that they are bound to `stark_alphas`
+    // (the challenges used in the quotient polynomials).
     let stark_alphas_prime = challenger.get_n_challenges(num_challenges);
     let zeta_prime = challenger.get_extension_challenge();
 
@@ -301,6 +306,11 @@ where
             .collect::<Vec<_>>()
     });
 
+    // Before computing the quotient polynomial, we bind the constraints.
+    // To do so, the verifier gets all the necessary polynomials evaluated at the random extension challenge `zeta_prime`,
+    // and evaluates the constraints at that point. The constraints are combined usihg `stark_alphas_prime`.
+    // Then, the challenger observes the resulting evaluations, so that the constraints are bound to `stark_alphas`
+    // (the challenges used in the quotient polynomials).
     let stark_alphas_prime = challenger.get_n_challenges(builder, num_challenges);
     let zeta_prime = challenger.get_extension_challenge(builder);
 
@@ -431,7 +441,6 @@ impl<const D: usize> StarkProofWithPublicInputsTarget<D> {
         challenges: Option<&GrandProductChallengeSet<Target>>,
         ctl_vars: Option<&[CtlCheckVarsTarget<F, D>]>,
         degree_bits: usize,
-        degre_bits_target: Target,
         ignore_trace_cap: bool,
         config: &StarkConfig,
     ) -> StarkProofChallengesTarget<D>
@@ -449,7 +458,7 @@ impl<const D: usize> StarkProofWithPublicInputsTarget<D> {
             challenges,
             ctl_vars,
             degree_bits,
-            degre_bits_target,
+            self.proof.degree_bits,
             ignore_trace_cap,
             config,
         )

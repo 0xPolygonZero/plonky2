@@ -25,7 +25,7 @@ use crate::proof::{
     StarkProofWithPublicInputs, StarkProofWithPublicInputsTarget,
 };
 use crate::stark::Stark;
-use crate::vanishing_poly::get_constraint_accumulators;
+use crate::vanishing_poly::compute_eval_vanishing_poly_circuit;
 
 /// Encodes the verification of a [`StarkProofWithPublicInputsTarget`]
 /// for some statement in a circuit.
@@ -47,7 +47,6 @@ pub fn verify_stark_proof_circuit<
     let max_degree_bits_to_support = proof_with_pis.proof.recover_degree_bits(inner_config);
 
     let mut challenger = RecursiveChallenger::<F, C::Hasher, D>::new(builder);
-    let degree_bits_target = proof_with_pis.proof.degree_bits;
     let challenges = with_context!(
         builder,
         "compute challenges",
@@ -58,7 +57,6 @@ pub fn verify_stark_proof_circuit<
             None,
             None,
             max_degree_bits_to_support,
-            degree_bits_target,
             false,
             inner_config
         )
@@ -139,7 +137,7 @@ pub fn verify_stark_proof_with_challenges_circuit<
             .collect::<Vec<_>>()
     });
 
-    let vanishing_polys_zeta = get_constraint_accumulators(
+    let vanishing_polys_zeta = compute_eval_vanishing_poly_circuit(
         builder,
         stark,
         &proof.openings,

@@ -210,39 +210,6 @@ where
     F: RichField + Extendable<D>,
     S: Stark<F, D>,
 {
-    get_constraint_accumulators(
-        builder,
-        stark,
-        stark_opening_set,
-        ctl_vars,
-        lookup_challenges,
-        public_inputs,
-        alphas,
-        zeta,
-        degree_bits,
-        degree_bits_target,
-        num_lookup_columns,
-    )
-}
-
-/// Gets the constraint accumulators given a [`StarkOpeningSet`].
-pub(crate) fn get_constraint_accumulators<F, S, const D: usize>(
-    builder: &mut CircuitBuilder<F, D>,
-    stark: &S,
-    stark_opening_set: &StarkOpeningSetTarget<D>,
-    ctl_vars: Option<&[CtlCheckVarsTarget<F, D>]>,
-    lookup_challenges: Option<&Vec<Target>>,
-    public_inputs: &[Target],
-    alphas: Vec<Target>,
-    zeta: ExtensionTarget<D>,
-    degree_bits: usize,
-    degree_bits_target: Target,
-    num_lookup_columns: usize,
-) -> Vec<ExtensionTarget<D>>
-where
-    F: RichField + Extendable<D>,
-    S: Stark<F, D>,
-{
     let one = builder.one_extension();
     let two = builder.two();
 
