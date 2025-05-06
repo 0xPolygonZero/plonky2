@@ -302,7 +302,7 @@ where
     let constraints = compute_eval_vanishing_poly::<F, C, S, D>(
         stark,
         &poly_evals,
-        ctl_vars.as_ref().map(|v| &**v),
+        ctl_vars.as_deref(),
         lookup_challenges.as_ref(),
         &lookups,
         public_inputs,
