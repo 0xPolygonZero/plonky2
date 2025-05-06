@@ -41,6 +41,9 @@ fn get_challenges<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, cons
     let mut challenger = Challenger::<F, C::Hasher>::new();
     let has_lookup = common_data.num_lookup_polys != 0;
 
+    // Observe the FRI config
+    common_data.fri_params.observe(&mut challenger);
+
     // Observe the instance.
     challenger.observe_hash::<C::Hasher>(*circuit_digest);
     challenger.observe_hash::<C::InnerHasher>(public_inputs_hash);
@@ -277,6 +280,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         let mut challenger = RecursiveChallenger::<F, C::Hasher, D>::new(self);
         let has_lookup = inner_common_data.num_lookup_polys != 0;
+
+        // Observe the FRI config
+        inner_common_data
+            .fri_params
+            .observe_target(self, &mut challenger);
 
         // Observe the instance.
         challenger.observe_hash(&inner_circuit_digest);

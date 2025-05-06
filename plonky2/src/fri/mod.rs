@@ -6,9 +6,14 @@
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 
+use plonky2_field::extension::Extendable;
 use serde::Serialize;
 
 use crate::fri::reduction_strategies::FriReductionStrategy;
+use crate::hash::hash_types::RichField;
+use crate::iop::challenger::{Challenger, RecursiveChallenger};
+use crate::plonk::circuit_builder::CircuitBuilder;
+use crate::plonk::config::{AlgebraicHasher, Hasher};
 
 mod challenges;
 pub mod oracle;
@@ -63,6 +68,33 @@ impl FriConfig {
     pub const fn num_cap_elements(&self) -> usize {
         1 << self.cap_height
     }
+
+    /// Observe the FRI configuration parameters.
+    pub fn observe<F: RichField, H: Hasher<F>>(&self, challenger: &mut Challenger<F, H>) {
+        challenger.observe_element(F::from_canonical_usize(self.rate_bits));
+        challenger.observe_element(F::from_canonical_usize(self.cap_height));
+        challenger.observe_element(F::from_canonical_u32(self.proof_of_work_bits));
+        challenger.observe_elements(&self.reduction_strategy.serialize());
+        challenger.observe_element(F::from_canonical_usize(self.num_query_rounds));
+    }
+
+    /// Observe the FRI configuration parameters for the recursive verifier.
+    pub fn observe_target<F, H, const D: usize>(
+        &self,
+        builder: &mut CircuitBuilder<F, D>,
+        challenger: &mut RecursiveChallenger<F, H, D>,
+    ) where
+        F: RichField + Extendable<D>,
+        H: AlgebraicHasher<F>,
+    {
+        challenger.observe_element(builder.constant(F::from_canonical_usize(self.rate_bits)));
+        challenger.observe_element(builder.constant(F::from_canonical_usize(self.cap_height)));
+        challenger
+            .observe_element(builder.constant(F::from_canonical_u32(self.proof_of_work_bits)));
+        challenger.observe_elements(&builder.constants(&self.reduction_strategy.serialize()));
+        challenger
+            .observe_element(builder.constant(F::from_canonical_usize(self.num_query_rounds)));
+    }
 }
 
 /// FRI parameters, including generated parameters which are specific to an instance size, in
@@ -108,5 +140,42 @@ impl FriParams {
 
     pub fn final_poly_len(&self) -> usize {
         1 << self.final_poly_bits()
+    }
+
+    pub fn observe<F: RichField, H: Hasher<F>>(&self, challenger: &mut Challenger<F, H>) {
+        self.config.observe(challenger);
+
+        challenger.observe_element(F::from_bool(self.hiding));
+        challenger.observe_element(F::from_canonical_usize(self.degree_bits));
+        challenger.observe_elements(
+            &self
+                .reduction_arity_bits
+                .iter()
+                .map(|&e| F::from_canonical_usize(e))
+                .collect::<Vec<_>>(),
+        );
+    }
+
+    pub fn observe_target<F, H, const D: usize>(
+        &self,
+        builder: &mut CircuitBuilder<F, D>,
+        challenger: &mut RecursiveChallenger<F, H, D>,
+    ) where
+        F: RichField + Extendable<D>,
+        H: AlgebraicHasher<F>,
+    {
+        self.config.observe_target(builder, challenger);
+
+        challenger.observe_element(builder.constant(F::from_bool(self.hiding)));
+        challenger.observe_element(builder.constant(F::from_canonical_usize(self.degree_bits)));
+        challenger.observe_elements(
+            &builder.constants(
+                &self
+                    .reduction_arity_bits
+                    .iter()
+                    .map(|&e| F::from_canonical_usize(e))
+                    .collect::<Vec<_>>(),
+            ),
+        );
     }
 }
