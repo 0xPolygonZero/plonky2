@@ -6,6 +6,8 @@ use serde::Serialize;
 #[cfg(feature = "timing")]
 use web_time::Instant;
 
+use crate::hash::hash_types::RichField;
+
 /// A method for deciding what arity to use at each reduction layer.
 #[derive(Debug, Clone, Eq, PartialEq, Serialize)]
 pub enum FriReductionStrategy {
@@ -50,6 +52,29 @@ impl FriReductionStrategy {
             }
             FriReductionStrategy::MinSize(opt_max_arity_bits) => {
                 min_size_arity_bits(degree_bits, rate_bits, num_queries, *opt_max_arity_bits)
+            }
+        }
+    }
+
+    pub fn serialize<F: RichField>(&self) -> Vec<F> {
+        match self {
+            FriReductionStrategy::Fixed(reduction_arity_bits) => core::iter::once(F::ZERO)
+                .chain(
+                    reduction_arity_bits
+                        .iter()
+                        .map(|&x| F::from_canonical_usize(x)),
+                )
+                .collect(),
+            FriReductionStrategy::ConstantArityBits(arity_bits, final_poly_bits) => {
+                vec![
+                    F::ONE,
+                    F::from_canonical_usize(*arity_bits),
+                    F::from_canonical_usize(*final_poly_bits),
+                ]
+            }
+            FriReductionStrategy::MinSize(opt_max_arity_bits) => {
+                let max_arity = opt_max_arity_bits.unwrap_or(0);
+                vec![F::TWO, F::from_canonical_usize(max_arity)]
             }
         }
     }

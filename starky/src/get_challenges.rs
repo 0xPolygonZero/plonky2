@@ -55,6 +55,9 @@ where
 {
     let num_challenges = config.num_challenges;
 
+    // Observe the config
+    config.observe(challenger);
+
     if let Some(cap) = &trace_cap {
         challenger.observe_cap(cap);
     }
@@ -278,6 +281,9 @@ where
     C::Hasher: AlgebraicHasher<F>,
 {
     let num_challenges = config.num_challenges;
+
+    // Observe the config
+    config.observe_target(builder, challenger);
 
     if let Some(trace_cap) = trace_cap {
         challenger.observe_cap(trace_cap);

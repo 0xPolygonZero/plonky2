@@ -185,6 +185,9 @@ where
 
     let mut challenger = Challenger::<F, C::Hasher>::new();
 
+    // Observe the FRI config
+    common_data.fri_params.observe(&mut challenger);
+
     // Observe the instance.
     challenger.observe_hash::<C::Hasher>(prover_data.circuit_digest);
     challenger.observe_hash::<C::InnerHasher>(public_inputs_hash);
