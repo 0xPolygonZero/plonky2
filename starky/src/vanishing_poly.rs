@@ -8,7 +8,6 @@ use plonky2::hash::hash_types::RichField;
 use plonky2::iop::ext_target::ExtensionTarget;
 use plonky2::iop::target::Target;
 use plonky2::plonk::circuit_builder::CircuitBuilder;
-use plonky2::plonk::config::GenericConfig;
 use plonky2::with_context;
 
 use crate::constraint_consumer::{ConstraintConsumer, RecursiveConstraintConsumer};
@@ -107,7 +106,7 @@ pub(crate) fn eval_l_0_and_l_last<F: Field>(log_n: usize, x: F) -> (F, F) {
 }
 
 /// Evaluates the constraints at a random extension point. It is used to bind the constraints.
-pub(crate) fn compute_eval_vanishing_poly<F, C, S, const D: usize>(
+pub(crate) fn compute_eval_vanishing_poly<F, S, const D: usize>(
     stark: &S,
     stark_opening_set: &StarkOpeningSet<F, D>,
     ctl_vars: Option<&[CtlCheckVars<F, F::Extension, F::Extension, D>]>,
@@ -121,7 +120,6 @@ pub(crate) fn compute_eval_vanishing_poly<F, C, S, const D: usize>(
 ) -> Vec<F::Extension>
 where
     F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
     S: Stark<F, D>,
 {
     let StarkOpeningSet {
@@ -148,8 +146,8 @@ where
     );
 
     let vars = S::EvaluationFrame::from_values(
-        &local_values,
-        &next_values,
+        local_values,
+        next_values,
         &public_inputs
             .iter()
             .copied()
@@ -166,7 +164,7 @@ where
     eval_vanishing_poly::<F, F::Extension, F::Extension, S, D, D>(
         stark,
         &vars,
-        &lookups,
+        lookups,
         lookup_vars,
         ctl_vars,
         &mut consumer,
@@ -251,8 +249,8 @@ where
     );
 
     let vars = S::EvaluationFrameTarget::from_values(
-        &local_values,
-        &next_values,
+        local_values,
+        next_values,
         &public_inputs
             .iter()
             .map(|&t| builder.convert_to_ext(t))

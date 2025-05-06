@@ -98,9 +98,9 @@ where
     let zeta_prime = challenger.get_extension_challenge();
 
     // Bind constraints.
-    let constraint_evals = compute_eval_vanishing_poly::<F, C, S, D>(
+    let constraint_evals = compute_eval_vanishing_poly::<F, S, D>(
         stark,
-        &poly_evals,
+        poly_evals,
         ctl_vars,
         lookup_challenges.as_ref(),
         &stark.lookups(),
