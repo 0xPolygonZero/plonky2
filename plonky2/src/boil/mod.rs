@@ -8,7 +8,7 @@
 //
 // use serde::Serialize;
 
-pub const QN: usize = 3;
+pub const QN: usize = 43;
 
 pub mod boil_prover;
 pub mod boil_verifier;

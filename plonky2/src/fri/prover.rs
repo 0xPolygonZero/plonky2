@@ -102,6 +102,7 @@ fn fri_committed_trees<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>,
             .map(|chunk: &[F::Extension]| flatten(chunk))
             .collect();
         let tree = MerkleTree::<F, C::Hasher>::new(chunked_values, fri_params.config.cap_height);
+        println!("... NEXT FRI COMMITED TREE HAS {} leafs", tree.leaves.len());
 
         challenger.observe_cap(&tree.cap);
         trees.push(tree);

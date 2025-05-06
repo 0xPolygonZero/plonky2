@@ -40,6 +40,16 @@ pub(crate) const fn reverse_bits(n: usize, num_bits: usize) -> usize {
         .0
 }
 
+pub const fn pub_reverse_bits(n: usize, num_bits: usize) -> usize {
+    // NB: The only reason we need overflowing_shr() here as opposed
+    // to plain '>>' is to accommodate the case n == num_bits == 0,
+    // which would become `0 >> 64`. Rust thinks that any shift of 64
+    // bits causes overflow, even when the argument is zero.
+    n.reverse_bits()
+        .overflowing_shr(usize::BITS - num_bits as u32)
+        .0
+}
+
 #[cfg(test)]
 mod tests {
 

@@ -2,8 +2,6 @@
 
 #[cfg(not(feature = "std"))]
 use alloc::{format, vec, vec::Vec};
-use plonky2_util::{log2_strict, reverse_index_bits_in_place};
-use rand::rngs::OsRng;
 use core::cmp::min;
 use core::mem::swap;
 
@@ -11,16 +9,10 @@ use anyhow::{ensure, Result};
 use hashbrown::HashMap;
 use plonky2_maybe_rayon::*;
 
-use rand::Rng;
-
-use plonky2_field::extension::{Extendable, FieldExtension};
+use plonky2_field::extension::Extendable;
 
 
 use super::circuit_builder::{LookupChallenges, LookupWire};
-use crate::boil::boil_prover::{prove_accumulation, Acc, AccInfo, AccProof};
-use crate::boil::boil_verifier::verify_acc_proof;
-use crate::boil::QN;
-// use crate::field::extension::Extendable;
 use crate::field::polynomial::{PolynomialCoeffs, PolynomialValues};
 use crate::field::types::Field;
 use crate::field::zero_poly_coset::ZeroPolyOnCoset;
@@ -29,7 +21,6 @@ use crate::gates::lookup::LookupGate;
 use crate::gates::lookup_table::LookupTableGate;
 use crate::gates::selectors::LookupSelectors;
 use crate::hash::hash_types::RichField;
-use crate::hash::merkle_tree::MerkleTree;
 use crate::iop::challenger::Challenger;
 use crate::iop::generator::generate_partial_witness;
 use crate::iop::target::Target;
@@ -41,10 +32,10 @@ use crate::plonk::plonk_common::PlonkOracle;
 use crate::plonk::proof::{OpeningSet, Proof, ProofWithPublicInputs};
 use crate::plonk::vanishing_poly::{eval_vanishing_poly_base_batch, get_lut_poly};
 use crate::plonk::vars::EvaluationVarsBaseBatch;
-use crate::{boil, timed};
+use crate::timed;
 use crate::util::partial_products::{partial_products_and_z_gx, quotient_chunk_products};
 use crate::util::timing::TimingTree;
-use crate::util::{log2_ceil, reverse_bits, transpose};
+use crate::util::{log2_ceil, transpose};
 
 /// Set all the lookup gate wires (including multiplicities) and pad unused LU slots.
 /// Warning: rows are in descending order: the first gate to appear is the last LU gate, and
@@ -160,358 +151,7 @@ where
     let quotient_degree = common_data.quotient_degree();
     let degree = common_data.degree();
 
-    set_lookup_wires(prover_data, common_data, &mut partition_witness)?;
-
-    let public_inputs = partition_witness.get_targets(&prover_data.public_inputs);
-    let public_inputs_hash = C::InnerHasher::hash_no_pad(&public_inputs);
-
-    let witness = timed!(
-        timing,
-        "compute full witness",
-        partition_witness.full_witness()
-    );
-
-    let wires_values: Vec<PolynomialValues<F>> = timed!(
-        timing,
-        "compute wire polynomials",
-        witness
-            .wire_values
-            .par_iter()
-            .map(|column| PolynomialValues::new(column.clone()))
-            .collect()
-    );
-
-    let wires_commitment = timed!(
-        timing,
-        "compute wires commitment",
-        PolynomialBatch::<F, C, D>::from_values(
-            wires_values,
-            config.fri_config.rate_bits,
-            config.zero_knowledge && PlonkOracle::WIRES.blinding,
-            config.fri_config.cap_height,
-            timing,
-            prover_data.fft_root_table.as_ref(),
-        )
-    );
-
-    let mut challenger = Challenger::<F, C::Hasher>::new();
-
-    // Observe the instance.
-    challenger.observe_hash::<C::Hasher>(prover_data.circuit_digest);
-    challenger.observe_hash::<C::InnerHasher>(public_inputs_hash);
-
-    challenger.observe_cap::<C::Hasher>(&wires_commitment.merkle_tree.cap);
-
-    // We need 4 values per challenge: 2 for the combos, 1 for (X-combo) in the accumulators and 1 to prove that the lookup table was computed correctly.
-    // We can reuse betas and gammas for two of them.
-    let num_lookup_challenges = NUM_COINS_LOOKUP * num_challenges;
-
-    let betas = challenger.get_n_challenges(num_challenges);
-    let gammas = challenger.get_n_challenges(num_challenges);
-
-    let deltas = if has_lookup {
-        let mut delts = Vec::with_capacity(2 * num_challenges);
-        let num_additional_challenges = num_lookup_challenges - 2 * num_challenges;
-        let additional = challenger.get_n_challenges(num_additional_challenges);
-        delts.extend(&betas);
-        delts.extend(&gammas);
-        delts.extend(additional);
-        delts
-    } else {
-        vec![]
-    };
-
-    assert!(
-        common_data.quotient_degree_factor < common_data.config.num_routed_wires,
-        "When the number of routed wires is smaller that the degree, we should change the logic to avoid computing partial products."
-    );
-    let mut partial_products_and_zs = timed!(
-        timing,
-        "compute partial products",
-        all_wires_permutation_partial_products(&witness, &betas, &gammas, prover_data, common_data)
-    );
-
-    // Z is expected at the front of our batch; see `zs_range` and `partial_products_range`.
-    let plonk_z_vecs = partial_products_and_zs
-        .iter_mut()
-        .map(|partial_products_and_z| partial_products_and_z.pop().unwrap())
-        .collect();
-    let zs_partial_products = [plonk_z_vecs, partial_products_and_zs.concat()].concat();
-
-    // All lookup polys: RE and partial SLDCs.
-    let lookup_polys =
-        compute_all_lookup_polys(&witness, &deltas, prover_data, common_data, has_lookup);
-
-    let zs_partial_products_lookups = if has_lookup {
-        [zs_partial_products, lookup_polys].concat()
-    } else {
-        zs_partial_products
-    };
-
-    let partial_products_zs_and_lookup_commitment = timed!(
-        timing,
-        "commit to partial products, Z's and, if any, lookup polynomials",
-        PolynomialBatch::from_values(
-            zs_partial_products_lookups,
-            config.fri_config.rate_bits,
-            config.zero_knowledge && PlonkOracle::ZS_PARTIAL_PRODUCTS.blinding,
-            config.fri_config.cap_height,
-            timing,
-            prover_data.fft_root_table.as_ref(),
-        )
-    );
-
-    challenger.observe_cap::<C::Hasher>(&partial_products_zs_and_lookup_commitment.merkle_tree.cap);
-
-    let alphas = challenger.get_n_challenges(num_challenges);
-
-    let quotient_polys = timed!(
-        timing,
-        "compute quotient polys",
-        compute_quotient_polys::<F, C, D>(
-            common_data,
-            prover_data,
-            &public_inputs_hash,
-            &wires_commitment,
-            &partial_products_zs_and_lookup_commitment,
-            &betas,
-            &gammas,
-            &deltas,
-            &alphas,
-        )
-    );
-
-    let all_quotient_poly_chunks: Vec<PolynomialCoeffs<F>> = timed!(
-        timing,
-        "split up quotient polys",
-        quotient_polys
-            .into_par_iter()
-            .flat_map(|mut quotient_poly| {
-                quotient_poly.trim_to_len(quotient_degree).expect(
-                    "Quotient has failed, the vanishing polynomial is not divisible by Z_H",
-                );
-                // Split quotient into degree-n chunks.
-                quotient_poly.chunks(degree)
-            })
-            .collect()
-    );
-
-    let quotient_polys_commitment = timed!(
-        timing,
-        "commit to quotient polys",
-        PolynomialBatch::<F, C, D>::from_coeffs(
-            all_quotient_poly_chunks,
-            config.fri_config.rate_bits,
-            config.zero_knowledge && PlonkOracle::QUOTIENT.blinding,
-            config.fri_config.cap_height,
-            timing,
-            prover_data.fft_root_table.as_ref(),
-        )
-    );
-
-    challenger.observe_cap::<C::Hasher>(&quotient_polys_commitment.merkle_tree.cap);
-
-    let zeta = challenger.get_extension_challenge::<D>();
-    // To avoid leaking witness data, we want to ensure that our opening locations, `zeta` and
-    // `g * zeta`, are not in our subgroup `H`. It suffices to check `zeta` only, since
-    // `(g * zeta)^n = zeta^n`, where `n` is the order of `g`.
-    let g = F::Extension::primitive_root_of_unity(common_data.degree_bits());
-    ensure!(
-        zeta.exp_power_of_2(common_data.degree_bits()) != F::Extension::ONE,
-        "Opening point is in the subgroup."
-    );
-
-    let openings = timed!(
-        timing,
-        "construct the opening set, including lookups",
-        OpeningSet::new(
-            zeta,
-            g,
-            &prover_data.constants_sigmas_commitment,
-            &wires_commitment,
-            &partial_products_zs_and_lookup_commitment,
-            &quotient_polys_commitment,
-            common_data
-        )
-    );
-    challenger.observe_openings(&openings.to_fri_openings());
-    let instance = common_data.get_fri_instance(zeta);
-   
-    let accs: Vec<Acc<F, C::Hasher, D>> = (0..1).into_iter().map(|_| {
-        let degree = 1 << common_data.fri_params.degree_bits;
-        let n = 1 << common_data.fri_params.lde_bits(); 
-        let log_n = log2_strict(n);
-        let rand_coeffs =
-            F::rand_vec(degree)
-            .iter()
-            .zip(&F::rand_vec(degree))
-            .map(|(&a, &b)| {
-                F::Extension::from_basefield(a) * F::Extension::from_basefield(b)
-            })
-            .collect();
-        let random_ext_poly:PolynomialCoeffs<F::Extension> = PolynomialCoeffs::new(rand_coeffs);
-        let lde_random_poly = random_ext_poly.lde(common_data.fri_params.config.rate_bits);
-        let mut lde_values = timed!(
-            timing,
-            &format!("--- FFT for test accs {}", lde_random_poly.len()),
-            lde_random_poly.coset_fft(F::coset_shift().into())
-        );
-        reverse_index_bits_in_place(&mut lde_values.values);
-        let leaves = lde_values.values
-            .iter()
-            .map(|&x| x.to_basefield_array().to_vec() )
-            .collect();
-        let tree = MerkleTree::<F, C::Hasher>::new(leaves, common_data.fri_params.config.cap_height);
-        let ood = F::Extension::from_basefield(F::rand()) * F::Extension::from_basefield(F::rand());
-        let ood_eval = random_ext_poly.eval(ood);
-        let ind_points = F::rand_vec(QN);
-        let ind_evals: Vec<F::Extension> = ind_points
-            .iter()
-            .map(|&x| {
-                let x_index = x.to_canonical_u64() as usize % n;
-                let subgroup_x = F::MULTIPLICATIVE_GROUP_GENERATOR
-                    * F::primitive_root_of_unity(log_n).exp_u64(reverse_bits(x_index, log_n) as u64);
-                let ev = random_ext_poly.eval(F::Extension::from_basefield(subgroup_x));
-                ev
-            })
-            .collect();
-        let acc = Acc {
-            merkle_tree: tree,
-            polynomial_coeffs: random_ext_poly,
-            ood_sample: ood,
-            ood_answer: ood_eval,
-            ind_samples: ind_points, 
-            ind_answers: ind_evals,
-        };
-        acc
-    }).collect();
-    let accs_info: Vec<AccInfo<F, C::Hasher, D>> = accs
-        .iter().map(|x| {
-            let Acc { merkle_tree, polynomial_coeffs: _, ood_sample: ood_point, ood_answer: ood_eval, ind_samples: ind_points, ind_answers: ind_evals } = x;
-            let acc_info = AccInfo {
-                merkle_cap: merkle_tree.cap.clone(), 
-                ood_sample: *ood_point,
-                ood_answer: *ood_eval,
-                ind_samples: ind_points.clone(),
-                ind_answers: ind_evals.clone(),
-            };
-            acc_info
-        })
-        .collect();
-
-    println!("***\nHi from fn::prove_with_partition_witness (original)\n***\n");
-    // let accs: Vec<&Acc<F, C::Hasher, D>> = Vec::new(); 
-    let (acc, acc_proof, sss) = timed!(
-        timing,
-        "compute opening proofs",
-            prove_accumulation::<F, C, D>(
-            // &accs,
-            &[&accs[0]],
-            &instance,
-            &[
-                &prover_data.constants_sigmas_commitment,
-                &wires_commitment,
-                &partial_products_zs_and_lookup_commitment,
-                &quotient_polys_commitment,
-            ],
-            &common_data.fri_params,
-            &mut challenger,
-            timing,
-        )
-    );
-
-
-
-    verify_acc_proof::<F, C, D>(
-        &acc_proof,
-        &sss,
-        // &accs_info,
-        &[&accs_info[0]],
-        &instance,
-        &openings.to_fri_openings(),
-        &[
-            prover_data.constants_sigmas_commitment.merkle_tree.cap.clone(),
-            wires_commitment.merkle_tree.cap.clone(),
-            partial_products_zs_and_lookup_commitment.merkle_tree.cap.clone(),
-            quotient_polys_commitment.merkle_tree.cap.clone(),
-        ],
-        &common_data.fri_params,
-    )?; 
-    println!("***\nwe passed acc functions\n***\n");
-
-
-
-    let opening_proof = timed!(
-        timing,
-        "compute opening proofs",
-        PolynomialBatch::<F, C, D>::prove_openings(
-            &instance,
-            &[
-                &prover_data.constants_sigmas_commitment,
-                &wires_commitment,
-                &partial_products_zs_and_lookup_commitment,
-                &quotient_polys_commitment,
-            ],
-            &mut challenger,
-            &common_data.fri_params,
-            None,
-            None,
-            timing,
-        )
-    );
-
-    let proof = Proof::<F, C, D> {
-        wires_cap: wires_commitment.merkle_tree.cap,
-        plonk_zs_partial_products_cap: partial_products_zs_and_lookup_commitment.merkle_tree.cap,
-        quotient_polys_cap: quotient_polys_commitment.merkle_tree.cap,
-        openings,
-        opening_proof,
-    };
-    Ok(ProofWithPublicInputs::<F, C, D> {
-        proof,
-        public_inputs,
-    })
-}
-
-pub fn ivc_prove<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
-    prover_data: &ProverOnlyCircuitData<F, C, D>,
-    common_data: &CommonCircuitData<F, D>,
-    inputs: PartialWitness<F>,
-    timing: &mut TimingTree,
-) -> Result<ProofWithPublicInputs<F, C, D>>
-where
-    C::Hasher: Hasher<F>,
-    C::InnerHasher: Hasher<F>,
-{
-    let partition_witness = timed!(
-        timing,
-        &format!("run {} generators", prover_data.generators.len()),
-        generate_partial_witness(inputs, prover_data, common_data)?
-    );
-
-    ivc_prove_with_partition_witness(prover_data, common_data, partition_witness, timing)
-}
-
-
-pub fn ivc_prove_with_partition_witness<
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
-    const D: usize,
->(
-    prover_data: &ProverOnlyCircuitData<F, C, D>,
-    common_data: &CommonCircuitData<F, D>,
-    mut partition_witness: PartitionWitness<F>,
-    timing: &mut TimingTree,
-) -> Result<ProofWithPublicInputs<F, C, D>>
-where
-    C::Hasher: Hasher<F>,
-    C::InnerHasher: Hasher<F>,
-{
-    let has_lookup = !common_data.luts.is_empty();
-    let config = &common_data.config;
-    let num_challenges = config.num_challenges;
-    let quotient_degree = common_data.quotient_degree();
-    let degree = common_data.degree();
+    println!("! plonk:: prove_with_FRI");
 
     set_lookup_wires(prover_data, common_data, &mut partition_witness)?;
 
@@ -689,7 +329,7 @@ where
     );
     challenger.observe_openings(&openings.to_fri_openings());
     let instance = common_data.get_fri_instance(zeta);
-
+  
     let opening_proof = timed!(
         timing,
         "compute opening proofs",
@@ -705,26 +345,6 @@ where
             &common_data.fri_params,
             None,
             None,
-            timing,
-        )
-    );
-
-    println!("***\nHi from fn::ivc_prove_with_partition_witness\n***\n");
-    let accs: Vec<&Acc<F, C::Hasher, D>> = Vec::new(); 
-    let acc_proof = timed!(
-        timing,
-        "compute opening proofs",
-            prove_accumulation::<F, C, D>(
-            &accs,
-            &instance,
-            &[
-                &prover_data.constants_sigmas_commitment,
-                &wires_commitment,
-                &partial_products_zs_and_lookup_commitment,
-                &quotient_polys_commitment,
-            ],
-            &common_data.fri_params,
-            &mut challenger,
             timing,
         )
     );
@@ -743,7 +363,7 @@ where
 }
 
 /// Compute the partial products used in the `Z` polynomials.
-fn all_wires_permutation_partial_products<
+pub fn all_wires_permutation_partial_products<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
     const D: usize,
@@ -770,7 +390,7 @@ fn all_wires_permutation_partial_products<
 /// Compute the partial products used in the `Z` polynomial.
 /// Returns the polynomials interpolating `partial_products(f / g)`
 /// where `f, g` are the products in the definition of `Z`: `Z(g^i) = f / g`.
-fn wires_permutation_partial_products_and_zs<
+pub fn wires_permutation_partial_products_and_zs<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
     const D: usize,
@@ -836,7 +456,7 @@ fn wires_permutation_partial_products_and_zs<
 /// partial polynomials according to `max_quotient_degree_factor`.
 /// As another optimization, Sum and LDC polynomials are shared (in so called partial SLDC polynomials), and the last value
 /// of the last partial polynomial is Sum(end) - LDC(end). If the lookup argument is valid, then it must be equal to 0.
-fn compute_lookup_polys<
+pub fn compute_lookup_polys<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
     const D: usize,
@@ -955,7 +575,7 @@ fn compute_lookup_polys<
 }
 
 /// Computes lookup polynomials for all challenges.
-fn compute_all_lookup_polys<
+pub fn compute_all_lookup_polys<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
     const D: usize,
@@ -987,7 +607,7 @@ fn compute_all_lookup_polys<
 
 const BATCH_SIZE: usize = 32;
 
-fn compute_quotient_polys<
+pub fn compute_quotient_polys<
     'a,
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,

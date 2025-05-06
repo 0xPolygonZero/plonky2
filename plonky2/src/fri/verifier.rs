@@ -17,6 +17,9 @@ use crate::plonk::config::{GenericConfig, Hasher};
 use crate::util::reducing::ReducingFactor;
 use crate::util::{log2_strict, reverse_bits, reverse_index_bits_in_place};
 
+
+pub static mut COUNTHASHES_FRIVER:bool = false;
+
 /// Computes P'(x^arity) from {P(x*g^i)}_(i=0..arity), where g is a `arity`-th root of unity
 /// and P' is the FRI reduced polynomial.
 pub(crate) fn compute_evaluation<F: Field + Extendable<D>, const D: usize>(
@@ -71,6 +74,7 @@ pub fn verify_fri_proof<
     proof: &FriProof<F, C::Hasher, D>,
     params: &FriParams,
 ) -> Result<()> {
+
     validate_fri_proof_shape::<F, C, D>(proof, instance, params)?;
 
     // Size of the LDE domain.
@@ -92,6 +96,9 @@ pub fn verify_fri_proof<
         .iter()
         .zip(&proof.query_round_proofs)
     {
+        if unsafe { COUNTHASHES_FRIVER } {
+            println!("COUNTHASH_NEWROUND->");
+        }
         fri_verifier_query_round::<F, C, D>(
             instance,
             challenges,
@@ -176,6 +183,9 @@ fn fri_verifier_query_round<
     round_proof: &FriQueryRound<F, C::Hasher, D>,
     params: &FriParams,
 ) -> Result<()> {
+    if unsafe { COUNTHASHES_FRIVER } {
+        println!("COUNTHASH_initial_proof");
+    }
     fri_verify_initial_proof::<F, C::Hasher>(
         x_index,
         &round_proof.initial_trees_proof,
@@ -198,6 +208,10 @@ fn fri_verifier_query_round<
     );
 
     for (i, &arity_bits) in params.reduction_arity_bits.iter().enumerate() {
+        if unsafe { COUNTHASHES_FRIVER } {
+            println!("COUNTHASH_new_layer");
+        }
+
         let arity = 1 << arity_bits;
         let evals = &round_proof.steps[i].evals;
 

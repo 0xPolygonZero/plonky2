@@ -24,6 +24,8 @@ pub const SPONGE_RATE: usize = 8;
 pub const SPONGE_CAPACITY: usize = 4;
 pub const SPONGE_WIDTH: usize = SPONGE_RATE + SPONGE_CAPACITY;
 
+pub static mut COUNTHASHES_POSEIDON: bool = false;
+
 // The number of full rounds and partial rounds is given by the
 // calc_round_numbers.py script. They happen to be the same for both
 // width 8 and width 12 with s-box x^7.
@@ -768,6 +770,11 @@ pub trait Poseidon: PrimeField64 {
         let mut state = input;
         let mut round_ctr = 0;
 
+        if unsafe { COUNTHASHES_POSEIDON } {
+            println!("___poseidon");
+        }
+
+
         Self::full_rounds(&mut state, &mut round_ctr);
         Self::partial_rounds(&mut state, &mut round_ctr);
         Self::full_rounds(&mut state, &mut round_ctr);
@@ -878,6 +885,7 @@ impl<F: RichField> Hasher<F> for PoseidonHash {
     type Permutation = PoseidonPermutation<F>;
 
     fn hash_no_pad(input: &[F]) -> Self::Hash {
+        // println!("wow_hash_no_pad");
         hash_n_to_hash_no_pad::<F, Self::Permutation>(input)
     }
 

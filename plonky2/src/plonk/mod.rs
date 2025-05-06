@@ -16,3 +16,5 @@ mod validate_shape;
 pub(crate) mod vanishing_poly;
 pub mod vars;
 pub mod verifier;
+pub mod bivc_prover;
+pub mod bivc_verifier;

@@ -15,6 +15,9 @@ use crate::plonk::circuit_builder::CircuitBuilder;
 use crate::plonk::circuit_data::VerifierCircuitTarget;
 use crate::plonk::config::{AlgebraicHasher, GenericHashOut, Hasher};
 
+
+pub static mut COUNTHASHES_MERKLE:bool = false;
+
 #[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
 #[serde(bound = "")]
 pub struct MerkleProof<F: RichField, H: Hasher<F>> {
@@ -77,9 +80,15 @@ pub fn verify_batch_merkle_proof_to_cap<F: RichField, H: Hasher<F>>(
     proof: &MerkleProof<F, H>,
 ) -> Result<()> {
     assert_eq!(leaf_data.len(), leaf_heights.len());
+    if unsafe { COUNTHASHES_MERKLE } {
+        println!("COUNTHASH...hash leafs, {}", leaf_data[0].len());
+    }
     let mut current_digest = H::hash_or_noop(&leaf_data[0]);
     let mut current_height = leaf_heights[0];
     let mut leaf_data_index = 1;
+    if unsafe { COUNTHASHES_MERKLE } {
+        println!("COUNTHASH...hash up to thje root, height = {}", current_height);
+    }
     for &sibling_digest in &proof.siblings {
         let bit = leaf_index & 1;
         leaf_index >>= 1;
@@ -92,6 +101,9 @@ pub fn verify_batch_merkle_proof_to_cap<F: RichField, H: Hasher<F>>(
 
         if leaf_data_index < leaf_heights.len() && current_height == leaf_heights[leaf_data_index] {
             let mut new_leaves = current_digest.to_vec();
+            if unsafe { COUNTHASHES_MERKLE } {
+                println!("COUNTHASH...hash something else (batching?)");
+            }
             new_leaves.extend_from_slice(&leaf_data[leaf_data_index]);
             current_digest = H::hash_or_noop(&new_leaves);
             leaf_data_index += 1;

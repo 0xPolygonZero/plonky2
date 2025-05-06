@@ -3,12 +3,25 @@ extern crate alloc;
 
 #[cfg(not(feature = "std"))]
 use alloc::sync::Arc;
+use plonky2::boil::boil_prover::{Acc, AccInfo};
+use plonky2::boil::QN;
+use plonky2::hash::merkle_tree::MerkleTree;
+use plonky2::plonk::bivc_prover::ivc_prove;
+use plonky2::plonk::bivc_verifier::ivc_verify;
+use plonky2::timed;
+use plonky2_field::polynomial::PolynomialCoeffs;
+use plonky2_util::log2_strict;
 use core::num::ParseIntError;
 use core::ops::RangeInclusive;
 use core::str::FromStr;
 use std::arch::aarch64::uint32x2_t;
 #[cfg(feature = "std")]
 use std::sync::Arc;
+
+use plonky2_field::extension::{flatten, Extendable, FieldExtension};
+
+use plonky2::util::pub_reverse_bits;
+
 
 use anyhow::{anyhow, Context as _, Result};
 use itertools::Itertools;
@@ -23,8 +36,8 @@ use plonky2::plonk::config::{AlgebraicHasher, GenericConfig, PoseidonGoldilocksC
 use plonky2::plonk::proof::{CompressedProofWithPublicInputs, ProofWithPublicInputs};
 use plonky2::plonk::prover::prove;
 use plonky2::util::serialization::DefaultGateSerializer;
-use plonky2::util::timing::TimingTree;
-use plonky2_field::extension::Extendable;
+use plonky2::util::timing::{self, TimingTree};
+use plonky2_util::reverse_index_bits_in_place;
 use plonky2_maybe_rayon::rayon;
 use rand::rngs::OsRng;
 use rand::{RngCore, SeedableRng};
@@ -70,11 +83,79 @@ struct Options {
     lookup_type: u64,
 }
 
+
+fn gen_random_acc<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
+    common_data: &CommonCircuitData<F, D>,
+) -> (Vec<Acc<F, C::Hasher, D>>,
+     Vec<AccInfo<F, C::Hasher, D>>)
+{
+    let accs: Vec<Acc<F, C::Hasher, D>> = (0..1).into_iter().map(|_| {
+        let degree = 1 << common_data.fri_params.degree_bits;
+        let n = 1 << common_data.fri_params.lde_bits(); 
+        let log_n = log2_strict(n);
+        let rand_coeffs =
+            F::rand_vec(degree)
+            .iter()
+            .zip(&F::rand_vec(degree))
+            .map(|(&a, &b)| {
+                F::Extension::from_basefield(a) * F::Extension::from_basefield(b)
+            })
+            .collect();
+        let random_ext_poly:PolynomialCoeffs<F::Extension> = PolynomialCoeffs::new(rand_coeffs);
+        let lde_random_poly = random_ext_poly.lde(common_data.fri_params.config.rate_bits);
+        let mut lde_values = lde_random_poly.coset_fft(F::coset_shift().into());
+        reverse_index_bits_in_place(&mut lde_values.values);
+        let leaves = lde_values.values
+            .iter()
+            .map(|&x| x.to_basefield_array().to_vec() )
+            .collect();
+        let tree = MerkleTree::<F, C::Hasher>::new(leaves, common_data.fri_params.config.cap_height);
+        let ood = F::Extension::from_basefield(F::rand()) * F::Extension::from_basefield(F::rand());
+        let ood_eval = random_ext_poly.eval(ood);
+        let ind_points = F::rand_vec(QN);
+        let ind_evals: Vec<F::Extension> = ind_points
+            .iter()
+            .map(|&x| {
+                let x_index = x.to_canonical_u64() as usize % n;
+                let subgroup_x = F::MULTIPLICATIVE_GROUP_GENERATOR
+                    * F::primitive_root_of_unity(log_n).exp_u64(pub_reverse_bits(x_index, log_n) as u64);
+                let ev = random_ext_poly.eval(F::Extension::from_basefield(subgroup_x));
+                ev
+            })
+            .collect();
+        let acc = Acc {
+            merkle_tree: tree,
+            polynomial_coeffs: random_ext_poly,
+            ood_sample: ood,
+            ood_answer: ood_eval,
+            ind_samples: ind_points, 
+            ind_answers: ind_evals,
+        };
+        acc
+    }).collect();
+    let accs_info: Vec<AccInfo<F, C::Hasher, D>> = accs
+        .iter().map(|x| {
+            let Acc { merkle_tree, polynomial_coeffs: _, ood_sample: ood_point, ood_answer: ood_eval, ind_samples: ind_points, ind_answers: ind_evals } = x;
+            let acc_info = AccInfo {
+                merkle_cap: merkle_tree.cap.clone(), 
+                ood_sample: *ood_point,
+                ood_answer: *ood_eval,
+                ind_samples: ind_points.clone(),
+                ind_answers: ind_evals.clone(),
+            };
+            acc_info
+        })
+        .collect();
+    (accs, accs_info)
+}
+
+
 /// Creates a dummy proof which should have `2 ** log2_size` rows.
 fn dummy_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
     config: &CircuitConfig,
     log2_size: usize,
-) -> Result<ProofTuple<F, C, D>> {
+// ) -> Result<ProofTuple<F, C, D>> {
+) -> Result<u32> {
     // 'size' is in degree, but we want number of noop gates. A non-zero amount of padding will be added and size will be rounded to the next power of two. To hit our target size, we go just under the previous power of two and hope padding is less than half the proof.
     let num_dummy_gates = match log2_size {
         0 => return Err(anyhow!("size must be at least 1")),
@@ -107,11 +188,36 @@ fn dummy_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D
 
 
     let mut timing = TimingTree::new("prove", Level::Debug);
-    let proof = prove::<F, C, D>(&data.prover_only, &data.common, inputs, &mut timing)?;
-    timing.print();
-    data.verify(proof.clone())?;
 
-    Ok((proof, data.verifier_only, data.common))
+    let (accs, accs_info) = gen_random_acc::<F, C, D>(&data.common);
+
+    unsafe { plonky2::boil::boil_prover::IVCDEBUG_OB_PROV = false };
+    unsafe { plonky2::boil::boil_verifier::IVCDEBUG_OB_VER = false };
+
+    let count_hash = true;
+    unsafe { plonky2::plonk::verifier::IVCDEBUG_COUNTHASH = count_hash };
+    unsafe { plonky2::plonk::bivc_verifier::IVCDEBUG_COUNTHASH = count_hash };
+
+    let inputs2 = inputs.clone();
+    println!("! will try to execute OB");
+    let ivc_proof = ivc_prove::<F, C, D>(&data.prover_only, &data.common, inputs2, 
+        &vec![], 
+        // &[&accs[0]],
+        &mut timing
+    )?;
+    ivc_verify::<F, C, D>(ivc_proof.clone(), &data.verifier_only, &data.common,
+        &vec![]
+        // &[&accs_info[0]],
+    )?;
+    println!("! OB done");
+    timing.print();
+
+    // let proof = prove::<F, C, D>(&data.prover_only, &data.common, inputs, &mut timing)?;
+    // timing.print();
+    // data.verify(proof.clone())?;
+
+    // Ok((proof, data.verifier_only, data.common))
+    Ok(5)
 }
 
 fn recursive_proof<
@@ -177,6 +283,7 @@ where
     pw.set_verifier_data_target(&inner_data, inner_vd)?;
 
     let mut timing = TimingTree::new("prove", Level::Debug);
+
     let proof = prove::<F, C, D>(&data.prover_only, &data.common, pw, &mut timing)?;
     timing.print();
 
@@ -245,23 +352,25 @@ pub fn benchmark_function(
     type C = PoseidonGoldilocksConfig;
     type F = <C as GenericConfig<D>>::F;
 
+    println!("... Creating dumy proof");
     let dummy_proof_function = dummy_proof::<F, C, D>;
 
     let name = "proof";
     let mut inner = dummy_proof_function(config, log2_inner_size)?;
-    let mut outer;
+    // let mut outer;
 
-    for _ in 0..5 {
-        outer = recursive_proof::<F, C, C, D>(&inner, config, None)?;
-        let (_, _, common_data) = &outer;
-        info!(
-            "Single recursion {} degree {} = 2^{}",
-            name,
-            common_data.degree(),
-            common_data.degree_bits()
-        );
-        inner = outer;
-    }
+    // println!("... Creating recursive proof");
+    // for _ in 0..0 {
+    //     outer = recursive_proof::<F, C, C, D>(&inner, config, None)?;
+    //     let (_, _, common_data) = &outer;
+    //     info!(
+    //         "Single recursion {} degree {} = 2^{}",
+    //         name,
+    //         common_data.degree(),
+    //         common_data.degree_bits()
+    //     );
+    //     inner = outer;
+    // }
 
     // test_serialization(proof, vd, common_data)?;
 
@@ -292,7 +401,8 @@ fn main() -> Result<()> {
     let num_cpus = num_cpus::get();
     let threads = options.threads.unwrap_or(num_cpus..=num_cpus);
 
-    let config = CircuitConfig::standard_recursion_config();
+    // let config = CircuitConfig::standard_recursion_config();
+    let config = CircuitConfig::sac_config1();
 
     for log2_inner_size in options.size {
         // Since the `size` is most likely to be an unbounded range we make that the outer iterator.
@@ -308,7 +418,9 @@ fn main() -> Result<()> {
                         num_cpus
                     );
                     // Run the benchmark. `options.lookup_type` determines which benchmark to run.
-                    benchmark_function(&config, log2_inner_size, options.lookup_type)
+                    println!("... log2_inner_size = {}", log2_inner_size); //14
+                    // benchmark_function(&config, log2_inner_size, options.lookup_type)
+                    benchmark_function(&config, 14, options.lookup_type)
                 })?;
         }
     }

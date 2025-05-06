@@ -11,6 +11,7 @@ use anyhow::ensure;
 use plonky2_maybe_rayon::*;
 use serde::{Deserialize, Serialize};
 
+use crate::boil::boil_prover::{Acc, AccProof};
 use crate::field::extension::Extendable;
 use crate::fri::oracle::PolynomialBatch;
 use crate::fri::proof::{
@@ -42,6 +43,21 @@ pub struct Proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const
     pub openings: OpeningSet<F, D>,
     /// A batch FRI argument for all openings.
     pub opening_proof: FriProof<F, C::Hasher, D>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
+#[serde(bound = "")]
+pub struct IVCProof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> {
+    /// Merkle cap of LDEs of wire values.
+    pub wires_cap: MerkleCap<F, C::Hasher>,
+    /// Merkle cap of LDEs of Z, in the context of Plonk's permutation argument.
+    pub plonk_zs_partial_products_cap: MerkleCap<F, C::Hasher>,
+    /// Merkle cap of LDEs of the quotient polynomial components.
+    pub quotient_polys_cap: MerkleCap<F, C::Hasher>,
+    /// Purported values of each polynomial at the challenge point.
+    pub openings: OpeningSet<F, D>,
+    /// A batch FRI argument for all openings.
+    pub acc_proof: AccProof<F, C::Hasher, D>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -84,6 +100,18 @@ pub struct ProofWithPublicInputs<
     pub proof: Proof<F, C, D>,
     pub public_inputs: Vec<F>,
 }
+
+#[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
+#[serde(bound = "")]
+pub struct IVCProofWithPublicInputs<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+> {
+    pub proof: IVCProof<F, C, D>,
+    pub public_inputs: Vec<F>,
+}
+
 
 impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
     ProofWithPublicInputs<F, C, D>

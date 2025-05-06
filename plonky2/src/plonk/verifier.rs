@@ -14,12 +14,22 @@ use crate::plonk::validate_shape::validate_proof_with_pis_shape;
 use crate::plonk::vanishing_poly::eval_vanishing_poly;
 use crate::plonk::vars::EvaluationVars;
 
+pub static mut IVCDEBUG_COUNTHASH:bool = true;
+
 pub(crate) fn verify<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
     proof_with_pis: ProofWithPublicInputs<F, C, D>,
     verifier_data: &VerifierOnlyCircuitData<C, D>,
     common_data: &CommonCircuitData<F, D>,
 ) -> Result<()> {
+
     validate_proof_with_pis_shape(&proof_with_pis, common_data)?;
+    
+    println!("! plonk:: verify_with_FRI");
+    if unsafe { IVCDEBUG_COUNTHASH } {
+        unsafe { crate::hash::merkle_proofs::COUNTHASHES_MERKLE = true };
+        unsafe { crate::hash::poseidon::COUNTHASHES_POSEIDON = true };
+        unsafe { crate::fri::verifier::COUNTHASHES_FRIVER = true };
+    }
 
     let public_inputs_hash = proof_with_pis.get_public_inputs_hash();
     let challenges = proof_with_pis.get_challenges(
@@ -113,6 +123,12 @@ pub(crate) fn verify_with_challenges<
         &proof.opening_proof,
         &common_data.fri_params,
     )?;
+
+    if unsafe { IVCDEBUG_COUNTHASH } {
+        unsafe { crate::hash::merkle_proofs::COUNTHASHES_MERKLE = false };
+        unsafe { crate::hash::poseidon::COUNTHASHES_POSEIDON = false };
+        unsafe { crate::fri::verifier::COUNTHASHES_FRIVER = false };
+    }
 
     Ok(())
 }

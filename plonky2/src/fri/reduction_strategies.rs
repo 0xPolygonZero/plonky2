@@ -38,9 +38,11 @@ impl FriReductionStrategy {
             FriReductionStrategy::Fixed(reduction_arity_bits) => reduction_arity_bits.to_vec(),
             &FriReductionStrategy::ConstantArityBits(arity_bits, final_poly_bits) => {
                 let mut result = Vec::new();
+                println!("...FRI reduction strategy:");
                 while degree_bits > final_poly_bits
                     && degree_bits + rate_bits - arity_bits >= cap_height
                 {
+                    println!("...next layer: d={degree_bits} | tree height = {} | w/o cap = {}", degree_bits + rate_bits - arity_bits, degree_bits + rate_bits - arity_bits - cap_height);
                     result.push(arity_bits);
                     assert!(degree_bits >= arity_bits);
                     degree_bits -= arity_bits;

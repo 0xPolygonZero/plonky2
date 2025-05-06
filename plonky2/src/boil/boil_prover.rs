@@ -3,6 +3,7 @@
 
 use itertools::Itertools;
 use plonky2_maybe_rayon::*;
+use serde::{Deserialize, Serialize};
 use crate::timed;
 use crate::util::{
     timing::TimingTree,
@@ -24,15 +25,17 @@ use crate::hash::{
 };
 use crate::iop::challenger::Challenger;
 use crate::plonk::config::{GenericConfig, Hasher};
-use crate::fri::{oracle::PolynomialBatch, proof::FriChallenges};
+use crate::fri::oracle::PolynomialBatch;
 use crate::fri::{structure::{FriBatchInfo, FriInstanceInfo}, FriParams};
 use crate::boil::QN;
 
+pub static mut IVCDEBUG_OB_PROV:bool = true;
 
 // Describes the Accumulator
 // Think of the Accumulator as a vector of polynomials of the form [F(X) - F(x_i) / (X - x_i)] 
 // We can access these polynomials virtually via the polynomial F 
 // and pairs (x_i, F(x_i))
+//
 #[derive(Debug)]
 pub struct Acc<F: RichField + Extendable<D>, H: Hasher<F>, const D: usize> {
     // Merklte Tree which represents F 
@@ -67,7 +70,7 @@ impl<F: RichField + Extendable<D>, H: Hasher<F>, const D: usize> Acc<F, H, D> {
                 (self.polynomial_coeffs.eval(point) 
                 - self.polynomial_coeffs.eval(F::Extension::from_basefield(subgroup_x)))
                 / (point - F::Extension::from_basefield(subgroup_x));
-            println!("...dup.... quotient/({}) -> {}", x_index, sv);
+            println!(".......... quotient/({}) -> {}", x_index, sv);
         } else {
             let quotient = self.polynomial_coeffs
                     .divide_by_linear(self.ood_sample);
@@ -76,13 +79,14 @@ impl<F: RichField + Extendable<D>, H: Hasher<F>, const D: usize> Acc<F, H, D> {
                 (self.polynomial_coeffs.eval(point) 
                 - self.polynomial_coeffs.eval(self.ood_sample))
                 / (point - self.ood_sample);
-            println!("...dup.... quotient/(ood) -> {}", sv);
+            println!(".......... quotient/(ood) -> {}", sv);
         }
     }
 }
 
 // Succinct description of the Accumulator for the Verifier
-#[derive(Debug)]
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(bound = "")]
 pub struct AccInfo<F: RichField + Extendable<D>, H: Hasher<F>, const D: usize> {
     // Caps of the Merkle Tree 
     pub merkle_cap: MerkleCap<F, H>,
@@ -94,7 +98,8 @@ pub struct AccInfo<F: RichField + Extendable<D>, H: Hasher<F>, const D: usize> {
 }
 
 // Describes the accumulation proof
-#[derive(Debug)]
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(bound = "")]
 pub struct AccProof<F: RichField + Extendable<D>, H: Hasher<F>, const D: usize> {
     // Merkle caps for a new accumulator
     pub merkle_cap: MerkleCap<F, H>,
@@ -107,7 +112,8 @@ pub struct AccProof<F: RichField + Extendable<D>, H: Hasher<F>, const D: usize> 
 }
 
 // Describes proof for a single in-domain random point
-#[derive(Debug)]
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(bound = "")]
 pub struct BoilQueryProof<F: RichField + Extendable<D>, H: Hasher<F>, const D: usize> {
     // Merkle proofs for evaluations of FRI batches (4 of them)
     pub base_evals_proofs: Vec<(Vec<F>, MerkleProof<F, H>)>,
@@ -122,14 +128,17 @@ pub fn prove_accumulation<F, C, const D: usize>(
     fri_params: &FriParams,
     challenger: &mut Challenger<F, C::Hasher>,
     timing: &mut TimingTree,
-) -> (Acc<F, C::Hasher, D>, AccProof<F, C::Hasher, D>, FriChallenges<F, D>) 
+) -> (Acc<F, C::Hasher, D>, AccProof<F, C::Hasher, D>) 
 where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
 {
+
+    println!("! boil:: prove_accumulation()");
+
     // get new challenge
     let alpha = challenger.get_extension_challenge::<D>();
-    let myalpha = alpha.clone();
+    let alpha_copy = alpha.clone();
     let mut alpha = ReducingFactor::new(alpha);
 
     // commit phase
@@ -137,18 +146,19 @@ where
     let n = fri_params.lde_size(); 
     let log_n = log2_strict(n);
 
-    /* DEBUG OUTPUT*/
-    println!("***\nChechpoint:: fn::prove_accumulation!\n***");
-    println!("... polys degree = {}, lde deggree = {}", fri_params.degree_bits, fri_params.lde_bits());
-    println!("... #fri_batches to accumulate = {}", fri_instance.batches.len());
-    fri_instance.batches.iter().for_each(|x| {
-        println!("    point: {}, polys in batch: {}", x.point, x.polynomials.len());
-    });
-    println!{"... #accumulators to accumulate = {}", accs.len()};
-    accs.iter().for_each(|x| {
-        println!("... acc degree = {}", x.polynomial_coeffs.len());
-    });
-    /* DEBUG OUTPUT*/
+    if unsafe { IVCDEBUG_OB_PROV } {
+        println!("***\n DEBUG INFO:\n***");
+        println!("... polys degree = {}, lde deggree = {}", fri_params.degree_bits, fri_params.lde_bits());
+        println!("... #fri_batches to accumulate = {}", fri_instance.batches.len());
+        fri_instance.batches.iter().for_each(|x| {
+            println!("    point: {}, polys in batch: {}", x.point, x.polynomials.len());
+        });
+        println!{"... #accumulators to accumulate = {}", accs.len()};
+        accs.iter().for_each(|x| {
+            println!("... acc degree = {}", x.polynomial_coeffs.len());
+        });
+        println!("alpha = {}", alpha_copy);
+    }
 
     // combine all the polynomials from commited batches with alpha
     for FriBatchInfo { point, polynomials } in &fri_instance.batches {
@@ -170,8 +180,8 @@ where
     // combine all the polynomials from accumulators with alpha
     for acc in accs {
         assert!(acc.ind_samples.len() == QN); // all the accumulators must have the same shape
-        let mut acc_polys = acc.ind_samples.iter().enumerate() 
-            .map(|(i, sample)| {
+        let mut acc_polys = acc.ind_samples.par_iter().enumerate() 
+            .map(|(_i, sample)| {
                 let x_index = sample.to_canonical_u64() as usize % n;
                 let subgroup_x = F::MULTIPLICATIVE_GROUP_GENERATOR
                     * F::primitive_root_of_unity(log_n).exp_u64(reverse_bits(x_index, log_n) as u64);
@@ -180,12 +190,13 @@ where
                 cur.coeffs.push(F::Extension::ZERO);
                 cur
             })
-            .collect_vec();
-        // let mut acc_polys = vec![];
+            .collect::<Vec<_>>();
         let mut ood_quotient = acc.polynomial_coeffs.divide_by_linear(acc.ood_sample);
         ood_quotient.coeffs.push(F::Extension::ZERO);
         acc_polys.push(ood_quotient);
-        debug_acc_polys = acc_polys.clone();
+        if unsafe { IVCDEBUG_OB_PROV } {
+            debug_acc_polys = acc_polys.clone();
+        }
         let acc_polys_reduced = alpha.reduce_polys2(acc_polys);
         alpha.shift_poly(&mut lincom_poly);
         lincom_poly += acc_polys_reduced;
@@ -212,35 +223,36 @@ where
     let ood_eval = lincom_poly.eval(ood_point);
     let ind_points  = challenger.get_n_challenges(QN).into_iter().collect_vec();
     let ind_evals = ind_points
-        .iter()
+        .par_iter()
         .map(|rand| {
             let x_index = rand.to_canonical_u64() as usize % n;
-            let subgroup_x = F::MULTIPLICATIVE_GROUP_GENERATOR
-                * F::primitive_root_of_unity(log_n).exp_u64(reverse_bits(x_index, log_n) as u64);
-            let ev = lincom_poly.eval(
-                F::Extension::from_basefield(subgroup_x)
-            );
-            ev
+            // let subgroup_x = F::MULTIPLICATIVE_GROUP_GENERATOR
+            //     * F::primitive_root_of_unity(log_n).exp_u64(reverse_bits(x_index, log_n) as u64);
+            // let ev = lincom_poly.eval(
+            //     F::Extension::from_basefield(subgroup_x)
+            // );
+            // ev
+            lde_final_values.values[x_index]
         })
         .collect::<Vec<F::Extension>>();
 
-    /* DEBUG OUTPUT */
-    for rand in &ind_points {
-        let y_index = rand.to_canonical_u64() as usize % n;
-        let subgroup_y = F::MULTIPLICATIVE_GROUP_GENERATOR
-            * F::primitive_root_of_unity(log_n).exp_u64(reverse_bits(y_index, log_n) as u64);
-        println!("\n*** chal = {} OR {}", y_index, subgroup_y);
-        for acc in accs {
-            for i in 0..QN {
-                let p = acc.ind_samples[i].to_canonical_u64() as usize % n; 
-                acc.evaluate(F::Extension::from_basefield(subgroup_y), false, p, log_n);
-                println!(">>> poly value = {}", debug_acc_polys[i].eval(F::Extension::from_basefield(subgroup_y)));
+    if unsafe { IVCDEBUG_OB_PROV } {
+        for rand in &ind_points {
+            let y_index = rand.to_canonical_u64() as usize % n;
+            let subgroup_y = F::MULTIPLICATIVE_GROUP_GENERATOR
+                * F::primitive_root_of_unity(log_n).exp_u64(reverse_bits(y_index, log_n) as u64);
+            println!("\n*** chal = {} OR {}", y_index, subgroup_y);
+            for acc in accs {
+                for i in 0..QN {
+                    let p = acc.ind_samples[i].to_canonical_u64() as usize % n; 
+                    acc.evaluate(F::Extension::from_basefield(subgroup_y), false, p, log_n);
+                    println!("... poly value = {}", debug_acc_polys[i].eval(F::Extension::from_basefield(subgroup_y)));
+                }
+                acc.evaluate(F::Extension::from_basefield(subgroup_y), true, 0, log_n);
+                println!("... poly value = {}", debug_acc_polys[QN].eval(F::Extension::from_basefield(subgroup_y)));
             }
-            acc.evaluate(F::Extension::from_basefield(subgroup_y), true, 0, log_n);
-            println!(">>> poly value = {}", debug_acc_polys[QN].eval(F::Extension::from_basefield(subgroup_y)));
         }
     }
-    /* DEBUG OUTPUT */
 
     let qproofs = ind_points
         .par_iter()
@@ -278,20 +290,20 @@ where
     };
 
 
-    let indic = ind_points
-        .iter()
-        .map(|rand| {
-            let x_index = rand.to_canonical_u64() as usize % n;
-            x_index
-        })
-        .collect::<Vec<usize>>();
-    let sss: FriChallenges<F, D> = FriChallenges {
-        fri_alpha: myalpha,
-        fri_betas: Vec::new(),
-        fri_pow_response: F::ZERO,
-        fri_query_indices: indic, 
-    };
+    // let indic = ind_points
+    //     .iter()
+    //     .map(|rand| {
+    //         let x_index = rand.to_canonical_u64() as usize % n;
+    //         x_index
+    //     })
+    //     .collect::<Vec<usize>>();
+    // let sss: FriChallenges<F, D> = FriChallenges {
+    //     fri_alpha: myalpha,
+    //     fri_betas: Vec::new(),
+    //     fri_pow_response: F::ZERO,
+    //     fri_query_indices: indic, 
+    // };
 
-    (new_acc, acc_proof, sss)
+    (new_acc, acc_proof)
 }
 
