@@ -48,9 +48,7 @@ fn get_challenges<F, C, S: Stark<F, D>, const D: usize>(
     pow_witness: F,
     config: &StarkConfig,
     degree_bits: usize,
-    num_trace_polys: usize,
     num_aux_polys: usize,
-    pow_degree: usize,
     verifier_circuit_fri_params: Option<FriParams>,
 ) -> StarkProofChallenges<F, D>
 where
@@ -95,7 +93,7 @@ where
 
     // Before computing the quotient polynomial, we bind the constraints.
     // To do so, the verifier gets all the necessary polynomials evaluated at the random extension challenge `zeta_prime`,
-    // and evaluates the constraints at that point. The constraints are combined usihg `stark_alphas_prime`.
+    // and evaluates the constraints at that point. The constraints are combined using `stark_alphas_prime`.
     // Then, the challenger observes the constraint evaluations, so that they are bound to `stark_alphas`
     // (the challenges used in the quotient polynomials).
     let stark_alphas_prime = challenger.get_n_challenges(num_challenges);
@@ -104,9 +102,12 @@ where
         .map(|ctls| ctls.iter().map(|ctl| ctl.helper_columns.len()).sum())
         .unwrap_or_default();
 
+    // First power unreachable by the constraints.
+    let pow_degree = stark.constraint_degree() + 1;
+
     let poly_evals = get_dummy_polys::<F, C, D>(
         challenger,
-        num_trace_polys,
+        S::COLUMNS,
         num_aux_polys,
         total_num_ctl_polys,
         ctl_vars.is_some(),
@@ -199,7 +200,7 @@ where
     }
 }
 
-// Simulate the trace, ctl, and auxiliary polynomials using dummy values. This is used to bind the constraints before committing to the quotient polynomial.
+/// Simulate the trace, ctl, and auxiliary polynomials using dummy values. This is used to bind the constraints before committing to the quotient polynomial.
 fn get_dummy_polys<F, C, const D: usize>(
     challenger: &mut Challenger<F, C::Hasher>,
     num_trace_polys: usize,
@@ -314,8 +315,6 @@ where
         };
 
         let num_aux_polys = openings.auxiliary_polys.as_ref().map_or(0, |aux| aux.len());
-        // First power unreachable by the constraints.
-        let pow_degree = stark.constraint_degree() + 1;
         get_challenges::<F, C, S, D>(
             stark,
             public_inputs,
@@ -331,9 +330,7 @@ where
             *pow_witness,
             config,
             degree_bits,
-            S::COLUMNS,
             num_aux_polys,
-            pow_degree,
             verifier_circuit_fri_params,
         )
     }
@@ -624,7 +621,6 @@ impl<const D: usize> StarkProofTarget<D> {
         challenges: Option<&GrandProductChallengeSet<Target>>,
         ctl_vars: Option<&[CtlCheckVarsTarget<F, D>]>,
         degree_bits: usize,
-        degree_bits_target: Target,
         ignore_trace_cap: bool,
         config: &StarkConfig,
     ) -> StarkProofChallengesTarget<D>
@@ -669,7 +665,7 @@ impl<const D: usize> StarkProofTarget<D> {
             final_poly,
             *pow_witness,
             degree_bits,
-            degree_bits_target,
+            self.degree_bits,
             S::COLUMNS,
             openings.auxiliary_polys.as_ref().map_or(0, |aux| aux.len()),
             stark.constraint_degree() + 1,
@@ -711,7 +707,6 @@ impl<const D: usize> StarkProofWithPublicInputsTarget<D> {
             challenges,
             ctl_vars,
             degree_bits,
-            self.proof.degree_bits,
             ignore_trace_cap,
             config,
         )
