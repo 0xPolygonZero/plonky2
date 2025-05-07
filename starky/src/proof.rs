@@ -34,8 +34,6 @@ pub struct StarkProof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, 
     pub auxiliary_polys_cap: Option<MerkleCap<F, C::Hasher>>,
     /// Merkle cap of LDEs of trace values.
     pub quotient_polys_cap: Option<MerkleCap<F, C::Hasher>>,
-    /// Evaluation of all polynomials related to constraints, used to bind the constraints.
-    pub poly_evals: StarkOpeningSet<F, D>,
     /// Purported values of each polynomial at the challenge point.
     pub openings: StarkOpeningSet<F, D>,
     /// A batch FRI argument for all openings.
@@ -64,8 +62,6 @@ pub struct StarkProofTarget<const D: usize> {
     pub auxiliary_polys_cap: Option<MerkleCapTarget>,
     /// `Target` for the Merkle cap of quotient polynomial evaluations LDEs.
     pub quotient_polys_cap: Option<MerkleCapTarget>,
-    /// `Target`s for the evaluation of all polynomials related to constraints, used to bind the constraints.
-    pub poly_evals: StarkOpeningSetTarget<D>,
     /// `Target`s for the purported values of each polynomial at the challenge point.
     pub openings: StarkOpeningSetTarget<D>,
     /// `Target`s for the batch FRI argument for all openings.
@@ -88,8 +84,6 @@ impl<const D: usize> StarkProofTarget<D> {
             buffer.write_target_merkle_cap(poly)?;
         }
 
-        self.poly_evals.to_buffer(buffer)?;
-
         buffer.write_target_fri_proof(&self.opening_proof)?;
         self.openings.to_buffer(buffer)?;
         Ok(())
@@ -109,7 +103,6 @@ impl<const D: usize> StarkProofTarget<D> {
         } else {
             None
         };
-        let poly_evals = StarkOpeningSetTarget::from_buffer(buffer)?;
         let opening_proof = buffer.read_target_fri_proof()?;
         let openings = StarkOpeningSetTarget::from_buffer(buffer)?;
 
@@ -117,7 +110,6 @@ impl<const D: usize> StarkProofTarget<D> {
             trace_cap,
             auxiliary_polys_cap,
             quotient_polys_cap,
-            poly_evals,
             openings,
             opening_proof,
             degree_bits,

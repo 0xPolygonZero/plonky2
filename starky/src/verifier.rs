@@ -236,36 +236,11 @@ where
         trace_cap,
         auxiliary_polys_cap,
         quotient_polys_cap,
-        poly_evals,
         openings,
         // The shape of the opening proof will be checked in the FRI verifier (see
         // validate_fri_proof_shape), so we ignore it here.
         opening_proof: _,
     } = proof;
-
-    let StarkOpeningSet {
-        local_values: eval_local_values,
-        next_values: eval_next_values,
-        auxiliary_polys: eval_auxiliary_polys,
-        auxiliary_polys_next: eval_auxiliary_polys_next,
-        ctl_zs_first: eval_ctl_zs_first,
-        quotient_polys: eval_quotient_polys,
-    } = poly_evals;
-
-    ensure!(eval_local_values.len() == S::COLUMNS);
-    ensure!(eval_next_values.len() == S::COLUMNS);
-    ensure!(eval_quotient_polys.is_none());
-
-    check_lookup_options::<F, C, S, D>(
-        stark,
-        auxiliary_polys_cap,
-        eval_auxiliary_polys,
-        eval_auxiliary_polys_next,
-        num_ctl_helpers,
-        num_ctl_zs,
-        eval_ctl_zs_first,
-        config,
-    )?;
 
     let StarkOpeningSet {
         local_values,

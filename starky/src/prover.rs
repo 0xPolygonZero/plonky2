@@ -2,7 +2,7 @@
 
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
-use core::iter::once;
+use core::iter::{once, successors};
 
 use anyhow::{ensure, Result};
 use itertools::Itertools;
@@ -120,6 +120,8 @@ where
 /// - all the required polynomial and FRI argument openings.
 /// - individual `ctl_data` and common `ctl_challenges` if the STARK is part
 ///   of a multi-STARK system.
+///
+/// /!\ Note that this method does not observe the `config`, and it assumes the `config` has already been observed.
 pub fn prove_with_commitment<F, C, S, const D: usize>(
     stark: &S,
     config: &StarkConfig,
@@ -257,23 +259,77 @@ where
     let g = F::primitive_root_of_unity(degree_bits);
 
     // Before computing the quotient polynomial, we bind the constraints.
-    // To do so, we evaluate them at a random extension point `zeta_prime` and combine them with `stark_alphas_prime`.
+    // To do so, we get random challenges to represent the trace, auxiliary and CTL polynomials.
+    // We evaluate the constraints using those random values and combine them with `stark_alphas_prime`.
     // Then, the challenger observes the resulting evaluations, so that the constraints are bound to `stark_alphas`
     // (the challenges used in the quotient polynomials).
-    let zeta_prime = challenger.get_extension_challenge();
+    let is_aux_polys = auxiliary_polys_commitment.is_some();
+    let num_auxiliary_polys = auxiliary_polys_commitment
+        .as_ref()
+        .map_or(0, |p| p.polynomials.len());
+    let total_num_ctl_polys = num_ctl_polys.iter().sum::<usize>();
 
-    let poly_evals = StarkOpeningSet::new(
-        zeta_prime,
-        g,
-        trace_commitment,
-        auxiliary_polys_commitment.as_ref(),
-        None,
-        num_lookup_columns,
-        ctl_data.is_some(),
-        &num_ctl_polys,
-    );
+    // Get the number of challenges we need to simulate the trace, auxiliary polynomials and CTL polynomials.
+    let total_num_dummy_extension_evals =
+        trace_commitment.polynomials.len() * 2 + num_auxiliary_polys * 2; // for auxiliary_polys and auxiliary_polys_next
 
-    let total_num_helper_cols: usize = num_ctl_polys.iter().sum();
+    // First power unreachable by the constraints.
+    let pow_degree = stark.constraint_degree() + 1;
+
+    // Get extension and base field challenges that will simulate the trace, ctl, and auxiliary polynomials.
+    // Since sampling challenges for all polynomials might be heavy, we sample enough challenges {c_i}_i and use:
+    // c_i, c_i^{pow_degree}, ..., c_i^{pow_degree * 50} as simulated values.
+    let simulating_zetas =
+        challenger.get_n_extension_challenges(total_num_dummy_extension_evals.div_ceil(50));
+    let simulating_betas = challenger.get_n_challenges(total_num_ctl_polys.div_ceil(50)); // For ctl_zs_first
+
+    // For each zeta in zetas, we compute the powers z^{(constraint_degree + 1)^i} for i = 0..50.
+    let nb_dummy_per_zeta = core::cmp::min(50, total_num_dummy_extension_evals);
+    let dummy_extension_evals = simulating_zetas
+        .iter()
+        .flat_map(|&zeta| {
+            successors(Some(zeta), move |prev| {
+                Some(prev.exp_u64(pow_degree as u64))
+            })
+            .take(nb_dummy_per_zeta)
+        })
+        .collect::<Vec<_>>();
+    let dummy_evals = simulating_betas
+        .iter()
+        .flat_map(|&beta| {
+            successors(Some(beta), move |prev| {
+                Some(prev.exp_u64(pow_degree as u64))
+            })
+            .take(core::cmp::min(50, total_num_ctl_polys))
+        })
+        .collect::<Vec<_>>();
+
+    // Simulate the openning set.
+    let next_values_start = S::COLUMNS;
+    let auxiliary_polys_start = S::COLUMNS * 2;
+    let auxiliary_polys_next_start = auxiliary_polys_start + num_auxiliary_polys;
+
+    let poly_evals = StarkOpeningSet {
+        local_values: dummy_extension_evals[..next_values_start].to_vec(),
+        next_values: dummy_extension_evals[next_values_start..auxiliary_polys_start].to_vec(),
+        auxiliary_polys: if is_aux_polys {
+            Some(dummy_extension_evals[auxiliary_polys_start..auxiliary_polys_next_start].to_vec())
+        } else {
+            None
+        },
+        auxiliary_polys_next: if is_aux_polys {
+            Some(dummy_extension_evals[auxiliary_polys_next_start..].to_vec())
+        } else {
+            None
+        },
+        ctl_zs_first: if ctl_data.is_some() {
+            Some(dummy_evals)
+        } else {
+            None
+        },
+        quotient_polys: None,
+    };
+
     let ctl_vars = ctl_data.map(|data| {
         let mut start_index = 0;
         data.zs_columns
@@ -289,9 +345,9 @@ where
                 let ctl_vars = CtlCheckVars::<F, F::Extension, F::Extension, D> {
                     helper_columns,
                     local_z: poly_evals.auxiliary_polys.as_ref().unwrap()
-                        [num_lookup_columns + total_num_helper_cols + i],
+                        [num_lookup_columns + total_num_ctl_polys + i],
                     next_z: poly_evals.auxiliary_polys_next.as_ref().unwrap()
-                        [num_lookup_columns + total_num_helper_cols + i],
+                        [num_lookup_columns + total_num_ctl_polys + i],
                     challenges: zs_columns.challenge,
                     columns: zs_columns.columns.clone(),
                     filter: zs_columns.filter.clone(),
@@ -303,6 +359,8 @@ where
             })
             .collect::<Vec<_>>()
     });
+
+    let zeta_prime = challenger.get_extension_challenge::<D>();
 
     // Bind constraints.
     let constraints = compute_eval_vanishing_poly::<F, S, D>(
@@ -426,7 +484,6 @@ where
         trace_cap: trace_commitment.merkle_tree.cap.clone(),
         auxiliary_polys_cap,
         quotient_polys_cap,
-        poly_evals,
         openings,
         opening_proof,
     };

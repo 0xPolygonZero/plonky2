@@ -99,7 +99,7 @@ impl StarkConfig {
     }
 
     /// Observes this [`StarkConfig`] for the given [`Challenger`].
-    pub(crate) fn observe<F: RichField, H: Hasher<F>>(&self, challenger: &mut Challenger<F, H>) {
+    pub fn observe<F: RichField, H: Hasher<F>>(&self, challenger: &mut Challenger<F, H>) {
         challenger.observe_element(F::from_canonical_usize(self.security_bits));
         challenger.observe_element(F::from_canonical_usize(self.num_challenges));
 
