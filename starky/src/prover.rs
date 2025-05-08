@@ -258,7 +258,7 @@ where
 
     let g = F::primitive_root_of_unity(degree_bits);
 
-    // Before computing the quotient polynomial, we bind the constraints.
+    // Before computing the quotient polynomial, we use grinding to "bind" the constraints with high probability.
     // To do so, we get random challenges to represent the trace, auxiliary and CTL polynomials.
     // We evaluate the constraints using those random values and combine them with `stark_alphas_prime`.
     // Then, the challenger observes the resulting evaluations, so that the constraints are bound to `stark_alphas`
@@ -275,17 +275,15 @@ where
 
     // First power unreachable by the constraints.
     let pow_degree = core::cmp::max(2, stark.constraint_degree() + 1);
-    let num_extension_powers = core::cmp::max(1, 128 / log2_ceil(pow_degree)); // 128 is for the size of the extension field (~ 2^{128})
-    let num_powers = core::cmp::max(1, 64 / log2_ceil(pow_degree)); // 64 is for the size of the base field (~ 2^{64})
+    let num_extension_powers = core::cmp::max(1, 50 / log2_ceil(pow_degree) - 1);
 
-    // Get extension and base field challenges that will simulate the trace, ctl, and auxiliary polynomials.
+    // Get extension field challenges that will simulate the trace, ctl, and auxiliary polynomials.
     // Since sampling challenges for all polynomials might be heavy, we sample enough challenges {c_i}_i and use:
     // c_i, c_i^{pow_degree}, ..., c_i^{pow_degree * 50} as simulated values.
     let simulating_zetas = challenger
         .get_n_extension_challenges(total_num_dummy_extension_evals.div_ceil(num_extension_powers));
-    let simulating_betas = challenger.get_n_challenges(total_num_ctl_polys.div_ceil(num_powers)); // For ctl_zs_first
 
-    // For each zeta in zetas, we compute the powers z^{(constraint_degree + 1)^i} for i = 0..50.
+    // For each zeta in zetas, we compute the powers z^{(constraint_degree + 1)^i} for i = 0..num_extension_powers.
     let nb_dummy_per_zeta =
         core::cmp::min(num_extension_powers + 1, total_num_dummy_extension_evals);
     let dummy_extension_evals = simulating_zetas
@@ -295,15 +293,6 @@ where
                 Some(prev.exp_u64(pow_degree as u64))
             })
             .take(nb_dummy_per_zeta)
-        })
-        .collect::<Vec<_>>();
-    let dummy_evals = simulating_betas
-        .iter()
-        .flat_map(|&beta| {
-            successors(Some(beta), move |prev| {
-                Some(prev.exp_u64(pow_degree as u64))
-            })
-            .take(core::cmp::min(num_powers + 1, total_num_ctl_polys))
         })
         .collect::<Vec<_>>();
 
@@ -325,14 +314,11 @@ where
         } else {
             None
         },
-        ctl_zs_first: if ctl_data.is_some() {
-            Some(dummy_evals)
-        } else {
-            None
-        },
+        ctl_zs_first: None,
         quotient_polys: None,
     };
 
+    // Get dummy ctl_vars.
     let ctl_vars = ctl_data.map(|data| {
         let mut start_index = 0;
         data.zs_columns
