@@ -194,30 +194,35 @@ fn dummy_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D
     unsafe { plonky2::boil::boil_prover::IVCDEBUG_OB_PROV = false };
     unsafe { plonky2::boil::boil_verifier::IVCDEBUG_OB_VER = false };
 
-    let count_hash = true;
+    let count_hash = false;
     unsafe { plonky2::plonk::verifier::IVCDEBUG_COUNTHASH = count_hash };
     unsafe { plonky2::plonk::bivc_verifier::IVCDEBUG_COUNTHASH = count_hash };
 
-    let inputs2 = inputs.clone();
-    println!("! will try to execute OB");
-    let ivc_proof = ivc_prove::<F, C, D>(&data.prover_only, &data.common, inputs2, 
-        &vec![], 
-        // &[&accs[0]],
-        &mut timing
-    )?;
-    ivc_verify::<F, C, D>(ivc_proof.clone(), &data.verifier_only, &data.common,
-        &vec![]
-        // &[&accs_info[0]],
-    )?;
-    println!("! OB done");
-    timing.print();
+    let use_boil = true;
 
-    // let proof = prove::<F, C, D>(&data.prover_only, &data.common, inputs, &mut timing)?;
-    // timing.print();
-    // data.verify(proof.clone())?;
+    if use_boil {
+        let inputs2 = inputs.clone();
+        println!("! will try to execute OB");
+        let ivc_proof = ivc_prove::<F, C, D>(&data.prover_only, &data.common, inputs2, 
+            &vec![], // initial accs are empty
+            // &[&accs[0]],
+            &mut timing
+        )?;
+        timing.print();
+        ivc_verify::<F, C, D>(ivc_proof.0.clone(), &data.verifier_only, &data.common,
+            &vec![] // initial accs are empty
+            // &[&accs_info[0]],
+        )?;
+        println!("Acc elems = {} KB", (ivc_proof.1.polynomial_coeffs.len() * 16 + QN * 24) as f64 / 1024 as f64);
+        println!("! OB done");
+    } else {
+        let proof = prove::<F, C, D>(&data.prover_only, &data.common, inputs, &mut timing)?;
+        timing.print();
+        data.verify(proof.clone())?;
+    }
 
     // Ok((proof, data.verifier_only, data.common))
-    Ok(5)
+    Ok(1)
 }
 
 fn recursive_proof<
@@ -420,7 +425,7 @@ fn main() -> Result<()> {
                     // Run the benchmark. `options.lookup_type` determines which benchmark to run.
                     println!("... log2_inner_size = {}", log2_inner_size); //14
                     // benchmark_function(&config, log2_inner_size, options.lookup_type)
-                    benchmark_function(&config, 14, options.lookup_type)
+                    benchmark_function(&config, 18, options.lookup_type)
                 })?;
         }
     }

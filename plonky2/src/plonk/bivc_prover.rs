@@ -34,7 +34,7 @@ pub fn ivc_prove<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const
     inputs: PartialWitness<F>,
     accs: &[&Acc<F, C::Hasher, D>],
     timing: &mut TimingTree,
-) -> Result<IVCProofWithPublicInputs<F, C, D>>
+) -> Result<(IVCProofWithPublicInputs<F, C, D>, Acc<F, C::Hasher, D>)>
 where
     C::Hasher: Hasher<F>,
     C::InnerHasher: Hasher<F>,
@@ -61,7 +61,7 @@ pub fn ivc_prove_with_partition_witness<
     mut partition_witness: PartitionWitness<F>,
     accs: &[&Acc<F, C::Hasher, D>],
     timing: &mut TimingTree,
-) -> Result<IVCProofWithPublicInputs<F, C, D>>
+) -> Result<(IVCProofWithPublicInputs<F, C, D>, Acc<F, C::Hasher, D>)>
 where
     C::Hasher: Hasher<F>,
     C::InnerHasher: Hasher<F>,
@@ -292,8 +292,11 @@ where
         openings,
         acc_proof,
     };
-    Ok(IVCProofWithPublicInputs::<F, C, D> {
-        proof: ivc_proof,
-        public_inputs,
-    })
+    Ok(
+        (IVCProofWithPublicInputs::<F, C, D> {
+            proof: ivc_proof,
+            public_inputs
+        },
+        acc)
+    )
 }

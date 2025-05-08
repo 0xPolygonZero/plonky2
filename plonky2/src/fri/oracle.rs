@@ -1,3 +1,5 @@
+use std::time::Instant;
+
 #[cfg(not(feature = "std"))]
 use alloc::{format, vec::Vec};
 
@@ -188,6 +190,13 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 
         // Final low-degree polynomial that goes into FRI.
         let mut final_poly = PolynomialCoeffs::empty();
+
+        let now = Instant::now();
+
+        println!("||| Elapsed (reduce batch1): {}", now.elapsed().as_secs_f64());
+        let now = Instant::now();
+
+    
 
         // Each batch `i` consists of an opening point `z_i` and polynomials `{f_ij}_j` to be opened at that point.
         // For each batch, we compute the composition polynomial `F_i = sum alpha^j f_ij`,

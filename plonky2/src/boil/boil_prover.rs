@@ -28,6 +28,7 @@ use crate::plonk::config::{GenericConfig, Hasher};
 use crate::fri::oracle::PolynomialBatch;
 use crate::fri::{structure::{FriBatchInfo, FriInstanceInfo}, FriParams};
 use crate::boil::QN;
+use std::time::Instant;
 
 pub static mut IVCDEBUG_OB_PROV:bool = true;
 
@@ -148,6 +149,9 @@ where
 
     if unsafe { IVCDEBUG_OB_PROV } {
         println!("***\n DEBUG INFO:\n***");
+        let now = Instant::now();
+        println!("||| Elapsed (...): {}", now.elapsed().as_secs_f64());
+
         println!("... polys degree = {}, lde deggree = {}", fri_params.degree_bits, fri_params.lde_bits());
         println!("... #fri_batches to accumulate = {}", fri_instance.batches.len());
         fri_instance.batches.iter().for_each(|x| {
@@ -209,12 +213,14 @@ where
         lde_lincom_poly.coset_fft(F::coset_shift().into())
     );
 
+
     reverse_index_bits_in_place(&mut lde_final_values.values);
     let leaves = lde_final_values.values
         .iter()
         .map(|&x| x.to_basefield_array().to_vec() )
         .collect();
     let tree = MerkleTree::<F, C::Hasher>::new(leaves, fri_params.config.cap_height);
+    
 
     // Query phase
     challenger.observe_cap(&tree.cap);
