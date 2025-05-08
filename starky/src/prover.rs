@@ -274,17 +274,20 @@ where
         trace_commitment.polynomials.len() * 2 + num_auxiliary_polys * 2; // for auxiliary_polys and auxiliary_polys_next
 
     // First power unreachable by the constraints.
-    let pow_degree = stark.constraint_degree() + 1;
+    let pow_degree = core::cmp::max(2, stark.constraint_degree() + 1);
+    let num_extension_powers = core::cmp::max(1, 128 / log2_ceil(pow_degree)); // 128 is for the size of the extension field (~ 2^{128})
+    let num_powers = core::cmp::max(1, 64 / log2_ceil(pow_degree)); // 64 is for the size of the base field (~ 2^{64})
 
     // Get extension and base field challenges that will simulate the trace, ctl, and auxiliary polynomials.
     // Since sampling challenges for all polynomials might be heavy, we sample enough challenges {c_i}_i and use:
     // c_i, c_i^{pow_degree}, ..., c_i^{pow_degree * 50} as simulated values.
-    let simulating_zetas =
-        challenger.get_n_extension_challenges(total_num_dummy_extension_evals.div_ceil(50));
-    let simulating_betas = challenger.get_n_challenges(total_num_ctl_polys.div_ceil(50)); // For ctl_zs_first
+    let simulating_zetas = challenger
+        .get_n_extension_challenges(total_num_dummy_extension_evals.div_ceil(num_extension_powers));
+    let simulating_betas = challenger.get_n_challenges(total_num_ctl_polys.div_ceil(num_powers)); // For ctl_zs_first
 
     // For each zeta in zetas, we compute the powers z^{(constraint_degree + 1)^i} for i = 0..50.
-    let nb_dummy_per_zeta = core::cmp::min(50, total_num_dummy_extension_evals);
+    let nb_dummy_per_zeta =
+        core::cmp::min(num_extension_powers + 1, total_num_dummy_extension_evals);
     let dummy_extension_evals = simulating_zetas
         .iter()
         .flat_map(|&zeta| {
@@ -300,7 +303,7 @@ where
             successors(Some(beta), move |prev| {
                 Some(prev.exp_u64(pow_degree as u64))
             })
-            .take(core::cmp::min(50, total_num_ctl_polys))
+            .take(core::cmp::min(num_powers + 1, total_num_ctl_polys))
         })
         .collect::<Vec<_>>();
 
