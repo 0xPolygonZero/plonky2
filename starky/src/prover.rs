@@ -296,7 +296,7 @@ where
         })
         .collect::<Vec<_>>();
 
-    // Simulate the openning set.
+    // Simulate the opening set.
     let next_values_start = S::COLUMNS;
     let auxiliary_polys_start = S::COLUMNS * 2;
     let auxiliary_polys_next_start = auxiliary_polys_start + num_auxiliary_polys;

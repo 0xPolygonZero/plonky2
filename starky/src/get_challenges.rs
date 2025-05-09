@@ -49,7 +49,6 @@ fn get_challenges<F, C, S: Stark<F, D>, const D: usize>(
     pow_witness: F,
     config: &StarkConfig,
     degree_bits: usize,
-    num_aux_polys: usize,
     verifier_circuit_fri_params: Option<FriParams>,
 ) -> StarkProofChallenges<F, D>
 where
@@ -102,7 +101,12 @@ where
     // First power unreachable by the constraints.
     let pow_degree = core::cmp::max(2, stark.constraint_degree() + 1);
 
-    let poly_evals = get_dummy_polys::<F, C, D>(challenger, S::COLUMNS, num_aux_polys, pow_degree);
+    let poly_evals = get_dummy_polys::<F, C, D>(
+        challenger,
+        S::COLUMNS,
+        openings.auxiliary_polys.as_ref().map_or(0, |aux| aux.len()),
+        pow_degree,
+    );
 
     // Get dummy ctl_vars.
     let total_num_ctl_polys: usize = ctl_vars
@@ -296,7 +300,6 @@ where
             Some(trace_cap)
         };
 
-        let num_aux_polys = openings.auxiliary_polys.as_ref().map_or(0, |aux| aux.len());
         get_challenges::<F, C, S, D>(
             stark,
             public_inputs,
@@ -312,7 +315,6 @@ where
             *pow_witness,
             config,
             degree_bits,
-            num_aux_polys,
             verifier_circuit_fri_params,
         )
     }
@@ -372,8 +374,6 @@ fn get_challenges_target<F, C, S: Stark<F, D>, const D: usize>(
     pow_witness: Target,
     degree_bits: usize,
     degree_bits_target: Target,
-    num_trace_polys: usize,
-    num_aux_polys: usize,
     config: &StarkConfig,
 ) -> StarkProofChallengesTarget<D>
 where
@@ -424,8 +424,8 @@ where
     let poly_evals = get_dummy_polys_circuit::<F, C, D>(
         builder,
         challenger,
-        num_trace_polys,
-        num_aux_polys,
+        S::COLUMNS,
+        openings.auxiliary_polys.as_ref().map_or(0, |aux| aux.len()),
         pow_degree,
     );
 
@@ -633,8 +633,6 @@ impl<const D: usize> StarkProofTarget<D> {
             *pow_witness,
             degree_bits,
             self.degree_bits,
-            S::COLUMNS,
-            openings.auxiliary_polys.as_ref().map_or(0, |aux| aux.len()),
             config,
         )
     }
