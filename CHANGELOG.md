@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2024-11-25
+- Add constraints binding ([#1679](https://github.com/0xPolygonZero/plonky2/pull/1679))
+- Observe config parameters in challenger ([#1678](https://github.com/0xPolygonZero/plonky2/pull/1678))
+- chore: update broken links `LICENSE`([#1675](https://github.com/0xPolygonZero/plonky2/pull/1675))
+- Fix latest clippy ([#1676](https://github.com/0xPolygonZero/plonky2/pull/1676))
+- Fix documentation rendering ([#1671](https://github.com/0xPolygonZero/plonky2/pull/1671))
+- Misc updates ([#1663](https://github.com/0xPolygonZero/plonky2/pull/1663))
+- Fix clippy ([#1662](https://github.com/0xPolygonZero/plonky2/pull/1662))
+- Fix padding for LookupTableGate ([#1661](https://github.com/0xPolygonZero/plonky2/pull/1661))
+- Fix padding in LookupTableGate ([#1656](https://github.com/0xPolygonZero/plonky2/pull/1656))
+- (fix-lookup) fix: correct visibility in gate_serialization macros ([#1650](https://github.com/0xPolygonZero/plonky2/pull/1650))
+- fix: use u64 in BaseSplitGenerator ([#1647](https://github.com/0xPolygonZero/plonky2/pull/1647))
+- add serialization and deserialization for BytesHash ([#1645](https://github.com/0xPolygonZero/plonky2/pull/1645))
+- (clippy) fix: changed conditioning for timing functionality in circuit_builder ([#1640](https://github.com/0xPolygonZero/plonky2/pull/1640))
+
 ## [1.0.0] - 2024-11-25
 
 ### Changed
