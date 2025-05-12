@@ -265,6 +265,16 @@ impl<F: RichField + Extendable<D>, H: AlgebraicHasher<F>, const D: usize>
         self.get_n_challenges(builder, D).try_into().unwrap()
     }
 
+    pub fn get_n_extension_challenges(
+        &mut self,
+        builder: &mut CircuitBuilder<F, D>,
+        n: usize,
+    ) -> Vec<ExtensionTarget<D>> {
+        (0..n)
+            .map(|_| self.get_extension_challenge(builder))
+            .collect()
+    }
+
     /// Absorb any buffered inputs. After calling this, the input buffer will be empty, and the
     /// output buffer will be full.
     fn absorb_buffered_inputs(&mut self, builder: &mut CircuitBuilder<F, D>) {

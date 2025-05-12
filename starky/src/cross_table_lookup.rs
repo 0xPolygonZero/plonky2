@@ -449,7 +449,7 @@ impl<'a, F: RichField + Extendable<D>, const D: usize>
         total_num_helper_columns: usize,
         num_helper_ctl_columns: &[usize],
     ) -> Vec<Self> {
-        // Get all cross-table lookup polynomial openings for the provided STARK proof.
+        // Get all cross-table lookup polynomial openings for the provided STARK opening set.
         let ctl_zs = {
             let auxiliary_polys = proof
                 .openings
@@ -647,7 +647,7 @@ pub struct CtlCheckVarsTarget<F: Field, const D: usize> {
 }
 
 impl<'a, F: Field, const D: usize> CtlCheckVarsTarget<F, D> {
-    /// Circuit version of `from_proofs`, for a single STARK.
+    /// Circuit version of `from_proof`, for a single STARK.
     pub fn from_proof(
         table: TableIdx,
         proof: &StarkProofTarget<D>,
@@ -657,19 +657,20 @@ impl<'a, F: Field, const D: usize> CtlCheckVarsTarget<F, D> {
         total_num_helper_columns: usize,
         num_helper_ctl_columns: &[usize],
     ) -> Vec<Self> {
-        // Get all cross-table lookup polynomial openings for each STARK proof.
+        // Get all cross-table lookup polynomial openings.
         let ctl_zs = {
-            let openings = &proof.openings;
-            let ctl_zs = openings
+            let ctl_zs = proof
+                .openings
                 .auxiliary_polys
                 .as_ref()
-                .expect("We cannot have CTls without auxiliary polynomials.")
+                .expect("We cannot have CTLs without auxiliary polynomials.")
                 .iter()
                 .skip(num_lookup_columns);
-            let ctl_zs_next = openings
+            let ctl_zs_next = proof
+                .openings
                 .auxiliary_polys_next
                 .as_ref()
-                .expect("We cannot have CTls without auxiliary polynomials.")
+                .expect("We cannot have CTLs without auxiliary polynomials.")
                 .iter()
                 .skip(num_lookup_columns);
             ctl_zs.zip(ctl_zs_next).collect::<Vec<_>>()

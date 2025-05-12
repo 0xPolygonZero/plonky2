@@ -83,6 +83,7 @@ impl<const D: usize> StarkProofTarget<D> {
         if let Some(poly) = &self.quotient_polys_cap {
             buffer.write_target_merkle_cap(poly)?;
         }
+
         buffer.write_target_fri_proof(&self.opening_proof)?;
         self.openings.to_buffer(buffer)?;
         Ok(())
