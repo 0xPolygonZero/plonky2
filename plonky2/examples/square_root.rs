@@ -6,6 +6,7 @@ use plonky2::gates::arithmetic_base::ArithmeticBaseGenerator;
 use plonky2::gates::poseidon::PoseidonGenerator;
 use plonky2::gates::poseidon_mds::PoseidonMdsGenerator;
 use plonky2::hash::hash_types::RichField;
+use plonky2::impl_generator_serializer;
 use plonky2::iop::generator::{
     ConstantGenerator, GeneratedValues, RandomValueGenerator, SimpleGenerator,
 };
@@ -18,7 +19,6 @@ use plonky2::recursion::dummy_circuit::DummyProofGenerator;
 use plonky2::util::serialization::{
     Buffer, DefaultGateSerializer, IoResult, Read, WitnessGeneratorSerializer, Write,
 };
-use plonky2::{get_generator_tag_impl, impl_generator_serializer, read_generator_impl};
 use plonky2_field::extension::Extendable;
 
 /// A generator used by the prover to calculate the square root (`x`) of a given value

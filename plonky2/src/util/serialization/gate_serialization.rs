@@ -75,7 +75,7 @@ macro_rules! impl_gate_serializer {
             common: &$crate::plonk::circuit_data::CommonCircuitData<F, D>,
         ) -> $crate::util::serialization::IoResult<$crate::gates::gate::GateRef<F, D>> {
             let tag = $crate::util::serialization::Read::read_u32(buf)?;
-            read_gate_impl!(buf, tag, common, $($gate_types),+)
+            $crate::read_gate_impl!(buf, tag, common, $($gate_types),+)
         }
 
         fn write_gate(
@@ -84,7 +84,7 @@ macro_rules! impl_gate_serializer {
             gate: &$crate::gates::gate::GateRef<F, D>,
             common: &$crate::plonk::circuit_data::CommonCircuitData<F, D>,
         ) -> $crate::util::serialization::IoResult<()> {
-            let tag = get_gate_tag_impl!(gate, $($gate_types),+)?;
+            let tag = $crate::get_gate_tag_impl!(gate, $($gate_types),+)?;
 
             $crate::util::serialization::Write::write_u32(buf, tag)?;
             gate.0.serialize(buf, common)?;
