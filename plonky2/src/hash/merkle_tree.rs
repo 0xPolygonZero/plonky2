@@ -194,9 +194,7 @@ impl<F: RichField, H: Hasher<F>> MerkleTree<F, H> {
         let log2_leaves_len = log2_strict(leaves.len());
         assert!(
             cap_height <= log2_leaves_len,
-            "cap_height={} should be at most log2(leaves.len())={}",
-            cap_height,
-            log2_leaves_len
+            "cap_height={cap_height} should be at most log2(leaves.len())={log2_leaves_len}",
         );
 
         let num_digests = 2 * (leaves.len() - (1 << cap_height));

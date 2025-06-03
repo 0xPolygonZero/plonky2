@@ -42,9 +42,7 @@ impl<F: RichField, H: Hasher<F>> BatchMerkleTree<F, H> {
         let last_leaves_cap_height = log2_strict(leaves.last().unwrap().len());
         assert!(
             cap_height <= last_leaves_cap_height,
-            "cap_height={} should be at most last_leaves_cap_height={}",
-            cap_height,
-            last_leaves_cap_height
+            "cap_height={cap_height} should be at most last_leaves_cap_height={last_leaves_cap_height}",
         );
 
         let mut leaf_heights = Vec::with_capacity(leaves.len());
