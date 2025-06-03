@@ -5,8 +5,10 @@ use alloc::{
     vec::Vec,
 };
 use core::borrow::Borrow;
+use core::cmp::Ordering;
 
 use anyhow::Result;
+use itertools::Itertools;
 
 use crate::field::extension::Extendable;
 use crate::field::types::Field64;
@@ -329,6 +331,115 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         self.div_extension(x, y).0[0]
     }
 
+    /// Computes the Euclidean division and modulo `(x / y, x % y)`. Results in unsatisfiable
+    /// instances if `y = 0`.
+    pub fn div_rem_euclid(
+        &mut self,
+        x: Target,
+        y: Target,
+        x_bits: usize,
+        y_bits: usize,
+    ) -> (Target, Target) {
+        let quotient = self.add_virtual_target();
+        let remainder = self.add_virtual_target();
+        let one = self.one();
+
+        self.add_simple_generator(EuclideanDivRemGenerator {
+            numerator: x,
+            denominator: y,
+            quotient,
+            remainder,
+        });
+
+        // Enforce that y mul_add its purported quotient/remainder equals x.
+        let x_calc = self.mul_add(y, quotient, remainder);
+        self.connect(x, x_calc);
+
+        // Enforce that x >= quotient
+        let comparison = self.cmp(x, quotient, x_bits, x_bits);
+        let square_comparison = self.square(comparison);
+        self.connect(comparison, square_comparison);
+
+        // Enforce that y > remainder
+        let comparison = self.cmp(y, remainder, y_bits, y_bits);
+        self.connect(comparison, one);
+
+        (quotient, remainder)
+    }
+
+    /// Computes the Euclidean division and modulo `(x / y, x % y)`. Results in unsatisfiable
+    /// instances if `y = 0`.
+    pub fn div_rem_euclid_const_denom(
+        &mut self,
+        x: Target,
+        y: F,
+        x_bits: usize,
+    ) -> (Target, Target) {
+        let quotient = self.add_virtual_target();
+        let remainder = self.add_virtual_target();
+        let y_target = self.constant(y);
+        let one = self.one();
+
+        self.add_simple_generator(EuclideanDivRemGenerator {
+            numerator: x,
+            denominator: y_target,
+            quotient,
+            remainder,
+        });
+
+        // Enforce that y mul_add its purported quotient/remainder equals x.
+        let x_calc = self.mul_add(y_target, quotient, remainder);
+        self.connect(x, x_calc);
+
+        let y_bits = u64::BITS - y.to_canonical_u64().leading_zeros();
+        let y_bits = y_bits as usize;
+
+        // Enforce that x >= quotient
+        let comparison = self.cmp(x, quotient, x_bits, x_bits);
+        let square_comparison = self.square(comparison);
+        self.connect(comparison, square_comparison);
+
+        // Enforce that y > remainder
+        let comparison = self.cmp_const(y, remainder, y_bits);
+        self.connect(comparison, one);
+
+        (quotient, remainder)
+    }
+
+    /// Computes the Euclidean division and modulo `(x / y, x % y)`. Results in unsatisfiable
+    /// instances if `y = 0`.
+    pub fn div_rem_euclid_const_num(&mut self, x: F, y: Target, y_bits: usize) -> (Target, Target) {
+        let quotient = self.add_virtual_target();
+        let remainder = self.add_virtual_target();
+        let x_target = self.constant(x);
+        let one = self.one();
+
+        self.add_simple_generator(EuclideanDivRemGenerator {
+            numerator: x_target,
+            denominator: y,
+            quotient,
+            remainder,
+        });
+
+        // Enforce that y mul_add its purported quotient/remainder equals x.
+        let x_calc = self.mul_add(y, quotient, remainder);
+        self.connect(x_target, x_calc);
+
+        let x_bits = u64::BITS - x.to_canonical_u64().leading_zeros();
+        let x_bits = x_bits as usize;
+
+        // Enforce that x >= quotient
+        let comparison = self.cmp_const(x, quotient, x_bits);
+        let square_comparison = self.square(comparison);
+        self.connect(comparison, square_comparison);
+
+        // Enforce that y > remainder
+        let comparison = self.cmp(y, remainder, y_bits, y_bits);
+        self.connect(comparison, one);
+
+        (quotient, remainder)
+    }
+
     /// Computes `1 / x`. Results in an unsatisfiable instance if `x = 0`.
     pub fn inverse(&mut self, x: Target) -> Target {
         let x_ext = self.convert_to_ext(x);
@@ -380,6 +491,159 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         equal
     }
+
+    /// Verifies the decomposition of `r` and compares it with the bits of `l`. The result is:
+    ///
+    /// * `-1` when `l < r`
+    /// * `0` when `l == r`
+    /// * `1` when `l > r`
+    ///
+    /// Bits are compared starting with the MSB.
+    pub fn cmp_const(&mut self, l: F, r: Target, r_bits: usize) -> Target {
+        let mut l = l.to_canonical_u64().reverse_bits();
+        let mut r_bits = self.split_le(r, r_bits).into_iter().rev();
+
+        let _false = self._false();
+        let zero = _false.target;
+        let _true = self._true();
+        let one = _true.target;
+
+        // Start by checking leading bits from either side
+        match 64.cmp(&r_bits.len()) {
+            // No leading bits
+            Ordering::Equal => {}
+            // Right leading bits
+            Ordering::Less => {
+                let len = r_bits.len() - F::BITS;
+                for _b in r_bits.by_ref().take(len) {
+                    #[cfg(debug_assertions)]
+                    self.assert_zero(_b.target);
+                }
+            }
+            Ordering::Greater if r_bits.len() == 0 => {
+                if l != 0 {
+                    return one;
+                }
+            }
+            Ordering::Greater => {
+                let hi_bits = l.reverse_bits() >> r_bits.len();
+                if hi_bits != 0 {
+                    return one;
+                }
+                l >>= 64 - r_bits.len();
+            }
+        };
+
+        let (mut not_done, mut result) = (_true, zero);
+        for r in r_bits {
+            let l = {
+                let temp = l & 1;
+                l >>= 1;
+                temp
+            };
+            if l == 0 {
+                // If r is set and we're not done, set the result to -1
+                result = self.arithmetic(F::NEG_ONE, F::ONE, r.target, not_done.target, result);
+
+                // not_done & not(r)
+                // not_done * (1 - r)
+                // not_done - not_done * r
+                not_done = BoolTarget::new_unsafe(self.arithmetic(
+                    F::NEG_ONE,
+                    F::ONE,
+                    not_done.target,
+                    r.target,
+                    not_done.target,
+                ));
+            } else {
+                // Calculate the comparison
+                let status = self.not(r); // (0|1)
+
+                // Zero out the calculation we just did if an earlier bit was already found
+                // Otherwise add it into our result
+                result = self.mul_add(status.target, not_done.target, result);
+
+                // Check if we're finished
+                not_done = self.and(r, not_done);
+            }
+        }
+
+        debug_assert_eq!(l, 0);
+        result
+    }
+
+    /// Verifies the decompositions of `l` and `r` and then compares the bits of the two. The result
+    /// is:
+    ///
+    /// * `-1` when `l < r`
+    /// * `0` when `l == r`
+    /// * `1` when `l > r`
+    ///
+    /// Bits are compared starting with the MSB.
+    pub fn cmp(&mut self, l: Target, r: Target, l_bits: usize, r_bits: usize) -> Target {
+        let mut l_bits = self.split_le(l, l_bits).into_iter().rev();
+        let mut r_bits = self.split_le(r, r_bits).into_iter().rev();
+
+        let _false = self._false();
+        let zero = _false.target;
+        let _true = self._true();
+        let one = _true.target;
+
+        // Start by checking leading bits from either side
+        let (not_done, result) = match l_bits.len().cmp(&r_bits.len()) {
+            // No leading bits
+            Ordering::Equal => (_true, zero),
+            // Right leading bits
+            Ordering::Less => {
+                let len = r_bits.len() - l_bits.len();
+                let done = r_bits
+                    .by_ref()
+                    .take(len)
+                    .fold(_false, |done, r| self.or(done, r));
+                let result = self.neg(done.target); // Any true bits should result in a -1
+                let not_done = self.not(done);
+                (not_done, result)
+            }
+            Ordering::Greater => {
+                let len = l_bits.len() - r_bits.len();
+                let done = l_bits
+                    .by_ref()
+                    .take(len)
+                    .fold(_false, |done, l| self.or(done, l));
+                let result = done.target; // Any true bits should result in a +1
+                let not_done = self.not(done);
+                (not_done, result)
+            }
+        };
+        let (_, result) =
+            l_bits
+                .zip_eq(r_bits)
+                .fold((not_done, result), |(not_done, result), (l, r)| {
+                    // Calculate the comparison for each bit
+                    let status = self.sub(l.target, r.target); // (-1|0|1)
+
+                    // Zero out the calculation we just did if an earlier bit was already found
+                    // Otherwise add it into our result
+                    let result = self.mul_add(status, not_done.target, result);
+
+                    // Check if we're finished by turning our ternary comparison result
+                    // into a binary one
+                    // let is_done = status^2 (1|0|1)
+                    // let is_not_done = 1 - status^2 (0|1|0)
+                    let is_not_done = BoolTarget::new_unsafe(self.arithmetic(
+                        F::NEG_ONE,
+                        F::ONE,
+                        status,
+                        status,
+                        one,
+                    ));
+                    let not_done = self.and(is_not_done, not_done);
+
+                    (not_done, result)
+                });
+
+        result
+    }
 }
 
 #[derive(Debug, Default)]
@@ -426,6 +690,61 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D> for Equ
         let equal = src.read_target_bool()?;
         let inv = src.read_target()?;
         Ok(Self { x, y, equal, inv })
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct EuclideanDivRemGenerator {
+    numerator: Target,
+    denominator: Target,
+    quotient: Target,
+    remainder: Target,
+}
+
+impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D>
+    for EuclideanDivRemGenerator
+{
+    fn id(&self) -> String {
+        "EuclideanDivRemGenerator".to_string()
+    }
+
+    fn dependencies(&self) -> Vec<Target> {
+        vec![self.numerator, self.denominator]
+    }
+
+    fn run_once(
+        &self,
+        witness: &PartitionWitness<F>,
+        out_buffer: &mut GeneratedValues<F>,
+    ) -> Result<()> {
+        let numerator = witness.get_target(self.numerator).to_canonical_u64();
+        let denominator = witness.get_target(self.denominator).to_canonical_u64();
+
+        let quotient = numerator / denominator;
+        let remainder = numerator % denominator;
+
+        out_buffer.set_target(self.quotient, F::from_canonical_u64(quotient))?;
+        out_buffer.set_target(self.remainder, F::from_canonical_u64(remainder))
+    }
+
+    fn serialize(&self, dst: &mut Vec<u8>, _common_data: &CommonCircuitData<F, D>) -> IoResult<()> {
+        dst.write_target(self.numerator)?;
+        dst.write_target(self.denominator)?;
+        dst.write_target(self.quotient)?;
+        dst.write_target(self.remainder)
+    }
+
+    fn deserialize(src: &mut Buffer, _common_data: &CommonCircuitData<F, D>) -> IoResult<Self> {
+        let numerator = src.read_target()?;
+        let denominator = src.read_target()?;
+        let quotient = src.read_target()?;
+        let remainder = src.read_target()?;
+        Ok(Self {
+            numerator,
+            denominator,
+            quotient,
+            remainder,
+        })
     }
 }
 
