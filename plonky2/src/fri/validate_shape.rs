@@ -1,7 +1,6 @@
-use core::slice;
-
 #[cfg(not(feature = "std"))]
 use alloc::vec;
+use core::slice;
 
 use anyhow::ensure;
 
