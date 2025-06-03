@@ -1,3 +1,5 @@
+use core::slice;
+
 #[cfg(not(feature = "std"))]
 use alloc::vec;
 
@@ -20,7 +22,7 @@ where
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
 {
-    validate_batch_fri_proof_shape::<F, C, D>(proof, &[instance.clone()], params)
+    validate_batch_fri_proof_shape::<F, C, D>(proof, slice::from_ref(instance), params)
 }
 
 pub(crate) fn validate_batch_fri_proof_shape<F, C, const D: usize>(
