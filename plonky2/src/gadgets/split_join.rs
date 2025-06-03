@@ -24,6 +24,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     /// with `k` such that `k * num_routed_wires >= num_bits`.
     pub fn split_le(&mut self, integer: Target, num_bits: usize) -> Vec<BoolTarget> {
         if num_bits == 0 {
+            self.assert_zero(integer);
             return Vec::new();
         }
         let gate_type = BaseSumGate::<2>::new_from_config::<F>(&self.config);
