@@ -81,8 +81,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         for lut_index in 0..self.num_luts() {
             assert!(
                 !self.get_lut_lookups(lut_index).is_empty(),
-                "LUT number {:?} is unused",
-                lut_index
+                "LUT number {lut_index:?} is unused",
             );
             if !self.get_lut_lookups(lut_index).is_empty() {
                 // Create LU gates. Connect them to the stored lookups.
