@@ -3,6 +3,7 @@
 
 #[cfg(not(feature = "std"))]
 use alloc::{vec, vec::Vec};
+use core::array;
 use core::fmt::Debug;
 
 use plonky2_field::packed::PackedField;
@@ -341,22 +342,12 @@ pub trait Poseidon: PrimeField64 {
                 let input_wire = PoseidonMdsGate::<Self, D>::wires_input(i);
                 builder.connect_extension(state[i], ExtensionTarget::from_range(index, input_wire));
             }
-            (0..SPONGE_WIDTH)
-                .map(|i| {
-                    let output_wire = PoseidonMdsGate::<Self, D>::wires_output(i);
-                    ExtensionTarget::from_range(index, output_wire)
-                })
-                .collect::<Vec<_>>()
-                .try_into()
-                .unwrap()
+            array::from_fn(|i| {
+                let output_wire = PoseidonMdsGate::<Self, D>::wires_output(i);
+                ExtensionTarget::from_range(index, output_wire)
+            })
         } else {
-            let mut result = [builder.zero_extension(); SPONGE_WIDTH];
-
-            for r in 0..SPONGE_WIDTH {
-                result[r] = Self::mds_row_shf_circuit(builder, r, state);
-            }
-
-            result
+            array::from_fn(|i| Self::mds_row_shf_circuit(builder, i, state))
         }
     }
 

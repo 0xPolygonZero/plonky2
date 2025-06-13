@@ -5,6 +5,7 @@ use alloc::{
     vec,
     vec::Vec,
 };
+use core::array;
 use core::marker::PhantomData;
 
 use anyhow::Result;
@@ -451,9 +452,8 @@ impl<F: RichField + Extendable<D> + Poseidon, const D: usize> SimpleGenerator<F,
             column,
         };
 
-        let mut state = (0..SPONGE_WIDTH)
-            .map(|i| witness.get_wire(local_wire(PoseidonGate::<F, D>::wire_input(i))))
-            .collect::<Vec<_>>();
+        let mut state: [_; SPONGE_WIDTH] =
+            array::from_fn(|i| witness.get_wire(local_wire(PoseidonGate::<F, D>::wire_input(i))));
 
         let swap_value = witness.get_wire(local_wire(PoseidonGate::<F, D>::WIRE_SWAP));
         debug_assert!(swap_value == F::ZERO || swap_value == F::ONE);
@@ -592,9 +592,7 @@ mod tests {
         let row = builder.add_gate(gate, vec![]);
         let circuit = builder.build_prover::<C>();
 
-        let permutation_inputs = (0..SPONGE_WIDTH)
-            .map(F::from_canonical_usize)
-            .collect::<Vec<_>>();
+        let permutation_inputs: [F; SPONGE_WIDTH] = array::from_fn(F::from_canonical_usize);
 
         let mut inputs = PartialWitness::new();
         inputs
