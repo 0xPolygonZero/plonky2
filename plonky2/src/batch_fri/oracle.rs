@@ -252,6 +252,7 @@ impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>
 mod test {
     #[cfg(not(feature = "std"))]
     use alloc::vec;
+    use core::slice;
 
     use plonky2_field::goldilocks_field::GoldilocksField;
     use plonky2_field::types::Sample;
@@ -460,7 +461,7 @@ mod test {
             &fri_instances,
             &fri_openings,
             &fri_challenges,
-            &[merkle_cap.clone()],
+            slice::from_ref(&merkle_cap),
             &proof,
             &fri_params,
         )?;

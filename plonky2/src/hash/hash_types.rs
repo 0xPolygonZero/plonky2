@@ -209,7 +209,7 @@ impl<'de, const N: usize> Visitor<'de> for ByteHashVisitor<N> {
     type Value = BytesHash<N>;
 
     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        write!(formatter, "an array containing exactly {} bytes", N)
+        write!(formatter, "an array containing exactly {N} bytes")
     }
 
     fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
