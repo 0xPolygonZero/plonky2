@@ -55,8 +55,8 @@ macro_rules! get_generator_tag_impl {
             Ok(tag)
         } else)*
         {
-            log::log!(
-                log::Level::Error,
+            $crate::util::serialization::gate_serialization::log::log!(
+                $crate::util::serialization::gate_serialization::log::Level::Error,
                 "attempted to serialize generator with id {} which is unsupported by this generator serializer",
                 $generator.0.id()
             );
@@ -78,7 +78,7 @@ macro_rules! impl_generator_serializer {
             common: &$crate::plonk::circuit_data::CommonCircuitData<F, D>,
         ) -> $crate::util::serialization::IoResult<$crate::iop::generator::WitnessGeneratorRef<F, D>> {
             let tag = $crate::util::serialization::Read::read_u32(buf)?;
-            read_generator_impl!(buf, tag, common, $($generator_types),+)
+            $crate::read_generator_impl!(buf, tag, common, $($generator_types),+)
         }
 
         fn write_generator(
@@ -87,7 +87,7 @@ macro_rules! impl_generator_serializer {
             generator: &$crate::iop::generator::WitnessGeneratorRef<F, D>,
             common: &$crate::plonk::circuit_data::CommonCircuitData<F, D>,
         ) -> $crate::util::serialization::IoResult<()> {
-            let tag = get_generator_tag_impl!(generator, $($generator_types),+)?;
+            let tag = $crate::get_generator_tag_impl!(generator, $($generator_types),+)?;
 
             $crate::util::serialization::Write::write_u32(buf, tag)?;
             generator.0.serialize(buf, common)?;
