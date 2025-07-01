@@ -90,11 +90,7 @@ impl<const D: usize> ExtensionAlgebraTarget<D> {
 impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
     pub fn constant_extension(&mut self, c: F::Extension) -> ExtensionTarget<D> {
         let c_parts = c.to_basefield_array();
-        let mut parts = [self.zero(); D];
-        for i in 0..D {
-            parts[i] = self.constant(c_parts[i]);
-        }
-        ExtensionTarget(parts)
+        ExtensionTarget(c_parts.map(|c| self.constant(c)))
     }
 
     pub fn constant_ext_algebra(
@@ -102,11 +98,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
         c: ExtensionAlgebra<F::Extension, D>,
     ) -> ExtensionAlgebraTarget<D> {
         let c_parts = c.to_basefield_array();
-        let mut parts = [self.zero_extension(); D];
-        for i in 0..D {
-            parts[i] = self.constant_extension(c_parts[i]);
-        }
-        ExtensionAlgebraTarget(parts)
+        ExtensionAlgebraTarget(c_parts.map(|c| self.constant_extension(c)))
     }
 
     pub fn zero_extension(&mut self) -> ExtensionTarget<D> {

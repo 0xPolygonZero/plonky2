@@ -5,6 +5,7 @@ use alloc::{
     vec,
     vec::Vec,
 };
+use core::array;
 use core::marker::PhantomData;
 use core::ops::Range;
 
@@ -138,11 +139,8 @@ impl<F: RichField + Extendable<D> + Poseidon, const D: usize> Gate<F, D> for Pos
     }
 
     fn eval_unfiltered(&self, vars: EvaluationVars<F, D>) -> Vec<F::Extension> {
-        let inputs: [_; SPONGE_WIDTH] = (0..SPONGE_WIDTH)
-            .map(|i| vars.get_local_ext_algebra(Self::wires_input(i)))
-            .collect::<Vec<_>>()
-            .try_into()
-            .unwrap();
+        let inputs: [_; SPONGE_WIDTH] =
+            array::from_fn(|i| vars.get_local_ext_algebra(Self::wires_input(i)));
 
         let computed_outputs = Self::mds_layer_algebra(&inputs);
 
@@ -158,11 +156,8 @@ impl<F: RichField + Extendable<D> + Poseidon, const D: usize> Gate<F, D> for Pos
         vars: EvaluationVarsBase<F>,
         mut yield_constr: StridedConstraintConsumer<F>,
     ) {
-        let inputs: [_; SPONGE_WIDTH] = (0..SPONGE_WIDTH)
-            .map(|i| vars.get_local_ext(Self::wires_input(i)))
-            .collect::<Vec<_>>()
-            .try_into()
-            .unwrap();
+        let inputs: [_; SPONGE_WIDTH] =
+            array::from_fn(|i| vars.get_local_ext(Self::wires_input(i)));
 
         let computed_outputs = F::mds_layer_field(&inputs);
 
@@ -179,11 +174,8 @@ impl<F: RichField + Extendable<D> + Poseidon, const D: usize> Gate<F, D> for Pos
         builder: &mut CircuitBuilder<F, D>,
         vars: EvaluationTargets<D>,
     ) -> Vec<ExtensionTarget<D>> {
-        let inputs: [_; SPONGE_WIDTH] = (0..SPONGE_WIDTH)
-            .map(|i| vars.get_local_ext_algebra(Self::wires_input(i)))
-            .collect::<Vec<_>>()
-            .try_into()
-            .unwrap();
+        let inputs: [_; SPONGE_WIDTH] =
+            array::from_fn(|i| vars.get_local_ext_algebra(Self::wires_input(i)));
 
         let computed_outputs = Self::mds_layer_algebra_circuit(builder, &inputs);
 
@@ -249,11 +241,8 @@ impl<F: RichField + Extendable<D> + Poseidon, const D: usize> SimpleGenerator<F,
         let get_local_ext =
             |wire_range| witness.get_extension_target(get_local_get_target(wire_range));
 
-        let inputs: [_; SPONGE_WIDTH] = (0..SPONGE_WIDTH)
-            .map(|i| get_local_ext(PoseidonMdsGate::<F, D>::wires_input(i)))
-            .collect::<Vec<_>>()
-            .try_into()
-            .unwrap();
+        let inputs: [_; SPONGE_WIDTH] =
+            array::from_fn(|i| get_local_ext(PoseidonMdsGate::<F, D>::wires_input(i)));
 
         let outputs = F::mds_layer_field(&inputs);
 
