@@ -421,7 +421,7 @@ where
     FE: FieldExtension<D2, BaseField = F>,
     P: PackedField<Scalar = FE>,
 {
-    /// Helper columns to check that the Z polyomial
+    /// Helper columns to check that the Z polynomial
     /// was constructed correctly.
     pub(crate) helper_columns: Vec<P>,
     /// Evaluation of the trace polynomials at point `zeta`.
@@ -631,7 +631,7 @@ pub(crate) fn eval_cross_table_lookup_checks<F, FE, P, S, const D: usize, const 
 /// Circuit version of `CtlCheckVars`. Data necessary to check the cross-table lookups of a given table.
 #[derive(Clone, Debug)]
 pub struct CtlCheckVarsTarget<F: Field, const D: usize> {
-    ///Evaluation of the helper columns to check that the Z polyomial
+    ///Evaluation of the helper columns to check that the Z polynomial
     /// was constructed correctly.
     pub(crate) helper_columns: Vec<ExtensionTarget<D>>,
     /// Evaluation of the trace polynomials at point `zeta`.
