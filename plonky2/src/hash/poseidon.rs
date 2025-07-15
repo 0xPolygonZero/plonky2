@@ -38,8 +38,9 @@ const MAX_WIDTH: usize = 12; // we only have width 8 and 12, and 12 is bigger. :
 
 #[inline(always)]
 const fn add_u160_u128((x_lo, x_hi): (u128, u32), y: u128) -> (u128, u32) {
-    let (res_lo, over) = x_lo.overflowing_add(y);
-    let res_hi = x_hi + (over as u32);
+    let res_lo = x_lo.wrapping_add(y);
+    let overflow = if res_lo < x_lo { 1 } else { 0 };
+    let res_hi = x_hi + overflow;
     (res_lo, res_hi)
 }
 
