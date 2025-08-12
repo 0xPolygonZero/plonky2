@@ -47,7 +47,7 @@ jobs:
           fi
 
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Close PR if spam are found and author is not a contributor or member
         if: ${{ env.is_spam == 'true' && github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR' }}
