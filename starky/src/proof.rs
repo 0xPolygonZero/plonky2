@@ -190,16 +190,6 @@ pub struct StarkProofChallengesTarget<const D: usize> {
     /// `Target`s for the randomness used in FRI.
     pub fri_challenges: FriChallengesTarget<D>,
 }
-/// Randomness for all STARK proofs contained in a MultiProof.
-// TODO: remove?
-#[derive(Debug)]
-pub struct MultiProofChallenges<F: RichField + Extendable<D>, const D: usize, const N: usize> {
-    /// Randomness used in each STARK proof.
-    pub stark_challenges: [StarkProofChallenges<F, D>; N],
-    /// Randomness used for cross-table lookups. It is shared by all STARKs.
-    pub ctl_challenges: GrandProductChallengeSet<F>,
-}
-
 /// Purported values of each polynomial at the challenge point.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(bound = "")]
