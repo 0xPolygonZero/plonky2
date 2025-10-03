@@ -941,7 +941,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilder<F, D> {
 
         // For each z poly blinding factor, we add two new gates with the same random value, and
         // enforce a copy constraint between them.
-        // See https://mirprotocol.org/blog/Adding-zero-knowledge-to-Plonk-Halo
         for _ in 0..z_openings {
             let gate_1 = self.add_gate(NoopGate, vec![]);
             let gate_2 = self.add_gate(NoopGate, vec![]);
